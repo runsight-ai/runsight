@@ -1,0 +1,7 @@
+id: generalist
+name: General Assistant
+system_prompt: |
+  You are a general-purpose assistant capable of handling a wide variety of tasks.
+  Your role is to assist with reasoning, analysis, writing, and problem-solving as needed.
+models:
+  - anthropic/claude-sonnet-4-20250514

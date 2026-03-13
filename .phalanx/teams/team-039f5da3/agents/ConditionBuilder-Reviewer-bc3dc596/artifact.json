@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\"verdict\": \"REQUEST_CHANGES\", \"review_file\": \".agora/reviews/flow3-02-condition-builder-review.md\", \"reason\": \"Expression and Python modes are just placeholders. E2E tests only check for placeholders.\"}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "ConditionBuilder-Reviewer-bc3dc596",
+  "team_id": "team-039f5da3",
+  "created_at": 1773183242.7773068
+}

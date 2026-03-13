@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\"message\": \"Fixed P0/P1 issues. Re-ran tests.\", \"passed\": 11, \"failed\": 2, \"skipped\": 2, \"total\": 15}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "coder-crud-flows-b60c91d0",
+  "team_id": "team-dcfb0009",
+  "created_at": 1773251139.047408
+}

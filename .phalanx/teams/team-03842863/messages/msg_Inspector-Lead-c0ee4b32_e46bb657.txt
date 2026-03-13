@@ -1,0 +1,1 @@
+[PHALANX EVENT] worker_blocked: worker Inspector-Lead-c0ee4b32 — agent_idle. Check status and decide next action.

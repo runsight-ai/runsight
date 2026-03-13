@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\"status\": \"completed\", \"review_path\": \".agora/workspace/flow5-settings/review.md\"}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "Settings-Reviewer-6933ec62",
+  "team_id": "team-c5deb8ce",
+  "created_at": 1773161542.371847
+}

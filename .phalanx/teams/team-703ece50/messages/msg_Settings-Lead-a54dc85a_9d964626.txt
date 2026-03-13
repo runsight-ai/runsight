@@ -1,0 +1,1 @@
+[PHALANX EVENT] worker_blocked: worker Settings-Lead-a54dc85a — agent_idle. Check status and decide next action.

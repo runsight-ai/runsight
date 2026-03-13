@@ -1,0 +1,20 @@
+{
+  "default_backend": "cursor",
+  "default_model": null,
+  "idle_timeout_seconds": 1800,
+  "max_runtime_seconds": 1800,
+  "stall_check_interval": 20,
+  "max_retries": 3,
+  "gc_after_hours": 24,
+  "auto_approve": false,
+  "monitor_poll_interval": 20,
+  "enable_engineering_manager": false,
+  "cost_table": null,
+  "rate_limit_backoff_seconds": 60,
+  "continual_learning": {
+    "enabled": false,
+    "max_context_tokens": 2000,
+    "extraction_model": null,
+    "context_types": null
+  }
+}

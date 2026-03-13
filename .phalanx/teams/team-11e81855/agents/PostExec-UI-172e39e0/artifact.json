@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\"component\": \"RunDetail.tsx\", \"description\": \"Post-Execution Review Mode for Flow 4.03\", \"files_created\": [\"apps/gui/src/features/runs/RunDetail.tsx\"], \"features\": {\"canvas\": \"Read-only React Flow canvas with nodes showing final states (completed=green, failed=red, pending=gray)\", \"header\": \"Run name, breadcrumb (Runs > [Run name]), total cost badge, Run Again/Retry button\", \"inspector_panel\": \"Read-only Execution tab showing final metrics (duration, cost, tokens, error messages)\", \"bottom_panel\": \"Logs | Agent Feed | Artifacts tabs with historical (non-streaming) logs and completion banner\", \"api_integration\": \"React Query hooks useRun, useRunNodes, useRunLogs for fetching run data from /api/runs/:id\", \"design\": \"Dark theme matching canvas, read-only indicator banner\"}}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "PostExec-UI-172e39e0",
+  "team_id": "team-11e81855",
+  "created_at": 1773186177.428494
+}

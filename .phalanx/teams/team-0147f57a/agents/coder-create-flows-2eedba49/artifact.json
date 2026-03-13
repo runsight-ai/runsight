@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\"message\": \"Successfully added payload assertions to e2e tests for workflows and settings, and addressed P0 issues in primitives.spec.ts (removed duplicate tests, fixed mock data for search filter). Verified all tests pass.\"}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "coder-create-flows-2eedba49",
+  "team_id": "team-0147f57a",
+  "created_at": 1773245451.481808
+}

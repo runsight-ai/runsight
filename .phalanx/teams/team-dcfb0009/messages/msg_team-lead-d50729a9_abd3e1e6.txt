@@ -1,0 +1,1 @@
+[PHALANX EVENT] worker_timeout: worker coder-settings-canvas-42e0b4aa. Check status and decide next action.

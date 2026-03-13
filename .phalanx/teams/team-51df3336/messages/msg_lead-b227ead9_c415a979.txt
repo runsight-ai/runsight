@@ -1,0 +1,1 @@
+[PHALANX EVENT] worker_dead: worker lead-b227ead9. Check status and decide next action.

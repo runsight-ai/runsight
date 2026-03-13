@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\"verdict\": \"APPROVE\", \"review_file\": \".agora/reviews/flow2-07-run-complete-review.md\"}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "RunComplete-Reviewer-8ab35ed9",
+  "team_id": "team-047785ba",
+  "created_at": 1773181068.102017
+}

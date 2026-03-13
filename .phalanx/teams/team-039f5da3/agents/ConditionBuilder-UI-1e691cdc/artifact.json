@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\"file\": \"apps/gui/src/features/canvas/InspectorPanel.tsx\", \"summary\": \"Enhanced Inspector Panel Conditions tab with full Condition Builder implementation\", \"features\": [\"Mode selector (Simple | Expression | Python) with icons\", \"Simple mode: dropdown-based condition builder with IF/THEN/ELSE rows, condition types (output_contains, status_equals, cost_exceeds, duration_exceeds, artifact_exists, always), operators (contains, equals, starts_with, ends_with, greater_than, less_than, exists), + Add condition button, remove condition button\", \"Expression mode: Jinja2-style textarea with 160px min-height, live validation with green checkmark (valid) or red X (invalid) + error message, validation indicator at bottom-right, autocomplete popup for available variables (outputs.*, artifacts.*, workflow.*, step.*), branch configuration (IF TRUE/IF FALSE), Last Run Result display\", \"Python mode: Monaco Editor with Python syntax highlighting, 240px min-height, pre-loaded workflow_state dict stub, sandbox warning banner, Test Condition button with loading state, test result display (green True / red False), branch configuration\", \"Incoming conditions list (read-only): shows connections targeting this node with arrow icons, node names, and connection types\", \"Design: bg-surface #16161C, bg-canvas #0D0D12 for editor areas, border-subtle #2D2D35, accent-primary #5E6AD2, 40px row height, micro-upper labels\", \"TypeScript: all types properly defined, no errors\"]}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "ConditionBuilder-UI-1e691cdc",
+  "team_id": "team-039f5da3",
+  "created_at": 1773183093.344969
+}

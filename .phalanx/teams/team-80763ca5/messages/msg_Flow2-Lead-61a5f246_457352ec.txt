@@ -1,0 +1,1 @@
+[PHALANX EVENT] worker_blocked: worker Flow2-Lead-61a5f246 — permission_prompt. Check status and decide next action.

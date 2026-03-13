@@ -1,0 +1,29 @@
+[project]
+name = "runsight-workspace"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.8",
+]
+
+[tool.uv.workspace]
+members = ["apps/*", "libs/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["apps/cli/tests"]
+addopts = "--ignore=apps/cli/tests/future_backlog"
+markers = [
+    "integration: requires tmux and/or agent CLIs",
+    "e2e: full system end-to-end tests",
+    "future_backlog: tests for future phases (Phase 1.1+)",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100

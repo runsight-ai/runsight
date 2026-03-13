@@ -1,0 +1,34 @@
+{
+  "task": "Build Flow 3.02: Condition Builder (Inspector Conditions Tab) for Phalanx GUI canvas. Enhanced condition builder: Simple mode (IF/THEN/ELSE dropdowns), Expression mode (Jinja2 textarea with autocomplete), Python mode (Monaco code editor). Mode selector, validation indicator. Reference .agora/mockups/flow-3-create-run-engineer/02-condition-builder/. Write E2E tests. Reviewer gates.",
+  "lead": {
+    "name": "ConditionBuilder-Lead",
+    "model": "sonnet-4.6",
+    "agent_id": "ConditionBuilder-Lead-9c841c2b"
+  },
+  "agents": [
+    {
+      "name": "ConditionBuilder-UI",
+      "role": "coder",
+      "prompt": "You are the UI Coder for Condition Builder (Flow 3.02). Enhance the Inspector Panel Conditions tab.\n\n## SKILL: React Best Practices\nRead and follow: .agora/SKILLS/vercel-agent-skills/skills/react-best-practices/SKILL.md\n\n## CONTEXT\n- Working directory: apps/gui/\n- InspectorPanel: apps/gui/src/features/canvas/InspectorPanel.tsx \u2014 Conditions tab\n- Canvas: apps/gui/src/features/canvas/WorkflowCanvas.tsx, CanvasNode.tsx\n- Shared: apps/gui/src/components/shared/, apps/gui/src/components/ui/\n- API hooks: apps/gui/src/queries/workflows.ts\n\n## MOCKUPS\nRead CAREFULLY:\n1. .agora/mockups/flow-3-create-run-engineer/02-condition-builder/_brief.md\n2. .agora/mockups/flow-3-create-run-engineer/02-condition-builder/_epic_excerpt.md\n3. .agora/mockups/flow-3-create-run-engineer/02-condition-builder/_components.md\n4. .agora/mockups/flow-3-create-run-engineer/02-condition-builder/mockup.html\n\n## WHAT TO BUILD\n\n### 1. Mode selector (Simple | Expression | Python)\n- Tabs or segmented control in Conditions tab\n- Simple: PM-facing no-code dropdowns\n- Expression: Engineer-facing Jinja2\n- Python: Engineer-facing Monaco script\n\n### 2. Simple mode\n- [IF] [dropdown: output] [dropdown: contains] [input: text]\n- [THEN go to] [dropdown: next_step]\n- [ELSE go to] [dropdown: fallback_step]\n- Available: output_contains, status_equals, cost_exceeds, duration_exceeds, artifact_exists, always\n- \"+ Add condition\" button\n\n### 3. Expression mode\n- Free-text Jinja2-style input (textarea, 160px min-height)\n- Autocomplete for {{ outputs.* }}, {{ artifacts.* }}\n- Live validation: green \u2713 (valid) or red \u2717 + error message\n- Validation indicator bottom-right\n\n### 4. Python mode\n- Monaco editor, Python syntax, 240px min-height\n- Pre-loaded workflow_state dict stub\n- \"Test Condition\" button (secondary)\n- Sandbox warning: \"Script runs in isolated environment with 5s timeout.\"\n- Result display: --type-code, green (True) or red (False)\n\n### 5. Incoming conditions list (read-only)\n- Show conditions targeting this node\n\n## DESIGN\n- Container: --bg-surface, 1px --border-subtle, --radius-md, --space-3 padding\n- Row height: 40px, labels (IF, THEN, ELSE): --type-micro-upper, --accent-primary, 48px width\n- Dark mode: bg-canvas #0D0D12, bg-surface #16161C, accent #5E6AD2\n\n## IMPORTANT RULES\n- All three modes in Conditions tab\n- Node must be selected (Inspector open)\n- Run after: cd apps/gui && npx tsc --noEmit && npm run build",
+      "model": "kimi-k2.5",
+      "worktree": null,
+      "agent_id": "ConditionBuilder-UI-1e691cdc"
+    },
+    {
+      "name": "ConditionBuilder-E2E",
+      "role": "coder",
+      "prompt": "You are the E2E Test Writer for Condition Builder (Flow 3.02).\n\n## SKILL: E2E Testing Patterns\nRead and follow: .agora/SKILLS/wshobson-agents/plugins/developer-essentials/skills/e2e-testing-patterns/SKILL.md\n\n## CONTEXT\n- Test directory: apps/gui/e2e/\n- Existing tests: apps/gui/e2e/canvas.spec.ts (33 tests \u2014 DO NOT remove them)\n- ALWAYS mock ALL API endpoints using page.route()\n- Condition Builder is in Inspector \u2192 Conditions tab\n\n## MOCKUPS\nStudy: .agora/mockups/flow-3-create-run-engineer/02-condition-builder/_brief.md and _epic_excerpt.md\n\n## API MOCKING\nMock ALL APIs: /api/settings/providers, /api/settings/app, /api/workflows, /api/workflows/:id, /api/souls. Same pattern as existing canvas.spec.ts stubBaseAPIs().\n\n## TESTS TO ADD TO canvas.spec.ts\nAdd a new describe block 'Condition Builder (Flow 3.02)':\n\n- test: 'Conditions tab shows Simple/Expression/Python mode selector'\n  - Click node, open Inspector, switch to Conditions tab\n  - Verify mode selector (Simple | Expression | Python) visible\n\n- test: 'Simple mode shows IF/THEN/ELSE dropdowns'\n  - In Conditions, select Simple mode\n  - Verify IF output dropdown, THEN/ELSE step dropdowns\n  - Verify \"Add condition\" button\n\n- test: 'Expression mode shows Jinja2 textarea with validation'\n  - Switch to Expression mode\n  - Verify textarea/input for Jinja2 expression\n  - Verify validation indicator (\u2713 or \u2717)\n\n- test: 'Python mode shows Monaco editor and Test Condition button'\n  - Switch to Python mode\n  - Verify code editor and \"Test Condition\" button\n  - Verify sandbox warning text\n\n- test: 'mode toggle preserves content when switching'\n  - Enter expression in Expression mode, switch to Python, switch back\n  - Verify content preserved or appropriate reset\n\n## IMPORTANT RULES\n- Mock ALL APIs\n- Use stubBaseAPIs with workflow that has blocks\n- Run after: cd apps/gui && npx playwright test e2e/canvas.spec.ts --reporter=list",
+      "model": "gemini-3.1-pro",
+      "worktree": null,
+      "agent_id": "ConditionBuilder-E2E-7e4c71fd"
+    },
+    {
+      "name": "ConditionBuilder-Reviewer",
+      "role": "reviewer",
+      "prompt": "You are the Reviewer for Condition Builder (Flow 3.02).\n\n## SKILLS\nRead and follow BOTH:\n1. .agora/SKILLS/wshobson-agents/plugins/developer-essentials/skills/code-review-excellence/SKILL.md\n2. .agora/SKILLS/dididy-e2e-test-reviewer/skills/review/SKILL.md\n\n## WAIT FOR OTHERS\nWait for both coders. Check:\n- apps/gui/src/features/canvas/InspectorPanel.tsx (Conditions tab enhancements)\n- Any new condition builder components\n- apps/gui/e2e/canvas.spec.ts (new Condition Builder tests)\n\n## REVIEW\n1. Mode selector: Simple | Expression | Python\n2. Simple mode: IF/THEN/ELSE dropdowns, Add condition\n3. Expression mode: Jinja2 textarea, autocomplete, validation indicator\n4. Python mode: Monaco Python, Test Condition, sandbox warning\n5. Incoming conditions list (read-only)\n6. E2E coverage: mode selector, Simple/Expression/Python UIs\n7. Build: cd apps/gui && npx tsc --noEmit && npm run build\n8. Tests: cd apps/gui && npx playwright test e2e/canvas.spec.ts --reporter=list\n\nWrite to .agora/reviews/flow3-02-condition-builder-review.md\nVerdict: APPROVE or REQUEST_CHANGES.",
+      "model": "gemini-3.1-pro",
+      "worktree": null,
+      "agent_id": "ConditionBuilder-Reviewer-bc3dc596"
+    }
+  ]
+}

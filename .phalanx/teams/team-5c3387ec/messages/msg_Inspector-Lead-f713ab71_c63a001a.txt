@@ -1,0 +1,1 @@
+[PHALANX EVENT] worker_dead: worker Inspector-E2E-a1a6c0bd. Check status and decide next action.

@@ -1,0 +1,82 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+*.so
+
+.venv/
+venv/
+env/
+
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+.runsight/
+*.db
+*.db-wal
+*.db-shm
+
+.cursor/rules/runsight.mdc
+
+# Agent-generated scratch files — never commit these
+HANDOFF.md
+AGENTS.md
+hello.py
+*-config.json
+.claude/
+.gemini/
+
+# Research, plans, and agent output collector
+!.agora/
+
+# Pipeline artifacts and worktrees
+.artifacts/
+.worktrees/
+
+# Dogfood / project-specific custom assets (not framework code)
+custom/
+
+# IDE-specific
+.cursor/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+swe_af_goal.md
+
+# GUI build/test artifacts
+apps/gui/playwright-report/
+apps/gui/e2e-screenshots/
+apps/gui/e2e/test-results/
+apps/gui/tsconfig.tsbuildinfo
+apps/gui/page.html
+apps/gui/test-monaco.js
+apps/gui/wait_for_coders.sh
+apps/gui/.agora/
+
+# Agent scratch files at repo root
+patch*.js
+test-debug.js
+test-monaco.js
+test-parser.*
+test-results/
+page.html
+
+# Agent workspace screenshots (flow5 etc)
+apps/.agora/workspace/

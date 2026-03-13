@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\n  \"task\": \"UI Coder for Run Complete (Flow 2.07)\",\n  \"status\": \"success\",\n  \"files_created\": [\n    \"apps/gui/src/features/canvas/SummaryToast.tsx\"\n  ],\n  \"files_modified\": [\n    \"apps/gui/src/features/canvas/WorkflowCanvas.tsx\",\n    \"apps/gui/src/features/canvas/BottomPanel.tsx\",\n    \"apps/gui/src/features/canvas/InspectorPanel.tsx\"\n  ],\n  \"summary\": \"Built pixel-perfect post-execution screens for Run Complete flow\",\n  \"details\": \"SummaryToast: bottom-right toast with 8s auto-dismiss, 3px colored left border, fade animation. WorkflowCanvas: executionComplete/failed states, Run Again/Retry button states with icons, final cost in header. BottomPanel: completion banner at top of logs (green/red border). InspectorPanel: Execution tab shows static final metrics (no pulse) when complete. CanvasNode: already correct with static completed/failed borders.\"\n  ,\n  \"build_status\": {\n    \"typescript_check\": \"passed\",\n    \"vite_build\": \"passed\"\n  }\n}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "RunComplete-UI-6fee8932",
+  "team_id": "team-047785ba",
+  "created_at": 1773180685.751764
+}

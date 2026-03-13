@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\n  \"component\": \"RunList.tsx\",\n  \"path\": \"apps/gui/src/features/runs/RunList.tsx\",\n  \"features\": [\n    \"Tab bar with [Active | History] using URL query params (?tab=active|history)\",\n    \"Active tab (default): table of running workflows with auto-polling (5s)\",\n    \"History tab: completed/failed runs\",\n    \"Table columns: Workflow Name, Status (badge), Duration, Cost, Agent Count\",\n    \"Row click navigates to /runs/:id\",\n    \"Empty state with illustration and contextual message\",\n    \"Status badges: Running (cyan pulse), Paused (amber), Completed (green), Failed (red)\",\n    \"Cost format: $0.127 (mill accuracy)\",\n    \"Duration format: \\\"2m 34s\\\", \\\"1h 15m\\\"\",\n    \"Footer showing count and auto-update status\"\n  ],\n  \"api_hooks\": {\n    \"updated\": \"useRuns in apps/gui/src/queries/runs.ts\",\n    \"change\": \"Added options parameter with refetchInterval support\"\n  },\n  \"design_tokens_used\": [\n    \"bg-background (#0D0D12)\",\n    \"bg-card (#16161C)\",\n    \"text-foreground (#EDEDF0)\",\n    \"text-muted-foreground (#9292A0)\",\n    \"primary (#5E6AD2)\",\n    \"running (#00E5FF)\",\n    \"warning (#F5A623)\",\n    \"success (#28A745)\",\n    \"error (#E53935)\"\n  ],\n  \"routes\": \"Already configured in routes/index.tsx - /runs and /runs/:id\",\n  \"sidebar\": \"Already configured in ShellLayout.tsx - Runs nav item with Play icon\",\n  \"build_status\": \"PASS - tsc --noEmit and npm run build both successful\"\n}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "RunsActive-UI-dc2b1a30",
+  "team_id": "team-d9bc9101",
+  "created_at": 1773184732.386813
+}

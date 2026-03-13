@@ -1,0 +1,5 @@
+id: e2e-step-1773256880035
+name: e2e-step-1773256880035
+type: step
+description: E2E test step description
+path: .runsight/steps/e2e-step-1773256880035.yaml

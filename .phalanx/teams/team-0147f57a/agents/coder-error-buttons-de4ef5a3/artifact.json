@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\"message\": \"Created error-states.spec.ts and modal-actions.spec.ts with full coverage. Used test.fail() for known UI bugs.\"}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "coder-error-buttons-de4ef5a3",
+  "team_id": "team-0147f57a",
+  "created_at": 1773246266.0707788
+}

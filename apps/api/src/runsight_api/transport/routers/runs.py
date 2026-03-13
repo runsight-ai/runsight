@@ -1,0 +1,132 @@
+from fastapi import APIRouter, Depends, BackgroundTasks
+from typing import List
+from ..schemas.runs import (
+    RunCreate,
+    RunResponse,
+    RunListResponse,
+    RunNodeResponse,
+    PaginatedLogsResponse,
+    NodeSummary,
+)
+from ..deps import get_run_service
+from ...logic.services.run_service import RunService
+
+router = APIRouter(prefix="/runs", tags=["Runs"])
+
+
+@router.post("", response_model=RunResponse)
+async def create_run(
+    body: RunCreate,
+    background_tasks: BackgroundTasks,
+    run_service: RunService = Depends(get_run_service),
+):
+    run = run_service.create_run(body.workflow_id, body.task_data)
+    # Execution will be triggered by observer or background task in the future
+    return RunResponse(
+        id=run.id,
+        workflow_id=run.workflow_id,
+        workflow_name=run.workflow_name,
+        status=run.status,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+        duration_seconds=run.duration_s,
+        total_cost_usd=run.total_cost_usd,
+        total_tokens=run.total_tokens,
+        created_at=run.created_at,
+        node_summary=NodeSummary(total=0, completed=0, running=0, pending=0, failed=0),
+    )
+
+
+@router.get("", response_model=RunListResponse)
+async def list_runs(
+    offset: int = 0, limit: int = 50, run_service: RunService = Depends(get_run_service)
+):
+    runs = run_service.list_runs()
+    items = runs[offset : offset + limit]
+
+    response_items = []
+    for run in items:
+        summaries = run_service.compute_summaries(run.id)
+        response_items.append(
+            RunResponse(
+                id=run.id,
+                workflow_id=run.workflow_id,
+                workflow_name=run.workflow_name,
+                status=run.status,
+                started_at=run.started_at,
+                completed_at=run.completed_at,
+                duration_seconds=run.duration_s,
+                total_cost_usd=summaries["total_cost_usd"],
+                total_tokens=summaries["total_tokens"],
+                created_at=run.created_at,
+                node_summary=NodeSummary(
+                    total=summaries["nodes_count"], completed=0, running=0, pending=0, failed=0
+                ),
+            )
+        )
+
+    return RunListResponse(items=response_items, total=len(runs), offset=offset, limit=limit)
+
+
+@router.get("/{run_id}", response_model=RunResponse)
+async def get_run(run_id: str, run_service: RunService = Depends(get_run_service)):
+    run = run_service.get_run(run_id)
+    if not run:
+        from ...domain.errors import RunNotFound
+
+        raise RunNotFound(f"Run {run_id} not found")
+    summaries = run_service.compute_summaries(run.id)
+    return RunResponse(
+        id=run.id,
+        workflow_id=run.workflow_id,
+        workflow_name=run.workflow_name,
+        status=run.status,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+        duration_seconds=run.duration_s,
+        total_cost_usd=summaries["total_cost_usd"],
+        total_tokens=summaries["total_tokens"],
+        created_at=run.created_at,
+        node_summary=NodeSummary(
+            total=summaries["nodes_count"], completed=0, running=0, pending=0, failed=0
+        ),
+    )
+
+
+@router.post("/{run_id}/cancel")
+async def cancel_run(run_id: str, run_service: RunService = Depends(get_run_service)):
+    run = run_service.cancel_run(run_id)
+    return {"id": run.id, "status": run.status}
+
+
+@router.get("/{run_id}/logs", response_model=PaginatedLogsResponse)
+async def get_run_logs(
+    run_id: str,
+    offset: int = 0,
+    limit: int = 50,
+    run_service: RunService = Depends(get_run_service),
+):
+    logs = run_service.get_run_logs(run_id)
+    items = logs[offset : offset + limit]
+    return PaginatedLogsResponse(items=items, total=len(logs), offset=offset, limit=limit)
+
+
+@router.get("/{run_id}/nodes", response_model=List[RunNodeResponse])
+async def get_run_nodes(run_id: str, run_service: RunService = Depends(get_run_service)):
+    nodes = run_service.get_run_nodes(run_id)
+    return [
+        RunNodeResponse(
+            id=n.id,
+            run_id=n.run_id,
+            node_id=n.node_id,
+            block_type=n.block_type,
+            status=n.status,
+            started_at=n.started_at,
+            completed_at=n.completed_at,
+            duration_seconds=n.duration_s,
+            cost_usd=n.cost_usd,
+            tokens=n.tokens,
+            error=n.error,
+        )
+        for n in nodes
+    ]

@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\"report_path\":\".agora/reviews/e2e-real-review.md\",\"version\":\"v4-final\",\"total_tests\":37,\"passing\":15,\"failing\":7,\"real_ux_bugs\":2,\"test_bugs\":5,\"mock_violations\":0,\"skipped\":1,\"did_not_run\":14,\"bug1\":\"Onboarding redirect broken\",\"bug2\":\"Canvas nodes not persisted after drag\",\"projected_after_fixes\":\"26/37 (70%)\"}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "e2e-real-reviewer-68459e80",
+  "team_id": "team-dcfb0009",
+  "created_at": 1773251338.125129
+}

@@ -1,0 +1,141 @@
+"""
+Tests for WorkflowBlock cycle detection and depth limit enforcement.
+"""
+
+import pytest
+from unittest.mock import AsyncMock
+
+from runsight_core.state import WorkflowState
+from runsight_core.blocks.implementations import WorkflowBlock
+
+
+@pytest.fixture
+def mock_child_workflow():
+    """Create a mock child workflow."""
+    workflow = AsyncMock()
+    workflow.name = "child_wf"
+    workflow.run = AsyncMock()
+    return workflow
+
+
+@pytest.mark.asyncio
+async def test_cycle_detection_direct(mock_child_workflow):
+    """AC-5: Direct cycle detection (A→A)."""
+    # Arrange
+    block = WorkflowBlock(
+        block_id="self_ref",
+        child_workflow=mock_child_workflow,
+        inputs={},
+        outputs={},
+        max_depth=10,
+    )
+    parent_state = WorkflowState()
+
+    # Act & Assert
+    with pytest.raises(RecursionError) as exc_info:
+        await block.execute(
+            parent_state,
+            call_stack=["child_wf"],  # Child already in stack
+        )
+
+    error_msg = str(exc_info.value)
+    assert "cycle detected" in error_msg.lower()
+    assert "child_wf" in error_msg
+    assert "call stack" in error_msg.lower()
+
+
+@pytest.mark.asyncio
+async def test_cycle_detection_indirect(mock_child_workflow):
+    """AC-6: Indirect cycle detection (A→B→A)."""
+    # Arrange
+    block = WorkflowBlock(
+        block_id="invoke_child",
+        child_workflow=mock_child_workflow,
+        inputs={},
+        outputs={},
+        max_depth=10,
+    )
+    parent_state = WorkflowState()
+
+    # Act & Assert
+    with pytest.raises(RecursionError) as exc_info:
+        await block.execute(
+            parent_state,
+            call_stack=["root_wf", "child_wf"],  # Child already in stack
+        )
+
+    error_msg = str(exc_info.value)
+    assert "cycle detected" in error_msg.lower()
+    assert "child_wf" in error_msg
+
+
+@pytest.mark.asyncio
+async def test_depth_limit(mock_child_workflow):
+    """AC-7: Depth limit enforcement."""
+    # Arrange
+    block = WorkflowBlock(
+        block_id="depth_test",
+        child_workflow=mock_child_workflow,
+        inputs={},
+        outputs={},
+        max_depth=3,
+    )
+    parent_state = WorkflowState()
+
+    # Act & Assert - call_stack length equals max_depth
+    with pytest.raises(RecursionError) as exc_info:
+        await block.execute(
+            parent_state,
+            call_stack=["a", "b", "c"],  # length 3 >= max_depth 3
+        )
+
+    error_msg = str(exc_info.value)
+    assert "maximum depth" in error_msg.lower() or "max_depth" in error_msg
+    assert "3" in error_msg
+
+
+@pytest.mark.asyncio
+async def test_depth_within_limit(mock_child_workflow):
+    """Test that execution proceeds when depth is within limit."""
+    # Arrange
+    mock_child_workflow.run = AsyncMock(return_value=WorkflowState())
+    block = WorkflowBlock(
+        block_id="depth_ok",
+        child_workflow=mock_child_workflow,
+        inputs={},
+        outputs={},
+        max_depth=5,
+    )
+    parent_state = WorkflowState()
+
+    # Act - call_stack length < max_depth
+    result = await block.execute(
+        parent_state,
+        call_stack=["a", "b"],  # length 2 < max_depth 5
+    )
+
+    # Assert - should not raise RecursionError
+    assert isinstance(result, WorkflowState)
+    assert mock_child_workflow.run.called
+
+
+@pytest.mark.asyncio
+async def test_empty_call_stack_executes(mock_child_workflow):
+    """Test that execution with empty call_stack works."""
+    # Arrange
+    mock_child_workflow.run = AsyncMock(return_value=WorkflowState())
+    block = WorkflowBlock(
+        block_id="no_stack",
+        child_workflow=mock_child_workflow,
+        inputs={},
+        outputs={},
+        max_depth=10,
+    )
+    parent_state = WorkflowState()
+
+    # Act - default empty call_stack
+    result = await block.execute(parent_state)
+
+    # Assert
+    assert isinstance(result, WorkflowState)
+    assert mock_child_workflow.run.called

@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\"verdict\": \"APPROVE\", \"message\": \"Review completed successfully. Build and tests pass.\"}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "Exec-Reviewer-00e937a8",
+  "team_id": "team-759930d3",
+  "created_at": 1773180241.260351
+}

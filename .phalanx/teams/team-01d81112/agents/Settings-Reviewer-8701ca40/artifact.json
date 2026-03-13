@@ -1,0 +1,9 @@
+{
+  "status": "success",
+  "output": "{\"message\": \"Waiting for the team lead to confirm the coder is done.\"}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "Settings-Reviewer-8701ca40",
+  "team_id": "team-01d81112",
+  "created_at": 1773158423.8004942
+}

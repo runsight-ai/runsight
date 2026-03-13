@@ -1,0 +1,12 @@
+
+> runsight-gui@0.1.0 dev
+> vite
+
+Port 3000 is in use, trying another one...
+
+  VITE v6.4.1  ready in 196 ms
+
+  ➜  Local:   http://localhost:3001/
+  ➜  Network: use --host to expose
+1:09:50 AM [vite] (client) page reload playwright-report/index.html
+6:39:53 PM [vite] (client) page reload playwright-report/index.html

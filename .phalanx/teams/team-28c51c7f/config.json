@@ -1,0 +1,34 @@
+{
+  "task": "Build Flow 4.02: Runs History Tab for Phalanx GUI. Completed/failed runs table with filter bar (status, date, workflow), search. Tab bar History selected. Route: /runs?tab=history. Reference .agora/mockups/flow-4-monitor-runs/02-runs-history/. Write E2E tests in runs.spec.ts. Reviewer gates.",
+  "lead": {
+    "name": "RunsHistory-Lead",
+    "model": "sonnet-4.6",
+    "agent_id": "RunsHistory-Lead-8b2bf2fe"
+  },
+  "agents": [
+    {
+      "name": "RunsHistory-UI",
+      "role": "coder",
+      "prompt": "You are the UI Coder for Runs History Tab (Flow 4.02).\n\n## SKILL: React Best Practices\nRead and follow: .agora/SKILLS/vercel-agent-skills/skills/react-best-practices/SKILL.md\n\n## CONTEXT\n- Working directory: apps/gui/\n- RunList: apps/gui/src/features/runs/RunList.tsx \u2014 already has Active tab with tab bar from Flow 4.01\n- Shared UI: apps/gui/src/components/ui/ and apps/gui/src/components/shared/\n- API hooks: apps/gui/src/queries/\n\n## MOCKUPS\nRead CAREFULLY:\n1. .agora/mockups/flow-4-monitor-runs/02-runs-history/_brief.md\n2. .agora/mockups/flow-4-monitor-runs/02-runs-history/_epic_excerpt.md\n3. .agora/mockups/flow-4-monitor-runs/02-runs-history/_components.md\n4. .agora/mockups/flow-4-monitor-runs/02-runs-history/mockup.html\n\n## WHAT TO BUILD\n\n### 1. History tab content in RunList.tsx\n- When History tab selected: show filter bar + completed/failed runs table\n- Tab bar already exists from Flow 4.01 \u2014 just add History content\n\n### 2. Filter bar\n- Status dropdown: All, Success, Failed, Partial\n- Date range picker (or date inputs)\n- Workflow name filter/dropdown\n- Search input for full-text search\n\n### 3. History table\n- Columns: Workflow Name, Status (badge), Duration, Total Cost, Completed At\n- Status badges: Completed (green), Failed (red), Partial (amber)\n- Row click \u2192 /runs/:id (Post-Execution Review)\n- Empty state: 'No runs in history' or 'No runs match filters'\n\n### 4. API hooks\n- GET /api/runs?status=completed,failed \u2014 or similar endpoint for history\n- Filter parameters: status, date_from, date_to, workflow\n\n## DESIGN\n- Same dark theme as Active tab\n- Filter bar above table, 48px height, --bg-surface background\n- Search input with magnifier icon\n\n## IMPORTANT RULES\n- Do NOT break Flow 4.01 Active tab\n- Run after: cd apps/gui && npx tsc --noEmit && npm run build",
+      "model": "kimi-k2.5",
+      "worktree": null,
+      "agent_id": "RunsHistory-UI-9716e7ee"
+    },
+    {
+      "name": "RunsHistory-E2E",
+      "role": "coder",
+      "prompt": "You are the E2E Test Writer for Runs History Tab (Flow 4.02).\n\n## SKILL: E2E Testing Patterns\nRead and follow: .agora/SKILLS/wshobson-agents/plugins/developer-essentials/skills/e2e-testing-patterns/SKILL.md\n\n## CONTEXT\n- Test file: apps/gui/e2e/runs.spec.ts \u2014 already has Flow 4.01 tests. Add to it, do NOT remove existing tests.\n- Route: /runs?tab=history\n- ALWAYS mock ALL API endpoints\n\n## MOCKUPS\nStudy: .agora/mockups/flow-4-monitor-runs/02-runs-history/_brief.md and _epic_excerpt.md\n\n## API MOCKING\nMock runs history data:\n```json\n[\n  { \"id\": \"run-10\", \"workflow_name\": \"Data Pipeline v2\", \"status\": \"completed\", \"duration_seconds\": 342, \"cost\": 0.891, \"agent_count\": 4, \"completed_at\": \"2026-03-09T18:30:00Z\" },\n  { \"id\": \"run-11\", \"workflow_name\": \"Code Review Bot\", \"status\": \"failed\", \"duration_seconds\": 89, \"cost\": 0.034, \"agent_count\": 2, \"completed_at\": \"2026-03-09T16:15:00Z\" },\n  { \"id\": \"run-12\", \"workflow_name\": \"Deploy Pipeline\", \"status\": \"completed\", \"duration_seconds\": 567, \"cost\": 1.234, \"agent_count\": 5, \"completed_at\": \"2026-03-08T12:00:00Z\" }\n]\n```\n\n## TESTS (add to runs.spec.ts)\n\ndescribe('Runs History Tab (Flow 4.02)'):\n\n- test: 'History tab shows filter bar and history table'\n  - Navigate to /runs?tab=history\n  - Verify filter bar: status dropdown, date range, workflow filter\n  - Verify table with history data\n\n- test: 'status badges show correct colors for completed and failed'\n  - Verify 'Completed' (green) and 'Failed' (red) badges\n\n- test: 'clicking a completed run navigates to run detail'\n  - Click first row\n  - Verify URL changes to /runs/run-10\n\n- test: 'filtering by status shows correct runs'\n  - Select 'Failed' from status filter\n  - Verify only failed runs shown (or mock filtered response)\n\n- test: 'search filters runs by workflow name'\n  - Type in search input\n  - Verify filtered results\n\n- test: 'empty history shows appropriate message'\n  - Mock empty runs response\n  - Verify 'No runs in history' message\n\n- test: 'switching between Active and History tabs preserves context'\n  - Navigate to /runs?tab=history\n  - Click Active tab, then History tab\n  - Verify History content loads\n\n## IMPORTANT RULES\n- Add to existing runs.spec.ts\n- Mock ALL APIs\n- Run: cd apps/gui && npx playwright test e2e/runs.spec.ts --reporter=list",
+      "model": "gemini-3.1-pro",
+      "worktree": null,
+      "agent_id": "RunsHistory-E2E-636cbc54"
+    },
+    {
+      "name": "RunsHistory-Reviewer",
+      "role": "reviewer",
+      "prompt": "You are the Reviewer for Runs History Tab (Flow 4.02).\n\n## SKILLS\nRead and follow BOTH:\n1. .agora/SKILLS/wshobson-agents/plugins/developer-essentials/skills/code-review-excellence/SKILL.md\n2. .agora/SKILLS/dididy-e2e-test-reviewer/skills/review/SKILL.md\n\n## WAIT FOR OTHERS\nWait for both coders. Check:\n- apps/gui/src/features/runs/RunList.tsx (History tab added)\n- apps/gui/src/queries/ (history hooks)\n- apps/gui/e2e/runs.spec.ts (new History tests)\n\n## REVIEW\n1. History tab with filter bar and table\n2. Filter: status, date, workflow, search\n3. Status badges: Completed (green), Failed (red), Partial (amber)\n4. Row click \u2192 /runs/:id\n5. Empty/filtered empty states\n6. Active tab still works (no regression)\n7. Build: cd apps/gui && npx tsc --noEmit && npm run build\n8. Tests: cd apps/gui && npx playwright test e2e/runs.spec.ts --reporter=list\n9. Regression: cd apps/gui && npx playwright test e2e/canvas.spec.ts --reporter=list\n\nWrite to .agora/reviews/flow4-02-runs-history-review.md\nVerdict: APPROVE or REQUEST_CHANGES.",
+      "model": "gemini-3.1-pro",
+      "worktree": null,
+      "agent_id": "RunsHistory-Reviewer-d83e833a"
+    }
+  ]
+}

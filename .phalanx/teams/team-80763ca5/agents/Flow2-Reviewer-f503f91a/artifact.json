@@ -1,0 +1,9 @@
+{
+  "status": "failure",
+  "output": "{\"reason\": \"Cannot start review because required files from Flow2-UI and Flow2-E2E do not exist yet (e.g. apps/gui/src/features/workflows/NewWorkflowModal.tsx). Please ensure the UI coder and E2E tester have finished their tasks before running the review.\"}",
+  "warnings": [],
+  "debt": [],
+  "agent_id": "Flow2-Reviewer-f503f91a",
+  "team_id": "team-80763ca5",
+  "created_at": 1773173765.174478
+}
