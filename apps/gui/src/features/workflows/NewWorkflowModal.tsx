@@ -50,6 +50,13 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
         description: description.trim() || undefined,
         blocks: {},
         edges: [],
+        canvas_state: {
+          nodes: [],
+          edges: [],
+          viewport: { x: 0, y: 0, zoom: 1 },
+          selected_node_id: null,
+          canvas_mode: "dag",
+        },
       });
 
       if (result?.id) {

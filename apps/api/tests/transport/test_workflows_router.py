@@ -75,6 +75,35 @@ def test_workflows_put():
     app.dependency_overrides.clear()
 
 
+def test_workflows_put_with_canvas_state():
+    mock_service = Mock()
+    canvas_state = {
+        "nodes": [{"id": "node-1", "position": {"x": 10, "y": 20}}],
+        "edges": [],
+        "viewport": {"x": 1, "y": 2, "zoom": 0.75},
+        "selected_node_id": "node-1",
+        "canvas_mode": "dag",
+    }
+    mock_wf = WorkflowEntity(
+        id="wf_1",
+        name="Updated Flow",
+        blocks={},
+        edges=[],
+        canvas_state=canvas_state,
+    )
+    mock_service.update_workflow.return_value = mock_wf
+    app.dependency_overrides[get_workflow_service] = lambda: mock_service
+
+    response = client.put("/api/workflows/wf_1", json={"canvas_state": canvas_state})
+    assert response.status_code == 200
+    assert response.json()["canvas_state"]["selected_node_id"] == "node-1"
+    mock_service.update_workflow.assert_called_once()
+    _, called_data = mock_service.update_workflow.call_args.args
+    assert "canvas_state" in called_data
+    assert called_data["canvas_state"]["viewport"]["zoom"] == 0.75
+    app.dependency_overrides.clear()
+
+
 def test_workflows_delete():
     mock_service = Mock()
     mock_service.delete_workflow.return_value = True

@@ -1,11 +1,24 @@
 import { z } from "zod";
 
+const CanvasStateSchema = z.object({
+  nodes: z.array(z.record(z.any())).default([]),
+  edges: z.array(z.record(z.any())).default([]),
+  viewport: z.object({
+    x: z.number().default(0),
+    y: z.number().default(0),
+    zoom: z.number().default(1),
+  }).default({ x: 0, y: 0, zoom: 1 }),
+  selected_node_id: z.string().nullable().default(null),
+  canvas_mode: z.enum(["dag", "state-machine"]).default("dag"),
+});
+
 export const WorkflowResponseSchema = z.object({
   id: z.string(),
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   blocks: z.record(z.any()).default({}),
   edges: z.array(z.record(z.any())).default([]),
+  canvas_state: CanvasStateSchema.optional(),
   status: z.string().optional(),
   updated_at: z.string().optional(),
   created_at: z.string().optional(),
@@ -29,6 +42,7 @@ export const WorkflowCreateSchema = z.object({
   description: z.string().nullable().optional(),
   blocks: z.record(z.any()).default({}),
   edges: z.array(z.record(z.any())).default([]),
+  canvas_state: CanvasStateSchema.optional(),
 });
 export type WorkflowCreate = z.infer<typeof WorkflowCreateSchema>;
 
@@ -37,5 +51,6 @@ export const WorkflowUpdateSchema = z.object({
   description: z.string().nullable().optional(),
   blocks: z.record(z.any()).nullable().optional(),
   edges: z.array(z.record(z.any())).nullable().optional(),
+  canvas_state: CanvasStateSchema.nullable().optional(),
 });
 export type WorkflowUpdate = z.infer<typeof WorkflowUpdateSchema>;
