@@ -1,7 +1,7 @@
 import { dump } from "js-yaml";
 import type { Edge, Node, Viewport } from "@xyflow/react";
-import type { PersistedCanvasState } from "@/store/canvas";
-import type { StepNodeData } from "@/types/schemas/canvas";
+import type { PersistedCanvasState } from "../../store/canvas";
+import type { StepNodeData } from "../../types/schemas/canvas";
 
 interface CompileInput {
   nodes: Node<StepNodeData>[];
@@ -45,9 +45,25 @@ function toPersistedCanvasState({
   selectedNodeId,
   canvasMode,
 }: CompileInput): PersistedCanvasState {
+  const minimalNodes = nodes.map((node) => ({
+    id: node.id,
+    position: {
+      x: node.position.x,
+      y: node.position.y,
+    },
+  }));
+
+  const minimalEdges = edges.map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    sourceHandle: edge.sourceHandle ?? null,
+    targetHandle: edge.targetHandle ?? null,
+  }));
+
   return {
-    nodes: nodes as unknown as Record<string, unknown>[],
-    edges: edges as unknown as Record<string, unknown>[],
+    nodes: minimalNodes as unknown as Record<string, unknown>[],
+    edges: minimalEdges as unknown as Record<string, unknown>[],
     viewport: viewport ?? { x: 0, y: 0, zoom: 1 },
     selected_node_id: selectedNodeId ?? null,
     canvas_mode: canvasMode ?? "dag",

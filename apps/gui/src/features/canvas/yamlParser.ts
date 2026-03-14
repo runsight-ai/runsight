@@ -1,11 +1,13 @@
 import { load } from "js-yaml";
 import type { Edge, Node } from "@xyflow/react";
-import type { PersistedCanvasState } from "@/store/canvas";
-import type { BlockDef, RunsightWorkflowFile, StepNodeData, StepType } from "@/types/schemas/canvas";
+import type { PersistedCanvasState } from "../../store/canvas";
+import type { BlockDef, RunsightWorkflowFile, StepNodeData, StepType } from "../../types/schemas/canvas";
 
 export interface ParseWorkflowResult {
   nodes: Node<StepNodeData>[];
   edges: Edge[];
+  viewport?: PersistedCanvasState["viewport"];
+  error?: { message: string };
 }
 
 type ParsedWorkflow = Partial<RunsightWorkflowFile> & {
@@ -30,11 +32,24 @@ function findPersistedPosition(
   canvasState: PersistedCanvasState | null | undefined,
   nodeId: string,
 ): { x: number; y: number } | null {
-  if (!canvasState?.nodes?.length) return null;
-  const raw = canvasState.nodes.find((n) => n.id === nodeId);
-  if (!raw || typeof raw !== "object") return null;
+  if (!canvasState?.nodes) return null;
+  const rawNodes = canvasState.nodes as unknown;
 
-  const position = (raw.position ?? null) as { x?: unknown; y?: unknown } | null;
+  // Support both array and map-style persisted formats.
+  if (Array.isArray(rawNodes)) {
+    const raw = rawNodes.find((n) => typeof n === "object" && n !== null && (n as { id?: unknown }).id === nodeId);
+    if (!raw || typeof raw !== "object") return null;
+
+    const position = (raw as { position?: unknown }).position as { x?: unknown; y?: unknown } | null | undefined;
+    if (!position) return null;
+    if (typeof position.x !== "number" || typeof position.y !== "number") return null;
+    return { x: position.x, y: position.y };
+  }
+
+  if (typeof rawNodes !== "object" || rawNodes === null) return null;
+  const raw = (rawNodes as Record<string, unknown>)[nodeId];
+  if (typeof raw !== "object" || raw === null) return null;
+  const position = (raw as { position?: unknown }).position as { x?: unknown; y?: unknown } | null;
   if (!position) return null;
   if (typeof position.x !== "number" || typeof position.y !== "number") return null;
   return { x: position.x, y: position.y };
@@ -44,7 +59,19 @@ export function parseWorkflowYamlToGraph(
   yamlText: string,
   canvasState?: PersistedCanvasState | null,
 ): ParseWorkflowResult {
-  const parsed = (load(yamlText) as ParsedWorkflow | null) ?? {};
+  let parsed: ParsedWorkflow;
+  try {
+    parsed = ((yamlText?.trim() ? load(yamlText) : {}) as ParsedWorkflow | null) ?? {};
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid YAML";
+    return {
+      nodes: [],
+      edges: [],
+      viewport: canvasState?.viewport,
+      error: { message },
+    };
+  }
+
   const blocks = parsed.blocks ?? {};
 
   const nodeIds = Object.keys(blocks);
@@ -73,6 +100,7 @@ export function parseWorkflowYamlToGraph(
   const edges: Edge[] = [];
   const addEdge = (source: string, target: string | null | undefined, idSuffix: string) => {
     if (!target) return;
+    if (!nodeIds.includes(source) || !nodeIds.includes(target)) return;
     edges.push({
       id: `${source}->${target}:${idSuffix}`,
       source,
@@ -96,5 +124,5 @@ export function parseWorkflowYamlToGraph(
     });
   });
 
-  return { nodes, edges };
+  return { nodes, edges, viewport: canvasState?.viewport };
 }
