@@ -207,6 +207,7 @@ function CanvasInner() {
         <div className="flex items-center gap-2">
           <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-1 flex items-center gap-1">
             <Button
+              data-testid="canvas-mode-visual"
               variant="ghost"
               className={`h-8 px-3 ${mode === "visual" ? "bg-[var(--surface-elevated)]" : ""}`}
               onClick={() => setMode("visual")}
@@ -214,6 +215,7 @@ function CanvasInner() {
               Visual
             </Button>
             <Button
+              data-testid="canvas-mode-code"
               variant="ghost"
               className={`h-8 px-3 ${mode === "code" ? "bg-[var(--surface-elevated)]" : ""}`}
               onClick={() => setMode("code")}
@@ -221,11 +223,11 @@ function CanvasInner() {
               Code
             </Button>
           </div>
-          <Button variant="outline" className="h-8 px-3" onClick={applyYamlToCanvas}>
+          <Button data-testid="canvas-apply-yaml" variant="outline" className="h-8 px-3" onClick={applyYamlToCanvas}>
             <RefreshCcw className="size-3.5 mr-1.5" />
             Apply YAML
           </Button>
-          <Button className="h-8 px-3" onClick={onSave} disabled={isSaving}>
+          <Button data-testid="canvas-save" className="h-8 px-3" onClick={onSave} disabled={isSaving}>
             <Save className="size-3.5 mr-1.5" />
             {isSaving ? "Saving..." : isDirty ? "Save*" : "Save"}
           </Button>
@@ -233,7 +235,7 @@ function CanvasInner() {
       </div>
 
       {parseError && (
-        <div className="shrink-0 mx-4 mt-3 rounded-md border border-[var(--error-20)] bg-[var(--error-08)] px-3 py-2 flex items-start gap-2">
+        <div data-testid="canvas-parse-error" className="shrink-0 mx-4 mt-3 rounded-md border border-[var(--error-20)] bg-[var(--error-08)] px-3 py-2 flex items-start gap-2">
           <AlertTriangle className="size-4 text-[var(--error)] mt-0.5" />
           <div className="text-xs text-[var(--error)] whitespace-pre-wrap">{parseError}</div>
         </div>
@@ -243,6 +245,7 @@ function CanvasInner() {
         {mode === "visual" ? (
           <div className="h-full w-full rounded-lg border border-[var(--border)] overflow-hidden">
             <ReactFlow
+              data-testid="canvas-reactflow"
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
@@ -260,7 +263,8 @@ function CanvasInner() {
           </div>
         ) : (
           <div className="h-full w-full rounded-lg border border-[var(--border)] overflow-hidden">
-            <Editor
+            <div data-testid="canvas-yaml-editor" className="h-full w-full">
+              <Editor
               language="yaml"
               value={yamlText}
               onChange={(next) => setYamlText(next ?? "")}
@@ -272,6 +276,7 @@ function CanvasInner() {
                 scrollBeyondLastLine: false,
               }}
             />
+            </div>
           </div>
         )}
       </div>
