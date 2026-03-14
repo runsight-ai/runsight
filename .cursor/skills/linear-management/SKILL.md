@@ -8,7 +8,7 @@ When managing the Runsight roadmap in Linear, we follow a strict, top-down, valu
 - **What it is:** A massive, cross-cutting goal that drives the business forward or represents a core value proposition (e.g., "Mission Control & Observability", "Enterprise Readiness", "Agentic Capabilities").
 - **Linear Object:** `Initiative`
 - **Rule:** Initiatives are thematic, NOT chronological. Do not put numbers or priorities in their names.
-- **Description Requirements:** Must use the following Markdown template to ensure strategic alignment:
+- **Description Requirements:** Must use the following Markdown template:
 
   ```markdown
   ## 📖 Context / The Problem
@@ -40,11 +40,11 @@ When managing the Runsight roadmap in Linear, we follow a strict, top-down, valu
 ### 2. Project (Major Feature)
 - **What it is:** A large, distinct feature or product area that takes weeks to build (e.g., "Role-Based Access Control", "Visual Workflow Canvas", "Trigger Engine").
 - **Linear Object:** `Project` (Use `save_project` MCP tool, must include `addInitiatives`).
-- **Description Requirements:** The Project description MUST act as the ultimate source of truth. It must contain the comprehensive Product Spec and Technical Architecture (Spec + Arch always on project level). Every Project must use the following Markdown template:
+- **Description Requirements:** The Project description MUST act as the ultimate source of truth. It contains three mandatory documents: **Product Spec**, **ADR**, and **HLD**. Every Project must use the following Markdown template:
 
   ```markdown
   # 📖 Product Spec
-  
+
   ## Overview & Context
   - Problem statement
   - Why this matters now
@@ -58,6 +58,7 @@ When managing the Runsight roadmap in Linear, we follow a strict, top-down, valu
   ## 👥 Users & Use Cases
   - Primary user personas
   - Core use cases
+  - Key workflows enabled
 
   ## 🚧 Scope
   - **In Scope**
@@ -71,30 +72,43 @@ When managing the Runsight roadmap in Linear, we follow a strict, top-down, valu
   1. Entry point
   2. Core interaction flow
   3. Completion / outcome
+  4. Error states
+
+  ## 🎨 UX Inspiration & Design Language
+  - Competitor references (e.g. "n8n style nodes")
+  - Design system rules (e.g. "strict CSS variables only")
 
   ---
   # 🏛️ ADR (Architecture Decision Records)
-  - **Decision:** Major design decisions and rationale.
-  - **Context:** Why this approach over alternatives? 
-  - **Consequences:** Trade-offs and impact on the system.
+
+  ### ADR-1: [Decision Title]
+  - **Decision:** What we chose.
+  - **Context:** What alternatives were considered and why they were rejected.
+  - **Consequences:** Trade-offs, what we gain, what we lose.
+
+  *(Repeat for each major decision)*
 
   ---
   # 🛠️ HLD (High-Level Design)
 
-  ## 🛠 Technical Architecture
-  - System components
+  ## System Components & Boundaries
+  - Stack, services, libraries
   - Service boundaries
-  - Scalability & Security considerations
 
-  ## 🧩 Data & Entities
-  - Key domain objects
+  ## 🧩 Data Entities & State Transitions
+  - High-level domain objects
   - Relationships
   - State transitions
 
   ## 🔌 APIs & Integrations
-  - New APIs
-  - Modified APIs
+  - Key interfaces between systems
   - External services
+
+  ## 🗄️ Infrastructure & Storage
+  - DB strategy, caching, file storage
+
+  ## 🔒 Security & Scalability
+  - Auth, rate limits, scaling approach
 
   ## ⚠ Risks & Open Questions
   - Technical & Product risks
@@ -109,23 +123,74 @@ When managing the Runsight roadmap in Linear, we follow a strict, top-down, valu
 ### 3. Milestone (Deliverable with Product Value)
 - **What it is:** A checkpoint *within* a project that represents a shippable increment of product value (e.g., Inside the "Trigger Engine" project, Milestone 1 is "Webhooks", Milestone 2 is "Cron").
 - **Linear Object:** `Project Milestone` (Use `save_milestone` MCP tool).
+- **Description:** One-liner goal + key requirements. Lightweight by design — the real detail lives in Epics and Tickets underneath.
 
 ### 4. Epic (Technical Milestone)
 - **What it is:** A grouping of technical tasks needed to achieve a milestone (e.g., "Build CRUD API for Workflows"). Epics can stretch across multiple milestones.
 - **Linear Object:** `Parent Issue` (An issue that contains sub-issues).
-- **Formatting Rules:** Use concise bullet points instead of paragraphs. Limit each section to 3-5 key points (per section, not in total). Use shorthand notation where appropriate (e.g., "req." for "requirements").
-- **Description Requirements:** Epics must be treated as a mini architectural document. It must cover ALL technical aspects of what it is touching based on the project-level architecture. **Crucially, Epics MUST include explicit API Endpoints** (routes, methods, request/response contracts) if they involve backend communication, along with a clear overview of sub-tickets.
+- **Formatting Rules:** Concise bullet points. 3-5 key points per section. Shorthand where appropriate.
+- **Description Requirements:** Must use the following Markdown template:
+
+  ```markdown
+  ## 🏗️ Architecture Context
+  - Which chunk of the Project HLD this epic covers
+  - Key technical decisions relevant to this epic
+
+  ## 🔌 API Endpoints
+  - `METHOD /route` — purpose, request/response contract
+  - *(list all endpoints this epic introduces or modifies)*
+
+  ## 🧱 Component Breakdown
+  - Component/module name — what it does, file location
+  - *(list all components this epic introduces)*
+
+  ## 🔗 Dependencies
+  - Other epics, external systems, or libraries this depends on
+
+  ## 📋 Sub-Tickets Overview
+  - Ticket title — one-liner description
+  - *(list all child tickets)*
+  ```
 
 ### 5. Ticket (Atomic Unit of Work)
 - **What it is:** A single Pull Request. A specific API endpoint, a UI component, or a test suite.
 - **Linear Object:** `Issue` (Use `save_issue` MCP tool).
-- **Formatting Rules:** Use concise bullet points instead of paragraphs. Limit each section to 3-5 key points (per section). Use shorthand notation where appropriate. Include only essential headers.
-- **Description Requirements:** Strictly technical. Must contain super detailed Implementation Details, **Exact Data Models** (database schemas, TypeScript interfaces, Python Pydantic models), Definition of Done (DoD), and Acceptance Criteria (AC). For visual tickets, the DoD and AC must be extremely rigorous regarding look and feel to prevent broken UX. All implementation details must be at the ticket level, not scattered in standalone files.
+- **Formatting Rules:** Concise bullet points. 3-5 key points per section. Shorthand where appropriate.
+- **Description Requirements:** Must use the following Markdown template:
+
+  ```markdown
+  ## 🔧 Implementation Details
+  - Exact technical steps
+  - File paths, function signatures
+  - Libraries / utilities to use
+
+  ## 🧩 Data Models
+  - Exact DB schemas, TypeScript interfaces, or Python Pydantic models
+  - Field types, constraints, defaults
+
+  ## ✅ Definition of Done (DoD)
+  - Required tests (unit, integration, E2E)
+  - Code review requirements
+  - Documentation updates
+
+  ## 🔬 Technical AC (Acceptance Criteria)
+  - Functional requirements that must pass
+  - Performance / latency constraints
+
+  ## 🎨 Visual AC (UI tickets only)
+  - Exact CSS variables, DOM hierarchy
+  - Hover / active / error / empty states
+  - Spacing, animations, transitions
+
+  ## ⚠️ Edge Cases
+  - Error handling
+  - Empty states, boundary conditions
+  - Concurrent access scenarios
+  ```
 
 ## Operating Procedure
 1. **Always plan top-down.** Start by defining the thematic Initiatives with full context.
-2. **Break Initiatives into Projects.** Ensure every Project has a clear description of the feature and scope.
+2. **Break Initiatives into Projects.** Ensure every Project has a comprehensive Spec + ADR + HLD.
 3. **Wait for approval.** Do not generate Issues/Tickets until the user explicitly approves the Project landscape.
-4. **Create or Re-use the Skeleton Structure First:** If a skeleton structure already exists, REUSE existing tickets instead of constantly canceling them. If starting from scratch, create the Epics, Milestones, and Tickets with *minimal placeholder details* to establish the hierarchy in Linear.
-5. **Research & Populate:** ONLY AFTER the skeleton is in place, spin up specialized research/architect agents *per ticket* or *per epic* to read competitor code, mockups, and existing code to fill in the *exact* Implementation Details, DoD, and Visual AC directly into those pre-existing provided tickets. Never let agents invent their own chaotic ticket hierarchies from scratch.
-6. **Split if Needed:** If an agent discovers during research that a ticket is too large, it may split the atomic ticket into two.
+4. **Create or Re-use the Skeleton Structure.** If a skeleton already exists, REUSE existing tickets instead of canceling and recreating. If starting from scratch, create Epics, Milestones, and Tickets with minimal placeholder details to establish the hierarchy.
+5. **Split if Needed.** If a ticket is too large during research or implementation, split the atomic ticket into two.
