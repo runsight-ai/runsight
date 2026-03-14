@@ -130,6 +130,6 @@ When managing the Runsight roadmap in Linear, we follow a strict, top-down, valu
 1. **Always plan top-down.** Start by defining the thematic Initiatives with full context.
 2. **Break Initiatives into Projects.** Ensure every Project has a clear description of the feature and scope.
 3. **Wait for approval.** Do not generate Issues/Tickets until the user explicitly approves the Project landscape.
-4. **Create the Skeleton Structure First:** Create the Epics, Milestones, and Tickets with *minimal placeholder details* to establish the hierarchy in Linear.
-5. **Research & Populate:** ONLY AFTER the skeleton is in place, spin up specialized research/architect agents *per ticket* or *per epic* to read competitor code, mockups, and existing code to fill in the *exact* Implementation Details, DoD, and Visual AC directly into those pre-existing tickets. Never let agents invent their own chaotic ticket hierarchies from scratch.
+4. **Create or Re-use the Skeleton Structure First:** If a skeleton structure already exists, REUSE existing tickets instead of constantly canceling them. If starting from scratch, create the Epics, Milestones, and Tickets with *minimal placeholder details* to establish the hierarchy in Linear.
+5. **Research & Populate:** ONLY AFTER the skeleton is in place, spin up specialized research/architect agents *per ticket* or *per epic* to read competitor code, mockups, and existing code to fill in the *exact* Implementation Details, DoD, and Visual AC directly into those pre-existing provided tickets. Never let agents invent their own chaotic ticket hierarchies from scratch.
 6. **Split if Needed:** If an agent discovers during research that a ticket is too large, it may split the atomic ticket into two.

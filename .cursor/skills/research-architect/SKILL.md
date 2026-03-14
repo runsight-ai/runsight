@@ -34,9 +34,9 @@ When proposing architectures, you must align with the existing monorepo structur
 Your architectural proposals must be exhaustive but concise:
 - **Compare & Steal:** Always analyze at least 2-3 open-source competitors (e.g., in `~/Documents/github/competitor-repos/`). Note their canvas libraries, state managers, and data structures. Pick the best patterns and adapt them.
 - **UI/UX Ground Truth:** Before touching the frontend, you MUST check the existing UI flows and screen maps in `/Users/nataly/Documents/github/observatory/mockups/`. If the current UI code is broken or ugly, put it on a separate branch (treat it as legacy) and rewrite it cleanly following the approved mockups and competitor patterns. Do not blindly patch spaghetti code.
-- **Self-Validation:** Agents MUST use Playwright to write and run end-to-end tests as a self-validation loop to ensure the code looks good, functions properly, and covers all user flows.
 
-## 5. Linear Sync & Git Persistence
-Research on disk is ephemeral if not tracked.
-1. **Linear:** Every `SPEC.md` and `ARCH.md` must be translated into **Projects, Epics, and Tickets** using the `user-Linear` MCP server. Follow the strict 3-5 bullet point rule defined in the Linear management skill.
-2. **Git:** You must commit all files generated in `/Users/nataly/Documents/github/observatory/` to version control immediately so the state is never lost.
+## 5. All Research Goes Into Provided Tickets
+No information exists outside of Linear. If a detail (Spec, Arch, DoD, AC, Visual Spec, DOM structure) is not in a Linear ticket, it does not exist. 
+- **Target Provided Tickets:** You must place all research findings directly into the existing, provided Linear tickets. Do not invent your own tickets.
+- **No Scattered Files:** Do not create random markdown files or `UI_UX_SPEC.md` documents expecting agents to read them later. 
+- **Ticket Exhaustiveness:** Every single detail required to build the feature must be copy-pasted or synthesized directly into the Linear issue description.
