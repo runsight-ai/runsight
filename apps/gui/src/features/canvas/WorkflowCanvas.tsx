@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import Editor from "@monaco-editor/react";
 import {
@@ -40,6 +40,7 @@ function CanvasNode({ data }: NodeProps) {
 const nodeTypes: NodeTypes = { canvasNode: CanvasNode };
 
 type ViewMode = "visual" | "code";
+type E2eEditorHost = HTMLDivElement & { __e2eSetValue?: (text: string) => void };
 
 function buildYamlFromLegacyData(blocks: Record<string, unknown>, edges: Record<string, unknown>[]) {
   const normalizedBlocks = Object.entries(blocks ?? {}).reduce<Record<string, { type: string }>>(
@@ -83,6 +84,7 @@ function CanvasInner() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const yamlTextRef = useRef("");
 
   const workflowQuery = useWorkflow(id);
   const updateWorkflow = useUpdateWorkflow();
@@ -103,6 +105,23 @@ function CanvasInner() {
 
   const title = useMemo(() => workflowQuery.data?.name || `Workflow ${id}`, [workflowQuery.data?.name, id]);
 
+  const setYamlTextSafely = useCallback((next: string) => {
+    yamlTextRef.current = next;
+    setYamlText(next);
+  }, []);
+
+  const setYamlEditorHostRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      const host = el as E2eEditorHost | null;
+      if (host) {
+        host.__e2eSetValue = (text: string) => {
+          setYamlTextSafely(text);
+        };
+      }
+    },
+    [setYamlTextSafely],
+  );
+
   useEffect(() => {
     const workflow = workflowQuery.data;
     if (!workflow || hasHydrated) return;
@@ -110,7 +129,7 @@ function CanvasInner() {
     const sourceYaml =
       (workflow.yaml && workflow.yaml.trim()) ||
       buildYamlFromLegacyData(workflow.blocks ?? {}, workflow.edges ?? []);
-    setYamlText(sourceYaml);
+    setYamlTextSafely(sourceYaml);
 
     const parsed = parseWorkflowYamlToGraph(sourceYaml, workflow.canvas_state ?? null);
     if (parsed.error) {
@@ -128,10 +147,10 @@ function CanvasInner() {
     }
 
     setHasHydrated(true);
-  }, [workflowQuery.data, hasHydrated, hydrateFromPersisted]);
+  }, [workflowQuery.data, hasHydrated, hydrateFromPersisted, setYamlTextSafely]);
 
   const applyYamlToCanvas = () => {
-    const parsed = parseWorkflowYamlToGraph(yamlText, {
+    const parsed = parseWorkflowYamlToGraph(yamlTextRef.current, {
       nodes: nodes as unknown as Record<string, unknown>[],
       edges: edges as unknown as Record<string, unknown>[],
       viewport,
@@ -172,7 +191,7 @@ function CanvasInner() {
         canvasMode,
         workflowName: title,
       });
-      setYamlText(compiled.yaml);
+      setYamlTextSafely(compiled.yaml);
       setParseError(null);
 
       await updateWorkflow.mutateAsync({
@@ -263,19 +282,19 @@ function CanvasInner() {
           </div>
         ) : (
           <div className="h-full w-full rounded-lg border border-[var(--border)] overflow-hidden">
-            <div data-testid="canvas-yaml-editor" className="h-full w-full">
+            <div ref={setYamlEditorHostRef} data-testid="canvas-yaml-editor" className="h-full w-full">
               <Editor
-              language="yaml"
-              value={yamlText}
-              onChange={(next) => setYamlText(next ?? "")}
-              theme="vs-dark"
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                wordWrap: "on",
-                scrollBeyondLastLine: false,
-              }}
-            />
+                language="yaml"
+                value={yamlText}
+                onChange={(next) => setYamlTextSafely(next ?? "")}
+                theme="vs-dark"
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  wordWrap: "on",
+                  scrollBeyondLastLine: false,
+                }}
+              />
             </div>
           </div>
         )}

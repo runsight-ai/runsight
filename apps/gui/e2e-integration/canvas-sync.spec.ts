@@ -62,9 +62,10 @@ test.describe("Canvas Sync (RUN-62)", () => {
     ].join("\n");
 
     await page.evaluate((text) => {
-      const monaco = (window as unknown as { monaco?: { editor?: { getModels: () => Array<{ setValue: (v: string) => void }> } } }).monaco;
-      const model = monaco?.editor?.getModels?.()?.[0];
-      if (model) model.setValue(text);
+      const el = document.querySelector('[data-testid="canvas-yaml-editor"]') as { __e2eSetValue?: (value: string) => void } | null;
+      if (el?.__e2eSetValue) {
+        el.__e2eSetValue(text);
+      }
     }, yamlWithSecondNode);
 
     await page.getByTestId("canvas-apply-yaml").click();
