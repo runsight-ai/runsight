@@ -11,9 +11,7 @@ from ..data.filesystem.step_repo import StepRepository
 from ..logic.services.provider_service import ProviderService
 from ..logic.services.run_service import RunService
 from ..logic.services.soul_service import SoulService
-from ..logic.services.git_service import GitService
 from ..logic.services.registry_service import RegistryService
-from ..logic.services.cost_service import CostService
 from ..logic.services.workflow_service import WorkflowService
 
 
@@ -61,10 +59,6 @@ def get_soul_service(soul_repo: SoulRepository = Depends(get_soul_repo)) -> Soul
     return SoulService(soul_repo)
 
 
-def get_git_service() -> GitService:
-    return GitService(settings.base_path)
-
-
 def get_registry_service() -> RegistryService:
     return RegistryService(f"{settings.base_path}/custom")
 
@@ -75,7 +69,3 @@ def get_task_repo() -> TaskRepository:
 
 def get_step_repo() -> StepRepository:
     return StepRepository(settings.base_path)
-
-
-def get_cost_service() -> CostService:
-    return CostService()
