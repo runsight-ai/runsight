@@ -43,25 +43,65 @@ When managing the Runsight roadmap in Linear, we follow a strict, top-down, valu
 - **Description Requirements:** The Project description MUST act as the ultimate source of truth. It must contain the comprehensive Product Spec and Technical Architecture (Spec + Arch always on project level). Every Project must use the following Markdown template:
 
   ```markdown
-  ## 📖 Product Spec
-  - **Overview & Context:** Problem statement, business value.
-  - **Goals & Non-goals:** Primary objectives and explicit exclusions.
-  - **Target Users & Use Cases:** Who is this for and how will they use it?
-  - **Scope:** In Scope vs Out of Scope.
-  - **User Flow & UX Target:** Step-by-step flow and design inspiration (e.g. "n8n style").
+  # 📖 Product Spec
+  
+  ## Overview & Context
+  - Problem statement
+  - Why this matters now
+  - Business value
 
-  ## 🏛️ ADR (Architecture Decision Record)
+  ## 🎯 Goals & Success Metrics
+  - Primary objectives
+  - Key measurable outcomes (KPIs)
+  - Non-goals (to avoid scope creep)
+
+  ## 👥 Users & Use Cases
+  - Primary user personas
+  - Core use cases
+
+  ## 🚧 Scope
+  - **In Scope**
+  - **Out of Scope**
+
+  ## 📋 Product Requirements
+  - Core functional requirements
+  - Edge cases & Constraints
+
+  ## 🔄 User Flow & Experience
+  1. Entry point
+  2. Core interaction flow
+  3. Completion / outcome
+
+  ---
+  # 🏛️ ADR (Architecture Decision Records)
   - **Decision:** Major design decisions and rationale.
-  - **Context:** Why this approach over alternatives? (e.g. YAML vs JSON state).
+  - **Context:** Why this approach over alternatives? 
   - **Consequences:** Trade-offs and impact on the system.
 
-  ## 🛠️ HLD (High-Level Design)
-  - **System Components:** Stack and component boundaries.
-  - **Data Entities:** High-level domain objects and state transitions.
-  - **APIs & Integrations:** Key interfaces between systems.
-  - **Security & Scalability:** Risks and constraints.
+  ---
+  # 🛠️ HLD (High-Level Design)
 
-  ## 📦 Deliverables & Milestones
+  ## 🛠 Technical Architecture
+  - System components
+  - Service boundaries
+  - Scalability & Security considerations
+
+  ## 🧩 Data & Entities
+  - Key domain objects
+  - Relationships
+  - State transitions
+
+  ## 🔌 APIs & Integrations
+  - New APIs
+  - Modified APIs
+  - External services
+
+  ## ⚠ Risks & Open Questions
+  - Technical & Product risks
+  - Unknowns requiring validation
+
+  ---
+  # 📦 Deliverables & Milestones
   - **Milestone 1:** [Name] – [Description]
   - next milestone...
   ```
