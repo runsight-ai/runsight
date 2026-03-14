@@ -16,6 +16,7 @@ export const WorkflowResponseSchema = z.object({
   id: z.string(),
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
+  yaml: z.string().nullable().optional(),
   blocks: z.record(z.any()).default({}),
   edges: z.array(z.record(z.any())).default([]),
   canvas_state: CanvasStateSchema.optional(),
@@ -40,6 +41,7 @@ export const WorkflowCreateSchema = z.object({
   id: z.string().optional(),
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
+  yaml: z.string().nullable().optional(),
   blocks: z.record(z.any()).default({}),
   edges: z.array(z.record(z.any())).default([]),
   canvas_state: CanvasStateSchema.optional(),
@@ -49,6 +51,7 @@ export type WorkflowCreate = z.infer<typeof WorkflowCreateSchema>;
 export const WorkflowUpdateSchema = z.object({
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
+  yaml: z.string().nullable().optional(),
   blocks: z.record(z.any()).nullable().optional(),
   edges: z.array(z.record(z.any())).nullable().optional(),
   canvas_state: CanvasStateSchema.nullable().optional(),

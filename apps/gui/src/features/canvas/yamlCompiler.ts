@@ -73,6 +73,7 @@ function toPersistedCanvasState({
 export function compileGraphToWorkflowYaml(input: CompileInput): {
   yaml: string;
   canvasState: PersistedCanvasState;
+  workflowDocument: CompiledWorkflow;
 } {
   const nodes = input.nodes ?? [];
   const edges = input.edges ?? [];
@@ -96,5 +97,6 @@ export function compileGraphToWorkflowYaml(input: CompileInput): {
   return {
     yaml: dump(compiled, { noRefs: true, lineWidth: 120 }),
     canvasState: toPersistedCanvasState(input),
+    workflowDocument: compiled,
   };
 }

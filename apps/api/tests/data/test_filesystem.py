@@ -26,6 +26,13 @@ def test_workflow_repository():
         repo.update("wf-1", updated_data)
         fetched_updated = repo.get_by_id("wf-1")
         assert fetched_updated.name == "Updated Workflow"
+        assert getattr(fetched_updated, "id") == "wf-1"
+
+        # Test partial update preserves existing fields
+        repo.update("wf-1", {"description": "Keeps existing name"})
+        fetched_partial = repo.get_by_id("wf-1")
+        assert fetched_partial.name == "Updated Workflow"
+        assert getattr(fetched_partial, "description") == "Keeps existing name"
 
         # Test List
         all_wfs = repo.list_all()

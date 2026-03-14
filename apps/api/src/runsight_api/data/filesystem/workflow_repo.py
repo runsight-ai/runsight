@@ -52,10 +52,16 @@ class WorkflowRepository:
         file_path = self._get_path(id)
         if not file_path.exists():
             raise WorkflowNotFound(f"Workflow {id} not found")
-        data["id"] = id
+
+        with open(file_path, "r") as f:
+            existing = yaml.safe_load(f) or {}
+
+        # Merge partial updates to avoid dropping existing workflow fields.
+        merged = {**existing, **data}
+        merged["id"] = id
         with open(file_path, "w") as f:
-            yaml.safe_dump(data, f, sort_keys=False)
-        return WorkflowEntity(**data)
+            yaml.safe_dump(merged, f, sort_keys=False)
+        return WorkflowEntity(**merged)
 
     def delete(self, id: str) -> bool:
         file_path = self._get_path(id)

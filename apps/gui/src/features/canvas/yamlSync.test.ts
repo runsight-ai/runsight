@@ -110,4 +110,23 @@ describe("yamlCompiler", () => {
     expect(compiled.canvasState.viewport.zoom).toBe(0.9);
     expect(compiled.canvasState.selected_node_id).toBe("step_a");
   });
+
+  it("keeps execution semantics through parse -> compile round-trip", () => {
+    const parsed = parseWorkflowYamlToGraph(BASIC_YAML, null);
+    expect(parsed.error).toBeUndefined();
+
+    const compiled = compileGraphToWorkflowYaml({
+      nodes: parsed.nodes,
+      edges: parsed.edges,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      selectedNodeId: null,
+      canvasMode: "dag",
+      workflowName: "Demo",
+    });
+
+    expect(compiled.yaml).toContain("step_a:");
+    expect(compiled.yaml).toContain("step_b:");
+    expect(compiled.yaml).toContain("from: step_a");
+    expect(compiled.yaml).toContain("to: step_b");
+  });
 });
