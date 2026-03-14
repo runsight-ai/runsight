@@ -104,6 +104,26 @@ def test_workflows_put_with_canvas_state():
     app.dependency_overrides.clear()
 
 
+def test_workflows_put_with_invalid_canvas_mode_422():
+    mock_service = Mock()
+    app.dependency_overrides[get_workflow_service] = lambda: mock_service
+
+    response = client.put(
+        "/api/workflows/wf_1",
+        json={
+            "canvas_state": {
+                "nodes": [],
+                "edges": [],
+                "viewport": {"x": 0, "y": 0, "zoom": 1},
+                "selected_node_id": None,
+                "canvas_mode": "hsm",
+            }
+        },
+    )
+    assert response.status_code == 422
+    app.dependency_overrides.clear()
+
+
 def test_workflows_delete():
     mock_service = Mock()
     mock_service.delete_workflow.return_value = True

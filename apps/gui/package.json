@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "lint": "npm run lint:colors && eslint .",
     "lint:colors": "rg -n \"#[0-9A-Fa-f]{3,8}\\b|rgba?\\(\" src --glob '!src/styles/globals.css' && (echo 'Hardcoded colors found outside src/styles/globals.css'; exit 1) || exit 0",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
     "test": "playwright test"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "js-yaml": "^4.1.1",
+    "lightningcss-darwin-arm64": "^1.31.1",
     "lucide-react": "^0.577.0",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",
@@ -53,7 +55,8 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^3.2.4"
   },
   "overrides": {
     "rollup": "npm:@rollup/wasm-node@4.59.0"
