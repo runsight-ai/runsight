@@ -43,71 +43,27 @@ When managing the Runsight roadmap in Linear, we follow a strict, top-down, valu
 - **Description Requirements:** The Project description MUST act as the ultimate source of truth. It must contain the comprehensive Product Spec and Technical Architecture (Spec + Arch always on project level). Every Project must use the following Markdown template:
 
   ```markdown
-## 📖 Overview & Context
-- Problem statement
-- Why this matters now
-- Target users / customers
-- Business value
+  ## 📖 Product Spec
+  - **Overview & Context:** Problem statement, business value.
+  - **Goals & Non-goals:** Primary objectives and explicit exclusions.
+  - **Target Users & Use Cases:** Who is this for and how will they use it?
+  - **Scope:** In Scope vs Out of Scope.
+  - **User Flow & UX Target:** Step-by-step flow and design inspiration (e.g. "n8n style").
 
-## 🎯 Goals & Success Metrics
-- Primary objectives
-- Key measurable outcomes (KPIs)
-- Non-goals (to avoid scope creep)
+  ## 🏛️ ADR (Architecture Decision Record)
+  - **Decision:** Major design decisions and rationale.
+  - **Context:** Why this approach over alternatives? (e.g. YAML vs JSON state).
+  - **Consequences:** Trade-offs and impact on the system.
 
-## 👥 Users & Use Cases
-- Primary user personas
-- Core use cases
-- Key workflows enabled
+  ## 🛠️ HLD (High-Level Design)
+  - **System Components:** Stack and component boundaries.
+  - **Data Entities:** High-level domain objects and state transitions.
+  - **APIs & Integrations:** Key interfaces between systems.
+  - **Security & Scalability:** Risks and constraints.
 
-## 🚧 Scope
-- **In Scope**
-  - Feature A
-  - Feature B
-  - Feature C
-
-- **Out of Scope**
-  - Explicit exclusions
-
-## 📋 Product Requirements
-- Core functional requirements
-- System behaviors
-- Permissions / roles (if applicable)
-- Edge cases
-- Constraints
-
-## 🔄 User Flow & Experience
-1. Entry point
-2. Core interaction flow
-3. Completion / outcome
-4. Error states
-
-## 🧩 Data & Entities
-- Key domain objects
-- Relationships
-- Required fields
-- State transitions
-
-## 🔌 APIs & Integrations
-- New APIs
-- Modified APIs
-- External services
-- Event flows / triggers
-
-## 🛠 Technical Architecture
-- System components
-- Service boundaries
-- Data storage strategy
-- Scalability considerations
-- Security considerations
-
-## ⚠ Risks & Open Questions
-- Technical risks
-- Product risks
-- Unknowns requiring validation
-
-## 📦 Deliverables & Milestones
-- **Milestone 1:** [Name] – [Description]
-- next milestone...
+  ## 📦 Deliverables & Milestones
+  - **Milestone 1:** [Name] – [Description]
+  - next milestone...
   ```
 
 ### 3. Milestone (Deliverable with Product Value)
@@ -118,13 +74,13 @@ When managing the Runsight roadmap in Linear, we follow a strict, top-down, valu
 - **What it is:** A grouping of technical tasks needed to achieve a milestone (e.g., "Build CRUD API for Workflows"). Epics can stretch across multiple milestones.
 - **Linear Object:** `Parent Issue` (An issue that contains sub-issues).
 - **Formatting Rules:** Use concise bullet points instead of paragraphs. Limit each section to 3-5 key points (per section, not in total). Use shorthand notation where appropriate (e.g., "req." for "requirements").
-- **Description Requirements:** Epics must be treated as a mini architectural document. It must cover ALL technical aspects of what it is touching based on the project-level architecture, and provide a clear overview of its sub-tickets. Include only essential headers.
+- **Description Requirements:** Epics must be treated as a mini architectural document. It must cover ALL technical aspects of what it is touching based on the project-level architecture. **Crucially, Epics MUST include explicit API Endpoints** (routes, methods, request/response contracts) if they involve backend communication, along with a clear overview of sub-tickets.
 
 ### 5. Ticket (Atomic Unit of Work)
 - **What it is:** A single Pull Request. A specific API endpoint, a UI component, or a test suite.
 - **Linear Object:** `Issue` (Use `save_issue` MCP tool).
 - **Formatting Rules:** Use concise bullet points instead of paragraphs. Limit each section to 3-5 key points (per section). Use shorthand notation where appropriate. Include only essential headers.
-- **Description Requirements:** Strictly technical. Must contain super detailed Implementation Details, Definition of Done (DoD), and Acceptance Criteria (AC). For visual tickets, the DoD and AC must be extremely rigorous regarding look and feel to prevent broken UX. All implementation details must be at the ticket level, not scattered in standalone files.
+- **Description Requirements:** Strictly technical. Must contain super detailed Implementation Details, **Exact Data Models** (database schemas, TypeScript interfaces, Python Pydantic models), Definition of Done (DoD), and Acceptance Criteria (AC). For visual tickets, the DoD and AC must be extremely rigorous regarding look and feel to prevent broken UX. All implementation details must be at the ticket level, not scattered in standalone files.
 
 ## Operating Procedure
 1. **Always plan top-down.** Start by defining the thematic Initiatives with full context.
