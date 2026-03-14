@@ -1,1 +1,0 @@
-[PHALANX EVENT] worker_woken: worker coder-settings-canvas-42e0b4aa — suspended agent woken — post-artifact directives detected. Check status and decide next action.

@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"verdict\": \"APPROVE\", \"review_file\": \".agora/reviews/flow2-05-inspector-review.md\"}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "Inspector-Reviewer-e4c748eb",
-  "team_id": "team-abac900a",
-  "created_at": 1773179337.068623
-}

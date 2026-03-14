@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"component\": \"InspectorPanel\", \"location\": \"apps/gui/src/features/canvas/InspectorPanel.tsx\", \"workflow_canvas_updated\": true, \"features_implemented\": [\"Overview tab with editable name, description, soul selector, model selector, status badge, tags\", \"Prompt tab with monospace textarea, version dropdown, Improve with AI button\", \"Conditions tab with Simple/Expression/Python modes, IF/THEN/ELSE builder\", \"320px responsive panel with 280px-480px range\", \"Slide-in animation from right\", \"All design system colors used\"], \"tests_passed\": [\"TypeScript type check\", \"Production build\"]}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "Inspector-UI-cbbd6dd3",
-  "team_id": "team-5c3387ec",
-  "created_at": 1773178827.9859352
-}

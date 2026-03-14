@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"verdict\": \"REQUEST_CHANGES\", \"review_file\": \".agora/reviews/flow-workflow-list-review.md\", \"issues\": [\"Missing onRowClick in DataTable\", \"Missing Description column\", \"Empty state text mismatch\", \"Untested mutation flows (Create, Delete)\"]}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "WorkflowList-Reviewer-5aaeb014",
-  "team_id": "team-88922038",
-  "created_at": 1773216856.428375
-}

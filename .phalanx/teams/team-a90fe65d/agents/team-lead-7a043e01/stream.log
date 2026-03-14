@@ -1,12 +1,0 @@
-export PHALANX_AGENT_ID=team-lead-7a043e01 PHALANX_TEAM_ID=team-a90fe65d PHALANX_ROOT=/Users/mikhail.rogov/Documents/github/phalanx/.phalanx
-/Users/mikhail.rogov/.local/bin/agent --yolo --model sonnet-4.6
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[Jmikhail.rogov@Mikhails-MacBook-Miggo [39m[0m[49m[32mphalanx [39m[0m[49m[31m(feature/6a761f7f-workflow-block)[39m[0m[49m$ 
-[K[?2004h[Keexport PHALANX_AGENT_ID=team-lead-7a043e01 PHALANX_TEAM_ID=team-a90fe65d PHALANX [K__ROOT=/Users/mikhail.rogov/Documents/github/phalanx/.phalanx[?2004l
-[1m[7m%[27m[1m[0m                                                                                /Users/mikhail.rogov/.local/bin/agent --yolo --model sonnet-4.6
-[0m[27m[24m[Jmikhail.rogov@Mikhails-MacBook-Miggo [39m[0m[49m[32mphalanx [39m[0m[49m[31m(feature/6a761f7f-workflow-block)[39m[0m[49m$ 
-[K[?2004h[K//Users/mikhail.rogov/.local/bin/agent --yolo --model sonnet-4.6[?2004l
-[>1u
-
-  Cursor Agent v2026.02.27-e7d2ef6
-  ~/Documents/github/phalanx · feature/6a761f7f-workflow-block
-[?25l[?2004h]0;Cursor Agent]11;?

@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"files_created\":[\"apps/gui/src/features/canvas/YAMLEditor.tsx\",\"apps/gui/src/features/canvas/ViewToggle.tsx\",\"apps/gui/src/features/canvas/yaml-utils.ts\"],\"files_modified\":[\"apps/gui/src/features/canvas/WorkflowCanvas.tsx\"],\"features_implemented\":[\"Visual/Code segmented toggle in canvas header\",\"Monaco YAML editor with syntax highlighting\",\"YAML toolbar with Save, Undo, Format buttons\",\"Status bar with validation, node/edge counts, modified indicator\",\"Invalid YAML handling with error banner\",\"Bi-directional sync between Visual and Code modes\",\"Left sidebar hidden in Code mode per epic §4.6\",\"Keyboard shortcuts: Cmd+S (save), Cmd+Z (undo)\"],\"build_status\":\"success\",\"typescript_status\":\"passed\"}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "YamlEditor-UI-b508955e",
-  "team_id": "team-2daa62c0",
-  "created_at": 1773181534.958952
-}

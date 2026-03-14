@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"verdict\": \"APPROVE\", \"review_file\": \".agora/reviews/flow3-03-commit-modal-review.md\", \"fixes_applied\": [\"unused variables\", \"e2e mock URLs\"]}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "CommitModal-Reviewer-c4fdaa38",
-  "team_id": "team-eda99380",
-  "created_at": 1773184160.428301
-}

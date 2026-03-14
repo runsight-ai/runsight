@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"summary\":\"URGENT REQUEST COMPLETED - Both deliverables verified DONE\",\"verification\":{\"NewWorkflowModal\":{\"exists\":true,\"path\":\"apps/gui/src/features/workflows/NewWorkflowModal.tsx\",\"size_bytes\":8058},\"DashboardOrOnboarding\":{\"exists\":true,\"todo_removed\":true,\"has_populated_dashboard\":true},\"typescript\":\"PASSED\",\"build\":\"SUCCESS\"},\"deliverables_complete\":true}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "Flow2-UI-69e6ea22",
-  "team_id": "team-a4a22979",
-  "created_at": 1773174881.094777
-}

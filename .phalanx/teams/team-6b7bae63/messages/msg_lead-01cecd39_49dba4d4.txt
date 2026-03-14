@@ -1,1 +1,0 @@
-[PHALANX EVENT] worker_dead: worker w0-coder-60a87541. Check status and decide next action.

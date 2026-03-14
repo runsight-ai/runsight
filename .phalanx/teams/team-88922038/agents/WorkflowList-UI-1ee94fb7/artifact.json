@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\n  \"component\": \"WorkflowList\",\n  \"file\": \"apps/gui/src/features/workflows/WorkflowList.tsx\",\n  \"features\": [\n    \"Page header with title, subtitle showing workflow count, New Workflow button, Import button\",\n    \"Search bar filtering by name and description\",\n    \"Status filter dropdown: All, Active, Draft, Archived\",\n    \"Sort options: Last updated, Name, Created\",\n    \"View toggle: Grid/List with List as default\",\n    \"Workflow table with columns: Name (with icon), Description (separate column), Steps, Last Run (status badge + time ago), Cost, Updated, Actions\",\n    \"onRowClick prop added to DataTable for row navigation to /workflows/:id\",\n    \"Row actions: duplicate (placeholder), delete with confirmation dialog\",\n    \"Empty state with no workflows text for E2E tests\",\n    \"Empty state for no search results with clear filters action\",\n    \"Skeleton loader while fetching\",\n    \"Error state with retry button\",\n    \"Dark mode styling matching design system\"\n  ],\n  \"fixes_applied\": [\n    \"Added onRowClick prop to DataTable component call with proper type cast\",\n    \"Extracted Description into separate column (was nested inside Name column)\",\n    \"Updated empty state title to include no workflows text for E2E test visibility\",\n    \"Fixed DataTable component to properly extract onRowClick from props\"\n  ],\n  \"hooks_used\": [\"useWorkflows\", \"useDeleteWorkflow\"],\n  \"components_used\": [\n    \"NewWorkflowModal\",\n    \"PageHeader\",\n    \"DataTable\",\n    \"StatusBadge\",\n    \"CostDisplay\",\n    \"EmptyState\",\n    \"Button\",\n    \"Input\",\n    \"Select\",\n    \"Dialog\",\n    \"DropdownMenu\"\n  ],\n  \"build_status\": \"success\",\n  \"typescript_status\": \"passed\"\n}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "WorkflowList-UI-1ee94fb7",
-  "team_id": "team-88922038",
-  "created_at": 1773216939.741162
-}

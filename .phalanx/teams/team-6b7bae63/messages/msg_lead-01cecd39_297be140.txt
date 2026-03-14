@@ -1,1 +1,0 @@
-[PHALANX EVENT] worker_dead: worker w2-reviewer-013900b5. Check status and decide next action.

@@ -1,1 +1,0 @@
-[PHALANX EVENT] worker_dead: worker w1-coder-f78a5417. Check status and decide next action.

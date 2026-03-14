@@ -1,8 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"summary\":\"Renamed libs and apps/api phalanx references to runsight\",\"details\":\"Renamed the phalanx_api and phalanx_core directories, updated every text occurrence inside libs and apps/api (including pyproject and tests), and preserved case-sensitive variants as runsight/Runsight/RUNSIGHT.\",\"tests\":\"Not run (not requested).\"}",
-  "warnings": [],
-  "agent_id": "coder1-e368102e",
-  "team_id": "team-bdacc51d",
-  "created_at": 1773418337.438476
-}

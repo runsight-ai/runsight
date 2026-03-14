@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"message\": \"Added 5 E2E tests for YAML Editor (Flow 3.01) to apps/gui/e2e/canvas.spec.ts\"}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "YamlEditor-E2E-e223e920",
-  "team_id": "team-2daa62c0",
-  "created_at": 1773181313.209395
-}

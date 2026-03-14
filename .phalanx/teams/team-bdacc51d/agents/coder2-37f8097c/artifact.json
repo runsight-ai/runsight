@@ -1,8 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"summary\":\"Renamed phalanx to runsight in apps/gui and .agora\",\"details\":\"Updated all occurrences of phalanx/Phalanx/PHALANX across configs, markdown, and assets inside apps/gui and .agora; renamed apps/gui/public/phalanx.svg to runsight.svg and refreshed its references; apps/cli was absent so no changes there.\"}",
-  "warnings": [],
-  "agent_id": "coder2-37f8097c",
-  "team_id": "team-bdacc51d",
-  "created_at": 1773418392.1724591
-}

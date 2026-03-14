@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\\\"component\\\": \\\"InspectorPanel\\\", \\\"file\\\": \\\"apps/gui/src/features/canvas/InspectorPanel.tsx\\\", \\\"workflowCanvasUpdated\\\": true, \\\"checks\\\": {\\\"typescript\\\": \\\"passed\\\", \\\"build\\\": \\\"passed\\\"}, \\\"features\\\": [\\\"Overview tab with editable name/description\\\", \\\"Prompt tab with Monaco placeholder\\\", \\\"Conditions tab with Simple/Expression/Python modes\\\", \\\"320px resizable panel with slide-in animation\\\", \\\"Status badges and tag chips\\\"], \\\"message\\\": \\\"InspectorPanel component fully implemented per specs. Type check and build passed.\\\"}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "Inspector-UI-e64a20bd",
-  "team_id": "team-ef21ceb6",
-  "created_at": 1773178820.1128478
-}

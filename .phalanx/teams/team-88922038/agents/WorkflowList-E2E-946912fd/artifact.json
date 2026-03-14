@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"message\": \"E2E tests for Workflow List implemented successfully. All 7 tests passing. Fixed missing onRowClick in DataTable to allow navigation from list view.\"}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "WorkflowList-E2E-946912fd",
-  "team_id": "team-88922038",
-  "created_at": 1773217046.345879
-}

@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"verdict\": \"REQUEST_CHANGES\", \"review_file\": \".agora/reviews/flow4-02-runs-history-review.md\", \"summary\": \"UI is missing Date filter and Pagination. E2E tests fail due to mock data violating Zod schema.\"}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "RunsHistory-Reviewer-d83e833a",
-  "team_id": "team-28c51c7f",
-  "created_at": 1773185579.3192902
-}

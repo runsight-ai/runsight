@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "output": "{\"summary\": \"Flow 2.07 Run Complete (Post-Execution Summary) built and verified\", \"workers\": {\"RunComplete-UI-6fee8932\": {\"status\": \"success\", \"files_created\": [\"apps/gui/src/features/canvas/SummaryToast.tsx\"], \"files_modified\": [\"apps/gui/src/features/canvas/WorkflowCanvas.tsx\", \"apps/gui/src/features/canvas/BottomPanel.tsx\", \"apps/gui/src/features/canvas/InspectorPanel.tsx\"], \"build\": \"passed (tsc + vite)\"}, \"RunComplete-E2E-e1bff6ab\": {\"status\": \"success\", \"tests_added\": 5, \"describe_block\": \"Run Complete\", \"file\": \"apps/gui/e2e/canvas.spec.ts\"}, \"RunComplete-Reviewer-8ab35ed9\": {\"status\": \"success\", \"initial_verdict\": \"REQUEST_CHANGES\", \"final_verdict\": \"APPROVE (all blocking issues resolved — cn import added, SummaryToast rendered in JSX, finalDuration used, Run Again button text correct, E2E strict mode violation fixed; tsc passes clean)\"}}, \"deliverables\": {\"SummaryToast\": \"Bottom-right toast, 8s auto-dismiss, green/red left border, fade animation, z-index 90\", \"WorkflowCanvas\": \"executionComplete state, Run Again/Retry button, SummaryToast rendered, final cost in header\", \"BottomPanel\": \"Completion banner at top of logs (green/red left border)\", \"InspectorPanel\": \"Execution tab shows static final metrics, no pulse dot when complete\", \"CanvasNode\": \"Static completed/failed borders (no pulse animation)\", \"E2E\": \"5 tests: toast visibility, Run Again button, bottom panel banner, static node state, Run Again re-executes\"}, \"build_status\": \"tsc --noEmit: 0 errors\", \"review_file\": \".agora/reviews/flow2-07-run-complete-review.md\"}",
-  "warnings": [],
-  "debt": [],
-  "agent_id": "RunComplete-Lead-46b01f84",
-  "team_id": "team-047785ba",
-  "created_at": 1773180978.7675562
-}
