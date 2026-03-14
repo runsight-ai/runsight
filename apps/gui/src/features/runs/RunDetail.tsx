@@ -48,6 +48,7 @@ interface RunNodeData extends Record<string, unknown> {
   name: string;
   stepType?: string;
   soulRef?: string;
+  model?: string;
   status: "idle" | "pending" | "running" | "completed" | "failed" | "paused";
   cost?: number;
   icon?: string;

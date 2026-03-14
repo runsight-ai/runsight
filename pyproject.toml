@@ -13,11 +13,15 @@ dev = [
 ]
 
 [tool.uv.workspace]
-members = ["apps/*", "libs/*"]
+members = ["apps/api", "libs/*"]
+
+[tool.uv.sources]
+runsight-core = { workspace = true }
+runsight-api = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["apps/cli/tests"]
-addopts = "--ignore=apps/cli/tests/future_backlog"
+testpaths = ["apps/api/tests", "libs/core/tests"]
+addopts = ""
 markers = [
     "integration: requires tmux and/or agent CLIs",
     "e2e: full system end-to-end tests",
