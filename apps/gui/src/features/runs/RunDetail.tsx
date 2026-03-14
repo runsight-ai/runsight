@@ -65,7 +65,7 @@ function CanvasNodeComponent(props: { data: RunNodeData; selected?: boolean }) {
   const status = data.status || "idle";
 
   const getNodeIcon = () => {
-    const color = data.iconColor || "#9292A0";
+    const color = data.iconColor || "var(--muted-foreground)";
     const className = "w-4 h-4";
     switch (data.icon) {
       case "server":
@@ -86,28 +86,28 @@ function CanvasNodeComponent(props: { data: RunNodeData; selected?: boolean }) {
     switch (status) {
       case "completed":
         return {
-          borderColor: "#28A745",
+          borderColor: "var(--success)",
           borderWidth: "2px",
           boxShadow: "none",
         };
       case "failed":
         return {
-          borderColor: "#E53935",
+          borderColor: "var(--error)",
           borderWidth: "2px",
-          boxShadow: "0 0 0 2px rgba(229,57,53,0.4)",
+          boxShadow: "0 0 0 2px var(--error-40)",
         };
       case "pending":
         return {
-          borderColor: "#9292A0",
+          borderColor: "var(--muted-foreground)",
           borderWidth: "1px",
           boxShadow: "none",
           opacity: 0.7,
         };
       default:
         return {
-          borderColor: selected ? "#5E6AD2" : "#2D2D35",
+          borderColor: selected ? "var(--primary)" : "var(--border)",
           borderWidth: selected ? "2px" : "1px",
-          boxShadow: selected ? "0 0 0 2px rgba(94,106,210,0.4)" : "none",
+          boxShadow: selected ? "0 0 0 2px var(--primary-40)" : "none",
         };
     }
   };
@@ -120,7 +120,7 @@ function CanvasNodeComponent(props: { data: RunNodeData; selected?: boolean }) {
     <div
       data-testid={`node-${data.name}`}
       className={cn(
-        "w-[240px] bg-[#16161C] rounded-md transition-all duration-150",
+        "w-[240px] bg-[var(--card)] rounded-md transition-all duration-150",
         status === "pending" && "opacity-70"
       )}
       style={{
@@ -133,10 +133,10 @@ function CanvasNodeComponent(props: { data: RunNodeData; selected?: boolean }) {
         className={cn(
           "h-9 px-3 flex items-center justify-between border-b",
           status === "completed"
-            ? "border-[#28A745]/30"
+            ? "border-[var(--success)]/30"
             : status === "failed"
-            ? "border-[#E53935]/30"
-            : "border-[#2D2D35]"
+            ? "border-[var(--error)]/30"
+            : "border-[var(--border)]"
         )}
       >
         <div className="flex items-center gap-2">
@@ -144,14 +144,14 @@ function CanvasNodeComponent(props: { data: RunNodeData; selected?: boolean }) {
           <span
             className={cn(
               "text-sm font-medium truncate max-w-[120px]",
-              status === "pending" ? "text-[#5E5E6B]" : "text-[#EDEDF0]"
+              status === "pending" ? "text-[var(--muted-subtle)]" : "text-[var(--foreground)]"
             )}
           >
             {data.name}
           </span>
         </div>
         {displayCost !== undefined && (
-          <span className="font-mono text-xs text-[#9292A0]">
+          <span className="font-mono text-xs text-[var(--muted-foreground)]">
             {isEstimate ? "~" : ""}${displayCost.toFixed(3)}
           </span>
         )}
@@ -161,12 +161,12 @@ function CanvasNodeComponent(props: { data: RunNodeData; selected?: boolean }) {
       <div className="p-3 space-y-2">
         {data.soulRef && (
           <div className="flex items-center justify-between">
-            <span className="text-xs text-[#5E5E6B]">Soul</span>
-            <span className="text-xs text-[#9292A0]">{data.soulRef}</span>
+            <span className="text-xs text-[var(--muted-subtle)]">Soul</span>
+            <span className="text-xs text-[var(--muted-foreground)]">{data.soulRef}</span>
           </div>
         )}
         <div className="flex items-center justify-between">
-          <span className="text-xs text-[#5E5E6B]">Status</span>
+          <span className="text-xs text-[var(--muted-subtle)]">Status</span>
           <StatusBadge
             status={
               status === "completed"
@@ -192,7 +192,7 @@ function CanvasNodeComponent(props: { data: RunNodeData; selected?: boolean }) {
 
       {/* Footer with metrics */}
       {(data.duration || data.tokens) && (
-        <div className="px-3 py-1.5 border-t border-[#2D2D35] text-xs text-[#9292A0]">
+        <div className="px-3 py-1.5 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)]">
           {data.duration ? `${data.duration.toFixed(1)}s` : ""}
           {data.duration && data.tokens ? " • " : ""}
           {data.tokens?.total ? `${data.tokens.total.toLocaleString()} tokens` : ""}
@@ -201,8 +201,8 @@ function CanvasNodeComponent(props: { data: RunNodeData; selected?: boolean }) {
 
       {/* Error indicator */}
       {status === "failed" && data.error && (
-        <div className="px-3 py-2 border-t border-[#2D2D35] bg-[rgba(229,57,53,0.08)]">
-          <span className="text-xs text-[#E53935]">{data.error}</span>
+        <div className="px-3 py-2 border-t border-[var(--border)] bg-[var(--error-08)]">
+          <span className="text-xs text-[var(--error)]">{data.error}</span>
         </div>
       )}
     </div>
@@ -249,10 +249,10 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
   const status = nodeData.status || "idle";
 
   return (
-    <aside data-testid="right-inspector" className="w-[320px] min-w-[280px] max-w-[480px] bg-[#16161C] border-l border-[#2D2D35] flex flex-col z-50 animate-in slide-in-from-right duration-200">
+    <aside data-testid="right-inspector" className="w-[320px] min-w-[280px] max-w-[480px] bg-[var(--card)] border-l border-[var(--border)] flex flex-col z-50 animate-in slide-in-from-right duration-200">
       {/* Header */}
-      <div className="h-12 px-3 border-b border-[#2D2D35] flex items-center justify-between shrink-0">
-        <h2 className="text-base font-medium text-[#EDEDF0] truncate">
+      <div className="h-12 px-3 border-b border-[var(--border)] flex items-center justify-between shrink-0">
+        <h2 className="text-base font-medium text-[var(--foreground)] truncate">
           {nodeData.name}
         </h2>
         <Button
@@ -260,7 +260,7 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
           size="icon-sm"
           onClick={onClose}
           aria-label="Close inspector"
-          className="w-8 h-8 text-[#9292A0] hover:text-[#EDEDF0] hover:bg-[#22222A]"
+          className="w-8 h-8 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--surface-elevated)]"
         >
           <X className="w-4 h-4" />
         </Button>
@@ -270,7 +270,7 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
       <div
         role="tablist"
         aria-label="Inspector tabs"
-        className="h-9 flex items-center px-2 border-b border-[#2D2D35] gap-1 shrink-0 overflow-x-auto"
+        className="h-9 flex items-center px-2 border-b border-[var(--border)] gap-1 shrink-0 overflow-x-auto"
       >
         <button
           role="tab"
@@ -281,8 +281,8 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
           className={cn(
             "h-full px-3 text-[12px] font-medium whitespace-nowrap transition-colors border-b-2",
             activeTab === "execution"
-              ? "text-[#EDEDF0] border-[#5E6AD2]"
-              : "text-[#9292A0] hover:text-[#EDEDF0] border-transparent"
+              ? "text-[var(--foreground)] border-[var(--primary)]"
+              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-transparent"
           )}
         >
           Execution
@@ -296,8 +296,8 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
           className={cn(
             "h-full px-3 text-[12px] font-medium whitespace-nowrap transition-colors border-b-2",
             activeTab === "overview"
-              ? "text-[#EDEDF0] border-[#5E6AD2]"
-              : "text-[#9292A0] hover:text-[#EDEDF0] border-transparent"
+              ? "text-[var(--foreground)] border-[var(--primary)]"
+              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-transparent"
           )}
         >
           Overview
@@ -313,30 +313,30 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
               className={cn(
                 "mb-4 p-3 rounded-md border",
                 status === "completed"
-                  ? "bg-[rgba(40,167,69,0.08)] border-[#28A745]/30"
+                  ? "bg-[var(--success-08)] border-[var(--success)]/30"
                   : status === "failed"
-                  ? "bg-[rgba(229,57,53,0.08)] border-[#E53935]/30"
+                  ? "bg-[var(--error-08)] border-[var(--error)]/30"
                   : status === "pending"
-                  ? "bg-[#0D0D12] border-[#2D2D35]"
-                  : "bg-[#0D0D12] border-[#2D2D35]"
+                  ? "bg-[var(--background)] border-[var(--border)]"
+                  : "bg-[var(--background)] border-[var(--border)]"
               )}
             >
               <div className="flex items-center gap-2 mb-2">
                 {status === "completed" ? (
-                  <CheckCircle className="w-4 h-4 text-[#28A745]" />
+                  <CheckCircle className="w-4 h-4 text-[var(--success)]" />
                 ) : status === "failed" ? (
-                  <XCircle className="w-4 h-4 text-[#E53935]" />
+                  <XCircle className="w-4 h-4 text-[var(--error)]" />
                 ) : (
-                  <Clock className="w-4 h-4 text-[#9292A0]" />
+                  <Clock className="w-4 h-4 text-[var(--muted-foreground)]" />
                 )}
                 <span
                   className={cn(
                     "text-sm font-medium",
                     status === "completed"
-                      ? "text-[#28A745]"
+                      ? "text-[var(--success)]"
                       : status === "failed"
-                      ? "text-[#E53935]"
-                      : "text-[#9292A0]"
+                      ? "text-[var(--error)]"
+                      : "text-[var(--muted-foreground)]"
                   )}
                 >
                   {status === "completed"
@@ -349,7 +349,7 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
                 </span>
               </div>
               {nodeData.duration && (
-                <div className="font-mono text-xs text-[#9292A0]">
+                <div className="font-mono text-xs text-[var(--muted-foreground)]">
                   Duration: {formatDuration(nodeData.duration)}
                 </div>
               )}
@@ -357,11 +357,11 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
 
             {/* Cost */}
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5E5E6B] mb-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">
                 Cost
               </label>
-              <div className="flex items-center justify-between p-2 rounded-md bg-[#0D0D12] border border-[#2D2D35]">
-                <span className="font-mono text-sm text-[#EDEDF0]">
+              <div className="flex items-center justify-between p-2 rounded-md bg-[var(--background)] border border-[var(--border)]">
+                <span className="font-mono text-sm text-[var(--foreground)]">
                   ${(nodeData.executionCost || 0).toFixed(3)}
                 </span>
               </div>
@@ -370,21 +370,21 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
             {/* Token Usage */}
             {nodeData.tokens && (
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5E5E6B] mb-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">
                   Token Usage
                 </label>
-                <div className="p-3 rounded-md bg-[#0D0D12] border border-[#2D2D35] space-y-2">
+                <div className="p-3 rounded-md bg-[var(--background)] border border-[var(--border)] space-y-2">
                   {nodeData.tokens.input !== undefined && (
                     <div>
                       <div className="flex justify-between text-xs mb-1">
-                        <span className="text-[#9292A0]">Prompt</span>
-                        <span className="font-mono text-[#EDEDF0]">
+                        <span className="text-[var(--muted-foreground)]">Prompt</span>
+                        <span className="font-mono text-[var(--foreground)]">
                           {nodeData.tokens.input.toLocaleString()}
                         </span>
                       </div>
-                      <div className="h-1.5 bg-[#2D2D35] rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-[#5E6AD2] rounded-full"
+                          className="h-full bg-[var(--primary)] rounded-full"
                           style={{
                             width: `${
                               ((nodeData.tokens.input || 0) /
@@ -399,14 +399,14 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
                   {nodeData.tokens.output !== undefined && (
                     <div>
                       <div className="flex justify-between text-xs mb-1">
-                        <span className="text-[#9292A0]">Completion</span>
-                        <span className="font-mono text-[#EDEDF0]">
+                        <span className="text-[var(--muted-foreground)]">Completion</span>
+                        <span className="font-mono text-[var(--foreground)]">
                           {nodeData.tokens.output.toLocaleString()}
                         </span>
                       </div>
-                      <div className="h-1.5 bg-[#2D2D35] rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-[#5E6AD2] rounded-full"
+                          className="h-full bg-[var(--primary)] rounded-full"
                           style={{
                             width: `${
                               ((nodeData.tokens.output || 0) /
@@ -418,9 +418,9 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
                       </div>
                     </div>
                   )}
-                  <div className="flex justify-between text-xs pt-1 border-t border-[#2D2D35]">
-                    <span className="text-[#5E5E6B]">Total</span>
-                    <span className="font-mono text-[#EDEDF0]">
+                  <div className="flex justify-between text-xs pt-1 border-t border-[var(--border)]">
+                    <span className="text-[var(--muted-subtle)]">Total</span>
+                    <span className="font-mono text-[var(--foreground)]">
                       {nodeData.tokens.total?.toLocaleString()} tokens
                     </span>
                   </div>
@@ -431,10 +431,10 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
             {/* Error Message */}
             {status === "failed" && nodeData.error && (
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5E5E6B] mb-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">
                   Error
                 </label>
-                <div className="p-3 rounded-md bg-[rgba(229,57,53,0.08)] border border-[#E53935]/30 font-mono text-xs text-[#E53935] leading-relaxed">
+                <div className="p-3 rounded-md bg-[var(--error-08)] border border-[var(--error)]/30 font-mono text-xs text-[var(--error)] leading-relaxed">
                   {nodeData.error}
                 </div>
               </div>
@@ -442,17 +442,17 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
 
             {/* Configuration (Read-only) */}
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5E5E6B] mb-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">
                 Configuration
               </label>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-[#9292A0]">Soul</span>
-                  <span className="text-[#EDEDF0]">{nodeData.soulRef || "—"}</span>
+                  <span className="text-[var(--muted-foreground)]">Soul</span>
+                  <span className="text-[var(--foreground)]">{nodeData.soulRef || "—"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#9292A0]">Model</span>
-                  <span className="text-[#EDEDF0]">{nodeData.model || "—"}</span>
+                  <span className="text-[var(--muted-foreground)]">Model</span>
+                  <span className="text-[var(--foreground)]">{nodeData.model || "—"}</span>
                 </div>
               </div>
             </div>
@@ -463,17 +463,17 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
           <div role="tabpanel" id="inspector-overview-panel" aria-labelledby="inspector-overview-tab" className="space-y-4">
             {/* Name */}
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5E5E6B] mb-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">
                 Name
               </label>
-              <div className="p-2 rounded-md bg-[#0D0D12] border border-[#2D2D35] text-sm text-[#EDEDF0]">
+              <div className="p-2 rounded-md bg-[var(--background)] border border-[var(--border)] text-sm text-[var(--foreground)]">
                 {nodeData.name}
               </div>
             </div>
 
             {/* Status */}
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5E5E6B] mb-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">
                 Status
               </label>
               <StatusBadge
@@ -500,17 +500,17 @@ function InspectorPanel({ selectedNode, onClose }: InspectorPanelProps) {
 
             {/* Configuration */}
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5E5E6B] mb-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">
                 Configuration
               </label>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-[#9292A0]">Soul</span>
-                  <span className="text-[#EDEDF0]">{nodeData.soulRef || "—"}</span>
+                  <span className="text-[var(--muted-foreground)]">Soul</span>
+                  <span className="text-[var(--foreground)]">{nodeData.soulRef || "—"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#9292A0]">Model</span>
-                  <span className="text-[#EDEDF0]">{nodeData.model || "—"}</span>
+                  <span className="text-[var(--muted-foreground)]">Model</span>
+                  <span className="text-[var(--foreground)]">{nodeData.model || "—"}</span>
                 </div>
               </div>
             </div>
@@ -539,17 +539,17 @@ function BottomPanel({
   const [isExpanded, setIsExpanded] = useState(true);
 
   const levelConfig = {
-    INFO: { bg: "bg-transparent", text: "text-[#9292A0]" },
-    WARN: { bg: "bg-[rgba(245,166,35,0.12)]", text: "text-[#F5A623]" },
-    ERROR: { bg: "bg-[rgba(229,57,53,0.12)]", text: "text-[#E53935]" },
-    DEBUG: { bg: "bg-transparent", text: "text-[#5E5E6B]" },
+    INFO: { bg: "bg-transparent", text: "text-[var(--muted-foreground)]" },
+    WARN: { bg: "bg-[var(--warning-12)]", text: "text-[var(--warning)]" },
+    ERROR: { bg: "bg-[var(--error-12)]", text: "text-[var(--error)]" },
+    DEBUG: { bg: "bg-transparent", text: "text-[var(--muted-subtle)]" },
   } as const;
 
   return (
     <div
       data-testid="bottom-panel"
       className={cn(
-        "bg-[#16161C] border-t border-[#2D2D35] flex flex-col z-50",
+        "bg-[var(--card)] border-t border-[var(--border)] flex flex-col z-50",
         isExpanded ? "h-[200px]" : "h-[36px]"
       )}
     >
@@ -557,7 +557,7 @@ function BottomPanel({
       <div
         role="tablist"
         aria-label="Bottom panel tabs"
-        className="h-9 flex items-center px-4 border-b border-[#2D2D35] justify-between shrink-0"
+        className="h-9 flex items-center px-4 border-b border-[var(--border)] justify-between shrink-0"
       >
         <div className="flex items-center gap-1">
           {[
@@ -574,8 +574,8 @@ function BottomPanel({
               className={cn(
                 "h-7 px-3 text-[12px] font-medium flex items-center gap-1.5 border-b-2 transition-colors",
                 activeTab === tab.id
-                  ? "text-[#EDEDF0] border-[#5E6AD2]"
-                  : "text-[#9292A0] hover:text-[#EDEDF0] border-transparent"
+                  ? "text-[var(--foreground)] border-[var(--primary)]"
+                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-transparent"
               )}
             >
               <tab.icon className="w-3.5 h-3.5" />
@@ -587,7 +587,7 @@ function BottomPanel({
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           aria-label={isExpanded ? "Collapse panel" : "Expand panel"}
-          className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#22222A] text-[#9292A0]"
+          className="w-6 h-6 flex items-center justify-center rounded hover:bg-[var(--surface-elevated)] text-[var(--muted-foreground)]"
         >
           {isExpanded ? (
             <ChevronDown className="w-4 h-4" />
@@ -609,19 +609,19 @@ function BottomPanel({
                   className={cn(
                     "flex items-center gap-2 px-4 py-2 border-b shrink-0",
                     executionFailed
-                      ? "bg-[rgba(229,57,53,0.08)] border-l-[3px] border-l-[#E53935] border-[#2D2D35]"
-                      : "bg-[rgba(40,167,69,0.08)] border-l-[3px] border-l-[#28A745] border-[#2D2D35]"
+                      ? "bg-[var(--error-08)] border-l-[3px] border-l-[var(--error)] border-[var(--border)]"
+                      : "bg-[var(--success-08)] border-l-[3px] border-l-[var(--success)] border-[var(--border)]"
                   )}
                 >
                   {executionFailed ? (
                     <>
-                      <XCircle className="w-4 h-4 text-[#E53935] shrink-0" />
-                      <span className="text-sm text-[#EDEDF0]">Run failed</span>
+                      <XCircle className="w-4 h-4 text-[var(--error)] shrink-0" />
+                      <span className="text-sm text-[var(--foreground)]">Run failed</span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="w-4 h-4 text-[#28A745] shrink-0" />
-                      <span className="text-sm text-[#EDEDF0]">
+                      <CheckCircle className="w-4 h-4 text-[var(--success)] shrink-0" />
+                      <span className="text-sm text-[var(--foreground)]">
                         Run completed in {formatDuration(finalDuration)}
                       </span>
                     </>
@@ -630,7 +630,7 @@ function BottomPanel({
               )}
               <div className="flex-1 overflow-y-auto">
                 {logs.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-[#5E5E6B] text-sm">
+                  <div className="flex items-center justify-center h-full text-[var(--muted-subtle)] text-sm">
                     No logs available for this run.
                   </div>
                 ) : (
@@ -643,10 +643,10 @@ function BottomPanel({
                         key={log.id}
                         className={cn(
                           "flex items-center gap-3 px-3 font-mono text-xs min-h-[24px]",
-                          index % 2 === 1 && "bg-[rgba(255,255,255,0.02)]"
+                          index % 2 === 1 && "bg-[var(--overlay-02)]"
                         )}
                       >
-                        <span className="text-[#5E5E6B] w-[80px] shrink-0">
+                        <span className="text-[var(--muted-subtle)] w-[80px] shrink-0">
                           {formatTimestamp(log.timestamp)}
                         </span>
                         <span
@@ -659,11 +659,11 @@ function BottomPanel({
                           {log.level}
                         </span>
                         {log.node_id && (
-                          <span className="text-[#5E5E6B] w-[100px] shrink-0 truncate">
+                          <span className="text-[var(--muted-subtle)] w-[100px] shrink-0 truncate">
                             [{log.node_id}]
                           </span>
                         )}
-                        <span className="text-[#EDEDF0] flex-1 truncate">{log.message}</span>
+                        <span className="text-[var(--foreground)] flex-1 truncate">{log.message}</span>
                       </div>
                     );
                   })
@@ -674,14 +674,14 @@ function BottomPanel({
 
           {/* Agent Feed Tab */}
           {activeTab === "agent-feed" && (
-            <div className="flex items-center justify-center h-full text-[#5E5E6B] text-sm">
+            <div className="flex items-center justify-center h-full text-[var(--muted-subtle)] text-sm">
               Agent Feed coming soon
             </div>
           )}
 
           {/* Artifacts Tab */}
           {activeTab === "artifacts" && (
-            <div className="flex items-center justify-center h-full text-[#5E5E6B] text-sm">
+            <div className="flex items-center justify-center h-full text-[var(--muted-subtle)] text-sm">
               Artifacts coming soon
             </div>
           )}
@@ -748,7 +748,7 @@ function RunDetailInner() {
           id: `e${i}`,
           source: currentNode.id,
           target: nextNode.id,
-          style: { stroke: "#2D2D35", strokeWidth: 2 } as React.CSSProperties,
+          style: { stroke: "var(--border)", strokeWidth: 2 } as React.CSSProperties,
         });
       }
     }
@@ -809,8 +809,8 @@ function RunDetailInner() {
 
   if (isLoadingRun || isLoadingNodes) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#0D0D12]">
-        <div className="flex items-center gap-2 text-[#9292A0]">
+      <div className="flex-1 flex items-center justify-center bg-[var(--background)]">
+        <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
           Loading run details...
         </div>
@@ -820,8 +820,8 @@ function RunDetailInner() {
 
   if (!run) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#0D0D12]">
-        <div className="text-[#9292A0]">Run not found</div>
+      <div className="flex-1 flex items-center justify-center bg-[var(--background)]">
+        <div className="text-[var(--muted-foreground)]">Run not found</div>
       </div>
     );
   }
@@ -830,11 +830,11 @@ function RunDetailInner() {
   const isCompleted = run.status === "completed" || run.status === "success";
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-[#0D0D12]">
+    <div className="flex-1 flex overflow-hidden bg-[var(--background)]">
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Header Bar */}
-        <header className="h-12 bg-[#16161C] border-b border-[#2D2D35] flex items-center justify-between px-4 z-40">
+        <header className="h-12 bg-[var(--card)] border-b border-[var(--border)] flex items-center justify-between px-4 z-40">
           {/* Left: Breadcrumb */}
           <div className="flex items-center gap-2">
             <Link to="/runs">
@@ -842,20 +842,20 @@ function RunDetailInner() {
                 <ChevronLeft className="w-4 h-4" />
               </Button>
             </Link>
-            <span className="text-[#5E5E6B]">/</span>
-            <span className="text-[#9292A0] text-sm">Runs</span>
-            <span className="text-[#5E5E6B]">/</span>
-            <span className="text-[#EDEDF0] text-sm font-medium truncate max-w-[200px]">
+            <span className="text-[var(--muted-subtle)]">/</span>
+            <span className="text-[var(--muted-foreground)] text-sm">Runs</span>
+            <span className="text-[var(--muted-subtle)]">/</span>
+            <span className="text-[var(--foreground)] text-sm font-medium truncate max-w-[200px]">
               {run.workflow_name} — Run #{run.id.slice(-6)}
             </span>
             <span
               className={cn(
                 "ml-2 px-2 py-0.5 rounded text-xs font-medium",
                 isCompleted
-                  ? "bg-[rgba(40,167,69,0.15)] text-[#28A745]"
+                  ? "bg-[var(--success-15)] text-[var(--success)]"
                   : isFailed
-                  ? "bg-[rgba(229,57,53,0.15)] text-[#E53935]"
-                  : "bg-[rgba(146,146,160,0.15)] text-[#9292A0]"
+                  ? "bg-[var(--error-15)] text-[var(--error)]"
+                  : "bg-[var(--muted-15)] text-[var(--muted-foreground)]"
               )}
             >
               {isCompleted ? "Completed" : isFailed ? "Failed" : run.status}
@@ -867,11 +867,11 @@ function RunDetailInner() {
             <Button variant="ghost" size="icon-sm" className="w-8 h-8" aria-label="Zoom in">
               <ZoomIn className="w-4 h-4" />
             </Button>
-            <span className="text-sm text-[#9292A0] min-w-[50px] text-center">100%</span>
+            <span className="text-sm text-[var(--muted-foreground)] min-w-[50px] text-center">100%</span>
             <Button variant="ghost" size="icon-sm" className="w-8 h-8" aria-label="Zoom out">
               <ZoomOut className="w-4 h-4" />
             </Button>
-            <div className="w-px h-5 bg-[#2D2D35] mx-1" />
+            <div className="w-px h-5 bg-[var(--border)] mx-1" />
             <Button variant="ghost" size="icon-sm" className="w-8 h-8" aria-label="Fit to screen" title="Fit to screen">
               <Maximize className="w-4 h-4" />
             </Button>
@@ -880,16 +880,16 @@ function RunDetailInner() {
           {/* Right: Actions */}
           <div className="flex items-center gap-3">
             {/* Read-only indicator */}
-            <div className="h-6 px-2 rounded bg-[rgba(94,106,210,0.1)] border border-[#5E6AD2]/30 flex items-center gap-1.5 text-[11px] font-medium text-[#5E6AD2]">
+            <div className="h-6 px-2 rounded bg-[var(--primary-10)] border border-[var(--primary)]/30 flex items-center gap-1.5 text-[11px] font-medium text-[var(--primary)]">
               <Activity className="w-3 h-3" />
               Read-only review
             </div>
 
             {/* Total Cost Badge */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#22222A] border border-[#2D2D35]">
-              <DollarSign className="w-3.5 h-3.5 text-[#9292A0]" />
-              <span className="text-xs text-[#9292A0]">Total Cost</span>
-              <span className="font-mono text-sm text-[#EDEDF0]">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[var(--surface-elevated)] border border-[var(--border)]">
+              <DollarSign className="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
+              <span className="text-xs text-[var(--muted-foreground)]">Total Cost</span>
+              <span className="font-mono text-sm text-[var(--foreground)]">
                 ${run.total_cost_usd.toFixed(3)}
               </span>
             </div>
@@ -899,8 +899,8 @@ function RunDetailInner() {
               className={cn(
                 "h-9 px-4",
                 isFailed
-                  ? "bg-[#E53935] hover:bg-[#C62828] text-white"
-                  : "bg-[#5E6AD2] hover:bg-[#717EE3] text-white"
+                  ? "bg-[var(--error)] hover:bg-[var(--error-hover)] text-white"
+                  : "bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
               )}
               onClick={handleRunAgain}
             >
@@ -938,25 +938,25 @@ function RunDetailInner() {
               fitViewOptions={{ padding: 0.2 }}
               minZoom={0.1}
               maxZoom={4}
-              className="bg-[#0D0D12]"
+              className="bg-[var(--background)]"
             >
               {/* Grid Background */}
-              <Background color="#2D2D35" gap={20} size={1} style={{ opacity: 0.3 }} />
+              <Background color="var(--border)" gap={20} size={1} style={{ opacity: 0.3 }} />
 
               {/* Controls */}
-              <Controls className="!bg-[#16161C] !border-[#2D2D35]" />
+              <Controls className="!bg-[var(--card)] !border-[var(--border)]" />
 
               {/* MiniMap */}
               <MiniMap
-                className="!bg-[#16161C]/90 !border-[#2D2D35]"
+                className="!bg-[var(--card)]/90 !border-[var(--border)]"
                 nodeColor={(node) => {
                   const status = (node.data as RunNodeData)?.status;
-                  if (status === "completed") return "#28A745";
-                  if (status === "failed") return "#E53935";
-                  if (status === "pending") return "#9292A0";
-                  return "#5E6AD2";
+                  if (status === "completed") return "var(--success)";
+                  if (status === "failed") return "var(--error)";
+                  if (status === "pending") return "var(--muted-foreground)";
+                  return "var(--primary)";
                 }}
-                maskColor="rgba(13, 13, 18, 0.7)"
+                maskColor="var(--background-70)"
               />
             </ReactFlow>
           </div>

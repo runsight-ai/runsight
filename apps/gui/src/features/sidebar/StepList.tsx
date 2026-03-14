@@ -67,21 +67,21 @@ function truncateText(text: string | null | undefined, maxLength: number): strin
 function getStepTypeColor(type: string): string {
   switch (type.toLowerCase()) {
     case "python":
-      return "bg-[rgba(40,167,69,0.12)] text-[#28A745]";
+      return "bg-[var(--success-12)] text-[var(--success)]";
     case "javascript":
-      return "bg-[rgba(245,166,35,0.12)] text-[#F5A623]";
+      return "bg-[var(--warning-12)] text-[var(--warning)]";
     case "shell":
-      return "bg-[#22222A] text-[#9292A0]";
+      return "bg-[var(--surface-elevated)] text-[var(--muted-foreground)]";
     case "http":
-      return "bg-[rgba(0,229,255,0.12)] text-[#00E5FF]";
+      return "bg-[var(--running-12)] text-[var(--running)]";
     case "prompt":
-      return "bg-[rgba(94,106,210,0.12)] text-[#5E6AD2]";
+      return "bg-[var(--primary-12)] text-[var(--primary)]";
     case "condition":
-      return "bg-[rgba(229,57,53,0.12)] text-[#E53935]";
+      return "bg-[var(--error-12)] text-[var(--error)]";
     case "loop":
-      return "bg-[rgba(156,39,176,0.12)] text-[#9C27B0]";
+      return "bg-[var(--accent-alt-12)] text-[var(--accent-alt)]";
     default:
-      return "bg-[rgba(146,146,160,0.12)] text-[#9292A0]";
+      return "bg-[var(--muted-12)] text-[var(--muted-foreground)]";
   }
 }
 
@@ -134,8 +134,8 @@ function NewStepModal({ open, onClose }: NewStepModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
-      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[#16161C] border-[#2D2D35] rounded-xl overflow-hidden">
-        <DialogHeader className="h-14 px-4 border-b border-[#2D2D35] flex flex-row items-center justify-between shrink-0">
+      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[var(--card)] border-[var(--border)] rounded-xl overflow-hidden">
+        <DialogHeader className="h-14 px-4 border-b border-[var(--border)] flex flex-row items-center justify-between shrink-0">
           <DialogTitle className="text-base font-medium text-foreground tracking-tight">
             New Step
           </DialogTitle>
@@ -145,17 +145,17 @@ function NewStepModal({ open, onClose }: NewStepModalProps) {
           {/* Name Field */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Name <span className="text-[#E53935]">*</span>
+              Name <span className="text-[var(--error)]">*</span>
             </Label>
             <Input
               type="text"
               placeholder="Enter step name..."
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-9 bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-9 bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
-            <p className="text-xs text-[#5E5E6B]">A unique name to identify this step</p>
+            <p className="text-xs text-[var(--muted-subtle)]">A unique name to identify this step</p>
           </div>
 
           {/* Type Field */}
@@ -168,15 +168,15 @@ function NewStepModal({ open, onClose }: NewStepModalProps) {
               onValueChange={(value) => setType(value || "step")}
               disabled={isSubmitting}
             >
-              <SelectTrigger className="h-9 bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[#5E6AD2]">
+              <SelectTrigger className="h-9 bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[var(--primary)]">
                 <SelectValue placeholder="Select a type" />
               </SelectTrigger>
-              <SelectContent className="bg-[#22222A] border-[#2D2D35] rounded-md">
+              <SelectContent className="bg-[var(--surface-elevated)] border-[var(--border)] rounded-md">
                 {STEP_TYPES.map((t) => (
                   <SelectItem
                     key={t.value}
                     value={t.value}
-                    className="text-sm text-foreground focus:bg-[#2D2D35] focus:text-foreground cursor-pointer"
+                    className="text-sm text-foreground focus:bg-[var(--border)] focus:text-foreground cursor-pointer"
                   >
                     {t.label}
                   </SelectItem>
@@ -188,31 +188,31 @@ function NewStepModal({ open, onClose }: NewStepModalProps) {
           {/* Description Field */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Description <span className="text-[#5E5E6B] font-normal">(optional)</span>
+              Description <span className="text-[var(--muted-subtle)] font-normal">(optional)</span>
             </Label>
             <Textarea
               placeholder="Describe what this step does..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[80px] bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] resize-vertical focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="min-h-[80px] bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] resize-vertical focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
           </div>
         </div>
 
-        <DialogFooter className="h-16 px-4 border-t border-[#2D2D35] flex items-center justify-end gap-2 shrink-0">
+        <DialogFooter className="h-16 px-4 border-t border-[var(--border)] flex items-center justify-end gap-2 shrink-0">
           <Button
             variant="outline"
             onClick={handleCancel}
             disabled={isSubmitting}
-            className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+            className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!isNameFilled || isSubmitting}
-            className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white disabled:opacity-40"
+            className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white disabled:opacity-40"
           >
             {isSubmitting ? (
               <>
@@ -282,8 +282,8 @@ function EditStepModal({ step, open, onClose }: EditStepModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
-      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[#16161C] border-[#2D2D35] rounded-xl overflow-hidden">
-        <DialogHeader className="h-14 px-4 border-b border-[#2D2D35] flex flex-row items-center justify-between shrink-0">
+      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[var(--card)] border-[var(--border)] rounded-xl overflow-hidden">
+        <DialogHeader className="h-14 px-4 border-b border-[var(--border)] flex flex-row items-center justify-between shrink-0">
           <DialogTitle className="text-base font-medium text-foreground tracking-tight">
             Edit Step
           </DialogTitle>
@@ -300,7 +300,7 @@ function EditStepModal({ step, open, onClose }: EditStepModalProps) {
               placeholder="Enter step name..."
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-9 bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-9 bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
           </div>
@@ -315,15 +315,15 @@ function EditStepModal({ step, open, onClose }: EditStepModalProps) {
               onValueChange={(value) => setType(value || "step")}
               disabled={isSubmitting}
             >
-              <SelectTrigger className="h-9 bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[#5E6AD2]">
+              <SelectTrigger className="h-9 bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[var(--primary)]">
                 <SelectValue placeholder="Select a type" />
               </SelectTrigger>
-              <SelectContent className="bg-[#22222A] border-[#2D2D35] rounded-md">
+              <SelectContent className="bg-[var(--surface-elevated)] border-[var(--border)] rounded-md">
                 {STEP_TYPES.map((t) => (
                   <SelectItem
                     key={t.value}
                     value={t.value}
-                    className="text-sm text-foreground focus:bg-[#2D2D35] focus:text-foreground cursor-pointer"
+                    className="text-sm text-foreground focus:bg-[var(--border)] focus:text-foreground cursor-pointer"
                   >
                     {t.label}
                   </SelectItem>
@@ -341,25 +341,25 @@ function EditStepModal({ step, open, onClose }: EditStepModalProps) {
               placeholder="Describe what this step does..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[80px] bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] resize-vertical focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="min-h-[80px] bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] resize-vertical focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
           </div>
         </div>
 
-        <DialogFooter className="h-16 px-4 border-t border-[#2D2D35] flex items-center justify-end gap-2 shrink-0">
+        <DialogFooter className="h-16 px-4 border-t border-[var(--border)] flex items-center justify-end gap-2 shrink-0">
           <Button
             variant="outline"
             onClick={handleCancel}
             disabled={isSubmitting}
-            className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+            className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white disabled:opacity-40"
+            className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white disabled:opacity-40"
           >
             {isSubmitting ? (
               <>
@@ -423,7 +423,7 @@ export function Component() {
         const step = row as StepResponse;
         return (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-[rgba(94,106,210,0.12)] text-[#5E6AD2]">
+            <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-[var(--primary-12)] text-[var(--primary)]">
               <Footprints className="w-5 h-5" />
             </div>
             <div className="min-w-0">
@@ -525,19 +525,19 @@ export function Component() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0D0D12]">
+      <div className="flex-1 flex flex-col bg-[var(--background)]">
         <PageHeader title="Steps" subtitle="Loading..." />
         <div className="flex-1 p-6">
-          <div className="bg-[#16161C] border border-[#2D2D35] rounded-lg overflow-hidden">
-            <div className="h-14 border-b border-[#2D2D35] flex items-center px-4">
-              <div className="h-4 w-32 bg-[#2D2D35] rounded animate-pulse" />
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden">
+            <div className="h-14 border-b border-[var(--border)] flex items-center px-4">
+              <div className="h-4 w-32 bg-[var(--border)] rounded animate-pulse" />
             </div>
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-16 border-b border-[#2D2D35] flex items-center px-4 gap-4">
-                <div className="h-10 w-10 bg-[#2D2D35] rounded-md animate-pulse" />
+              <div key={i} className="h-16 border-b border-[var(--border)] flex items-center px-4 gap-4">
+                <div className="h-10 w-10 bg-[var(--border)] rounded-md animate-pulse" />
                 <div className="flex-1">
-                  <div className="h-4 w-48 bg-[#2D2D35] rounded animate-pulse mb-2" />
-                  <div className="h-3 w-32 bg-[#2D2D35] rounded animate-pulse" />
+                  <div className="h-4 w-48 bg-[var(--border)] rounded animate-pulse mb-2" />
+                  <div className="h-3 w-32 bg-[var(--border)] rounded animate-pulse" />
                 </div>
               </div>
             ))}
@@ -550,7 +550,7 @@ export function Component() {
   // Error state
   if (error) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0D0D12]">
+      <div className="flex-1 flex flex-col bg-[var(--background)]">
         <PageHeader title="Steps" />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md">
@@ -572,13 +572,13 @@ export function Component() {
   // Empty state - no steps at all
   if (steps.length === 0) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0D0D12]">
+      <div className="flex-1 flex flex-col bg-[var(--background)]">
         <PageHeader
           title="Steps"
           subtitle="0 steps"
           actions={
             <Button
-              className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white"
+              className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
               onClick={() => setShowNewStepModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -605,14 +605,14 @@ export function Component() {
   const hasSearchResults = filteredSteps.length > 0;
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0D0D12]">
+    <div className="flex-1 flex flex-col bg-[var(--background)]">
       {/* Page Header */}
       <PageHeader
         title="Steps"
         subtitle={`${totalCount} step${totalCount !== 1 ? "s" : ""}`}
         actions={
           <Button
-            className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white"
+            className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
             onClick={() => setShowNewStepModal(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -622,7 +622,7 @@ export function Component() {
       />
 
       {/* Search Bar */}
-      <div className="h-14 border-b border-[#2D2D35] flex items-center gap-3 px-4 bg-[#16161C]">
+      <div className="h-14 border-b border-[var(--border)] flex items-center gap-3 px-4 bg-[var(--card)]">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -631,7 +631,7 @@ export function Component() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search steps"
-            className="h-9 pl-9 bg-[#0D0D12] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-9 pl-9 bg-[var(--background)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         </div>
       </div>
@@ -654,7 +654,7 @@ export function Component() {
           <DataTable
             columns={columns}
             data={filteredSteps.map((s) => s as Record<string, unknown>)}
-            className="bg-[#16161C] border border-[#2D2D35] rounded-lg overflow-hidden"
+            className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden"
             onRowClick={(row) => setStepToEdit(row as StepResponse)}
           />
         )}
@@ -662,7 +662,7 @@ export function Component() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!stepToDelete} onOpenChange={() => setStepToDelete(null)}>
-        <DialogContent className="bg-[#16161C] border-[#2D2D35] rounded-xl">
+        <DialogContent className="bg-[var(--card)] border-[var(--border)] rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-medium text-foreground">
               Delete Step
@@ -676,7 +676,7 @@ export function Component() {
             <Button
               variant="outline"
               onClick={() => setStepToDelete(null)}
-              className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+              className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
             >
               Cancel
             </Button>

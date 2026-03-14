@@ -112,13 +112,13 @@ function getWorkflowIcon(name: string) {
 
 function getWorkflowIconBg(name: string) {
   const lower = name.toLowerCase();
-  if (lower.includes("code") || lower.includes("review")) return "bg-[rgba(94,106,210,0.12)] text-[#5E6AD2]";
-  if (lower.includes("moderation") || lower.includes("content")) return "bg-[rgba(245,166,35,0.12)] text-[#F5A623]";
-  if (lower.includes("report") || lower.includes("daily")) return "bg-[rgba(40,167,69,0.12)] text-[#28A745]";
-  if (lower.includes("email") || lower.includes("classifier")) return "bg-[rgba(94,106,210,0.12)] text-[#5E6AD2]";
-  if (lower.includes("support") || lower.includes("ticket")) return "bg-[#22222A] text-[#9292A0]";
-  if (lower.includes("sync") || lower.includes("data")) return "bg-[rgba(229,57,53,0.12)] text-[#E53935]";
-  return "bg-[rgba(94,106,210,0.12)] text-[#5E6AD2]";
+  if (lower.includes("code") || lower.includes("review")) return "bg-[var(--primary-12)] text-[var(--primary)]";
+  if (lower.includes("moderation") || lower.includes("content")) return "bg-[var(--warning-12)] text-[var(--warning)]";
+  if (lower.includes("report") || lower.includes("daily")) return "bg-[var(--success-12)] text-[var(--success)]";
+  if (lower.includes("email") || lower.includes("classifier")) return "bg-[var(--primary-12)] text-[var(--primary)]";
+  if (lower.includes("support") || lower.includes("ticket")) return "bg-[var(--surface-elevated)] text-[var(--muted-foreground)]";
+  if (lower.includes("sync") || lower.includes("data")) return "bg-[var(--error-12)] text-[var(--error)]";
+  return "bg-[var(--primary-12)] text-[var(--primary)]";
 }
 
 function getTimeAgo(date: string | undefined): string {
@@ -362,19 +362,19 @@ export function Component() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0D0D12]">
+      <div className="flex-1 flex flex-col bg-[var(--background)]">
         <PageHeader title="Workflows" subtitle="Loading..." />
         <div className="flex-1 p-6">
-          <div className="bg-[#16161C] border border-[#2D2D35] rounded-lg overflow-hidden">
-            <div className="h-14 border-b border-[#2D2D35] flex items-center px-4">
-              <div className="h-4 w-32 bg-[#2D2D35] rounded animate-pulse" />
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden">
+            <div className="h-14 border-b border-[var(--border)] flex items-center px-4">
+              <div className="h-4 w-32 bg-[var(--border)] rounded animate-pulse" />
             </div>
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-16 border-b border-[#2D2D35] flex items-center px-4 gap-4">
-                <div className="h-10 w-10 bg-[#2D2D35] rounded-md animate-pulse" />
+              <div key={i} className="h-16 border-b border-[var(--border)] flex items-center px-4 gap-4">
+                <div className="h-10 w-10 bg-[var(--border)] rounded-md animate-pulse" />
                 <div className="flex-1">
-                  <div className="h-4 w-48 bg-[#2D2D35] rounded animate-pulse mb-2" />
-                  <div className="h-3 w-32 bg-[#2D2D35] rounded animate-pulse" />
+                  <div className="h-4 w-48 bg-[var(--border)] rounded animate-pulse mb-2" />
+                  <div className="h-3 w-32 bg-[var(--border)] rounded animate-pulse" />
                 </div>
               </div>
             ))}
@@ -387,7 +387,7 @@ export function Component() {
   // Error state
   if (error) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0D0D12]">
+      <div className="flex-1 flex flex-col bg-[var(--background)]">
         <PageHeader title="Workflows" />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md">
@@ -409,13 +409,13 @@ export function Component() {
   // Empty state - no workflows at all
   if (workflows.length === 0) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0D0D12]">
+      <div className="flex-1 flex flex-col bg-[var(--background)]">
         <PageHeader
           title="Workflows"
           subtitle="0 workflows"
           actions={
             <Button
-              className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white"
+              className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
               onClick={() => setShowNewWorkflowModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -445,7 +445,7 @@ export function Component() {
   const hasSearchResults = filteredWorkflows.length > 0;
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0D0D12]">
+    <div className="flex-1 flex flex-col bg-[var(--background)]">
       {/* Page Header */}
       <PageHeader
         title="Workflows"
@@ -454,14 +454,14 @@ export function Component() {
           <>
             <Button
               variant="outline"
-              className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+              className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
               disabled
             >
               <Upload className="w-4 h-4 mr-2" />
               Import
             </Button>
             <Button
-              className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white"
+              className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
               onClick={() => setShowNewWorkflowModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -472,7 +472,7 @@ export function Component() {
       />
 
       {/* Search and Filter Bar */}
-      <div className="h-14 border-b border-[#2D2D35] flex items-center gap-3 px-4 bg-[#16161C]">
+      <div className="h-14 border-b border-[var(--border)] flex items-center gap-3 px-4 bg-[var(--card)]">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -482,26 +482,26 @@ export function Component() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search workflows"
-            className="h-9 pl-9 bg-[#0D0D12] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-9 pl-9 bg-[var(--background)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         </div>
 
         {/* Status Filter */}
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <SelectTrigger aria-label="Filter by status" className="h-9 w-32 bg-[#0D0D12] border-[#2D2D35] rounded-md text-sm text-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0">
+          <SelectTrigger aria-label="Filter by status" className="h-9 w-32 bg-[var(--background)] border-[var(--border)] rounded-md text-sm text-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
-          <SelectContent className="bg-[#22222A] border-[#2D2D35] rounded-md">
-            <SelectItem value="all" className="text-sm text-foreground focus:bg-[#2D2D35]">
+          <SelectContent className="bg-[var(--surface-elevated)] border-[var(--border)] rounded-md">
+            <SelectItem value="all" className="text-sm text-foreground focus:bg-[var(--border)]">
               All
             </SelectItem>
-            <SelectItem value="active" className="text-sm text-foreground focus:bg-[#2D2D35]">
+            <SelectItem value="active" className="text-sm text-foreground focus:bg-[var(--border)]">
               Active
             </SelectItem>
-            <SelectItem value="draft" className="text-sm text-foreground focus:bg-[#2D2D35]">
+            <SelectItem value="draft" className="text-sm text-foreground focus:bg-[var(--border)]">
               Draft
             </SelectItem>
-            <SelectItem value="archived" className="text-sm text-foreground focus:bg-[#2D2D35]">
+            <SelectItem value="archived" className="text-sm text-foreground focus:bg-[var(--border)]">
               Archived
             </SelectItem>
           </SelectContent>
@@ -509,17 +509,17 @@ export function Component() {
 
         {/* Sort */}
         <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-          <SelectTrigger className="h-9 w-40 bg-[#0D0D12] border-[#2D2D35] rounded-md text-sm text-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0">
+          <SelectTrigger className="h-9 w-40 bg-[var(--background)] border-[var(--border)] rounded-md text-sm text-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
-          <SelectContent className="bg-[#22222A] border-[#2D2D35] rounded-md">
-            <SelectItem value="updated" className="text-sm text-foreground focus:bg-[#2D2D35]">
+          <SelectContent className="bg-[var(--surface-elevated)] border-[var(--border)] rounded-md">
+            <SelectItem value="updated" className="text-sm text-foreground focus:bg-[var(--border)]">
               Last updated
             </SelectItem>
-            <SelectItem value="name" className="text-sm text-foreground focus:bg-[#2D2D35]">
+            <SelectItem value="name" className="text-sm text-foreground focus:bg-[var(--border)]">
               Name
             </SelectItem>
-            <SelectItem value="created" className="text-sm text-foreground focus:bg-[#2D2D35]">
+            <SelectItem value="created" className="text-sm text-foreground focus:bg-[var(--border)]">
               Created
             </SelectItem>
           </SelectContent>
@@ -528,11 +528,11 @@ export function Component() {
         <div className="flex-1" />
 
         {/* View Toggle */}
-        <div className="flex items-center bg-[#0D0D12] border border-[#2D2D35] rounded-md p-0.5" role="group" aria-label="View mode">
+        <div className="flex items-center bg-[var(--background)] border border-[var(--border)] rounded-md p-0.5" role="group" aria-label="View mode">
           <Button
             variant="ghost"
             size="icon-sm"
-            className={`h-7 w-7 ${viewMode === "list" ? "bg-[#2D2D35]" : ""}`}
+            className={`h-7 w-7 ${viewMode === "list" ? "bg-[var(--border)]" : ""}`}
             onClick={() => setViewMode("list")}
             aria-label="List view"
             aria-pressed={viewMode === "list"}
@@ -542,7 +542,7 @@ export function Component() {
           <Button
             variant="ghost"
             size="icon-sm"
-            className={`h-7 w-7 ${viewMode === "grid" ? "bg-[#2D2D35]" : ""}`}
+            className={`h-7 w-7 ${viewMode === "grid" ? "bg-[var(--border)]" : ""}`}
             onClick={() => setViewMode("grid")}
             aria-label="Grid view"
             aria-pressed={viewMode === "grid"}
@@ -573,7 +573,7 @@ export function Component() {
           <DataTable
             columns={columns}
             data={filteredWorkflows.map((w) => w as Record<string, unknown>)}
-            className="bg-[#16161C] border border-[#2D2D35] rounded-lg overflow-hidden"
+            className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden"
             onRowClick={(row) => handleRowClick(row as WorkflowResponse)}
           />
         ) : (
@@ -591,7 +591,7 @@ export function Component() {
                 <div
                   key={workflow.id}
                   onClick={() => handleRowClick(workflow)}
-                  className="bg-[#16161C] border border-[#2D2D35] rounded-lg p-4 hover:border-[#3F3F4A] hover:bg-[#1A1A22] transition-all cursor-pointer group"
+                  className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-4 hover:border-[var(--input)] hover:bg-[var(--surface-hover)] transition-all cursor-pointer group"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -636,7 +636,7 @@ export function Component() {
                       {workflow.description}
                     </p>
                   )}
-                  <div className="flex items-center justify-between pt-3 border-t border-[#2D2D35]">
+                  <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">
                     <StatusBadge status={variant} label={status.charAt(0).toUpperCase() + status.slice(1)} />
                     <span className="text-xs text-muted-foreground">
                       {getTimeAgo(workflow.updated_at)}
@@ -651,7 +651,7 @@ export function Component() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!workflowToDelete} onOpenChange={() => setWorkflowToDelete(null)}>
-        <DialogContent className="bg-[#16161C] border-[#2D2D35] rounded-xl">
+        <DialogContent className="bg-[var(--card)] border-[var(--border)] rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-medium text-foreground">
               Delete Workflow
@@ -664,7 +664,7 @@ export function Component() {
             <Button
               variant="outline"
               onClick={() => setWorkflowToDelete(null)}
-              className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+              className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
             >
               Cancel
             </Button>

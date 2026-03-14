@@ -19,37 +19,37 @@ const statusConfig: Record<
   { bg: string; text: string; dot: string; defaultLabel: string }
 > = {
   success: {
-    bg: "bg-[rgba(40,167,69,0.12)]",
+    bg: "bg-[var(--success-12)]",
     text: "text-[var(--success)]",
     dot: "bg-[var(--success)]",
     defaultLabel: "Completed",
   },
   error: {
-    bg: "bg-[rgba(229,57,53,0.12)]",
+    bg: "bg-[var(--error-12)]",
     text: "text-[var(--error)]",
     dot: "bg-[var(--error)]",
     defaultLabel: "Failed",
   },
   warning: {
-    bg: "bg-[rgba(245,166,35,0.12)]",
+    bg: "bg-[var(--warning-12)]",
     text: "text-[var(--warning)]",
     dot: "bg-[var(--warning)]",
     defaultLabel: "Warning",
   },
   running: {
-    bg: "bg-[rgba(0,229,255,0.12)]",
+    bg: "bg-[var(--running-12)]",
     text: "text-[var(--running)]",
     dot: "bg-[var(--running)]",
     defaultLabel: "Running",
   },
   pending: {
-    bg: "bg-[rgba(146,146,160,0.12)]",
+    bg: "bg-[var(--muted-12)]",
     text: "text-[var(--muted-foreground)]",
     dot: "bg-[var(--muted-foreground)]",
     defaultLabel: "Pending",
   },
   cancelled: {
-    bg: "bg-[rgba(146,146,160,0.12)]",
+    bg: "bg-[var(--muted-12)]",
     text: "text-[var(--muted-foreground)]",
     dot: "bg-[var(--muted-foreground)]",
     defaultLabel: "Cancelled",

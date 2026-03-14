@@ -75,8 +75,8 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
-      <DialogContent className="w-[480px] max-w-[480px] p-0 gap-0 bg-[#16161C] border-[#2D2D35] rounded-xl overflow-hidden">
-        <DialogHeader className="h-14 px-4 border-b border-[#2D2D35] flex flex-row items-center justify-between shrink-0">
+      <DialogContent className="w-[480px] max-w-[480px] p-0 gap-0 bg-[var(--card)] border-[var(--border)] rounded-xl overflow-hidden">
+        <DialogHeader className="h-14 px-4 border-b border-[var(--border)] flex flex-row items-center justify-between shrink-0">
           <DialogTitle className="text-base font-medium text-foreground tracking-tight">
             Create New Workflow
           </DialogTitle>
@@ -85,7 +85,7 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
         <div className="p-4 space-y-4">
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Name <span className="text-[#E53935]">*</span>
+              Name <span className="text-[var(--error)]">*</span>
             </Label>
             <Input
               type="text"
@@ -93,7 +93,7 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-              className="h-9 bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-9 bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
               autoFocus
             />
@@ -101,37 +101,37 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Description <span className="text-[#5E5E6B] font-normal">(optional)</span>
+              Description <span className="text-[var(--muted-subtle)] font-normal">(optional)</span>
             </Label>
             <Textarea
               placeholder="Describe what this workflow does..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[80px] bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] resize-vertical focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="min-h-[80px] bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] resize-vertical focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
           </div>
 
           {error && (
-            <div className="p-3 bg-[rgba(229,57,53,0.08)] border border-[rgba(229,57,53,0.2)] rounded-md">
-              <p className="text-xs text-[#E53935]">{error}</p>
+            <div className="p-3 bg-[var(--error-08)] border border-[var(--error-20)] rounded-md">
+              <p className="text-xs text-[var(--error)]">{error}</p>
             </div>
           )}
         </div>
 
-        <DialogFooter className="h-16 px-4 border-t border-[#2D2D35] flex items-center justify-end gap-2 shrink-0">
+        <DialogFooter className="h-16 px-4 border-t border-[var(--border)] flex items-center justify-end gap-2 shrink-0">
           <Button
             variant="outline"
             onClick={handleCancel}
             disabled={isSubmitting}
-            className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+            className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!isNameFilled || isSubmitting}
-            className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white disabled:opacity-40"
+            className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white disabled:opacity-40"
           >
             {isSubmitting ? (
               <>

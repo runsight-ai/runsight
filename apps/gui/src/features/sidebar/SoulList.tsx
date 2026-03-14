@@ -105,8 +105,8 @@ function NewSoulModal({ open, onClose }: NewSoulModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
-      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[#16161C] border-[#2D2D35] rounded-xl overflow-hidden">
-        <DialogHeader className="h-14 px-4 border-b border-[#2D2D35] flex flex-row items-center justify-between shrink-0">
+      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[var(--card)] border-[var(--border)] rounded-xl overflow-hidden">
+        <DialogHeader className="h-14 px-4 border-b border-[var(--border)] flex flex-row items-center justify-between shrink-0">
           <DialogTitle className="text-base font-medium text-foreground tracking-tight">
             New Soul
           </DialogTitle>
@@ -116,38 +116,38 @@ function NewSoulModal({ open, onClose }: NewSoulModalProps) {
           {/* Name Field */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Name <span className="text-[#E53935]">*</span>
+              Name <span className="text-[var(--error)]">*</span>
             </Label>
             <Input
               type="text"
               placeholder="Enter soul name..."
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-9 bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-9 bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
-            <p className="text-xs text-[#5E5E6B]">A unique name to identify this soul</p>
+            <p className="text-xs text-[var(--muted-subtle)]">A unique name to identify this soul</p>
           </div>
 
           {/* System Prompt Field */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              System Prompt <span className="text-[#5E5E6B] font-normal">(optional)</span>
+              System Prompt <span className="text-[var(--muted-subtle)] font-normal">(optional)</span>
             </Label>
             <Textarea
               placeholder="Enter the system prompt that defines this soul's behavior..."
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              className="min-h-[100px] bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] resize-vertical focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="min-h-[100px] bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] resize-vertical focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
-            <p className="text-xs text-[#5E5E6B]">Defines the personality and behavior of this soul</p>
+            <p className="text-xs text-[var(--muted-subtle)]">Defines the personality and behavior of this soul</p>
           </div>
 
           {/* Models Multi-Select */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Models <span className="text-[#5E5E6B] font-normal">(optional)</span>
+              Models <span className="text-[var(--muted-subtle)] font-normal">(optional)</span>
             </Label>
             <div className="flex flex-wrap gap-2">
               {AVAILABLE_MODELS.map((model) => (
@@ -158,31 +158,31 @@ function NewSoulModal({ open, onClose }: NewSoulModalProps) {
                   disabled={isSubmitting}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     selectedModels.includes(model.value)
-                      ? "bg-[#5E6AD2] text-white"
-                      : "bg-[#0D0D12] border border-[#2D2D35] text-muted-foreground hover:border-[#5E6AD2]"
+                      ? "bg-[var(--primary)] text-white"
+                      : "bg-[var(--background)] border border-[var(--border)] text-muted-foreground hover:border-[var(--primary)]"
                   } disabled:opacity-50`}
                 >
                   {model.label}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-[#5E5E6B]">Select the models this soul can use</p>
+            <p className="text-xs text-[var(--muted-subtle)]">Select the models this soul can use</p>
           </div>
         </div>
 
-        <DialogFooter className="h-16 px-4 border-t border-[#2D2D35] flex items-center justify-end gap-2 shrink-0">
+        <DialogFooter className="h-16 px-4 border-t border-[var(--border)] flex items-center justify-end gap-2 shrink-0">
           <Button
             variant="outline"
             onClick={handleCancel}
             disabled={isSubmitting}
-            className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+            className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!isNameFilled || isSubmitting}
-            className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white disabled:opacity-40"
+            className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white disabled:opacity-40"
           >
             {isSubmitting ? (
               <>
@@ -259,8 +259,8 @@ function EditSoulModal({ soul, open, onClose }: EditSoulModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
-      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[#16161C] border-[#2D2D35] rounded-xl overflow-hidden">
-        <DialogHeader className="h-14 px-4 border-b border-[#2D2D35] flex flex-row items-center justify-between shrink-0">
+      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[var(--card)] border-[var(--border)] rounded-xl overflow-hidden">
+        <DialogHeader className="h-14 px-4 border-b border-[var(--border)] flex flex-row items-center justify-between shrink-0">
           <DialogTitle className="text-base font-medium text-foreground tracking-tight">
             Edit Soul
           </DialogTitle>
@@ -277,7 +277,7 @@ function EditSoulModal({ soul, open, onClose }: EditSoulModalProps) {
               placeholder="Enter soul name..."
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-9 bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-9 bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
           </div>
@@ -291,7 +291,7 @@ function EditSoulModal({ soul, open, onClose }: EditSoulModalProps) {
               placeholder="Enter the system prompt that defines this soul's behavior..."
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              className="min-h-[100px] bg-[#16161C] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] resize-vertical focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="min-h-[100px] bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] resize-vertical focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
           </div>
@@ -310,8 +310,8 @@ function EditSoulModal({ soul, open, onClose }: EditSoulModalProps) {
                   disabled={isSubmitting}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     selectedModels.includes(model.value)
-                      ? "bg-[#5E6AD2] text-white"
-                      : "bg-[#0D0D12] border border-[#2D2D35] text-muted-foreground hover:border-[#5E6AD2]"
+                      ? "bg-[var(--primary)] text-white"
+                      : "bg-[var(--background)] border border-[var(--border)] text-muted-foreground hover:border-[var(--primary)]"
                   } disabled:opacity-50`}
                 >
                   {model.label}
@@ -321,19 +321,19 @@ function EditSoulModal({ soul, open, onClose }: EditSoulModalProps) {
           </div>
         </div>
 
-        <DialogFooter className="h-16 px-4 border-t border-[#2D2D35] flex items-center justify-end gap-2 shrink-0">
+        <DialogFooter className="h-16 px-4 border-t border-[var(--border)] flex items-center justify-end gap-2 shrink-0">
           <Button
             variant="outline"
             onClick={handleCancel}
             disabled={isSubmitting}
-            className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+            className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white disabled:opacity-40"
+            className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white disabled:opacity-40"
           >
             {isSubmitting ? (
               <>
@@ -396,7 +396,7 @@ export function Component() {
         const soul = row as SoulResponse;
         return (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-[rgba(94,106,210,0.12)] text-[#5E6AD2]">
+            <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-[var(--primary-12)] text-[var(--primary)]">
               <Sparkles className="w-5 h-5" />
             </div>
             <div className="min-w-0">
@@ -435,7 +435,7 @@ export function Component() {
                 <Badge
                   key={model}
                   variant="secondary"
-                  className="bg-[rgba(94,106,210,0.12)] text-[#5E6AD2] border-none text-xs"
+                  className="bg-[var(--primary-12)] text-[var(--primary)] border-none text-xs"
                 >
                   {model}
                 </Badge>
@@ -495,19 +495,19 @@ export function Component() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0D0D12]">
+      <div className="flex-1 flex flex-col bg-[var(--background)]">
         <PageHeader title="Souls" subtitle="Loading..." />
         <div className="flex-1 p-6">
-          <div className="bg-[#16161C] border border-[#2D2D35] rounded-lg overflow-hidden">
-            <div className="h-14 border-b border-[#2D2D35] flex items-center px-4">
-              <div className="h-4 w-32 bg-[#2D2D35] rounded animate-pulse" />
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden">
+            <div className="h-14 border-b border-[var(--border)] flex items-center px-4">
+              <div className="h-4 w-32 bg-[var(--border)] rounded animate-pulse" />
             </div>
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-16 border-b border-[#2D2D35] flex items-center px-4 gap-4">
-                <div className="h-10 w-10 bg-[#2D2D35] rounded-md animate-pulse" />
+              <div key={i} className="h-16 border-b border-[var(--border)] flex items-center px-4 gap-4">
+                <div className="h-10 w-10 bg-[var(--border)] rounded-md animate-pulse" />
                 <div className="flex-1">
-                  <div className="h-4 w-48 bg-[#2D2D35] rounded animate-pulse mb-2" />
-                  <div className="h-3 w-32 bg-[#2D2D35] rounded animate-pulse" />
+                  <div className="h-4 w-48 bg-[var(--border)] rounded animate-pulse mb-2" />
+                  <div className="h-3 w-32 bg-[var(--border)] rounded animate-pulse" />
                 </div>
               </div>
             ))}
@@ -520,7 +520,7 @@ export function Component() {
   // Error state
   if (error) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0D0D12]">
+      <div className="flex-1 flex flex-col bg-[var(--background)]">
         <PageHeader title="Souls" />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md">
@@ -542,13 +542,13 @@ export function Component() {
   // Empty state - no souls at all
   if (souls.length === 0) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0D0D12]">
+      <div className="flex-1 flex flex-col bg-[var(--background)]">
         <PageHeader
           title="Souls"
           subtitle="0 souls"
           actions={
             <Button
-              className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white"
+              className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
               onClick={() => setShowNewSoulModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -575,14 +575,14 @@ export function Component() {
   const hasSearchResults = filteredSouls.length > 0;
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0D0D12]">
+    <div className="flex-1 flex flex-col bg-[var(--background)]">
       {/* Page Header */}
       <PageHeader
         title="Souls"
         subtitle={`${totalCount} soul${totalCount !== 1 ? "s" : ""}`}
         actions={
           <Button
-            className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white"
+            className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
             onClick={() => setShowNewSoulModal(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -592,7 +592,7 @@ export function Component() {
       />
 
       {/* Search Bar */}
-      <div className="h-14 border-b border-[#2D2D35] flex items-center gap-3 px-4 bg-[#16161C]">
+      <div className="h-14 border-b border-[var(--border)] flex items-center gap-3 px-4 bg-[var(--card)]">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -601,7 +601,7 @@ export function Component() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search souls"
-            className="h-9 pl-9 bg-[#0D0D12] border-[#2D2D35] rounded-md text-sm text-foreground placeholder:text-[#5E5E6B] focus:border-[#5E6AD2] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-9 pl-9 bg-[var(--background)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         </div>
       </div>
@@ -624,7 +624,7 @@ export function Component() {
           <DataTable
             columns={columns}
             data={filteredSouls.map((s) => s as Record<string, unknown>)}
-            className="bg-[#16161C] border border-[#2D2D35] rounded-lg overflow-hidden"
+            className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden"
             onRowClick={(row) => setSoulToEdit(row as SoulResponse)}
           />
         )}
@@ -632,7 +632,7 @@ export function Component() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!soulToDelete} onOpenChange={() => setSoulToDelete(null)}>
-        <DialogContent className="bg-[#16161C] border-[#2D2D35] rounded-xl">
+        <DialogContent className="bg-[var(--card)] border-[var(--border)] rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-medium text-foreground">Delete Soul</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
@@ -643,7 +643,7 @@ export function Component() {
             <Button
               variant="outline"
               onClick={() => setSoulToDelete(null)}
-              className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+              className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
             >
               Cancel
             </Button>

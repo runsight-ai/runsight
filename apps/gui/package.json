@@ -8,7 +8,8 @@
     "build": "tsc -b",
     "build:bundle": "vite build",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "npm run lint:colors && eslint .",
+    "lint:colors": "rg -n \"#[0-9A-Fa-f]{3,8}\\b|rgba?\\(\" src --glob '!src/styles/globals.css' && (echo 'Hardcoded colors found outside src/styles/globals.css'; exit 1) || exit 0",
     "test": "playwright test"
   },
   "dependencies": {
@@ -45,8 +46,11 @@
     "@types/js-yaml": "^4.0.9",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "^8.46.1",
+    "@typescript-eslint/parser": "^8.46.1",
     "@vitejs/plugin-react": "^4.3.0",
     "eslint": "^9",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite": "^6.0.0"

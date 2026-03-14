@@ -77,13 +77,13 @@ function getWorkflowIcon(name: string) {
 
 function getWorkflowIconBg(name: string) {
   const lower = name.toLowerCase();
-  if (lower.includes("code") || lower.includes("review")) return "bg-[rgba(94,106,210,0.12)] text-[#5E6AD2]";
-  if (lower.includes("moderation") || lower.includes("content")) return "bg-[rgba(245,166,35,0.12)] text-[#F5A623]";
-  if (lower.includes("report") || lower.includes("daily")) return "bg-[rgba(40,167,69,0.12)] text-[#28A745]";
-  if (lower.includes("email") || lower.includes("classifier")) return "bg-[rgba(94,106,210,0.12)] text-[#5E6AD2]";
-  if (lower.includes("support") || lower.includes("ticket")) return "bg-[#22222A] text-[#9292A0]";
-  if (lower.includes("sync") || lower.includes("data")) return "bg-[rgba(229,57,53,0.12)] text-[#E53935]";
-  return "bg-[rgba(94,106,210,0.12)] text-[#5E6AD2]";
+  if (lower.includes("code") || lower.includes("review")) return "bg-[var(--primary-12)] text-[var(--primary)]";
+  if (lower.includes("moderation") || lower.includes("content")) return "bg-[var(--warning-12)] text-[var(--warning)]";
+  if (lower.includes("report") || lower.includes("daily")) return "bg-[var(--success-12)] text-[var(--success)]";
+  if (lower.includes("email") || lower.includes("classifier")) return "bg-[var(--primary-12)] text-[var(--primary)]";
+  if (lower.includes("support") || lower.includes("ticket")) return "bg-[var(--surface-elevated)] text-[var(--muted-foreground)]";
+  if (lower.includes("sync") || lower.includes("data")) return "bg-[var(--error-12)] text-[var(--error)]";
+  return "bg-[var(--primary-12)] text-[var(--primary)]";
 }
 
 function formatDuration(seconds: number): string {
@@ -249,7 +249,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
       <div className="flex items-center gap-3 mb-8">
         <Button
           variant="outline"
-          className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+          className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
           disabled
         >
           <Zap className="w-4 h-4 mr-2" strokeWidth={1.5} />
@@ -257,7 +257,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
         </Button>
         <Button
           variant="outline"
-          className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+          className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
           onClick={onNewWorkflow}
         >
           <Plus className="w-4 h-4 mr-2" strokeWidth={1.5} />
@@ -265,7 +265,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
         </Button>
         <Button
           variant="outline"
-          className="h-9 px-4 border-[#3F3F4A] bg-transparent hover:bg-[#22222A] text-foreground"
+          className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
           disabled
         >
           <Upload className="w-4 h-4 mr-2" strokeWidth={1.5} />
@@ -276,13 +276,13 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
       {/* System Health Summary */}
       <div className="mb-6 flex items-center gap-6">
         <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#28A745]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />
           <span className="text-sm text-muted-foreground">All Systems Operational</span>
         </div>
-        <div className="text-sm text-[#5E5E6B]">|</div>
+        <div className="text-sm text-[var(--muted-subtle)]">|</div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Active Runs:</span>
-          <span className="text-sm font-medium text-[#00E5FF]">{summary.active_runs}</span>
+          <span className="text-sm font-medium text-[var(--running)]">{summary.active_runs}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Queued:</span>
@@ -290,27 +290,27 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Completed (24h):</span>
-          <span className="text-sm font-medium text-[#28A745]">{summary.completed_runs}</span>
+          <span className="text-sm font-medium text-[var(--success)]">{summary.completed_runs}</span>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4 mb-8">
-        <div className="bg-[#16161C] border border-[#2D2D35] rounded-lg p-4">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active Runs</span>
-            <Play className="w-4 h-4 text-[#00E5FF]" />
+            <Play className="w-4 h-4 text-[var(--running)]" />
           </div>
           <div className="text-2xl font-semibold text-foreground">{summary.active_runs}</div>
         </div>
-        <div className="bg-[#16161C] border border-[#2D2D35] rounded-lg p-4">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Completed</span>
-            <Activity className="w-4 h-4 text-[#28A745]" />
+            <Activity className="w-4 h-4 text-[var(--success)]" />
           </div>
           <div className="text-2xl font-semibold text-foreground">{summary.completed_runs}</div>
         </div>
-        <div className="bg-[#16161C] border border-[#2D2D35] rounded-lg p-4">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Cost</span>
             <DollarSign className="w-4 h-4 text-muted-foreground" />
@@ -319,12 +319,12 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
             ${summary.total_cost_usd.toFixed(2)}
           </div>
         </div>
-        <div className="bg-[#16161C] border border-[#2D2D35] rounded-lg p-4">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">System Health</span>
-            <div className="w-2 h-2 rounded-full bg-[#28A745]" />
+            <div className="w-2 h-2 rounded-full bg-[var(--success)]" />
           </div>
-          <div className="text-2xl font-semibold text-[#28A745]">Healthy</div>
+          <div className="text-2xl font-semibold text-[var(--success)]">Healthy</div>
         </div>
       </div>
 
@@ -336,7 +336,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
             <Button
               variant="outline"
               size="sm"
-              className="h-9 px-3 border-[#2D2D35] text-muted-foreground hover:text-foreground hover:border-[#3F3F4A]"
+              className="h-9 px-3 border-[var(--border)] text-muted-foreground hover:text-foreground hover:border-[var(--input)]"
             >
               <Filter className="w-4 h-4 mr-2" />
               Filter
@@ -349,7 +349,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
           data={workflows.map(w => w as Record<string, unknown>)}
           searchable
           searchPlaceholder="Search workflows..."
-          className="bg-[#16161C] border border-[#2D2D35] rounded-lg overflow-hidden"
+          className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden"
         />
       </div>
 
@@ -358,7 +358,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-medium text-foreground tracking-tight">Recent Runs</h2>
-            <Link to="/runs" className="text-sm text-[#5E6AD2] hover:text-[#717EE3] transition-colors">
+            <Link to="/runs" className="text-sm text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors">
               View All
             </Link>
           </div>
@@ -376,32 +376,32 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
                 <Link
                   key={run.id}
                   to={`/runs/${run.id}`}
-                  className="bg-[#16161C] border border-[#2D2D35] rounded-lg p-6 hover:border-[#3F3F4A] hover:bg-[#22222A] transition-all cursor-pointer block no-underline"
+                  className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-6 hover:border-[var(--input)] hover:bg-[var(--surface-elevated)] transition-all cursor-pointer block no-underline"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <span className={`w-1.5 h-1.5 rounded-full ${variant === "success" ? "bg-[#28A745]" : variant === "error" ? "bg-[#E53935]" : variant === "running" ? "bg-[#00E5FF]" : "bg-[#9292A0]"}`} />
-                      <span className={`text-xs font-medium ${variant === "success" ? "text-[#28A745]" : variant === "error" ? "text-[#E53935]" : variant === "running" ? "text-[#00E5FF]" : "text-muted-foreground"}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${variant === "success" ? "bg-[var(--success)]" : variant === "error" ? "bg-[var(--error)]" : variant === "running" ? "bg-[var(--running)]" : "bg-[var(--muted-foreground)]"}`} />
+                      <span className={`text-xs font-medium ${variant === "success" ? "text-[var(--success)]" : variant === "error" ? "text-[var(--error)]" : variant === "running" ? "text-[var(--running)]" : "text-muted-foreground"}`}>
                         {statusLabel}
                       </span>
                     </div>
-                    <span className="text-xs text-[#5E5E6B]">{getTimeAgo(new Date(run.created_at).toISOString())}</span>
+                    <span className="text-xs text-[var(--muted-subtle)]">{getTimeAgo(new Date(run.created_at).toISOString())}</span>
                   </div>
                   <div className="text-sm font-medium text-foreground mb-1">{workflowName}</div>
                   <div className="text-xs text-muted-foreground mb-3">Run #{String(run.id).slice(-4)}</div>
-                  <div className="flex items-center justify-between pt-3 border-t border-[#2D2D35]">
+                  <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">
                     <div className="flex items-center gap-3">
                       <div className="flex -space-x-1">
                         {Array.from({ length: Math.min(agents, 3) }).map((_, i) => (
                           <div
                             key={i}
-                            className="w-5 h-5 rounded-full bg-[rgba(94,106,210,0.3)] flex items-center justify-center text-[8px] text-[#5E6AD2] border border-[#16161C]"
+                            className="w-5 h-5 rounded-full bg-[var(--primary-30)] flex items-center justify-center text-[8px] text-[var(--primary)] border border-[var(--card)]"
                           >
                             {String.fromCharCode(65 + i)}
                           </div>
                         ))}
                       </div>
-                      <span className="text-xs text-[#5E5E6B]">{agents} agents</span>
+                      <span className="text-xs text-[var(--muted-subtle)]">{agents} agents</span>
                     </div>
                     <span className="font-mono text-sm text-muted-foreground">
                       ${(run.total_cost_usd || 0).toFixed(4)}
@@ -453,13 +453,13 @@ export function Component() {
     return (
       <div className="flex-1 flex flex-col">
         {/* Header Bar */}
-        <header className="h-12 bg-[#16161C] border-b border-[#2D2D35] flex items-center justify-between px-4 z-40">
+        <header className="h-12 bg-[var(--card)] border-b border-[var(--border)] flex items-center justify-between px-4 z-40">
           <div className="flex items-center gap-3">
             <h1 className="text-base font-medium tracking-tight text-foreground">Dashboard</h1>
           </div>
           <div className="flex items-center gap-3">
             <Button
-              className="h-9 px-4 bg-[#5E6AD2] hover:bg-[#717EE3] text-white"
+              className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
               onClick={() => setShowNewWorkflowModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -481,7 +481,7 @@ export function Component() {
   return (
     <div className="flex-1 flex items-center justify-center p-8 bg-background">
       <div className="text-center max-w-[480px]">
-        <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center bg-[#16161C] border border-[#2D2D35] rounded-lg text-primary">
+        <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center bg-[var(--card)] border border-[var(--border)] rounded-lg text-primary">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -500,20 +500,20 @@ export function Component() {
         <h2 className="text-2xl font-semibold tracking-[-0.02em] mb-3">
           Create your first workflow
         </h2>
-        <p className="text-[14px] text-[#9292A0] leading-[1.6] mb-8">
+        <p className="text-[14px] text-[var(--muted-foreground)] leading-[1.6] mb-8">
           Workflows are visual orchestrations of AI agents. Start from scratch with AI assistance,
           use a template, or import an existing YAML file.
         </p>
 
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div
-            className="flex flex-col items-center gap-3 py-6 px-4 rounded-lg border border-[#2D2D35] bg-[#16161C] opacity-50 cursor-not-allowed relative"
+            className="flex flex-col items-center gap-3 py-6 px-4 rounded-lg border border-[var(--border)] bg-[var(--card)] opacity-50 cursor-not-allowed relative"
           >
-            <div className="w-12 h-12 flex items-center justify-center bg-[#0D0D12] rounded-md text-primary/50">
+            <div className="w-12 h-12 flex items-center justify-center bg-[var(--background)] rounded-md text-primary/50">
               <Zap className="size-6" strokeWidth={1.5} />
             </div>
             <span className="text-[14px] font-medium text-foreground/50">Generate with AI</span>
-            <span className="text-[12px] text-[#5E5E6B] leading-snug">
+            <span className="text-[12px] text-[var(--muted-subtle)] leading-snug">
               Describe your workflow and let AI build it
             </span>
             <span className="text-[10px] font-semibold tracking-[0.08em] uppercase text-primary/60 mt-1">Coming soon</span>
@@ -521,32 +521,32 @@ export function Component() {
 
           <button
             onClick={() => setShowNewWorkflowModal(true)}
-            className="flex flex-col items-center gap-3 py-6 px-4 rounded-lg bg-[#16161C] border border-[#2D2D35] hover:border-[#3F3F4A] hover:bg-[#22222A] transition-all group cursor-pointer"
+            className="flex flex-col items-center gap-3 py-6 px-4 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--input)] hover:bg-[var(--surface-elevated)] transition-all group cursor-pointer"
           >
-            <div className="w-12 h-12 flex items-center justify-center bg-[#0D0D12] rounded-md text-primary">
+            <div className="w-12 h-12 flex items-center justify-center bg-[var(--background)] rounded-md text-primary">
               <Plus className="size-6" strokeWidth={1.5} />
             </div>
             <span className="text-[14px] font-medium text-foreground">New Workflow</span>
-            <span className="text-[12px] text-[#5E5E6B] leading-snug">
+            <span className="text-[12px] text-[var(--muted-subtle)] leading-snug">
               Create a blank workflow from scratch
             </span>
           </button>
 
           <div
-            className="flex flex-col items-center gap-3 py-6 px-4 rounded-lg bg-[#16161C] border border-[#2D2D35] opacity-50 cursor-not-allowed relative"
+            className="flex flex-col items-center gap-3 py-6 px-4 rounded-lg bg-[var(--card)] border border-[var(--border)] opacity-50 cursor-not-allowed relative"
           >
-            <div className="w-12 h-12 flex items-center justify-center bg-[#0D0D12] rounded-md text-primary/50">
+            <div className="w-12 h-12 flex items-center justify-center bg-[var(--background)] rounded-md text-primary/50">
               <Upload className="size-6" strokeWidth={1.5} />
             </div>
             <span className="text-[14px] font-medium text-foreground/50">Import YAML</span>
-            <span className="text-[12px] text-[#5E5E6B] leading-snug">
+            <span className="text-[12px] text-[var(--muted-subtle)] leading-snug">
               Upload an existing workflow file
             </span>
             <span className="text-[10px] font-semibold tracking-[0.08em] uppercase text-primary/60 mt-1">Coming soon</span>
           </div>
         </div>
 
-        <p className="text-[13px] text-[#9292A0]">
+        <p className="text-[13px] text-[var(--muted-foreground)]">
           Need help?{" "}
           <a href="#" className="text-primary no-underline hover:underline">
             View documentation
