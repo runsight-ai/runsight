@@ -6,7 +6,6 @@ import { useDashboardSummary, useRecentRuns } from "@/queries/dashboard";
 import { Zap, Upload, Plus, Filter, MoreHorizontal, Play, DollarSign, Activity } from "lucide-react";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { CostDisplay } from "@/components/shared/CostDisplay";
 import { Button } from "@/components/ui/button";
 import { NewWorkflowModal } from "@/features/workflows/NewWorkflowModal";
 import type { WorkflowResponse } from "@/types/schemas/workflows";
@@ -208,7 +207,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
         const completedAt = workflow.last_run_completed_at;
         return (
           <div className="text-right font-mono text-sm text-muted-foreground">
-            <CostDisplay cost={cost} isEstimate={!completedAt} />
+            ${cost.toFixed(4)}{!completedAt && '*'}
           </div>
         );
       },
@@ -405,7 +404,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
                       <span className="text-xs text-[#5E5E6B]">{agents} agents</span>
                     </div>
                     <span className="font-mono text-sm text-muted-foreground">
-                      <CostDisplay cost={run.total_cost_usd || 0} />
+                      ${(run.total_cost_usd || 0).toFixed(4)}
                     </span>
                   </div>
                 </Link>

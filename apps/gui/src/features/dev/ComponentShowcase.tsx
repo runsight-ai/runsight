@@ -9,14 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { NodeBadge } from "@/components/shared/NodeBadge";
-import { CostDisplay } from "@/components/shared/CostDisplay";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 
 const tableColumns: Column[] = [
   { key: "name", header: "Name", sortable: true },
   { key: "status", header: "Status", sortable: true },
-  { key: "cost", header: "Cost", sortable: true, render: (row) => <CostDisplay cost={row.cost as number} /> },
+  { key: "cost", header: "Cost", sortable: true, render: (row) => <span>${Number(row.cost).toFixed(4)}</span> },
   { key: "duration", header: "Duration", sortable: true },
 ];
 
@@ -62,14 +61,14 @@ export default function ComponentShowcase() {
         </CardContent>
       </Card>
 
-      {/* Cost Display */}
+      {/* Cost Display Removed from Showcase */}
       <Card>
-        <CardHeader><CardTitle>Cost Display</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Cost Display (Removed)</CardTitle></CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4">
-            <CostDisplay cost={0.042} />
-            <CostDisplay cost={1.25} isEstimate />
-            <CostDisplay cost={0.0} />
+            <span>$0.0420</span>
+            <span>$1.2500*</span>
+            <span>$0.0000</span>
           </div>
         </CardContent>
       </Card>

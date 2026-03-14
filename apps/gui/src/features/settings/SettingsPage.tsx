@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { ProvidersTab } from "./ProvidersTab";
 import { ModelsTab } from "./ModelsTab";
-import { BudgetsTab } from "./BudgetsTab";
 import { cn } from "@/utils/helpers";
 
 type TabValue = "providers" | "models" | "budgets";
@@ -45,7 +44,7 @@ export function Component() {
             {settingsNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.value;
-              const isImplemented = ["providers", "models", "budgets"].includes(
+              const isImplemented = ["providers", "models"].includes(
                 item.value
               );
 
@@ -86,9 +85,6 @@ export function Component() {
             </TabsContent>
             <TabsContent value="models" className="mt-0">
               <ModelsTab />
-            </TabsContent>
-            <TabsContent value="budgets" className="mt-0">
-              <BudgetsTab />
             </TabsContent>
           </Tabs>
         </main>

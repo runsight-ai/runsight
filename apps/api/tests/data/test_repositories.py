@@ -1,11 +1,10 @@
 import pytest
 from sqlmodel import SQLModel, Session, create_engine
-from runsight_api.domain.entities import Provider, Run, RunNode, RuntimeAudit, AppSettings
+from runsight_api.domain.entities import Provider, Run, RunNode, AppSettings
 from runsight_api.data.repositories import (
     ProviderRepository,
     RunRepository,
     SettingsRepository,
-    AuditRepository,
 )
 
 
@@ -53,13 +52,3 @@ def test_settings_repository(session: Session):
     fetched = repo.get_setting("theme")
     assert fetched is not None
     assert fetched.value == "dark"
-
-
-def test_audit_repository(session: Session):
-    repo = AuditRepository(session)
-    audit = RuntimeAudit(id="audit-1", run_id="run-1", node_id="node-1", action_type="test")
-    repo.create(audit)
-
-    audits = repo.list_for_run("run-1")
-    assert len(audits) == 1
-    assert audits[0].id == "audit-1"

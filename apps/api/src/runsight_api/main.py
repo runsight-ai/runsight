@@ -5,7 +5,7 @@ from sqlmodel import SQLModel
 from .core.di import container, engine
 from .domain.errors import RunsightError
 from .transport.middleware.error_handler import global_exception_handler
-from .transport.routers import runs, workflows, souls, steps, tasks, settings, git, dashboard
+from .transport.routers import runs, workflows, souls, steps, tasks, settings, dashboard
 
 
 def _migrate_schema(engine):
@@ -46,7 +46,6 @@ def create_app() -> FastAPI:
     app.include_router(steps.router, prefix="/api")
     app.include_router(tasks.router, prefix="/api")
     app.include_router(settings.router, prefix="/api")
-    app.include_router(git.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
 
     @app.get("/health")

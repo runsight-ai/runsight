@@ -1,1 +1,0 @@
-[PHALANX EVENT] worker_dead: worker Settings-Coder-be5485f0. Check status and decide next action.

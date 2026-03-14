@@ -1,31 +1,0 @@
-export PHALANX_AGENT_ID=Settings-Coder-be5485f0 PHALANX_TEAM_ID=team-ace497ec PHALANX_ROOT=/Users/mikhail.rogov/Documents/github/phalanx
-phalanx() { /opt/homebrew/bin/uv run --project /Users/mikhail.rogov/.cursor/worktree/phalanx-cli/apps/cli phalanx "$@"; }; export -f phalanx
-/Users/mikhail.rogov/.local/bin/agent --yolo --model kimi-k2.5 'Read and execute instructions from /Users/mikhail.rogov/Documents/github/phalanx/teams/team-ace497ec/agents/Settings-Coder-be5485f0/task.md'
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[Jmikhail.rogov@Mikhails-MacBook-Miggo [39m[0m[49m[32mphalanx-cli [39m[0m[49m[31m(release/v1.1.1)[39m[0m[49m$ [K[?2004heexport PHALAN [KXX_AGENT_ID=Settings-Coder-be5485f0 PHALANX_TEAM_ID=team-ace497ec PHALANX_ROOT=/U [Kssers/mikhail.rogov/Documents/github/phalanx[?2004l
-[1m[7m%[27m[1m[0m                                                                                phalanx() { /opt/homebrew/bin/uv run --project /Users/mikhail.rogov/.cursor/worktree/phalanx-cli/apps/cli phalanx "$@"; }; export -f phalanx
-/Users/mikhail.rogov/.local/bin/agent --yolo --model kimi-k2.5 'Read and execute instructions from /Users/mikhail.rogov/Documents/github/phalanx/teams/team-ace497ec/agents/Settings-Coder-be5485f0/task.md'
-[0m[27m[24m[Jmikhail.rogov@Mikhails-MacBook-Miggo [39m[0m[49m[32mphalanx-cli [39m[0m[49m[31m(release/v1.1.1)[39m[0m[49m$ [K[?2004hpphalanx() { / [Koopt/homebrew/bin/uv run --project /Users/mikhail.rogov/.cursor/worktree/phalanx- [Kccli/apps/cli phalanx "$@"; }; export -f phalanx[?2004l
-phalanx () {
-	/opt/homebrew/bin/uv run --project /Users/mikhail.rogov/.cursor/worktree/phalanx-cli/apps/cli phalanx "$@"
-}
-/Users/mikhail.rogov/.local/bin/agent --yolo --model kimi-k2.5 'Read and execute instructions from /Users/mikhail.rogov/Documents/github/phalanx/teams/team-ace497ec/agents/Settings-Coder-be5485f0/task.md'
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[Jmikhail.rogov@Mikhails-MacBook-Miggo [39m[0m[49m[32mphalanx-cli [39m[0m[49m[31m(release/v1.1.1)[39m[0m[49m$ [K[?2004h//Users/mikhai [Kll.rogov/.local/bin/agent --yolo --model kimi-k2.5 'Read and execute instructions [K  from /Users/mikhail.rogov/Documents/github/phalanx/teams/team-ace497ec/agents/S [Keettings-Coder-be5485f0/task.md'[?2004l
-[2K[G
-  ╭──────────────────────────────────────────────────────────────────────────╮
-  │                                                                          │
-  │  ⚠ Workspace Trust Required                                              │
-  │                                                                          │
-  │  Cursor Agent can execute code and access files in this directory.       │
-  │                                                                          │
-  │  Do you trust the contents of this directory?                            │
-  │                                                                          │
-  │    /Users/mikhail.rogov/.cursor/worktree/phalanx-cli                     │
-  │                                                                          │
-  │                                                                          │
-  │  ▶ [a] Trust this workspace                                              │
-  │    [q] Quit                                                              │
-  │                                                                          │
-  │  Use arrow keys to navigate, Enter to select, or press the key shown     │
-  │                                                                          │
-  ╰──────────────────────────────────────────────────────────────────────────╯
-[?25l[?25h[?25h[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[Jmikhail.rogov@Mikhails-MacBook-Miggo [39m[0m[49m[32mphalanx-cli [39m[0m[49m[31m(release/v1.1.1)[39m[0m[49m$ [K[?2004ha

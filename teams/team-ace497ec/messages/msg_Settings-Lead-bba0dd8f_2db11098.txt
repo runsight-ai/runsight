@@ -1,1 +1,0 @@
-[PHALANX EVENT] worker_dead: worker Settings-Lead-bba0dd8f. Check status and decide next action.
