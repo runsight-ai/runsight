@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlmodel import SQLModel
 
@@ -34,6 +35,11 @@ def create_app() -> FastAPI:
 
     # DI Setup
     container.setup_app_state(app)
+
+    # CORS
+    app.add_middleware(
+        CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+    )
 
     # Middleware
     app.add_exception_handler(RunsightError, global_exception_handler)

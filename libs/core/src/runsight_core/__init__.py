@@ -17,6 +17,9 @@ from .blocks.implementations import (
     MessageBusBlock,
     RouterBlock,
     PlaceholderBlock,
+    GateBlock,
+    FileWriterBlock,
+    WorkflowBlock,
 )
 from .blocks.registry import BlockRegistry, BlockFactory
 from .workflow import Workflow
@@ -40,6 +43,9 @@ __all__ = [
     "MessageBusBlock",
     "RouterBlock",
     "PlaceholderBlock",
+    "GateBlock",
+    "FileWriterBlock",
+    "WorkflowBlock",
     "BlockRegistry",
     "BlockFactory",
     "Workflow",

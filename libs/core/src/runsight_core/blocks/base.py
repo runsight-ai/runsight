@@ -52,7 +52,7 @@ class BaseBlock(ABC):
             raise NodeKilledException(self.block_id)
 
     @abstractmethod
-    async def execute(self, state: WorkflowState) -> WorkflowState:
+    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
         """
         Execute this block's logic using the provided state.
 

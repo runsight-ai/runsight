@@ -1426,7 +1426,18 @@ class GateBlock(BaseBlock):
             )
         else:
             feedback = decision_line[5:].strip() if ":" in decision_line else decision_line
-            raise ValueError(f"GateBlock '{self.block_id}' FAILED: {feedback}")
+            error = ValueError(f"GateBlock '{self.block_id}' FAILED: {feedback}")
+            error.state = state.model_copy(
+                update={
+                    "total_cost_usd": state.total_cost_usd + result.cost_usd,
+                    "total_tokens": state.total_tokens + result.total_tokens,
+                    "metadata": {
+                        **state.metadata,
+                        f"{self.block_id}_decision": "fail",
+                    },
+                }
+            )
+            raise error
 
 
 class FileWriterBlock(BaseBlock):
