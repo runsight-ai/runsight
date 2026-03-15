@@ -2,9 +2,13 @@
 Concrete block implementations for workflow composition.
 """
 
+import ast
 import asyncio
 import json
 import re
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
@@ -1478,6 +1482,227 @@ class FileWriterBlock(BaseBlock):
                     {
                         "role": "system",
                         "content": f"[Block {self.block_id}] FileWriter: wrote {char_count} chars to {self.output_path}",
+                    }
+                ],
+            }
+        )
+
+
+# ---------------------------------------------------------------------------
+# CodeBlock — sandboxed Python code execution
+# ---------------------------------------------------------------------------
+
+DEFAULT_ALLOWED_IMPORTS: List[str] = [
+    "json",
+    "re",
+    "math",
+    "datetime",
+    "collections",
+    "itertools",
+    "hashlib",
+    "base64",
+    "urllib.parse",
+]
+
+BLOCKED_BUILTINS: set = {
+    "__import__",
+    "open",
+    "exec",
+    "eval",
+    "compile",
+    "globals",
+    "locals",
+    "breakpoint",
+}
+
+BLOCKED_MODULES: set = {
+    "os",
+    "sys",
+    "subprocess",
+    "socket",
+    "importlib",
+}
+
+
+def _validate_code_ast(code: str, allowed_imports: List[str]) -> None:
+    """
+    Parse *code* with :func:`ast.parse` and reject dangerous constructs.
+
+    Raises:
+        ValueError: If the code contains forbidden imports, builtins, or
+            is missing a ``def main(data)`` function.
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as exc:
+        raise ValueError(f"Code has a syntax error: {exc}") from exc
+
+    has_main = False
+
+    for node in ast.walk(tree):
+        # --- import <module> ---
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                top = alias.name.split(".")[0]
+                if top in BLOCKED_MODULES:
+                    raise ValueError(f"Import of '{alias.name}' is not allowed")
+                if top not in allowed_imports:
+                    raise ValueError(f"Import of '{alias.name}' is not in the allowed list")
+
+        # --- from <module> import ... ---
+        if isinstance(node, ast.ImportFrom):
+            if node.module is not None:
+                top = node.module.split(".")[0]
+                if top in BLOCKED_MODULES:
+                    raise ValueError(f"Import from '{node.module}' is not allowed")
+                if top not in allowed_imports:
+                    raise ValueError(f"Import from '{node.module}' is not in the allowed list")
+
+        # --- function calls: __import__, open, eval, exec, compile, etc. ---
+        if isinstance(node, ast.Call):
+            func = node.func
+            name: Optional[str] = None
+            if isinstance(func, ast.Name):
+                name = func.id
+            elif isinstance(func, ast.Attribute):
+                name = func.attr
+            if name and name in BLOCKED_BUILTINS:
+                raise ValueError(f"Call to '{name}()' is not allowed")
+
+        # --- detect def main ---
+        if isinstance(node, ast.FunctionDef) and node.name == "main":
+            has_main = True
+
+    if not has_main:
+        raise ValueError("Code must define a 'def main(data)' function")
+
+
+_HARNESS_TEMPLATE = textwrap.dedent(
+    """\
+import sys, json
+
+# --- user code ---
+{user_code}
+# --- end user code ---
+
+_input = json.loads(sys.stdin.read())
+_result = main(_input)
+sys.stdout.write(json.dumps(_result))
+"""
+)
+
+
+class CodeBlock(BaseBlock):
+    """
+    Execute user-provided Python code in an isolated subprocess.
+
+    The code MUST define ``def main(data) -> <json-serializable>``.
+    ``data`` is a dict with keys ``results``, ``metadata``, ``shared_memory``
+    from the current :class:`WorkflowState`.
+
+    Security:
+        * AST validation rejects dangerous imports / builtins at init time.
+        * Execution happens in a subprocess with a minimal environment.
+        * A configurable timeout (default 30 s) kills runaway processes.
+
+    No LLM calls — cost and tokens are unchanged.
+    """
+
+    def __init__(
+        self,
+        block_id: str,
+        code: str,
+        timeout_seconds: int = 30,
+        allowed_imports: Optional[List[str]] = None,
+    ):
+        super().__init__(block_id)
+        if not code or not code.strip():
+            raise ValueError("Code cannot be empty")
+        self.code = code
+        self.timeout_seconds = timeout_seconds
+        self.allowed_imports = (
+            allowed_imports if allowed_imports is not None else list(DEFAULT_ALLOWED_IMPORTS)
+        )
+        self._validate_code()
+
+    def _validate_code(self) -> None:
+        """Validate user code via AST analysis."""
+        _validate_code_ast(self.code, self.allowed_imports)
+
+    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+        """Run user code in a subprocess and return updated state."""
+        harness = _HARNESS_TEMPLATE.format(user_code=self.code)
+
+        stdin_data = json.dumps(
+            {
+                "results": state.results,
+                "metadata": state.metadata,
+                "shared_memory": state.shared_memory,
+            }
+        ).encode()
+
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-c", harness],
+                input=stdin_data,
+                capture_output=True,
+                timeout=self.timeout_seconds,
+                env={},  # minimal env
+            )
+        except subprocess.TimeoutExpired:
+            raise TimeoutError(
+                f"CodeBlock '{self.block_id}': execution timed out after {self.timeout_seconds}s"
+            )
+
+        if proc.returncode != 0:
+            error_msg = proc.stderr.decode(errors="replace").strip()
+            return state.model_copy(
+                update={
+                    "results": {
+                        **state.results,
+                        self.block_id: f"Error: {error_msg}",
+                    },
+                    "messages": state.messages
+                    + [
+                        {
+                            "role": "system",
+                            "content": f"[Block {self.block_id}] CodeBlock: error — {error_msg}",
+                        }
+                    ],
+                }
+            )
+
+        stdout = proc.stdout.decode(errors="replace").strip()
+        try:
+            result = json.loads(stdout)
+        except json.JSONDecodeError:
+            return state.model_copy(
+                update={
+                    "results": {
+                        **state.results,
+                        self.block_id: f"Error: output is not valid JSON: {stdout!r}",
+                    },
+                    "messages": state.messages
+                    + [
+                        {
+                            "role": "system",
+                            "content": f"[Block {self.block_id}] CodeBlock: non-JSON output",
+                        }
+                    ],
+                }
+            )
+
+        return state.model_copy(
+            update={
+                "results": {
+                    **state.results,
+                    self.block_id: json.dumps(result) if not isinstance(result, str) else result,
+                },
+                "messages": state.messages
+                + [
+                    {
+                        "role": "system",
+                        "content": f"[Block {self.block_id}] CodeBlock: executed successfully",
                     }
                 ],
             }

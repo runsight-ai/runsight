@@ -20,6 +20,7 @@ from .blocks.implementations import (
     GateBlock,
     FileWriterBlock,
     WorkflowBlock,
+    CodeBlock,
 )
 from .blocks.registry import BlockRegistry, BlockFactory
 from .workflow import Workflow
@@ -46,6 +47,7 @@ __all__ = [
     "GateBlock",
     "FileWriterBlock",
     "WorkflowBlock",
+    "CodeBlock",
     "BlockRegistry",
     "BlockFactory",
     "Workflow",
