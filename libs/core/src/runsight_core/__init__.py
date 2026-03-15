@@ -20,6 +20,10 @@ from .blocks.implementations import (
     GateBlock,
     FileWriterBlock,
     WorkflowBlock,
+    ConditionalBlock,
+    Condition,
+    ConditionGroup,
+    Case,
 )
 from .blocks.registry import BlockRegistry, BlockFactory
 from .workflow import Workflow
@@ -50,4 +54,8 @@ __all__ = [
     "BlockFactory",
     "Workflow",
     "parse_workflow_yaml",
+    "ConditionalBlock",
+    "Condition",
+    "ConditionGroup",
+    "Case",
 ]

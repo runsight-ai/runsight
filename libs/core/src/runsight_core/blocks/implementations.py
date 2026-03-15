@@ -1482,3 +1482,330 @@ class FileWriterBlock(BaseBlock):
                 ],
             }
         )
+
+
+# ── ConditionalBlock data model ─────────────────────────────────────────────
+
+
+from dataclasses import dataclass, field as dc_field  # noqa: E402
+
+
+@dataclass
+class Condition:
+    """
+    A single comparison expression evaluated against a block's output.
+
+    Attributes:
+        eval_source: block_id whose result is read from state.results.
+        eval_key:    dot-notation path into the parsed result value.
+        operator:    one of the 15 supported comparison operators.
+        value:       right-hand comparison value (None for unary operators).
+    """
+
+    eval_source: str
+    eval_key: str
+    operator: str
+    value: Optional[str] = None
+
+
+@dataclass
+class ConditionGroup:
+    """
+    A logical combination of one or more Conditions.
+
+    Attributes:
+        conditions: list of Condition objects to evaluate.
+        combinator: "and" (all must pass) or "or" (any must pass).
+    """
+
+    conditions: list = dc_field(default_factory=list)  # list[Condition]
+    combinator: str = "and"
+
+
+@dataclass
+class Case:
+    """
+    A named branch that activates when its condition_group evaluates to True.
+
+    Attributes:
+        case_id:         identifier written to the decision key on match.
+        condition_group: the ConditionGroup to evaluate for this case.
+    """
+
+    case_id: str
+    condition_group: ConditionGroup
+
+
+# ── Operator constants ───────────────────────────────────────────────────────
+
+_STRING_OPERATORS = {
+    "equals",
+    "not_equals",
+    "contains",
+    "not_contains",
+    "starts_with",
+    "ends_with",
+    "is_empty",
+    "not_empty",
+    "regex",
+}
+_NUMERIC_OPERATORS = {"eq", "neq", "gt", "lt", "gte", "lte"}
+_UNIVERSAL_OPERATORS = {"exists", "not_exists"}
+
+_ALL_OPERATORS = _STRING_OPERATORS | _NUMERIC_OPERATORS | _UNIVERSAL_OPERATORS
+
+
+def _resolve_dotted_path(obj: Any, path: str) -> tuple[bool, Any]:
+    """
+    Resolve a dot-notation path into a nested object.
+
+    Returns:
+        (True, value) if the path exists.
+        (False, None) if any segment is missing.
+    """
+    parts = path.split(".")
+    current = obj
+    for part in parts:
+        if isinstance(current, dict):
+            if part not in current:
+                return False, None
+            current = current[part]
+        else:
+            # Non-dict at an intermediate step — cannot traverse further
+            return False, None
+    return True, current
+
+
+def _coerce_numeric(value: Any, meta_warnings: list, label: str) -> tuple[bool, float]:
+    """
+    Attempt to coerce *value* to float.
+
+    Returns (True, float_val) on success, (False, 0.0) on failure.
+    Appends a human-readable warning string to *meta_warnings* on failure.
+    """
+    try:
+        return True, float(value)
+    except (TypeError, ValueError):
+        meta_warnings.append(
+            f"Numeric coercion failed for {label}: {value!r} — falling back to string comparison"
+        )
+        return False, 0.0
+
+
+def _evaluate_condition(condition: Condition, state: WorkflowState, meta_warnings: list) -> bool:
+    """
+    Evaluate a single Condition against the current WorkflowState.
+
+    Raises:
+        ValueError: If eval_source is not present in state.results.
+        ValueError: If the operator is not recognised.
+        ValueError: If the regex pattern is invalid (regex operator).
+    """
+    op = condition.operator
+    if op not in _ALL_OPERATORS:
+        raise ValueError(
+            f"ConditionalBlock: unknown operator '{op}'. Valid operators: {sorted(_ALL_OPERATORS)}"
+        )
+
+    # ── Existence check (universal, does not require eval_source to be present) ──
+    if op == "not_exists":
+        if condition.eval_source not in state.results:
+            return True
+        raw = state.results[condition.eval_source]
+        parsed = raw
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        found, _ = _resolve_dotted_path(parsed, condition.eval_key)
+        return not found
+
+    if op == "exists":
+        if condition.eval_source not in state.results:
+            return False
+        raw = state.results[condition.eval_source]
+        parsed = raw
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        found, _ = _resolve_dotted_path(parsed, condition.eval_key)
+        return found
+
+    # ── All other operators require eval_source to be present ───────────────
+    if condition.eval_source not in state.results:
+        raise ValueError(
+            f"ConditionalBlock: eval_source '{condition.eval_source}' not found in state.results. "
+            f"Available keys: {sorted(state.results.keys())}"
+        )
+
+    raw = state.results[condition.eval_source]
+
+    # Auto-parse JSON string
+    parsed: Any = raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Resolve key path
+    found, actual = _resolve_dotted_path(parsed, condition.eval_key)
+    if not found:
+        # Key does not exist — treat as None for non-existence operators
+        actual = None
+
+    # ── Unary operators ──────────────────────────────────────────────────────
+    if op == "is_empty":
+        if actual is None:
+            return True
+        if isinstance(actual, (str, list, dict)):
+            return len(actual) == 0
+        return False
+
+    if op == "not_empty":
+        if actual is None:
+            return False
+        if isinstance(actual, (str, list, dict)):
+            return len(actual) > 0
+        return True
+
+    # ── Numeric operators ────────────────────────────────────────────────────
+    if op in _NUMERIC_OPERATORS:
+        ok_actual, num_actual = _coerce_numeric(
+            actual, meta_warnings, f"actual value for key '{condition.eval_key}'"
+        )
+        ok_cmp, num_cmp = _coerce_numeric(
+            condition.value, meta_warnings, f"comparison value '{condition.value}'"
+        )
+
+        if ok_actual and ok_cmp:
+            if op == "eq":
+                return num_actual == num_cmp
+            if op == "neq":
+                return num_actual != num_cmp
+            if op == "gt":
+                return num_actual > num_cmp
+            if op == "lt":
+                return num_actual < num_cmp
+            if op == "gte":
+                return num_actual >= num_cmp
+            if op == "lte":
+                return num_actual <= num_cmp
+        else:
+            # Fallback: string comparison
+            str_actual = str(actual) if actual is not None else ""
+            str_cmp = str(condition.value) if condition.value is not None else ""
+            if op == "eq":
+                return str_actual == str_cmp
+            if op == "neq":
+                return str_actual != str_cmp
+            # gt/lt/gte/lte with non-numeric values — no meaningful ordering
+            meta_warnings.append(
+                f"Cannot perform ordered numeric comparison '{op}' on non-numeric values: "
+                f"actual={actual!r}, value={condition.value!r}"
+            )
+            return False
+
+    # ── String operators ─────────────────────────────────────────────────────
+    str_actual = str(actual) if actual is not None else ""
+    str_cmp = str(condition.value) if condition.value is not None else ""
+
+    if op == "equals":
+        return str_actual == str_cmp
+    if op == "not_equals":
+        return str_actual != str_cmp
+    if op == "contains":
+        return str_cmp in str_actual
+    if op == "not_contains":
+        return str_cmp not in str_actual
+    if op == "starts_with":
+        return str_actual.startswith(str_cmp)
+    if op == "ends_with":
+        return str_actual.endswith(str_cmp)
+    if op == "regex":
+        try:
+            return bool(re.search(str_cmp, str_actual))
+        except re.error as exc:
+            raise ValueError(f"ConditionalBlock: invalid regex pattern '{str_cmp}': {exc}") from exc
+
+    # Should never reach here given the _ALL_OPERATORS guard above
+    raise ValueError(f"ConditionalBlock: unhandled operator '{op}'")  # pragma: no cover
+
+
+def _evaluate_condition_group(
+    group: ConditionGroup, state: WorkflowState, meta_warnings: list
+) -> bool:
+    """Evaluate a ConditionGroup using its combinator ("and" / "or")."""
+    if group.combinator == "and":
+        return all(_evaluate_condition(c, state, meta_warnings) for c in group.conditions)
+    if group.combinator == "or":
+        return any(_evaluate_condition(c, state, meta_warnings) for c in group.conditions)
+    raise ValueError(
+        f"ConditionalBlock: unknown combinator '{group.combinator}'. Must be 'and' or 'or'."
+    )
+
+
+class ConditionalBlock(BaseBlock):
+    """
+    Rule-based branching block with comparison operators.
+
+    Evaluates a list of Cases in order (first match wins) and sets a decision
+    key in state.metadata so that workflow routing can direct execution to the
+    correct branch.
+
+    No LLM calls are made — cost/tokens are always zero.
+
+    Attributes:
+        cases:   Ordered list of Case objects; first passing case wins.
+        default: Decision value used when no case matches.
+    """
+
+    def __init__(self, block_id: str, cases: list, default: str = "default"):
+        """
+        Args:
+            block_id: Unique block identifier.
+            cases:    List[Case] evaluated in order.
+            default:  Fallback decision string when no case matches.
+        """
+        super().__init__(block_id)
+        self.cases: list = cases  # list[Case]
+        self.default = default
+
+    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+        """
+        Evaluate cases in order and write decision to state.
+
+        Stores:
+            state.results[self.block_id]                — winning case_id (or default)
+            state.metadata[f"{self.block_id}_decision"] — same value (consumed by routing)
+
+        Raises:
+            ValueError: If an eval_source is missing, operator is unknown,
+                        or a regex pattern is invalid.
+        """
+        meta_warnings: list = []
+        winning_case: str = self.default
+
+        for case in self.cases:
+            if _evaluate_condition_group(case.condition_group, state, meta_warnings):
+                winning_case = case.case_id
+                break
+
+        new_metadata = {**state.metadata, f"{self.block_id}_decision": winning_case}
+        if meta_warnings:
+            new_metadata[f"{self.block_id}_warnings"] = meta_warnings
+
+        return state.model_copy(
+            update={
+                "results": {**state.results, self.block_id: winning_case},
+                "metadata": new_metadata,
+                "messages": state.messages
+                + [
+                    {
+                        "role": "system",
+                        "content": f"[Block {self.block_id}] ConditionalBlock: decision='{winning_case}'",
+                    }
+                ],
+            }
+        )
