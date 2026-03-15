@@ -24,6 +24,7 @@ from .blocks.implementations import (
     Condition,
     ConditionGroup,
     Case,
+    CodeBlock,
 )
 from .blocks.registry import BlockRegistry, BlockFactory
 from .workflow import Workflow
@@ -50,6 +51,7 @@ __all__ = [
     "GateBlock",
     "FileWriterBlock",
     "WorkflowBlock",
+    "CodeBlock",
     "BlockRegistry",
     "BlockFactory",
     "Workflow",
