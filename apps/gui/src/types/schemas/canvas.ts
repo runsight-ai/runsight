@@ -68,6 +68,7 @@ export interface StepNodeData extends Record<string, unknown> {
   contentKey?: string;          // file_writer
   failureContextKeys?: string[]; // team_lead
   provideErrorContext?: boolean;  // retry
+  conditionRef?: string;         // router
 
   // CodeBlock fields
   code?: string;
