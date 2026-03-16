@@ -146,7 +146,7 @@ export interface BlockDef {
   iterations?: number;
   max_retries?: number;
   workflow_ref?: string;
-  inputs?: Record<string, InputRef>;
+  inputs?: Record<string, InputRef> | Record<string, string>;  // InputRef for most blocks, string for WorkflowBlock
   outputs?: Record<string, string>;
   max_depth?: number;
   eval_key?: string;
@@ -161,8 +161,6 @@ export interface BlockDef {
   allowed_imports?: string[];
   output_conditions?: CaseDef[];
   description?: string;
-  workflow_inputs?: Record<string, string>;
-  workflow_outputs?: Record<string, string>;
 }
 
 export interface TransitionDef {
