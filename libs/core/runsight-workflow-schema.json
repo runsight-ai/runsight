@@ -1,0 +1,1388 @@
+{
+  "$defs": {
+    "CaseDef": {
+      "additionalProperties": false,
+      "description": "A named branch case for output_conditions.",
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "condition_group": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConditionGroupDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "default": {
+          "type": "boolean",
+          "default": false,
+          "title": "Default"
+        }
+      },
+      "required": [
+        "case_id"
+      ],
+      "title": "CaseDef",
+      "type": "object"
+    },
+    "CodeBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "code",
+          "default": "code",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "default": 30,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "allowed_imports": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Allowed Imports"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "CodeBlockDef",
+      "type": "object"
+    },
+    "ConditionDef": {
+      "additionalProperties": false,
+      "description": "Single condition rule.",
+      "properties": {
+        "eval_key": {
+          "title": "Eval Key",
+          "type": "string"
+        },
+        "operator": {
+          "title": "Operator",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "eval_key",
+        "operator"
+      ],
+      "title": "ConditionDef",
+      "type": "object"
+    },
+    "ConditionGroupDef": {
+      "additionalProperties": false,
+      "description": "Group of conditions with AND/OR combinator.",
+      "properties": {
+        "combinator": {
+          "default": "and",
+          "title": "Combinator",
+          "type": "string"
+        },
+        "conditions": {
+          "items": {
+            "$ref": "#/$defs/ConditionDef"
+          },
+          "title": "Conditions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "conditions"
+      ],
+      "title": "ConditionGroupDef",
+      "type": "object"
+    },
+    "ConditionalTransitionDef": {
+      "additionalProperties": true,
+      "description": "Conditional (multi-path) transition. Extra fields are decision_key -> target_block_id.\n\nYAML structure:\n    conditional_transitions:\n      - from: router_block\n        approved: approve_block\n        rejected: reject_block\n        default: reject_block   # optional fallback",
+      "properties": {
+        "from": {
+          "title": "From",
+          "type": "string"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default"
+        }
+      },
+      "required": [
+        "from"
+      ],
+      "title": "ConditionalTransitionDef",
+      "type": "object"
+    },
+    "DebateBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "debate",
+          "default": "debate",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "soul_a_ref": {
+          "title": "Soul A Ref",
+          "type": "string"
+        },
+        "soul_b_ref": {
+          "title": "Soul B Ref",
+          "type": "string"
+        },
+        "iterations": {
+          "title": "Iterations",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "soul_a_ref",
+        "soul_b_ref",
+        "iterations"
+      ],
+      "title": "DebateBlockDef",
+      "type": "object"
+    },
+    "EngineeringManagerBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "engineering_manager",
+          "default": "engineering_manager",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "soul_ref": {
+          "title": "Soul Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "soul_ref"
+      ],
+      "title": "EngineeringManagerBlockDef",
+      "type": "object"
+    },
+    "FanOutBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "fanout",
+          "default": "fanout",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "soul_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Soul Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "soul_refs"
+      ],
+      "title": "FanOutBlockDef",
+      "type": "object"
+    },
+    "FileWriterBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "file_writer",
+          "default": "file_writer",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "output_path": {
+          "title": "Output Path",
+          "type": "string"
+        },
+        "content_key": {
+          "title": "Content Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output_path",
+        "content_key"
+      ],
+      "title": "FileWriterBlockDef",
+      "type": "object"
+    },
+    "GateBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "gate",
+          "default": "gate",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "soul_ref": {
+          "title": "Soul Ref",
+          "type": "string"
+        },
+        "eval_key": {
+          "title": "Eval Key",
+          "type": "string"
+        },
+        "extract_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extract Field"
+        }
+      },
+      "required": [
+        "soul_ref",
+        "eval_key"
+      ],
+      "title": "GateBlockDef",
+      "type": "object"
+    },
+    "InputRef": {
+      "additionalProperties": false,
+      "description": "Reference to an upstream block's output.",
+      "properties": {
+        "from": {
+          "title": "From",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from"
+      ],
+      "title": "InputRef",
+      "type": "object"
+    },
+    "LinearBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "linear",
+          "default": "linear",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "soul_ref": {
+          "title": "Soul Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "soul_ref"
+      ],
+      "title": "LinearBlockDef",
+      "type": "object"
+    },
+    "MessageBusBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "message_bus",
+          "default": "message_bus",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "soul_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Soul Refs",
+          "type": "array"
+        },
+        "iterations": {
+          "title": "Iterations",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "soul_refs",
+        "iterations"
+      ],
+      "title": "MessageBusBlockDef",
+      "type": "object"
+    },
+    "PlaceholderBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "placeholder",
+          "default": "placeholder",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "title": "PlaceholderBlockDef",
+      "type": "object"
+    },
+    "RetryBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "retry",
+          "default": "retry",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "inner_block_ref": {
+          "title": "Inner Block Ref",
+          "type": "string"
+        },
+        "max_retries": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Retries"
+        },
+        "provide_error_context": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provide Error Context"
+        }
+      },
+      "required": [
+        "inner_block_ref"
+      ],
+      "title": "RetryBlockDef",
+      "type": "object"
+    },
+    "RouterBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "router",
+          "default": "router",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "soul_ref": {
+          "title": "Soul Ref",
+          "type": "string"
+        },
+        "condition_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition Ref"
+        }
+      },
+      "required": [
+        "soul_ref"
+      ],
+      "title": "RouterBlockDef",
+      "type": "object"
+    },
+    "SoulDef": {
+      "description": "Soul definition as expressed in the YAML souls: section.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "system_prompt": {
+          "title": "System Prompt",
+          "type": "string"
+        },
+        "tools": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tools"
+        },
+        "model_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Name"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "system_prompt"
+      ],
+      "title": "SoulDef",
+      "type": "object"
+    },
+    "SynthesizeBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "synthesize",
+          "default": "synthesize",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "soul_ref": {
+          "title": "Soul Ref",
+          "type": "string"
+        },
+        "input_block_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Input Block Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "soul_ref",
+        "input_block_ids"
+      ],
+      "title": "SynthesizeBlockDef",
+      "type": "object"
+    },
+    "TeamLeadBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "team_lead",
+          "default": "team_lead",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "soul_ref": {
+          "title": "Soul Ref",
+          "type": "string"
+        },
+        "failure_context_keys": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Context Keys"
+        }
+      },
+      "required": [
+        "soul_ref"
+      ],
+      "title": "TeamLeadBlockDef",
+      "type": "object"
+    },
+    "TransitionDef": {
+      "description": "Plain (single-path) transition: from -> to. to=None means terminal block.",
+      "properties": {
+        "from": {
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To"
+        }
+      },
+      "required": [
+        "from"
+      ],
+      "title": "TransitionDef",
+      "type": "object"
+    },
+    "WorkflowBlockDef": {
+      "additionalProperties": false,
+      "description": "WorkflowBlock definition.\n\n``inputs`` and ``outputs`` override BaseBlockDef fields with workflow-specific\ntypes (Dict[str, str] for state key mapping) to maintain backward compatibility\nwith existing YAML files and parser code that accesses ``block_def.inputs``.",
+      "properties": {
+        "type": {
+          "const": "workflow",
+          "default": "workflow",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "workflow_ref": {
+          "title": "Workflow Ref",
+          "type": "string"
+        },
+        "max_depth": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Depth"
+        }
+      },
+      "required": [
+        "workflow_ref"
+      ],
+      "title": "WorkflowBlockDef",
+      "type": "object"
+    },
+    "WorkflowDef": {
+      "description": "Top-level workflow graph definition.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "entry": {
+          "title": "Entry",
+          "type": "string"
+        },
+        "transitions": {
+          "items": {
+            "$ref": "#/$defs/TransitionDef"
+          },
+          "title": "Transitions",
+          "type": "array"
+        },
+        "conditional_transitions": {
+          "items": {
+            "$ref": "#/$defs/ConditionalTransitionDef"
+          },
+          "title": "Conditional Transitions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "entry"
+      ],
+      "title": "WorkflowDef",
+      "type": "object"
+    }
+  },
+  "description": "Root model for a Runsight .yaml workflow file.\n'workflow' is the only required top-level key \u2014 all others have defaults.",
+  "properties": {
+    "version": {
+      "default": "1.0",
+      "title": "Version",
+      "type": "string"
+    },
+    "config": {
+      "additionalProperties": true,
+      "title": "Config",
+      "type": "object"
+    },
+    "souls": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SoulDef"
+      },
+      "title": "Souls",
+      "type": "object"
+    },
+    "blocks": {
+      "additionalProperties": {
+        "discriminator": {
+          "mapping": {
+            "code": "#/$defs/CodeBlockDef",
+            "debate": "#/$defs/DebateBlockDef",
+            "engineering_manager": "#/$defs/EngineeringManagerBlockDef",
+            "fanout": "#/$defs/FanOutBlockDef",
+            "file_writer": "#/$defs/FileWriterBlockDef",
+            "gate": "#/$defs/GateBlockDef",
+            "linear": "#/$defs/LinearBlockDef",
+            "message_bus": "#/$defs/MessageBusBlockDef",
+            "placeholder": "#/$defs/PlaceholderBlockDef",
+            "retry": "#/$defs/RetryBlockDef",
+            "router": "#/$defs/RouterBlockDef",
+            "synthesize": "#/$defs/SynthesizeBlockDef",
+            "team_lead": "#/$defs/TeamLeadBlockDef",
+            "workflow": "#/$defs/WorkflowBlockDef"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/LinearBlockDef"
+          },
+          {
+            "$ref": "#/$defs/FanOutBlockDef"
+          },
+          {
+            "$ref": "#/$defs/SynthesizeBlockDef"
+          },
+          {
+            "$ref": "#/$defs/DebateBlockDef"
+          },
+          {
+            "$ref": "#/$defs/MessageBusBlockDef"
+          },
+          {
+            "$ref": "#/$defs/RouterBlockDef"
+          },
+          {
+            "$ref": "#/$defs/TeamLeadBlockDef"
+          },
+          {
+            "$ref": "#/$defs/EngineeringManagerBlockDef"
+          },
+          {
+            "$ref": "#/$defs/GateBlockDef"
+          },
+          {
+            "$ref": "#/$defs/PlaceholderBlockDef"
+          },
+          {
+            "$ref": "#/$defs/FileWriterBlockDef"
+          },
+          {
+            "$ref": "#/$defs/CodeBlockDef"
+          },
+          {
+            "$ref": "#/$defs/RetryBlockDef"
+          },
+          {
+            "$ref": "#/$defs/WorkflowBlockDef"
+          }
+        ]
+      },
+      "title": "Blocks",
+      "type": "object"
+    },
+    "workflow": {
+      "$ref": "#/$defs/WorkflowDef"
+    }
+  },
+  "required": [
+    "workflow"
+  ],
+  "title": "RunsightWorkflowFile",
+  "type": "object"
+}
