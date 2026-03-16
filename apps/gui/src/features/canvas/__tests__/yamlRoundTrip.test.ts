@@ -1,0 +1,515 @@
+/**
+ * RED-TEAM tests for RUN-120: Round-trip tests + schema conformance.
+ *
+ * Validates: compile -> parse -> compile is lossless.
+ * These tests may FAIL if there are round-trip bugs — that is the point.
+ */
+
+import { describe, it, expect, test } from "vitest";
+import { compileGraphToWorkflowYaml } from "../yamlCompiler";
+import { parseWorkflowYamlToGraph } from "../yamlParser";
+import type { StepNodeData, StepType, CaseDef, SoulDef } from "../../../types/schemas/canvas";
+import type { Node, Edge } from "@xyflow/react";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function mockNode(
+  id: string,
+  stepType: StepType,
+  extraData: Partial<StepNodeData> = {},
+): Node<StepNodeData> {
+  return {
+    id,
+    type: "canvasNode",
+    position: { x: 0, y: 0 },
+    data: {
+      stepId: id,
+      name: id,
+      stepType,
+      status: "idle",
+      ...extraData,
+    },
+  };
+}
+
+function mockEdge(
+  source: string,
+  target: string,
+  sourceHandle?: string,
+): Edge {
+  return {
+    id: `${source}->${target}${sourceHandle ? `:${sourceHandle}` : ""}`,
+    source,
+    target,
+    sourceHandle: sourceHandle ?? null,
+    targetHandle: null,
+  };
+}
+
+interface CompileInput {
+  nodes: Node<StepNodeData>[];
+  edges: Edge[];
+  workflowName?: string;
+  souls?: Record<string, SoulDef>;
+  config?: Record<string, unknown>;
+}
+
+/**
+ * Core round-trip: compile -> parse -> compile.
+ * Returns both YAML strings and compiled documents for assertion.
+ */
+function roundTrip(input: CompileInput) {
+  const { yaml: yaml1, workflowDocument: doc1 } = compileGraphToWorkflowYaml(input);
+  const parsed = parseWorkflowYamlToGraph(yaml1);
+
+  // Rebuild compile input from parsed result
+  const input2: CompileInput = {
+    nodes: parsed.nodes,
+    edges: parsed.edges,
+    souls: parsed.souls,
+    config: parsed.config,
+    workflowName: input.workflowName,
+  };
+  const { yaml: yaml2, workflowDocument: doc2 } = compileGraphToWorkflowYaml(input2);
+
+  return { yaml1, yaml2, doc1, doc2, parsed };
+}
+
+// ===========================================================================
+// 1. Per-type round-trip (14 block types)
+// ===========================================================================
+
+describe("Per-type round-trip", () => {
+  test.each<[string, StepType, Partial<StepNodeData>]>([
+    ["linear", "linear", { soulRef: "researcher" }],
+    ["fanout", "fanout", { soulRefs: ["a", "b"] }],
+    ["debate", "debate", { soulARef: "a", soulBRef: "b", iterations: 3 }],
+    ["message_bus", "message_bus", { soulRefs: ["a", "b"], iterations: 5 }],
+    ["synthesize", "synthesize", { soulRef: "synth", inputBlockIds: ["a", "b"] }],
+    ["router", "router", { soulRef: "router_soul", conditionRef: "cond1" }],
+    ["gate", "gate", { soulRef: "gatekeeper", evalKey: "quality", extractField: "score" }],
+    ["team_lead", "team_lead", { soulRef: "lead", failureContextKeys: ["err"] }],
+    ["engineering_manager", "engineering_manager", { soulRef: "em" }],
+    ["placeholder", "placeholder", { description: "A placeholder block" }],
+    ["file_writer", "file_writer", { outputPath: "./out.md", contentKey: "result" }],
+    ["code", "code", { code: "def main():\n  return {}", timeoutSeconds: 30, allowedImports: ["json"] }],
+    ["retry", "retry", { innerBlockRef: "inner", maxRetries: 3, provideErrorContext: true }],
+    ["workflow", "workflow", { workflowRef: "sub.yaml", maxDepth: 2 }],
+  ])("round-trip: %s", (_label, stepType, fields) => {
+    const node = mockNode("block1", stepType, fields);
+    const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
+
+    // Block fields should survive the round-trip
+    expect(doc2.blocks["block1"]).toEqual(doc1.blocks["block1"]);
+  });
+});
+
+// ===========================================================================
+// 2. Souls round-trip
+// ===========================================================================
+
+describe("Souls round-trip", () => {
+  it("souls survive compile -> parse -> compile", () => {
+    const souls: Record<string, SoulDef> = {
+      planner: {
+        id: "planner",
+        role: "planner",
+        system_prompt: "You are a planning agent.",
+        model_name: "claude-3-opus",
+      },
+      coder: {
+        id: "coder",
+        role: "engineer",
+        system_prompt: "You write code.",
+        tools: [{ name: "file_read" }],
+      },
+    };
+
+    const { doc1, doc2 } = roundTrip({
+      nodes: [mockNode("b1", "linear", { soulRef: "planner" })],
+      edges: [],
+      souls,
+    });
+
+    expect(doc2.souls).toEqual(doc1.souls);
+  });
+
+  it("missing souls are omitted in both passes", () => {
+    const { doc1, doc2 } = roundTrip({
+      nodes: [mockNode("b1", "placeholder")],
+      edges: [],
+    });
+
+    expect(doc1.souls).toBeUndefined();
+    expect(doc2.souls).toBeUndefined();
+  });
+});
+
+// ===========================================================================
+// 3. Config round-trip
+// ===========================================================================
+
+describe("Config round-trip", () => {
+  it("config survives compile -> parse -> compile", () => {
+    const config: Record<string, unknown> = {
+      max_concurrency: 4,
+      timeout: 300,
+      retry_policy: {
+        max_retries: 3,
+        backoff: { type: "exponential", base_ms: 100 },
+      },
+    };
+
+    const { doc1, doc2 } = roundTrip({
+      nodes: [mockNode("b1", "placeholder")],
+      edges: [],
+      config,
+    });
+
+    expect(doc2.config).toEqual(doc1.config);
+  });
+
+  it("missing config is omitted in both passes", () => {
+    const { doc1, doc2 } = roundTrip({
+      nodes: [mockNode("b1", "placeholder")],
+      edges: [],
+    });
+
+    expect(doc1.config).toBeUndefined();
+    expect(doc2.config).toBeUndefined();
+  });
+});
+
+// ===========================================================================
+// 4. Transitions round-trip
+// ===========================================================================
+
+describe("Transitions round-trip", () => {
+  it("plain transitions survive compile -> parse -> compile", () => {
+    const nodes = [
+      mockNode("step_a", "linear", { soulRef: "s1" }),
+      mockNode("step_b", "linear", { soulRef: "s2" }),
+      mockNode("step_c", "placeholder"),
+    ];
+    const edges = [
+      mockEdge("step_a", "step_b"),
+      mockEdge("step_b", "step_c"),
+    ];
+
+    const { doc1, doc2 } = roundTrip({ nodes, edges });
+
+    expect(doc2.workflow.transitions).toEqual(doc1.workflow.transitions);
+  });
+
+  it("transition ordering is preserved", () => {
+    const nodes = [
+      mockNode("a", "placeholder"),
+      mockNode("b", "placeholder"),
+      mockNode("c", "placeholder"),
+      mockNode("d", "placeholder"),
+    ];
+    const edges = [
+      mockEdge("a", "b"),
+      mockEdge("b", "c"),
+      mockEdge("c", "d"),
+    ];
+
+    const { doc1, doc2 } = roundTrip({ nodes, edges });
+
+    expect(doc2.workflow.transitions).toEqual(doc1.workflow.transitions);
+    expect(doc1.workflow.transitions).toEqual([
+      { from: "a", to: "b" },
+      { from: "b", to: "c" },
+      { from: "c", to: "d" },
+    ]);
+  });
+});
+
+// ===========================================================================
+// 5. Conditional transitions round-trip
+// ===========================================================================
+
+describe("Conditional transitions round-trip", () => {
+  const outputConditions: CaseDef[] = [
+    {
+      case_id: "approved",
+      condition_group: {
+        combinator: "and",
+        conditions: [{ eval_key: "result.status", operator: "eq", value: "ok" }],
+      },
+    },
+    { case_id: "rejected",
+      condition_group: {
+        combinator: "and",
+        conditions: [{ eval_key: "result.status", operator: "eq", value: "fail" }],
+      },
+    },
+    { case_id: "default", default: true },
+  ];
+
+  it("conditional transitions survive compile -> parse -> compile", () => {
+    const nodes = [
+      mockNode("decider", "linear", {
+        soulRef: "s1",
+        outputConditions: outputConditions,
+      }),
+      mockNode("approve_step", "placeholder"),
+      mockNode("reject_step", "placeholder"),
+      mockNode("fallback", "placeholder"),
+    ];
+    const edges = [
+      mockEdge("decider", "approve_step", "approved"),
+      mockEdge("decider", "reject_step", "rejected"),
+      mockEdge("decider", "fallback"),  // default handle
+    ];
+
+    const { doc1, doc2 } = roundTrip({ nodes, edges });
+
+    expect(doc2.workflow.conditional_transitions).toEqual(
+      doc1.workflow.conditional_transitions,
+    );
+  });
+
+  it("mixed plain + conditional transitions survive round-trip", () => {
+    const nodes = [
+      mockNode("start", "linear", { soulRef: "s0" }),
+      mockNode("decider", "gate", {
+        soulRef: "gs",
+        evalKey: "ok",
+        outputConditions: [
+          { case_id: "pass", condition_group: { combinator: "and", conditions: [{ eval_key: "score", operator: "gte", value: 5 }] } },
+          { case_id: "fail", default: true },
+        ],
+      }),
+      mockNode("pass_step", "placeholder"),
+      mockNode("fail_step", "placeholder"),
+    ];
+    const edges = [
+      mockEdge("start", "decider"),
+      mockEdge("decider", "pass_step", "pass"),
+      mockEdge("decider", "fail_step", "fail"),
+    ];
+
+    const { doc1, doc2 } = roundTrip({ nodes, edges });
+
+    // Plain transitions
+    expect(doc2.workflow.transitions).toEqual(doc1.workflow.transitions);
+    // Conditional transitions
+    expect(doc2.workflow.conditional_transitions).toEqual(
+      doc1.workflow.conditional_transitions,
+    );
+  });
+
+  it("conditional_transitions omitted when absent in both passes", () => {
+    const nodes = [
+      mockNode("a", "linear", { soulRef: "s1" }),
+      mockNode("b", "placeholder"),
+    ];
+    const edges = [mockEdge("a", "b")];
+
+    const { doc1, doc2 } = roundTrip({ nodes, edges });
+
+    expect(doc1.workflow.conditional_transitions).toBeUndefined();
+    expect(doc2.workflow.conditional_transitions).toBeUndefined();
+  });
+});
+
+// ===========================================================================
+// 6. Full workflow round-trip
+// ===========================================================================
+
+describe("Full workflow round-trip", () => {
+  it("complex workflow with multiple types, edges, souls, and config", () => {
+    const souls: Record<string, SoulDef> = {
+      planner: {
+        id: "planner",
+        role: "planner",
+        system_prompt: "You plan tasks.",
+        model_name: "claude-3-opus",
+      },
+      coder: {
+        id: "coder",
+        role: "engineer",
+        system_prompt: "You write code.",
+      },
+    };
+
+    const config: Record<string, unknown> = {
+      max_concurrency: 8,
+      timeout: 600,
+    };
+
+    const outputConds: CaseDef[] = [
+      {
+        case_id: "pass",
+        condition_group: {
+          combinator: "and",
+          conditions: [{ eval_key: "quality", operator: "gte", value: 7 }],
+        },
+      },
+      { case_id: "fail", default: true },
+    ];
+
+    const nodes = [
+      mockNode("plan", "linear", { soulRef: "planner" }),
+      mockNode("implement", "fanout", { soulRefs: ["coder", "planner"] }),
+      mockNode("review", "gate", {
+        soulRef: "planner",
+        evalKey: "quality",
+        extractField: "score",
+        outputConditions: outputConds,
+      }),
+      mockNode("pass_out", "file_writer", { outputPath: "./report.md", contentKey: "result" }),
+      mockNode("fail_retry", "retry", { innerBlockRef: "implement", maxRetries: 2, provideErrorContext: true }),
+    ];
+
+    const edges = [
+      mockEdge("plan", "implement"),
+      mockEdge("implement", "review"),
+      mockEdge("review", "pass_out", "pass"),
+      mockEdge("review", "fail_retry", "fail"),
+    ];
+
+    const { doc1, doc2, yaml1, yaml2 } = roundTrip({
+      nodes,
+      edges,
+      souls,
+      config,
+      workflowName: "full-pipeline",
+    });
+
+    // Blocks
+    expect(doc2.blocks).toEqual(doc1.blocks);
+
+    // Souls
+    expect(doc2.souls).toEqual(doc1.souls);
+
+    // Config
+    expect(doc2.config).toEqual(doc1.config);
+
+    // Transitions
+    expect(doc2.workflow.transitions).toEqual(doc1.workflow.transitions);
+
+    // Conditional transitions
+    expect(doc2.workflow.conditional_transitions).toEqual(
+      doc1.workflow.conditional_transitions,
+    );
+
+    // Workflow name
+    expect(doc2.workflow.name).toBe(doc1.workflow.name);
+
+    // Entry point
+    expect(doc2.workflow.entry).toBe(doc1.workflow.entry);
+
+    // Version
+    expect(doc2.version).toBe(doc1.version);
+
+    // YAML string equivalence (strictest check)
+    expect(yaml2).toBe(yaml1);
+  });
+});
+
+// ===========================================================================
+// 7. Edge cases
+// ===========================================================================
+
+describe("Edge cases", () => {
+  it("empty workflow (no blocks) is a valid round-trip", () => {
+    const { doc1, doc2, yaml1, yaml2 } = roundTrip({
+      nodes: [],
+      edges: [],
+    });
+
+    expect(doc2.blocks).toEqual(doc1.blocks);
+    expect(yaml2).toBe(yaml1);
+  });
+
+  it("block with only type and no extra fields round-trips as minimal block", () => {
+    const node = mockNode("minimal", "placeholder");
+    const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
+
+    expect(doc1.blocks["minimal"]).toEqual({ type: "placeholder" });
+    expect(doc2.blocks["minimal"]).toEqual({ type: "placeholder" });
+  });
+
+  it("multiline code string preserved exactly through round-trip", () => {
+    const multilineCode = `def main():
+    data = {"key": "value"}
+    for k, v in data.items():
+        print(f"{k}: {v}")
+    return data`;
+
+    const node = mockNode("code_block", "code", {
+      code: multilineCode,
+      timeoutSeconds: 60,
+      allowedImports: ["json", "os"],
+    });
+
+    const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
+
+    expect(doc2.blocks["code_block"]).toEqual(doc1.blocks["code_block"]);
+    // Specifically verify the code string
+    expect((doc2.blocks["code_block"] as Record<string, unknown>).code).toBe(multilineCode);
+  });
+
+  it("workflow block with inputs and outputs round-trips", () => {
+    const node = mockNode("sub", "workflow", {
+      workflowRef: "sub.yaml",
+      maxDepth: 3,
+      workflowInputs: { query: "parent.user_query", context: "parent.ctx" },
+      workflowOutputs: { summary: "child.result.summary" },
+    });
+
+    const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
+
+    expect(doc2.blocks["sub"]).toEqual(doc1.blocks["sub"]);
+  });
+
+  it("block with universal fields (inputs, outputs, output_conditions) round-trips", () => {
+    const node = mockNode("enriched", "linear", {
+      soulRef: "soul1",
+      inputs: { context: { from: "prev.result" } },
+      outputs: { summary: "string" },
+      outputConditions: [
+        { case_id: "done", default: true },
+      ],
+    });
+
+    const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
+
+    expect(doc2.blocks["enriched"]).toEqual(doc1.blocks["enriched"]);
+  });
+
+  it("single node with no edges round-trips with correct entry point", () => {
+    const node = mockNode("only_node", "linear", { soulRef: "s1" });
+    const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
+
+    expect(doc1.workflow.entry).toBe("only_node");
+    expect(doc2.workflow.entry).toBe("only_node");
+  });
+
+  it("YAML string equality implies full lossless round-trip", () => {
+    const souls: Record<string, SoulDef> = {
+      agent: { id: "agent", role: "worker", system_prompt: "Do work." },
+    };
+
+    const nodes = [
+      mockNode("a", "linear", { soulRef: "agent" }),
+      mockNode("b", "debate", { soulARef: "agent", soulBRef: "agent", iterations: 2 }),
+      mockNode("c", "code", { code: "x = 1", timeoutSeconds: 10, allowedImports: [] }),
+    ];
+    const edges = [mockEdge("a", "b"), mockEdge("b", "c")];
+
+    const { yaml1, yaml2 } = roundTrip({
+      nodes,
+      edges,
+      souls,
+      config: { debug: true },
+      workflowName: "test-wf",
+    });
+
+    expect(yaml2).toBe(yaml1);
+  });
+});
