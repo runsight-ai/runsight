@@ -26,11 +26,12 @@ from runsight_core.blocks.implementations import (
     GateBlock,
     FileWriterBlock,
 )
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import (
     BlockDef,
+    InputRef,
     RunsightTaskFile,
     RunsightWorkflowFile,
 )
@@ -267,8 +268,7 @@ def _build_placeholder(
     runner: RunsightTeamRunner,
     all_blocks: Dict[str, BaseBlock],
 ) -> PlaceholderBlock:
-    extra = block_def.model_extra or {}
-    description = str(extra.get("description", f"Placeholder block {block_id}"))
+    description = block_def.description or f"Placeholder block {block_id}"
     return PlaceholderBlock(block_id, description)
 
 
@@ -441,6 +441,70 @@ def parse_workflow_yaml(
             continue
         built_blocks[block_id] = _build_retry(block_id, block_def, souls_map, runner, built_blocks)
 
+    # Step 6.5: Validate input references and detect circular dependencies
+    # Build input dependency graph for cycle detection
+    input_deps: Dict[str, list] = {}  # block_id -> [source_block_ids]
+    for block_id, block_def in file_def.blocks.items():
+        if block_def.inputs is not None and block_def.type != "workflow":
+            deps = []
+            for input_name, input_ref in block_def.inputs.items():
+                from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
+                source_id = from_ref.split(".")[0]
+                if source_id not in file_def.blocks:
+                    raise ValueError(
+                        f"Block '{block_id}': input '{input_name}' references unknown block '{source_id}'"
+                    )
+                if source_id == block_id:
+                    raise ValueError(
+                        f"Block '{block_id}': input '{input_name}' references itself (circular)"
+                    )
+                deps.append(source_id)
+            input_deps[block_id] = deps
+
+    # Detect circular input dependencies (topological sort / DFS)
+    def _detect_input_cycle(
+        node: str,
+        visiting: set,
+        visited: set,
+        deps: Dict[str, list],
+    ) -> bool:
+        if node in visiting:
+            return True  # cycle found
+        if node in visited:
+            return False
+        visiting.add(node)
+        for dep in deps.get(node, []):
+            if _detect_input_cycle(dep, visiting, visited, deps):
+                return True
+        visiting.remove(node)
+        visited.add(node)
+        return False
+
+    visiting_set: set = set()
+    visited_set: set = set()
+    for block_id in input_deps:
+        if _detect_input_cycle(block_id, visiting_set, visited_set, input_deps):
+            raise ValueError(
+                f"Circular input dependency cycle detected involving block '{block_id}'"
+            )
+
+    # Step 6.6: Wrap blocks with declared_inputs in Step objects
+    for block_id, block_def in file_def.blocks.items():
+        if (
+            block_def.inputs is not None
+            and block_def.type != "workflow"
+            and block_id in built_blocks
+        ):
+            declared_inputs: Dict[str, str] = {}
+            for input_name, input_ref in block_def.inputs.items():
+                from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
+                declared_inputs[input_name] = from_ref
+            # Wrap the built block in a Step with declared_inputs
+            built_blocks[block_id] = Step(
+                block=built_blocks[block_id],
+                declared_inputs=declared_inputs,
+            )
+
     # Step 7: Assemble Workflow object
     wf = Workflow(name=file_def.workflow.name)
     for block in built_blocks.values():
@@ -462,6 +526,33 @@ def parse_workflow_yaml(
 
     # Step 10: Set entry block
     wf.set_entry(file_def.workflow.entry)
+
+    # Step 10.5: Wire output_conditions to Workflow
+    for block_id, block_def in file_def.blocks.items():
+        if block_def.output_conditions:
+            from runsight_core.conditions.engine import Case, Condition, ConditionGroup
+
+            cases = []
+            default_decision = "default"
+            for case_def in block_def.output_conditions:
+                if case_def.default:
+                    default_decision = case_def.case_id
+                    continue  # default case has no condition_group
+                if case_def.condition_group is not None:
+                    conditions = [
+                        Condition(
+                            eval_key=c.eval_key,
+                            operator=c.operator,
+                            value=c.value,
+                        )
+                        for c in case_def.condition_group.conditions
+                    ]
+                    group = ConditionGroup(
+                        conditions=conditions,
+                        combinator=case_def.condition_group.combinator,
+                    )
+                    cases.append(Case(case_id=case_def.case_id, condition_group=group))
+            wf.set_output_conditions(block_id, cases, default=default_decision)
 
     # Step 11: Validate (raises ValueError if topology is invalid)
     errors = wf.validate()

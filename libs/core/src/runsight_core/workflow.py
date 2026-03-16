@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Deque, Dict, List, Optional, Tuple
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.implementations import PlaceholderBlock
+from runsight_core.conditions.engine import Case, evaluate_output_conditions
 from runsight_core.state import WorkflowState
 
 if TYPE_CHECKING:
@@ -54,6 +55,7 @@ class Workflow:
         self._conditional_transitions: Dict[
             str, Dict[str, str]
         ] = {}  # from_block_id -> {decision_str -> to_block_id}
+        self._output_conditions: Dict[str, Tuple[List[Case], str]] = {}
 
     def add_block(self, block: BaseBlock) -> "Workflow":
         """
@@ -166,6 +168,27 @@ class Workflow:
         Note: Validation of block existence is deferred to validate().
         """
         self._entry_block_id = block_id
+        return self
+
+    def set_output_conditions(
+        self, block_id: str, cases: list, default: str = "default"
+    ) -> "Workflow":
+        """Store output_conditions for a block.
+
+        When _resolve_next runs for this block, the cases are evaluated against
+        the block's result. The winning case_id (or the default) is written to
+        state.metadata[f"{block_id}_decision"] so that conditional_transitions
+        can consume it.
+
+        Args:
+            block_id: The block whose result should be evaluated.
+            cases: Ordered list of Case objects.
+            default: Fallback decision string if no case matches.
+
+        Returns:
+            Self for fluent API chaining.
+        """
+        self._output_conditions[block_id] = (cases, default)
         return self
 
     def validate(self) -> List[str]:
@@ -306,6 +329,16 @@ class Workflow:
         Raises:
             KeyError: If conditional transition resolution fails (no matching key, no default).
         """
+        # Evaluate output_conditions first (if present), writing decision to metadata
+        if current_block_id in self._output_conditions:
+            cases, default_decision = self._output_conditions[current_block_id]
+            decision_oc, warnings_oc = evaluate_output_conditions(
+                cases, state.results.get(current_block_id, ""), default_decision
+            )
+            state.metadata[f"{current_block_id}_decision"] = decision_oc
+            if warnings_oc:
+                state.metadata[f"{current_block_id}_warnings"] = warnings_oc
+
         if current_block_id in self._conditional_transitions:
             condition_map = self._conditional_transitions[current_block_id]
 

@@ -113,7 +113,7 @@ workflow:
   name: test_linear
   entry: linear_block
 """
-        with pytest.raises(ValueError, match="soul_ref is required"):
+        with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
     def test_linear_block_with_builtin_soul(self):
@@ -170,7 +170,7 @@ workflow:
   name: test_fanout
   entry: fanout_block
 """
-        with pytest.raises(ValueError, match="soul_refs is required"):
+        with pytest.raises(ValueError, match="soul_refs"):
             parse_workflow_yaml(yaml_content)
 
     def test_fanout_block_empty_soul_refs_raises_error(self):
@@ -236,7 +236,7 @@ workflow:
   name: test_synthesize
   entry: synthesize_block
 """
-        with pytest.raises(ValueError, match="soul_ref is required"):
+        with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
     def test_synthesize_block_missing_input_block_ids_raises_error(self):
@@ -251,7 +251,7 @@ workflow:
   name: test_synthesize
   entry: synthesize_block
 """
-        with pytest.raises(ValueError, match="input_block_ids is required"):
+        with pytest.raises(ValueError, match="input_block_ids"):
             parse_workflow_yaml(yaml_content)
 
 
@@ -291,7 +291,7 @@ workflow:
   name: test_debate
   entry: debate_block
 """
-        with pytest.raises(ValueError, match="soul_a_ref is required"):
+        with pytest.raises(ValueError, match="soul_a_ref"):
             parse_workflow_yaml(yaml_content)
 
     def test_debate_block_missing_iterations_raises_error(self):
@@ -307,7 +307,7 @@ workflow:
   name: test_debate
   entry: debate_block
 """
-        with pytest.raises(ValueError, match="iterations is required"):
+        with pytest.raises(ValueError, match="iterations"):
             parse_workflow_yaml(yaml_content)
 
 
@@ -347,7 +347,7 @@ workflow:
   name: test_message_bus
   entry: message_bus_block
 """
-        with pytest.raises(ValueError, match="soul_refs is required"):
+        with pytest.raises(ValueError, match="soul_refs"):
             parse_workflow_yaml(yaml_content)
 
     def test_message_bus_block_missing_iterations_raises_error(self):
@@ -364,7 +364,7 @@ workflow:
   name: test_message_bus
   entry: message_bus_block
 """
-        with pytest.raises(ValueError, match="iterations is required"):
+        with pytest.raises(ValueError, match="iterations"):
             parse_workflow_yaml(yaml_content)
 
 
@@ -400,7 +400,7 @@ workflow:
   name: test_router
   entry: router_block
 """
-        with pytest.raises(ValueError, match="soul_ref is required"):
+        with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
 
@@ -443,7 +443,7 @@ workflow:
   name: test_retry
   entry: retry_block
 """
-        with pytest.raises(ValueError, match="inner_block_ref is required"):
+        with pytest.raises(ValueError, match="inner_block_ref"):
             parse_workflow_yaml(yaml_content)
 
     def test_retry_block_invalid_inner_block_ref_raises_error(self):
@@ -499,11 +499,15 @@ workflow:
   name: test_team_lead
   entry: team_lead_block
 """
-        with pytest.raises(ValueError, match="soul_ref is required"):
+        with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
     def test_team_lead_block_missing_failure_context_keys_raises_error(self):
-        """AC-23: TeamLeadBlock without failure_context_keys raises ValueError."""
+        """AC-23: TeamLeadBlock without failure_context_keys raises ValueError.
+
+        Note: failure_context_keys is Optional on the schema, so schema validation
+        passes. The parser builder raises ValueError for empty/missing keys.
+        """
         yaml_content = """
 version: "1.0"
 blocks:
@@ -550,7 +554,7 @@ workflow:
   name: test_manager
   entry: manager_block
 """
-        with pytest.raises(ValueError, match="soul_ref is required"):
+        with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
 
@@ -661,7 +665,7 @@ blocks:
             parse_workflow_yaml(yaml_content)
 
     def test_unknown_block_type_raises_error(self):
-        """AC-32: Unknown block type raises ValueError."""
+        """AC-32: Unknown block type raises ValueError (ValidationError via discriminated union)."""
         yaml_content = """
 version: "1.0"
 blocks:
@@ -671,7 +675,7 @@ workflow:
   name: test_unknown
   entry: unknown_block
 """
-        with pytest.raises(ValueError, match="Unknown block type"):
+        with pytest.raises(ValueError, match="unknown_type"):
             parse_workflow_yaml(yaml_content)
 
 

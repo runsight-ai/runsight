@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from runsight_core.yaml.schema import (
     TaskDef,
     SoulDef,
-    BlockDef,
+    LinearBlockDef,
     TransitionDef,
     WorkflowDef,
     RunsightWorkflowFile,
@@ -121,8 +121,8 @@ class TestSchemaModelsUnaffected:
         assert soul.role == "Researcher"
 
     def test_blockdef_unchanged(self):
-        """BlockDef should work as before."""
-        block = BlockDef(type="linear", soul_ref="soul1")
+        """BlockDef discriminated union resolves to per-type model."""
+        block = LinearBlockDef(soul_ref="soul1")
         assert block.type == "linear"
         assert block.soul_ref == "soul1"
 
