@@ -33,7 +33,6 @@ export interface ConditionGroupDef {
 export interface CaseDef {
   case_id: string;
   condition_group?: ConditionGroupDef;
-  conditions?: ConditionDef[];
   default?: boolean;
 }
 
@@ -68,6 +67,7 @@ export interface StepNodeData extends Record<string, unknown> {
   outputPath?: string;         // file_writer
   contentKey?: string;          // file_writer
   failureContextKeys?: string[]; // team_lead
+  provideErrorContext?: boolean;  // retry
 
   // CodeBlock fields
   code?: string;
@@ -129,10 +129,10 @@ export type CanvasMode = "dag" | "state-machine";
 
 export interface SoulDef {
   id: string;
-  role?: string;
+  role: string;
+  system_prompt: string;
+  tools?: Array<Record<string, unknown>>;
   model_name?: string;
-  system_prompt?: string;
-  tools?: string[];
 }
 
 export interface BlockDef {
@@ -154,6 +154,7 @@ export interface BlockDef {
   output_path?: string;
   content_key?: string;
   provide_error_context?: boolean;
+  condition_ref?: string;
   failure_context_keys?: string[];
   code?: string;
   timeout_seconds?: number;
