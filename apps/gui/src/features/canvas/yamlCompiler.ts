@@ -23,6 +23,7 @@ interface CompiledWorkflow {
     name: string;
     entry: string;
     transitions: Array<{ from: string; to: string }>;
+    conditional_transitions?: Array<Record<string, string | null>>;
   };
 }
 
@@ -140,13 +141,55 @@ function toCompiledBlock(node: Node<StepNodeData>): BlockDef {
   return result as BlockDef;
 }
 
-function toTransitions(edges: Edge[]) {
+// ---------------------------------------------------------------------------
+// Build set of node IDs that have output_conditions
+// ---------------------------------------------------------------------------
+
+function getConditionedNodeIds(nodes: Node<StepNodeData>[]): Set<string> {
+  return new Set(
+    nodes
+      .filter((n) => n.data?.outputConditions && n.data.outputConditions.length > 0)
+      .map((n) => n.id),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// toTransitions — plain edges only (excludes edges from conditioned nodes)
+// ---------------------------------------------------------------------------
+
+function toTransitions(edges: Edge[], conditionedNodeIds: Set<string>) {
   return edges
     .filter((edge) => Boolean(edge.source) && Boolean(edge.target))
+    .filter((edge) => !conditionedNodeIds.has(edge.source))
     .map((edge) => ({
       from: edge.source,
       to: edge.target,
     }));
+}
+
+// ---------------------------------------------------------------------------
+// toConditionalTransitions — edges from nodes with outputConditions
+// ---------------------------------------------------------------------------
+
+function toConditionalTransitions(
+  edges: Edge[],
+  conditionedNodeIds: Set<string>,
+): Record<string, string | null>[] {
+  const conditionalEdges = edges.filter(
+    (e) => Boolean(e.source) && Boolean(e.target) && conditionedNodeIds.has(e.source),
+  );
+
+  const grouped = new Map<string, Record<string, string | null>>();
+  for (const edge of conditionalEdges) {
+    if (!grouped.has(edge.source)) {
+      grouped.set(edge.source, { from: edge.source });
+    }
+    const entry = grouped.get(edge.source)!;
+    const key = edge.sourceHandle ?? "default";
+    entry[key] = edge.target;
+  }
+
+  return Array.from(grouped.values());
 }
 
 function toPersistedCanvasState({
@@ -208,11 +251,19 @@ export function compileGraphToWorkflowYaml(input: CompileInput): {
   }
 
   compiled.blocks = blocks;
+
+  const conditionedNodeIds = getConditionedNodeIds(nodes);
+  const conditionalTransitions = toConditionalTransitions(edges, conditionedNodeIds);
+
   compiled.workflow = {
     name: input.workflowName ?? "Workflow",
     entry,
-    transitions: toTransitions(edges),
+    transitions: toTransitions(edges, conditionedNodeIds),
   };
+
+  if (conditionalTransitions.length > 0) {
+    compiled.workflow.conditional_transitions = conditionalTransitions;
+  }
 
   return {
     yaml: dump(compiled, { noRefs: true, lineWidth: 120 }),
