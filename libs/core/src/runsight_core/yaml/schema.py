@@ -1,10 +1,15 @@
 """
 Pydantic schema models for Runsight YAML workflow files.
 No imports from runsight_core — pure data definition layer.
+
+Phase 1 (RUN-110): Discriminated-union BlockDef with per-type models.
 """
 
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
+from pydantic import BaseModel, ConfigDict, Field
+
+
+# ── Soul / Task / Task-file (unchanged) ────────────────────────────────────
 
 
 class SoulDef(BaseModel):
@@ -35,53 +40,181 @@ class RunsightTaskFile(BaseModel):
     task: TaskDef  # required — no default; Pydantic raises ValidationError if absent
 
 
-class BlockDef(BaseModel):
-    """
-    Block definition. `type` is the only required field.
-    All other fields are optional; extra fields are allowed for custom block configs.
-    """
+# ── Supporting models for output conditions / inputs ───────────────────────
 
-    model_config = ConfigDict(extra="allow")
+
+class ConditionDef(BaseModel):
+    """Single condition rule."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    eval_key: str  # dot-notation path into block's own result
+    operator: str  # one of 15 operators
+    value: Optional[Any] = None  # comparison value (None for unary: is_empty, exists, etc.)
+
+
+class ConditionGroupDef(BaseModel):
+    """Group of conditions with AND/OR combinator."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    combinator: str = "and"  # "and" | "or"
+    conditions: List[ConditionDef]
+
+
+class CaseDef(BaseModel):
+    """A named branch case for output_conditions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    condition_group: Optional[ConditionGroupDef] = None  # None when default=True
+    default: bool = False
+
+
+class InputRef(BaseModel):
+    """Reference to an upstream block's output."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    from_ref: str = Field(alias="from")  # "step_id.output_field" dot-notation
+
+
+# ── Base block model ───────────────────────────────────────────────────────
+
+
+class BaseBlockDef(BaseModel):
+    """Shared fields present on every block definition."""
+
+    model_config = ConfigDict(extra="forbid")
 
     type: str
-    # Common optional fields — present on specific block types
-    soul_ref: Optional[str] = None  # LinearBlock, SynthesizeBlock, RouterBlock, etc.
-    soul_refs: Optional[List[str]] = None  # FanOutBlock, MessageBusBlock
-    soul_a_ref: Optional[str] = None  # DebateBlock
-    soul_b_ref: Optional[str] = None  # DebateBlock
-    input_block_ids: Optional[List[str]] = None  # SynthesizeBlock
-    inner_block_ref: Optional[str] = None  # RetryBlock
-    failure_context_keys: Optional[List[str]] = None  # TeamLeadBlock
-    condition_ref: Optional[str] = None  # RouterBlock (Callable path, future use)
-    iterations: Optional[int] = None  # DebateBlock, MessageBusBlock
-    max_retries: Optional[int] = None  # RetryBlock
+    output_conditions: Optional[List[CaseDef]] = None
+    inputs: Optional[Dict[str, InputRef]] = None
+    outputs: Optional[Dict[str, str]] = None  # name -> type string
 
-    # WorkflowBlock-specific fields
-    workflow_ref: Optional[str] = None  # Required when type == "workflow"
-    inputs: Optional[Dict[str, str]] = None  # child_state_key -> parent_path mapping
-    outputs: Optional[Dict[str, str]] = None  # parent_path -> child_dotted_path mapping
-    max_depth: Optional[int] = None  # Recursion depth override (default: 10)
 
-    # GateBlock-specific fields
-    eval_key: Optional[str] = None  # results key to evaluate
-    extract_field: Optional[str] = None  # JSON field to extract on PASS
+# ── Per-type block models ──────────────────────────────────────────────────
 
-    # FileWriterBlock-specific fields
-    output_path: Optional[str] = None  # file path to write to
-    content_key: Optional[str] = None  # results key to read content from
 
-    # RetryBlock enhancement
-    provide_error_context: Optional[bool] = None  # inject errors between retries
+class LinearBlockDef(BaseBlockDef):
+    type: Literal["linear"] = "linear"
+    soul_ref: str
 
-    @model_validator(mode="after")
-    def _validate_workflow_block(self) -> "BlockDef":
-        """Enforce workflow_ref requirement when type == 'workflow'."""
-        if self.type == "workflow" and self.workflow_ref is None:
-            raise ValueError(
-                "BlockDef with type='workflow' requires workflow_ref field. "
-                "Provide the child workflow name or relative file path."
-            )
-        return self
+
+class FanOutBlockDef(BaseBlockDef):
+    type: Literal["fanout"] = "fanout"
+    soul_refs: List[str]
+
+
+class SynthesizeBlockDef(BaseBlockDef):
+    type: Literal["synthesize"] = "synthesize"
+    soul_ref: str
+    input_block_ids: List[str]
+
+
+class DebateBlockDef(BaseBlockDef):
+    type: Literal["debate"] = "debate"
+    soul_a_ref: str
+    soul_b_ref: str
+    iterations: int
+
+
+class MessageBusBlockDef(BaseBlockDef):
+    type: Literal["message_bus"] = "message_bus"
+    soul_refs: List[str]
+    iterations: int
+
+
+class RouterBlockDef(BaseBlockDef):
+    type: Literal["router"] = "router"
+    soul_ref: str
+    condition_ref: Optional[str] = None
+
+
+class TeamLeadBlockDef(BaseBlockDef):
+    type: Literal["team_lead"] = "team_lead"
+    soul_ref: str
+    failure_context_keys: Optional[List[str]] = None
+
+
+class EngineeringManagerBlockDef(BaseBlockDef):
+    type: Literal["engineering_manager"] = "engineering_manager"
+    soul_ref: str
+
+
+class GateBlockDef(BaseBlockDef):
+    type: Literal["gate"] = "gate"
+    soul_ref: str
+    eval_key: str
+    extract_field: Optional[str] = None
+
+
+class PlaceholderBlockDef(BaseBlockDef):
+    type: Literal["placeholder"] = "placeholder"
+    description: Optional[str] = None
+
+
+class FileWriterBlockDef(BaseBlockDef):
+    type: Literal["file_writer"] = "file_writer"
+    output_path: str
+    content_key: str
+
+
+class CodeBlockDef(BaseBlockDef):
+    type: Literal["code"] = "code"
+    code: str
+    timeout_seconds: int = 30
+    allowed_imports: Optional[List[str]] = None
+
+
+class RetryBlockDef(BaseBlockDef):
+    type: Literal["retry"] = "retry"
+    inner_block_ref: str
+    max_retries: Optional[int] = None
+    provide_error_context: Optional[bool] = None
+
+
+class WorkflowBlockDef(BaseBlockDef):
+    """
+    WorkflowBlock definition.
+
+    ``inputs`` and ``outputs`` override BaseBlockDef fields with workflow-specific
+    types (Dict[str, str] for state key mapping) to maintain backward compatibility
+    with existing YAML files and parser code that accesses ``block_def.inputs``.
+    """
+
+    type: Literal["workflow"] = "workflow"
+    workflow_ref: str
+    inputs: Optional[Dict[str, str]] = None  # type: ignore[assignment]  # child_state_key -> parent_path
+    outputs: Optional[Dict[str, str]] = None  # parent_path -> child_dotted_path
+    max_depth: Optional[int] = None
+
+
+# ── Discriminated union ────────────────────────────────────────────────────
+
+BlockDef = Annotated[
+    Union[
+        LinearBlockDef,
+        FanOutBlockDef,
+        SynthesizeBlockDef,
+        DebateBlockDef,
+        MessageBusBlockDef,
+        RouterBlockDef,
+        TeamLeadBlockDef,
+        EngineeringManagerBlockDef,
+        GateBlockDef,
+        PlaceholderBlockDef,
+        FileWriterBlockDef,
+        CodeBlockDef,
+        RetryBlockDef,
+        WorkflowBlockDef,
+    ],
+    Field(discriminator="type"),
+]
+
+
+# ── Transition / Workflow / File models (unchanged) ────────────────────────
 
 
 class TransitionDef(BaseModel):

@@ -12,6 +12,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from runsight_core.yaml.parser import parse_workflow_yaml, BLOCK_TYPE_REGISTRY
+from pydantic import TypeAdapter
 from runsight_core.yaml.schema import RunsightWorkflowFile, BlockDef
 from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.blocks.implementations import WorkflowBlock, LinearBlock
@@ -57,7 +58,8 @@ transitions:
             "outputs": {"results.analysis": "results.final"},
             "max_depth": 5,
         }
-        block_def = BlockDef.model_validate(block_def_dict)
+        _block_adapter = TypeAdapter(BlockDef)
+        block_def = _block_adapter.validate_python(block_def_dict)
         assert block_def.type == "workflow"
         assert block_def.workflow_ref == "child_analysis"
         assert block_def.inputs == {"shared_memory.topic": "shared_memory.research_topic"}
@@ -527,7 +529,8 @@ transitions:
         registry.register("child_analysis", child_wf_file)
 
         # Block schema should accept workflow_ref
-        BlockDef.model_validate(
+        _block_adapter = TypeAdapter(BlockDef)
+        _block_adapter.validate_python(
             {
                 "type": "workflow",
                 "workflow_ref": "child_analysis",

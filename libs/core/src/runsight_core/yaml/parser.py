@@ -267,8 +267,7 @@ def _build_placeholder(
     runner: RunsightTeamRunner,
     all_blocks: Dict[str, BaseBlock],
 ) -> PlaceholderBlock:
-    extra = block_def.model_extra or {}
-    description = str(extra.get("description", f"Placeholder block {block_id}"))
+    description = block_def.description or f"Placeholder block {block_id}"
     return PlaceholderBlock(block_id, description)
 
 

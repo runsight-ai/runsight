@@ -12,6 +12,7 @@ Tests cross-feature interactions across schema, registry, parser, and execution:
 import pytest
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.registry import WorkflowRegistry
+from pydantic import TypeAdapter
 from runsight_core.yaml.schema import RunsightWorkflowFile, BlockDef
 from runsight_core.blocks.implementations import WorkflowBlock
 from runsight_core.state import WorkflowState
@@ -28,9 +29,11 @@ class TestSchemaParsingIntegration:
         """
         from pydantic import ValidationError
 
+        _block_adapter = TypeAdapter(BlockDef)
+
         # Missing workflow_ref should raise ValidationError
         with pytest.raises(ValidationError) as exc_info:
-            BlockDef.model_validate(
+            _block_adapter.validate_python(
                 {
                     "type": "workflow",
                     # workflow_ref missing - should fail
@@ -42,7 +45,8 @@ class TestSchemaParsingIntegration:
 
     def test_schema_allows_workflow_with_complete_fields(self):
         """Schema should accept all workflow block fields."""
-        block_def = BlockDef.model_validate(
+        _block_adapter = TypeAdapter(BlockDef)
+        block_def = _block_adapter.validate_python(
             {
                 "type": "workflow",
                 "workflow_ref": "child_pipeline",
@@ -60,7 +64,8 @@ class TestSchemaParsingIntegration:
 
     def test_schema_allows_workflow_with_minimal_fields(self):
         """Schema should allow minimal workflow block (just type and workflow_ref)."""
-        block_def = BlockDef.model_validate(
+        _block_adapter = TypeAdapter(BlockDef)
+        block_def = _block_adapter.validate_python(
             {
                 "type": "workflow",
                 "workflow_ref": "simple_child",
