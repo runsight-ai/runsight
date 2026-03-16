@@ -1,13 +1,15 @@
 import { load } from "js-yaml";
 import type { Edge, Node } from "@xyflow/react";
 import type { PersistedCanvasState } from "../../store/canvas";
-import type { BlockDef, RunsightWorkflowFile, StepNodeData, StepType } from "../../types/schemas/canvas";
+import type { BlockDef, RunsightWorkflowFile, SoulDef, StepNodeData, StepType } from "../../types/schemas/canvas";
 
 export interface ParseWorkflowResult {
   nodes: Node<StepNodeData>[];
   edges: Edge[];
   viewport?: PersistedCanvasState["viewport"];
   error?: { message: string };
+  souls?: Record<string, SoulDef>;
+  config?: Record<string, unknown>;
 }
 
 type ParsedWorkflow = Partial<RunsightWorkflowFile> & {
@@ -26,6 +28,54 @@ const DEFAULT_GRID_Y = 160;
 function toStepType(value: unknown): StepType {
   if (typeof value !== "string") return DEFAULT_STEP_TYPE;
   return value as StepType;
+}
+
+/**
+ * Build StepNodeData from a block ID and its YAML BlockDef.
+ * Only sets fields that are actually defined in the block (no undefined pollution).
+ */
+function buildNodeData(nodeId: string, block: BlockDef): StepNodeData {
+  const data: StepNodeData = {
+    stepId: nodeId,
+    name: nodeId,
+    stepType: toStepType(block.type),
+    status: "idle",
+  };
+
+  // Snake-case → camelCase field mappings (only set if defined)
+  if (block.soul_ref !== undefined) data.soulRef = block.soul_ref;
+  if (block.soul_refs !== undefined) data.soulRefs = block.soul_refs;
+  if (block.soul_a_ref !== undefined) data.soulARef = block.soul_a_ref;
+  if (block.soul_b_ref !== undefined) data.soulBRef = block.soul_b_ref;
+  if (block.iterations !== undefined) data.iterations = block.iterations;
+  if (block.workflow_ref !== undefined) data.workflowRef = block.workflow_ref;
+  if (block.eval_key !== undefined) data.evalKey = block.eval_key;
+  if (block.extract_field !== undefined) data.extractField = block.extract_field;
+  if (block.inner_block_ref !== undefined) data.innerBlockRef = block.inner_block_ref;
+  if (block.max_retries !== undefined) data.maxRetries = block.max_retries;
+  if (block.input_block_ids !== undefined) data.inputBlockIds = block.input_block_ids;
+  if (block.output_path !== undefined) data.outputPath = block.output_path;
+  if (block.content_key !== undefined) data.contentKey = block.content_key;
+  if (block.failure_context_keys !== undefined) data.failureContextKeys = block.failure_context_keys;
+  if (block.provide_error_context !== undefined) data.provideErrorContext = block.provide_error_context;
+  if (block.condition_ref !== undefined) data.conditionRef = block.condition_ref;
+  if (block.code !== undefined) data.code = block.code;
+  if (block.timeout_seconds !== undefined) data.timeoutSeconds = block.timeout_seconds;
+  if (block.allowed_imports !== undefined) data.allowedImports = block.allowed_imports;
+  if (block.output_conditions !== undefined) data.outputConditions = block.output_conditions;
+  if (block.description !== undefined) data.description = block.description;
+  if (block.max_depth !== undefined) data.maxDepth = block.max_depth;
+
+  // WorkflowBlock uses inputs/outputs as string maps → workflowInputs/workflowOutputs
+  if (block.type === "workflow") {
+    if (block.inputs !== undefined) data.workflowInputs = block.inputs as Record<string, string>;
+    if (block.outputs !== undefined) data.workflowOutputs = block.outputs;
+  } else {
+    if (block.inputs !== undefined) data.inputs = block.inputs as StepNodeData["inputs"];
+    if (block.outputs !== undefined) data.outputs = block.outputs;
+  }
+
+  return data;
 }
 
 function findPersistedPosition(
@@ -88,12 +138,7 @@ export function parseWorkflowYamlToGraph(
         x: col * DEFAULT_GRID_X,
         y: row * DEFAULT_GRID_Y,
       },
-      data: {
-        stepId: nodeId,
-        name: nodeId,
-        stepType: toStepType(block.type),
-        status: "idle",
-      },
+      data: buildNodeData(nodeId, block),
     };
   });
 
@@ -124,5 +169,8 @@ export function parseWorkflowYamlToGraph(
     });
   });
 
-  return { nodes, edges, viewport: canvasState?.viewport };
+  const result: ParseWorkflowResult = { nodes, edges, viewport: canvasState?.viewport };
+  if (parsed.souls !== undefined) result.souls = parsed.souls;
+  if (parsed.config !== undefined) result.config = parsed.config;
+  return result;
 }
