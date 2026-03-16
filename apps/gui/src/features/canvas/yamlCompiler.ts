@@ -1,7 +1,7 @@
 import { dump } from "js-yaml";
 import type { Edge, Node, Viewport } from "@xyflow/react";
 import type { PersistedCanvasState } from "../../store/canvas";
-import type { StepNodeData, StepType, BlockDef } from "../../types/schemas/canvas";
+import type { StepNodeData, StepType, BlockDef, SoulDef } from "../../types/schemas/canvas";
 
 interface CompileInput {
   nodes: Node<StepNodeData>[];
@@ -10,10 +10,14 @@ interface CompileInput {
   selectedNodeId?: string | null;
   canvasMode?: "dag" | "state-machine";
   workflowName?: string;
+  souls?: Record<string, SoulDef>;
+  config?: Record<string, unknown>;
 }
 
 interface CompiledWorkflow {
   version: string;
+  config?: Record<string, unknown>;
+  souls?: Record<string, SoulDef>;
   blocks: Record<string, BlockDef>;
   workflow: {
     name: string;
@@ -200,6 +204,16 @@ export function compileGraphToWorkflowYaml(input: CompileInput): {
       transitions: toTransitions(edges),
     },
   };
+
+  // Include config if provided and non-empty
+  if (input.config && Object.keys(input.config).length > 0) {
+    compiled.config = input.config;
+  }
+
+  // Include souls if provided and non-empty
+  if (input.souls && Object.keys(input.souls).length > 0) {
+    compiled.souls = input.souls;
+  }
 
   return {
     yaml: dump(compiled, { noRefs: true, lineWidth: 120 }),

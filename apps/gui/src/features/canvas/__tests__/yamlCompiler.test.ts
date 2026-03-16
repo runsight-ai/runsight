@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import { compileGraphToWorkflowYaml } from "../yamlCompiler";
-import type { StepNodeData, StepType, CaseDef } from "../../../types/schemas/canvas";
+import type { StepNodeData, StepType, CaseDef, SoulDef } from "../../../types/schemas/canvas";
 import type { Node } from "@xyflow/react";
 
 // ---------------------------------------------------------------------------
@@ -622,5 +622,141 @@ describe("YAML string output uses snake_case keys", () => {
     );
     expect(yaml).toContain("output_conditions:");
     expect(yaml).not.toContain("outputConditions:");
+  });
+});
+
+// ===========================================================================
+// 9. Souls and config top-level sections (RUN-117)
+// ===========================================================================
+
+describe("Souls and config top-level sections", () => {
+  const sampleSouls: Record<string, SoulDef> = {
+    planner: {
+      id: "planner",
+      role: "planner",
+      system_prompt: "You are a planning agent.",
+    },
+  };
+
+  const sampleConfig: Record<string, unknown> = {
+    max_concurrency: 4,
+    timeout: 300,
+  };
+
+  it("souls are included in compiled output when provided", () => {
+    const result = compileGraphToWorkflowYaml({
+      nodes: [mockNode("b1", "linear", { soulRef: "planner" })],
+      edges: [],
+      souls: sampleSouls,
+    });
+    expect(result.workflowDocument.souls).toEqual(sampleSouls);
+  });
+
+  it("config is included in compiled output when provided", () => {
+    const result = compileGraphToWorkflowYaml({
+      nodes: [mockNode("b1", "linear", { soulRef: "s1" })],
+      edges: [],
+      config: sampleConfig,
+    });
+    expect(result.workflowDocument.config).toEqual(sampleConfig);
+  });
+
+  it("souls appear in YAML string output", () => {
+    const result = compileGraphToWorkflowYaml({
+      nodes: [mockNode("b1", "linear", { soulRef: "planner" })],
+      edges: [],
+      souls: sampleSouls,
+    });
+    expect(result.yaml).toContain("souls:");
+    expect(result.yaml).toContain("planner:");
+    expect(result.yaml).toContain("system_prompt: You are a planning agent.");
+  });
+
+  it("config appears in YAML string output", () => {
+    const result = compileGraphToWorkflowYaml({
+      nodes: [mockNode("b1", "linear", { soulRef: "s1" })],
+      edges: [],
+      config: sampleConfig,
+    });
+    expect(result.yaml).toContain("config:");
+    expect(result.yaml).toContain("max_concurrency: 4");
+    expect(result.yaml).toContain("timeout: 300");
+  });
+
+  it("empty souls object is omitted", () => {
+    const result = compileGraphToWorkflowYaml({
+      nodes: [mockNode("b1", "placeholder")],
+      edges: [],
+      souls: {},
+    });
+    expect(result.workflowDocument.souls).toBeUndefined();
+    expect(result.yaml).not.toContain("souls:");
+  });
+
+  it("empty config object is omitted", () => {
+    const result = compileGraphToWorkflowYaml({
+      nodes: [mockNode("b1", "placeholder")],
+      edges: [],
+      config: {},
+    });
+    expect(result.workflowDocument.config).toBeUndefined();
+    expect(result.yaml).not.toContain("config:");
+  });
+
+  it("undefined souls/config are omitted", () => {
+    const result = compileGraphToWorkflowYaml({
+      nodes: [mockNode("b1", "placeholder")],
+      edges: [],
+    });
+    expect(result.workflowDocument.souls).toBeUndefined();
+    expect(result.workflowDocument.config).toBeUndefined();
+    expect(result.yaml).not.toContain("souls:");
+    expect(result.yaml).not.toContain("config:");
+  });
+
+  it("soul with all fields is serialized correctly", () => {
+    const fullSoul: SoulDef = {
+      id: "coder",
+      role: "engineer",
+      system_prompt: "You write code.",
+      tools: [{ name: "file_read", config: { root: "/src" } }],
+      model_name: "claude-3-opus",
+    };
+    const result = compileGraphToWorkflowYaml({
+      nodes: [mockNode("b1", "linear", { soulRef: "coder" })],
+      edges: [],
+      souls: { coder: fullSoul },
+    });
+    const compiled = result.workflowDocument.souls!["coder"];
+    expect(compiled.id).toBe("coder");
+    expect(compiled.role).toBe("engineer");
+    expect(compiled.system_prompt).toBe("You write code.");
+    expect(compiled.tools).toEqual([{ name: "file_read", config: { root: "/src" } }]);
+    expect(compiled.model_name).toBe("claude-3-opus");
+
+    // Also check YAML string
+    expect(result.yaml).toContain("model_name: claude-3-opus");
+    expect(result.yaml).toContain("role: engineer");
+  });
+
+  it("config with nested objects serializes correctly", () => {
+    const nestedConfig: Record<string, unknown> = {
+      retry_policy: {
+        max_retries: 3,
+        backoff: { type: "exponential", base_ms: 100 },
+      },
+      logging: { level: "debug" },
+    };
+    const result = compileGraphToWorkflowYaml({
+      nodes: [mockNode("b1", "placeholder")],
+      edges: [],
+      config: nestedConfig,
+    });
+    expect(result.workflowDocument.config).toEqual(nestedConfig);
+    expect(result.yaml).toContain("retry_policy:");
+    expect(result.yaml).toContain("max_retries: 3");
+    expect(result.yaml).toContain("type: exponential");
+    expect(result.yaml).toContain("base_ms: 100");
+    expect(result.yaml).toContain("level: debug");
   });
 });
