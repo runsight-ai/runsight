@@ -1,6 +1,6 @@
 import type { Node, Edge } from "@xyflow/react";
 
-/** All 13 block types from Runsight core (spec §2.5) */
+/** All 14 block types from Runsight core (spec §2.5) */
 export type StepType =
   | "linear"
   | "fanout"
@@ -14,9 +14,32 @@ export type StepType =
   | "team_lead"
   | "engineering_manager"
   | "placeholder"
-  | "file_writer";
+  | "file_writer"
+  | "code";
 
 export type RunStatus = "idle" | "running" | "completed" | "failed" | "paused" | "pending";
+
+export interface ConditionDef {
+  eval_key: string;
+  operator: string;
+  value?: string | number | boolean | null;
+}
+
+export interface ConditionGroupDef {
+  combinator?: "and" | "or";
+  conditions: ConditionDef[];
+}
+
+export interface CaseDef {
+  case_id: string;
+  condition_group?: ConditionGroupDef;
+  conditions?: ConditionDef[];
+  default?: boolean;
+}
+
+export interface InputRef {
+  from: string;
+}
 
 /** Node data for canvas steps — maps to BlockDef in RunsightWorkflowFile */
 export interface StepNodeData extends Record<string, unknown> {
@@ -45,6 +68,24 @@ export interface StepNodeData extends Record<string, unknown> {
   outputPath?: string;         // file_writer
   contentKey?: string;          // file_writer
   failureContextKeys?: string[]; // team_lead
+
+  // CodeBlock fields
+  code?: string;
+  timeoutSeconds?: number;
+  allowedImports?: string[];
+
+  // Universal fields (from BaseBlockDef)
+  outputConditions?: CaseDef[];
+  inputs?: Record<string, InputRef>;
+  outputs?: Record<string, string>;
+
+  // PlaceholderBlock
+  description?: string;
+
+  // WorkflowBlock additional
+  workflowInputs?: Record<string, string>;
+  workflowOutputs?: Record<string, string>;
+  maxDepth?: number;
 
   /** Runtime state (not persisted to YAML) */
   status: RunStatus;
@@ -91,6 +132,7 @@ export interface SoulDef {
   role?: string;
   model_name?: string;
   system_prompt?: string;
+  tools?: string[];
 }
 
 export interface BlockDef {
@@ -104,7 +146,7 @@ export interface BlockDef {
   iterations?: number;
   max_retries?: number;
   workflow_ref?: string;
-  inputs?: Record<string, string>;
+  inputs?: Record<string, InputRef>;
   outputs?: Record<string, string>;
   max_depth?: number;
   eval_key?: string;
@@ -112,8 +154,14 @@ export interface BlockDef {
   output_path?: string;
   content_key?: string;
   provide_error_context?: boolean;
-  condition_ref?: string;
   failure_context_keys?: string[];
+  code?: string;
+  timeout_seconds?: number;
+  allowed_imports?: string[];
+  output_conditions?: CaseDef[];
+  description?: string;
+  workflow_inputs?: Record<string, string>;
+  workflow_outputs?: Record<string, string>;
 }
 
 export interface TransitionDef {
