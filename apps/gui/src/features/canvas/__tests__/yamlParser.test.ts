@@ -7,8 +7,8 @@
  */
 import { describe, it, expect } from "vitest";
 import { dump } from "js-yaml";
-import { parseWorkflowYamlToGraph, type ParseWorkflowResult } from "../yamlParser";
-import type { StepNodeData, CaseDef } from "../../../../types/schemas/canvas";
+import { parseWorkflowYamlToGraph } from "../yamlParser";
+import type { StepNodeData } from "../../../types/schemas/canvas";
 
 // ---------------------------------------------------------------------------
 // Helper: build a minimal valid YAML string

@@ -97,12 +97,6 @@ for (const [camel, snake] of Object.entries(CAMEL_TO_SNAKE)) {
 }
 
 // ---------------------------------------------------------------------------
-// Runtime fields that must never be emitted
-// ---------------------------------------------------------------------------
-
-const RUNTIME_FIELDS = new Set(["status", "cost", "executionCost", "name", "stepId", "stepType"]);
-
-// ---------------------------------------------------------------------------
 // toCompiledBlock — full per-type field emission
 // ---------------------------------------------------------------------------
 
@@ -138,7 +132,7 @@ function toCompiledBlock(node: Node<StepNodeData>): BlockDef {
     }
   }
 
-  return result as BlockDef;
+  return result as unknown as BlockDef;
 }
 
 // ---------------------------------------------------------------------------
