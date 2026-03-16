@@ -143,13 +143,19 @@ export function parseWorkflowYamlToGraph(
   });
 
   const edges: Edge[] = [];
-  const addEdge = (source: string, target: string | null | undefined, idSuffix: string) => {
+  const addEdge = (
+    source: string,
+    target: string | null | undefined,
+    idSuffix: string,
+    sourceHandle?: string | null,
+  ) => {
     if (!target) return;
     if (!nodeIds.includes(source) || !nodeIds.includes(target)) return;
     edges.push({
       id: `${source}->${target}:${idSuffix}`,
       source,
       target,
+      sourceHandle: sourceHandle ?? null,
       type: "smoothstep",
     });
   };
@@ -165,7 +171,11 @@ export function parseWorkflowYamlToGraph(
     if (!from) return;
     Object.entries(conditional).forEach(([key, target]) => {
       if (key === "from") return;
-      addEdge(from, target, `c${index}:${key}`);
+      // Set sourceHandle to the decision key so the compiler can reconstruct
+      // conditional_transitions correctly. "default" key maps to sourceHandle
+      // null (the compiler treats null as "default").
+      const handle = key === "default" ? null : key;
+      addEdge(from, target, `c${index}:${key}`, handle);
     });
   });
 
