@@ -195,25 +195,24 @@ export function compileGraphToWorkflowYaml(input: CompileInput): {
     return acc;
   }, {});
 
-  const compiled: CompiledWorkflow = {
-    version: "1.0",
-    blocks,
-    workflow: {
-      name: input.workflowName ?? "Workflow",
-      entry,
-      transitions: toTransitions(edges),
-    },
-  };
+  // Build compiled object with keys in Python schema order:
+  // version → config → souls → blocks → workflow
+  const compiled: CompiledWorkflow = { version: "1.0" } as CompiledWorkflow;
 
-  // Include config if provided and non-empty
   if (input.config && Object.keys(input.config).length > 0) {
     compiled.config = input.config;
   }
 
-  // Include souls if provided and non-empty
   if (input.souls && Object.keys(input.souls).length > 0) {
     compiled.souls = input.souls;
   }
+
+  compiled.blocks = blocks;
+  compiled.workflow = {
+    name: input.workflowName ?? "Workflow",
+    entry,
+    transitions: toTransitions(edges),
+  };
 
   return {
     yaml: dump(compiled, { noRefs: true, lineWidth: 120 }),
