@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .project import resolve_base_path
@@ -19,7 +20,7 @@ def _default_base_path() -> str:
 
 
 class Settings(BaseSettings):
-    base_path: str = _default_base_path()
+    base_path: str = Field(default_factory=_default_base_path)
     db_url: str = "sqlite:///./runsight.db"
     debug: bool = False
     host: str = "0.0.0.0"

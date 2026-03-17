@@ -39,7 +39,11 @@ def _find_marker(start: Path) -> Optional[str]:
     current = start.resolve()
     for _ in range(MAX_WALK_DEPTH):
         candidate = current / MARKER_FILE
-        if candidate.is_file():
+        try:
+            found = candidate.is_file()
+        except OSError:
+            found = False
+        if found:
             result = _parse_marker(candidate)
             if result is not None:
                 logger.info("Found project marker at %s", candidate)
@@ -58,7 +62,11 @@ def _find_custom_workflows(start: Path) -> Optional[str]:
     """
     current = start.resolve()
     for _ in range(MAX_WALK_DEPTH):
-        if (current / "custom" / "workflows").is_dir():
+        try:
+            found = (current / "custom" / "workflows").is_dir()
+        except OSError:
+            found = False
+        if found:
             logger.info("Auto-detected custom/workflows/ at %s", current)
             return str(current)
         parent = current.parent

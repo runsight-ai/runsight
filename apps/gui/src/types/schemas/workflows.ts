@@ -17,9 +17,9 @@ export const WorkflowResponseSchema = z.object({
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   yaml: z.string().nullable().optional(),
-  blocks: z.record(z.any()).default({}),
-  edges: z.array(z.record(z.any())).default([]),
   canvas_state: CanvasStateSchema.nullable().optional(),
+  valid: z.boolean().optional(),
+  validation_error: z.string().nullable().optional(),
   status: z.string().optional(),
   updated_at: z.string().optional(),
   created_at: z.string().optional(),
@@ -38,12 +38,9 @@ export const WorkflowListResponseSchema = z.object({
 export type WorkflowListResponse = z.infer<typeof WorkflowListResponseSchema>;
 
 export const WorkflowCreateSchema = z.object({
-  id: z.string().optional(),
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   yaml: z.string().nullable().optional(),
-  blocks: z.record(z.any()).default({}),
-  edges: z.array(z.record(z.any())).default([]),
   canvas_state: CanvasStateSchema.nullable().optional(),
 });
 export type WorkflowCreate = z.infer<typeof WorkflowCreateSchema>;
@@ -52,8 +49,6 @@ export const WorkflowUpdateSchema = z.object({
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   yaml: z.string().nullable().optional(),
-  blocks: z.record(z.any()).nullable().optional(),
-  edges: z.array(z.record(z.any())).nullable().optional(),
   canvas_state: CanvasStateSchema.nullable().optional(),
 });
 export type WorkflowUpdate = z.infer<typeof WorkflowUpdateSchema>;

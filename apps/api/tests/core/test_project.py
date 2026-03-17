@@ -49,16 +49,19 @@ class TestFindMarker:
         result = _find_marker(child)
         assert result == str(tmp_path.resolve())
 
-    def test_no_marker_found(self, tmp_path: Path):
+    def test_no_marker_found(self, tmp_path: Path, monkeypatch):
         child = tmp_path / "a" / "b"
         child.mkdir(parents=True)
-        # No marker anywhere — will walk up to filesystem root and return None
-        # (We can't guarantee no marker exists above tmp_path, but in practice
-        # pytest tmp dirs are deep enough that this works.)
+        # Monkeypatch _parse_marker so even if a marker exists above tmp_path
+        # it won't be found.
+        monkeypatch.setattr("runsight_api.core.project._parse_marker", lambda p: None)
+        # Also ensure is_file() never matches by patching MARKER_FILE to
+        # something that won't exist.
+        monkeypatch.setattr(
+            "runsight_api.core.project.MARKER_FILE", ".runsight-project-nonexistent"
+        )
         result = _find_marker(child)
-        # If somehow a marker exists above tmp_path this could pass; that's OK.
-        # The important thing is it doesn't crash.
-        assert result is None or isinstance(result, str)
+        assert result is None
 
 
 class TestResolveBasePath:

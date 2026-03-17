@@ -30,6 +30,10 @@ class CostSummary(BaseModel):
 class WorkflowEntity(BaseModel):
     id: str
     name: Optional[str] = None
+    yaml: Optional[str] = None
+    valid: bool = True
+    validation_error: Optional[str] = None
+    filename: Optional[str] = None
     model_config = {"extra": "allow"}
 
 

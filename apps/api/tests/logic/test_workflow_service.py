@@ -131,14 +131,16 @@ def test_create_workflow_happy_path(workflow_service, workflow_repo):
     workflow_repo.create.assert_called_once_with(data)
 
 
-def test_create_workflow_missing_id_raises(workflow_service, workflow_repo):
-    """create_workflow raises ValueError when id is missing (repo behavior)."""
-    workflow_repo.create.side_effect = ValueError("Workflow must have an id")
+def test_create_workflow_without_id(workflow_service, workflow_repo):
+    """create_workflow works without id — repo generates it from filename."""
+    data = {"name": "No ID Needed"}
+    created = WorkflowEntity(id="no-id-needed-abc12", name="No ID Needed")
+    workflow_repo.create.return_value = created
 
-    with pytest.raises(ValueError) as exc_info:
-        workflow_service.create_workflow({"name": "No ID"})
+    result = workflow_service.create_workflow(data)
 
-    assert "id" in str(exc_info.value).lower()
+    assert result.id == "no-id-needed-abc12"
+    workflow_repo.create.assert_called_once_with(data)
 
 
 # --- update_workflow ---

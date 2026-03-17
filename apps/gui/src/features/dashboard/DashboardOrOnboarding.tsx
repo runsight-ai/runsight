@@ -127,7 +127,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
       width: "100px",
       render: (row) => {
         const workflow = row as WorkflowResponse;
-        const count = workflow.step_count ?? workflow.block_count ?? Object.keys(workflow.blocks || {}).length;
+        const count = workflow.step_count ?? workflow.block_count ?? 0;
         return (
           <div className="text-center text-sm text-muted-foreground">{count}</div>
         );

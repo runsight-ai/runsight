@@ -9,28 +9,30 @@ def test_workflow_repository():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
 
-        # Test Create
-        workflow_data = {"id": "wf-1", "name": "Test Workflow"}
+        # Test Create — id is derived from filename stem (slug-shortid)
+        workflow_data = {"name": "Test Workflow"}
         entity = repo.create(workflow_data)
-        assert entity.id == "wf-1"
+        assert entity.id  # id is auto-generated slug-shortid
         assert entity.name == "Test Workflow"
+        assert entity.id.startswith("test-workflow-")
+        wf_id = entity.id
 
-        # Test Get
-        fetched = repo.get_by_id("wf-1")
+        # Test Get — look up by slug-shortid
+        fetched = repo.get_by_id(wf_id)
         assert fetched is not None
-        assert fetched.id == "wf-1"
+        assert fetched.id == wf_id
         assert fetched.name == "Test Workflow"
 
         # Test Update
-        updated_data = {"id": "wf-1", "name": "Updated Workflow"}
-        repo.update("wf-1", updated_data)
-        fetched_updated = repo.get_by_id("wf-1")
+        updated_data = {"name": "Updated Workflow"}
+        repo.update(wf_id, updated_data)
+        fetched_updated = repo.get_by_id(wf_id)
         assert fetched_updated.name == "Updated Workflow"
-        assert getattr(fetched_updated, "id") == "wf-1"
+        assert fetched_updated.id == wf_id
 
         # Test partial update preserves existing fields
-        repo.update("wf-1", {"description": "Keeps existing name"})
-        fetched_partial = repo.get_by_id("wf-1")
+        repo.update(wf_id, {"description": "Keeps existing name"})
+        fetched_partial = repo.get_by_id(wf_id)
         assert fetched_partial.name == "Updated Workflow"
         assert getattr(fetched_partial, "description") == "Keeps existing name"
 
@@ -39,8 +41,51 @@ def test_workflow_repository():
         assert len(all_wfs) == 1
 
         # Test Delete
-        assert repo.delete("wf-1") is True
-        assert repo.get_by_id("wf-1") is None
+        assert repo.delete(wf_id) is True
+        assert repo.get_by_id(wf_id) is None
+
+
+def test_workflow_create_does_not_mutate_input():
+    """create() must not mutate the caller's dict (Fix 2)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+
+        data = {"name": "Immutable", "canvas_state": {"nodes": []}}
+        original_keys = set(data.keys())
+        repo.create(data)
+        assert set(data.keys()) == original_keys, "create() mutated the input dict"
+
+
+def test_workflow_id_not_in_yaml_file():
+    """ADR D3: id must NOT be stored inside the YAML file content."""
+    import yaml
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+        entity = repo.create({"name": "No ID Inside"})
+
+        yaml_path = repo._get_path(entity.id)
+        with open(yaml_path) as f:
+            on_disk = yaml.safe_load(f)
+
+        assert "id" not in on_disk, "id field must not be stored in YAML file"
+
+
+def test_workflow_list_includes_hand_authored_files():
+    """Files without an 'id' field inside must still be listed (Fix 4)."""
+    import yaml
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+
+        # Write a hand-authored YAML file directly (no 'id' inside)
+        hand_file = repo.workflows_dir / "my-hand-authored.yaml"
+        hand_file.write_text(yaml.dump({"name": "Hand Authored"}))
+
+        all_wfs = repo.list_all()
+        assert len(all_wfs) == 1
+        assert all_wfs[0].id == "my-hand-authored"
+        assert all_wfs[0].name == "Hand Authored"
 
 
 def test_soul_repository():
