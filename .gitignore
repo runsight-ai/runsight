@@ -40,8 +40,10 @@ hello.py
 .artifacts/
 .worktrees/
 
-# Dogfood / project-specific custom assets (not framework code)
-custom/
+# custom/ is the user's workflow directory — it SHOULD be tracked in git.
+# .canvas/ contains visual layout data (sidecar JSON) — safe to ignore.
+# .runsight/ is internal runtime state — already excluded above.
+**/.canvas/
 
 # IDE-specific
 .cursor/

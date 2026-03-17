@@ -17,7 +17,6 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Save, RefreshCcw, AlertTriangle } from "lucide-react";
-import { dump } from "js-yaml";
 import { useWorkflow, useUpdateWorkflow } from "../../queries/workflows";
 import { Button } from "../../components/ui/button";
 import { useCanvasStore } from "../../store/canvas";
@@ -41,41 +40,6 @@ const nodeTypes: NodeTypes = { canvasNode: CanvasNode };
 
 type ViewMode = "visual" | "code";
 type E2eEditorHost = HTMLDivElement & { __e2eSetValue?: (text: string) => void };
-
-function buildYamlFromLegacyData(blocks: Record<string, unknown>, edges: Record<string, unknown>[]) {
-  const normalizedBlocks = Object.entries(blocks ?? {}).reduce<Record<string, { type: string }>>(
-    (acc, [id, value]) => {
-      const type = typeof value === "object" && value && "type" in value ? String((value as { type?: unknown }).type ?? "placeholder") : "placeholder";
-      acc[id] = { type };
-      return acc;
-    },
-    {},
-  );
-
-  const transitions = (edges ?? [])
-    .map((edge) => {
-      if (typeof edge !== "object" || !edge) return null;
-      const from = (edge as { from?: unknown; source?: unknown }).from ?? (edge as { source?: unknown }).source;
-      const to = (edge as { to?: unknown; target?: unknown }).to ?? (edge as { target?: unknown }).target;
-      if (typeof from !== "string" || typeof to !== "string") return null;
-      return { from, to };
-    })
-    .filter((value): value is { from: string; to: string } => Boolean(value));
-
-  const firstBlock = Object.keys(normalizedBlocks)[0] ?? "start";
-  return dump(
-    {
-      version: "1.0",
-      blocks: normalizedBlocks,
-      workflow: {
-        name: "Workflow",
-        entry: firstBlock,
-        transitions,
-      },
-    },
-    { noRefs: true, lineWidth: 120 },
-  );
-}
 
 function CanvasInner() {
   const { id = "" } = useParams();
@@ -126,9 +90,7 @@ function CanvasInner() {
     const workflow = workflowQuery.data;
     if (!workflow || hasHydrated) return;
 
-    const sourceYaml =
-      (workflow.yaml && workflow.yaml.trim()) ||
-      buildYamlFromLegacyData(workflow.blocks ?? {}, workflow.edges ?? []);
+    const sourceYaml = (workflow.yaml && workflow.yaml.trim()) || "";
     setYamlTextSafely(sourceYaml);
 
     const parsed = parseWorkflowYamlToGraph(sourceYaml, workflow.canvas_state ?? null);
@@ -198,8 +160,6 @@ function CanvasInner() {
         id,
         data: {
           yaml: compiled.yaml,
-          blocks: compiled.workflowDocument.blocks as unknown as Record<string, unknown>,
-          edges: compiled.workflowDocument.workflow.transitions as unknown as Record<string, unknown>[],
           canvas_state: compiled.canvasState,
         },
       });

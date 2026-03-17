@@ -48,8 +48,6 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
       const result = await createWorkflow.mutateAsync({
         name: name.trim(),
         description: description.trim() || undefined,
-        blocks: {},
-        edges: [],
         canvas_state: {
           nodes: [],
           edges: [],

@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Literal
-import uuid
 
 
 class CanvasViewport(BaseModel):
@@ -22,9 +21,9 @@ class WorkflowResponse(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     yaml: Optional[str] = None
-    blocks: Dict[str, Any] = Field(default_factory=dict)
-    edges: List[Dict[str, Any]] = Field(default_factory=list)
     canvas_state: Optional[WorkflowCanvasState] = None
+    valid: bool = True
+    validation_error: Optional[str] = None
 
 
 class WorkflowListResponse(BaseModel):
@@ -33,12 +32,9 @@ class WorkflowListResponse(BaseModel):
 
 
 class WorkflowCreate(BaseModel):
-    id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))
     name: Optional[str] = None
     description: Optional[str] = None
     yaml: Optional[str] = None
-    blocks: Dict[str, Any] = Field(default_factory=dict)
-    edges: List[Dict[str, Any]] = Field(default_factory=list)
     canvas_state: Optional[WorkflowCanvasState] = None
 
 
@@ -46,6 +42,4 @@ class WorkflowUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     yaml: Optional[str] = None
-    blocks: Optional[Dict[str, Any]] = None
-    edges: Optional[List[Dict[str, Any]]] = None
     canvas_state: Optional[WorkflowCanvasState] = None
