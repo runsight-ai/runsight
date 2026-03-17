@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlmodel import SQLModel
 
+from .core.config import settings as app_settings, ensure_project_dirs
 from .core.di import container, engine
 from .domain.errors import RunsightError
 from .transport.middleware.error_handler import global_exception_handler
@@ -26,6 +27,7 @@ def _migrate_schema(engine):
 async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)
     _migrate_schema(engine)
+    ensure_project_dirs(app_settings)
     yield
     pass
 
