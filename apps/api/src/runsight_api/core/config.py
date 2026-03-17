@@ -3,11 +3,23 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .project import resolve_base_path
+
 logger = logging.getLogger(__name__)
 
 
+def _default_base_path() -> str:
+    """Compute the default base_path using project detection.
+
+    If ``RUNSIGHT_BASE_PATH`` is set, pydantic-settings will use it directly
+    and this default is never called.  Otherwise we run the marker / auto-detect
+    logic.
+    """
+    return resolve_base_path(env_value=None)
+
+
 class Settings(BaseSettings):
-    base_path: str = "."
+    base_path: str = _default_base_path()
     db_url: str = "sqlite:///./runsight.db"
     debug: bool = False
     host: str = "0.0.0.0"
