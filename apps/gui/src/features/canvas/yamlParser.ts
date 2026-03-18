@@ -1,4 +1,4 @@
-import { load } from "js-yaml";
+import { parse } from "yaml";
 import type { Edge, Node } from "@xyflow/react";
 import type { PersistedCanvasState } from "../../store/canvas";
 import type { BlockDef, RunsightWorkflowFile, SoulDef, StepNodeData, StepType } from "../../types/schemas/canvas";
@@ -111,7 +111,11 @@ export function parseWorkflowYamlToGraph(
 ): ParseWorkflowResult {
   let parsed: ParsedWorkflow;
   try {
-    parsed = ((yamlText?.trim() ? load(yamlText) : {}) as ParsedWorkflow | null) ?? {};
+    const raw = yamlText?.trim() ? parse(yamlText) : {};
+    if (raw !== null && typeof raw === "object" && !Array.isArray(raw) && "" in (raw as Record<string, unknown>)) {
+      throw new Error("Invalid YAML: empty key at top level");
+    }
+    parsed = (raw as ParsedWorkflow | null) ?? {};
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid YAML";
     return {
