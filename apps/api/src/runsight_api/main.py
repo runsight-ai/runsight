@@ -1,9 +1,12 @@
+import time
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from sqlmodel import SQLModel
+from sqlmodel import Session, SQLModel, select
 
 from .core.config import settings as app_settings, ensure_project_dirs
+from .domain.entities.run import Run, RunStatus
 from .core.di import container, engine
 from .data.repositories.run_repo import RunRepository
 from .data.repositories.provider_repo import ProviderRepository
@@ -12,6 +15,18 @@ from .logic.services.execution_service import ExecutionService
 from .domain.errors import RunsightError
 from .transport.middleware.error_handler import global_exception_handler
 from .transport.routers import runs, workflows, souls, steps, tasks, settings, dashboard
+
+
+def _recover_stale_runs(engine):
+    """Mark any runs stuck in 'running' as failed after an API restart."""
+    with Session(engine) as session:
+        stale_runs = session.exec(select(Run).where(Run.status == RunStatus.running)).all()
+        for run in stale_runs:
+            run.status = RunStatus.failed
+            run.error = "API process restarted during execution"
+            run.completed_at = time.time()
+            session.add(run)
+        session.commit()
 
 
 def _migrate_schema(engine):
@@ -31,11 +46,10 @@ def _migrate_schema(engine):
 async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)
     _migrate_schema(engine)
+    _recover_stale_runs(engine)
     ensure_project_dirs(app_settings)
 
     # Create singleton ExecutionService on app.state so _running_tasks persists
-    from sqlmodel import Session
-
     session = Session(engine)
     run_repo = RunRepository(session)
     workflow_repo = WorkflowRepository(app_settings.base_path)
