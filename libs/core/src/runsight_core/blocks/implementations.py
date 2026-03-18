@@ -6,7 +6,6 @@ import ast
 import asyncio
 import json
 import re
-import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -1501,6 +1500,7 @@ DEFAULT_ALLOWED_IMPORTS: List[str] = [
     "itertools",
     "hashlib",
     "base64",
+    "time",
     "urllib.parse",
 ]
 
@@ -1641,21 +1641,44 @@ class CodeBlock(BaseBlock):
             }
         ).encode()
 
+        import os
+
+        minimal_env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")}
+        # On macOS, include DYLD_LIBRARY_PATH if present
+        for key in ("HOME", "DYLD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH"):
+            if key in os.environ:
+                minimal_env[key] = os.environ[key]
+
         try:
-            proc = subprocess.run(
-                [sys.executable, "-c", harness],
-                input=stdin_data,
-                capture_output=True,
-                timeout=self.timeout_seconds,
-                env={},  # minimal env
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-c",
+                harness,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=minimal_env,
             )
-        except subprocess.TimeoutExpired:
+
+            async def _communicate():
+                return await proc.communicate(input=stdin_data)
+
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                _communicate(), timeout=self.timeout_seconds
+            )
+        except asyncio.TimeoutError:
+            # Kill the process on timeout
+            try:
+                proc.kill()
+                await proc.wait()
+            except ProcessLookupError:
+                pass
             raise TimeoutError(
                 f"CodeBlock '{self.block_id}': execution timed out after {self.timeout_seconds}s"
             )
 
         if proc.returncode != 0:
-            error_msg = proc.stderr.decode(errors="replace").strip()
+            error_msg = stderr_bytes.decode(errors="replace").strip()
             return state.model_copy(
                 update={
                     "results": {
@@ -1672,7 +1695,7 @@ class CodeBlock(BaseBlock):
                 }
             )
 
-        stdout = proc.stdout.decode(errors="replace").strip()
+        stdout = stdout_bytes.decode(errors="replace").strip()
         try:
             result = json.loads(stdout)
         except json.JSONDecodeError:
