@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends
 from typing import List
 from ..schemas.runs import (
     RunCreate,
@@ -8,8 +8,9 @@ from ..schemas.runs import (
     PaginatedLogsResponse,
     NodeSummary,
 )
-from ..deps import get_run_service
+from ..deps import get_run_service, get_execution_service
 from ...logic.services.run_service import RunService
+from ...logic.services.execution_service import ExecutionService
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
 
@@ -17,11 +18,14 @@ router = APIRouter(prefix="/runs", tags=["Runs"])
 @router.post("", response_model=RunResponse)
 async def create_run(
     body: RunCreate,
-    background_tasks: BackgroundTasks,
     run_service: RunService = Depends(get_run_service),
+    execution_service: ExecutionService = Depends(get_execution_service),
 ):
     run = run_service.create_run(body.workflow_id, body.task_data)
-    # Execution will be triggered by observer or background task in the future
+    try:
+        await execution_service.launch_execution(run.id, run.workflow_id, body.task_data)
+    except Exception:
+        pass  # Execution errors are handled inside the service; run is still returned
     return RunResponse(
         id=run.id,
         workflow_id=run.workflow_id,

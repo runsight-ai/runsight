@@ -23,9 +23,10 @@ class RunsightTeamRunner:
     Core executor that runs a Task using a specific Soul via the LLM client.
     """
 
-    def __init__(self, model_name: str = "gpt-4o"):
+    def __init__(self, model_name: str = "gpt-4o", api_key: str | None = None):
         self.model_name = model_name
-        self.llm_client = LiteLLMClient(model_name=model_name)
+        self.api_key = api_key
+        self.llm_client = LiteLLMClient(model_name=model_name, api_key=api_key)
         self._clients: Dict[str, LiteLLMClient] = {}
 
     def _get_client(self, soul: Soul) -> LiteLLMClient:
@@ -34,7 +35,7 @@ class RunsightTeamRunner:
         if override is None or override == self.model_name:
             return self.llm_client
         if override not in self._clients:
-            self._clients[override] = LiteLLMClient(model_name=override)
+            self._clients[override] = LiteLLMClient(model_name=override, api_key=self.api_key)
         return self._clients[override]
 
     async def execute_task(self, task: Task, soul: Soul) -> ExecutionResult:

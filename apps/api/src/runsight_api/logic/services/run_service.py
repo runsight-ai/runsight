@@ -37,10 +37,9 @@ class RunService:
         run = Run(
             id=run_id,
             workflow_id=workflow_id,
-            workflow_name=workflow.id,
+            workflow_name=workflow.name if isinstance(workflow.name, str) else workflow.id,
             status=RunStatus.pending,
             task_json=json.dumps(task_data),
-            started_at=time.time(),
         )
         self.run_repo.create_run(run)
 

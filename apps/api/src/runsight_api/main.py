@@ -5,6 +5,10 @@ from sqlmodel import SQLModel
 
 from .core.config import settings as app_settings, ensure_project_dirs
 from .core.di import container, engine
+from .data.repositories.run_repo import RunRepository
+from .data.repositories.provider_repo import ProviderRepository
+from .data.filesystem.workflow_repo import WorkflowRepository
+from .logic.services.execution_service import ExecutionService
 from .domain.errors import RunsightError
 from .transport.middleware.error_handler import global_exception_handler
 from .transport.routers import runs, workflows, souls, steps, tasks, settings, dashboard
@@ -28,8 +32,19 @@ async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)
     _migrate_schema(engine)
     ensure_project_dirs(app_settings)
+
+    # Create singleton ExecutionService on app.state so _running_tasks persists
+    from sqlmodel import Session
+
+    session = Session(engine)
+    run_repo = RunRepository(session)
+    workflow_repo = WorkflowRepository(app_settings.base_path)
+    provider_repo = ProviderRepository(session)
+    app.state.execution_service = ExecutionService(run_repo, workflow_repo, provider_repo)
+
     yield
-    pass
+
+    session.close()
 
 
 def create_app() -> FastAPI:

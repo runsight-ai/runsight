@@ -342,6 +342,7 @@ def parse_workflow_yaml(
     yaml_str_or_dict: Union[str, Dict[str, Any]],
     *,
     workflow_registry: Optional["WorkflowRegistry"] = None,
+    api_key: Optional[str] = None,
 ) -> Workflow:
     """
     Parse a YAML workflow definition into a runnable Workflow object.
@@ -393,7 +394,7 @@ def parse_workflow_yaml(
 
     # Step 4: Instantiate runner (shared across all blocks in this workflow)
     model_name = str(file_def.config.get("model_name", "gpt-4o"))
-    runner = RunsightTeamRunner(model_name=model_name)
+    runner = RunsightTeamRunner(model_name=model_name, api_key=api_key)
 
     # Step 5: Pass 1 — build all non-retry blocks
     built_blocks: Dict[str, BaseBlock] = {}
@@ -423,7 +424,9 @@ def parse_workflow_yaml(
             child_raw = child_file.model_dump() if hasattr(child_file, "model_dump") else child_file
 
             # Recursively parse child workflow (passes registry for nested workflows)
-            child_wf = parse_workflow_yaml(child_raw, workflow_registry=workflow_registry)
+            child_wf = parse_workflow_yaml(
+                child_raw, workflow_registry=workflow_registry, api_key=api_key
+            )
 
             # Read max_depth: block-level override → global config → default 10
             max_depth_value = (

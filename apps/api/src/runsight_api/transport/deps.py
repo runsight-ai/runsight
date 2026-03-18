@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlmodel import Session
 from ..core.di import engine
 from ..core.config import settings
@@ -13,6 +13,7 @@ from ..logic.services.run_service import RunService
 from ..logic.services.soul_service import SoulService
 from ..logic.services.registry_service import RegistryService
 from ..logic.services.workflow_service import WorkflowService
+from ..logic.services.execution_service import ExecutionService
 
 
 def get_session():
@@ -53,6 +54,12 @@ def get_run_service(
     workflow_repo: WorkflowRepository = Depends(get_workflow_repo),
 ) -> RunService:
     return RunService(run_repo, workflow_repo)
+
+
+def get_execution_service(
+    request: Request,
+) -> ExecutionService:
+    return request.app.state.execution_service
 
 
 def get_soul_service(soul_repo: SoulRepository = Depends(get_soul_repo)) -> SoulService:
