@@ -1,4 +1,4 @@
-import { dump } from "js-yaml";
+import { stringify } from "yaml";
 import type { Edge, Node, Viewport } from "@xyflow/react";
 import type { PersistedCanvasState } from "../../store/canvas";
 import type { StepNodeData, StepType, BlockDef, SoulDef } from "../../types/schemas/canvas";
@@ -260,7 +260,7 @@ export function compileGraphToWorkflowYaml(input: CompileInput): {
   }
 
   return {
-    yaml: dump(compiled, { noRefs: true, lineWidth: 120 }),
+    yaml: stringify(compiled, { lineWidth: 120, aliasDuplicateObjects: false }),
     canvasState: toPersistedCanvasState(input),
     workflowDocument: compiled,
   };
