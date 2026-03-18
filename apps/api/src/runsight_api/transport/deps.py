@@ -14,6 +14,8 @@ from ..logic.services.soul_service import SoulService
 from ..logic.services.registry_service import RegistryService
 from ..logic.services.workflow_service import WorkflowService
 from ..logic.services.execution_service import ExecutionService
+from ..logic.services.model_service import ModelService
+from runsight_core.llm.model_catalog import ModelCatalogPort, LiteLLMModelCatalog
 
 
 def get_session():
@@ -79,3 +81,17 @@ def get_task_repo() -> TaskRepository:
 
 def get_step_repo() -> StepRepository:
     return StepRepository(settings.base_path)
+
+
+def get_model_catalog(request: Request) -> ModelCatalogPort:
+    if not hasattr(request.app.state, "model_catalog"):
+        request.app.state.model_catalog = LiteLLMModelCatalog()
+    return request.app.state.model_catalog
+
+
+def get_model_service(
+    request: Request,
+    catalog: ModelCatalogPort = Depends(get_model_catalog),
+    provider_repo: ProviderRepository = Depends(get_provider_repo),
+) -> ModelService:
+    return ModelService(catalog=catalog, provider_repo=provider_repo)

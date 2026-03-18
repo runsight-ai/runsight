@@ -23,6 +23,7 @@ from .transport.routers import (
     settings,
     dashboard,
     git,
+    models,
     sse_stream,
 )
 
@@ -97,6 +98,7 @@ def create_app() -> FastAPI:
     app.include_router(settings.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(git.router, prefix="/api")
+    app.include_router(models.router, prefix="/api")
     app.include_router(sse_stream.router, prefix="/api")
 
     @app.get("/health")
