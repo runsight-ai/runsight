@@ -48,11 +48,11 @@ class ExecutionService:
 
             yaml_content = wf_entity.yaml
 
-            # Resolve API key: provider DB -> env var
-            api_key = self._resolve_api_key()
+            # Resolve API keys: provider DB -> env var fallback
+            api_keys = self._resolve_api_keys()
 
             # Parse workflow YAML into runnable Workflow
-            wf = parse_workflow_yaml(yaml_content, api_key=api_key)
+            wf = parse_workflow_yaml(yaml_content, api_keys=api_keys)
 
         except Exception as e:
             logger.exception("Failed to prepare workflow for run %s", run_id)
@@ -124,6 +124,38 @@ class ExecutionService:
                     session.commit()
         except Exception:
             logger.exception("Failed to update run %s status to %s", run_id, status)
+
+    def _resolve_api_keys(self) -> Dict[str, str]:
+        """Resolve API keys from all providers in DB, with env var fallback.
+
+        Returns a Dict[str, str] mapping provider_type -> decrypted API key.
+        """
+        import os
+
+        result: Dict[str, str] = {}
+
+        # Collect keys from all DB providers
+        try:
+            providers = self.provider_repo.list_all()
+            for provider in providers:
+                if provider.api_key_encrypted:
+                    result[provider.type] = decrypt(provider.api_key_encrypted)
+        except (TypeError, AttributeError):
+            # list_all() not available or not iterable (e.g. repo not configured)
+            pass
+
+        # Env var fallback for known provider types not already in result
+        env_var_map = {
+            "openai": "OPENAI_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+        }
+        for provider_type, env_var in env_var_map.items():
+            if provider_type not in result:
+                val = os.environ.get(env_var)
+                if val:
+                    result[provider_type] = val
+
+        return result
 
     def _resolve_api_key(self) -> str | None:
         """Resolve API key from provider DB or environment."""
