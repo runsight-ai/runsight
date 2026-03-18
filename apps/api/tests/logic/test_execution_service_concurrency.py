@@ -64,40 +64,22 @@ def _patch_parse_and_decrypt(slow_run_coro):
 
 
 # ---------------------------------------------------------------------------
-# 1. Semaphore attribute exists on ExecutionService
+# 1. Constructor accepts max_concurrent_runs kwarg
 # ---------------------------------------------------------------------------
 
 
-class TestSemaphoreInit:
-    def test_has_semaphore_attribute(self):
-        """ExecutionService must have a _semaphore attribute (asyncio.Semaphore)."""
-        svc, *_ = _make_service()
-        assert hasattr(svc, "_semaphore"), "ExecutionService must expose a _semaphore attribute"
-        assert isinstance(svc._semaphore, asyncio.Semaphore)
-
-    def test_default_semaphore_value_is_5(self):
-        """Default max_concurrent_runs should be 5."""
-        svc, *_ = _make_service()
-        # asyncio.Semaphore stores its internal value in _value
-        assert svc._semaphore._value == 5, "Default semaphore limit must be 5"
-
-    def test_custom_semaphore_value(self):
-        """max_concurrent_runs kwarg sets the semaphore limit."""
-        svc, *_ = _make_service(max_concurrent_runs=3)
-        assert svc._semaphore._value == 3
-
+class TestConstructor:
     def test_constructor_accepts_max_concurrent_runs_kwarg(self):
         """ExecutionService.__init__ accepts max_concurrent_runs keyword arg."""
         from runsight_api.logic.services.execution_service import ExecutionService
 
         # Should not raise TypeError about unexpected keyword argument
-        svc = ExecutionService(
+        ExecutionService(
             run_repo=Mock(),
             workflow_repo=Mock(),
             provider_repo=Mock(),
             max_concurrent_runs=10,
         )
-        assert svc._semaphore._value == 10
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +103,7 @@ class TestConcurrencyLimit:
         max_observed = 0
         lock = asyncio.Lock()
         gate = asyncio.Event()
+        all_entered = asyncio.Event()
 
         async def tracked_run(*args, **kwargs):
             nonlocal currently_running, max_observed
@@ -128,6 +111,8 @@ class TestConcurrencyLimit:
                 currently_running += 1
                 if currently_running > max_observed:
                     max_observed = currently_running
+                if currently_running >= max_concurrent:
+                    all_entered.set()
             # Wait at the gate so runs pile up
             await gate.wait()
             async with lock:
@@ -141,8 +126,14 @@ class TestConcurrencyLimit:
             for i in range(total_runs):
                 await svc.launch_execution(f"run_{i}", "wf_1", {"instruction": "go"})
 
-            # Give time for semaphore-permitted tasks to enter tracked_run
-            await asyncio.sleep(0.2)
+            # Wait for the semaphore-permitted tasks to enter tracked_run
+            try:
+                await asyncio.wait_for(all_entered.wait(), timeout=2.0)
+            except asyncio.TimeoutError:
+                pytest.fail("Timed out waiting for concurrent runs to enter tracked_run")
+
+            # Allow a moment for any extra tasks to sneak in (they shouldn't)
+            await asyncio.sleep(0.05)
 
             # Only max_concurrent should be running at once
             assert max_observed <= max_concurrent, (
@@ -158,19 +149,79 @@ class TestConcurrencyLimit:
             await asyncio.sleep(0.3)
 
     @pytest.mark.asyncio
+    async def test_default_limit_is_5(self):
+        """With no max_concurrent_runs arg, exactly 5 (not 6) can run concurrently.
+
+        Behavioral proof of the default limit without inspecting internals.
+        """
+        svc, *_ = _make_service()  # No max_concurrent_runs — should default to 5
+        total_runs = 7
+
+        currently_running = 0
+        max_observed = 0
+        lock = asyncio.Lock()
+        gate = asyncio.Event()
+        five_entered = asyncio.Event()
+
+        async def tracked_run(*args, **kwargs):
+            nonlocal currently_running, max_observed
+            async with lock:
+                currently_running += 1
+                if currently_running > max_observed:
+                    max_observed = currently_running
+                if currently_running >= 5:
+                    five_entered.set()
+            await gate.wait()
+            async with lock:
+                currently_running -= 1
+            from runsight_core.state import WorkflowState
+
+            return WorkflowState()
+
+        p1, p2 = _patch_parse_and_decrypt(tracked_run)
+        with p1, p2:
+            for i in range(total_runs):
+                await svc.launch_execution(f"run_d{i}", "wf_1", {"instruction": "go"})
+
+            # Wait for 5 to enter
+            try:
+                await asyncio.wait_for(five_entered.wait(), timeout=2.0)
+            except asyncio.TimeoutError:
+                pytest.fail("Timed out waiting for 5 concurrent runs")
+
+            # Brief pause to let a 6th sneak in if limit is wrong
+            await asyncio.sleep(0.05)
+
+            assert max_observed == 5, (
+                f"Default limit should allow exactly 5 concurrent runs, but observed {max_observed}"
+            )
+
+            gate.set()
+            await asyncio.sleep(0.3)
+
+    @pytest.mark.asyncio
     async def test_queued_runs_eventually_execute(self):
         """Runs beyond the semaphore limit queue and eventually execute (no failure)."""
         max_concurrent = 1
         total_runs = 3
         svc, *_ = _make_service(max_concurrent_runs=max_concurrent)
 
+        completed_count = 0
+        lock = asyncio.Lock()
+        all_done = asyncio.Event()
         gate = asyncio.Event()
 
         async def gated_run(*args, **kwargs):
+            nonlocal completed_count
             await gate.wait()
             from runsight_core.state import WorkflowState
 
-            return WorkflowState()
+            result = WorkflowState()
+            async with lock:
+                completed_count += 1
+                if completed_count >= total_runs:
+                    all_done.set()
+            return result
 
         p1, p2 = _patch_parse_and_decrypt(gated_run)
         with p1, p2:
@@ -179,7 +230,14 @@ class TestConcurrencyLimit:
 
             # Release gate — all queued runs should eventually complete
             gate.set()
-            await asyncio.sleep(0.5)
+
+            try:
+                await asyncio.wait_for(all_done.wait(), timeout=3.0)
+            except asyncio.TimeoutError:
+                pytest.fail(
+                    f"Only {completed_count}/{total_runs} runs completed — "
+                    f"queued runs did not execute"
+                )
 
             # All tasks should have completed (removed from _running_tasks)
             assert len(svc._running_tasks) == 0, (
@@ -263,6 +321,7 @@ class TestSemaphoreRelease:
         svc, *_ = _make_service(max_concurrent_runs=1)
 
         run_started = asyncio.Event()
+        run2_completed = asyncio.Event()
 
         async def long_run(*args, **kwargs):
             run_started.set()
@@ -271,7 +330,23 @@ class TestSemaphoreRelease:
 
             return WorkflowState()
 
-        p1, p2 = _patch_parse_and_decrypt(long_run)
+        async def quick_run(*args, **kwargs):
+            run2_completed.set()
+            from runsight_core.state import WorkflowState
+
+            return WorkflowState()
+
+        # Both launches share one patch scope; the coro switches between calls
+        call_count = 0
+
+        async def dispatch_run(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return await long_run(*args, **kwargs)
+            return await quick_run(*args, **kwargs)
+
+        p1, p2 = _patch_parse_and_decrypt(dispatch_run)
         with p1, p2:
             await svc.launch_execution("run_cancel", "wf_1", {"instruction": "go"})
             await run_started.wait()
@@ -282,20 +357,7 @@ class TestSemaphoreRelease:
             task.cancel()
             await asyncio.sleep(0.1)
 
-            # Reset for the next run
-            run_started.clear()
-
-            run2_completed = asyncio.Event()
-
-            async def quick_run(*args, **kwargs):
-                run2_completed.set()
-                from runsight_core.state import WorkflowState
-
-                return WorkflowState()
-
-        # Need fresh patches for second run
-        p1b, p2b = _patch_parse_and_decrypt(quick_run)
-        with p1b, p2b:
+            # Launch second run — should acquire released semaphore
             await svc.launch_execution("run_after_cancel", "wf_1", {"instruction": "go"})
 
             # Should complete within a reasonable time (not deadlocked)
@@ -472,25 +534,29 @@ class TestPendingUntilAcquired:
         first_gate = asyncio.Event()
         second_running = asyncio.Event()
 
-        async def first_run(*args, **kwargs):
-            await first_gate.wait()
-            from runsight_core.state import WorkflowState
+        call_count = 0
 
-            return WorkflowState()
+        async def dispatch_run(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # First run: block until released
+                await first_gate.wait()
+                from runsight_core.state import WorkflowState
 
-        async def second_run(*args, **kwargs):
-            second_running.set()
-            from runsight_core.state import WorkflowState
+                return WorkflowState()
+            else:
+                # Second run: signal that it started
+                second_running.set()
+                from runsight_core.state import WorkflowState
 
-            return WorkflowState()
+                return WorkflowState()
 
-        p1, p2 = _patch_parse_and_decrypt(first_run)
+        p1, p2 = _patch_parse_and_decrypt(dispatch_run)
         with p1, p2:
             await svc.launch_execution("run_first", "wf_1", {"instruction": "go"})
             await asyncio.sleep(0.1)
 
-        p1b, p2b = _patch_parse_and_decrypt(second_run)
-        with p1b, p2b:
             await svc.launch_execution("run_second", "wf_1", {"instruction": "go"})
             await asyncio.sleep(0.1)
 
