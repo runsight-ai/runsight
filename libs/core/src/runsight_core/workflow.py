@@ -57,6 +57,11 @@ class Workflow:
         ] = {}  # from_block_id -> {decision_str -> to_block_id}
         self._output_conditions: Dict[str, Tuple[List[Case], str]] = {}
 
+    @property
+    def blocks(self) -> Dict[str, BaseBlock]:
+        """Read-only access to the block registry keyed by block_id."""
+        return self._blocks
+
     def add_block(self, block: BaseBlock) -> "Workflow":
         """
         Register a block in this workflow.

@@ -87,13 +87,19 @@ class LiteLLMClient:
             model=self.model_name,
         )
 
-        # Extract total tokens from usage
+        # Extract token breakdown from usage
+        prompt_tokens = 0
+        completion_tokens = 0
         total_tokens = 0
         if hasattr(response, "usage") and response.usage:
-            total_tokens = response.usage.total_tokens
+            prompt_tokens = response.usage.prompt_tokens or 0
+            completion_tokens = response.usage.completion_tokens or 0
+            total_tokens = response.usage.total_tokens or 0
 
         return {
             "content": content,
             "cost_usd": cost_usd,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
             "total_tokens": total_tokens,
         }
