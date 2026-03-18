@@ -5,11 +5,13 @@ Tests target:
 - StreamingObserver — pushes events to asyncio.Queue
 - Late-join replay of missed events
 - Cleanup on run completion
+- Observer registry in ExecutionService
 """
 
 import json
 from unittest.mock import Mock
 
+import pytest
 from fastapi.testclient import TestClient
 
 from runsight_api.main import app
@@ -252,13 +254,17 @@ class TestStreamNotFound:
 
 
 # ---------------------------------------------------------------------------
-# 5. Late-join replays missed events
+# 5. Late-join replays missed events (B3 fix: deterministic replay assertions)
 # ---------------------------------------------------------------------------
 
 
 class TestLateJoinReplay:
     def test_late_join_replays_prior_events_from_db(self):
-        """Connecting to a running run should replay events that already happened."""
+        """Connecting to a running run should replay events that already happened.
+
+        Replayed events must use the 'replay' event type and carry data matching
+        the persisted log entries, arriving strictly before any live events.
+        """
         mock_run_service = Mock()
         mock_run_service.get_run.return_value = _make_mock_run()
 
@@ -286,10 +292,24 @@ class TestLateJoinReplay:
             with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
                 body = response.read().decode()
             events = _parse_sse_events(body)
-            # Should see replayed events BEFORE live events
-            assert len(events) >= 3  # at least 2 replay + 1 live
-            # First events should be the replayed ones
-            assert events[0]["event"] in ("node_started", "node_completed", "replay")
+
+            # Exactly 4 events: 2 replay + 2 live
+            assert len(events) == 4
+
+            # First two events must be replay type carrying the original log data
+            assert events[0]["event"] == "replay"
+            assert events[0]["data"]["event"] == "block_start"
+            assert events[0]["data"]["block_id"] == "b1"
+
+            assert events[1]["event"] == "replay"
+            assert events[1]["data"]["event"] == "block_complete"
+            assert events[1]["data"]["block_id"] == "b1"
+
+            # Live events follow after all replays
+            assert events[2]["event"] == "node_started"
+            assert events[2]["data"]["node_id"] == "b2"
+
+            assert events[3]["event"] == "run_completed"
         finally:
             app.dependency_overrides.clear()
 
@@ -300,7 +320,8 @@ class TestLateJoinReplay:
 
 
 class TestStreamCleanup:
-    def test_observer_queue_removed_after_run_completes(self):
+    @pytest.mark.asyncio
+    async def test_observer_queue_removed_after_run_completes(self):
         """After run_completed, the streaming observer queue should be cleaned up."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
 
@@ -324,23 +345,25 @@ class TestStreamCleanup:
 
 
 # ---------------------------------------------------------------------------
-# 7. StreamingObserver pushes events to asyncio.Queue
+# 7. StreamingObserver pushes events to asyncio.Queue (B6 fix: async tests)
 # ---------------------------------------------------------------------------
 
 
 class TestStreamingObserver:
-    def test_observer_pushes_events_to_queue(self):
+    @pytest.mark.asyncio
+    async def test_observer_pushes_events_to_queue(self):
         """StreamingObserver.on_block_start should enqueue a node_started event."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
 
         observer = StreamingObserver(run_id="run_q_1")
         observer.on_block_start("wf", "block_1", "llm")
 
-        event = observer.queue.get_nowait()
+        event = await observer.queue.get()
         assert event["event"] == "node_started"
         assert event["data"]["node_id"] == "block_1"
 
-    def test_observer_pushes_node_completed(self):
+    @pytest.mark.asyncio
+    async def test_observer_pushes_node_completed(self):
         """StreamingObserver.on_block_complete should enqueue a node_completed event."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
 
@@ -350,24 +373,26 @@ class TestStreamingObserver:
         mock_state.total_tokens = 100
         observer.on_block_complete("wf", "block_1", "llm", 1.5, mock_state)
 
-        event = observer.queue.get_nowait()
+        event = await observer.queue.get()
         assert event["event"] == "node_completed"
         assert event["data"]["node_id"] == "block_1"
         assert event["data"]["duration_s"] == 1.5
 
-    def test_observer_pushes_node_failed(self):
+    @pytest.mark.asyncio
+    async def test_observer_pushes_node_failed(self):
         """StreamingObserver.on_block_error should enqueue a node_failed event."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
 
         observer = StreamingObserver(run_id="run_q_3")
         observer.on_block_error("wf", "block_1", "llm", 0.5, ValueError("bad input"))
 
-        event = observer.queue.get_nowait()
+        event = await observer.queue.get()
         assert event["event"] == "node_failed"
         assert event["data"]["node_id"] == "block_1"
         assert "bad input" in event["data"]["error"]
 
-    def test_observer_pushes_run_completed(self):
+    @pytest.mark.asyncio
+    async def test_observer_pushes_run_completed(self):
         """StreamingObserver.on_workflow_complete should enqueue run_completed."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
 
@@ -377,16 +402,79 @@ class TestStreamingObserver:
         mock_state.total_tokens = 500
         observer.on_workflow_complete("wf", mock_state, 10.0)
 
-        event = observer.queue.get_nowait()
+        event = await observer.queue.get()
         assert event["event"] == "run_completed"
 
-    def test_observer_pushes_run_failed(self):
+    @pytest.mark.asyncio
+    async def test_observer_pushes_run_failed(self):
         """StreamingObserver.on_workflow_error should enqueue run_failed."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
 
         observer = StreamingObserver(run_id="run_q_5")
         observer.on_workflow_error("wf", RuntimeError("crash"), 3.0)
 
-        event = observer.queue.get_nowait()
+        event = await observer.queue.get()
         assert event["event"] == "run_failed"
         assert "crash" in event["data"]["error"]
+
+
+# ---------------------------------------------------------------------------
+# 8. Observer registry in ExecutionService (B7 fix: new test)
+# ---------------------------------------------------------------------------
+
+
+class TestObserverRegistry:
+    @pytest.mark.asyncio
+    async def test_execution_service_registers_observer_for_run_id(self):
+        """ExecutionService should store a StreamingObserver per run_id and allow retrieval."""
+        from runsight_api.logic.observers.streaming_observer import StreamingObserver
+        from runsight_api.logic.services.execution_service import ExecutionService
+
+        exec_service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=Mock(),
+            provider_repo=Mock(),
+        )
+
+        observer = StreamingObserver(run_id="run_reg_1")
+
+        # Register observer for a run_id
+        exec_service.register_observer("run_reg_1", observer)
+
+        # Retrieve it back
+        retrieved = exec_service.get_observer("run_reg_1")
+        assert retrieved is observer
+
+    @pytest.mark.asyncio
+    async def test_execution_service_returns_none_for_unknown_run_id(self):
+        """ExecutionService.get_observer should return None for unregistered run_ids."""
+        from runsight_api.logic.services.execution_service import ExecutionService
+
+        exec_service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=Mock(),
+            provider_repo=Mock(),
+        )
+
+        result = exec_service.get_observer("nonexistent_run")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_execution_service_unregisters_observer(self):
+        """ExecutionService should allow removing an observer after run completion."""
+        from runsight_api.logic.observers.streaming_observer import StreamingObserver
+        from runsight_api.logic.services.execution_service import ExecutionService
+
+        exec_service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=Mock(),
+            provider_repo=Mock(),
+        )
+
+        observer = StreamingObserver(run_id="run_reg_2")
+        exec_service.register_observer("run_reg_2", observer)
+
+        # Unregister after completion
+        exec_service.unregister_observer("run_reg_2")
+
+        assert exec_service.get_observer("run_reg_2") is None
