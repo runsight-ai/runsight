@@ -26,7 +26,7 @@ def test_runs_list():
     mock_service = Mock()
     mock_run = _make_mock_run()
     mock_service.list_runs.return_value = [mock_run]
-    mock_service.compute_summaries.return_value = {
+    mock_service.get_node_summary.return_value = {
         "total_cost_usd": 0.0,
         "total_tokens": 0,
         "nodes_count": 0,
@@ -47,7 +47,7 @@ def test_runs_get():
     mock_service = Mock()
     mock_run = _make_mock_run()
     mock_service.get_run.return_value = mock_run
-    mock_service.compute_summaries.return_value = {
+    mock_service.get_node_summary.return_value = {
         "total_cost_usd": 0.0,
         "total_tokens": 0,
         "nodes_count": 0,

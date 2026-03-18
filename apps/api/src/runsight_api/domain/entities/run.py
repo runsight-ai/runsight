@@ -25,6 +25,7 @@ class Run(SQLModel, table=True):
     total_tokens: int = Field(default=0)
     results_json: Optional[str] = None
     error: Optional[str] = None
+    error_traceback: Optional[str] = None
     cancelled_reason: Optional[str] = None
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)

@@ -8,6 +8,7 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from sqlmodel import Session, SQLModel, create_engine
 
 # --- Import target (does not exist yet — tests must fail on import) ---
 
@@ -281,19 +282,27 @@ class TestLaunchExecutionErrors:
 
     @pytest.mark.asyncio
     async def test_no_provider_no_env_var_sets_run_failed(self):
-        """If provider table is empty and no env var, Run status = failed."""
+        """If provider table is empty and no env var, Run status = failed (via observer)."""
         ExecutionService = _import_execution_service()
         from runsight_api.domain.entities.run import Run, RunStatus
 
-        run = Run(
-            id="run_nokey",
-            workflow_id="wf_1",
-            workflow_name="wf_1",
-            status=RunStatus.pending,
-            task_json="{}",
-        )
+        # Use real in-memory DB so ExecutionObserver can write status
+        db_engine = create_engine("sqlite:///:memory:")
+        SQLModel.metadata.create_all(db_engine)
+
+        run_id = "run_nokey"
+        with Session(db_engine) as session:
+            run = Run(
+                id=run_id,
+                workflow_id="wf_1",
+                workflow_name="wf_1",
+                status=RunStatus.pending,
+                task_json="{}",
+            )
+            session.add(run)
+            session.commit()
+
         run_repo = Mock()
-        run_repo.get_run.return_value = run
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -318,6 +327,7 @@ config: {}
             run_repo=run_repo,
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
+            engine=db_engine,
         )
 
         with patch.dict("os.environ", {}, clear=False):
@@ -327,12 +337,12 @@ config: {}
             os.environ.pop("OPENAI_API_KEY", None)
             os.environ.pop("ANTHROPIC_API_KEY", None)
 
-            await svc.launch_execution("run_nokey", "wf_1", {"instruction": "test"})
+            await svc.launch_execution(run_id, "wf_1", {"instruction": "test"})
             await asyncio.sleep(0.1)
 
-            run_repo.update_run.assert_called()
-            updated = run_repo.update_run.call_args[0][0]
-            assert updated.status == RunStatus.failed
+            with Session(db_engine) as session:
+                updated = session.get(Run, run_id)
+                assert updated.status == RunStatus.failed
 
     @pytest.mark.asyncio
     async def test_launch_failure_before_task_creation_sets_failed(self):
@@ -414,20 +424,26 @@ config: {}
 class TestRunStatusTransitions:
     @pytest.mark.asyncio
     async def test_run_transitions_to_running(self):
-        """After launch_execution, Run.status should transition to running."""
+        """After launch_execution, Run.status should transition to running (via observer)."""
         ExecutionService = _import_execution_service()
         from runsight_api.domain.entities.run import Run, RunStatus
 
-        run = Run(
-            id="run_trans",
-            workflow_id="wf_1",
-            workflow_name="wf_1",
-            status=RunStatus.pending,
-            task_json="{}",
-        )
-        run_repo = Mock()
-        run_repo.get_run.return_value = run
+        db_engine = create_engine("sqlite:///:memory:")
+        SQLModel.metadata.create_all(db_engine)
 
+        run_id = "run_trans"
+        with Session(db_engine) as session:
+            run = Run(
+                id=run_id,
+                workflow_id="wf_1",
+                workflow_name="wf_1",
+                status=RunStatus.pending,
+                task_json="{}",
+            )
+            session.add(run)
+            session.commit()
+
+        run_repo = Mock()
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -440,9 +456,10 @@ class TestRunStatusTransitions:
             run_repo=run_repo,
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
+            engine=db_engine,
         )
 
-        running_event = asyncio.Event()
+        running_seen = asyncio.Event()
 
         with (
             patch(
@@ -456,7 +473,7 @@ class TestRunStatusTransitions:
             from runsight_core.state import WorkflowState
 
             async def slow_run(*a, **kw):
-                running_event.set()
+                running_seen.set()
                 await asyncio.sleep(0.5)
                 return WorkflowState()
 
@@ -464,29 +481,36 @@ class TestRunStatusTransitions:
             mock_wf.run = slow_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_trans", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await asyncio.wait_for(running_seen.wait(), timeout=2.0)
 
-            # The run should be updated to "running" before workflow completes
-            # Check that update_run was called with status=running
-            calls = run_repo.update_run.call_args_list
-            statuses = [c[0][0].status for c in calls]
-            assert RunStatus.running in statuses
+            # Observer should have set status to running in the DB
+            with Session(db_engine) as session:
+                updated = session.get(Run, run_id)
+                assert updated.status in (RunStatus.running, RunStatus.completed)
 
     @pytest.mark.asyncio
     async def test_run_transitions_to_completed_on_success(self):
-        """After workflow.run() succeeds, Run.status = completed."""
+        """After workflow.run() succeeds, Run.status = completed (via observer)."""
         ExecutionService = _import_execution_service()
         from runsight_api.domain.entities.run import Run, RunStatus
 
-        run = Run(
-            id="run_comp",
-            workflow_id="wf_1",
-            workflow_name="wf_1",
-            status=RunStatus.pending,
-            task_json="{}",
-        )
+        db_engine = create_engine("sqlite:///:memory:")
+        SQLModel.metadata.create_all(db_engine)
+
+        run_id = "run_comp"
+        with Session(db_engine) as session:
+            run = Run(
+                id=run_id,
+                workflow_id="wf_1",
+                workflow_name="wf_1",
+                status=RunStatus.pending,
+                task_json="{}",
+            )
+            session.add(run)
+            session.commit()
+
         run_repo = Mock()
-        run_repo.get_run.return_value = run
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -499,6 +523,7 @@ class TestRunStatusTransitions:
             run_repo=run_repo,
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
+            engine=db_engine,
         )
 
         with (
@@ -516,28 +541,35 @@ class TestRunStatusTransitions:
             mock_wf.run = AsyncMock(return_value=WorkflowState())
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_comp", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
             await asyncio.sleep(0.1)
 
-            calls = run_repo.update_run.call_args_list
-            final_statuses = [c[0][0].status for c in calls]
-            assert RunStatus.completed in final_statuses
+            with Session(db_engine) as session:
+                updated = session.get(Run, run_id)
+                assert updated.status == RunStatus.completed
 
     @pytest.mark.asyncio
     async def test_run_transitions_to_failed_on_error(self):
-        """After workflow.run() raises, Run.status = failed."""
+        """After workflow.run() raises, Run.status = failed (via observer)."""
         ExecutionService = _import_execution_service()
         from runsight_api.domain.entities.run import Run, RunStatus
 
-        run = Run(
-            id="run_fail",
-            workflow_id="wf_1",
-            workflow_name="wf_1",
-            status=RunStatus.pending,
-            task_json="{}",
-        )
+        db_engine = create_engine("sqlite:///:memory:")
+        SQLModel.metadata.create_all(db_engine)
+
+        run_id = "run_fail"
+        with Session(db_engine) as session:
+            run = Run(
+                id=run_id,
+                workflow_id="wf_1",
+                workflow_name="wf_1",
+                status=RunStatus.pending,
+                task_json="{}",
+            )
+            session.add(run)
+            session.commit()
+
         run_repo = Mock()
-        run_repo.get_run.return_value = run
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -550,6 +582,7 @@ class TestRunStatusTransitions:
             run_repo=run_repo,
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
+            engine=db_engine,
         )
 
         with (
@@ -565,12 +598,10 @@ class TestRunStatusTransitions:
             mock_wf.run = AsyncMock(side_effect=RuntimeError("LLM exploded"))
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_fail", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
             await asyncio.sleep(0.1)
 
-            calls = run_repo.update_run.call_args_list
-            final_statuses = [c[0][0].status for c in calls]
-            assert RunStatus.failed in final_statuses
-            # Error message should be captured
-            failed_call = [c for c in calls if c[0][0].status == RunStatus.failed]
-            assert failed_call[0][0][0].error is not None
+            with Session(db_engine) as session:
+                updated = session.get(Run, run_id)
+                assert updated.status == RunStatus.failed
+                assert updated.error is not None

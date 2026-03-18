@@ -40,7 +40,9 @@ async def lifespan(app: FastAPI):
     run_repo = RunRepository(session)
     workflow_repo = WorkflowRepository(app_settings.base_path)
     provider_repo = ProviderRepository(session)
-    app.state.execution_service = ExecutionService(run_repo, workflow_repo, provider_repo)
+    app.state.execution_service = ExecutionService(
+        run_repo, workflow_repo, provider_repo, engine=engine
+    )
 
     yield
 
