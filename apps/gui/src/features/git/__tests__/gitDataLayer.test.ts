@@ -397,7 +397,7 @@ describe("Git API client (RUN-154)", () => {
   describe("API client source-level checks", () => {
     it("imports from api/client", () => {
       const source = readFileSync(API_CLIENT_PATH, "utf-8");
-      expect(source).toMatch(/import\s*\{[^}]*api[^}]*\}\s*from\s*["']\.\/client["']/);
+      expect(source).toMatch(/import\(["']\.\/client["']\)/);
     });
 
     it("imports Zod schemas from types/schemas/git", () => {

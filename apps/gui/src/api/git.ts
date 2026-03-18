@@ -1,4 +1,3 @@
-import { api } from "./client";
 import {
   GitStatusResponseSchema,
   GitCommitResponseSchema,
