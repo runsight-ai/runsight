@@ -26,6 +26,8 @@ interface CanvasState {
   isDirty: boolean;
   selectedNodeId: string | null;
   canvasMode: CanvasMode;
+  validationErrors: string[];
+  hasValidationErrors: boolean;
   setNodes: (nodes: Node[], markDirty?: boolean) => void;
   setEdges: (edges: Edge[], markDirty?: boolean) => void;
   onNodesChange: (changes: NodeChange[]) => void;
@@ -33,6 +35,7 @@ interface CanvasState {
   setViewport: (viewport: Viewport, markDirty?: boolean) => void;
   selectNode: (id: string | null) => void;
   setCanvasMode: (mode: CanvasMode) => void;
+  setValidationErrors: (errors: string[]) => void;
   hydrateFromPersisted: (state: PersistedCanvasState | null | undefined) => void;
   toPersistedState: () => PersistedCanvasState;
   markSaved: () => void;
@@ -48,6 +51,8 @@ const initialState = {
   isDirty: false,
   selectedNodeId: null as string | null,
   canvasMode: "dag" as CanvasMode,
+  validationErrors: [] as string[],
+  hasValidationErrors: false,
 };
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -68,6 +73,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ viewport, isDirty: markDirty || get().isDirty }),
   selectNode: (id) => set({ selectedNodeId: id }),
   setCanvasMode: (mode) => set({ canvasMode: mode, isDirty: true }),
+  setValidationErrors: (errors) =>
+    set({ validationErrors: errors, hasValidationErrors: errors.length > 0 }),
   hydrateFromPersisted: (state) => {
     if (!state) {
       set({ ...initialState });
