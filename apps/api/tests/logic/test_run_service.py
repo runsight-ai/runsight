@@ -46,7 +46,7 @@ def test_create_run_happy_path(run_service, run_repo, workflow_repo):
     assert run.status == RunStatus.pending
     assert '"foo"' in run.task_json and '"bar"' in run.task_json
     assert run.id.startswith("run_")
-    assert run.started_at is not None
+    assert run.started_at is None  # RUN-127: started_at defaults to None (pending, not yet running)
     run_repo.create_run.assert_called_once()
     call_run = run_repo.create_run.call_args[0][0]
     assert call_run.workflow_id == "wf_1"

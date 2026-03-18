@@ -199,7 +199,7 @@ class TestCodeBlockDirectBuilder:
 class TestAchatTokenBreakdown:
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion")
-    @patch("litellm.completion_cost", return_value=0.002)
+    @patch("runsight_core.llm.client.completion_cost", return_value=0.002)
     async def test_achat_returns_prompt_and_completion_tokens(self, mock_cost, mock_acompletion):
         """achat must return prompt_tokens, completion_tokens, total_tokens, cost_usd, content."""
         usage = MagicMock()
@@ -226,7 +226,7 @@ class TestAchatTokenBreakdown:
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion")
-    @patch("litellm.completion_cost", return_value=0.0)
+    @patch("runsight_core.llm.client.completion_cost", return_value=0.0)
     async def test_achat_usage_none_defaults_to_zero(self, mock_cost, mock_acompletion):
         """When response.usage is None, all token fields default to 0."""
         choice = MagicMock()
@@ -246,7 +246,7 @@ class TestAchatTokenBreakdown:
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion")
-    @patch("litellm.completion_cost", return_value=0.0)
+    @patch("runsight_core.llm.client.completion_cost", return_value=0.0)
     async def test_achat_usage_partial_none_defaults_to_zero(self, mock_cost, mock_acompletion):
         """When usage exists but prompt_tokens/completion_tokens are None, default to 0."""
         usage = MagicMock()
@@ -278,7 +278,7 @@ class TestAchatTokenBreakdown:
 class TestAchatBackwardCompat:
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion")
-    @patch("litellm.completion_cost", return_value=0.005)
+    @patch("runsight_core.llm.client.completion_cost", return_value=0.005)
     async def test_achat_backward_compat_existing_keys(self, mock_cost, mock_acompletion):
         """Callers that only access content, cost_usd, total_tokens must still work.
 

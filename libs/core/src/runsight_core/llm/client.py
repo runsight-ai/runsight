@@ -1,5 +1,5 @@
 from typing import Any, AsyncGenerator, Dict, List, Optional
-from litellm import acompletion  # type: ignore[import-not-found]
+from litellm import acompletion, completion_cost  # type: ignore[import-not-found]
 from pydantic import BaseModel
 
 
@@ -14,9 +14,12 @@ class LiteLLMClient:
     Supports streaming and standard completion.
     """
 
-    def __init__(self, model_name: str = "gpt-4o", timeout: float = 300.0):
+    def __init__(
+        self, model_name: str = "gpt-4o", timeout: float = 300.0, api_key: Optional[str] = None
+    ):
         self.model_name = model_name
         self.timeout = timeout
+        self.api_key = api_key
 
     async def astream_chat(
         self,
@@ -34,13 +37,17 @@ class LiteLLMClient:
 
         formatted_messages.extend(messages)
 
+        extra_kwargs = dict(kwargs)
+        if self.api_key is not None:
+            extra_kwargs["api_key"] = self.api_key
+
         response = await acompletion(
             model=self.model_name,
             messages=formatted_messages,
             stream=True,
             temperature=temperature,
             timeout=self.timeout,
-            **kwargs,
+            **extra_kwargs,
         )
 
         async for chunk in response:
@@ -60,13 +67,15 @@ class LiteLLMClient:
         Get the full response from the LLM without streaming.
         Returns a dict with keys: content, cost_usd, total_tokens
         """
-        from litellm import completion_cost
-
         formatted_messages = []
         if system_prompt:
             formatted_messages.append({"role": "system", "content": system_prompt})
 
         formatted_messages.extend(messages)
+
+        extra_kwargs = dict(kwargs)
+        if self.api_key is not None:
+            extra_kwargs["api_key"] = self.api_key
 
         response = await acompletion(
             model=self.model_name,
@@ -74,7 +83,7 @@ class LiteLLMClient:
             stream=False,
             temperature=temperature,
             timeout=self.timeout,
-            **kwargs,
+            **extra_kwargs,
         )
 
         content = ""

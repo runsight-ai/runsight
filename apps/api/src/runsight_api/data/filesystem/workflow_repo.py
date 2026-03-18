@@ -213,6 +213,11 @@ class WorkflowRepository:
         if canvas_state is not None:
             entity_data["canvas_state"] = canvas_state
 
+        # Extract name from YAML workflow.name field
+        workflow_section = data.get("workflow")
+        if isinstance(workflow_section, dict) and workflow_section.get("name"):
+            entity_data["name"] = workflow_section["name"]
+
         return WorkflowEntity(**entity_data)
 
     # ------------------------------------------------------------------

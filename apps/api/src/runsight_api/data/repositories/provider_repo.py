@@ -14,6 +14,12 @@ class ProviderRepository:
     def get_by_id(self, provider_id: str) -> Optional[Provider]:
         return self.session.get(Provider, provider_id)
 
+    def get_by_type(self, provider_type: str) -> Optional[Provider]:
+        statement = select(Provider).where(
+            Provider.type == provider_type, Provider.is_active.is_(True)
+        )
+        return self.session.exec(statement).first()
+
     def create(self, provider: Provider) -> Provider:
         self.session.add(provider)
         self.session.commit()

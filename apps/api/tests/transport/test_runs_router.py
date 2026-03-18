@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 from runsight_api.main import app
-from runsight_api.transport.deps import get_run_service
+from runsight_api.transport.deps import get_run_service, get_execution_service
 from runsight_api.domain.entities.run import RunStatus
 
 client = TestClient(app)
@@ -74,7 +74,10 @@ def test_runs_post():
     mock_service = Mock()
     mock_run = _make_mock_run("run_new")
     mock_service.create_run.return_value = mock_run
+    mock_exec_service = Mock()
+    mock_exec_service.launch_execution = AsyncMock()
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
 
     response = client.post("/api/runs", json={"workflow_id": "wf_1", "task_data": {}})
     assert response.status_code == 200
@@ -83,9 +86,12 @@ def test_runs_post():
 
 
 def test_runs_post_422():
-    app.dependency_overrides.clear()
+    mock_exec_service = Mock()
+    mock_exec_service.launch_execution = AsyncMock()
+    app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
     response = client.post("/api/runs", json={"workflow_id": 123})  # must be str
     assert response.status_code == 422
+    app.dependency_overrides.clear()
 
 
 def test_runs_cancel():
