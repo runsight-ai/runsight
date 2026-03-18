@@ -33,6 +33,7 @@ export const queryKeys = {
   git: {
     status: ["git", "status"] as const,
     log: ["git", "log"] as const,
+    diff: ["git", "diff"] as const,
   },
   dashboard: {
     summary: ["dashboard", "summary"] as const,
