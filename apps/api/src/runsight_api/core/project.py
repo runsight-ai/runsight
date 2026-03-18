@@ -76,6 +76,36 @@ def _find_custom_workflows(start: Path) -> Optional[str]:
     return None
 
 
+def scaffold_project(base_path: Path) -> None:
+    """Create or verify the Runsight project structure at *base_path*.
+
+    Idempotent: existing files/dirs are never overwritten.
+    """
+    marker_path = base_path / MARKER_FILE
+    is_new = not marker_path.is_file()
+
+    # Marker file
+    if not marker_path.is_file():
+        marker_path.write_text(
+            yaml.dump({"version": 1, "base_path": "."}, default_flow_style=False),
+            encoding="utf-8",
+        )
+
+    # Directories
+    (base_path / "custom" / "workflows").mkdir(parents=True, exist_ok=True)
+    (base_path / "custom" / "souls").mkdir(parents=True, exist_ok=True)
+
+    # .gitignore
+    gitignore_path = base_path / ".gitignore"
+    if not gitignore_path.is_file():
+        gitignore_path.write_text(".canvas/\n", encoding="utf-8")
+
+    if is_new:
+        logger.info("Created new Runsight project at %s", base_path)
+    else:
+        logger.info("Found existing Runsight project at %s", base_path)
+
+
 def resolve_base_path(env_value: Optional[str] = None) -> str:
     """Resolve the project base_path using a 4-tier priority.
 
