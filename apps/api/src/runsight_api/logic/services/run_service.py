@@ -67,8 +67,18 @@ class RunService:
         total_cost = sum(n.cost_usd for n in nodes)
         total_tokens = sum((n.tokens or {}).get("total", 0) for n in nodes)
 
+        completed = sum(1 for n in nodes if n.status == "completed")
+        running = sum(1 for n in nodes if n.status == "running")
+        pending = sum(1 for n in nodes if n.status == "pending")
+        failed = sum(1 for n in nodes if n.status == "failed")
+
         return {
             "total_cost_usd": total_cost,
             "total_tokens": total_tokens,
             "nodes_count": len(nodes),
+            "total": len(nodes),
+            "completed": completed,
+            "running": running,
+            "pending": pending,
+            "failed": failed,
         }

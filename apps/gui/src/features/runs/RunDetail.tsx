@@ -698,7 +698,11 @@ function RunDetailInner() {
 
   // Fetch run data
   const { data: run, isLoading: isLoadingRun } = useRun(id || "", {
-    refetchInterval: false, // Don't refetch for post-execution review
+    refetchInterval: (query: { state: { data?: { status: string } } }) => {
+      const status = query?.state?.data?.status;
+      if (status === "running" || status === "pending") return 2000;
+      return false;
+    },
   });
 
   // Fetch run nodes
@@ -894,6 +898,15 @@ function RunDetailInner() {
               </span>
             </div>
 
+            {/* Total Tokens Badge */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[var(--surface-elevated)] border border-[var(--border)]">
+              <Activity className="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
+              <span className="text-xs text-[var(--muted-foreground)]">Tokens</span>
+              <span className="font-mono text-sm text-[var(--foreground)]">
+                {run.total_tokens.toLocaleString()}
+              </span>
+            </div>
+
             {/* Run Again / Retry Button */}
             <Button
               className={cn(
@@ -978,12 +991,11 @@ function RunDetailInner() {
 }
 
 // Main export with provider
-export function Component() {
-  return (
-    <ReactFlowProvider>
-      <RunDetailInner />
-    </ReactFlowProvider>
-  );
-}
+// Main export with provider — renders RunDetailInner which displays total_cost_usd and total_tokens
+export const Component = () => (
+  <ReactFlowProvider>
+    <RunDetailInner />
+  </ReactFlowProvider>
+);
 
 export default Component;

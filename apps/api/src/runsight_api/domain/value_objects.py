@@ -18,7 +18,6 @@ class NodeSummary(BaseModel):
     running: int = 0
     pending: int = 0
     failed: int = 0
-    killed: int = 0
 
 
 class CostSummary(BaseModel):

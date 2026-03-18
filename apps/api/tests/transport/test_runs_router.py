@@ -30,6 +30,11 @@ def test_runs_list():
         "total_cost_usd": 0.0,
         "total_tokens": 0,
         "nodes_count": 0,
+        "total": 0,
+        "completed": 0,
+        "running": 0,
+        "pending": 0,
+        "failed": 0,
     }
     app.dependency_overrides[get_run_service] = lambda: mock_service
 
@@ -51,6 +56,11 @@ def test_runs_get():
         "total_cost_usd": 0.0,
         "total_tokens": 0,
         "nodes_count": 0,
+        "total": 0,
+        "completed": 0,
+        "running": 0,
+        "pending": 0,
+        "failed": 0,
     }
     app.dependency_overrides[get_run_service] = lambda: mock_service
 
