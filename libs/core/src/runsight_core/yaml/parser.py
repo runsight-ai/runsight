@@ -25,6 +25,7 @@ from runsight_core.blocks.implementations import (
     PlaceholderBlock,
     GateBlock,
     FileWriterBlock,
+    CodeBlock,
 )
 from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
@@ -303,6 +304,23 @@ def _build_file_writer(
     return FileWriterBlock(block_id, block_def.output_path, block_def.content_key)
 
 
+def _build_code(
+    block_id: str,
+    block_def: BlockDef,
+    souls_map: Dict[str, Soul],
+    runner: RunsightTeamRunner,
+    all_blocks: Dict[str, BaseBlock],
+) -> CodeBlock:
+    if not hasattr(block_def, "code") or not block_def.code:
+        raise ValueError(f"CodeBlock '{block_id}': code is required")
+    return CodeBlock(
+        block_id,
+        code=block_def.code,
+        timeout_seconds=getattr(block_def, "timeout_seconds", 30),
+        allowed_imports=getattr(block_def, "allowed_imports", None),
+    )
+
+
 BLOCK_TYPE_REGISTRY: Dict[str, BlockBuilder] = {
     "linear": _build_linear,
     "fanout": _build_fanout,
@@ -316,6 +334,7 @@ BLOCK_TYPE_REGISTRY: Dict[str, BlockBuilder] = {
     "placeholder": _build_placeholder,
     "gate": _build_gate,
     "file_writer": _build_file_writer,
+    "code": _build_code,
 }
 
 
