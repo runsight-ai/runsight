@@ -60,17 +60,12 @@ class RunService:
 
         return self.run_repo.update_run(run)
 
-    def compute_summaries(self, run_id: str) -> Dict[str, Any]:
-        run = self.get_run(run_id)
+    def get_node_summary(self, run_id: str) -> Dict[str, Any]:
+        """Read-only summary of run nodes (replaces compute_summaries)."""
         nodes = self.get_run_nodes(run_id)
 
         total_cost = sum(n.cost_usd for n in nodes)
         total_tokens = sum((n.tokens or {}).get("total", 0) for n in nodes)
-
-        if run:
-            run.total_cost_usd = total_cost
-            run.total_tokens = total_tokens
-            self.run_repo.update_run(run)
 
         return {
             "total_cost_usd": total_cost,

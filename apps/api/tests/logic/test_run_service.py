@@ -245,18 +245,11 @@ def test_get_run_logs_empty(run_service, run_repo):
     assert result == []
 
 
-# --- compute_summaries ---
+# --- get_node_summary ---
 
 
-def test_compute_summaries_aggregates_cost_and_tokens(run_service, run_repo):
-    """compute_summaries aggregates cost_usd and tokens from nodes, updates run."""
-    run = Run(
-        id="run_1",
-        workflow_id="wf_1",
-        workflow_name="wf_1",
-        status=RunStatus.completed,
-        task_json="{}",
-    )
+def test_get_node_summary_aggregates_cost_and_tokens(run_service, run_repo):
+    """get_node_summary aggregates cost_usd and tokens from nodes (read-only)."""
     nodes = [
         RunNode(
             id="r1:n1",
@@ -275,76 +268,31 @@ def test_compute_summaries_aggregates_cost_and_tokens(run_service, run_repo):
             tokens={"prompt": 200, "completion": 100, "total": 300},
         ),
     ]
-    run_repo.get_run.return_value = run
     run_repo.list_nodes_for_run.return_value = nodes
-    run_repo.update_run.return_value = run
 
-    result = run_service.compute_summaries("run_1")
+    result = run_service.get_node_summary("run_1")
 
     assert result["total_cost_usd"] == 3.5
     assert result["total_tokens"] == 450
     assert result["nodes_count"] == 2
-    run_repo.update_run.assert_called_once()
-    updated = run_repo.update_run.call_args[0][0]
-    assert updated.total_cost_usd == 3.5
-    assert updated.total_tokens == 450
-
-
-def test_compute_summaries_run_not_found(run_service, run_repo):
-    """compute_summaries still returns aggregates from nodes when run is None; no update."""
-    run_repo.get_run.return_value = None
-    nodes = [
-        RunNode(
-            id="r1:n1",
-            run_id="r1",
-            node_id="n1",
-            block_type="soul",
-            cost_usd=1.0,
-            tokens={"total": 50},
-        ),
-    ]
-    run_repo.list_nodes_for_run.return_value = nodes
-
-    result = run_service.compute_summaries("run_1")
-
-    assert result["total_cost_usd"] == 1.0
-    assert result["total_tokens"] == 50
-    assert result["nodes_count"] == 1
     run_repo.update_run.assert_not_called()
 
 
-def test_compute_summaries_empty_nodes(run_service, run_repo):
-    """compute_summaries returns zeros when no nodes."""
-    run = Run(
-        id="run_1",
-        workflow_id="wf_1",
-        workflow_name="wf_1",
-        status=RunStatus.completed,
-        task_json="{}",
-    )
-    run_repo.get_run.return_value = run
+def test_get_node_summary_empty_nodes(run_service, run_repo):
+    """get_node_summary returns zeros when no nodes."""
     run_repo.list_nodes_for_run.return_value = []
 
-    result = run_service.compute_summaries("run_1")
+    result = run_service.get_node_summary("run_1")
 
     assert result["total_cost_usd"] == 0.0
     assert result["total_tokens"] == 0
     assert result["nodes_count"] == 0
 
 
-def test_compute_summaries_nodes_missing_cost_usd_raises(run_service, run_repo):
-    """compute_summaries raises AttributeError when node lacks cost_usd (current brittle behavior)."""
-    run = Run(
-        id="run_1",
-        workflow_id="wf_1",
-        workflow_name="wf_1",
-        status=RunStatus.completed,
-        task_json="{}",
-    )
-    # Mock node without cost_usd (e.g. from non-RunNode source)
+def test_get_node_summary_nodes_missing_cost_usd_raises(run_service, run_repo):
+    """get_node_summary raises AttributeError when node lacks cost_usd."""
     node_without_cost = Mock(spec=[])  # no attributes
-    run_repo.get_run.return_value = run
     run_repo.list_nodes_for_run.return_value = [node_without_cost]
 
     with pytest.raises(AttributeError):
-        run_service.compute_summaries("run_1")
+        run_service.get_node_summary("run_1")

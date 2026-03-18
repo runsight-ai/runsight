@@ -4,6 +4,7 @@ Workflow state machine for orchestrating block execution.
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import deque
 from typing import TYPE_CHECKING, Any, Deque, Dict, List, Optional, Tuple
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
     from runsight_core.blocks.registry import BlockRegistry
     from runsight_core.observer import WorkflowObserver
     from runsight_core.yaml.registry import WorkflowRegistry
+
+logger = logging.getLogger(__name__)
 
 
 class Workflow:
@@ -426,7 +429,10 @@ class Workflow:
 
         wf_start_time = time.time()
         if observer:
-            observer.on_workflow_start(self.name, state)
+            try:
+                observer.on_workflow_start(self.name, state)
+            except Exception:
+                logger.warning("Observer.on_workflow_start failed", exc_info=True)
 
         try:
             while queue:
@@ -434,7 +440,10 @@ class Workflow:
 
                 block_type = type(block).__name__
                 if observer:
-                    observer.on_block_start(self.name, current_block_id, block_type)
+                    try:
+                        observer.on_block_start(self.name, current_block_id, block_type)
+                    except Exception:
+                        logger.warning("Observer.on_block_start failed", exc_info=True)
 
                 block_start_time = time.time()
 
@@ -457,16 +466,22 @@ class Workflow:
 
                     block_duration = time.time() - block_start_time
                     if observer:
-                        observer.on_block_complete(
-                            self.name, current_block_id, block_type, block_duration, state
-                        )
+                        try:
+                            observer.on_block_complete(
+                                self.name, current_block_id, block_type, block_duration, state
+                            )
+                        except Exception:
+                            logger.warning("Observer.on_block_complete failed", exc_info=True)
 
                 except Exception as e:
                     block_duration = time.time() - block_start_time
                     if observer:
-                        observer.on_block_error(
-                            self.name, current_block_id, block_type, block_duration, e
-                        )
+                        try:
+                            observer.on_block_error(
+                                self.name, current_block_id, block_type, block_duration, e
+                            )
+                        except Exception:
+                            logger.warning("Observer.on_block_error failed", exc_info=True)
                     raise
 
                 # Step 4: Resolve successor BEFORE checking injection
@@ -529,12 +544,18 @@ class Workflow:
 
             wf_duration = time.time() - wf_start_time
             if observer:
-                observer.on_workflow_complete(self.name, state, wf_duration)
+                try:
+                    observer.on_workflow_complete(self.name, state, wf_duration)
+                except Exception:
+                    logger.warning("Observer.on_workflow_complete failed", exc_info=True)
 
             return state
 
         except Exception as e:
             wf_duration = time.time() - wf_start_time
             if observer:
-                observer.on_workflow_error(self.name, e, wf_duration)
+                try:
+                    observer.on_workflow_error(self.name, e, wf_duration)
+                except Exception:
+                    logger.warning("Observer.on_workflow_error failed", exc_info=True)
             raise

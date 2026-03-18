@@ -50,7 +50,7 @@ async def list_runs(
 
     response_items = []
     for run in items:
-        summaries = run_service.compute_summaries(run.id)
+        summaries = run_service.get_node_summary(run.id)
         response_items.append(
             RunResponse(
                 id=run.id,
@@ -79,7 +79,7 @@ async def get_run(run_id: str, run_service: RunService = Depends(get_run_service
         from ...domain.errors import RunNotFound
 
         raise RunNotFound(f"Run {run_id} not found")
-    summaries = run_service.compute_summaries(run.id)
+    summaries = run_service.get_node_summary(run.id)
     return RunResponse(
         id=run.id,
         workflow_id=run.workflow_id,

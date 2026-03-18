@@ -5,10 +5,12 @@ import logging
 import time
 from typing import Any, Dict
 
+from runsight_core.observer import CompositeObserver, LoggingObserver
 from runsight_core.yaml.parser import parse_workflow_yaml
 
 from ...core.encryption import decrypt
 from ...domain.entities.run import RunStatus
+from ..observers.execution_observer import ExecutionObserver
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +18,11 @@ logger = logging.getLogger(__name__)
 class ExecutionService:
     """Wires POST /runs to workflow.run() with background execution."""
 
-    def __init__(self, run_repo, workflow_repo, provider_repo):
+    def __init__(self, run_repo, workflow_repo, provider_repo, engine=None):
         self.run_repo = run_repo
         self.workflow_repo = workflow_repo
         self.provider_repo = provider_repo
+        self.engine = engine
         self._running_tasks: Dict[str, asyncio.Task] = {}
 
     async def launch_execution(
@@ -67,37 +70,27 @@ class ExecutionService:
         await asyncio.sleep(0)
 
     async def _run_workflow(self, run_id: str, wf: Any, task_data: Dict[str, Any]) -> None:
-        """Execute the workflow. Updates Run status throughout."""
+        """Execute the workflow with CompositeObserver for status management."""
+        from runsight_core.state import WorkflowState
+
+        # Build observer chain: LoggingObserver + ExecutionObserver (DB persistence)
+        observers = [LoggingObserver()]
+        if self.engine:
+            observers.append(ExecutionObserver(engine=self.engine, run_id=run_id))
+        observer = CompositeObserver(*observers)
+
+        start_time = time.time()
+        state = WorkflowState()
+        observer.on_workflow_start("workflow", state)
+
         try:
-            # Transition to running
-            run = self.run_repo.get_run(run_id)
-            if run:
-                run.status = RunStatus.running
-                run.started_at = time.time()
-                self.run_repo.update_run(run)
-
-            # Execute
-            await wf.run(task_data["instruction"])
-
-            # Transition to completed
-            run = self.run_repo.get_run(run_id)
-            if run:
-                run.status = RunStatus.completed
-                run.completed_at = time.time()
-                if run.started_at:
-                    run.duration_s = run.completed_at - run.started_at
-                self.run_repo.update_run(run)
-
+            state = await wf.run(task_data["instruction"], observer=observer)
+            duration = time.time() - start_time
+            observer.on_workflow_complete("workflow", state, duration)
         except Exception as e:
+            duration = time.time() - start_time
+            observer.on_workflow_error("workflow", e, duration)
             logger.exception("Workflow execution failed for run %s", run_id)
-            run = self.run_repo.get_run(run_id)
-            if run:
-                run.status = RunStatus.failed
-                run.error = str(e)
-                run.completed_at = time.time()
-                if run.started_at:
-                    run.duration_s = run.completed_at - run.started_at
-                self.run_repo.update_run(run)
 
     def _resolve_api_key(self) -> str | None:
         """Resolve API key from provider DB or environment."""
