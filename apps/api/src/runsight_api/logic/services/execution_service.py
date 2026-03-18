@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from typing import Any, Dict
+from typing import Any, AsyncGenerator, Dict, Optional
 
 from runsight_core.observer import CompositeObserver, LoggingObserver
 from runsight_core.yaml.parser import parse_workflow_yaml
@@ -11,6 +11,7 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 from ...core.encryption import decrypt
 from ...domain.entities.run import RunStatus
 from ..observers.execution_observer import ExecutionObserver
+from ..observers.streaming_observer import StreamingObserver
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,42 @@ class ExecutionService:
         self.engine = engine
         self._running_tasks: Dict[str, asyncio.Task] = {}
         self._semaphore = asyncio.Semaphore(max_concurrent_runs)
+        self._observers: Dict[str, StreamingObserver] = {}
+
+    # ------------------------------------------------------------------
+    # Observer registry
+    # ------------------------------------------------------------------
+
+    def register_observer(self, run_id: str, observer: StreamingObserver) -> None:
+        """Register a StreamingObserver for a given run_id."""
+        self._observers[run_id] = observer
+
+    def get_observer(self, run_id: str) -> Optional[StreamingObserver]:
+        """Return the observer for run_id, or None."""
+        return self._observers.get(run_id)
+
+    def unregister_observer(self, run_id: str) -> None:
+        """Remove the observer for run_id."""
+        self._observers.pop(run_id, None)
+
+    async def subscribe_stream(self, run_id: str) -> AsyncGenerator[Dict[str, Any], None]:
+        """Async generator that yields events from the observer's queue until done."""
+        observer = self._observers.get(run_id)
+        if observer is None:
+            return
+
+        while True:
+            try:
+                event = await asyncio.wait_for(observer.queue.get(), timeout=30.0)
+            except asyncio.TimeoutError:
+                # Send keepalive or just continue
+                continue
+
+            yield event
+
+            # Terminal events end the stream
+            if event["event"] in ("run_completed", "run_failed"):
+                break
 
     async def launch_execution(
         self, run_id: str, workflow_id: str, task_data: Dict[str, Any]

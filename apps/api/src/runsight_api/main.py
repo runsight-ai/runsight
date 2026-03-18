@@ -14,7 +14,17 @@ from .data.filesystem.workflow_repo import WorkflowRepository
 from .logic.services.execution_service import ExecutionService
 from .domain.errors import RunsightError
 from .transport.middleware.error_handler import global_exception_handler
-from .transport.routers import runs, workflows, souls, steps, tasks, settings, dashboard, git
+from .transport.routers import (
+    runs,
+    workflows,
+    souls,
+    steps,
+    tasks,
+    settings,
+    dashboard,
+    git,
+    sse_stream,
+)
 
 
 def _recover_stale_runs(engine):
@@ -87,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(settings.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(git.router, prefix="/api")
+    app.include_router(sse_stream.router, prefix="/api")
 
     @app.get("/health")
     def health_check():
