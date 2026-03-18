@@ -59,7 +59,10 @@ def get_run_service(
 def get_execution_service(
     request: Request,
 ) -> ExecutionService:
-    return request.app.state.execution_service
+    try:
+        return request.app.state.execution_service
+    except AttributeError:
+        return None
 
 
 def get_soul_service(soul_repo: SoulRepository = Depends(get_soul_repo)) -> SoulService:
