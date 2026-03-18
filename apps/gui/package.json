@@ -11,7 +11,9 @@
     "lint": "pnpm run lint:colors && eslint .",
     "lint:colors": "rg -n \"#[0-9A-Fa-f]{3,8}\\b|rgba?\\(\" src --glob '!src/styles/globals.css' && (echo 'Hardcoded colors found outside src/styles/globals.css'; exit 1) || exit 0",
     "test:unit": "vitest run --config vitest.unit.config.ts",
-    "test": "playwright test"
+    "test": "playwright test",
+    "generate:types": "bash ../../scripts/generate-types.sh",
+    "check:types-fresh": "bash ../../scripts/check-types-fresh.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
@@ -36,7 +38,6 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
-    "shadcn": "^4.0.2",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/vite": "^4",
@@ -48,6 +49,8 @@
     "@vitejs/plugin-react": "^4.3.0",
     "eslint": "^9",
     "eslint-plugin-react-hooks": "^7.0.1",
+    "openapi-typescript": "^7.13.0",
+    "shadcn": "^4.0.2",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite": "^6.0.0",
