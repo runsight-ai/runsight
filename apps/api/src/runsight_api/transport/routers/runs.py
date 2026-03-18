@@ -64,7 +64,11 @@ async def list_runs(
                 total_tokens=summaries["total_tokens"],
                 created_at=run.created_at,
                 node_summary=NodeSummary(
-                    total=summaries["nodes_count"], completed=0, running=0, pending=0, failed=0
+                    total=summaries["total"],
+                    completed=summaries["completed"],
+                    running=summaries["running"],
+                    pending=summaries["pending"],
+                    failed=summaries["failed"],
                 ),
             )
         )
@@ -92,7 +96,11 @@ async def get_run(run_id: str, run_service: RunService = Depends(get_run_service
         total_tokens=summaries["total_tokens"],
         created_at=run.created_at,
         node_summary=NodeSummary(
-            total=summaries["nodes_count"], completed=0, running=0, pending=0, failed=0
+            total=summaries["total"],
+            completed=summaries["completed"],
+            running=summaries["running"],
+            pending=summaries["pending"],
+            failed=summaries["failed"],
         ),
     )
 
