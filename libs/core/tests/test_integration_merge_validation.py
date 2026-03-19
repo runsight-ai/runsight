@@ -19,7 +19,6 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.implementations import (
     TeamLeadBlock,
     EngineeringManagerBlock,
-    RetryBlock,
 )
 from runsight_core.runner import ExecutionResult
 
@@ -404,33 +403,6 @@ async def test_workflow_orchestrates_team_lead_and_engineering_manager(mock_runn
     # Both blocks should have executed
     assert "tl1" in final_state.results
     assert "em1" in final_state.results
-
-
-@pytest.mark.asyncio
-async def test_retry_block_with_team_lead_block_captures_errors(mock_runner, test_souls):
-    """Test RetryBlock captures errors for TeamLeadBlock analysis."""
-    flaky_block = ErrorProducingBlock("flaky", "Initial failure")
-    retry_block = RetryBlock("retry1", flaky_block, max_retries=0, provide_error_context=True)
-
-    mock_runner.execute_task.return_value = ExecutionResult(
-        task_id="t1", soul_id="tl_soul", output="Recommendation: Retry with backoff"
-    )
-
-    # Verify TeamLeadBlock can be instantiated with the required parameters
-    TeamLeadBlock(
-        block_id="tl1",
-        failure_context_keys=["retry1_retry_errors"],
-        team_lead_soul=test_souls["team_lead"],
-        runner=mock_runner,
-    )
-
-    state = WorkflowState(current_task=Task(id="task1", instruction="test"))
-
-    # RetryBlock should capture the error in shared_memory
-    try:
-        await retry_block.execute(state)
-    except RuntimeError:
-        pass  # Expected - exhausted retries
 
 
 @pytest.mark.asyncio

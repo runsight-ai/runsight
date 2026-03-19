@@ -361,158 +361,94 @@ class DebateBlock(BaseBlock):
         )
 
 
-class RetryBlock(BaseBlock):
+class LoopBlock(BaseBlock):
     """
-    Wrap any BaseBlock with retry logic on exceptions.
+    Execute inner blocks sequentially for multiple rounds via flat-ref resolution.
 
-    Typical Use: Wrap flaky API blocks or unreliable operations.
-    Example: RetryBlock wraps APICallBlock, retries on ConnectionError.
+    Typical Use: Writer + critic pattern where multiple blocks iterate in a loop.
+    Example: LoopBlock runs [writer, critic] for 3 rounds.
     """
 
     def __init__(
         self,
         block_id: str,
-        inner_block: BaseBlock,
-        max_retries: int = 3,
-        provide_error_context: bool = False,
+        inner_block_refs: List[str],
+        max_rounds: int = 5,
     ) -> None:
         """
         Args:
             block_id: Unique identifier for this block instance.
-            inner_block: The block to wrap with retry logic.
-            max_retries: Maximum number of retries after initial attempt (default: 3).
-                        Total attempts = 1 initial + max_retries.
-            provide_error_context: If True, store error messages in shared_memory.
+            inner_block_refs: List of block IDs to execute sequentially each round.
+            max_rounds: Number of rounds to execute (default: 5).
 
         Raises:
             ValueError: If block_id is empty (from BaseBlock).
-            ValueError: If max_retries < 0.
+            ValueError: If inner_block_refs is empty.
+            ValueError: If block_id is in inner_block_refs (self-reference).
         """
         super().__init__(block_id)
-        if max_retries < 0:
-            raise ValueError(f"RetryBlock {block_id}: max_retries must be >= 0, got {max_retries}")
-        self.inner_block = inner_block
-        self.max_retries = max_retries
-        self.provide_error_context = provide_error_context
+        if not inner_block_refs:
+            raise ValueError(f"LoopBlock '{block_id}': inner_block_refs must not be empty")
+        if block_id in inner_block_refs:
+            raise ValueError(f"LoopBlock '{block_id}': self-reference detected in inner_block_refs")
+        self.inner_block_refs = inner_block_refs
+        self.max_rounds = max_rounds
 
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
         """
-        Execute inner block with retry logic on exceptions.
+        Execute inner blocks sequentially for max_rounds rounds.
 
         Args:
-            state: Passed to inner_block.execute().
-            **kwargs: Forwarded to inner_block.execute() (e.g. call_stack, workflow_registry).
+            state: Current workflow state.
+            **kwargs: Must include blocks=Dict[str, BaseBlock] for flat-ref resolution.
 
         Returns:
-            New state with:
-            - results[block_id] = results[inner_block.block_id] (if success)
-            - shared_memory[f"{block_id}_retry_errors"] = List[str] (if provide_error_context=True)
-            - messages appended with retry summary
+            Updated state with round counter and inner block results.
 
         Raises:
-            Exception: If all retries exhausted, raises the last exception from inner_block.
+            ValueError: If a referenced block ID is not found in the blocks dict.
         """
-        errors: List[str] = []
-        attempts = 0  # Starts at 0, will increment to 1, 2, 3, ...
-        last_exception: Optional[Exception] = None
+        blocks: Dict[str, BaseBlock] = kwargs.get("blocks", {})
 
-        # Total attempts = 1 initial + max_retries retries
-        for attempt_num in range(self.max_retries + 1):
-            attempts += 1  # attempts now = 1, 2, 3, ... up to max_retries+1
-
-            try:
-                # Attempt execution
-                result_state = await self.inner_block.execute(state, **kwargs)
-
-                # Success! Store inner block's result under THIS block's ID
-                final_state = result_state.model_copy(
-                    update={
-                        "results": {
-                            **result_state.results,
-                            self.block_id: result_state.results.get(self.inner_block.block_id, ""),
-                        },
-                        "messages": result_state.messages
-                        + [
-                            {
-                                "role": "system",
-                                "content": f"[Block {self.block_id}] RetryBlock succeeded after {attempts} attempt(s)",
-                            }
-                        ],
-                    }
-                )
-
-                # Optionally store error context even on success (shows what was overcome)
-                if self.provide_error_context and errors:
-                    final_state = final_state.model_copy(
-                        update={
-                            "shared_memory": {
-                                **final_state.shared_memory,
-                                f"{self.block_id}_retry_errors": errors,
-                            }
-                        }
-                    )
-
-                return final_state
-
-            except Exception as e:
-                last_exception = e
-                error_msg = (
-                    f"Attempt {attempts}/{self.max_retries + 1}: {type(e).__name__}: {str(e)}"
-                )
-                errors.append(error_msg)
-
-                # Inject error feedback into state for next retry attempt
-                if self.provide_error_context:
-                    feedback = "\n".join(errors)
-                    updates: Dict[str, Any] = {
-                        "shared_memory": {
-                            **state.shared_memory,
-                            f"{self.block_id}_retry_errors": errors.copy(),
-                        },
-                    }
-                    if state.current_task is not None:
-                        existing_ctx = state.current_task.context or ""
-                        updates["current_task"] = state.current_task.model_copy(
-                            update={
-                                "context": (
-                                    f"{existing_ctx}\n\n"
-                                    f"--- RETRY FEEDBACK (attempt {attempts}) ---\n"
-                                    f"{feedback}\n"
-                                    f"Address these issues."
-                                )
-                            }
-                        )
-                    state = state.model_copy(update=updates)
-
-                # If this was the last attempt, don't continue loop
-                if attempt_num == self.max_retries:
-                    break
-                # Otherwise, continue to next retry
-
-        # All retries exhausted - store error context and re-raise
-        if self.provide_error_context:
+        for round_num in range(1, self.max_rounds + 1):
+            # Set round counter in shared_memory before executing inner blocks
             state = state.model_copy(
                 update={
                     "shared_memory": {
                         **state.shared_memory,
-                        f"{self.block_id}_retry_errors": errors,
-                    }
+                        f"{self.block_id}_round": round_num,
+                    },
                 }
             )
 
-        # Re-raise last exception
-        if last_exception is not None:
-            raise last_exception
-        else:
-            # This should never happen, but satisfy type checker
-            raise RuntimeError(f"RetryBlock {self.block_id}: unexpected error state")
+            for ref in self.inner_block_refs:
+                inner_block = blocks.get(ref)
+                if inner_block is None:
+                    raise ValueError(
+                        f"LoopBlock '{self.block_id}': inner block ref '{ref}' "
+                        f"not found in blocks dict. "
+                        f"Available blocks: {sorted(blocks.keys())}"
+                    )
+                state = await inner_block.execute(state)
+
+        # Store loop result under this block's ID
+        state = state.model_copy(
+            update={
+                "results": {
+                    **state.results,
+                    self.block_id: f"completed_{self.max_rounds}_rounds",
+                },
+            }
+        )
+
+        return state
 
 
 class TeamLeadBlock(BaseBlock):
     """
     Analyze failure context from shared_memory and produce recommendations.
 
-    Typical Use: After RetryBlock exhausts retries, analyze errors and recommend fixes.
+    Typical Use: After LoopBlock exhausts retries, analyze errors and recommend fixes.
     Example: TeamLeadBlock reads retry_errors and produces actionable recommendation.
     """
 
@@ -1355,7 +1291,7 @@ class GateBlock(BaseBlock):
     Quality gate that evaluates content and either passes or fails the workflow.
 
     On PASS: stores result (or extracted content) and continues execution.
-    On FAIL: raises ValueError with feedback, enabling RetryBlock to catch and retry.
+    On FAIL: raises ValueError with feedback, enabling LoopBlock to catch and retry.
 
     Supports optional content extraction from JSON data (e.g., debate transcripts)
     via the extract_field parameter — extracts the named field from the last entry

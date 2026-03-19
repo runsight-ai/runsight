@@ -19,8 +19,8 @@ from runsight_core.yaml.schema import (
     CodeBlockDef,
     FanOutBlockDef,
     GateBlockDef,
+    LoopBlockDef,
     PlaceholderBlockDef,
-    RetryBlockDef,
     RetryConfig,
     RunsightWorkflowFile,
 )
@@ -312,16 +312,16 @@ class TestRetryConfigOnAllBlockTypes:
         assert isinstance(block, PlaceholderBlockDef)
         assert block.retry_config.max_attempts == 1
 
-    def test_retry_block_with_retry_config(self):
-        """RetryBlockDef (wrapping another block) can ALSO have retry_config — they coexist."""
+    def test_loop_block_with_retry_config(self):
+        """LoopBlockDef can have retry_config — they coexist."""
         block = _validate_block(
             {
-                "type": "retry",
-                "inner_block_ref": "b1",
+                "type": "loop",
+                "inner_block_refs": ["b1"],
                 "retry_config": {"max_attempts": 2},
             }
         )
-        assert isinstance(block, RetryBlockDef)
+        assert isinstance(block, LoopBlockDef)
         assert block.retry_config is not None
         assert block.retry_config.max_attempts == 2
 
@@ -496,7 +496,7 @@ class TestBackwardCompatibility:
             {"type": "placeholder"},
             {"type": "file_writer", "output_path": "/tmp/f", "content_key": "k"},
             {"type": "code", "code": "pass"},
-            {"type": "retry", "inner_block_ref": "b1"},
+            {"type": "loop", "inner_block_refs": ["b1"]},
             {"type": "workflow", "workflow_ref": "wf"},
         ],
         ids=[
@@ -512,7 +512,7 @@ class TestBackwardCompatibility:
             "placeholder",
             "file_writer",
             "code",
-            "retry",
+            "loop",
             "workflow",
         ],
     )

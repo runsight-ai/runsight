@@ -506,8 +506,8 @@ class Workflow:
 
                 block_start_time = time.time()
 
-                # Step 3: Execute block with context propagation for WorkflowBlock and RetryBlock
-                from runsight_core.blocks.implementations import RetryBlock, WorkflowBlock
+                # Step 3: Execute block with context propagation for WorkflowBlock and LoopBlock
+                from runsight_core.blocks.implementations import LoopBlock, WorkflowBlock
 
                 try:
                     kwargs_for_context = {
@@ -519,8 +519,8 @@ class Workflow:
                     async def _execute_block(blk: BaseBlock, st: WorkflowState) -> WorkflowState:
                         if isinstance(blk, WorkflowBlock):
                             return await blk.execute(st, **kwargs_for_context)
-                        elif isinstance(blk, RetryBlock):
-                            return await blk.execute(st, **kwargs_for_context)
+                        elif isinstance(blk, LoopBlock):
+                            return await blk.execute(st, blocks=self._blocks, **kwargs_for_context)
                         else:
                             return await blk.execute(st)
 

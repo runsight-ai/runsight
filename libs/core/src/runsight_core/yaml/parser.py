@@ -17,7 +17,7 @@ from runsight_core.blocks.implementations import (
     FanOutBlock,
     SynthesizeBlock,
     DebateBlock,
-    RetryBlock,
+    LoopBlock,
     TeamLeadBlock,
     EngineeringManagerBlock,
     MessageBusBlock,
@@ -210,26 +210,18 @@ def _build_router(
     return RouterBlock(block_id, soul, runner)
 
 
-def _build_retry(
+def _build_loop(
     block_id: str,
     block_def: BlockDef,
     souls_map: Dict[str, Soul],
     runner: RunsightTeamRunner,
     all_blocks: Dict[str, BaseBlock],
-) -> RetryBlock:
-    if block_def.inner_block_ref is None:
-        raise ValueError(f"RetryBlock '{block_id}': inner_block_ref is required")
-    inner = all_blocks.get(block_def.inner_block_ref)
-    if inner is None:
-        raise ValueError(
-            f"RetryBlock '{block_id}': inner_block_ref '{block_def.inner_block_ref}' not found. "
-            f"Available blocks from pass 1: {sorted(all_blocks.keys())}"
-        )
-    max_retries = block_def.max_retries if block_def.max_retries is not None else 3
-    provide_error_context = (
-        block_def.provide_error_context if block_def.provide_error_context is not None else False
+) -> LoopBlock:
+    return LoopBlock(
+        block_id=block_id,
+        inner_block_refs=list(block_def.inner_block_refs),
+        max_rounds=block_def.max_rounds,
     )
-    return RetryBlock(block_id, inner, max_retries, provide_error_context=provide_error_context)
 
 
 def _build_team_lead(
@@ -328,7 +320,7 @@ BLOCK_TYPE_REGISTRY: Dict[str, BlockBuilder] = {
     "debate": _build_debate,
     "message_bus": _build_message_bus,
     "router": _build_router,
-    "retry": _build_retry,  # pass 2 only
+    "loop": _build_loop,
     "team_lead": _build_team_lead,
     "engineering_manager": _build_engineering_manager,
     "placeholder": _build_placeholder,
@@ -397,12 +389,9 @@ def parse_workflow_yaml(
     model_name = str(file_def.config.get("model_name", "gpt-4o"))
     runner = RunsightTeamRunner(model_name=model_name, api_key=api_key, api_keys=api_keys)
 
-    # Step 5: Pass 1 — build all non-retry blocks
+    # Step 5: Build all blocks (single pass)
     built_blocks: Dict[str, BaseBlock] = {}
     for block_id, block_def in file_def.blocks.items():
-        if block_def.type == "retry":
-            continue  # handled in pass 2
-
         # Special case: WorkflowBlock (type: workflow)
         # Handle before BLOCK_TYPE_REGISTRY lookup to avoid "unknown type" error
         if block_def.type == "workflow":
@@ -457,12 +446,6 @@ def parse_workflow_yaml(
                 f"Available types: {sorted(BLOCK_TYPE_REGISTRY.keys())}"
             )
         built_blocks[block_id] = builder(block_id, block_def, souls_map, runner, built_blocks)
-
-    # Step 6: Pass 2 — build retry blocks (inner_block_ref now resolvable from pass 1)
-    for block_id, block_def in file_def.blocks.items():
-        if block_def.type != "retry":
-            continue
-        built_blocks[block_id] = _build_retry(block_id, block_def, souls_map, runner, built_blocks)
 
     # Step 6.3: Bridge retry_config from schema to runtime blocks
     for block_id, block_def in file_def.blocks.items():

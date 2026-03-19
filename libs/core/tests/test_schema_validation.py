@@ -28,8 +28,8 @@ from runsight_core.yaml.schema import (
     FanOutBlockDef,
     GateBlockDef,
     LinearBlockDef,
+    LoopBlockDef,
     PlaceholderBlockDef,
-    RetryBlockDef,
     RouterBlockDef,
     RunsightWorkflowFile,
     SynthesizeBlockDef,
@@ -113,9 +113,9 @@ class TestTypeDiscrimination:
         block = _validate_block({"type": "gate", "soul_ref": "s1", "eval_key": "response.ok"})
         assert isinstance(block, GateBlockDef)
 
-    def test_retry_valid(self):
-        block = _validate_block({"type": "retry", "inner_block_ref": "b1"})
-        assert isinstance(block, RetryBlockDef)
+    def test_loop_valid(self):
+        block = _validate_block({"type": "loop", "inner_block_refs": ["b1"]})
+        assert isinstance(block, LoopBlockDef)
 
     def test_workflow_block_valid(self):
         block = _validate_block({"type": "workflow", "workflow_ref": "sub_wf"})
@@ -347,7 +347,7 @@ class TestExtraForbid:
             {"type": "placeholder"},
             {"type": "file_writer", "output_path": "/tmp/f", "content_key": "k"},
             {"type": "code", "code": "pass"},
-            {"type": "retry", "inner_block_ref": "b1"},
+            {"type": "loop", "inner_block_refs": ["b1"]},
             {"type": "workflow", "workflow_ref": "wf"},
         ],
         ids=[
@@ -363,7 +363,7 @@ class TestExtraForbid:
             "placeholder",
             "file_writer",
             "code",
-            "retry",
+            "loop",
             "workflow",
         ],
     )
