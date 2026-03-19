@@ -138,6 +138,7 @@ class TestBaseBlockRetryConfigAttribute:
 class TestRetryUpToMaxAttempts:
     """Blocks with retry_config retry on exception up to max_attempts."""
 
+    @pytest.mark.asyncio
     async def test_retries_up_to_max_attempts_then_raises(self):
         """Block that always fails should be retried max_attempts times, then raise."""
         block = AlwaysFailingBlock("fail_block")
@@ -152,6 +153,7 @@ class TestRetryUpToMaxAttempts:
         # Must have been called exactly 3 times (initial + 2 retries)
         assert block.call_count == 3
 
+    @pytest.mark.asyncio
     async def test_retries_exactly_max_attempts_times(self):
         """Block should be called exactly max_attempts times before giving up."""
         block = FailNTimesThenSucceed("b1", fail_count=100)  # will never succeed
@@ -174,6 +176,7 @@ class TestRetryUpToMaxAttempts:
 class TestRetrySucceedsAfterFailure:
     """Block that fails once then succeeds should complete successfully."""
 
+    @pytest.mark.asyncio
     async def test_succeeds_on_second_attempt(self):
         """Block fails once, then succeeds — workflow completes normally."""
         block = FailNTimesThenSucceed("b1", fail_count=1)
@@ -187,6 +190,7 @@ class TestRetrySucceedsAfterFailure:
         assert "b1" in state.results
         assert "ok on attempt 2" in state.results["b1"]
 
+    @pytest.mark.asyncio
     async def test_succeeds_on_third_attempt(self):
         """Block fails twice, then succeeds — workflow completes normally."""
         block = FailNTimesThenSucceed("b1", fail_count=2)
@@ -209,6 +213,7 @@ class TestRetrySucceedsAfterFailure:
 class TestNonRetryableErrors:
     """non_retryable_errors list controls which exceptions bypass retry."""
 
+    @pytest.mark.asyncio
     async def test_non_retryable_error_not_retried(self):
         """ValueError in non_retryable_errors list — should NOT be retried, re-raise immediately."""
         block = AlwaysFailingBlock("b1", error_cls=ValueError, message="bad value")
@@ -230,6 +235,7 @@ class TestNonRetryableErrors:
         # Block called exactly once (no retry for non-retryable errors)
         assert block.call_count == 1
 
+    @pytest.mark.asyncio
     async def test_retryable_error_is_retried_when_non_retryable_list_exists(self):
         """RuntimeError not in non_retryable_errors — SHOULD be retried."""
         block = FailNTimesThenSucceed("b1", fail_count=1, error_cls=RuntimeError)
@@ -247,6 +253,7 @@ class TestNonRetryableErrors:
 
         assert "b1" in state.results
 
+    @pytest.mark.asyncio
     async def test_non_retryable_error_raises_on_first_attempt(self):
         """A non-retryable error should cause immediate failure — only 1 attempt."""
         block = FailNTimesThenSucceed("b1", fail_count=5, error_cls=ValueError)
@@ -275,6 +282,7 @@ class TestNonRetryableErrors:
 class TestFixedBackoff:
     """Fixed backoff: constant wait between retries."""
 
+    @pytest.mark.asyncio
     async def test_fixed_backoff_waits_constant_duration(self):
         """Fixed backoff should sleep for backoff_base_seconds between each retry."""
         block = AlwaysFailingBlock("b1")
@@ -295,6 +303,7 @@ class TestFixedBackoff:
         for call in mock_sleep.call_args_list:
             assert call.args[0] == pytest.approx(2.0)
 
+    @pytest.mark.asyncio
     async def test_fixed_backoff_no_sleep_on_success(self):
         """If block succeeds on first attempt, no sleep should occur."""
         block = SucceedingBlock("b1")
@@ -320,6 +329,7 @@ class TestFixedBackoff:
 class TestExponentialBackoff:
     """Exponential backoff: base * 2^attempt."""
 
+    @pytest.mark.asyncio
     async def test_exponential_backoff_durations(self):
         """Exponential backoff: sleep durations should be base * 2^0, base * 2^1, base * 2^2, ..."""
         block = AlwaysFailingBlock("b1")
@@ -342,6 +352,7 @@ class TestExponentialBackoff:
         actual_durations = [call.args[0] for call in mock_sleep.call_args_list]
         assert actual_durations == pytest.approx(expected_durations)
 
+    @pytest.mark.asyncio
     async def test_exponential_backoff_with_custom_base(self):
         """Exponential backoff with base=0.5: 0.5, 1.0, 2.0."""
         block = AlwaysFailingBlock("b1")
@@ -370,6 +381,7 @@ class TestExponentialBackoff:
 class TestRetryMetadataInSharedMemory:
     """Retry metadata must be stored in shared_memory under __retry__{block_id}."""
 
+    @pytest.mark.asyncio
     async def test_retry_metadata_written_on_exhausted_failure(self):
         """After exhausting retries, block should have been called max_attempts times.
 
@@ -388,6 +400,7 @@ class TestRetryMetadataInSharedMemory:
         # Block must have been called exactly max_attempts times
         assert block.call_count == 3
 
+    @pytest.mark.asyncio
     async def test_retry_metadata_after_successful_retry(self):
         """Block fails once then succeeds — shared_memory should contain retry metadata."""
         block = FailNTimesThenSucceed("b1", fail_count=1)
@@ -407,6 +420,7 @@ class TestRetryMetadataInSharedMemory:
         assert meta["last_error_type"] == "RuntimeError"
         assert meta["total_retries"] == 1
 
+    @pytest.mark.asyncio
     async def test_retry_metadata_format(self):
         """Retry metadata should contain all required fields with correct types."""
         block = FailNTimesThenSucceed("my_block", fail_count=2)
@@ -433,6 +447,7 @@ class TestRetryMetadataInSharedMemory:
         assert meta["max_attempts"] == 5
         assert meta["total_retries"] == 2  # attempts - 1
 
+    @pytest.mark.asyncio
     async def test_no_retry_metadata_when_no_retry_needed(self):
         """Block succeeds on first attempt — no retry metadata in shared_memory."""
         block = SucceedingBlock("b1")
@@ -455,6 +470,7 @@ class TestRetryMetadataInSharedMemory:
 class TestNoRetryConfig:
     """Blocks without retry_config should execute exactly once with no retry overhead."""
 
+    @pytest.mark.asyncio
     async def test_block_without_retry_config_runs_once(self):
         """A block without retry_config that succeeds runs exactly once."""
         block = CountingBlock("b1")
@@ -465,6 +481,7 @@ class TestNoRetryConfig:
 
         assert block.call_count == 1
 
+    @pytest.mark.asyncio
     async def test_block_without_retry_config_error_propagates_immediately(self):
         """A block without retry_config that fails raises immediately — no retry."""
         block = AlwaysFailingBlock("b1")
@@ -475,6 +492,7 @@ class TestNoRetryConfig:
         with pytest.raises(RuntimeError, match="boom"):
             await wf.run(WorkflowState())
 
+    @pytest.mark.asyncio
     async def test_no_sleep_called_for_block_without_retry_config(self):
         """No asyncio.sleep should be called for blocks without retry_config."""
         block = AlwaysFailingBlock("b1")
@@ -497,6 +515,7 @@ class TestNoRetryConfig:
 class TestNeverRetrySystemExceptions:
     """KeyboardInterrupt and SystemExit must never be retried, always re-raised."""
 
+    @pytest.mark.asyncio
     async def test_keyboard_interrupt_not_retried(self):
         """KeyboardInterrupt should be re-raised immediately, never retried."""
         block = AlwaysFailingBlock("b1", error_cls=KeyboardInterrupt, message="ctrl-c")
@@ -510,6 +529,7 @@ class TestNeverRetrySystemExceptions:
 
         mock_sleep.assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_system_exit_not_retried(self):
         """SystemExit should be re-raised immediately, never retried."""
         block = AlwaysFailingBlock("b1", error_cls=SystemExit, message="exit")
@@ -532,6 +552,7 @@ class TestNeverRetrySystemExceptions:
 class TestMaxAttemptsOne:
     """max_attempts=1 means run once — no retry on failure."""
 
+    @pytest.mark.asyncio
     async def test_max_attempts_one_failing_block(self):
         """max_attempts=1: block runs once, fails, raises original exception."""
         block = AlwaysFailingBlock("b1")
@@ -546,6 +567,7 @@ class TestMaxAttemptsOne:
         # No sleep — only 1 attempt, no retry
         mock_sleep.assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_max_attempts_one_succeeding_block(self):
         """max_attempts=1: block succeeds on first attempt — works fine."""
         block = SucceedingBlock("b1")
@@ -567,6 +589,7 @@ class TestMaxAttemptsOne:
 class TestIndependentRetryState:
     """Multiple blocks with retry configs maintain independent retry state."""
 
+    @pytest.mark.asyncio
     async def test_two_blocks_independent_retry_metadata(self):
         """Two blocks in sequence, each with retry_config — each gets its own metadata."""
         block_a = FailNTimesThenSucceed("block_a", fail_count=1)
@@ -612,6 +635,7 @@ class TestIndependentRetryState:
 class TestRetryTransparency:
     """Retry should be transparent — block doesn't know it's being retried."""
 
+    @pytest.mark.asyncio
     async def test_block_receives_same_state_on_each_retry(self):
         """Each retry attempt should receive the same input state (not a mutated one)."""
 
@@ -654,6 +678,7 @@ class TestRetryTransparency:
 class TestAsyncSleep:
     """Retry backoff must use asyncio.sleep for non-blocking behavior."""
 
+    @pytest.mark.asyncio
     async def test_uses_asyncio_sleep_not_time_sleep(self):
         """Verify that asyncio.sleep is used, not time.sleep."""
         block = AlwaysFailingBlock("b1")
