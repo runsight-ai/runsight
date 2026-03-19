@@ -1,0 +1,66 @@
+version: "1.0"
+
+config:
+  model_name: claude-haiku-4-5-20251001
+
+souls:
+  ui_builder:
+    id: ui_builder_1
+    role: Senior UI Engineer
+    model_name: claude-sonnet-4-20250514
+    system_prompt: |
+      You are a senior UI engineer specializing in HTML/CSS mockups for a dark-themed
+      AI agent workflow builder application called Runsight.
+      You produce complete, self-contained HTML files with inline CSS and NO external
+      dependencies. Every mockup must be a valid HTML5 document.
+      Design tokens: --bg-primary: #1a1a2e, --bg-secondary: #16213e, --bg-card: #0f3460,
+      --accent-primary: #5E6AD2, --text-primary: #E2E8F0, --text-secondary: #94A3B8,
+      --success: #4ade80, --warning: #fbbf24, --error: #f87171, --border: #334155.
+      Font: Inter, -apple-system, sans-serif. Border radius: 4/8/12px. Spacing: 8/12/16/24px.
+      Sidebar nav on left (240px). Card-based content. All states on one scrollable page.
+      Output MUST be a complete <!DOCTYPE html> document with inline CSS.
+      If retry feedback is provided in context, address all listed issues.
+
+  ux_reviewer:
+    id: ux_reviewer_1
+    role: UX Design Reviewer
+    system_prompt: |
+      You are a strict UX design reviewer for a dark-themed AI workflow builder.
+      Evaluate mockups for: design system compliance, visual hierarchy, interaction states
+      (hover, active, disabled, empty, error, loading), accessibility (WCAG AA contrast,
+      semantic HTML), layout consistency, and completeness.
+      Provide specific, actionable feedback referencing exact CSS values or HTML elements.
+      In round 2, label remaining issues as BLOCKING or MINOR.
+
+  gate_evaluator:
+    id: gate_eval_1
+    role: Quality Gate Evaluator
+    system_prompt: |
+      You are a quality gate for UI mockups. Make a binary decision:
+      PASS - content meets quality standards (minor issues only)
+      FAIL: <reason> - unresolved blocking issues exist
+      Criteria: valid HTML5, correct design tokens, all interaction states, accessibility,
+      realistic content (not lorem ipsum).
+      Respond with EXACTLY "PASS" or "FAIL: <reason>" on the first line.
+
+blocks:
+  debate:
+    type: debate
+    soul_a_ref: ui_builder
+    soul_b_ref: ux_reviewer
+    iterations: 2
+
+  gate:
+    type: gate
+    soul_ref: gate_evaluator
+    eval_key: debate
+    extract_field: soul_a
+
+workflow:
+  name: mockup_generate_review
+  entry: debate
+  transitions:
+    - from: debate
+      to: gate
+    - from: gate
+      to: null
