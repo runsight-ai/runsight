@@ -197,20 +197,47 @@ describe("Per-type field parsing", () => {
     expect(data.allowedImports).toEqual(["json", "math"]);
   });
 
-  it("retry: inner_block_ref + max_retries + provide_error_context -> innerBlockRef + maxRetries + provideErrorContext", () => {
+  it("loop: inner_block_refs + max_rounds + break_condition + carry_context -> innerBlockRefs + maxRounds + breakCondition + carryContext", () => {
     const yaml = makeYaml({
       step1: {
-        type: "retry",
-        inner_block_ref: "flaky_step",
-        max_retries: 3,
-        provide_error_context: true,
+        type: "loop",
+        inner_block_refs: ["step_a", "step_b"],
+        max_rounds: 5,
+        break_condition: "result.converged == true",
+        carry_context: {
+          enabled: true,
+          mode: "last",
+          source_blocks: ["step_b"],
+          inject_as: "previous_output",
+        },
       },
     });
     const data = parseFirst(yaml);
-    expect(data.stepType).toBe("retry");
-    expect(data.innerBlockRef).toBe("flaky_step");
-    expect(data.maxRetries).toBe(3);
-    expect(data.provideErrorContext).toBe(true);
+    expect(data.stepType).toBe("loop");
+    expect(data.innerBlockRefs).toEqual(["step_a", "step_b"]);
+    expect(data.maxRounds).toBe(5);
+    expect(data.breakCondition).toBe("result.converged == true");
+    expect(data.carryContext).toEqual({
+      enabled: true,
+      mode: "last",
+      sourceBlocks: ["step_b"],
+      injectAs: "previous_output",
+    });
+  });
+
+  it("loop: minimal with only inner_block_refs", () => {
+    const yaml = makeYaml({
+      step1: {
+        type: "loop",
+        inner_block_refs: ["single_step"],
+      },
+    });
+    const data = parseFirst(yaml);
+    expect(data.stepType).toBe("loop");
+    expect(data.innerBlockRefs).toEqual(["single_step"]);
+    expect(Object.keys(data)).not.toContain("maxRounds");
+    expect(Object.keys(data)).not.toContain("breakCondition");
+    expect(Object.keys(data)).not.toContain("carryContext");
   });
 
   it("workflow: workflow_ref + max_depth -> workflowRef + maxDepth", () => {
@@ -275,6 +302,68 @@ describe("Universal fields parsed", () => {
     const data = parseFirst(yaml);
     expect(data.outputs).toBeDefined();
     expect(data.outputs).toEqual({ summary: "string", detail: "string" });
+  });
+
+  it("retry_config -> retryConfig (on linear block)", () => {
+    const yaml = makeYaml({
+      step1: {
+        type: "linear",
+        soul_ref: "analyst",
+        retry_config: {
+          max_attempts: 3,
+          backoff: "exponential",
+          backoff_base_seconds: 2,
+          non_retryable_errors: ["AuthError"],
+        },
+      },
+    });
+    const data = parseFirst(yaml);
+    expect(data.retryConfig).toBeDefined();
+    expect(data.retryConfig).toEqual({
+      maxAttempts: 3,
+      backoff: "exponential",
+      backoffBaseSeconds: 2,
+      nonRetryableErrors: ["AuthError"],
+    });
+  });
+
+  it("retry_config -> retryConfig (on code block)", () => {
+    const yaml = makeYaml({
+      step1: {
+        type: "code",
+        code: "run()",
+        retry_config: {
+          max_attempts: 5,
+          backoff: "fixed",
+          backoff_base_seconds: 1,
+        },
+      },
+    });
+    const data = parseFirst(yaml);
+    expect(data.retryConfig).toBeDefined();
+    expect(data.retryConfig).toEqual({
+      maxAttempts: 5,
+      backoff: "fixed",
+      backoffBaseSeconds: 1,
+    });
+  });
+
+  it("retry_config -> retryConfig (on loop block)", () => {
+    const yaml = makeYaml({
+      step1: {
+        type: "loop",
+        inner_block_refs: ["step_a"],
+        retry_config: {
+          max_attempts: 2,
+          backoff: "fixed",
+          backoff_base_seconds: 10,
+        },
+      },
+    });
+    const data = parseFirst(yaml);
+    expect(data.stepType).toBe("loop");
+    expect(data.retryConfig).toBeDefined();
+    expect(data.retryConfig!.maxAttempts).toBe(2);
   });
 });
 
@@ -350,8 +439,10 @@ describe("Undefined fields not polluted", () => {
     expect(keys).not.toContain("iterations");
     expect(keys).not.toContain("workflowRef");
     expect(keys).not.toContain("evalKey");
-    expect(keys).not.toContain("innerBlockRef");
-    expect(keys).not.toContain("maxRetries");
+    expect(keys).not.toContain("innerBlockRefs");
+    expect(keys).not.toContain("maxRounds");
+    expect(keys).not.toContain("breakCondition");
+    expect(keys).not.toContain("carryContext");
     expect(keys).not.toContain("code");
     expect(keys).not.toContain("timeoutSeconds");
     expect(keys).not.toContain("allowedImports");
@@ -359,10 +450,10 @@ describe("Undefined fields not polluted", () => {
     expect(keys).not.toContain("contentKey");
     expect(keys).not.toContain("conditionRef");
     expect(keys).not.toContain("failureContextKeys");
-    expect(keys).not.toContain("provideErrorContext");
+    expect(keys).not.toContain("retryConfig");
   });
 
-  it("linear block does NOT have debate/retry/code fields", () => {
+  it("linear block does NOT have debate/loop/code fields", () => {
     const yaml = makeYaml({
       step1: { type: "linear", soul_ref: "analyst" },
     });
@@ -371,8 +462,10 @@ describe("Undefined fields not polluted", () => {
     expect(keys).not.toContain("soulARef");
     expect(keys).not.toContain("soulBRef");
     expect(keys).not.toContain("iterations");
-    expect(keys).not.toContain("innerBlockRef");
-    expect(keys).not.toContain("maxRetries");
+    expect(keys).not.toContain("innerBlockRefs");
+    expect(keys).not.toContain("maxRounds");
+    expect(keys).not.toContain("breakCondition");
+    expect(keys).not.toContain("carryContext");
     expect(keys).not.toContain("code");
     expect(keys).not.toContain("timeoutSeconds");
   });
@@ -563,5 +656,30 @@ describe("Existing behavior preserved", () => {
     expect(result.error).toBeDefined();
     expect(result.nodes).toHaveLength(0);
     expect(result.edges).toHaveLength(0);
+  });
+});
+
+// ===========================================================================
+// 9. Deprecated retry block type
+// ===========================================================================
+
+describe("Deprecated retry block type", () => {
+  it("type: retry YAML produces parse warning or error", () => {
+    const yaml = makeYaml({
+      step1: {
+        type: "retry",
+        inner_block_ref: "flaky_step",
+        max_retries: 3,
+        provide_error_context: true,
+      },
+    });
+    const result = parseWorkflowYamlToGraph(yaml);
+
+    // The parser should either produce an error/warning or
+    // NOT parse it as a valid "retry" stepType (since "retry" is removed from StepType)
+    const hasWarning = result.error !== undefined;
+    const parsedAsPlaceholder =
+      result.nodes.length > 0 && result.nodes[0].data.stepType !== "retry";
+    expect(hasWarning || parsedAsPlaceholder).toBe(true);
   });
 });
