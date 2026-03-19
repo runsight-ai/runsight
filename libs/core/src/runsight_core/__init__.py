@@ -25,6 +25,7 @@ from .blocks.implementations import (
 from .blocks.registry import BlockRegistry, BlockFactory
 from .workflow import Workflow
 from .yaml import parse_workflow_yaml
+from .yaml.schema import LoopBlockDef, RetryConfig, CarryContextConfig
 
 __all__ = [
     "Soul",
@@ -52,4 +53,7 @@ __all__ = [
     "BlockFactory",
     "Workflow",
     "parse_workflow_yaml",
+    "LoopBlockDef",
+    "RetryConfig",
+    "CarryContextConfig",
 ]
