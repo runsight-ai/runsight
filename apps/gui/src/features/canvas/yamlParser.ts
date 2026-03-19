@@ -25,9 +25,36 @@ const DEFAULT_STEP_TYPE: StepType = "placeholder";
 const DEFAULT_GRID_X = 280;
 const DEFAULT_GRID_Y = 160;
 
+const VALID_STEP_TYPES = new Set<string>([
+  "linear", "fanout", "debate", "message_bus", "router", "gate",
+  "synthesize", "workflow", "loop", "team_lead", "engineering_manager",
+  "placeholder", "file_writer", "code",
+]);
+
 function toStepType(value: unknown): StepType {
   if (typeof value !== "string") return DEFAULT_STEP_TYPE;
+  if (!VALID_STEP_TYPES.has(value)) return DEFAULT_STEP_TYPE;
   return value as StepType;
+}
+
+// ---------------------------------------------------------------------------
+// Recursive snake_case → camelCase key conversion for nested objects
+// ---------------------------------------------------------------------------
+
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+}
+
+function convertKeysToCamel(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(convertKeysToCamel);
+  if (value !== null && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      result[snakeToCamel(k)] = convertKeysToCamel(v);
+    }
+    return result;
+  }
+  return value;
 }
 
 /**
@@ -51,13 +78,15 @@ function buildNodeData(nodeId: string, block: BlockDef): StepNodeData {
   if (block.workflow_ref !== undefined) data.workflowRef = block.workflow_ref;
   if (block.eval_key !== undefined) data.evalKey = block.eval_key;
   if (block.extract_field !== undefined) data.extractField = block.extract_field;
-  if (block.inner_block_ref !== undefined) data.innerBlockRef = block.inner_block_ref;
-  if (block.max_retries !== undefined) data.maxRetries = block.max_retries;
+  if (block.inner_block_refs !== undefined) data.innerBlockRefs = block.inner_block_refs;
+  if (block.max_rounds !== undefined) data.maxRounds = block.max_rounds;
+  if (block.break_condition !== undefined) data.breakCondition = block.break_condition as StepNodeData["breakCondition"];
+  if (block.carry_context !== undefined) data.carryContext = convertKeysToCamel(block.carry_context) as Record<string, unknown>;
+  if (block.retry_config !== undefined) data.retryConfig = convertKeysToCamel(block.retry_config) as Record<string, unknown>;
   if (block.input_block_ids !== undefined) data.inputBlockIds = block.input_block_ids;
   if (block.output_path !== undefined) data.outputPath = block.output_path;
   if (block.content_key !== undefined) data.contentKey = block.content_key;
   if (block.failure_context_keys !== undefined) data.failureContextKeys = block.failure_context_keys;
-  if (block.provide_error_context !== undefined) data.provideErrorContext = block.provide_error_context;
   if (block.condition_ref !== undefined) data.conditionRef = block.condition_ref;
   if (block.code !== undefined) data.code = block.code;
   if (block.timeout_seconds !== undefined) data.timeoutSeconds = block.timeout_seconds;

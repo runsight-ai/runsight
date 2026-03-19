@@ -10,7 +10,7 @@ export type StepType =
   | "gate"
   | "synthesize"
   | "workflow"
-  | "retry"
+  | "loop"
   | "team_lead"
   | "engineering_manager"
   | "placeholder"
@@ -61,13 +61,15 @@ export interface StepNodeData extends Record<string, unknown> {
   workflowRef?: string;         // workflow (nested)
   evalKey?: string;             // gate
   extractField?: string;        // gate
-  innerBlockRef?: string;       // retry
-  maxRetries?: number;          // retry
+  innerBlockRefs?: string[];    // loop
+  maxRounds?: number;           // loop
+  breakCondition?: Record<string, unknown> | string;  // loop
+  carryContext?: Record<string, unknown>;   // loop
   inputBlockIds?: string[];     // synthesize
   outputPath?: string;         // file_writer
   contentKey?: string;          // file_writer
   failureContextKeys?: string[]; // team_lead
-  provideErrorContext?: boolean;  // retry
+  retryConfig?: Record<string, unknown>;  // universal
   conditionRef?: string;         // router
 
   // CodeBlock fields
@@ -143,9 +145,12 @@ export interface BlockDef {
   soul_a_ref?: string;
   soul_b_ref?: string;
   input_block_ids?: string[];
-  inner_block_ref?: string;
+  inner_block_refs?: string[];
   iterations?: number;
-  max_retries?: number;
+  max_rounds?: number;
+  break_condition?: Record<string, unknown> | string;
+  carry_context?: Record<string, unknown>;
+  retry_config?: Record<string, unknown>;
   workflow_ref?: string;
   inputs?: Record<string, InputRef> | Record<string, string>;  // InputRef for most blocks, string for WorkflowBlock
   outputs?: Record<string, string>;
@@ -154,7 +159,6 @@ export interface BlockDef {
   extract_field?: string;
   output_path?: string;
   content_key?: string;
-  provide_error_context?: boolean;
   condition_ref?: string;
   failure_context_keys?: string[];
   code?: string;

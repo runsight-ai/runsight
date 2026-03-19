@@ -44,7 +44,7 @@ const BLOCK_TYPE_FIELDS: Record<StepType, string[]> = {
   placeholder:         ["description"],
   file_writer:         ["output_path", "content_key"],
   code:                ["code", "timeout_seconds", "allowed_imports"],
-  retry:               ["inner_block_ref", "max_retries", "provide_error_context"],
+  loop:                ["inner_block_refs", "max_rounds", "break_condition", "carry_context"],
   workflow:            ["workflow_ref", "max_depth", "inputs", "outputs"],
 };
 
@@ -52,7 +52,7 @@ const BLOCK_TYPE_FIELDS: Record<StepType, string[]> = {
 // Universal fields — emitted on all types if present
 // ---------------------------------------------------------------------------
 
-const UNIVERSAL_FIELDS = ["output_conditions", "inputs", "outputs"];
+const UNIVERSAL_FIELDS = ["output_conditions", "inputs", "outputs", "retry_config"];
 
 // ---------------------------------------------------------------------------
 // camelCase ↔ snake_case mappings
@@ -64,15 +64,17 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   soulARef:           "soul_a_ref",
   soulBRef:           "soul_b_ref",
   inputBlockIds:      "input_block_ids",
-  innerBlockRef:      "inner_block_ref",
+  innerBlockRefs:     "inner_block_refs",
   iterations:         "iterations",
-  maxRetries:         "max_retries",
+  maxRounds:          "max_rounds",
+  breakCondition:     "break_condition",
+  carryContext:       "carry_context",
+  retryConfig:        "retry_config",
   workflowRef:        "workflow_ref",
   evalKey:            "eval_key",
   extractField:       "extract_field",
   outputPath:         "output_path",
   contentKey:         "content_key",
-  provideErrorContext: "provide_error_context",
   conditionRef:       "condition_ref",
   failureContextKeys: "failure_context_keys",
   code:               "code",
@@ -95,6 +97,29 @@ for (const [camel, snake] of Object.entries(CAMEL_TO_SNAKE)) {
     SNAKE_TO_CAMEL[snake] = camel;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Recursive camelCase → snake_case key conversion for nested objects
+// ---------------------------------------------------------------------------
+
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+}
+
+function convertKeysToSnake(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(convertKeysToSnake);
+  if (value !== null && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      result[camelToSnake(k)] = convertKeysToSnake(v);
+    }
+    return result;
+  }
+  return value;
+}
+
+// Fields whose values need recursive key conversion when compiling
+const NESTED_OBJECT_FIELDS = new Set(["carry_context", "retry_config", "break_condition"]);
 
 // ---------------------------------------------------------------------------
 // toCompiledBlock — full per-type field emission
@@ -128,7 +153,9 @@ function toCompiledBlock(node: Node<StepNodeData>): BlockDef {
     const value = data[camelField];
 
     if (value !== undefined && value !== null) {
-      result[snakeField] = value;
+      result[snakeField] = NESTED_OBJECT_FIELDS.has(snakeField) && typeof value === "object"
+        ? convertKeysToSnake(value)
+        : value;
     }
   }
 

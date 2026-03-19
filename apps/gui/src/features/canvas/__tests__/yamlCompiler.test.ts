@@ -203,18 +203,44 @@ describe("Per-type block field emission", () => {
     expect(block).toHaveProperty("allowed_imports", ["json", "math"]);
   });
 
-  it("retry: emits inner_block_ref, max_retries, provide_error_context", () => {
+  it("loop: emits inner_block_refs, max_rounds, break_condition, carry_context", () => {
     const { block } = compileOne(
-      mockNode("b1", "retry", {
-        innerBlockRef: "flaky_block",
-        maxRetries: 3,
-        provideErrorContext: true,
+      mockNode("b1", "loop", {
+        innerBlockRefs: ["step_a", "step_b"],
+        maxRounds: 5,
+        breakCondition: "result.converged == true",
+        carryContext: {
+          enabled: true,
+          mode: "last",
+          sourceBlocks: ["step_b"],
+          injectAs: "previous_output",
+        },
       }),
     );
-    expect(block.type).toBe("retry");
-    expect(block).toHaveProperty("inner_block_ref", "flaky_block");
-    expect(block).toHaveProperty("max_retries", 3);
-    expect(block).toHaveProperty("provide_error_context", true);
+    expect(block.type).toBe("loop");
+    expect(block).toHaveProperty("inner_block_refs", ["step_a", "step_b"]);
+    expect(block).toHaveProperty("max_rounds", 5);
+    expect(block).toHaveProperty("break_condition", "result.converged == true");
+    expect(block).toHaveProperty("carry_context");
+    expect((block as Record<string, unknown>).carry_context).toEqual({
+      enabled: true,
+      mode: "last",
+      source_blocks: ["step_b"],
+      inject_as: "previous_output",
+    });
+  });
+
+  it("loop: emits minimal loop with only inner_block_refs", () => {
+    const { block } = compileOne(
+      mockNode("b1", "loop", {
+        innerBlockRefs: ["single_block"],
+      }),
+    );
+    expect(block.type).toBe("loop");
+    expect(block).toHaveProperty("inner_block_refs", ["single_block"]);
+    expect(block).not.toHaveProperty("max_rounds");
+    expect(block).not.toHaveProperty("break_condition");
+    expect(block).not.toHaveProperty("carry_context");
   });
 
   it("workflow: emits workflow_ref and max_depth", () => {
@@ -266,17 +292,17 @@ describe("No cross-type field leakage", () => {
     expect(block).not.toHaveProperty("soul_ref");
   });
 
-  it("gate node does NOT emit iterations or inner_block_ref", () => {
+  it("gate node does NOT emit iterations or inner_block_refs", () => {
     const { block } = compileOne(
       mockNode("b1", "gate", {
         soulRef: "gate_soul",
         evalKey: "result.ok",
-        iterations: 3,       // belongs to debate/message_bus
-        innerBlockRef: "x",  // belongs to retry
+        iterations: 3,          // belongs to debate/message_bus
+        innerBlockRefs: ["x"],  // belongs to loop
       }),
     );
     expect(block).not.toHaveProperty("iterations");
-    expect(block).not.toHaveProperty("inner_block_ref");
+    expect(block).not.toHaveProperty("inner_block_refs");
   });
 
   it("fanout node does NOT emit soul_ref (singular)", () => {
@@ -365,6 +391,61 @@ describe("Universal fields emitted on any block type", () => {
     );
     expect(block).toHaveProperty("output_conditions");
   });
+
+  it("retryConfig is emitted as retry_config on a linear block", () => {
+    const { block } = compileOne(
+      mockNode("b1", "linear", {
+        soulRef: "soul1",
+        retryConfig: {
+          maxAttempts: 3,
+          backoff: "exponential",
+          backoffBaseSeconds: 2,
+          nonRetryableErrors: ["AuthError"],
+        },
+      }),
+    );
+    expect(block).toHaveProperty("retry_config");
+    expect((block as Record<string, unknown>).retry_config).toEqual({
+      max_attempts: 3,
+      backoff: "exponential",
+      backoff_base_seconds: 2,
+      non_retryable_errors: ["AuthError"],
+    });
+  });
+
+  it("retryConfig is emitted as retry_config on a loop block", () => {
+    const { block } = compileOne(
+      mockNode("b1", "loop", {
+        innerBlockRefs: ["step_a"],
+        maxRounds: 3,
+        retryConfig: {
+          maxAttempts: 2,
+          backoff: "fixed",
+          backoffBaseSeconds: 5,
+        },
+      }),
+    );
+    expect(block).toHaveProperty("retry_config");
+    expect((block as Record<string, unknown>).retry_config).toEqual({
+      max_attempts: 2,
+      backoff: "fixed",
+      backoff_base_seconds: 5,
+    });
+  });
+
+  it("retryConfig is emitted as retry_config on a code block", () => {
+    const { block } = compileOne(
+      mockNode("b1", "code", {
+        code: "run()",
+        retryConfig: {
+          maxAttempts: 5,
+          backoff: "exponential",
+          backoffBaseSeconds: 1,
+        },
+      }),
+    );
+    expect(block).toHaveProperty("retry_config");
+  });
 });
 
 // ===========================================================================
@@ -387,15 +468,17 @@ describe("Undefined and null field omission", () => {
 
   it("null fields are omitted from compiled output", () => {
     const { block } = compileOne(
-      mockNode("b1", "retry", {
-        innerBlockRef: "target",
-        maxRetries: undefined,
-        provideErrorContext: undefined,
+      mockNode("b1", "loop", {
+        innerBlockRefs: ["target"],
+        maxRounds: undefined,
+        breakCondition: undefined,
+        carryContext: undefined,
       }),
     );
-    expect(block).toHaveProperty("inner_block_ref", "target");
-    expect(block).not.toHaveProperty("max_retries");
-    expect(block).not.toHaveProperty("provide_error_context");
+    expect(block).toHaveProperty("inner_block_refs", ["target"]);
+    expect(block).not.toHaveProperty("max_rounds");
+    expect(block).not.toHaveProperty("break_condition");
+    expect(block).not.toHaveProperty("carry_context");
   });
 
   it("empty arrays are still emitted (they are valid values)", () => {
@@ -570,20 +653,20 @@ describe("YAML string output uses snake_case keys", () => {
     expect(yaml).not.toContain("contentKey:");
   });
 
-  it("retry fields use snake_case in YAML", () => {
+  it("loop fields use snake_case in YAML", () => {
     const { yaml } = compileOne(
-      mockNode("b1", "retry", {
-        innerBlockRef: "target",
-        maxRetries: 3,
-        provideErrorContext: true,
+      mockNode("b1", "loop", {
+        innerBlockRefs: ["block_a", "block_b"],
+        maxRounds: 10,
+        breakCondition: "result.done == true",
       }),
     );
-    expect(yaml).toContain("inner_block_ref:");
-    expect(yaml).toContain("max_retries:");
-    expect(yaml).toContain("provide_error_context:");
-    expect(yaml).not.toContain("innerBlockRef:");
-    expect(yaml).not.toContain("maxRetries:");
-    expect(yaml).not.toContain("provideErrorContext:");
+    expect(yaml).toContain("inner_block_refs:");
+    expect(yaml).toContain("max_rounds:");
+    expect(yaml).toContain("break_condition:");
+    expect(yaml).not.toContain("innerBlockRefs:");
+    expect(yaml).not.toContain("maxRounds:");
+    expect(yaml).not.toContain("breakCondition:");
   });
 
   it("code fields use snake_case in YAML", () => {
@@ -622,6 +705,28 @@ describe("YAML string output uses snake_case keys", () => {
     );
     expect(yaml).toContain("output_conditions:");
     expect(yaml).not.toContain("outputConditions:");
+  });
+
+  it("retryConfig fields use snake_case in YAML", () => {
+    const { yaml } = compileOne(
+      mockNode("b1", "linear", {
+        soulRef: "s1",
+        retryConfig: {
+          maxAttempts: 3,
+          backoff: "exponential",
+          backoffBaseSeconds: 2,
+          nonRetryableErrors: ["TimeoutError"],
+        },
+      }),
+    );
+    expect(yaml).toContain("retry_config:");
+    expect(yaml).toContain("max_attempts:");
+    expect(yaml).toContain("backoff_base_seconds:");
+    expect(yaml).toContain("non_retryable_errors:");
+    expect(yaml).not.toContain("retryConfig:");
+    expect(yaml).not.toContain("maxAttempts:");
+    expect(yaml).not.toContain("backoffBaseSeconds:");
+    expect(yaml).not.toContain("nonRetryableErrors:");
   });
 });
 

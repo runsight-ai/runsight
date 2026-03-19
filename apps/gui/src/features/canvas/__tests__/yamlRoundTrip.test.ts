@@ -95,7 +95,7 @@ describe("Per-type round-trip", () => {
     ["placeholder", "placeholder", { description: "A placeholder block" }],
     ["file_writer", "file_writer", { outputPath: "./out.md", contentKey: "result" }],
     ["code", "code", { code: "def main():\n  return {}", timeoutSeconds: 30, allowedImports: ["json"] }],
-    ["retry", "retry", { innerBlockRef: "inner", maxRetries: 3, provideErrorContext: true }],
+    ["loop", "loop", { innerBlockRefs: ["step_a", "step_b"], maxRounds: 5, breakCondition: "result.done == true" }],
     ["workflow", "workflow", { workflowRef: "sub.yaml", maxDepth: 2 }],
   ])("round-trip: %s", (_label, stepType, fields) => {
     const node = mockNode("block1", stepType, fields);
@@ -103,6 +103,10 @@ describe("Per-type round-trip", () => {
 
     // Block fields should survive the round-trip
     expect(doc2.blocks["block1"]).toEqual(doc1.blocks["block1"]);
+
+    // The compiled block must contain more than just { type } when fields are provided
+    const fieldCount = Object.keys(doc1.blocks["block1"]).length;
+    expect(fieldCount).toBeGreaterThan(1);
   });
 });
 
@@ -362,14 +366,14 @@ describe("Full workflow round-trip", () => {
         outputConditions: outputConds,
       }),
       mockNode("pass_out", "file_writer", { outputPath: "./report.md", contentKey: "result" }),
-      mockNode("fail_retry", "retry", { innerBlockRef: "implement", maxRetries: 2, provideErrorContext: true }),
+      mockNode("fail_loop", "loop", { innerBlockRefs: ["implement"], maxRounds: 3, breakCondition: "result.ok == true" }),
     ];
 
     const edges = [
       mockEdge("plan", "implement"),
       mockEdge("implement", "review"),
       mockEdge("review", "pass_out", "pass"),
-      mockEdge("review", "fail_retry", "fail"),
+      mockEdge("review", "fail_loop", "fail"),
     ];
 
     const { doc1, doc2, yaml1, yaml2 } = roundTrip({
@@ -488,6 +492,69 @@ describe("Edge cases", () => {
 
     expect(doc1.workflow.entry).toBe("only_node");
     expect(doc2.workflow.entry).toBe("only_node");
+  });
+
+  it("loop block with carryContext round-trips correctly", () => {
+    const node = mockNode("loop1", "loop", {
+      innerBlockRefs: ["step_a", "step_b"],
+      maxRounds: 10,
+      breakCondition: "result.converged == true",
+      carryContext: {
+        enabled: true,
+        mode: "all",
+        sourceBlocks: ["step_a", "step_b"],
+        injectAs: "prior_results",
+      },
+    });
+
+    const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
+
+    // Verify the fields actually made it into the compiled document
+    const block = doc1.blocks["loop1"] as Record<string, unknown>;
+    expect(block).toHaveProperty("inner_block_refs");
+    expect(block).toHaveProperty("max_rounds", 10);
+    expect(block).toHaveProperty("break_condition");
+    expect(block).toHaveProperty("carry_context");
+    expect(doc2.blocks["loop1"]).toEqual(doc1.blocks["loop1"]);
+  });
+
+  it("block with retryConfig round-trips correctly", () => {
+    const node = mockNode("resilient", "linear", {
+      soulRef: "agent1",
+      retryConfig: {
+        maxAttempts: 3,
+        backoff: "exponential",
+        backoffBaseSeconds: 2,
+        nonRetryableErrors: ["AuthError", "PermissionDenied"],
+      },
+    });
+
+    const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
+
+    // Verify retry_config actually made it into the compiled document
+    const block = doc1.blocks["resilient"] as Record<string, unknown>;
+    expect(block).toHaveProperty("retry_config");
+    expect(doc2.blocks["resilient"]).toEqual(doc1.blocks["resilient"]);
+  });
+
+  it("loop block with retryConfig round-trips correctly", () => {
+    const node = mockNode("retry_loop", "loop", {
+      innerBlockRefs: ["flaky_step"],
+      maxRounds: 5,
+      retryConfig: {
+        maxAttempts: 2,
+        backoff: "fixed",
+        backoffBaseSeconds: 5,
+      },
+    });
+
+    const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
+
+    // Verify both loop fields and retry_config made it
+    const block = doc1.blocks["retry_loop"] as Record<string, unknown>;
+    expect(block).toHaveProperty("inner_block_refs");
+    expect(block).toHaveProperty("retry_config");
+    expect(doc2.blocks["retry_loop"]).toEqual(doc1.blocks["retry_loop"]);
   });
 
   it("YAML string equality implies full lossless round-trip", () => {
