@@ -5,8 +5,6 @@ Tests verify that features merged from different branches work correctly togethe
 1. MessageBusBlock ↔ RouterBlock: consensus passing and evaluator flexibility
 2. Workflow-level integration with multiple blocks
 3. Type safety: Verify import structure in primitives.py doesn't break integrations
-
-Note: RetryBlock tests removed in RUN-158 (replaced by LoopBlock).
 """
 
 import json

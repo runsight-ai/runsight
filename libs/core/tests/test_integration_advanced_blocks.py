@@ -6,8 +6,6 @@ Tests key integration patterns:
    how MessageBus produces consensus that Router then evaluates for routing decision.
 
 Uses real Workflow execution with mocked runner.execute_task calls.
-
-Note: RetryBlock tests removed in RUN-158 (replaced by LoopBlock).
 """
 
 import json

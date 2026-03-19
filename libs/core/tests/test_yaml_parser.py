@@ -886,7 +886,6 @@ task:
 # TestDebateBlock: 3
 # TestMessageBusBlock: 3
 # TestRouterBlock: 2
-# TestRetryBlock: removed (RUN-158)
 # TestTeamLeadBlock: 3
 # TestEngineeringManagerBlock: 2
 # TestPlaceholderBlock: 2
