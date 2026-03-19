@@ -448,7 +448,7 @@ class TeamLeadBlock(BaseBlock):
     """
     Analyze failure context from shared_memory and produce recommendations.
 
-    Typical Use: After RetryBlock exhausts retries, analyze errors and recommend fixes.
+    Typical Use: After LoopBlock exhausts retries, analyze errors and recommend fixes.
     Example: TeamLeadBlock reads retry_errors and produces actionable recommendation.
     """
 
@@ -1291,7 +1291,7 @@ class GateBlock(BaseBlock):
     Quality gate that evaluates content and either passes or fails the workflow.
 
     On PASS: stores result (or extracted content) and continues execution.
-    On FAIL: raises ValueError with feedback, enabling RetryBlock to catch and retry.
+    On FAIL: raises ValueError with feedback, enabling LoopBlock to catch and retry.
 
     Supports optional content extraction from JSON data (e.g., debate transcripts)
     via the extract_field parameter — extracts the named field from the last entry

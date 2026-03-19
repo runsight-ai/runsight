@@ -506,7 +506,7 @@ class Workflow:
 
                 block_start_time = time.time()
 
-                # Step 3: Execute block with context propagation for WorkflowBlock and RetryBlock
+                # Step 3: Execute block with context propagation for WorkflowBlock and LoopBlock
                 from runsight_core.blocks.implementations import LoopBlock, WorkflowBlock
 
                 try:
