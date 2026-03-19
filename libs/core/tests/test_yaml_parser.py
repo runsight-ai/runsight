@@ -32,7 +32,7 @@ class TestBlockTypeRegistry:
             "debate",
             "message_bus",
             "router",
-            "retry",
+            "loop",
             "team_lead",
             "engineering_manager",
             "placeholder",
@@ -402,64 +402,6 @@ workflow:
   entry: router_block
 """
         with pytest.raises(ValueError, match="soul_ref"):
-            parse_workflow_yaml(yaml_content)
-
-
-class TestRetryBlock:
-    """Tests for RetryBlock (block type: retry)."""
-
-    def test_retry_block_valid_yaml(self):
-        """AC-18: Parse valid retry block with inner_block_ref."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  linear_block:
-    type: linear
-    soul_ref: researcher
-  retry_block:
-    type: retry
-    inner_block_ref: linear_block
-    max_retries: 3
-workflow:
-  name: test_retry
-  entry: linear_block
-  transitions:
-    - from: linear_block
-      to: retry_block
-    - from: retry_block
-      to: null
-"""
-        workflow = parse_workflow_yaml(yaml_content)
-        assert isinstance(workflow, Workflow)
-
-    def test_retry_block_missing_inner_block_ref_raises_error(self):
-        """AC-19: RetryBlock without inner_block_ref raises ValueError."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  retry_block:
-    type: retry
-    max_retries: 3
-workflow:
-  name: test_retry
-  entry: retry_block
-"""
-        with pytest.raises(ValueError, match="inner_block_ref"):
-            parse_workflow_yaml(yaml_content)
-
-    def test_retry_block_invalid_inner_block_ref_raises_error(self):
-        """AC-20: RetryBlock with non-existent inner_block_ref raises ValueError."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  retry_block:
-    type: retry
-    inner_block_ref: nonexistent_block
-workflow:
-  name: test_retry
-  entry: retry_block
-"""
-        with pytest.raises(ValueError, match="not found"):
             parse_workflow_yaml(yaml_content)
 
 
@@ -944,7 +886,7 @@ task:
 # TestDebateBlock: 3
 # TestMessageBusBlock: 3
 # TestRouterBlock: 2
-# TestRetryBlock: 3
+# TestRetryBlock: removed (RUN-158)
 # TestTeamLeadBlock: 3
 # TestEngineeringManagerBlock: 2
 # TestPlaceholderBlock: 2

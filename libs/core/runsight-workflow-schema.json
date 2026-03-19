@@ -713,6 +713,93 @@
       "title": "LinearBlockDef",
       "type": "object"
     },
+    "LoopBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "loop",
+          "default": "loop",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "inner_block_refs": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Inner Block Refs",
+          "type": "array"
+        },
+        "max_rounds": {
+          "default": 5,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Max Rounds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "inner_block_refs"
+      ],
+      "title": "LoopBlockDef",
+      "type": "object"
+    },
     "MessageBusBlockDef": {
       "additionalProperties": false,
       "properties": {
@@ -876,106 +963,6 @@
         }
       },
       "title": "PlaceholderBlockDef",
-      "type": "object"
-    },
-    "RetryBlockDef": {
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "const": "retry",
-          "default": "retry",
-          "title": "Type",
-          "type": "string"
-        },
-        "output_conditions": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/CaseDef"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Output Conditions"
-        },
-        "inputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/InputRef"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Inputs"
-        },
-        "outputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Outputs"
-        },
-        "retry_config": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RetryConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "inner_block_ref": {
-          "title": "Inner Block Ref",
-          "type": "string"
-        },
-        "max_retries": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Max Retries"
-        },
-        "provide_error_context": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Provide Error Context"
-        }
-      },
-      "required": [
-        "inner_block_ref"
-      ],
-      "title": "RetryBlockDef",
       "type": "object"
     },
     "RetryConfig": {
@@ -1517,9 +1504,9 @@
             "file_writer": "#/$defs/FileWriterBlockDef",
             "gate": "#/$defs/GateBlockDef",
             "linear": "#/$defs/LinearBlockDef",
+            "loop": "#/$defs/LoopBlockDef",
             "message_bus": "#/$defs/MessageBusBlockDef",
             "placeholder": "#/$defs/PlaceholderBlockDef",
-            "retry": "#/$defs/RetryBlockDef",
             "router": "#/$defs/RouterBlockDef",
             "synthesize": "#/$defs/SynthesizeBlockDef",
             "team_lead": "#/$defs/TeamLeadBlockDef",
@@ -1565,7 +1552,7 @@
             "$ref": "#/$defs/CodeBlockDef"
           },
           {
-            "$ref": "#/$defs/RetryBlockDef"
+            "$ref": "#/$defs/LoopBlockDef"
           },
           {
             "$ref": "#/$defs/WorkflowBlockDef"

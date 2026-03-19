@@ -181,11 +181,10 @@ class CodeBlockDef(BaseBlockDef):
     allowed_imports: Optional[List[str]] = None
 
 
-class RetryBlockDef(BaseBlockDef):
-    type: Literal["retry"] = "retry"
-    inner_block_ref: str
-    max_retries: Optional[int] = None
-    provide_error_context: Optional[bool] = None
+class LoopBlockDef(BaseBlockDef):
+    type: Literal["loop"] = "loop"
+    inner_block_refs: List[str] = Field(min_length=1)
+    max_rounds: int = Field(default=5, ge=1, le=50)
 
 
 class WorkflowBlockDef(BaseBlockDef):
@@ -220,7 +219,7 @@ BlockDef = Annotated[
         PlaceholderBlockDef,
         FileWriterBlockDef,
         CodeBlockDef,
-        RetryBlockDef,
+        LoopBlockDef,
         WorkflowBlockDef,
     ],
     Field(discriminator="type"),
