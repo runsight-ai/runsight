@@ -80,6 +80,18 @@ class InputRef(BaseModel):
     from_ref: str = Field(alias="from")  # "step_id.output_field" dot-notation
 
 
+# ── Retry configuration ────────────────────────────────────────────────────
+
+
+class RetryConfig(BaseModel):
+    """Per-block retry configuration."""
+
+    max_attempts: int = Field(default=3, ge=1, le=20)
+    backoff: Literal["fixed", "exponential"] = "fixed"
+    backoff_base_seconds: float = Field(default=1.0, ge=0.1, le=60.0)
+    non_retryable_errors: Optional[List[str]] = None
+
+
 # ── Base block model ───────────────────────────────────────────────────────
 
 
@@ -92,6 +104,7 @@ class BaseBlockDef(BaseModel):
     output_conditions: Optional[List[CaseDef]] = None
     inputs: Optional[Dict[str, InputRef]] = None
     outputs: Optional[Dict[str, str]] = None  # name -> type string
+    retry_config: Optional[RetryConfig] = None
 
 
 # ── Per-type block models ──────────────────────────────────────────────────
