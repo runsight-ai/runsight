@@ -22,11 +22,12 @@ class BaseBlock(ABC):
     Constructor contract: All subclasses MUST accept block_id as first parameter.
     """
 
-    def __init__(self, block_id: str):
+    def __init__(self, block_id: str, *, retry_config=None):
         """
         Args:
             block_id: Unique identifier for this block instance within a blueprint.
                      Used as the key in state.results.
+            retry_config: Optional RetryConfig for retry execution in workflow runner.
 
         Raises:
             ValueError: If block_id is empty string.
@@ -34,6 +35,7 @@ class BaseBlock(ABC):
         if not block_id:
             raise ValueError("block_id cannot be empty")
         self.block_id = block_id
+        self.retry_config = retry_config
         self._pause_event: asyncio.Event = asyncio.Event()
         self._pause_event.set()  # not paused by default
         self._kill_flag: bool = False

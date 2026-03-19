@@ -4,6 +4,7 @@ Workflow state machine for orchestrating block execution.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections import deque
@@ -372,6 +373,64 @@ class Workflow:
         # Plain transition (or terminal if absent)
         return self._transitions.get(current_block_id)
 
+    async def _execute_with_retry(
+        self,
+        block: BaseBlock,
+        state: WorkflowState,
+        retry_cfg: Any,
+        execute_fn: Any,
+    ) -> WorkflowState:
+        """Wrap block execution with retry logic based on retry_config."""
+        max_attempts = retry_cfg.max_attempts
+        last_exc: Optional[BaseException] = None
+        last_error_type: str = ""
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                result_state = await execute_fn(block, state)
+                # If retries occurred, store metadata
+                if attempt > 1:
+                    result_state = result_state.model_copy(
+                        update={
+                            "shared_memory": {
+                                **result_state.shared_memory,
+                                f"__retry__{block.block_id}": {
+                                    "attempt": attempt,
+                                    "max_attempts": max_attempts,
+                                    "last_error": str(last_exc),
+                                    "last_error_type": last_error_type,
+                                    "total_retries": attempt - 1,
+                                },
+                            }
+                        }
+                    )
+                return result_state
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception as exc:
+                last_exc = exc
+                last_error_type = type(exc).__name__
+
+                # Check non_retryable_errors
+                if retry_cfg.non_retryable_errors:
+                    if last_error_type in retry_cfg.non_retryable_errors:
+                        raise
+
+                # Last attempt exhausted — raise
+                if attempt >= max_attempts:
+                    raise
+
+                # Backoff sleep before next attempt
+                if retry_cfg.backoff == "exponential":
+                    sleep_duration = retry_cfg.backoff_base_seconds * (2 ** (attempt - 1))
+                else:
+                    sleep_duration = retry_cfg.backoff_base_seconds
+                await asyncio.sleep(sleep_duration)
+
+        # Should never reach here, but satisfy type checker
+        assert last_exc is not None
+        raise last_exc  # pragma: no cover
+
     async def run(
         self,
         initial_state: WorkflowState,
@@ -456,13 +515,22 @@ class Workflow:
                         "workflow_registry": workflow_registry,
                         "observer": observer,
                     }
-                    if isinstance(block, WorkflowBlock):
-                        state = await block.execute(state, **kwargs_for_context)
-                    elif isinstance(block, RetryBlock):
-                        # RetryBlock may wrap WorkflowBlock; forward kwargs so cycle/depth work
-                        state = await block.execute(state, **kwargs_for_context)
+
+                    async def _execute_block(blk: BaseBlock, st: WorkflowState) -> WorkflowState:
+                        if isinstance(blk, WorkflowBlock):
+                            return await blk.execute(st, **kwargs_for_context)
+                        elif isinstance(blk, RetryBlock):
+                            return await blk.execute(st, **kwargs_for_context)
+                        else:
+                            return await blk.execute(st)
+
+                    retry_cfg = getattr(block, "retry_config", None)
+                    if retry_cfg is not None:
+                        state = await self._execute_with_retry(
+                            block, state, retry_cfg, _execute_block
+                        )
                     else:
-                        state = await block.execute(state)
+                        state = await _execute_block(block, state)
 
                     block_duration = time.time() - block_start_time
                     if observer:
