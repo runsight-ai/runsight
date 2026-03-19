@@ -1,5 +1,47 @@
 {
   "$defs": {
+    "CarryContextConfig": {
+      "additionalProperties": false,
+      "description": "Configuration for carrying context between LoopBlock rounds.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "mode": {
+          "default": "last",
+          "enum": [
+            "last",
+            "all"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "source_blocks": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Blocks"
+        },
+        "inject_as": {
+          "default": "previous_round_context",
+          "title": "Inject As",
+          "type": "string"
+        }
+      },
+      "title": "CarryContextConfig",
+      "type": "object"
+    },
     "CaseDef": {
       "additionalProperties": false,
       "description": "A named branch case for output_conditions.",
@@ -792,6 +834,32 @@
           "minimum": 1,
           "title": "Max Rounds",
           "type": "integer"
+        },
+        "break_condition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConditionDef"
+            },
+            {
+              "$ref": "#/$defs/ConditionGroupDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Break Condition"
+        },
+        "carry_context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CarryContextConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [

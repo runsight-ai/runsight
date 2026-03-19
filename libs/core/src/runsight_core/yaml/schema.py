@@ -181,10 +181,23 @@ class CodeBlockDef(BaseBlockDef):
     allowed_imports: Optional[List[str]] = None
 
 
+class CarryContextConfig(BaseModel):
+    """Configuration for carrying context between LoopBlock rounds."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    mode: Literal["last", "all"] = "last"
+    source_blocks: Optional[List[str]] = None
+    inject_as: str = "previous_round_context"
+
+
 class LoopBlockDef(BaseBlockDef):
     type: Literal["loop"] = "loop"
     inner_block_refs: List[str] = Field(min_length=1)
     max_rounds: int = Field(default=5, ge=1, le=50)
+    break_condition: Optional[Union[ConditionDef, ConditionGroupDef]] = None
+    carry_context: Optional[CarryContextConfig] = None
 
 
 class WorkflowBlockDef(BaseBlockDef):

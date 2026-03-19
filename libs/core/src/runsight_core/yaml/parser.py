@@ -30,8 +30,14 @@ from runsight_core.blocks.implementations import (
 from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.workflow import Workflow
+from runsight_core.conditions.engine import (
+    Condition,
+    ConditionGroup,
+)
 from runsight_core.yaml.schema import (
     BlockDef,
+    ConditionDef,
+    ConditionGroupDef,
     InputRef,
     RunsightTaskFile,
     RunsightWorkflowFile,
@@ -210,6 +216,23 @@ def _build_router(
     return RouterBlock(block_id, soul, runner)
 
 
+def _convert_condition(cond_def: ConditionDef) -> Condition:
+    """Convert a ConditionDef schema model to a runtime Condition dataclass."""
+    return Condition(
+        eval_key=cond_def.eval_key,
+        operator=cond_def.operator,
+        value=cond_def.value,
+    )
+
+
+def _convert_condition_group(group_def: ConditionGroupDef) -> ConditionGroup:
+    """Convert a ConditionGroupDef schema model to a runtime ConditionGroup dataclass."""
+    return ConditionGroup(
+        conditions=[_convert_condition(c) for c in group_def.conditions],
+        combinator=group_def.combinator,
+    )
+
+
 def _build_loop(
     block_id: str,
     block_def: BlockDef,
@@ -217,10 +240,18 @@ def _build_loop(
     runner: RunsightTeamRunner,
     all_blocks: Dict[str, BaseBlock],
 ) -> LoopBlock:
+    break_condition = None
+    if block_def.break_condition is not None:
+        if isinstance(block_def.break_condition, ConditionGroupDef):
+            break_condition = _convert_condition_group(block_def.break_condition)
+        else:
+            break_condition = _convert_condition(block_def.break_condition)
     return LoopBlock(
         block_id=block_id,
         inner_block_refs=list(block_def.inner_block_refs),
         max_rounds=block_def.max_rounds,
+        break_condition=break_condition,
+        carry_context=block_def.carry_context,
     )
 
 
