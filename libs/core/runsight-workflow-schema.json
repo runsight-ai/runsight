@@ -85,6 +85,17 @@
           "default": null,
           "title": "Outputs"
         },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "code": {
           "title": "Code",
           "type": "string"
@@ -250,6 +261,17 @@
           "default": null,
           "title": "Outputs"
         },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "soul_a_ref": {
           "title": "Soul A Ref",
           "type": "string"
@@ -325,6 +347,17 @@
           "default": null,
           "title": "Outputs"
         },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "soul_ref": {
           "title": "Soul Ref",
           "type": "string"
@@ -389,6 +422,17 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "soul_refs": {
           "items": {
@@ -457,6 +501,17 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "output_path": {
           "title": "Output Path",
@@ -527,6 +582,17 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "soul_ref": {
           "title": "Soul Ref",
@@ -625,6 +691,17 @@
           "default": null,
           "title": "Outputs"
         },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "soul_ref": {
           "title": "Soul Ref",
           "type": "string"
@@ -689,6 +766,17 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "soul_refs": {
           "items": {
@@ -763,6 +851,17 @@
           "default": null,
           "title": "Outputs"
         },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "description": {
           "anyOf": [
             {
@@ -833,6 +932,17 @@
           "default": null,
           "title": "Outputs"
         },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "inner_block_ref": {
           "title": "Inner Block Ref",
           "type": "string"
@@ -866,6 +976,51 @@
         "inner_block_ref"
       ],
       "title": "RetryBlockDef",
+      "type": "object"
+    },
+    "RetryConfig": {
+      "description": "Per-block retry configuration.",
+      "properties": {
+        "max_attempts": {
+          "default": 3,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "backoff": {
+          "default": "fixed",
+          "enum": [
+            "fixed",
+            "exponential"
+          ],
+          "title": "Backoff",
+          "type": "string"
+        },
+        "backoff_base_seconds": {
+          "default": 1.0,
+          "maximum": 60.0,
+          "minimum": 0.1,
+          "title": "Backoff Base Seconds",
+          "type": "number"
+        },
+        "non_retryable_errors": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Non Retryable Errors"
+        }
+      },
+      "title": "RetryConfig",
       "type": "object"
     },
     "RouterBlockDef": {
@@ -921,6 +1076,17 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "soul_ref": {
           "title": "Soul Ref",
@@ -1051,6 +1217,17 @@
           "default": null,
           "title": "Outputs"
         },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "soul_ref": {
           "title": "Soul Ref",
           "type": "string"
@@ -1123,6 +1300,17 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "soul_ref": {
           "title": "Soul Ref",
@@ -1230,6 +1418,17 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "workflow_ref": {
           "title": "Workflow Ref",
