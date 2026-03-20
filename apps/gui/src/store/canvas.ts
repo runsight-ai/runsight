@@ -8,6 +8,7 @@ import {
   type NodeChange,
   type Viewport,
 } from "@xyflow/react";
+import type { RunStatus, StepNodeData } from "../types/schemas/canvas";
 
 export type CanvasMode = "dag" | "state-machine";
 
@@ -28,6 +29,8 @@ interface CanvasState {
   canvasMode: CanvasMode;
   validationErrors: string[];
   hasValidationErrors: boolean;
+  activeRunId: string | null;
+  runCost: number;
   setNodes: (nodes: Node[], markDirty?: boolean) => void;
   setEdges: (edges: Edge[], markDirty?: boolean) => void;
   onNodesChange: (changes: NodeChange[]) => void;
@@ -36,6 +39,10 @@ interface CanvasState {
   selectNode: (id: string | null) => void;
   setCanvasMode: (mode: CanvasMode) => void;
   setValidationErrors: (errors: string[]) => void;
+  setActiveRunId: (runId: string | null) => void;
+  setRunCost: (cost: number) => void;
+  setNodeStatus: (nodeId: string, status: RunStatus) => void;
+  resetNodeStatuses: () => void;
   hydrateFromPersisted: (state: PersistedCanvasState | null | undefined) => void;
   toPersistedState: () => PersistedCanvasState;
   markSaved: () => void;
@@ -53,6 +60,8 @@ const initialState = {
   canvasMode: "dag" as CanvasMode,
   validationErrors: [] as string[],
   hasValidationErrors: false,
+  activeRunId: null as string | null,
+  runCost: 0,
 };
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -75,6 +84,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setCanvasMode: (mode) => set({ canvasMode: mode, isDirty: true }),
   setValidationErrors: (errors) =>
     set({ validationErrors: errors, hasValidationErrors: errors.length > 0 }),
+  setActiveRunId: (runId) => set({ activeRunId: runId }),
+  setRunCost: (cost) => set({ runCost: cost }),
+  setNodeStatus: (nodeId, status) =>
+    set((state) => ({
+      nodes: state.nodes.map((node) =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, status } as StepNodeData }
+          : node,
+      ),
+    })),
+  resetNodeStatuses: () =>
+    set((state) => ({
+      nodes: state.nodes.map((node) => ({
+        ...node,
+        data: { ...node.data, status: "idle" } as StepNodeData,
+      })),
+    })),
   hydrateFromPersisted: (state) => {
     if (!state) {
       set({ ...initialState });
