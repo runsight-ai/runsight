@@ -106,7 +106,13 @@ async def get_run(run_id: str, run_service: RunService = Depends(get_run_service
 
 
 @router.post("/{run_id}/cancel")
-async def cancel_run(run_id: str, run_service: RunService = Depends(get_run_service)):
+async def cancel_run(
+    run_id: str,
+    run_service: RunService = Depends(get_run_service),
+    execution_service: ExecutionService = Depends(get_execution_service),
+):
+    if execution_service is not None:
+        execution_service.cancel_execution(run_id)
     run = run_service.cancel_run(run_id)
     return {"id": run.id, "status": run.status}
 
