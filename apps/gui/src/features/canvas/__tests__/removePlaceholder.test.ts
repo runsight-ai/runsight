@@ -144,16 +144,13 @@ describe("toStepType() no placeholder fallback", () => {
       step1: { type: "totally_invalid_type", soul_ref: "agent" },
     });
     const result = parseWorkflowYamlToGraph(yaml);
-    // After removal, invalid types should NOT fall back to "placeholder"
-    // They should produce an error or return something like "unknown"
+    // After removal, invalid types must produce validation feedback (error),
+    // not silently fall back to placeholder or any other type
     if (result.nodes.length > 0) {
       expect(result.nodes[0].data.stepType).not.toBe("placeholder");
     }
-    // Either an error is surfaced or stepType is not "placeholder"
-    const hasError = result.error !== undefined;
-    const notPlaceholder =
-      result.nodes.length > 0 && result.nodes[0].data.stepType !== "placeholder";
-    expect(hasError || notPlaceholder).toBe(true);
+    expect(result.error).toBeDefined();
+    expect(result.error!.message).toBeTruthy();
   });
 
   it("parser does NOT return 'placeholder' for missing type field", () => {
@@ -161,13 +158,12 @@ describe("toStepType() no placeholder fallback", () => {
       step1: { soul_ref: "agent" }, // no type field at all
     });
     const result = parseWorkflowYamlToGraph(yaml);
+    // Missing type must produce validation feedback, not a silent fallback
     if (result.nodes.length > 0) {
       expect(result.nodes[0].data.stepType).not.toBe("placeholder");
     }
-    const hasError = result.error !== undefined;
-    const notPlaceholder =
-      result.nodes.length > 0 && result.nodes[0].data.stepType !== "placeholder";
-    expect(hasError || notPlaceholder).toBe(true);
+    expect(result.error).toBeDefined();
+    expect(result.error!.message).toBeTruthy();
   });
 
   it("parser does NOT return 'placeholder' for non-string type", () => {
@@ -185,14 +181,12 @@ describe("toStepType() no placeholder fallback", () => {
       step1: { type: "placeholder", description: "TODO" },
     });
     const result = parseWorkflowYamlToGraph(yaml);
-    // "placeholder" is no longer a valid type — should be treated as invalid
+    // "placeholder" is no longer a valid type — must produce validation feedback
     if (result.nodes.length > 0) {
       expect(result.nodes[0].data.stepType).not.toBe("placeholder");
     }
-    const hasError = result.error !== undefined;
-    const notPlaceholder =
-      result.nodes.length > 0 && result.nodes[0].data.stepType !== "placeholder";
-    expect(hasError || notPlaceholder).toBe(true);
+    expect(result.error).toBeDefined();
+    expect(result.error!.message).toBeTruthy();
   });
 });
 
@@ -294,8 +288,8 @@ describe("Behavioral validation", () => {
   });
 
   it("compiler does NOT produce description field for any block type", () => {
-    // Even if we force description into node data, the compiler should not emit it
-    // since it was placeholder-only and placeholder is removed
+    // Use placeholder type — if BLOCK_TYPE_FIELDS still has a "placeholder"
+    // entry with ["description"], the compiler WILL emit it and this test fails.
     const node: Node<StepNodeData> = {
       id: "b1",
       type: "canvasNode",
@@ -303,9 +297,8 @@ describe("Behavioral validation", () => {
       data: {
         stepId: "b1",
         name: "b1",
-        stepType: "linear" as StepType,
+        stepType: "placeholder" as StepType,
         status: "idle",
-        soulRef: "agent",
         ...(({ description: "should not appear" }) as unknown as Partial<StepNodeData>),
       },
     };
