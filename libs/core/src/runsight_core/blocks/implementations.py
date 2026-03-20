@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
 
@@ -70,7 +70,7 @@ class LinearBlock(BaseBlock):
 
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: result.output},
+                "results": {**state.results, self.block_id: BlockResult(output=result.output)},
                 "messages": state.messages
                 + [
                     {"role": "system", "content": f"[Block {self.block_id}] Completed: {truncated}"}
@@ -138,7 +138,10 @@ class FanOutBlock(BaseBlock):
 
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: json.dumps(outputs, indent=2)},
+                "results": {
+                    **state.results,
+                    self.block_id: BlockResult(output=json.dumps(outputs, indent=2)),
+                },
                 "messages": state.messages
                 + [
                     {
@@ -225,7 +228,7 @@ class SynthesizeBlock(BaseBlock):
 
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: result.output},
+                "results": {**state.results, self.block_id: BlockResult(output=result.output)},
                 "messages": state.messages
                 + [
                     {
@@ -378,7 +381,7 @@ class LoopBlock(BaseBlock):
             update={
                 "results": {
                     **state.results,
-                    self.block_id: f"completed_{rounds_completed}_rounds",
+                    self.block_id: BlockResult(output=f"completed_{rounds_completed}_rounds"),
                 },
                 "shared_memory": {
                     **state.shared_memory,
@@ -483,7 +486,7 @@ Provide your analysis and recommendations in a structured format."""
         # Step 5: Return updated state
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: result.output},
+                "results": {**state.results, self.block_id: BlockResult(output=result.output)},
                 "shared_memory": {
                     **state.shared_memory,
                     f"{self.block_id}_recommendation": result.output,
@@ -606,7 +609,7 @@ Your plan:"""
         # Step 6: Return updated state
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: text_plan},
+                "results": {**state.results, self.block_id: BlockResult(output=text_plan)},
                 "metadata": {
                     **state.metadata,
                     f"{self.block_id}_new_steps": structured_steps,
@@ -704,7 +707,7 @@ class RouterBlock(BaseBlock):
         # Step 2: Return updated state with decision
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: decision},
+                "results": {**state.results, self.block_id: BlockResult(output=decision)},
                 "metadata": {
                     **state.metadata,
                     f"{self.block_id}_decision": decision,
@@ -855,7 +858,9 @@ class WorkflowBlock(BaseBlock):
             update={
                 "results": {
                     **new_parent_state.results,
-                    self.block_id: f"WorkflowBlock '{self.child_workflow.name}' completed",
+                    self.block_id: BlockResult(
+                        output=f"WorkflowBlock '{self.child_workflow.name}' completed"
+                    ),
                 },
                 "messages": new_parent_state.messages
                 + [
@@ -1121,7 +1126,7 @@ class GateBlock(BaseBlock):
 
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: pass_through},
+                    "results": {**state.results, self.block_id: BlockResult(output=pass_through)},
                     "metadata": {
                         **state.metadata,
                         f"{self.block_id}_decision": "pass",
@@ -1185,7 +1190,9 @@ class FileWriterBlock(BaseBlock):
             update={
                 "results": {
                     **state.results,
-                    self.block_id: f"Written {char_count} chars to {self.output_path}",
+                    self.block_id: BlockResult(
+                        output=f"Written {char_count} chars to {self.output_path}"
+                    ),
                 },
                 "messages": state.messages
                 + [
@@ -1394,7 +1401,7 @@ class CodeBlock(BaseBlock):
                 update={
                     "results": {
                         **state.results,
-                        self.block_id: f"Error: {error_msg}",
+                        self.block_id: BlockResult(output=f"Error: {error_msg}"),
                     },
                     "messages": state.messages
                     + [
@@ -1414,7 +1421,9 @@ class CodeBlock(BaseBlock):
                 update={
                     "results": {
                         **state.results,
-                        self.block_id: f"Error: output is not valid JSON: {stdout!r}",
+                        self.block_id: BlockResult(
+                            output=f"Error: output is not valid JSON: {stdout!r}"
+                        ),
                     },
                     "messages": state.messages
                     + [
@@ -1430,7 +1439,9 @@ class CodeBlock(BaseBlock):
             update={
                 "results": {
                     **state.results,
-                    self.block_id: json.dumps(result) if not isinstance(result, str) else result,
+                    self.block_id: BlockResult(
+                        output=json.dumps(result) if not isinstance(result, str) else result
+                    ),
                 },
                 "messages": state.messages
                 + [
