@@ -1,23 +1,57 @@
 """
-HttpRequestBlock — stub for HTTP request execution.
+HttpRequestBlock — HTTP request execution for workflows.
 
-Actual HTTP execution will be implemented in RUN-214.
+Implements:
+1. Template resolution ({{block_id}} -> state.results[block_id].output)
+2. SSRF protection (DNS resolve -> IP check with ipaddress.is_private)
+3. Auth header building (bearer, api_key, basic)
+4. HTTP execution via httpx.AsyncClient with retry
+5. Response parsing (JSON auto-detect, raw text fallback)
+6. Return WorkflowState with BlockResult in results
 """
 
 from __future__ import annotations
 
+import base64
+import ipaddress
+import json
+import re
+import socket
+import time
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
+
+import httpx
 
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
+
+# Regex to match {{variable_name}} templates
+_TEMPLATE_RE = re.compile(r"\{\{(\w+)\}\}")
+
+
+class HttpRequestError(Exception):
+    """Domain error for HTTP request failures."""
+
+
+class SSRFError(HttpRequestError):
+    """Raised when a request targets a private/reserved IP address."""
+
+
+class TemplateResolutionError(HttpRequestError):
+    """Raised when a template variable cannot be resolved from state."""
+
+
+class HttpStatusError(HttpRequestError):
+    """Raised when response status code is not acceptable."""
 
 
 class HttpRequestBlock(BaseBlock):
     """
     Make an HTTP request as part of a workflow.
 
-    This is a stub — execute() raises NotImplementedError.
-    Full implementation is tracked under RUN-214.
+    Supports template resolution, SSRF protection, auth headers,
+    retry logic, and response parsing.
     """
 
     def __init__(
@@ -51,7 +85,252 @@ class HttpRequestBlock(BaseBlock):
         self.expected_status_codes = expected_status_codes
         self.allow_private_ips = allow_private_ips
 
+    # ------------------------------------------------------------------
+    # Template resolution
+    # ------------------------------------------------------------------
+
+    def _resolve_templates(self, url: str, state: WorkflowState) -> str:
+        """Replace {{block_id}} placeholders with state.results[block_id].output.
+
+        Raises:
+            TemplateResolutionError: If a referenced block_id is not in state.results.
+        """
+
+        def _replacer(match: re.Match) -> str:
+            var_name = match.group(1)
+            if var_name not in state.results:
+                raise TemplateResolutionError(
+                    f"Template variable '{{{{{{var_name}}}}}}' not found in state results. "
+                    f"Available keys: {list(state.results.keys())}"
+                )
+            return state.results[var_name].output
+
+        return _TEMPLATE_RE.sub(_replacer, url)
+
+    # ------------------------------------------------------------------
+    # SSRF protection
+    # ------------------------------------------------------------------
+
+    def _validate_ssrf(self, url: str) -> None:
+        """Check that the resolved URL does not target a private/reserved IP.
+
+        Raises:
+            SSRFError: If the target IP is private/reserved and allow_private_ips is False.
+        """
+        if self.allow_private_ips:
+            return
+
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        if hostname is None:
+            raise SSRFError(f"Cannot parse hostname from URL: {url}")
+
+        # Try to parse hostname directly as an IP address first
+        try:
+            addr = ipaddress.ip_address(hostname)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                raise SSRFError(
+                    f"SSRF blocked: {hostname} resolves to private/reserved address {addr}"
+                )
+            return
+        except ValueError:
+            # Not a literal IP address, need to resolve via DNS
+            pass
+
+        # Resolve hostname to IP addresses
+        try:
+            addrinfos = socket.getaddrinfo(hostname, None)
+        except socket.gaierror:
+            # DNS resolution failed — allow the request through.
+            # The HTTP client will handle unreachable hosts.
+            return
+
+        for addrinfo in addrinfos:
+            ip_str = addrinfo[4][0]
+            addr = ipaddress.ip_address(ip_str)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                raise SSRFError(
+                    f"SSRF blocked: {hostname} resolves to private/reserved address {addr}"
+                )
+
+    # ------------------------------------------------------------------
+    # Auth header building
+    # ------------------------------------------------------------------
+
+    def _build_auth_headers(self) -> Dict[str, str]:
+        """Build authentication headers based on auth_type and auth_config.
+
+        Returns:
+            Dict of headers to merge into the request.
+        """
+        if self.auth_type is None:
+            return {}
+
+        if self.auth_type == "bearer":
+            token = self.auth_config.get("token", "")
+            return {"Authorization": f"Bearer {token}"}
+
+        if self.auth_type == "api_key":
+            header_name = self.auth_config.get("header", "X-API-Key")
+            value = self.auth_config.get("value", "")
+            return {header_name: value}
+
+        if self.auth_type == "basic":
+            username = self.auth_config.get("username", "")
+            password = self.auth_config.get("password", "")
+            credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
+            return {"Authorization": f"Basic {credentials}"}
+
+        return {}
+
+    # ------------------------------------------------------------------
+    # Response parsing
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_response(response: httpx.Response) -> str:
+        """Parse response body: JSON auto-detect, raw text fallback.
+
+        Returns:
+            String representation of the response body.
+        """
+        content_type = response.headers.get("content-type", "")
+        if "application/json" in content_type:
+            try:
+                data = response.json()
+                return json.dumps(data)
+            except (json.JSONDecodeError, ValueError):
+                return response.text
+        return response.text
+
+    # ------------------------------------------------------------------
+    # Status code validation
+    # ------------------------------------------------------------------
+
+    def _validate_status(self, response: httpx.Response) -> None:
+        """Validate response status code.
+
+        Raises:
+            HttpStatusError: If status code is not 2xx and not in expected_status_codes.
+        """
+        status = response.status_code
+
+        # If explicit expected codes are set, accept only those
+        if self.expected_status_codes is not None:
+            if status in self.expected_status_codes:
+                return
+            # Fall through to default 2xx check if not in expected list
+
+        # Default: 2xx is success
+        if 200 <= status < 300:
+            return
+
+        # Check expected_status_codes again for non-2xx
+        if self.expected_status_codes is not None and status in self.expected_status_codes:
+            return
+
+        raise HttpStatusError(f"HTTP {status}: {response.text[:500]}")
+
+    # ------------------------------------------------------------------
+    # Execute
+    # ------------------------------------------------------------------
+
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        raise NotImplementedError(
-            f"HttpRequestBlock '{self.block_id}': execute() not yet implemented (see RUN-214)"
-        )
+        """Execute the HTTP request block.
+
+        Steps:
+        1. Resolve templates in URL
+        2. Validate SSRF
+        3. Build auth headers
+        4. Execute HTTP request with retry
+        5. Parse response and build BlockResult
+
+        Returns:
+            New WorkflowState with BlockResult in results[self.block_id].
+        """
+        # 1. Template resolution
+        resolved_url = self._resolve_templates(self.url, state)
+
+        # 2. SSRF protection
+        self._validate_ssrf(resolved_url)
+
+        # 3. Auth headers
+        auth_headers = self._build_auth_headers()
+        merged_headers = {**self.headers, **auth_headers}
+
+        # 4. Build request kwargs
+        request_kwargs: Dict = {
+            "method": self.method.upper(),
+            "url": resolved_url,
+            "headers": merged_headers,
+            "timeout": float(self.timeout_seconds),
+        }
+
+        # Add body for methods that support it
+        if self.body is not None:
+            if self.body_type == "json":
+                request_kwargs["content"] = self.body
+                if "Content-Type" not in merged_headers:
+                    request_kwargs["headers"] = {
+                        **merged_headers,
+                        "Content-Type": "application/json",
+                    }
+            else:
+                request_kwargs["content"] = self.body
+
+        # 5. Execute with retry
+        last_exc: Optional[Exception] = None
+        max_attempts = 1 + self.retry_count
+
+        for attempt in range(max_attempts):
+            start_time = time.monotonic()
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.request(**request_kwargs)
+
+                elapsed_ms = (time.monotonic() - start_time) * 1000.0
+
+                # Check if we should retry (only 5xx)
+                try:
+                    self._validate_status(response)
+                except HttpStatusError as exc:
+                    # Only retry on 5xx
+                    if 500 <= response.status_code < 600 and attempt < max_attempts - 1:
+                        last_exc = exc
+                        continue
+                    raise
+
+                # Success path
+                output = self._parse_response(response)
+                metadata = {
+                    "status_code": response.status_code,
+                    "headers": dict(response.headers),
+                    "latency_ms": elapsed_ms,
+                }
+
+                block_result = BlockResult(
+                    output=output,
+                    metadata=metadata,
+                )
+
+                return state.model_copy(
+                    update={
+                        "results": {**state.results, self.block_id: block_result},
+                    }
+                )
+
+            except httpx.TimeoutException as exc:
+                raise HttpRequestError(
+                    f"Request timed out after {self.timeout_seconds}s: {exc}"
+                ) from exc
+            except HttpStatusError:
+                raise
+            except httpx.HTTPError as exc:
+                raise HttpRequestError(f"HTTP error: {exc}") from exc
+
+        # All retries exhausted — re-raise last exception
+        if last_exc is not None:
+            raise last_exc
+
+        # Should not reach here, but just in case
+        raise HttpRequestError("Request failed after all retry attempts")
