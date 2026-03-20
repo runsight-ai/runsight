@@ -340,9 +340,13 @@ class Workflow:
         # Evaluate output_conditions first (if present), writing decision to metadata
         if current_block_id in self._output_conditions:
             cases, default_decision = self._output_conditions[current_block_id]
-            decision_oc, warnings_oc = evaluate_output_conditions(
-                cases, state.results.get(current_block_id, ""), default_decision
+            _result = state.results.get(current_block_id)
+            _output = (
+                _result.output
+                if hasattr(_result, "output")
+                else (_result if _result is not None else "")
             )
+            decision_oc, warnings_oc = evaluate_output_conditions(cases, _output, default_decision)
             state.metadata[f"{current_block_id}_decision"] = decision_oc
             if warnings_oc:
                 state.metadata[f"{current_block_id}_warnings"] = warnings_oc
