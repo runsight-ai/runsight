@@ -102,6 +102,10 @@ class WorkflowState(BaseModel):
         default=0,
         description="Cumulative token count for all LLM calls in the workflow.",
     )
+    conversation_histories: Dict[str, List[Dict[str, Any]]] = Field(
+        default_factory=dict,
+        description="Per-block-soul conversation histories. Keys: '{block_id}_{soul_id}'. Values: list of message dicts.",
+    )
     artifact_store: Optional[Annotated[ArtifactStore, SkipValidation]] = Field(
         default=None, exclude=True
     )
