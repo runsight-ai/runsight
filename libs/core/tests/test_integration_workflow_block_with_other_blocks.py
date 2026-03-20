@@ -9,7 +9,7 @@ These tests verify that:
 """
 
 import pytest
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.implementations import (
@@ -30,7 +30,7 @@ class EchoBlock(BaseBlock):
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: self.description},
+                "results": {**state.results, self.block_id: BlockResult(output=self.description)},
                 "messages": state.messages
                 + [
                     {
@@ -121,7 +121,7 @@ async def test_workflow_block_followed_by_linear_block():
 
     # Verify: Output mapping from child worked
     assert "child_output" in final_state.results
-    assert final_state.results["child_output"] == "child result"
+    assert final_state.results["child_output"].output == "child result"
 
     # Verify: Cost accumulation (from parent LinearBlock)
     assert final_state.total_cost_usd >= 0.01
@@ -243,7 +243,7 @@ async def test_nested_workflow_blocks():
     # Verify: All levels executed
     assert "invoke_child" in final_state.results
     assert "child_result" in final_state.results
-    assert final_state.results["child_result"] == "Grandchild executed"
+    assert final_state.results["child_result"].output == "Grandchild executed"
 
     # Verify: System messages from top-level blocks
     # Note: Messages from nested workflows are propagated up through the parent message stream
@@ -251,7 +251,7 @@ async def test_nested_workflow_blocks():
     assert any("invoke_child" in m for m in messages)  # Parent → child block
     # The grandchild execution message may be in the child's state, then propagated
     # We verify the final output was correctly mapped instead
-    assert final_state.results["child_result"] == "Grandchild executed"
+    assert final_state.results["child_result"].output == "Grandchild executed"
 
 
 @pytest.mark.asyncio
@@ -277,14 +277,17 @@ async def test_workflow_block_state_isolation_complex():
             # Try to modify all state fields
             new_state = state.model_copy(
                 update={
-                    "results": {**state.results, "child_secret": "hidden"},
+                    "results": {**state.results, "child_secret": BlockResult(output="hidden")},
                     "shared_memory": {**state.shared_memory, "child_only": "secret_data"},
                     "metadata": {**state.metadata, "child_meta": "private"},
                 }
             )
             return new_state.model_copy(
                 update={
-                    "results": {**new_state.results, self.block_id: self.description},
+                    "results": {
+                        **new_state.results,
+                        self.block_id: BlockResult(output=self.description),
+                    },
                     "messages": new_state.messages
                     + [
                         {
@@ -315,7 +318,7 @@ async def test_workflow_block_state_isolation_complex():
 
     # Create parent state with existing data
     initial_state = WorkflowState(
-        results={"parent_data": "keep_me"},
+        results={"parent_data": BlockResult(output="keep_me")},
         shared_memory={"parent_key": "keep_me"},
         metadata={"parent_meta": "keep_me"},
     )
@@ -325,7 +328,7 @@ async def test_workflow_block_state_isolation_complex():
 
     # Verify: Parent's original data is preserved
     assert "parent_data" in final_state.results
-    assert final_state.results["parent_data"] == "keep_me"
+    assert final_state.results["parent_data"].output == "keep_me"
     assert final_state.shared_memory["parent_key"] == "keep_me"
     assert final_state.metadata["parent_meta"] == "keep_me"
 
@@ -359,7 +362,7 @@ async def test_workflow_block_cost_propagation_multiple_levels():
         async def execute(self, state, **kwargs):
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "Block"},
+                    "results": {**state.results, self.block_id: BlockResult(output="Block")},
                     "messages": state.messages
                     + [
                         {"role": "system", "content": f"[Block {self.block_id}] CostProducingBlock"}
@@ -465,5 +468,5 @@ async def test_workflow_block_with_router_block():
     assert "router" in final_state.results
     assert "invoke_child" in final_state.results
     assert "routed" in final_state.results
-    assert final_state.results["routed"] == "routed"
+    assert final_state.results["routed"].output == "routed"
     assert "final" in final_state.results

@@ -12,7 +12,7 @@ import pytest
 from runsight_core.blocks.implementations import GateBlock, FileWriterBlock
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner, ExecutionResult
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 
 
 def _mock_runner(output: str, cost: float = 0.01, tokens: int = 100) -> RunsightTeamRunner:
@@ -47,11 +47,13 @@ class TestGateBlock:
             eval_key=eval_key,
             runner=runner,
         )
-        state = WorkflowState(results={eval_key: "Some research content to evaluate"})
+        state = WorkflowState(
+            results={eval_key: BlockResult(output="Some research content to evaluate")}
+        )
 
         result_state = await block.execute(state)
 
-        assert result_state.results[block_id] == "PASS"
+        assert result_state.results[block_id].output == "PASS"
         assert result_state.metadata[f"{block_id}_decision"] == "pass"
 
     @pytest.mark.asyncio
@@ -68,7 +70,7 @@ class TestGateBlock:
             eval_key=eval_key,
             runner=runner,
         )
-        state = WorkflowState(results={eval_key: "Draft content"})
+        state = WorkflowState(results={eval_key: BlockResult(output="Draft content")})
 
         with pytest.raises(ValueError, match=r"GateBlock 'gate2' FAILED: bad quality"):
             await block.execute(state)
@@ -87,7 +89,7 @@ class TestGateBlock:
             eval_key=eval_key,
             runner=runner,
         )
-        state = WorkflowState(results={"other_key": "value"})
+        state = WorkflowState(results={"other_key": BlockResult(output="value")})
 
         with pytest.raises(ValueError, match=f"eval_key '{eval_key}' not found in state.results"):
             await block.execute(state)
@@ -109,11 +111,11 @@ class TestGateBlock:
             runner=runner,
             extract_field=extract_field,
         )
-        state = WorkflowState(results={eval_key: json.dumps(json_content)})
+        state = WorkflowState(results={eval_key: BlockResult(output=json.dumps(json_content))})
 
         result_state = await block.execute(state)
 
-        assert result_state.results[block_id] == "extracted_content"
+        assert result_state.results[block_id].output == "extracted_content"
         assert result_state.metadata[f"{block_id}_decision"] == "pass"
 
     @pytest.mark.asyncio
@@ -132,12 +134,12 @@ class TestGateBlock:
             runner=runner,
             extract_field=extract_field,
         )
-        state = WorkflowState(results={eval_key: "not valid json at all"})
+        state = WorkflowState(results={eval_key: BlockResult(output="not valid json at all")})
 
         result_state = await block.execute(state)
 
         # Should fall back to decision_line (PASS) when JSON parse fails
-        assert result_state.results[block_id] == "PASS"
+        assert result_state.results[block_id].output == "PASS"
         assert result_state.metadata[f"{block_id}_decision"] == "pass"
 
     @pytest.mark.asyncio
@@ -156,7 +158,7 @@ class TestGateBlock:
             runner=runner,
         )
         state = WorkflowState(
-            results={eval_key: "Content"},
+            results={eval_key: BlockResult(output="Content")},
             total_cost_usd=1.0,
             total_tokens=500,
         )
@@ -185,7 +187,7 @@ class TestFileWriterBlock:
                 output_path=output_path,
                 content_key=content_key,
             )
-            state = WorkflowState(results={content_key: content})
+            state = WorkflowState(results={content_key: BlockResult(output=content)})
 
             await block.execute(state)
 
@@ -206,7 +208,7 @@ class TestFileWriterBlock:
                 output_path=output_path,
                 content_key=content_key,
             )
-            state = WorkflowState(results={content_key: content})
+            state = WorkflowState(results={content_key: BlockResult(output=content)})
 
             await block.execute(state)
 
@@ -226,7 +228,7 @@ class TestFileWriterBlock:
                 output_path=output_path,
                 content_key=content_key,
             )
-            state = WorkflowState(results={"other_key": "value"})
+            state = WorkflowState(results={"other_key": BlockResult(output="value")})
 
             with pytest.raises(ValueError, match=f"content_key '{content_key}'"):
                 await block.execute(state)
@@ -245,11 +247,11 @@ class TestFileWriterBlock:
                 output_path=output_path,
                 content_key=content_key,
             )
-            state = WorkflowState(results={content_key: content})
+            state = WorkflowState(results={content_key: BlockResult(output=content)})
 
             result_state = await block.execute(state)
 
-            msg = result_state.results[block_id]
+            msg = result_state.results[block_id].output
             assert "Written" in msg
             assert "chars to" in msg
             assert str(len(content)) in msg
@@ -272,7 +274,7 @@ class TestFileWriterBlock:
             )
             initial_cost = 2.5
             state = WorkflowState(
-                results={content_key: content},
+                results={content_key: BlockResult(output=content)},
                 total_cost_usd=initial_cost,
                 total_tokens=1000,
             )

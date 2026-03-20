@@ -318,8 +318,8 @@ class TestMacOSEnvVars:
 
         assert "cb_platform" in result.results
         # Should NOT be an error — should be successful
-        assert "Error" not in result.results["cb_platform"], (
+        assert "Error" not in result.results["cb_platform"].output, (
             f"CodeBlock failed (likely env issue): {result.results['cb_platform']}"
         )
-        parsed = json.loads(result.results["cb_platform"])
+        parsed = json.loads(result.results["cb_platform"].output)
         assert parsed["value"] == 42

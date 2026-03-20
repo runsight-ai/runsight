@@ -55,7 +55,7 @@ async def test_e2e_single_block_workflow(mock_achat):
 
     # Verify end-to-end data flow
     assert (
-        final_state.results["research_block"]
+        final_state.results["research_block"].output
         == "Research complete: Found 5 relevant papers on quantum computing."
     )
     assert len(final_state.messages) == 1
@@ -140,9 +140,9 @@ async def test_e2e_sequential_block_workflow(mock_achat):
     assert "step3_writing" in state.results
 
     # Verify all outputs accumulated
-    assert "Research findings" in state.results["step1_research"]
-    assert "Analysis: Aspect 1" in state.results["step2_analysis"]
-    assert "Summary: Topic X" in state.results["step3_writing"]
+    assert "Research findings" in state.results["step1_research"].output
+    assert "Analysis: Aspect 1" in state.results["step2_analysis"].output
+    assert "Summary: Topic X" in state.results["step3_writing"].output
 
     # Verify message history accumulated
     assert len(state.messages) == 3
@@ -255,8 +255,8 @@ async def test_e2e_state_isolation_between_workflows(mock_achat):
     result2 = await block.execute(state2)
 
     # Verify complete isolation
-    assert result1.results["block"] == "Workflow 1 result"
-    assert result2.results["block"] == "Workflow 2 result"
+    assert result1.results["block"].output == "Workflow 1 result"
+    assert result2.results["block"].output == "Workflow 2 result"
     assert result1.metadata["workflow_id"] == "wf1"
     assert result2.metadata["workflow_id"] == "wf2"
 
@@ -299,7 +299,7 @@ async def test_e2e_long_running_workflow_state_size(mock_achat):
     # Verify all results stored in full
     assert len(state.results) == 10
     for i in range(10):
-        assert len(state.results[f"block{i}"]) == 500
+        assert len(state.results[f"block{i}"].output) == 500
 
     # Verify messages are truncated (200 chars + "..." in each message)
     assert len(state.messages) == 10
@@ -349,7 +349,7 @@ async def test_e2e_workflow_with_task_context_utilization(mock_achat):
     assert "Q4 metrics show 30% growth" in prompt_sent
 
     # Verify result reflects context usage
-    assert "Q4 metrics" in result_state.results["processor_block"]
+    assert "Q4 metrics" in result_state.results["processor_block"].output
 
 
 @pytest.mark.asyncio

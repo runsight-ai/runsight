@@ -5,7 +5,7 @@ Tests for advanced block implementations (RouterBlock, etc.).
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul, Task
 from runsight_core.blocks.implementations import (
     RouterBlock,
@@ -54,7 +54,7 @@ async def test_router_block_soul_evaluation(mock_runner, sample_soul):
     result_state = await block.execute(state)
 
     # Verify decision stored in results
-    assert result_state.results["router1"] == "approved"
+    assert result_state.results["router1"].output == "approved"
 
     # Verify decision stored in metadata
     assert result_state.metadata["router1_decision"] == "approved"
@@ -87,7 +87,7 @@ async def test_router_block_callable_evaluation(mock_runner):
     result_state = await block.execute(state)
 
     # Verify decision stored in results
-    assert result_state.results["router2"] == "approved"
+    assert result_state.results["router2"].output == "approved"
 
     # Verify decision stored in metadata
     assert result_state.metadata["router2_decision"] == "approved"
@@ -116,7 +116,7 @@ async def test_router_block_callable_evaluation_rejected(mock_runner):
 
     result_state = await block.execute(state)
 
-    assert result_state.results["router3"] == "rejected"
+    assert result_state.results["router3"].output == "rejected"
     assert result_state.metadata["router3_decision"] == "rejected"
 
 
@@ -160,7 +160,7 @@ async def test_router_block_soul_strips_whitespace(mock_runner, sample_soul):
     result_state = await block.execute(state)
 
     # Decision should be stripped
-    assert result_state.results["router5"] == "approved"
+    assert result_state.results["router5"].output == "approved"
     assert result_state.metadata["router5_decision"] == "approved"
 
 
@@ -179,7 +179,7 @@ async def test_router_block_callable_with_runner_allowed(mock_runner):
 
     result_state = await block.execute(state)
 
-    assert result_state.results["router6"] == "pass"
+    assert result_state.results["router6"].output == "pass"
 
 
 @pytest.mark.asyncio
@@ -217,7 +217,7 @@ async def test_team_lead_block_analyzes_failure(mock_runner, sample_soul):
     expected_recommendation = (
         "Root cause: Network timeout. Recommendation: Increase timeout to 30s and add retry logic."
     )
-    assert result_state.results["team_lead1"] == expected_recommendation
+    assert result_state.results["team_lead1"].output == expected_recommendation
     assert result_state.shared_memory["team_lead1_recommendation"] == expected_recommendation
 
     # Verify message logged
@@ -307,7 +307,7 @@ async def test_team_lead_block_handles_list_and_string_values(mock_runner, sampl
     result_state = await block.execute(state)
 
     # Verify execution succeeded
-    assert result_state.results["team_lead1"] == "Analysis complete"
+    assert result_state.results["team_lead1"].output == "Analysis complete"
 
     # Verify task instruction format
     call_args = mock_runner.execute_task.call_args
@@ -394,7 +394,7 @@ async def test_engineering_manager_generates_new_steps(mock_runner, planner_soul
     result_state = await block.execute(state)
 
     # Verify text plan in results
-    assert result_state.results["replanner1"] == well_formatted_plan
+    assert result_state.results["replanner1"].output == well_formatted_plan
 
     # Verify JSON step list in metadata
     steps = result_state.metadata["replanner1_new_steps"]
@@ -555,18 +555,18 @@ async def test_engineering_manager_preserves_existing_results_and_metadata(
     task = Task(id="test", instruction="Test task")
     state = WorkflowState(
         current_task=task,
-        results={"previous_block": "Previous result"},
+        results={"previous_block": BlockResult(output="Previous result")},
         metadata={"existing_key": "existing_value"},
     )
 
     result_state = await block.execute(state)
 
     # Verify existing data preserved
-    assert result_state.results["previous_block"] == "Previous result"
+    assert result_state.results["previous_block"].output == "Previous result"
     assert result_state.metadata["existing_key"] == "existing_value"
 
     # Verify new data added
-    assert result_state.results["replanner1"] == plan
+    assert result_state.results["replanner1"].output == plan
     assert "replanner1_new_steps" in result_state.metadata
 
 

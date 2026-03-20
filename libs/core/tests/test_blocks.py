@@ -6,7 +6,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.blocks.implementations import (
@@ -43,7 +43,7 @@ async def test_linear_block_execution(mock_runner, sample_soul):
 
     result_state = await block.execute(state)
 
-    assert result_state.results["linear1"] == "Test output"
+    assert result_state.results["linear1"].output == "Test output"
     assert len(result_state.messages) == 1
     assert "[Block linear1]" in result_state.messages[0]["content"]
     assert "Completed: Test output" in result_state.messages[0]["content"]
@@ -77,8 +77,8 @@ async def test_linear_block_message_truncation(mock_runner, sample_soul):
     result_state = await block.execute(state)
 
     # Full output stored in results
-    assert result_state.results["linear1"] == long_output
-    assert len(result_state.results["linear1"]) == 300
+    assert result_state.results["linear1"].output == long_output
+    assert len(result_state.results["linear1"].output) == 300
 
     # But message content is truncated to 200 chars + "..."
     message_content = result_state.messages[0]["content"]
@@ -96,13 +96,15 @@ async def test_linear_block_preserves_existing_results(mock_runner, sample_soul)
 
     block = LinearBlock("linear1", sample_soul, mock_runner)
     task = Task(id="t1", instruction="Test task")
-    state = WorkflowState(current_task=task, results={"previous_block": "Previous output"})
+    state = WorkflowState(
+        current_task=task, results={"previous_block": BlockResult(output="Previous output")}
+    )
 
     result_state = await block.execute(state)
 
     # Both old and new results should be present
-    assert result_state.results["previous_block"] == "Previous output"
-    assert result_state.results["linear1"] == "New output"
+    assert result_state.results["previous_block"].output == "Previous output"
+    assert result_state.results["linear1"].output == "New output"
 
 
 @pytest.mark.asyncio
@@ -147,7 +149,7 @@ async def test_fanout_block_parallel(mock_runner):
     result_state = await block.execute(state)
 
     # Verify JSON output format
-    outputs = json.loads(result_state.results["fanout1"])
+    outputs = json.loads(result_state.results["fanout1"].output)
     assert len(outputs) == 3
     assert outputs[0] == {"soul_id": "s1", "output": "Output from s1"}
     assert outputs[1] == {"soul_id": "s2", "output": "Output from s2"}
@@ -172,11 +174,16 @@ async def test_synthesize_block_combination(mock_runner, sample_soul):
     )
 
     block = SynthesizeBlock("synth1", ["block_a", "block_b"], sample_soul, mock_runner)
-    state = WorkflowState(results={"block_a": "Output A", "block_b": "Output B"})
+    state = WorkflowState(
+        results={
+            "block_a": BlockResult(output="Output A"),
+            "block_b": BlockResult(output="Output B"),
+        }
+    )
 
     result_state = await block.execute(state)
 
-    assert result_state.results["synth1"] == "Synthesized result combining both inputs"
+    assert result_state.results["synth1"].output == "Synthesized result combining both inputs"
 
     # Verify synthesis task includes both inputs
     call_args = mock_runner.execute_task.call_args
@@ -189,7 +196,7 @@ async def test_synthesize_block_combination(mock_runner, sample_soul):
 async def test_synthesize_block_missing_input(mock_runner, sample_soul):
     """SynthesizeBlock raises ValueError for missing inputs."""
     block = SynthesizeBlock("synth1", ["block_a", "block_b"], sample_soul, mock_runner)
-    state = WorkflowState(results={"block_a": "Output A"})  # Missing block_b
+    state = WorkflowState(results={"block_a": BlockResult(output="Output A")})  # Missing block_b
 
     with pytest.raises(ValueError, match="missing inputs: \\['block_b'\\]"):
         await block.execute(state)

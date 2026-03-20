@@ -77,12 +77,12 @@ async def test_router_block_evaluator_types_both_branches(mock_runner, test_soul
 
     # Verify callable evaluator works
     state_callable = await router_callable.execute(state)
-    assert state_callable.results["router_callable"] == "approved"
+    assert state_callable.results["router_callable"].output == "approved"
     assert state_callable.metadata["router_callable_decision"] == "approved"
 
     # Verify Soul evaluator works
     state_soul = await router_soul.execute(state)
-    assert state_soul.results["router_soul"] == "approved"
+    assert state_soul.results["router_soul"].output == "approved"
     assert state_soul.metadata["router_soul_decision"] == "approved"
 
     # Verify both types can coexist in same workflow
@@ -115,7 +115,7 @@ async def test_router_with_shared_memory_consumers(mock_runner, test_souls):
     )
 
     state_result = await router.execute(state)
-    assert state_result.results["router3"] == "proceed"
+    assert state_result.results["router3"].output == "proceed"
     assert state_result.metadata["router3_decision"] == "proceed"
 
 
@@ -152,5 +152,5 @@ async def test_workflow_integration_with_router_block(mock_runner, test_souls):
 
     # Verify execution and results
     assert "rt" in final_state.results
-    assert final_state.results["rt"] == "approved"
+    assert final_state.results["rt"].output == "approved"
     assert final_state.metadata["rt_decision"] == "approved"

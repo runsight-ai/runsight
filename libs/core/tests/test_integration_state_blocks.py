@@ -8,7 +8,7 @@ implementations, focusing on state immutability and proper data flow.
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.blocks.base import BaseBlock
@@ -47,7 +47,7 @@ async def test_state_immutability_across_block_execution(mock_runner, test_soul)
     # Original state with pre-existing data
     original_state = WorkflowState(
         current_task=task,
-        results={"previous": "data"},
+        results={"previous": BlockResult(output="data")},
         messages=[{"role": "system", "content": "Original message"}],
         shared_memory={"key": "value"},
         metadata={"execution_id": "test123"},
@@ -57,13 +57,16 @@ async def test_state_immutability_across_block_execution(mock_runner, test_soul)
     new_state = await block.execute(original_state)
 
     # CRITICAL: Original state must be unchanged (immutability)
-    assert original_state.results == {"previous": "data"}
+    assert original_state.results == {"previous": BlockResult(output="data")}
     assert len(original_state.messages) == 1
     assert original_state.shared_memory == {"key": "value"}
     assert original_state.metadata == {"execution_id": "test123"}
 
     # New state should have updates
-    assert new_state.results == {"previous": "data", "block1": "Integration output"}
+    assert new_state.results == {
+        "previous": BlockResult(output="data"),
+        "block1": BlockResult(output="Integration output"),
+    }
     assert len(new_state.messages) == 2
 
     # Verify they are different instances
@@ -127,8 +130,8 @@ async def test_execution_result_to_state_results_mapping(mock_runner, test_soul)
     result_state = await block.execute(state)
 
     # Verify exact output mapping
-    assert result_state.results["test_block"] == execution_output
-    assert result_state.results["test_block"] == mock_runner.execute_task.return_value.output
+    assert result_state.results["test_block"].output == execution_output
+    assert result_state.results["test_block"].output == mock_runner.execute_task.return_value.output
 
 
 @pytest.mark.asyncio
@@ -243,9 +246,9 @@ async def test_multi_block_state_accumulation(mock_runner, test_soul):
 
     # Verify all block outputs accumulated
     assert state.results == {
-        "block1": "Block 1 output",
-        "block2": "Block 2 output",
-        "block3": "Block 3 output",
+        "block1": BlockResult(output="Block 1 output"),
+        "block2": BlockResult(output="Block 2 output"),
+        "block3": BlockResult(output="Block 3 output"),
     }
 
     # Verify all messages accumulated
@@ -277,11 +280,11 @@ async def test_state_messages_integration_with_truncation(mock_runner, test_soul
     result_state = await block.execute(state)
 
     # Full output in results
-    assert result_state.results["block1"] == long_output
-    assert len(result_state.results["block1"]) == 250
+    assert result_state.results["block1"].output == long_output
+    assert len(result_state.results["block1"].output) == 250
 
     # Truncated in messages
     message_content = result_state.messages[0]["content"]
     assert "..." in message_content
     assert "X" * 200 in message_content
-    assert len(result_state.results["block1"]) > 200  # results has full version
+    assert len(result_state.results["block1"].output) > 200  # results has full version

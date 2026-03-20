@@ -10,7 +10,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.blocks.implementations import (
@@ -93,7 +93,7 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
     linear = LinearBlock("research", sample_souls["researcher"], mock_runner)
     state = await linear.execute(state)
     assert "research" in state.results
-    assert state.results["research"] == "Research complete"
+    assert state.results["research"].output == "Research complete"
 
     # Update task and execute FanOutBlock
     state = state.model_copy(update={"current_task": Task(id="t2", instruction="Review research")})
@@ -105,7 +105,7 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
     # Verify state accumulation
     assert "research" in state.results  # Previous result preserved
     assert "reviews" in state.results  # New result added
-    reviews_data = json.loads(state.results["reviews"])
+    reviews_data = json.loads(state.results["reviews"].output)
     assert len(reviews_data) == 2
 
 
@@ -158,7 +158,7 @@ async def test_workflow_linear_to_fanout_workflow(mock_runner, sample_souls):
     assert "reviews" in final_state.results
 
     # Verify FanOut produced JSON with 3 reviews
-    reviews = json.loads(final_state.results["reviews"])
+    reviews = json.loads(final_state.results["reviews"].output)
     assert len(reviews) == 3
     assert reviews[0]["soul_id"] == "reviewer1"
     assert reviews[1]["soul_id"] == "reviewer2"
@@ -203,7 +203,7 @@ async def test_workflow_fanout_to_synthesize_workflow(mock_runner, sample_souls)
     # Verify SynthesizeBlock received FanOut output
     assert "fanout" in final_state.results
     assert "synthesis" in final_state.results
-    assert "Combined" in final_state.results["synthesis"]
+    assert "Combined" in final_state.results["synthesis"].output
 
     # Verify synthesizer task included fanout JSON output
     synth_call = mock_runner.execute_task.call_args_list[2]  # 3rd call
@@ -321,7 +321,8 @@ async def test_state_immutability_across_workflow_execution(mock_runner, sample_
 
     # Execute and capture states
     initial_state = WorkflowState(
-        current_task=Task(id="t1", instruction="Test"), results={"initial": "value"}
+        current_task=Task(id="t1", instruction="Test"),
+        results={"initial": BlockResult(output="value")},
     )
 
     # Store initial state ID
@@ -335,7 +336,7 @@ async def test_state_immutability_across_workflow_execution(mock_runner, sample_
     assert id(final_state.results) != initial_results_id
 
     # Verify original state unchanged
-    assert initial_state.results == {"initial": "value"}
+    assert initial_state.results == {"initial": BlockResult(output="value")}
     assert len(initial_state.messages) == 0
 
     # Verify final state has accumulated data

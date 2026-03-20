@@ -138,11 +138,11 @@ class TestRunNodeOutputExtraction:
         obs, engine, run_id = observer
         obs.on_block_start("wf", "block_c", "LinearBlock")
 
-        # WorkflowState auto-coerces strings to BlockResult via field_validator
+        # Auto-coercion removed (RUN-179); must pass BlockResult explicitly
         state = WorkflowState(
             total_cost_usd=0.02,
             total_tokens=200,
-            results={"block_c": "Auto coerced output"},
+            results={"block_c": BlockResult(output="Auto coerced output")},
         )
         obs.on_block_complete("wf", "block_c", "LinearBlock", 0.3, state)
 

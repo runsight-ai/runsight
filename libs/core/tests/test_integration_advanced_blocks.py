@@ -85,7 +85,7 @@ async def test_router_callable_evaluator_workflow(mock_runner, sample_souls):
     final_state = await wf.run(initial_state)
 
     assert "router1" in final_state.results
-    assert final_state.results["router1"] == "approved"
+    assert final_state.results["router1"].output == "approved"
     assert final_state.metadata["router1_decision"] == "approved"
 
     assert len(final_state.messages) == 1
@@ -114,7 +114,7 @@ async def test_router_soul_evaluator_workflow(mock_runner, sample_souls):
     final_state = await wf.run(initial_state)
 
     assert "router2" in final_state.results
-    assert "approved" in final_state.results["router2"]
+    assert "approved" in final_state.results["router2"].output
     assert "approved" in final_state.metadata["router2_decision"]
 
     assert mock_runner.execute_task.call_count == 1

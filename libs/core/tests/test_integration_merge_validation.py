@@ -14,7 +14,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from runsight_core.workflow import Workflow
 from runsight_core.primitives import Soul, Task, Step
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.implementations import (
     TeamLeadBlock,
@@ -37,7 +37,7 @@ class MockBlock(BaseBlock):
     async def execute(self, state: WorkflowState) -> WorkflowState:
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: self.output},
+                "results": {**state.results, self.block_id: BlockResult(output=self.output)},
                 "messages": state.messages
                 + [{"role": "system", "content": f"[{self.block_id}] executed"}],
             }
@@ -132,8 +132,8 @@ async def test_workflow_execution_renamed_class():
     # Verify both blocks executed
     assert "a" in final_state.results
     assert "b" in final_state.results
-    assert final_state.results["a"] == "output_a"
-    assert final_state.results["b"] == "output_b"
+    assert final_state.results["a"].output == "output_a"
+    assert final_state.results["b"].output == "output_b"
 
 
 def test_workflow_terminal_block_no_transition():
@@ -492,6 +492,6 @@ async def test_all_renamed_classes_in_workflow_execution(mock_runner, test_souls
     final_state = await wf.run(state, registry=registry)
 
     # Verify execution
-    assert final_state.results["advisor"] == "Error analysis"
-    assert final_state.results["planner"] == "1. step1: Recover\n2. step2: Retry"
+    assert final_state.results["advisor"].output == "Error analysis"
+    assert final_state.results["planner"].output == "1. step1: Recover\n2. step2: Retry"
     assert "advisor_recommendation" in final_state.shared_memory

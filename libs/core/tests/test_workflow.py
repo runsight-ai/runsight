@@ -3,7 +3,7 @@ Tests for Workflow state machine and validation.
 """
 
 import pytest
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.blocks.base import BaseBlock
 
@@ -20,7 +20,7 @@ class MockBlock(BaseBlock):
         self.executed = True
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: self.output},
+                "results": {**state.results, self.block_id: BlockResult(output=self.output)},
                 "messages": state.messages
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
             }
@@ -98,7 +98,11 @@ async def test_workflow_linear_execution():
     assert block_c.executed
 
     # Verify results accumulated
-    assert final_state.results == {"a": "Output A", "b": "Output B", "c": "Output C"}
+    assert final_state.results == {
+        "a": BlockResult(output="Output A"),
+        "b": BlockResult(output="Output B"),
+        "c": BlockResult(output="Output C"),
+    }
 
     # Verify messages appended
     assert len(final_state.messages) == 3
@@ -295,7 +299,7 @@ async def test_dynamic_routing_global_decision():
             # Simulate RouterBlock writing global decision key
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "approved"},
+                    "results": {**state.results, self.block_id: BlockResult(output="approved")},
                     "metadata": {**state.metadata, "router_decision": "approved"},
                     "messages": state.messages
                     + [{"role": "system", "content": "[Block router] RouterMock"}],
@@ -338,7 +342,7 @@ async def test_dynamic_routing_block_scoped_decision():
             # Write only block-scoped key (no global router_decision)
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "rejected"},
+                    "results": {**state.results, self.block_id: BlockResult(output="rejected")},
                     "metadata": {**state.metadata, "router_decision": "rejected"},
                     "messages": state.messages
                     + [{"role": "system", "content": "[Block router] RouterMock"}],
@@ -380,7 +384,10 @@ async def test_dynamic_injection_with_registry():
         async def execute(self, state: WorkflowState) -> WorkflowState:
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "plan generated"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="plan generated"),
+                    },
                     "metadata": {
                         **state.metadata,
                         "planner_new_steps": [
@@ -423,7 +430,10 @@ async def test_dynamic_injection_placeholder_fallback():
         async def execute(self, state: WorkflowState) -> WorkflowState:
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "plan generated"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="plan generated"),
+                    },
                     "metadata": {
                         **state.metadata,
                         "planner_new_steps": [
@@ -461,7 +471,10 @@ def test_dynamic_injection_missing_step_id():
         async def execute(self, state: WorkflowState) -> WorkflowState:
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "plan generated"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="plan generated"),
+                    },
                     "metadata": {
                         **state.metadata,
                         "planner_new_steps": [
@@ -497,7 +510,10 @@ def test_dynamic_injection_missing_description():
         async def execute(self, state: WorkflowState) -> WorkflowState:
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "plan generated"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="plan generated"),
+                    },
                     "metadata": {
                         **state.metadata,
                         "planner_new_steps": [
@@ -541,7 +557,10 @@ async def test_run_backward_compatible_without_registry():
 
     assert block_a.executed
     assert block_b.executed
-    assert final_state.results == {"a": "Output A", "b": "Output B"}
+    assert final_state.results == {
+        "a": BlockResult(output="Output A"),
+        "b": BlockResult(output="Output B"),
+    }
 
 
 @pytest.mark.asyncio
@@ -560,7 +579,7 @@ async def test_dynamic_routing():
             # Simulate RouterBlock writing global decision key
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "approved"},
+                    "results": {**state.results, self.block_id: BlockResult(output="approved")},
                     "metadata": {**state.metadata, "router_decision": "approved"},
                     "messages": state.messages
                     + [{"role": "system", "content": "[Block router] RouterMock"}],
@@ -600,7 +619,7 @@ async def test_dynamic_routing():
             # Only write block-scoped key (no global router_decision)
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "rejected"},
+                    "results": {**state.results, self.block_id: BlockResult(output="rejected")},
                     "metadata": {**state.metadata, "router2_decision": "rejected"},
                     "messages": state.messages
                     + [{"role": "system", "content": "[Block router2] RouterMockScoped"}],
@@ -635,7 +654,10 @@ async def test_dynamic_routing():
         async def execute(self, state: WorkflowState) -> WorkflowState:
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "unknown_decision"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="unknown_decision"),
+                    },
                     "metadata": {**state.metadata, "router_decision": "unknown_decision"},
                     "messages": state.messages
                     + [{"role": "system", "content": "[Block router3] RouterMockUnknown"}],
@@ -668,7 +690,7 @@ async def test_dynamic_routing():
         async def execute(self, state: WorkflowState) -> WorkflowState:
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "missing"},
+                    "results": {**state.results, self.block_id: BlockResult(output="missing")},
                     "metadata": {**state.metadata, "router_decision": "missing"},
                     "messages": state.messages
                     + [{"role": "system", "content": "[Block router4] RouterMockNoDefault"}],
@@ -707,7 +729,10 @@ async def test_dynamic_injection():
         async def execute(self, state: WorkflowState) -> WorkflowState:
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "plan generated"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="plan generated"),
+                    },
                     "metadata": {
                         **state.metadata,
                         "planner_new_steps": [
@@ -747,7 +772,10 @@ async def test_dynamic_injection():
         async def execute(self, state: WorkflowState) -> WorkflowState:
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "plan2 generated"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="plan2 generated"),
+                    },
                     "metadata": {
                         **state.metadata,
                         "planner2_new_steps": [

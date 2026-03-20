@@ -7,7 +7,7 @@ WorkflowBlock, verifying call_stack and workflow_registry propagation.
 
 import pytest
 
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.implementations import WorkflowBlock
@@ -24,7 +24,7 @@ class SimpleBlock(BaseBlock):
         """Execute by recording output in results."""
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: self.output},
+                "results": {**state.results, self.block_id: BlockResult(output=self.output)},
                 "messages": state.messages
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
             }
@@ -83,7 +83,7 @@ async def test_parent_child_workflow_execution():
     # ==== Execute: Create initial state with mapped inputs ====
     initial_state = WorkflowState(
         shared_memory={"research_topic": "quantum computing", "other": "data"},
-        results={"existing": "value"},
+        results={"existing": BlockResult(output="value")},
         metadata={"workflow_id": "test_workflow"},
         total_cost_usd=0.0,
         total_tokens=0,
@@ -99,14 +99,14 @@ async def test_parent_child_workflow_execution():
 
     # ==== Verify: WorkflowBlock result recorded ====
     assert "invoke_child" in final_state.results
-    assert "WorkflowBlock 'child_workflow' completed" in final_state.results["invoke_child"]
+    assert "WorkflowBlock 'child_workflow' completed" in final_state.results["invoke_child"].output
 
     # ==== Verify: Output mapping (child results → parent state) ====
     assert "analysis" in final_state.results
-    assert final_state.results["analysis"] == "child output"
+    assert final_state.results["analysis"].output == "child output"
 
     # ==== Verify: Existing parent data preserved ====
-    assert final_state.results["existing"] == "value"
+    assert final_state.results["existing"].output == "value"
     assert final_state.shared_memory["other"] == "data"
 
     # ==== Verify: System message appended with cost summary ====
@@ -406,7 +406,10 @@ async def test_workflow_block_input_output_mapping():
     # Create parent state with values to map
     initial_state = WorkflowState(
         shared_memory={"parent_key": "parent_shared_value", "other": "untouched"},
-        results={"parent_context": "context_data", "existing": "data"},
+        results={
+            "parent_context": BlockResult(output="context_data"),
+            "existing": BlockResult(output="data"),
+        },
         metadata={"test": "metadata"},
     )
 
@@ -417,10 +420,10 @@ async def test_workflow_block_input_output_mapping():
     # Child produced "child result" in results.child_step
     # This should be mapped to results.output_key in parent
     assert "output_key" in final_state.results
-    assert final_state.results["output_key"] == "child result"
+    assert final_state.results["output_key"].output == "child result"
 
     # Verify: Preserved parent data
-    assert final_state.results["existing"] == "data"
+    assert final_state.results["existing"].output == "data"
     assert final_state.shared_memory["other"] == "untouched"
     assert final_state.metadata["test"] == "metadata"
 

@@ -13,6 +13,7 @@ Tests cover:
 - WorkflowState empty results still works
 """
 
+import pytest
 from typing import Dict
 
 
@@ -123,25 +124,27 @@ class TestBlockResultModel:
 class TestWorkflowStateAutoCoercion:
     """Tests for the WorkflowState results field auto-coercing str -> BlockResult."""
 
-    def test_string_value_auto_coerced_to_block_result(self):
-        """WorkflowState(results={"key": "value"}) coerces string to BlockResult."""
+    def test_string_value_rejected_by_workflow_state(self):
+        """WorkflowState(results={"key": "value"}) raises ValidationError after RUN-179."""
+        from pydantic import ValidationError
+
+        from runsight_core.state import WorkflowState
+
+        with pytest.raises(ValidationError):
+            WorkflowState(results={"key": "value"})
+
+    def test_block_result_value_output_matches(self):
+        """state.results['key'].output returns the original string."""
         from runsight_core.state import BlockResult, WorkflowState
 
-        state = WorkflowState(results={"key": "value"})
-        assert isinstance(state.results["key"], BlockResult)
-
-    def test_coerced_value_output_matches(self):
-        """After coercion, state.results['key'].output returns the original string."""
-        from runsight_core.state import WorkflowState
-
-        state = WorkflowState(results={"key": "value"})
+        state = WorkflowState(results={"key": BlockResult(output="value")})
         assert state.results["key"].output == "value"
 
-    def test_coerced_value_artifact_ref_is_none(self):
-        """After coercion, state.results['key'].artifact_ref is None."""
-        from runsight_core.state import WorkflowState
+    def test_block_result_value_artifact_ref_is_none(self):
+        """state.results['key'].artifact_ref is None for output-only BlockResult."""
+        from runsight_core.state import BlockResult, WorkflowState
 
-        state = WorkflowState(results={"key": "value"})
+        state = WorkflowState(results={"key": BlockResult(output="value")})
         assert state.results["key"].artifact_ref is None
 
     def test_block_result_accepted_directly(self):
@@ -153,20 +156,15 @@ class TestWorkflowStateAutoCoercion:
         assert isinstance(state.results["key"], BlockResult)
         assert state.results["key"].output == "x"
 
-    def test_mixed_dict_coerces_strings_only(self):
-        """Mixed dict with str and BlockResult values — coerces strings only."""
+    def test_mixed_dict_with_string_rejected(self):
+        """Mixed dict with str and BlockResult values raises ValidationError after RUN-179."""
+        from pydantic import ValidationError
+
         from runsight_core.state import BlockResult, WorkflowState
 
         br = BlockResult(output="x")
-        state = WorkflowState(results={"a": "string_val", "b": br})
-
-        # "a" was a string, should be coerced to BlockResult
-        assert isinstance(state.results["a"], BlockResult)
-        assert state.results["a"].output == "string_val"
-
-        # "b" was already a BlockResult, should remain unchanged
-        assert isinstance(state.results["b"], BlockResult)
-        assert state.results["b"].output == "x"
+        with pytest.raises(ValidationError):
+            WorkflowState(results={"a": "string_val", "b": br})
 
     def test_empty_results_still_works(self):
         """WorkflowState with empty results dict still works after type change."""

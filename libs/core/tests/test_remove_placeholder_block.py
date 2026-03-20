@@ -14,7 +14,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import BLOCK_TYPE_REGISTRY, parse_workflow_yaml
 
@@ -34,7 +34,7 @@ class MockBlock(BaseBlock):
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: self.output},
+                "results": {**state.results, self.block_id: BlockResult(output=self.output)},
                 "messages": state.messages
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
             }

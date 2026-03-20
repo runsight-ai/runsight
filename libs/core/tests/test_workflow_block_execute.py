@@ -5,7 +5,7 @@ Tests for WorkflowBlock execution, mapping, and state isolation.
 import pytest
 from unittest.mock import AsyncMock
 
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.blocks.implementations import WorkflowBlock
 
 
@@ -14,7 +14,7 @@ def base_parent_state():
     """Create a parent state with pre-populated data."""
     return WorkflowState(
         shared_memory={"research_topic": "AI safety", "other": "data"},
-        results={"existing_result": "previous output"},
+        results={"existing_result": BlockResult(output="previous output")},
         current_task=None,
         metadata={"workflow_id": "test_wf"},
     )
@@ -34,7 +34,7 @@ async def test_input_mapping_success(base_parent_state, mock_child_workflow):
     """Test successful input mapping from parent to child."""
     # Arrange
     child_final_state = WorkflowState(
-        results={"final": "child_output"},
+        results={"final": BlockResult(output="child_output")},
         total_cost_usd=0.05,
         total_tokens=50,
     )
@@ -83,7 +83,7 @@ async def test_output_mapping_success(base_parent_state, mock_child_workflow):
     """AC-9: Output mapping writes child results to parent state."""
     # Arrange
     child_final_state = WorkflowState(
-        results={"final": "child_output_value"},
+        results={"final": BlockResult(output="child_output_value")},
         total_cost_usd=0.05,
         total_tokens=50,
     )
@@ -101,7 +101,7 @@ async def test_output_mapping_success(base_parent_state, mock_child_workflow):
     result = await block.execute(base_parent_state)
 
     # Assert - verify output was written to parent state
-    assert result.results.get("parent_out") == "child_output_value"
+    assert result.results.get("parent_out") == BlockResult(output="child_output_value")
 
 
 @pytest.mark.asyncio
@@ -109,7 +109,7 @@ async def test_child_state_isolation(base_parent_state, mock_child_workflow):
     """AC-10: Child receives clean isolated state (only mapped inputs)."""
     # Arrange
     child_final_state = WorkflowState(
-        results={"child_result": "output"},
+        results={"child_result": BlockResult(output="output")},
         total_cost_usd=0.01,
         total_tokens=10,
     )
@@ -139,7 +139,7 @@ async def test_cost_propagation(base_parent_state, mock_child_workflow):
     """AC-11: Cost and token counts propagate from child to parent."""
     # Arrange
     child_final_state = WorkflowState(
-        results={"final": "output"},
+        results={"final": BlockResult(output="output")},
         total_cost_usd=0.05,
         total_tokens=100,
     )
@@ -171,7 +171,7 @@ async def test_system_message_appended(base_parent_state, mock_child_workflow):
     """Test that system message is appended to messages."""
     # Arrange
     child_final_state = WorkflowState(
-        results={"final": "output"},
+        results={"final": BlockResult(output="output")},
         total_cost_usd=0.05,
         total_tokens=50,
     )
@@ -242,7 +242,7 @@ async def test_resolve_dotted_current_task(base_parent_state):
 async def test_resolve_dotted_results(base_parent_state):
     """Test _resolve_dotted with results path."""
     # Arrange
-    state = WorkflowState(results={"block_a": "output_a"})
+    state = WorkflowState(results={"block_a": BlockResult(output="output_a")})
     block = WorkflowBlock(
         block_id="test_resolve",
         child_workflow=AsyncMock(),
@@ -254,7 +254,7 @@ async def test_resolve_dotted_results(base_parent_state):
     value = block._resolve_dotted(state, "results.block_a")
 
     # Assert
-    assert value == "output_a"
+    assert value == BlockResult(output="output_a")
 
 
 @pytest.mark.asyncio
@@ -299,7 +299,7 @@ async def test_resolve_dotted_metadata(base_parent_state):
 async def test_write_dotted_results(base_parent_state):
     """Test _write_dotted with results path."""
     # Arrange
-    state = WorkflowState(results={"existing": "value"})
+    state = WorkflowState(results={"existing": BlockResult(output="value")})
     block = WorkflowBlock(
         block_id="test_write",
         child_workflow=AsyncMock(),
@@ -312,7 +312,7 @@ async def test_write_dotted_results(base_parent_state):
 
     # Assert
     assert new_state.results["new_key"] == "new_value"
-    assert new_state.results["existing"] == "value"  # Original preserved
+    assert new_state.results["existing"] == BlockResult(output="value")  # Original preserved
 
 
 @pytest.mark.asyncio

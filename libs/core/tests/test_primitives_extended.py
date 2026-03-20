@@ -79,7 +79,7 @@ async def test_step_executes_hooks(mock_runner, sample_soul):
     assert result_state.metadata["execution_order"] == ["pre_hook", "post_hook"]
 
     # Verify block executed successfully
-    assert result_state.results["linear1"] == "Block output"
+    assert result_state.results["linear1"].output == "Block output"
     assert len(result_state.messages) == 1
     assert "[Block linear1]" in result_state.messages[0]["content"]
 
@@ -107,7 +107,7 @@ async def test_step_no_hooks(mock_runner, sample_soul):
     result_state = await step.execute(initial_state)
 
     # Verify block executed normally
-    assert result_state.results["linear1"] == "Block output"
+    assert result_state.results["linear1"].output == "Block output"
     assert len(result_state.messages) == 1
     assert "[Block linear1]" in result_state.messages[0]["content"]
 
@@ -141,7 +141,7 @@ async def test_step_only_pre_hook(mock_runner, sample_soul):
     assert result_state.metadata["pre_hook_ran"] is True
 
     # Verify block executed
-    assert result_state.results["linear1"] == "Block output"
+    assert result_state.results["linear1"].output == "Block output"
 
 
 @pytest.mark.asyncio
@@ -173,7 +173,7 @@ async def test_step_only_post_hook(mock_runner, sample_soul):
     assert result_state.metadata["post_hook_ran"] is True
 
     # Verify block executed
-    assert result_state.results["linear1"] == "Block output"
+    assert result_state.results["linear1"].output == "Block output"
 
 
 @pytest.mark.asyncio
@@ -203,7 +203,7 @@ async def test_step_state_flows_through_phases(mock_runner, sample_soul):
     def post_hook(state: WorkflowState) -> WorkflowState:
         # Post hook can see both pre_hook's addition and block's result
         assert state.shared_memory["pre_value"] == "from_pre"
-        assert state.results["linear1"] == "Block output"
+        assert state.results["linear1"].output == "Block output"
         return state.model_copy(
             update={"shared_memory": {**state.shared_memory, "post_value": "from_post"}}
         )
@@ -217,4 +217,4 @@ async def test_step_state_flows_through_phases(mock_runner, sample_soul):
     # Verify all state modifications are present in final state
     assert result_state.shared_memory["pre_value"] == "from_pre"
     assert result_state.shared_memory["post_value"] == "from_post"
-    assert result_state.results["linear1"] == "Block output"
+    assert result_state.results["linear1"].output == "Block output"

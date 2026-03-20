@@ -346,7 +346,7 @@ class TestLoopBlockRouterCrossFeatureIntegration:
 
         # Router should have decided "approved" based on loop completing 3 rounds
         assert "router1" in final_state.results
-        assert final_state.results["router1"] == "approved"
+        assert final_state.results["router1"].output == "approved"
         assert final_state.metadata["router1_decision"] == "approved"
 
     @pytest.mark.asyncio
@@ -413,7 +413,7 @@ class TestLoopBlockRouterCrossFeatureIntegration:
         assert meta["rounds_completed"] == 2
 
         # Router should see the early exit
-        assert final_state.results["router1"] == "early_exit"
+        assert final_state.results["router1"].output == "early_exit"
 
 
 # ===========================================================================
@@ -591,7 +591,7 @@ class TestLoopBlockTeamLeadIntegration:
 
         # TeamLeadBlock should have produced a recommendation
         assert "teamlead1" in final_state.results
-        assert "Root cause" in final_state.results["teamlead1"]
+        assert "Root cause" in final_state.results["teamlead1"].output
         assert "teamlead1_recommendation" in final_state.shared_memory
 
         # TeamLeadBlock should have been called with feedback context
@@ -675,7 +675,7 @@ class TestLoopBlockMultiBlockWorkflowIntegration:
         assert len(feedback) == 2
 
         # Router approved based on loop completion
-        assert final_state.results["router1"] == "approved"
+        assert final_state.results["router1"].output == "approved"
         assert final_state.metadata["router1_decision"] == "approved"
 
         # Router block produced message
@@ -812,7 +812,7 @@ class TestLoopBlockConditionalTransition:
         assert final_state.shared_memory["__loop__loop_block"]["broke_early"] is True
 
         # Router decided early_exit
-        assert final_state.results["router1"] == "early_exit"
+        assert final_state.results["router1"].output == "early_exit"
 
         # Early handler was executed, full handler was NOT
         assert "early_handler" in final_state.results

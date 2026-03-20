@@ -16,7 +16,7 @@ from pydantic import TypeAdapter
 from runsight_core.yaml.schema import RunsightWorkflowFile, BlockDef
 from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.blocks.implementations import WorkflowBlock, LinearBlock
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul
 
 
@@ -225,7 +225,7 @@ transitions:
         child_wf = AsyncMock()
         child_wf.name = "child"
         child_final_state = WorkflowState(
-            results={"child_result": "output"},
+            results={"child_result": BlockResult(output="output")},
             total_cost_usd=0.05,
             total_tokens=50,
         )
@@ -240,7 +240,7 @@ transitions:
 
         parent_state = WorkflowState(
             shared_memory={"parent_data": "important"},
-            results={"existing": "value"},
+            results={"existing": BlockResult(output="value")},
         )
 
         # Execute
@@ -256,9 +256,9 @@ transitions:
         assert "existing" not in child_state_arg.results
 
         # Parent should have output mapped back
-        assert result.results.get("child_out") == "output"
+        assert result.results.get("child_out") == BlockResult(output="output")
         # Parent's original data preserved
-        assert result.results.get("existing") == "value"
+        assert result.results.get("existing") == BlockResult(output="value")
 
     @pytest.mark.asyncio
     async def test_workflow_block_cost_propagation(self):
@@ -266,7 +266,7 @@ transitions:
         child_wf = AsyncMock()
         child_wf.name = "child"
         child_final_state = WorkflowState(
-            results={"final": "output"},
+            results={"final": BlockResult(output="output")},
             total_cost_usd=0.25,
             total_tokens=250,
         )
@@ -473,7 +473,7 @@ transitions:
         inner_wf = AsyncMock()
         inner_wf.name = "inner"
         inner_final_state = WorkflowState(
-            results={"inner_result": "inner_output"},
+            results={"inner_result": BlockResult(output="inner_output")},
             total_cost_usd=0.01,
             total_tokens=10,
         )
@@ -483,7 +483,7 @@ transitions:
         outer_wf = AsyncMock()
         outer_wf.name = "outer"
         outer_final_state = WorkflowState(
-            results={"outer_result": "outer_output"},
+            results={"outer_result": BlockResult(output="outer_output")},
             total_cost_usd=0.02,
             total_tokens=20,
         )
@@ -502,7 +502,7 @@ transitions:
         result = await parent_block.execute(parent_state, call_stack=[])
 
         # Verify state and costs are properly aggregated
-        assert result.results["final"] == "outer_output"
+        assert result.results["final"] == BlockResult(output="outer_output")
         assert result.total_cost_usd == pytest.approx(0.07)  # 0.05 + 0.02
         assert result.total_tokens == 70  # 50 + 20
 

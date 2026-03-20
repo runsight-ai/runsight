@@ -16,7 +16,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.domain.entities.log import LogEntry
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.observer import WorkflowObserver
 
 
@@ -254,7 +254,7 @@ class TestOnBlockComplete:
         state = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=500,
-            results={"block_a": "The analysis is complete."},
+            results={"block_a": BlockResult(output="The analysis is complete.")},
         )
         obs.on_block_complete("wf", "block_a", "LinearBlock", 1.0, state)
 
@@ -408,7 +408,12 @@ class TestOnWorkflowComplete:
     def test_stores_results_json(self, observer):
         """on_workflow_complete stores state.results as Run.results_json."""
         obs, engine, run_id = observer
-        state = WorkflowState(results={"block_a": "output_a", "block_b": "output_b"})
+        state = WorkflowState(
+            results={
+                "block_a": BlockResult(output="output_a"),
+                "block_b": BlockResult(output="output_b"),
+            }
+        )
         obs.on_workflow_complete("wf", state, 5.0)
 
         with Session(engine) as session:

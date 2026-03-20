@@ -22,7 +22,7 @@ import json
 import pytest
 
 from runsight_core.primitives import Step
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml import parser as parser_module
@@ -45,7 +45,7 @@ class MockBlock:
         self.last_state = state
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: "mock_result"},
+                "results": {**state.results, self.block_id: BlockResult(output="mock_result")},
             }
         )
 
@@ -437,7 +437,7 @@ class TestStepInputResolution:
         step = Step(block, declared_inputs={"context": "step_a.result"})
 
         state = WorkflowState(
-            results={"step_a": "research output data"},
+            results={"step_a": BlockResult(output="research output data")},
         )
 
         await step.execute(state)
@@ -457,7 +457,7 @@ class TestStepInputResolution:
         # state.results stores JSON string; Step should auto-parse and navigate
         nested_data = json.dumps({"nested": {"field": "deep_value"}})
         state = WorkflowState(
-            results={"step_a": nested_data},
+            results={"step_a": BlockResult(output=nested_data)},
         )
 
         await step.execute(state)
@@ -491,7 +491,7 @@ class TestStepInputResolution:
         assert block.last_state is not None
         assert "_resolved_inputs" not in block.last_state.shared_memory
         # Result should include block output keyed by block_id
-        assert result_state.results.get("step_a") == "mock_result"
+        assert result_state.results.get("step_a") == BlockResult(output="mock_result")
 
     def test_step_backward_compatible(self):
         """Existing Step(block, pre_hook, post_hook) constructor still works."""
@@ -703,8 +703,8 @@ class TestCodeBlockResolvedInputs:
 
         state = WorkflowState(
             results={
-                "fetch_step": "fetched data payload",
-                "setup_step": json.dumps({"params": "config_value"}),
+                "fetch_step": BlockResult(output="fetched data payload"),
+                "setup_step": BlockResult(output=json.dumps({"params": "config_value"})),
             },
         )
 

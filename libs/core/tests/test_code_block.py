@@ -55,7 +55,7 @@ class TestCodeBlockHappyPath:
         result = await block.execute(state)
 
         assert "cb1" in result.results
-        parsed = json.loads(result.results["cb1"])
+        parsed = json.loads(result.results["cb1"].output)
         assert parsed["greeting"] == "hello alice"
         assert any("executed successfully" in m["content"] for m in result.messages)
 
@@ -66,7 +66,7 @@ class TestCodeBlockHappyPath:
         result = await block.execute(state)
 
         assert "cb2" in result.results
-        parsed = json.loads(result.results["cb2"])
+        parsed = json.loads(result.results["cb2"].output)
         assert parsed["sqrt"] == 4.0
         assert parsed["is_digit"] is True
 
@@ -102,7 +102,7 @@ def main(data):
         state = _make_state()
         result = await block.execute(state)
         # String results stored directly
-        assert result.results["cb_str"] == "just a string"
+        assert result.results["cb_str"].output == "just a string"
 
 
 # ---------------------------------------------------------------------------
@@ -220,8 +220,8 @@ def main(data):
         result = await block.execute(state)
 
         assert "cb_err" in result.results
-        assert "Error:" in result.results["cb_err"]
-        assert "boom" in result.results["cb_err"]
+        assert "Error:" in result.results["cb_err"].output
+        assert "boom" in result.results["cb_err"].output
 
     @pytest.mark.asyncio
     async def test_non_json_return(self):
@@ -234,7 +234,7 @@ def main(data):
         result = await block.execute(state)
 
         assert "cb_nonjson" in result.results
-        assert "Error" in result.results["cb_nonjson"]
+        assert "Error" in result.results["cb_nonjson"].output
 
 
 # ---------------------------------------------------------------------------
