@@ -315,7 +315,7 @@ souls:
 blocks:
   b1:
     type: code
-    code: "x = 1"
+    code: "def main(data): return data"
     stateful: true
 workflow:
   name: test_workflow
@@ -343,7 +343,7 @@ souls:
 blocks:
   b1:
     type: code
-    code: "x = 1"
+    code: "def main(data): return data"
 workflow:
   name: test_workflow
   entry: b1
