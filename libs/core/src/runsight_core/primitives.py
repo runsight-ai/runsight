@@ -134,6 +134,11 @@ class Step:
                 f"Available: {sorted(state.results.keys())}"
             )
         raw = state.results[source_id]
+        # Unwrap BlockResult to its output string for resolution
+        from runsight_core.state import BlockResult
+
+        if isinstance(raw, BlockResult):
+            raw = raw.output
         if len(parts) == 1:
             return raw
 

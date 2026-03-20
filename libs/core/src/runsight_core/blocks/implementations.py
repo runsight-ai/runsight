@@ -1093,7 +1093,7 @@ class GateBlock(BaseBlock):
                 f"Available keys: {sorted(state.results.keys())}"
             )
 
-        content = state.results[self.eval_key]
+        content = str(state.results[self.eval_key])
 
         gate_task = Task(
             id=f"{self.block_id}_eval",
@@ -1174,7 +1174,8 @@ class FileWriterBlock(BaseBlock):
                 f"not found in state.results. Available keys: {sorted(state.results.keys())}"
             )
 
-        content = state.results[self.content_key]
+        raw_content = state.results[self.content_key]
+        content = str(raw_content)
         output = Path(self.output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(content, encoding="utf-8")

@@ -3,8 +3,32 @@ WorkflowState data model for workflow execution context.
 """
 
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from runsight_core.primitives import Task
+
+
+class BlockResult(BaseModel):
+    """Structured result from a block execution."""
+
+    output: str
+    artifact_ref: Optional[str] = None
+    artifact_type: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def from_string(cls, s: str) -> "BlockResult":
+        return cls(output=s)
+
+    def __str__(self) -> str:
+        return self.output
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, str):
+            return self.output == other
+        return super().__eq__(other)
+
+    def __hash__(self) -> int:
+        return hash(self.output)
 
 
 class WorkflowState(BaseModel):
@@ -29,10 +53,11 @@ class WorkflowState(BaseModel):
         default=None,
         description="Active task being processed. Blocks read this to determine their work.",
     )
-    results: Dict[str, str] = Field(
+    results: Dict[str, BlockResult] = Field(
         default_factory=dict,
-        description="Block outputs keyed by block_id. Values are string outputs or JSON.",
+        description="Block outputs keyed by block_id. Values are BlockResult instances.",
     )
+
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
         description="Workflow-level tracking: execution_start_time, blueprint_name, etc.",
@@ -45,3 +70,12 @@ class WorkflowState(BaseModel):
         default=0,
         description="Cumulative token count for all LLM calls in the workflow.",
     )
+
+    @field_validator("results", mode="before")
+    @classmethod
+    def _coerce_str_to_block_result(cls, v: Any) -> Any:
+        if isinstance(v, dict):
+            return {
+                k: BlockResult(output=val) if isinstance(val, str) else val for k, val in v.items()
+            }
+        return v

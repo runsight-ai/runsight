@@ -4,7 +4,7 @@ Runsight Agent OS Core Engine
 
 from .primitives import Soul, Task, Step
 from .runner import RunsightTeamRunner, ExecutionResult
-from .state import WorkflowState
+from .state import BlockResult, WorkflowState
 from .blocks.base import BaseBlock
 from .blocks.implementations import (
     LinearBlock,
@@ -30,6 +30,7 @@ __all__ = [
     "Step",
     "RunsightTeamRunner",
     "ExecutionResult",
+    "BlockResult",
     "WorkflowState",
     "BaseBlock",
     "LinearBlock",
