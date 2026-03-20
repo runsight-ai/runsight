@@ -27,7 +27,7 @@ const DEFAULT_GRID_Y = 160;
 const VALID_STEP_TYPES = new Set<string>([
   "linear", "fanout", "router", "gate",
   "synthesize", "workflow", "loop", "team_lead", "engineering_manager",
-  "file_writer", "code",
+  "file_writer", "code", "http_request",
 ]);
 
 function toStepType(value: unknown): { type: StepType; error?: string } {
@@ -91,6 +91,20 @@ function buildNodeData(nodeId: string, block: BlockDef): { data: StepNodeData; e
   if (block.output_conditions !== undefined) data.outputConditions = block.output_conditions;
   if (block.stateful !== undefined) data.stateful = block.stateful;
   if (block.max_depth !== undefined) data.maxDepth = block.max_depth;
+
+  // HTTP Request fields (snake_case → camelCase)
+  if (block.url !== undefined) data.url = block.url;
+  if (block.method !== undefined) data.method = block.method;
+  if (block.headers !== undefined) data.headers = block.headers;
+  if (block.body !== undefined) data.body = block.body;
+  if (block.body_type !== undefined) data.bodyType = block.body_type;
+  if (block.auth_type !== undefined) data.authType = block.auth_type;
+  if (block.auth_config !== undefined) data.authConfig = block.auth_config;
+  if (block.timeout_seconds !== undefined) data.timeoutSeconds = block.timeout_seconds;
+  if (block.retry_count !== undefined) data.retryCount = block.retry_count;
+  if (block.retry_backoff !== undefined) data.retryBackoff = block.retry_backoff;
+  if (block.expected_status_codes !== undefined) data.expectedStatusCodes = block.expected_status_codes;
+  if (block.allow_private_ips !== undefined) data.allowPrivateIps = block.allow_private_ips;
 
   // WorkflowBlock uses inputs/outputs as string maps → workflowInputs/workflowOutputs
   if (block.type === "workflow") {
