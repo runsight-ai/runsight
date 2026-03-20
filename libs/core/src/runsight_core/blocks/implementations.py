@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from runsight_core.blocks.base import BaseBlock
+from runsight_core.memory.windowing import get_max_tokens, prune_messages
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
@@ -63,7 +64,21 @@ class LinearBlock(BaseBlock):
         if state.current_task is None:
             raise ValueError(f"LinearBlock {self.block_id}: state.current_task is None")
 
-        result = await self.runner.execute_task(state.current_task, self.soul)
+        if self.stateful:
+            history_key = f"{self.block_id}_{self.soul.id}"
+            history = state.conversation_histories.get(history_key, [])
+            result = await self.runner.execute_task(state.current_task, self.soul, messages=history)
+            prompt = self.runner._build_prompt(state.current_task)
+            updated_history = history + [
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": result.output},
+            ]
+            model = self.soul.model_name or self.runner.model_name
+            updated_history = prune_messages(updated_history, get_max_tokens(model), model)
+            conversation_update = {**state.conversation_histories, history_key: updated_history}
+        else:
+            result = await self.runner.execute_task(state.current_task, self.soul)
+            conversation_update = state.conversation_histories
 
         # Truncate output for message log (prevent state size explosion)
         truncated = result.output[:200] + "..." if len(result.output) > 200 else result.output
@@ -77,6 +92,7 @@ class LinearBlock(BaseBlock):
                 ],
                 "total_cost_usd": state.total_cost_usd + result.cost_usd,
                 "total_tokens": state.total_tokens + result.total_tokens,
+                "conversation_histories": conversation_update,
             }
         )
 
