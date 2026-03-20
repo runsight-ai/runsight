@@ -86,7 +86,7 @@ class TestFileObserver:
             obs = FileObserver(log_path)
 
             state = WorkflowState(total_cost_usd=0.123, total_tokens=5000)
-            obs.on_block_complete("wf", "b1", "DebateBlock", 3.14, state)
+            obs.on_block_complete("wf", "b1", "LinearBlock", 3.14, state)
 
             line = Path(log_path).read_text().strip()
             event = json.loads(line)

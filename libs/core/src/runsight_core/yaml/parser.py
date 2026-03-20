@@ -16,11 +16,9 @@ from runsight_core.blocks.implementations import (
     LinearBlock,
     FanOutBlock,
     SynthesizeBlock,
-    DebateBlock,
     LoopBlock,
     TeamLeadBlock,
     EngineeringManagerBlock,
-    MessageBusBlock,
     RouterBlock,
     PlaceholderBlock,
     GateBlock,
@@ -166,39 +164,6 @@ def _build_synthesize(
         )
     soul = _resolve_soul(block_def.soul_ref, souls_map)
     return SynthesizeBlock(block_id, block_def.input_block_ids, soul, runner)
-
-
-def _build_debate(
-    block_id: str,
-    block_def: BlockDef,
-    souls_map: Dict[str, Soul],
-    runner: RunsightTeamRunner,
-    all_blocks: Dict[str, BaseBlock],
-) -> DebateBlock:
-    if block_def.soul_a_ref is None:
-        raise ValueError(f"DebateBlock '{block_id}': soul_a_ref is required")
-    if block_def.soul_b_ref is None:
-        raise ValueError(f"DebateBlock '{block_id}': soul_b_ref is required")
-    if block_def.iterations is None:
-        raise ValueError(f"DebateBlock '{block_id}': iterations is required")
-    soul_a = _resolve_soul(block_def.soul_a_ref, souls_map)
-    soul_b = _resolve_soul(block_def.soul_b_ref, souls_map)
-    return DebateBlock(block_id, soul_a, soul_b, block_def.iterations, runner)
-
-
-def _build_message_bus(
-    block_id: str,
-    block_def: BlockDef,
-    souls_map: Dict[str, Soul],
-    runner: RunsightTeamRunner,
-    all_blocks: Dict[str, BaseBlock],
-) -> MessageBusBlock:
-    if not block_def.soul_refs:
-        raise ValueError(f"MessageBusBlock '{block_id}': soul_refs is required (non-empty list)")
-    if block_def.iterations is None:
-        raise ValueError(f"MessageBusBlock '{block_id}': iterations is required")
-    souls = [_resolve_soul(ref, souls_map) for ref in block_def.soul_refs]
-    return MessageBusBlock(block_id, souls, block_def.iterations, runner)
 
 
 def _build_router(
@@ -348,8 +313,6 @@ BLOCK_TYPE_REGISTRY: Dict[str, BlockBuilder] = {
     "linear": _build_linear,
     "fanout": _build_fanout,
     "synthesize": _build_synthesize,
-    "debate": _build_debate,
-    "message_bus": _build_message_bus,
     "router": _build_router,
     "loop": _build_loop,
     "team_lead": _build_team_lead,

@@ -24,7 +24,6 @@ from pydantic import TypeAdapter, ValidationError
 from runsight_core.yaml.schema import (
     BlockDef,
     CodeBlockDef,
-    DebateBlockDef,
     FanOutBlockDef,
     GateBlockDef,
     LinearBlockDef,
@@ -67,18 +66,6 @@ class TestTypeDiscrimination:
         """LinearBlockDef does not have 'iterations'; extra='forbid' rejects it."""
         with pytest.raises(ValidationError, match="iterations"):
             _validate_block({"type": "linear", "soul_ref": "s1", "iterations": 5})
-
-    def test_debate_valid(self):
-        block = _validate_block(
-            {"type": "debate", "soul_a_ref": "a", "soul_b_ref": "b", "iterations": 3}
-        )
-        assert isinstance(block, DebateBlockDef)
-        assert block.iterations == 3
-
-    def test_debate_missing_soul_a_ref(self):
-        """DebateBlockDef requires soul_a_ref."""
-        with pytest.raises(ValidationError, match="soul_a_ref"):
-            _validate_block({"type": "debate", "soul_b_ref": "b", "iterations": 3})
 
     def test_unknown_type_rejected(self):
         """A type value not in any Literal causes a ValidationError."""
@@ -338,8 +325,6 @@ class TestExtraForbid:
             {"type": "linear", "soul_ref": "s1"},
             {"type": "fanout", "soul_refs": ["s1"]},
             {"type": "synthesize", "soul_ref": "s1", "input_block_ids": ["b1"]},
-            {"type": "debate", "soul_a_ref": "a", "soul_b_ref": "b", "iterations": 1},
-            {"type": "message_bus", "soul_refs": ["s1"], "iterations": 1},
             {"type": "router", "soul_ref": "s1"},
             {"type": "team_lead", "soul_ref": "s1"},
             {"type": "engineering_manager", "soul_ref": "s1"},
@@ -354,8 +339,6 @@ class TestExtraForbid:
             "linear",
             "fanout",
             "synthesize",
-            "debate",
-            "message_bus",
             "router",
             "team_lead",
             "engineering_manager",
