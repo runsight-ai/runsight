@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import Editor from "@monaco-editor/react";
 import {
   addEdge,
@@ -16,13 +16,15 @@ import {
   type Viewport,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Save, RefreshCcw, AlertTriangle } from "lucide-react";
+import { Save, RefreshCcw, AlertTriangle, Play } from "lucide-react";
 import { useWorkflow, useUpdateWorkflow } from "../../queries/workflows";
+import { useCreateRun } from "../../queries/runs";
 import { Button } from "../../components/ui/button";
 import { useCanvasStore } from "../../store/canvas";
 import type { StepNodeData } from "../../types/schemas/canvas";
 import { compileGraphToWorkflowYaml } from "./yamlCompiler";
 import { parseWorkflowYamlToGraph } from "./yamlParser";
+import { runWorkflow } from "./runWorkflow";
 
 function CanvasNode({ data }: NodeProps) {
   const typedData = (data ?? {}) as Partial<StepNodeData>;
@@ -48,15 +50,19 @@ function CanvasInner() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
   const yamlTextRef = useRef("");
 
   const workflowQuery = useWorkflow(id);
   const updateWorkflow = useUpdateWorkflow();
+  const createRunMutation = useCreateRun();
+  const navigate = useNavigate();
 
   const nodes = useCanvasStore((s) => s.nodes) as Node<StepNodeData>[];
   const edges = useCanvasStore((s) => s.edges) as Edge[];
   const viewport = useCanvasStore((s) => s.viewport);
   const isDirty = useCanvasStore((s) => s.isDirty);
+  const hasValidationErrors = useCanvasStore((s) => s.hasValidationErrors);
   const selectedNodeId = useCanvasStore((s) => s.selectedNodeId);
   const canvasMode = useCanvasStore((s) => s.canvasMode);
   const onNodesChange = useCanvasStore((s) => s.onNodesChange);
@@ -169,6 +175,22 @@ function CanvasInner() {
     }
   };
 
+  const handleRun = async () => {
+    setIsRunning(true);
+    try {
+      await runWorkflow({
+        workflowId: id,
+        save: onSave,
+        createRun: createRunMutation.mutateAsync,
+        navigate,
+        isRunning,
+        onError: (e) => console.error(e),
+      });
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   if (workflowQuery.isLoading) {
     return (
       <div className="p-6 text-sm text-[var(--muted-foreground)]">Loading workflow...</div>
@@ -209,6 +231,15 @@ function CanvasInner() {
           <Button data-testid="canvas-save" className="h-8 px-3" onClick={onSave} disabled={isSaving}>
             <Save className="size-3.5 mr-1.5" />
             {isSaving ? "Saving..." : isDirty ? "Save*" : "Save"}
+          </Button>
+          <Button
+            data-testid="canvas-run"
+            className="h-8 px-3"
+            onClick={handleRun}
+            disabled={isRunning || hasValidationErrors || isSaving}
+          >
+            <Play className="size-3.5 mr-1.5" />
+            {isRunning ? "Running..." : "Run"}
           </Button>
         </div>
       </div>
