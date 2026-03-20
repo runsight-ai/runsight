@@ -212,7 +212,10 @@ class SynthesizeBlock(BaseBlock):
 
         # Gather inputs
         combined_outputs = "\n\n".join(
-            [f"=== Output from {bid} ===\n{state.results[bid]}" for bid in self.input_block_ids]
+            [
+                f"=== Output from {bid} ===\n{state.results[bid].output if hasattr(state.results[bid], 'output') else state.results[bid]}"
+                for bid in self.input_block_ids
+            ]
         )
 
         # Construct synthesis task
@@ -361,7 +364,10 @@ class LoopBlock(BaseBlock):
             # Evaluate break condition against the last inner block's output
             if self.break_condition is not None:
                 last_ref = self.inner_block_refs[-1]
-                last_output = state.results.get(last_ref)
+                _last_result = state.results.get(last_ref)
+                last_output = (
+                    _last_result.output if hasattr(_last_result, "output") else _last_result
+                )
                 if isinstance(self.break_condition, ConditionGroup):
                     should_break = evaluate_condition_group(self.break_condition, last_output)
                 else:
@@ -1098,7 +1104,11 @@ class GateBlock(BaseBlock):
                 f"Available keys: {sorted(state.results.keys())}"
             )
 
-        content = str(state.results[self.eval_key])
+        content = (
+            state.results[self.eval_key].output
+            if hasattr(state.results[self.eval_key], "output")
+            else str(state.results[self.eval_key])
+        )
 
         gate_task = Task(
             id=f"{self.block_id}_eval",
@@ -1179,8 +1189,8 @@ class FileWriterBlock(BaseBlock):
                 f"not found in state.results. Available keys: {sorted(state.results.keys())}"
             )
 
-        raw_content = state.results[self.content_key]
-        content = str(raw_content)
+        _raw = state.results[self.content_key]
+        content = _raw.output if hasattr(_raw, "output") else str(_raw)
         output = Path(self.output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(content, encoding="utf-8")
