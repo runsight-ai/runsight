@@ -31,6 +31,22 @@ class ExecutionService:
         self._observers: Dict[str, StreamingObserver] = {}
 
     # ------------------------------------------------------------------
+    # Cancellation
+    # ------------------------------------------------------------------
+
+    def cancel_execution(self, run_id: str) -> bool:
+        """Cancel the asyncio task for a given run_id.
+
+        Returns True if the task was found and cancel() was called,
+        False if no task was found (already finished or never existed).
+        """
+        task = self._running_tasks.get(run_id)
+        if task is None:
+            return False
+        task.cancel()
+        return True
+
+    # ------------------------------------------------------------------
     # Observer registry
     # ------------------------------------------------------------------
 
