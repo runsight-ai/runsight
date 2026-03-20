@@ -53,6 +53,50 @@ class BaseBlock(ABC):
         if self._kill_flag:
             raise NodeKilledException(self.block_id)
 
+    async def write_artifact(
+        self, state: WorkflowState, key: str, content: str, metadata: dict | None = None
+    ) -> str:
+        """Write an artifact via the state's artifact store.
+
+        Args:
+            state: Current workflow state (must have an artifact_store attached).
+            key: Artifact key/name.
+            content: String content to persist.
+            metadata: Optional metadata dict to attach to the artifact.
+
+        Returns:
+            The ref string produced by the store.
+
+        Raises:
+            RuntimeError: If state.artifact_store is None.
+        """
+        if state.artifact_store is None:
+            raise RuntimeError(
+                "No ArtifactStore attached to WorkflowState. "
+                "Provide an artifact_store when constructing the state."
+            )
+        return await state.artifact_store.write(key, content, metadata=metadata)
+
+    async def read_artifact(self, state: WorkflowState, ref: str) -> str:
+        """Read an artifact by ref via the state's artifact store.
+
+        Args:
+            state: Current workflow state (must have an artifact_store attached).
+            ref: The artifact reference string returned by a previous write.
+
+        Returns:
+            The artifact content string.
+
+        Raises:
+            RuntimeError: If state.artifact_store is None.
+        """
+        if state.artifact_store is None:
+            raise RuntimeError(
+                "No ArtifactStore attached to WorkflowState. "
+                "Provide an artifact_store when constructing the state."
+            )
+        return await state.artifact_store.read(ref)
+
     @abstractmethod
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
         """
