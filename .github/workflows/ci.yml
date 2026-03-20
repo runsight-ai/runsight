@@ -17,6 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[dev]"
-      - run: ruff check runsight/
-      - run: pytest tests/unit/ -q
+      - run: pip install -e "libs/core[dev]"
+      - run: ruff check libs/core/src/
+      - run: python libs/core/scripts/generate_schema.py --check
+      - run: pytest libs/core/tests/ -q
