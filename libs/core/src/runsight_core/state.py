@@ -31,6 +31,37 @@ class BlockResult(BaseModel):
     def __hash__(self) -> int:
         return hash(self.output)
 
+    # --- String-protocol methods for backward compatibility ---
+    # These allow BlockResult to be used transparently where code expects
+    # a plain string (len checks, 'in' operator).
+
+    def __len__(self) -> int:
+        return len(self.output)
+
+    def __contains__(self, item: object) -> bool:
+        return item in self.output
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatibility shim: allow json.loads(BlockResult(...)) to work
+# transparently.  json.loads performs an isinstance(s, str) check that
+# BlockResult (a BaseModel, not a str subclass) cannot pass.  We patch
+# json.loads once at import time to unwrap BlockResult before delegating
+# to the original implementation.
+# ---------------------------------------------------------------------------
+import json as _json  # noqa: E402
+
+_original_json_loads = _json.loads
+
+
+def _json_loads_with_block_result(s, **kwargs):
+    if isinstance(s, BlockResult):
+        s = s.output
+    return _original_json_loads(s, **kwargs)
+
+
+_json.loads = _json_loads_with_block_result
+
 
 class WorkflowState(BaseModel):
     """
