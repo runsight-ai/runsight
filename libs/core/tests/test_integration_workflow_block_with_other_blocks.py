@@ -21,7 +21,7 @@ from runsight_core.primitives import Soul, Task
 
 
 class EchoBlock(BaseBlock):
-    """Simple block that echoes a description to results. Replaces PlaceholderBlock in tests."""
+    """Simple block that echoes a description to results. Used as a test stand-in."""
 
     def __init__(self, block_id: str, description: str) -> None:
         super().__init__(block_id)
@@ -136,10 +136,10 @@ async def test_workflow_block_followed_by_linear_block():
 @pytest.mark.asyncio
 async def test_workflow_block_with_placeholder_before_and_after():
     """
-    Verify WorkflowBlock integrates with PlaceholderBlocks in sequence.
+    Verify WorkflowBlock integrates with EchoBlocks in sequence.
 
     Tests:
-    1. PlaceholderBlock → WorkflowBlock → PlaceholderBlock sequence
+    1. EchoBlock -> WorkflowBlock -> EchoBlock sequence
     2. State flows correctly through all blocks
     3. No state interference between blocks
     """
@@ -152,7 +152,7 @@ async def test_workflow_block_with_placeholder_before_and_after():
     # Create parent workflow
     parent_wf = Workflow(name="parent_wf")
 
-    # Add PlaceholderBlock before WorkflowBlock
+    # Add EchoBlock before WorkflowBlock
     parent_wf.add_block(EchoBlock("before_wf", "Before execution"))
 
     # Add WorkflowBlock
@@ -165,7 +165,7 @@ async def test_workflow_block_with_placeholder_before_and_after():
     )
     parent_wf.add_block(workflow_block)
 
-    # Add PlaceholderBlock after WorkflowBlock
+    # Add EchoBlock after WorkflowBlock
     parent_wf.add_block(EchoBlock("after_wf", "After execution"))
 
     parent_wf.set_entry("before_wf")

@@ -108,8 +108,8 @@ workflow:
       to: null
 blocks:
   b1:
-    type: placeholder
-    description: test
+    type: linear
+    soul_ref: test
 souls: {}
 config: {}
 """

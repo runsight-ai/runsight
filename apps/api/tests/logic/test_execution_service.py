@@ -89,8 +89,8 @@ workflow:
       to: null
 blocks:
   b1:
-    type: placeholder
-    description: test
+    type: linear
+    soul_ref: test
 souls: {}
 config: {}
 """
@@ -134,7 +134,7 @@ config: {}
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: test\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: placeholder\n    description: t\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = "workflow:\n  name: test\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
         workflow_repo.get_by_id.return_value = mock_entity
 
         mock_provider = Mock()
@@ -197,7 +197,7 @@ class TestAutoCleanup:
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: test\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: placeholder\n    description: t\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = "workflow:\n  name: test\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
         workflow_repo.get_by_id.return_value = mock_entity
 
         mock_provider = Mock()
@@ -397,7 +397,7 @@ config: {}
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: placeholder\n    description: t\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
         workflow_repo.get_by_id.return_value = mock_entity
         provider_repo.get_by_type.return_value = None
 
@@ -448,7 +448,7 @@ class TestRunStatusTransitions:
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: placeholder\n    description: t\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
         workflow_repo.get_by_id.return_value = mock_entity
         provider_repo.get_by_type.return_value = None
 
@@ -515,7 +515,7 @@ class TestRunStatusTransitions:
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: placeholder\n    description: t\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
         workflow_repo.get_by_id.return_value = mock_entity
         provider_repo.get_by_type.return_value = None
 
@@ -574,7 +574,7 @@ class TestRunStatusTransitions:
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: placeholder\n    description: t\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
         workflow_repo.get_by_id.return_value = mock_entity
         provider_repo.get_by_type.return_value = None
 

@@ -25,7 +25,7 @@ def _make_service(max_concurrent_runs=None):
     mock_entity = Mock()
     mock_entity.yaml = (
         "workflow:\n  name: t\n  entry: b1\n  transitions: []\n"
-        "blocks:\n  b1:\n    type: placeholder\n    description: t\n"
+        "blocks:\n  b1:\n    type: linear\n    soul_ref: test\n"
         "souls: {}\nconfig: {}"
     )
     workflow_repo.get_by_id.return_value = mock_entity
@@ -431,7 +431,7 @@ class TestPendingUntilAcquired:
         mock_entity = Mock()
         mock_entity.yaml = (
             "workflow:\n  name: t\n  entry: b1\n  transitions: []\n"
-            "blocks:\n  b1:\n    type: placeholder\n    description: t\n"
+            "blocks:\n  b1:\n    type: linear\n    soul_ref: test\n"
             "souls: {}\nconfig: {}"
         )
         workflow_repo.get_by_id.return_value = mock_entity
@@ -504,7 +504,7 @@ class TestPendingUntilAcquired:
         mock_entity = Mock()
         mock_entity.yaml = (
             "workflow:\n  name: t\n  entry: b1\n  transitions: []\n"
-            "blocks:\n  b1:\n    type: placeholder\n    description: t\n"
+            "blocks:\n  b1:\n    type: linear\n    soul_ref: test\n"
             "souls: {}\nconfig: {}"
         )
         workflow_repo.get_by_id.return_value = mock_entity

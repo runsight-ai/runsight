@@ -26,8 +26,8 @@ class TestWorkflowEntityNameFromYaml:
   transitions: []
 blocks:
   b1:
-    type: placeholder
-    description: test
+    type: linear
+    soul_ref: test
 souls: {}
 config: {}
 """
@@ -51,8 +51,8 @@ config: {}
   transitions: []
 blocks:
   b1:
-    type: placeholder
-    description: test
+    type: linear
+    soul_ref: test
 souls: {}
 config: {}
 """
@@ -77,8 +77,8 @@ config: {}
   transitions: []
 blocks:
   b1:
-    type: placeholder
-    description: test
+    type: linear
+    soul_ref: test
 souls: {}
 config: {}
 """

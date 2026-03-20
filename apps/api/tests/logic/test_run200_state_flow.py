@@ -235,7 +235,7 @@ class TestLaunchExecutionStateFlow:
         mock_entity = Mock()
         mock_entity.yaml = (
             "workflow:\n  name: test\n  entry: b1\n  transitions: []\n"
-            "blocks:\n  b1:\n    type: placeholder\n    description: t\n"
+            "blocks:\n  b1:\n    type: linear\n    soul_ref: test\n"
             "souls: {}\nconfig: {}"
         )
         workflow_repo.get_by_id.return_value = mock_entity

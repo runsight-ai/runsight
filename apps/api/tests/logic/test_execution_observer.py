@@ -281,9 +281,9 @@ class TestOnBlockComplete:
     def test_zero_cost_block_still_writes_node(self, observer):
         """Block with zero cost still creates RunNode with cost_delta=0."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_zero", "PlaceholderBlock")
+        obs.on_block_start("wf", "block_zero", "LinearBlock")
         state = WorkflowState(total_cost_usd=0.0, total_tokens=0)
-        obs.on_block_complete("wf", "block_zero", "PlaceholderBlock", 0.1, state)
+        obs.on_block_complete("wf", "block_zero", "LinearBlock", 0.1, state)
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_zero")
