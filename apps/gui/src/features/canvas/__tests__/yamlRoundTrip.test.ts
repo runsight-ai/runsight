@@ -85,8 +85,6 @@ describe("Per-type round-trip", () => {
   test.each<[string, StepType, Partial<StepNodeData>]>([
     ["linear", "linear", { soulRef: "researcher" }],
     ["fanout", "fanout", { soulRefs: ["a", "b"] }],
-    ["debate", "debate", { soulARef: "a", soulBRef: "b", iterations: 3 }],
-    ["message_bus", "message_bus", { soulRefs: ["a", "b"], iterations: 5 }],
     ["synthesize", "synthesize", { soulRef: "synth", inputBlockIds: ["a", "b"] }],
     ["router", "router", { soulRef: "router_soul", conditionRef: "cond1" }],
     ["gate", "gate", { soulRef: "gatekeeper", evalKey: "quality", extractField: "score" }],
@@ -564,7 +562,7 @@ describe("Edge cases", () => {
 
     const nodes = [
       mockNode("a", "linear", { soulRef: "agent" }),
-      mockNode("b", "debate", { soulARef: "agent", soulBRef: "agent", iterations: 2 }),
+      mockNode("b", "fanout", { soulRefs: ["agent", "agent"] }),
       mockNode("c", "code", { code: "x = 1", timeoutSeconds: 10, allowedImports: [] }),
     ];
     const edges = [mockEdge("a", "b"), mockEdge("b", "c")];

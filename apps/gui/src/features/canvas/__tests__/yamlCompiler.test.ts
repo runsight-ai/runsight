@@ -94,32 +94,6 @@ describe("Per-type block field emission", () => {
     expect(block).toHaveProperty("input_block_ids", ["a", "b"]);
   });
 
-  it("debate: emits soul_a_ref, soul_b_ref, iterations", () => {
-    const { block } = compileOne(
-      mockNode("b1", "debate", {
-        soulARef: "alice",
-        soulBRef: "bob",
-        iterations: 5,
-      }),
-    );
-    expect(block.type).toBe("debate");
-    expect(block).toHaveProperty("soul_a_ref", "alice");
-    expect(block).toHaveProperty("soul_b_ref", "bob");
-    expect(block).toHaveProperty("iterations", 5);
-  });
-
-  it("message_bus: emits soul_refs and iterations", () => {
-    const { block } = compileOne(
-      mockNode("b1", "message_bus", {
-        soulRefs: ["s1", "s2"],
-        iterations: 3,
-      }),
-    );
-    expect(block.type).toBe("message_bus");
-    expect(block).toHaveProperty("soul_refs", ["s1", "s2"]);
-    expect(block).toHaveProperty("iterations", 3);
-  });
-
   it("router: emits soul_ref and condition_ref", () => {
     const { block } = compileOne(
       mockNode("b1", "router", {
@@ -277,7 +251,7 @@ describe("No cross-type field leakage", () => {
     const { block } = compileOne(
       mockNode("b1", "linear", {
         soulRef: "soul1",
-        iterations: 5, // iterations belongs to debate/message_bus
+        iterations: 5, // iterations is not a valid field for linear
       }),
     );
     expect(block).not.toHaveProperty("iterations");
@@ -297,7 +271,7 @@ describe("No cross-type field leakage", () => {
       mockNode("b1", "gate", {
         soulRef: "gate_soul",
         evalKey: "result.ok",
-        iterations: 3,          // belongs to debate/message_bus
+        iterations: 3,          // not a valid field for gate
         innerBlockRefs: ["x"],  // belongs to loop
       }),
     );
@@ -370,12 +344,10 @@ describe("Universal fields emitted on any block type", () => {
     expect(block.inputs).toEqual({ context: { from: "step_a.result" } });
   });
 
-  it("outputs are emitted on a debate block", () => {
+  it("outputs are emitted on a linear block", () => {
     const { block } = compileOne(
-      mockNode("b1", "debate", {
-        soulARef: "a",
-        soulBRef: "b",
-        iterations: 2,
+      mockNode("b1", "linear", {
+        soulRef: "a",
         outputs: { winner: "string" },
       }),
     );
@@ -574,37 +546,37 @@ describe("Empty / minimal node compilation", () => {
 
 describe("CompiledWorkflow blocks use full BlockDef shape", () => {
   it("blocks record contains fully typed BlockDef objects", () => {
-    const node = mockNode("b1", "debate", {
-      soulARef: "alice",
-      soulBRef: "bob",
-      iterations: 3,
+    const node = mockNode("b1", "gate", {
+      soulRef: "gatekeeper",
+      evalKey: "quality",
+      extractField: "score",
     });
     const { doc } = compileOne(node);
     const block = doc.blocks["b1"];
 
     // Should have more than just `type`
     expect(Object.keys(block).length).toBeGreaterThan(1);
-    expect(block).toHaveProperty("soul_a_ref");
-    expect(block).toHaveProperty("soul_b_ref");
-    expect(block).toHaveProperty("iterations");
+    expect(block).toHaveProperty("soul_ref");
+    expect(block).toHaveProperty("eval_key");
+    expect(block).toHaveProperty("extract_field");
   });
 
   it("YAML output contains snake_case field keys within blocks", () => {
-    const node = mockNode("b1", "debate", {
-      soulARef: "alice",
-      soulBRef: "bob",
-      iterations: 3,
+    const node = mockNode("b1", "gate", {
+      soulRef: "gatekeeper",
+      evalKey: "quality",
+      extractField: "score",
     });
     const { yaml } = compileOne(node);
 
     // snake_case keys in YAML
-    expect(yaml).toContain("soul_a_ref:");
-    expect(yaml).toContain("soul_b_ref:");
-    expect(yaml).toContain("iterations:");
+    expect(yaml).toContain("soul_ref:");
+    expect(yaml).toContain("eval_key:");
+    expect(yaml).toContain("extract_field:");
 
     // camelCase should NOT appear
-    expect(yaml).not.toContain("soulARef:");
-    expect(yaml).not.toContain("soulBRef:");
+    expect(yaml).not.toContain("soulRef:");
+    expect(yaml).not.toContain("evalKey:");
   });
 
   it("multiple nodes each emit their own typed fields", () => {
