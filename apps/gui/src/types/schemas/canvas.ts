@@ -64,6 +64,7 @@ export interface StepNodeData extends Record<string, unknown> {
   contentKey?: string;          // file_writer
   failureContextKeys?: string[]; // team_lead
   retryConfig?: Record<string, unknown>;  // universal
+  stateful?: boolean;                     // universal
   conditionRef?: string;         // router
 
   // CodeBlock fields
@@ -153,6 +154,7 @@ export interface BlockDef {
   timeout_seconds?: number;
   allowed_imports?: string[];
   output_conditions?: CaseDef[];
+  stateful?: boolean;
 }
 
 export interface TransitionDef {
