@@ -20,7 +20,7 @@ from runsight_core.primitives import Soul, Task
 
 
 class EchoBlock(BaseBlock):
-    """Simple block that echoes a description to results. Replaces PlaceholderBlock in tests."""
+    """Simple block that echoes a description to results. Used as a test stand-in."""
 
     def __init__(self, block_id: str, description: str) -> None:
         super().__init__(block_id)

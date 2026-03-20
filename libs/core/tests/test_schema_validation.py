@@ -7,7 +7,6 @@ covering:
 - output_conditions validation (operators, case_id, empty lists)
 - inputs validation (from path structure)
 - extra="forbid" enforcement on every block type
-- PlaceholderBlock allows description but rejects other extras
 - JSON schema generation script in --check mode
 """
 

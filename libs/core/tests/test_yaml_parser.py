@@ -731,7 +731,6 @@ task:
 # TestRouterBlock: 2
 # TestTeamLeadBlock: 3
 # TestEngineeringManagerBlock: 2
-# TestPlaceholderBlock: 2
 # TestSoulResolution: 2
 # TestInvalidYAML: 3
 # TestParseFromDict: 1

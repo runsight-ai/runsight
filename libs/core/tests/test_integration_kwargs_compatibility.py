@@ -7,7 +7,7 @@ execute() signatures. This tests the conflict resolution from merging:
 - TeamLeadBlock
 - EngineeringManagerBlock
 - RouterBlock
-- PlaceholderBlock
+- (Placeholder block removed in RUN-201)
 
 The **kwargs are required for WorkflowBlock to pass call_stack and
 workflow_registry through the workflow execution chain without raising
