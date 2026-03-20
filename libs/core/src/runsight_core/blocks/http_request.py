@@ -171,6 +171,9 @@ class HttpRequestBlock(BaseBlock):
             return {"Authorization": f"Bearer {token}"}
 
         if self.auth_type == "api_key":
+            # Support "in": "query" — key is appended as URL query param (handled in execute)
+            if self.auth_config.get("in") == "query":
+                return {}
             header_name = self.auth_config.get("header", "X-API-Key")
             value = self.auth_config.get("value", "")
             return {header_name: value}
@@ -182,6 +185,18 @@ class HttpRequestBlock(BaseBlock):
             return {"Authorization": f"Basic {credentials}"}
 
         return {}
+
+    def _apply_auth_query_params(self, url: str) -> str:
+        """Append API key as a query parameter if auth_type=api_key and in=query.
+
+        Returns:
+            URL with appended query parameter, or original URL if not applicable.
+        """
+        if self.auth_type == "api_key" and self.auth_config.get("in") == "query":
+            key = self.auth_config.get("key", "")
+            separator = "&" if "?" in url else "?"
+            return f"{url}{separator}api_key={key}"
+        return url
 
     # ------------------------------------------------------------------
     # Response parsing
@@ -254,9 +269,10 @@ class HttpRequestBlock(BaseBlock):
         # 2. SSRF protection
         self._validate_ssrf(resolved_url)
 
-        # 3. Auth headers
+        # 3. Auth headers + query params
         auth_headers = self._build_auth_headers()
         merged_headers = {**self.headers, **auth_headers}
+        resolved_url = self._apply_auth_query_params(resolved_url)
 
         # 4. Build request kwargs
         request_kwargs: Dict = {
@@ -274,6 +290,13 @@ class HttpRequestBlock(BaseBlock):
                     request_kwargs["headers"] = {
                         **merged_headers,
                         "Content-Type": "application/json",
+                    }
+            elif self.body_type == "form":
+                request_kwargs["content"] = self.body
+                if "Content-Type" not in merged_headers:
+                    request_kwargs["headers"] = {
+                        **merged_headers,
+                        "Content-Type": "application/x-www-form-urlencoded",
                     }
             else:
                 request_kwargs["content"] = self.body
@@ -326,6 +349,11 @@ class HttpRequestBlock(BaseBlock):
             except HttpStatusError:
                 raise
             except httpx.HTTPError as exc:
+                # Retry connection errors if retries remain
+                if attempt < max_attempts - 1:
+                    last_exc = HttpRequestError(f"HTTP error: {exc}")
+                    last_exc.__cause__ = exc
+                    continue
                 raise HttpRequestError(f"HTTP error: {exc}") from exc
 
         # All retries exhausted — re-raise last exception

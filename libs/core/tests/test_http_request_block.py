@@ -305,6 +305,28 @@ class TestAuth:
 
     @pytest.mark.asyncio
     @respx.mock
+    async def test_auth_api_key_query(self):
+        """API key auth with in=query appends key as URL query parameter, not header."""
+        route = respx.get("https://api.example.com/data").mock(
+            return_value=httpx.Response(200, json={"auth": "ok"})
+        )
+        block = _make_block(
+            auth_type="api_key",
+            auth_config={"key": "sk-123", "in": "query"},
+        )
+        state = _make_state()
+
+        await _execute_must_not_raise_not_implemented(block, state)
+
+        assert route.called
+        request = route.calls.last.request
+        # Key should appear as a query parameter in the URL
+        assert "sk-123" in str(request.url)
+        # Authorization header should NOT be set
+        assert "Authorization" not in request.headers
+
+    @pytest.mark.asyncio
+    @respx.mock
     async def test_auth_none(self):
         """No auth_type means no Authorization header added."""
         route = respx.get("https://api.example.com/data").mock(
@@ -371,6 +393,33 @@ class TestRequestExecution:
         block_result = result_state.results[block.block_id]
         parsed = json.loads(block_result.output)
         assert parsed["created"] is True
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_post_with_form_body(self):
+        """POST with body_type=form sends application/x-www-form-urlencoded content."""
+        route = respx.post("https://api.example.com/data").mock(
+            return_value=httpx.Response(
+                200,
+                json={"received": True},
+                headers={"Content-Type": "application/json"},
+            )
+        )
+        block = _make_block(
+            method="POST",
+            body="username=admin&password=secret",
+            body_type="form",
+        )
+        state = _make_state()
+
+        result_state = await _execute_must_not_raise_not_implemented(block, state)
+
+        assert route.called
+        request = route.calls.last.request
+        assert "application/x-www-form-urlencoded" in request.headers.get("Content-Type", "")
+        block_result = result_state.results[block.block_id]
+        parsed = json.loads(block_result.output)
+        assert parsed["received"] is True
 
     @pytest.mark.asyncio
     @respx.mock
@@ -488,6 +537,28 @@ class TestResponseHandling:
 
         block_result = result.results[block.block_id]
         assert block_result.output == "Hello, plain text response"
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_html_content_type_raw(self):
+        """Response with Content-Type: text/html returns raw HTML string, NOT parsed as JSON."""
+        html_body = "<html><body><h1>Hello</h1></body></html>"
+        respx.get("https://api.example.com/data").mock(
+            return_value=httpx.Response(
+                200,
+                text=html_body,
+                headers={"Content-Type": "text/html; charset=utf-8"},
+            )
+        )
+        block = _make_block()
+        state = _make_state()
+
+        result = await _execute_must_not_raise_not_implemented(block, state)
+
+        block_result = result.results[block.block_id]
+        assert block_result.output == html_body
+        # Ensure it was NOT JSON-parsed (should be the raw HTML string)
+        assert block_result.output.startswith("<html>")
 
     @pytest.mark.asyncio
     @respx.mock
@@ -645,6 +716,21 @@ class TestStatusCodeValidation:
 
     @pytest.mark.asyncio
     @respx.mock
+    async def test_204_no_content(self):
+        """204 response with empty body -> output is empty string, status_code 204 in metadata."""
+        respx.get("https://api.example.com/data").mock(return_value=httpx.Response(204))
+        block = _make_block()
+        state = _make_state()
+
+        result = await _execute_must_not_raise_not_implemented(block, state)
+
+        block_result = result.results[block.block_id]
+        assert block_result.output == ""
+        assert block_result.metadata is not None
+        assert block_result.metadata["status_code"] == 204
+
+    @pytest.mark.asyncio
+    @respx.mock
     async def test_expected_status_overrides(self):
         """expected_status_codes=[404] makes 404 pass without error."""
         respx.get("https://api.example.com/data").mock(
@@ -682,6 +768,20 @@ class TestRetry:
         exc = await _execute_expecting_error(block, state)
         assert exc is not None
         assert route.call_count == 3
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_retry_on_connection_error(self):
+        """Connection error with retry_count=1 -> 2 total attempts."""
+        route = respx.get("https://api.example.com/data").mock(
+            side_effect=httpx.ConnectError("Connection refused")
+        )
+        block = _make_block(retry_count=1)
+        state = _make_state()
+
+        exc = await _execute_expecting_error(block, state)
+        assert exc is not None
+        assert route.call_count == 2
 
     @pytest.mark.asyncio
     @respx.mock
