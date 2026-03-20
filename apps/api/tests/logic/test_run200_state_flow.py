@@ -178,11 +178,16 @@ class TestInstructionMatches:
 
 
 class TestObserverReceivesRealState:
-    """Verify that on_workflow_start gets the state with current_task, not an empty one."""
+    """Verify that wf.run() receives the state with current_task and the observer.
+
+    Note: After RUN-208, _run_workflow no longer calls observer methods directly.
+    Workflow.run() is the single source of observer events. We verify the observer
+    is passed to wf.run() so Workflow.run() can call on_workflow_start internally.
+    """
 
     @pytest.mark.asyncio
-    async def test_observer_on_workflow_start_gets_state_with_current_task(self):
-        """on_workflow_start must receive a state where current_task is set."""
+    async def test_observer_passed_to_wf_run_with_correct_state(self):
+        """wf.run() must receive the state with current_task and the observer."""
         svc = _make_service()
 
         mock_wf = Mock()
@@ -190,28 +195,27 @@ class TestObserverReceivesRealState:
 
         task_data = {"instruction": "Process data"}
 
-        captured_state = None
-
         with patch(
             "runsight_api.logic.services.execution_service.CompositeObserver"
         ) as MockComposite:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            # Capture the state passed to on_workflow_start
-            def capture_start(name, state):
-                nonlocal captured_state
-                captured_state = state
-
-            mock_observer.on_workflow_start.side_effect = capture_start
-
             await svc._run_workflow("run_8", mock_wf, task_data)
 
-        assert captured_state is not None, "on_workflow_start was not called"
-        assert captured_state.current_task is not None, (
-            "on_workflow_start received a state with current_task=None"
+        # Verify wf.run() was called with the correct state
+        mock_wf.run.assert_called_once()
+        first_arg = mock_wf.run.call_args[0][0]
+        assert isinstance(first_arg, WorkflowState)
+        assert first_arg.current_task is not None, (
+            "wf.run() received a state with current_task=None"
         )
-        assert captured_state.current_task.instruction == "Process data"
+        assert first_arg.current_task.instruction == "Process data"
+
+        # Verify observer was passed to wf.run()
+        assert mock_wf.run.call_args[1].get("observer") is mock_observer, (
+            "observer must be passed to wf.run() so Workflow.run() can fire events"
+        )
 
 
 # ---------------------------------------------------------------------------
