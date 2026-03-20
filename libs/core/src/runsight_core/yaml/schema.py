@@ -6,7 +6,7 @@ Phase 1 (RUN-110): Discriminated-union BlockDef with per-type models.
 """
 
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ── Soul / Task / Task-file (unchanged) ────────────────────────────────────
@@ -183,6 +183,31 @@ class LoopBlockDef(BaseBlockDef):
     carry_context: Optional[CarryContextConfig] = None
 
 
+class HttpRequestBlockDef(BaseBlockDef):
+    type: Literal["http_request"] = "http_request"
+    url: str
+    method: str = "GET"
+    headers: Dict[str, str] = Field(default_factory=dict)
+    body: Optional[str] = None
+    body_type: Literal["json", "form", "raw"] = "json"
+    auth_type: Optional[Literal["bearer", "api_key", "basic"]] = None
+    auth_config: Dict[str, str] = Field(default_factory=dict)
+    timeout_seconds: int = Field(default=30, ge=1, le=300)
+    retry_count: int = 0
+    retry_backoff: float = 1.0
+    expected_status_codes: Optional[List[int]] = None
+    allow_private_ips: bool = False
+
+    @field_validator("method", mode="before")
+    @classmethod
+    def _uppercase_method(cls, v: str) -> str:
+        v = v.upper()
+        allowed = {"GET", "POST", "PUT", "DELETE", "PATCH"}
+        if v not in allowed:
+            raise ValueError(f"method must be one of {sorted(allowed)}, got '{v}'")
+        return v
+
+
 class WorkflowBlockDef(BaseBlockDef):
     """
     WorkflowBlock definition.
@@ -214,6 +239,7 @@ BlockDef = Annotated[
         CodeBlockDef,
         LoopBlockDef,
         WorkflowBlockDef,
+        HttpRequestBlockDef,
     ],
     Field(discriminator="type"),
 ]

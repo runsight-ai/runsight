@@ -23,8 +23,8 @@ from runsight_core.primitives import Task
 class TestBlockTypeRegistry:
     """Tests for BlockTypeRegistry completeness."""
 
-    def test_block_type_registry_has_all_10_types(self):
-        """Verify BLOCK_TYPE_REGISTRY contains all 10 block types."""
+    def test_block_type_registry_has_all_11_types(self):
+        """Verify BLOCK_TYPE_REGISTRY contains all 11 block types."""
         expected_types = {
             "linear",
             "fanout",
@@ -36,9 +36,10 @@ class TestBlockTypeRegistry:
             "gate",
             "file_writer",
             "code",
+            "http_request",
         }
         assert set(BLOCK_TYPE_REGISTRY.keys()) == expected_types
-        assert len(BLOCK_TYPE_REGISTRY) == 10
+        assert len(BLOCK_TYPE_REGISTRY) == 11
 
     def test_all_block_builders_are_callable(self):
         """Verify all builders in registry are callable."""
