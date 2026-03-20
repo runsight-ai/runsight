@@ -49,7 +49,7 @@ const BLOCK_TYPE_FIELDS: Record<StepType, string[]> = {
 // Universal fields — emitted on all types if present
 // ---------------------------------------------------------------------------
 
-const UNIVERSAL_FIELDS = ["output_conditions", "inputs", "outputs", "retry_config"];
+const UNIVERSAL_FIELDS = ["output_conditions", "inputs", "outputs", "retry_config", "stateful"];
 
 // ---------------------------------------------------------------------------
 // camelCase ↔ snake_case mappings

@@ -89,6 +89,7 @@ function buildNodeData(nodeId: string, block: BlockDef): { data: StepNodeData; e
   if (block.timeout_seconds !== undefined) data.timeoutSeconds = block.timeout_seconds;
   if (block.allowed_imports !== undefined) data.allowedImports = block.allowed_imports;
   if (block.output_conditions !== undefined) data.outputConditions = block.output_conditions;
+  if (block.stateful !== undefined) data.stateful = block.stateful;
   if (block.max_depth !== undefined) data.maxDepth = block.max_depth;
 
   // WorkflowBlock uses inputs/outputs as string maps → workflowInputs/workflowOutputs
