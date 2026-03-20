@@ -11,7 +11,6 @@ export type StepType =
   | "loop"
   | "team_lead"
   | "engineering_manager"
-  | "placeholder"
   | "file_writer"
   | "code";
 
@@ -76,9 +75,6 @@ export interface StepNodeData extends Record<string, unknown> {
   outputConditions?: CaseDef[];
   inputs?: Record<string, InputRef>;
   outputs?: Record<string, string>;
-
-  // PlaceholderBlock
-  description?: string;
 
   // WorkflowBlock additional
   workflowInputs?: Record<string, string>;
@@ -157,7 +153,6 @@ export interface BlockDef {
   timeout_seconds?: number;
   allowed_imports?: string[];
   output_conditions?: CaseDef[];
-  description?: string;
 }
 
 export interface TransitionDef {

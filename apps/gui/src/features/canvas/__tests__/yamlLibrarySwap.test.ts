@@ -109,7 +109,9 @@ blocks:
     type: linear
     soul_ref: researcher
   step_b:
-    type: placeholder
+    type: gate
+    soul_ref: checker
+    eval_key: ok
 workflow:
   name: test
   entry: step_a
@@ -124,7 +126,7 @@ workflow:
     expect(result.edges).toHaveLength(1);
     expect(result.nodes[0].data.stepType).toBe("linear");
     expect(result.nodes[0].data.soulRef).toBe("researcher");
-    expect(result.nodes[1].data.stepType).toBe("placeholder");
+    expect(result.nodes[1].data.stepType).toBe("gate");
   });
 
   it("returns error for invalid YAML", () => {
@@ -183,7 +185,7 @@ describe("YAML stringifying works with new library", () => {
   it("compiles a graph to valid YAML string", () => {
     const nodes = [
       mockNode("step_a", "linear", { soulRef: "researcher" }),
-      mockNode("step_b", "placeholder"),
+      mockNode("step_b", "linear"),
     ];
     const edges = [mockEdge("step_a", "step_b")];
 
@@ -358,7 +360,7 @@ describe("Existing behavior unchanged after library swap", () => {
     const nodes = [
       mockNode("plan", "linear", { soulRef: "planner" }),
       mockNode("execute", "fanout", { soulRefs: ["planner"] }),
-      mockNode("done", "placeholder", { description: "End" }),
+      mockNode("done", "linear"),
     ];
     const edges = [
       mockEdge("plan", "execute"),
@@ -388,7 +390,7 @@ describe("Existing behavior unchanged after library swap", () => {
 
   it("compiled YAML contains version field", () => {
     const result = compileGraphToWorkflowYaml({
-      nodes: [mockNode("a", "placeholder")],
+      nodes: [mockNode("a", "linear")],
       edges: [],
     });
 
