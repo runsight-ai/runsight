@@ -26,7 +26,7 @@ const DEFAULT_GRID_X = 280;
 const DEFAULT_GRID_Y = 160;
 
 const VALID_STEP_TYPES = new Set<string>([
-  "linear", "fanout", "debate", "message_bus", "router", "gate",
+  "linear", "fanout", "router", "gate",
   "synthesize", "workflow", "loop", "team_lead", "engineering_manager",
   "placeholder", "file_writer", "code",
 ]);
@@ -72,9 +72,6 @@ function buildNodeData(nodeId: string, block: BlockDef): StepNodeData {
   // Snake-case → camelCase field mappings (only set if defined)
   if (block.soul_ref !== undefined) data.soulRef = block.soul_ref;
   if (block.soul_refs !== undefined) data.soulRefs = block.soul_refs;
-  if (block.soul_a_ref !== undefined) data.soulARef = block.soul_a_ref;
-  if (block.soul_b_ref !== undefined) data.soulBRef = block.soul_b_ref;
-  if (block.iterations !== undefined) data.iterations = block.iterations;
   if (block.workflow_ref !== undefined) data.workflowRef = block.workflow_ref;
   if (block.eval_key !== undefined) data.evalKey = block.eval_key;
   if (block.extract_field !== undefined) data.extractField = block.extract_field;

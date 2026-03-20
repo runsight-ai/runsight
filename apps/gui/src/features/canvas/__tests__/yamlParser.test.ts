@@ -75,36 +75,6 @@ describe("Per-type field parsing", () => {
     expect(data.inputBlockIds).toEqual(["step_a", "step_b"]);
   });
 
-  it("debate: soul_a_ref + soul_b_ref + iterations -> soulARef + soulBRef + iterations", () => {
-    const yaml = makeYaml({
-      step1: {
-        type: "debate",
-        soul_a_ref: "optimist",
-        soul_b_ref: "pessimist",
-        iterations: 3,
-      },
-    });
-    const data = parseFirst(yaml);
-    expect(data.stepType).toBe("debate");
-    expect(data.soulARef).toBe("optimist");
-    expect(data.soulBRef).toBe("pessimist");
-    expect(data.iterations).toBe(3);
-  });
-
-  it("message_bus: soul_refs + iterations -> soulRefs + iterations", () => {
-    const yaml = makeYaml({
-      step1: {
-        type: "message_bus",
-        soul_refs: ["agent1", "agent2"],
-        iterations: 5,
-      },
-    });
-    const data = parseFirst(yaml);
-    expect(data.stepType).toBe("message_bus");
-    expect(data.soulRefs).toEqual(["agent1", "agent2"]);
-    expect(data.iterations).toBe(5);
-  });
-
   it("router: soul_ref + condition_ref -> soulRef + conditionRef", () => {
     const yaml = makeYaml({
       step1: {
@@ -434,9 +404,6 @@ describe("Undefined fields not polluted", () => {
     const keys = Object.keys(data);
     expect(keys).not.toContain("soulRef");
     expect(keys).not.toContain("soulRefs");
-    expect(keys).not.toContain("soulARef");
-    expect(keys).not.toContain("soulBRef");
-    expect(keys).not.toContain("iterations");
     expect(keys).not.toContain("workflowRef");
     expect(keys).not.toContain("evalKey");
     expect(keys).not.toContain("innerBlockRefs");
@@ -453,15 +420,12 @@ describe("Undefined fields not polluted", () => {
     expect(keys).not.toContain("retryConfig");
   });
 
-  it("linear block does NOT have debate/loop/code fields", () => {
+  it("linear block does NOT have loop/code fields", () => {
     const yaml = makeYaml({
       step1: { type: "linear", soul_ref: "analyst" },
     });
     const data = parseFirst(yaml);
     const keys = Object.keys(data);
-    expect(keys).not.toContain("soulARef");
-    expect(keys).not.toContain("soulBRef");
-    expect(keys).not.toContain("iterations");
     expect(keys).not.toContain("innerBlockRefs");
     expect(keys).not.toContain("maxRounds");
     expect(keys).not.toContain("breakCondition");

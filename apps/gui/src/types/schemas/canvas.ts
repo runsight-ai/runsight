@@ -4,8 +4,6 @@ import type { Node, Edge } from "@xyflow/react";
 export type StepType =
   | "linear"
   | "fanout"
-  | "debate"
-  | "message_bus"
   | "router"
   | "gate"
   | "synthesize"
@@ -52,12 +50,9 @@ export interface StepNodeData extends Record<string, unknown> {
 
   /** Soul references — varies by block type */
   soulRef?: string;      // linear, synthesize, router, gate, team_lead, engineering_manager
-  soulRefs?: string[];   // fanout, message_bus
-  soulARef?: string;     // debate
-  soulBRef?: string;     // debate
+  soulRefs?: string[];   // fanout
 
   /** Block-specific fields */
-  iterations?: number;          // debate, message_bus
   workflowRef?: string;         // workflow (nested)
   evalKey?: string;             // gate
   extractField?: string;        // gate
@@ -142,11 +137,8 @@ export interface BlockDef {
   type: StepType;
   soul_ref?: string;
   soul_refs?: string[];
-  soul_a_ref?: string;
-  soul_b_ref?: string;
   input_block_ids?: string[];
   inner_block_refs?: string[];
-  iterations?: number;
   max_rounds?: number;
   break_condition?: Record<string, unknown> | string;
   carry_context?: Record<string, unknown>;

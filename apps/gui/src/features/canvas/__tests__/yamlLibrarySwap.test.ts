@@ -202,7 +202,7 @@ describe("YAML stringifying works with new library", () => {
   it("compiled YAML is parseable back into the same structure", () => {
     const nodes = [
       mockNode("a", "linear", { soulRef: "s1" }),
-      mockNode("b", "debate", { soulARef: "x", soulBRef: "y", iterations: 3 }),
+      mockNode("b", "fanout", { soulRefs: ["x", "y"] }),
     ];
     const edges = [mockEdge("a", "b")];
 
@@ -212,9 +212,7 @@ describe("YAML stringifying works with new library", () => {
     expect(parsed.error).toBeUndefined();
     expect(parsed.nodes).toHaveLength(2);
     expect(parsed.nodes[0].data.soulRef).toBe("s1");
-    expect(parsed.nodes[1].data.soulARef).toBe("x");
-    expect(parsed.nodes[1].data.soulBRef).toBe("y");
-    expect(parsed.nodes[1].data.iterations).toBe(3);
+    expect(parsed.nodes[1].data.soulRefs).toEqual(["x", "y"]);
   });
 });
 
