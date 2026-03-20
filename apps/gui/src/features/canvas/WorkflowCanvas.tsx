@@ -33,7 +33,7 @@ function CanvasNode({ data }: NodeProps) {
       <div className="text-sm font-medium text-[var(--foreground)]">
         {typedData.name ?? typedData.stepId ?? "Node"}
       </div>
-      <div className="text-xs text-[var(--muted-foreground)]">{typedData.stepType ?? "placeholder"}</div>
+      <div className="text-xs text-[var(--muted-foreground)]">{typedData.stepType ?? "unknown"}</div>
     </div>
   );
 }

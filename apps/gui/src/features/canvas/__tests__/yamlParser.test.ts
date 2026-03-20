@@ -128,15 +128,6 @@ describe("Per-type field parsing", () => {
     expect(data.extractField).toBe("details");
   });
 
-  it("placeholder: description -> description", () => {
-    const yaml = makeYaml({
-      step1: { type: "placeholder", description: "TODO: implement" },
-    });
-    const data = parseFirst(yaml);
-    expect(data.stepType).toBe("placeholder");
-    expect(data.description).toBe("TODO: implement");
-  });
-
   it("file_writer: output_path + content_key -> outputPath + contentKey", () => {
     const yaml = makeYaml({
       step1: {
@@ -344,7 +335,7 @@ describe("Universal fields parsed", () => {
 describe("Souls section parsed", () => {
   it("YAML souls section populates ParseWorkflowResult.souls", () => {
     const yaml = makeYaml(
-      { step1: { type: "placeholder" } },
+      { step1: { type: "linear", soul_ref: "analyst" } },
       {
         souls: {
           analyst: {
@@ -372,7 +363,7 @@ describe("Souls section parsed", () => {
 describe("Config section parsed", () => {
   it("YAML config section populates ParseWorkflowResult.config", () => {
     const yaml = makeYaml(
-      { step1: { type: "placeholder" } },
+      { step1: { type: "linear", soul_ref: "agent" } },
       {
         config: {
           max_concurrent: 4,
@@ -393,12 +384,12 @@ describe("Config section parsed", () => {
 // ===========================================================================
 
 describe("Undefined fields not polluted", () => {
-  it("minimal placeholder block does NOT have soul/iteration fields as keys", () => {
+  it("minimal linear block does NOT have unrelated fields as keys", () => {
     const yaml = makeYaml({
-      step1: { type: "placeholder" },
+      step1: { type: "linear" },
     });
     const data = parseFirst(yaml);
-    expect(data.stepType).toBe("placeholder");
+    expect(data.stepType).toBe("linear");
 
     // These fields should NOT exist as keys on data
     const keys = Object.keys(data);
@@ -536,9 +527,9 @@ describe("Existing behavior preserved", () => {
     const yaml = dump({
       version: "1.0",
       blocks: {
-        start: { type: "placeholder" },
-        middle: { type: "placeholder" },
-        end: { type: "placeholder" },
+        start: { type: "linear" },
+        middle: { type: "linear" },
+        end: { type: "linear" },
       },
       workflow: {
         name: "test",
@@ -560,8 +551,8 @@ describe("Existing behavior preserved", () => {
       version: "1.0",
       blocks: {
         router: { type: "router", soul_ref: "classifier" },
-        approve: { type: "placeholder" },
-        reject: { type: "placeholder" },
+        approve: { type: "linear" },
+        reject: { type: "linear" },
       },
       workflow: {
         name: "test",
@@ -584,8 +575,8 @@ describe("Existing behavior preserved", () => {
     const yaml = dump({
       version: "1.0",
       blocks: {
-        start: { type: "placeholder" },
-        end: { type: "placeholder" },
+        start: { type: "linear" },
+        end: { type: "linear" },
       },
       workflow: {
         name: "test",
@@ -603,9 +594,9 @@ describe("Existing behavior preserved", () => {
 
   it("node positions use grid layout when no persisted canvas state", () => {
     const yaml = makeYaml({
-      a: { type: "placeholder" },
-      b: { type: "placeholder" },
-      c: { type: "placeholder" },
+      a: { type: "linear" },
+      b: { type: "linear" },
+      c: { type: "linear" },
     });
     const result = parseWorkflowYamlToGraph(yaml);
     expect(result.nodes).toHaveLength(3);

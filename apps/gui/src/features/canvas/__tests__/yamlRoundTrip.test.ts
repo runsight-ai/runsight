@@ -90,7 +90,7 @@ describe("Per-type round-trip", () => {
     ["gate", "gate", { soulRef: "gatekeeper", evalKey: "quality", extractField: "score" }],
     ["team_lead", "team_lead", { soulRef: "lead", failureContextKeys: ["err"] }],
     ["engineering_manager", "engineering_manager", { soulRef: "em" }],
-    ["placeholder", "placeholder", { description: "A placeholder block" }],
+    ["file_writer (minimal)", "file_writer", { outputPath: "./out.md", contentKey: "result" }],
     ["file_writer", "file_writer", { outputPath: "./out.md", contentKey: "result" }],
     ["code", "code", { code: "def main():\n  return {}", timeoutSeconds: 30, allowedImports: ["json"] }],
     ["loop", "loop", { innerBlockRefs: ["step_a", "step_b"], maxRounds: 5, breakCondition: "result.done == true" }],
@@ -140,7 +140,7 @@ describe("Souls round-trip", () => {
 
   it("missing souls are omitted in both passes", () => {
     const { doc1, doc2 } = roundTrip({
-      nodes: [mockNode("b1", "placeholder")],
+      nodes: [mockNode("b1", "linear")],
       edges: [],
     });
 
@@ -165,7 +165,7 @@ describe("Config round-trip", () => {
     };
 
     const { doc1, doc2 } = roundTrip({
-      nodes: [mockNode("b1", "placeholder")],
+      nodes: [mockNode("b1", "linear")],
       edges: [],
       config,
     });
@@ -175,7 +175,7 @@ describe("Config round-trip", () => {
 
   it("missing config is omitted in both passes", () => {
     const { doc1, doc2 } = roundTrip({
-      nodes: [mockNode("b1", "placeholder")],
+      nodes: [mockNode("b1", "linear")],
       edges: [],
     });
 
@@ -193,7 +193,7 @@ describe("Transitions round-trip", () => {
     const nodes = [
       mockNode("step_a", "linear", { soulRef: "s1" }),
       mockNode("step_b", "linear", { soulRef: "s2" }),
-      mockNode("step_c", "placeholder"),
+      mockNode("step_c", "linear"),
     ];
     const edges = [
       mockEdge("step_a", "step_b"),
@@ -207,10 +207,10 @@ describe("Transitions round-trip", () => {
 
   it("transition ordering is preserved", () => {
     const nodes = [
-      mockNode("a", "placeholder"),
-      mockNode("b", "placeholder"),
-      mockNode("c", "placeholder"),
-      mockNode("d", "placeholder"),
+      mockNode("a", "linear"),
+      mockNode("b", "linear"),
+      mockNode("c", "linear"),
+      mockNode("d", "linear"),
     ];
     const edges = [
       mockEdge("a", "b"),
@@ -257,9 +257,9 @@ describe("Conditional transitions round-trip", () => {
         soulRef: "s1",
         outputConditions: outputConditions,
       }),
-      mockNode("approve_step", "placeholder"),
-      mockNode("reject_step", "placeholder"),
-      mockNode("fallback", "placeholder"),
+      mockNode("approve_step", "linear"),
+      mockNode("reject_step", "linear"),
+      mockNode("fallback", "linear"),
     ];
     const edges = [
       mockEdge("decider", "approve_step", "approved"),
@@ -285,8 +285,8 @@ describe("Conditional transitions round-trip", () => {
           { case_id: "fail", default: true },
         ],
       }),
-      mockNode("pass_step", "placeholder"),
-      mockNode("fail_step", "placeholder"),
+      mockNode("pass_step", "linear"),
+      mockNode("fail_step", "linear"),
     ];
     const edges = [
       mockEdge("start", "decider"),
@@ -307,7 +307,7 @@ describe("Conditional transitions round-trip", () => {
   it("conditional_transitions omitted when absent in both passes", () => {
     const nodes = [
       mockNode("a", "linear", { soulRef: "s1" }),
-      mockNode("b", "placeholder"),
+      mockNode("b", "linear"),
     ];
     const edges = [mockEdge("a", "b")];
 
@@ -429,11 +429,11 @@ describe("Edge cases", () => {
   });
 
   it("block with only type and no extra fields round-trips as minimal block", () => {
-    const node = mockNode("minimal", "placeholder");
+    const node = mockNode("minimal", "linear");
     const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
 
-    expect(doc1.blocks["minimal"]).toEqual({ type: "placeholder" });
-    expect(doc2.blocks["minimal"]).toEqual({ type: "placeholder" });
+    expect(doc1.blocks["minimal"]).toEqual({ type: "linear" });
+    expect(doc2.blocks["minimal"]).toEqual({ type: "linear" });
   });
 
   it("multiline code string preserved exactly through round-trip", () => {

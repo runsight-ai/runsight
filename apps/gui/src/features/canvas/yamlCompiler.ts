@@ -39,7 +39,6 @@ const BLOCK_TYPE_FIELDS: Record<StepType, string[]> = {
   team_lead:           ["soul_ref", "failure_context_keys"],
   engineering_manager: ["soul_ref"],
   gate:                ["soul_ref", "eval_key", "extract_field"],
-  placeholder:         ["description"],
   file_writer:         ["output_path", "content_key"],
   code:                ["code", "timeout_seconds", "allowed_imports"],
   loop:                ["inner_block_refs", "max_rounds", "break_condition", "carry_context"],
@@ -78,7 +77,6 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   outputConditions:   "output_conditions",
   inputs:             "inputs",
   outputs:            "outputs",
-  description:        "description",
   maxDepth:           "max_depth",
   // WorkflowBlock special mappings
   workflowInputs:     "inputs",
@@ -122,7 +120,7 @@ const NESTED_OBJECT_FIELDS = new Set(["carry_context", "retry_config", "break_co
 
 function toCompiledBlock(node: Node<StepNodeData>): BlockDef {
   const data = node.data;
-  const stepType: StepType = data?.stepType ?? "placeholder";
+  const stepType: StepType = data?.stepType ?? ("linear" as StepType);
 
   const result: Record<string, unknown> = { type: stepType };
 

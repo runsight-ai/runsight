@@ -21,20 +21,19 @@ type ParsedWorkflow = Partial<RunsightWorkflowFile> & {
   };
 };
 
-const DEFAULT_STEP_TYPE: StepType = "placeholder";
 const DEFAULT_GRID_X = 280;
 const DEFAULT_GRID_Y = 160;
 
 const VALID_STEP_TYPES = new Set<string>([
   "linear", "fanout", "router", "gate",
   "synthesize", "workflow", "loop", "team_lead", "engineering_manager",
-  "placeholder", "file_writer", "code",
+  "file_writer", "code",
 ]);
 
-function toStepType(value: unknown): StepType {
-  if (typeof value !== "string") return DEFAULT_STEP_TYPE;
-  if (!VALID_STEP_TYPES.has(value)) return DEFAULT_STEP_TYPE;
-  return value as StepType;
+function toStepType(value: unknown): { type: StepType; error?: string } {
+  if (typeof value !== "string") return { type: "linear" as StepType, error: `Invalid block type: expected string, got ${typeof value}` };
+  if (!VALID_STEP_TYPES.has(value)) return { type: "linear" as StepType, error: `Unknown block type: "${value}"` };
+  return { type: value as StepType };
 }
 
 // ---------------------------------------------------------------------------
@@ -61,11 +60,12 @@ function convertKeysToCamel(value: unknown): unknown {
  * Build StepNodeData from a block ID and its YAML BlockDef.
  * Only sets fields that are actually defined in the block (no undefined pollution).
  */
-function buildNodeData(nodeId: string, block: BlockDef): StepNodeData {
+function buildNodeData(nodeId: string, block: BlockDef): { data: StepNodeData; error?: string } {
+  const stepTypeResult = toStepType(block.type);
   const data: StepNodeData = {
     stepId: nodeId,
     name: nodeId,
-    stepType: toStepType(block.type),
+    stepType: stepTypeResult.type,
     status: "idle",
   };
 
@@ -89,7 +89,6 @@ function buildNodeData(nodeId: string, block: BlockDef): StepNodeData {
   if (block.timeout_seconds !== undefined) data.timeoutSeconds = block.timeout_seconds;
   if (block.allowed_imports !== undefined) data.allowedImports = block.allowed_imports;
   if (block.output_conditions !== undefined) data.outputConditions = block.output_conditions;
-  if (block.description !== undefined) data.description = block.description;
   if (block.max_depth !== undefined) data.maxDepth = block.max_depth;
 
   // WorkflowBlock uses inputs/outputs as string maps → workflowInputs/workflowOutputs
@@ -101,7 +100,7 @@ function buildNodeData(nodeId: string, block: BlockDef): StepNodeData {
     if (block.outputs !== undefined) data.outputs = block.outputs;
   }
 
-  return data;
+  return { data, error: stepTypeResult.error };
 }
 
 function findPersistedPosition(
@@ -155,11 +154,15 @@ export function parseWorkflowYamlToGraph(
   const blocks = parsed.blocks ?? {};
 
   const nodeIds = Object.keys(blocks);
+  const buildErrors: string[] = [];
   const nodes: Node<StepNodeData>[] = nodeIds.map((nodeId, index) => {
-    const block = blocks[nodeId] ?? { type: DEFAULT_STEP_TYPE };
+    const block = blocks[nodeId] ?? ({ type: "linear" } as BlockDef);
     const persisted = findPersistedPosition(canvasState, nodeId);
     const row = Math.floor(index / 4);
     const col = index % 4;
+
+    const built = buildNodeData(nodeId, block);
+    if (built.error) buildErrors.push(`Block "${nodeId}": ${built.error}`);
 
     return {
       id: nodeId,
@@ -168,7 +171,7 @@ export function parseWorkflowYamlToGraph(
         x: col * DEFAULT_GRID_X,
         y: row * DEFAULT_GRID_Y,
       },
-      data: buildNodeData(nodeId, block),
+      data: built.data,
     };
   });
 
@@ -210,6 +213,7 @@ export function parseWorkflowYamlToGraph(
   });
 
   const result: ParseWorkflowResult = { nodes, edges, viewport: canvasState?.viewport };
+  if (buildErrors.length > 0) result.error = { message: buildErrors.join("; ") };
   if (parsed.souls !== undefined) result.souls = parsed.souls;
   if (parsed.config !== undefined) result.config = parsed.config;
   return result;

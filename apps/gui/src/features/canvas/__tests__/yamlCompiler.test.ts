@@ -143,14 +143,6 @@ describe("Per-type block field emission", () => {
     expect(block).toHaveProperty("extract_field", "result.value");
   });
 
-  it("placeholder: emits description", () => {
-    const { block } = compileOne(
-      mockNode("b1", "placeholder", { description: "TODO: implement" }),
-    );
-    expect(block.type).toBe("placeholder");
-    expect(block).toHaveProperty("description", "TODO: implement");
-  });
-
   it("file_writer: emits output_path and content_key", () => {
     const { block } = compileOne(
       mockNode("b1", "file_writer", {
@@ -257,10 +249,11 @@ describe("No cross-type field leakage", () => {
     expect(block).not.toHaveProperty("iterations");
   });
 
-  it("placeholder node with soulRef set does NOT emit soul_ref", () => {
+  it("code node with soulRef set does NOT emit soul_ref", () => {
     const { block } = compileOne(
-      mockNode("b1", "placeholder", {
-        soulRef: "some_soul", // soulRef does not belong to placeholder
+      mockNode("b1", "code", {
+        code: "x=1",
+        soulRef: "some_soul", // soulRef does not belong to code
       }),
     );
     expect(block).not.toHaveProperty("soul_ref");
@@ -355,9 +348,10 @@ describe("Universal fields emitted on any block type", () => {
     expect(block.outputs).toEqual({ winner: "string" });
   });
 
-  it("output_conditions are emitted on a placeholder block", () => {
+  it("output_conditions are emitted on a file_writer block", () => {
     const { block } = compileOne(
-      mockNode("b1", "placeholder", {
+      mockNode("b1", "file_writer", {
+        outputPath: "/out.txt",
         outputConditions: sampleOutputConditions,
       }),
     );
@@ -527,9 +521,9 @@ describe("Runtime fields excluded from compiled output", () => {
 // ===========================================================================
 
 describe("Empty / minimal node compilation", () => {
-  it("placeholder with no extra fields emits only { type: 'placeholder' }", () => {
-    const { block } = compileOne(mockNode("b1", "placeholder"));
-    expect(block).toEqual({ type: "placeholder" });
+  it("file_writer with no extra fields emits only { type: 'file_writer' }", () => {
+    const { block } = compileOne(mockNode("b1", "file_writer"));
+    expect(block).toEqual({ type: "file_writer" });
   });
 
   it("linear with only soulRef emits { type, soul_ref } and nothing else", () => {
@@ -762,7 +756,7 @@ describe("Souls and config top-level sections", () => {
 
   it("empty souls object is omitted", () => {
     const result = compileGraphToWorkflowYaml({
-      nodes: [mockNode("b1", "placeholder")],
+      nodes: [mockNode("b1", "linear")],
       edges: [],
       souls: {},
     });
@@ -772,7 +766,7 @@ describe("Souls and config top-level sections", () => {
 
   it("empty config object is omitted", () => {
     const result = compileGraphToWorkflowYaml({
-      nodes: [mockNode("b1", "placeholder")],
+      nodes: [mockNode("b1", "linear")],
       edges: [],
       config: {},
     });
@@ -782,7 +776,7 @@ describe("Souls and config top-level sections", () => {
 
   it("undefined souls/config are omitted", () => {
     const result = compileGraphToWorkflowYaml({
-      nodes: [mockNode("b1", "placeholder")],
+      nodes: [mockNode("b1", "linear")],
       edges: [],
     });
     expect(result.workflowDocument.souls).toBeUndefined();
@@ -825,7 +819,7 @@ describe("Souls and config top-level sections", () => {
       logging: { level: "debug" },
     };
     const result = compileGraphToWorkflowYaml({
-      nodes: [mockNode("b1", "placeholder")],
+      nodes: [mockNode("b1", "linear")],
       edges: [],
       config: nestedConfig,
     });
@@ -936,7 +930,7 @@ describe("Conditional transitions compilation", () => {
       mockNodeWithConditions("decision", "gate", ["pass", "fail", "default"]),
       mockNode("pass_step", "linear", { soulRef: "s1" }),
       mockNode("fail_step", "linear", { soulRef: "s2" }),
-      mockNode("fallback", "placeholder"),
+      mockNode("fallback", "linear"),
     ];
     const edges = [
       mockEdge("plain_start", "decision"),          // plain
@@ -964,8 +958,8 @@ describe("Conditional transitions compilation", () => {
   it("sourceHandle maps to decision key in conditional_transitions", () => {
     const nodes = [
       mockNodeWithConditions("decider", "linear", ["yes", "no"]),
-      mockNode("yes_target", "placeholder"),
-      mockNode("no_target", "placeholder"),
+      mockNode("yes_target", "linear"),
+      mockNode("no_target", "linear"),
     ];
     const edges = [
       mockEdge("decider", "yes_target", "yes"),
@@ -985,8 +979,8 @@ describe("Conditional transitions compilation", () => {
   it("edge without sourceHandle from conditioned node maps to default", () => {
     const nodes = [
       mockNodeWithConditions("decider", "linear", ["option_a", "default"]),
-      mockNode("a_target", "placeholder"),
-      mockNode("fallback_target", "placeholder"),
+      mockNode("a_target", "linear"),
+      mockNode("fallback_target", "linear"),
     ];
     const edges = [
       mockEdge("decider", "a_target", "option_a"),
@@ -1004,10 +998,10 @@ describe("Conditional transitions compilation", () => {
   it("multiple conditional edges from same source grouped into one entry", () => {
     const nodes = [
       mockNodeWithConditions("src", "linear", ["a", "b", "c", "default"]),
-      mockNode("t_a", "placeholder"),
-      mockNode("t_b", "placeholder"),
-      mockNode("t_c", "placeholder"),
-      mockNode("t_default", "placeholder"),
+      mockNode("t_a", "linear"),
+      mockNode("t_b", "linear"),
+      mockNode("t_c", "linear"),
+      mockNode("t_default", "linear"),
     ];
     const edges = [
       mockEdge("src", "t_a", "a"),
@@ -1044,7 +1038,7 @@ describe("Conditional transitions compilation", () => {
   it("output_conditions on block still emitted in blocks section", () => {
     const nodes = [
       mockNodeWithConditions("decider", "linear", ["yes", "no", "default"]),
-      mockNode("target", "placeholder"),
+      mockNode("target", "linear"),
     ];
     const edges = [mockEdge("decider", "target", "yes")];
     const result = compileGraphToWorkflowYaml({ nodes, edges });
@@ -1070,9 +1064,9 @@ describe("Conditional transitions compilation", () => {
   it("YAML string contains conditional_transitions section", () => {
     const nodes = [
       mockNodeWithConditions("router_block", "linear", ["approved", "rejected", "default"]),
-      mockNode("approve_block", "placeholder"),
-      mockNode("reject_block", "placeholder"),
-      mockNode("fallback_block", "placeholder"),
+      mockNode("approve_block", "linear"),
+      mockNode("reject_block", "linear"),
+      mockNode("fallback_block", "linear"),
     ];
     const edges = [
       mockEdge("router_block", "approve_block", "approved"),

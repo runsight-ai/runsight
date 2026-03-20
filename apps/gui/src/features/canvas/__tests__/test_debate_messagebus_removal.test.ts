@@ -101,23 +101,23 @@ describe("StepType union removal", () => {
     expect(setBlock).not.toContain('"message_bus"');
   });
 
-  it("parser falls back to placeholder when YAML has type: debate", () => {
+  it("parser falls back to linear when YAML has type: debate", () => {
     const yaml = makeYaml({
       step1: { type: "debate", soul_a_ref: "a", soul_b_ref: "b", iterations: 3 },
     });
     const result = parseWorkflowYamlToGraph(yaml);
     // After removal, "debate" is not a valid StepType — parser should fallback
     expect(result.nodes[0].data.stepType).not.toBe("debate");
-    expect(result.nodes[0].data.stepType).toBe("placeholder");
+    expect(result.nodes[0].data.stepType).toBe("linear");
   });
 
-  it("parser falls back to placeholder when YAML has type: message_bus", () => {
+  it("parser falls back to linear when YAML has type: message_bus", () => {
     const yaml = makeYaml({
       step1: { type: "message_bus", soul_refs: ["a", "b"], iterations: 5 },
     });
     const result = parseWorkflowYamlToGraph(yaml);
     expect(result.nodes[0].data.stepType).not.toBe("message_bus");
-    expect(result.nodes[0].data.stepType).toBe("placeholder");
+    expect(result.nodes[0].data.stepType).toBe("linear");
   });
 });
 
