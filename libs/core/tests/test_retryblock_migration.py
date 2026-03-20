@@ -4,14 +4,13 @@ Tests for RUN-163: Verify RetryBlock -> LoopBlock migration is complete.
 Validates:
 1. No stale RetryBlock comments remain in migrated test files
 2. LoopBlock integration tests replace removed RetryBlock integration tests:
-   - LoopBlock in full workflow with MessageBus (chain pattern)
+   - LoopBlock in full workflow with upstream block (chain pattern)
    - LoopBlock in cross-feature workflow (LoopBlock + Router conditional branching)
    - LoopBlock with retry_config in full workflow (retry-on-error + loop-for-iteration)
 3. LoopBlock nested workflow integration (sub-workflow inside loop)
 4. LoopBlock + TeamLeadBlock failure analysis pattern (loop exhaustion -> analysis)
 """
 
-import json
 import subprocess
 from pathlib import Path
 
@@ -21,7 +20,6 @@ from unittest.mock import AsyncMock, MagicMock
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.implementations import (
     LoopBlock,
-    MessageBusBlock,
     RouterBlock,
     TeamLeadBlock,
 )
@@ -223,51 +221,31 @@ class TestStaleRetryBlockComments:
 
 
 # ===========================================================================
-# 2. LoopBlock in full workflow with MessageBus (chain pattern)
+# 2. LoopBlock in full workflow with upstream block (chain pattern)
 #    Replaces: removed RetryBlock integration test in test_integration_advanced_blocks.py
 # ===========================================================================
 
 
-class TestLoopBlockMessageBusWorkflowIntegration:
-    """LoopBlock works correctly in a full workflow combined with MessageBusBlock.
+class TestLoopBlockUpstreamWorkflowIntegration:
+    """LoopBlock works correctly in a full workflow combined with upstream block.
 
-    Pattern: MessageBus (consensus) -> LoopBlock (iterative refinement)
+    Pattern: upstream (tracking) -> LoopBlock (iterative refinement)
     This replaces the RetryBlock integration test that was removed from
     test_integration_advanced_blocks.py.
     """
 
     @pytest.mark.asyncio
-    async def test_messagebus_then_loop_block_workflow(self, mock_runner, sample_souls):
-        """Integration: MessageBus produces consensus, LoopBlock iterates on refinement.
+    async def test_upstream_then_loop_block_workflow(self):
+        """Integration: Upstream block produces output, LoopBlock iterates on refinement.
 
-        Full workflow: messagebus -> loop_block(writer, critic) -> terminal
+        Full workflow: upstream -> loop_block(writer, critic) -> terminal
         Uses Workflow.run() for real orchestration.
         """
-        # Setup mock responses for MessageBusBlock (2 souls x 1 iteration = 2 calls)
-        call_count = [0]
-
-        def create_messagebus_result(*args, **kwargs):
-            call_count[0] += 1
-            task = args[0]
-            soul = args[1]
-            return ExecutionResult(
-                task_id=task.id,
-                soul_id=soul.id,
-                output=f"Consensus contribution from {soul.id}",
-            )
-
-        mock_runner.execute_task.side_effect = create_messagebus_result
-
         # Build workflow
-        wf = Workflow("messagebus_loop_workflow")
+        wf = Workflow("upstream_loop_workflow")
 
-        # MessageBus block for consensus
-        messagebus = MessageBusBlock(
-            "messagebus1",
-            [sample_souls["agent1"], sample_souls["agent2"]],
-            iterations=1,
-            runner=mock_runner,
-        )
+        # Upstream block for initial output
+        upstream = TrackingBlock("upstream1")
 
         # Writer and critic blocks for loop
         writer = WriterBlock("writer")
@@ -280,27 +258,24 @@ class TestLoopBlockMessageBusWorkflowIntegration:
             max_rounds=2,
         )
 
-        wf.add_block(messagebus)
+        wf.add_block(upstream)
         wf.add_block(writer)
         wf.add_block(critic)
         wf.add_block(loop)
-        wf.add_transition("messagebus1", "loop_block")
+        wf.add_transition("upstream1", "loop_block")
         wf.add_transition("loop_block", None)
-        wf.set_entry("messagebus1")
+        wf.set_entry("upstream1")
 
         errors = wf.validate()
         assert errors == [], f"Workflow validation failed: {errors}"
 
         initial_state = WorkflowState(
-            current_task=Task(id="refine", instruction="Refine the consensus")
+            current_task=Task(id="refine", instruction="Refine the output")
         )
         final_state = await wf.run(initial_state)
 
-        # MessageBus should have produced a transcript
-        assert "messagebus1" in final_state.results
-        transcript = json.loads(final_state.results["messagebus1"])
-        assert len(transcript) == 1  # 1 iteration
-        assert len(transcript[0]["contributions"]) == 2  # 2 agents
+        # Upstream should have produced a result
+        assert "upstream1" in final_state.results
 
         # LoopBlock should have executed writer + critic for 2 rounds
         assert "loop_block" in final_state.results
@@ -627,13 +602,13 @@ class TestLoopBlockTeamLeadIntegration:
 
 # ===========================================================================
 # 6. LoopBlock in multi-block workflow with all advanced blocks
-#    Full workflow: messagebus -> loop(writer, critic) -> router -> terminal
+#    Full workflow: upstream -> loop(writer, critic) -> router -> terminal
 #    Replaces the combined advanced blocks integration from removed test
 # ===========================================================================
 
 
 class TestLoopBlockMultiBlockWorkflowIntegration:
-    """Full workflow integration: MessageBus -> LoopBlock -> Router.
+    """Full workflow integration: Upstream -> LoopBlock -> Router.
 
     This is the comprehensive replacement for removed RetryBlock integration
     tests across test_integration_advanced_blocks.py and
@@ -641,30 +616,19 @@ class TestLoopBlockMultiBlockWorkflowIntegration:
     """
 
     @pytest.mark.asyncio
-    async def test_messagebus_loop_router_full_workflow(self, mock_runner, sample_souls):
-        """End-to-end workflow: MessageBus -> LoopBlock(writer, critic) -> Router.
+    async def test_upstream_loop_router_full_workflow(self):
+        """End-to-end workflow: Upstream -> LoopBlock(writer, critic) -> Router.
 
-        MessageBus: produces consensus
+        Upstream: produces initial output
         LoopBlock: iterates writer + critic for refinement
         Router: evaluates loop result for final decision
 
         Uses real Workflow.run() orchestration.
         """
-        # MessageBus mock responses
-        mock_runner.execute_task.side_effect = [
-            ExecutionResult(task_id="t1", soul_id="agent1", output="Proposal from agent 1"),
-            ExecutionResult(task_id="t2", soul_id="agent2", output="Proposal from agent 2"),
-        ]
-
         # Build workflow
         wf = Workflow("full_integration_workflow")
 
-        messagebus = MessageBusBlock(
-            "messagebus1",
-            [sample_souls["agent1"], sample_souls["agent2"]],
-            iterations=1,
-            runner=mock_runner,
-        )
+        upstream = TrackingBlock("upstream1")
 
         writer = WriterBlock("writer")
         critic = CriticBlock("critic")
@@ -681,15 +645,15 @@ class TestLoopBlockMultiBlockWorkflowIntegration:
 
         router = RouterBlock("router1", evaluate_quality, runner=None)
 
-        wf.add_block(messagebus)
+        wf.add_block(upstream)
         wf.add_block(writer)
         wf.add_block(critic)
         wf.add_block(loop)
         wf.add_block(router)
-        wf.add_transition("messagebus1", "loop_block")
+        wf.add_transition("upstream1", "loop_block")
         wf.add_transition("loop_block", "router1")
         wf.add_transition("router1", None)
-        wf.set_entry("messagebus1")
+        wf.set_entry("upstream1")
 
         errors = wf.validate()
         assert errors == [], f"Workflow validation failed: {errors}"
@@ -700,14 +664,9 @@ class TestLoopBlockMultiBlockWorkflowIntegration:
         final_state = await wf.run(initial_state)
 
         # Verify all blocks executed in sequence
-        assert "messagebus1" in final_state.results
+        assert "upstream1" in final_state.results
         assert "loop_block" in final_state.results
         assert "router1" in final_state.results
-
-        # MessageBus produced transcript
-        transcript = json.loads(final_state.results["messagebus1"])
-        assert len(transcript) == 1
-        assert len(transcript[0]["contributions"]) == 2
 
         # LoopBlock completed 2 rounds
         drafts = final_state.shared_memory.get("drafts", [])
@@ -719,11 +678,9 @@ class TestLoopBlockMultiBlockWorkflowIntegration:
         assert final_state.results["router1"] == "approved"
         assert final_state.metadata["router1_decision"] == "approved"
 
-        # All three block types produced messages
+        # Router block produced message
         block_messages = [m["content"] for m in final_state.messages]
-        has_messagebus_msg = any("[Block messagebus1]" in m for m in block_messages)
         has_router_msg = any("[Block router1]" in m for m in block_messages)
-        assert has_messagebus_msg, "MessageBus block message not found"
         assert has_router_msg, "Router block message not found"
 
 

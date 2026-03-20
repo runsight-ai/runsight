@@ -13,7 +13,6 @@ from runsight_core.blocks.implementations import (
     LinearBlock,
     FanOutBlock,
     SynthesizeBlock,
-    DebateBlock,
 )
 
 
@@ -201,49 +200,6 @@ async def test_synthesize_block_empty_inputs(mock_runner, sample_soul):
     """SynthesizeBlock raises ValueError for empty input_block_ids (tech lead issue #5)."""
     with pytest.raises(ValueError, match="input_block_ids cannot be empty"):
         SynthesizeBlock("synth1", [], sample_soul, mock_runner)
-
-
-@pytest.mark.asyncio
-async def test_debate_block_iterations(mock_runner):
-    """AC-8: DebateBlock iterates N times between two souls."""
-    soul_a = Soul(id="debater_a", role="Proposer", system_prompt="You propose ideas.")
-    soul_b = Soul(id="debater_b", role="Critic", system_prompt="You critique ideas.")
-
-    # Mock 2 iterations = 4 calls (A, B, A, B)
-    mock_runner.execute_task.side_effect = [
-        ExecutionResult(task_id="t1", soul_id="debater_a", output="Proposal 1"),
-        ExecutionResult(task_id="t1", soul_id="debater_b", output="Critique 1"),
-        ExecutionResult(task_id="t1", soul_id="debater_a", output="Proposal 2"),
-        ExecutionResult(task_id="t1", soul_id="debater_b", output="Critique 2"),
-    ]
-
-    block = DebateBlock("debate1", soul_a, soul_b, iterations=2, runner=mock_runner)
-    task = Task(id="t1", instruction="Should we use microservices?")
-    state = WorkflowState(current_task=task)
-
-    result_state = await block.execute(state)
-
-    # Verify transcript format
-    transcript = json.loads(result_state.results["debate1"])
-    assert len(transcript) == 2
-    assert transcript[0] == {"round": 1, "soul_a": "Proposal 1", "soul_b": "Critique 1"}
-    assert transcript[1] == {"round": 2, "soul_a": "Proposal 2", "soul_b": "Critique 2"}
-
-    # Verify conclusion in shared_memory
-    assert result_state.shared_memory["debate1_conclusion"] == "Critique 2"
-
-    # Verify 4 calls made
-    assert mock_runner.execute_task.call_count == 4
-
-
-@pytest.mark.asyncio
-async def test_debate_block_invalid_iterations(mock_runner):
-    """DebateBlock raises ValueError for iterations < 1."""
-    soul_a = Soul(id="a", role="R", system_prompt="P")
-    soul_b = Soul(id="b", role="R", system_prompt="P")
-
-    with pytest.raises(ValueError, match="iterations must be >= 1"):
-        DebateBlock("debate1", soul_a, soul_b, iterations=0, runner=mock_runner)
 
 
 @pytest.mark.asyncio

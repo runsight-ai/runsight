@@ -2,7 +2,7 @@
 Tests for YAML Parser and Standard Library.
 
 This module tests:
-- All 12 block types in BlockTypeRegistry
+- All 11 block types in BlockTypeRegistry
 - Valid YAML parsing scenarios
 - Error paths that raise ValueError
 - Soul resolution and merging with built-ins
@@ -23,14 +23,12 @@ from runsight_core.primitives import Task
 class TestBlockTypeRegistry:
     """Tests for BlockTypeRegistry completeness."""
 
-    def test_block_type_registry_has_all_13_types(self):
-        """Verify BLOCK_TYPE_REGISTRY contains all 13 block types."""
+    def test_block_type_registry_has_all_11_types(self):
+        """Verify BLOCK_TYPE_REGISTRY contains all 11 block types."""
         expected_types = {
             "linear",
             "fanout",
             "synthesize",
-            "debate",
-            "message_bus",
             "router",
             "loop",
             "team_lead",
@@ -41,7 +39,7 @@ class TestBlockTypeRegistry:
             "code",
         }
         assert set(BLOCK_TYPE_REGISTRY.keys()) == expected_types
-        assert len(BLOCK_TYPE_REGISTRY) == 13
+        assert len(BLOCK_TYPE_REGISTRY) == 11
 
     def test_all_block_builders_are_callable(self):
         """Verify all builders in registry are callable."""
@@ -253,119 +251,6 @@ workflow:
   entry: synthesize_block
 """
         with pytest.raises(ValueError, match="input_block_ids"):
-            parse_workflow_yaml(yaml_content)
-
-
-class TestDebateBlock:
-    """Tests for DebateBlock (block type: debate)."""
-
-    def test_debate_block_valid_yaml(self):
-        """AC-10: Parse valid debate block with two souls and iterations."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  debate_block:
-    type: debate
-    soul_a_ref: researcher
-    soul_b_ref: reviewer
-    iterations: 3
-workflow:
-  name: test_debate
-  entry: debate_block
-  transitions:
-    - from: debate_block
-      to: null
-"""
-        workflow = parse_workflow_yaml(yaml_content)
-        assert isinstance(workflow, Workflow)
-
-    def test_debate_block_missing_soul_a_ref_raises_error(self):
-        """AC-11: DebateBlock without soul_a_ref raises ValueError."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  debate_block:
-    type: debate
-    soul_b_ref: reviewer
-    iterations: 3
-workflow:
-  name: test_debate
-  entry: debate_block
-"""
-        with pytest.raises(ValueError, match="soul_a_ref"):
-            parse_workflow_yaml(yaml_content)
-
-    def test_debate_block_missing_iterations_raises_error(self):
-        """AC-12: DebateBlock without iterations raises ValueError."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  debate_block:
-    type: debate
-    soul_a_ref: researcher
-    soul_b_ref: reviewer
-workflow:
-  name: test_debate
-  entry: debate_block
-"""
-        with pytest.raises(ValueError, match="iterations"):
-            parse_workflow_yaml(yaml_content)
-
-
-class TestMessageBusBlock:
-    """Tests for MessageBusBlock (block type: message_bus)."""
-
-    def test_message_bus_block_valid_yaml(self):
-        """AC-13: Parse valid message_bus block with souls and iterations."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  message_bus_block:
-    type: message_bus
-    soul_refs:
-      - researcher
-      - reviewer
-    iterations: 2
-workflow:
-  name: test_message_bus
-  entry: message_bus_block
-  transitions:
-    - from: message_bus_block
-      to: null
-"""
-        workflow = parse_workflow_yaml(yaml_content)
-        assert isinstance(workflow, Workflow)
-
-    def test_message_bus_block_missing_soul_refs_raises_error(self):
-        """AC-14: MessageBusBlock without soul_refs raises ValueError."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  message_bus_block:
-    type: message_bus
-    iterations: 2
-workflow:
-  name: test_message_bus
-  entry: message_bus_block
-"""
-        with pytest.raises(ValueError, match="soul_refs"):
-            parse_workflow_yaml(yaml_content)
-
-    def test_message_bus_block_missing_iterations_raises_error(self):
-        """AC-15: MessageBusBlock without iterations raises ValueError."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  message_bus_block:
-    type: message_bus
-    soul_refs:
-      - researcher
-      - reviewer
-workflow:
-  name: test_message_bus
-  entry: message_bus_block
-"""
-        with pytest.raises(ValueError, match="iterations"):
             parse_workflow_yaml(yaml_content)
 
 
@@ -883,8 +768,6 @@ task:
 # TestLinearBlock: 3
 # TestFanOutBlock: 3
 # TestSynthesizeBlock: 3
-# TestDebateBlock: 3
-# TestMessageBusBlock: 3
 # TestRouterBlock: 2
 # TestTeamLeadBlock: 3
 # TestEngineeringManagerBlock: 2
@@ -894,4 +777,4 @@ task:
 # TestParseFromDict: 1
 # TestComplexWorkflow: 1
 # TestParseTaskYAML: 14
-# Total: 54+ test functions
+# Total: 48+ test functions

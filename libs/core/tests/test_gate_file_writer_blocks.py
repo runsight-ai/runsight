@@ -94,11 +94,11 @@ class TestGateBlock:
 
     @pytest.mark.asyncio
     async def test_gate_extract_field_on_pass(self):
-        """eval_key contains JSON list, extract_field=soul_a, runner returns PASS, verify extracted content."""
+        """eval_key contains JSON list, extract_field=author, runner returns PASS, verify extracted content."""
         block_id = "gate4"
-        eval_key = "debate_output"
-        extract_field = "soul_a"
-        json_content = [{"soul_a": "extracted_content", "soul_b": "review"}]
+        eval_key = "structured_output"
+        extract_field = "author"
+        json_content = [{"author": "extracted_content", "reviewer": "review"}]
         gate_soul = _make_soul()
         runner = _mock_runner("PASS")
 
