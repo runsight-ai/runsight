@@ -389,7 +389,7 @@ class LoopBlock(BaseBlock):
                         f"not found in blocks dict. "
                         f"Available blocks: {sorted(blocks.keys())}"
                     )
-                state = await inner_block.execute(state)
+                state = await inner_block.execute(state, **kwargs)
 
             rounds_completed = round_num
 
