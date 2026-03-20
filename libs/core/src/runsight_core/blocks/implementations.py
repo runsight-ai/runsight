@@ -722,57 +722,6 @@ class RouterBlock(BaseBlock):
         )
 
 
-class PlaceholderBlock(BaseBlock):
-    """
-    Echo block for dynamic injection fallback.
-
-    Stores description in state.results[block_id] and appends one system
-    message. Requires no current_task. Does not modify shared_memory or metadata.
-
-    Typical Use: Fallback when BlockRegistry has no factory for an injected step_id.
-    """
-
-    def __init__(self, block_id: str, description: str) -> None:
-        """
-        Args:
-            block_id: Unique block identifier (used as results key).
-            description: Human-readable description, echoed to state.results.
-
-        Raises:
-            ValueError: If block_id is empty (from BaseBlock).
-        """
-        super().__init__(block_id)
-        self.description = description
-
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        """
-        Store description in results and append system message.
-
-        Args:
-            state: Current workflow state. current_task NOT required.
-
-        Returns:
-            New state with:
-            - results[block_id] = self.description
-            - messages appended with one system entry
-
-        Raises:
-            Nothing (pure echo operation).
-        """
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: self.description},
-                "messages": state.messages
-                + [
-                    {
-                        "role": "system",
-                        "content": f"[Block {self.block_id}] PlaceholderBlock: {self.description}",
-                    }
-                ],
-            }
-        )
-
-
 class WorkflowBlock(BaseBlock):
     """
     Execute entire child workflow as a single block step.

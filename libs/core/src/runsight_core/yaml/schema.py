@@ -150,11 +150,6 @@ class GateBlockDef(BaseBlockDef):
     extract_field: Optional[str] = None
 
 
-class PlaceholderBlockDef(BaseBlockDef):
-    type: Literal["placeholder"] = "placeholder"
-    description: Optional[str] = None
-
-
 class FileWriterBlockDef(BaseBlockDef):
     type: Literal["file_writer"] = "file_writer"
     output_path: str
@@ -214,7 +209,6 @@ BlockDef = Annotated[
         TeamLeadBlockDef,
         EngineeringManagerBlockDef,
         GateBlockDef,
-        PlaceholderBlockDef,
         FileWriterBlockDef,
         CodeBlockDef,
         LoopBlockDef,

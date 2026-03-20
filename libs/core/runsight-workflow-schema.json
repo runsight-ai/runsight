@@ -782,87 +782,6 @@
       "title": "LoopBlockDef",
       "type": "object"
     },
-    "PlaceholderBlockDef": {
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "const": "placeholder",
-          "default": "placeholder",
-          "title": "Type",
-          "type": "string"
-        },
-        "output_conditions": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/CaseDef"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Output Conditions"
-        },
-        "inputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/InputRef"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Inputs"
-        },
-        "outputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Outputs"
-        },
-        "retry_config": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RetryConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "description": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Description"
-        }
-      },
-      "title": "PlaceholderBlockDef",
-      "type": "object"
-    },
     "RetryConfig": {
       "description": "Per-block retry configuration.",
       "properties": {
@@ -1402,7 +1321,6 @@
             "gate": "#/$defs/GateBlockDef",
             "linear": "#/$defs/LinearBlockDef",
             "loop": "#/$defs/LoopBlockDef",
-            "placeholder": "#/$defs/PlaceholderBlockDef",
             "router": "#/$defs/RouterBlockDef",
             "synthesize": "#/$defs/SynthesizeBlockDef",
             "team_lead": "#/$defs/TeamLeadBlockDef",
@@ -1431,9 +1349,6 @@
           },
           {
             "$ref": "#/$defs/GateBlockDef"
-          },
-          {
-            "$ref": "#/$defs/PlaceholderBlockDef"
           },
           {
             "$ref": "#/$defs/FileWriterBlockDef"

@@ -413,7 +413,7 @@ async def test_dynamic_injection_with_registry():
 
 @pytest.mark.asyncio
 async def test_dynamic_injection_placeholder_fallback():
-    """Test dynamic step injection falls back to PlaceholderBlock when registry is None."""
+    """Test dynamic step injection raises ValueError when registry is None."""
     terminal_block = MockBlock("terminal", "Terminal output")
 
     class PlannerBlock(BaseBlock):
@@ -446,12 +446,8 @@ async def test_dynamic_injection_placeholder_fallback():
     wf.set_entry("planner")
 
     state = WorkflowState()
-    final_state = await wf.run(state, registry=None)
-
-    assert "injected_step" in final_state.results
-    # PlaceholderBlock echoes description string
-    assert final_state.results["injected_step"] == "Do injected work"
-    assert terminal_block.executed is True
+    with pytest.raises(ValueError, match="No factory registered"):
+        await wf.run(state, registry=None)
 
 
 def test_dynamic_injection_missing_step_id():
@@ -741,7 +737,7 @@ async def test_dynamic_injection():
     assert "injected_step" in final_state.results
     assert terminal_block.executed is True
 
-    # ── Scenario 2: Placeholder path (no registry) ─────────────────────
+    # ── Scenario 2: No registry raises ValueError ─────────────────────
     terminal_block2 = MockBlock("terminal2", "Terminal2 output")
 
     class PlannerBlock2(BaseBlock):
@@ -771,9 +767,5 @@ async def test_dynamic_injection():
     wf2.set_entry("planner2")
 
     state2 = WorkflowState()
-    final_state2 = await wf2.run(state2, registry=None)
-
-    assert "injected_step" in final_state2.results
-    # Placeholder echoes description string
-    assert final_state2.results["injected_step"] == "Do injected work"
-    assert terminal_block2.executed is True
+    with pytest.raises(ValueError, match="No factory registered"):
+        await wf2.run(state2, registry=None)

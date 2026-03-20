@@ -330,6 +330,11 @@ class TestDiscoverWorkflows:
                 version: "1.0"
                 config:
                   model_name: gpt-4o
+                souls:
+                  researcher:
+                    id: researcher_1
+                    role: Researcher
+                    system_prompt: You research things.
                 workflow:
                   name: test_workflow
                   entry: block1
@@ -338,8 +343,8 @@ class TestDiscoverWorkflows:
                       to: null
                 blocks:
                   block1:
-                    type: placeholder
-                    description: Test block
+                    type: linear
+                    soul_ref: researcher
                 """)
             )
 
@@ -359,6 +364,11 @@ class TestDiscoverWorkflows:
             (workflows_dir / "workflow_a.yaml").write_text(
                 dedent("""
                 version: "1.0"
+                souls:
+                  researcher:
+                    id: researcher_1
+                    role: Researcher
+                    system_prompt: You research things.
                 workflow:
                   name: workflow_a
                   entry: block1
@@ -367,13 +377,19 @@ class TestDiscoverWorkflows:
                       to: null
                 blocks:
                   block1:
-                    type: placeholder
+                    type: linear
+                    soul_ref: researcher
                 """)
             )
 
             (workflows_dir / "workflow_b.yaml").write_text(
                 dedent("""
                 version: "1.0"
+                souls:
+                  researcher:
+                    id: researcher_1
+                    role: Researcher
+                    system_prompt: You research things.
                 workflow:
                   name: workflow_b
                   entry: block1
@@ -382,7 +398,8 @@ class TestDiscoverWorkflows:
                       to: null
                 blocks:
                   block1:
-                    type: placeholder
+                    type: linear
+                    soul_ref: researcher
                 """)
             )
 
@@ -432,6 +449,11 @@ class TestDiscoverCustomAssets:
             (workflows_dir / "test_workflow.yaml").write_text(
                 dedent("""
                 version: "1.0"
+                souls:
+                  researcher:
+                    id: researcher_1
+                    role: Researcher
+                    system_prompt: You research things.
                 workflow:
                   name: test_workflow
                   entry: block1
@@ -440,7 +462,8 @@ class TestDiscoverCustomAssets:
                       to: null
                 blocks:
                   block1:
-                    type: placeholder
+                    type: linear
+                    soul_ref: researcher
                 """)
             )
 

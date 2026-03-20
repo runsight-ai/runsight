@@ -116,7 +116,7 @@ class TestParserRegistryIntegration:
         # Create child workflow
         child_dict = {
             "version": "1.0",
-            "blocks": {"step1": {"type": "placeholder"}},
+            "blocks": {"step1": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "analysis_child",
                 "entry": "step1",
@@ -164,7 +164,7 @@ class TestParserMaxDepthResolution:
         """Block-level max_depth should override global config."""
         child_dict = {
             "version": "1.0",
-            "blocks": {"s": {"type": "placeholder"}},
+            "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
         child_file = RunsightWorkflowFile.model_validate(child_dict)
@@ -197,7 +197,7 @@ class TestParserMaxDepthResolution:
         """Global config should be used when block has no max_depth."""
         child_dict = {
             "version": "1.0",
-            "blocks": {"s": {"type": "placeholder"}},
+            "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
         child_file = RunsightWorkflowFile.model_validate(child_dict)
@@ -230,7 +230,7 @@ class TestParserMaxDepthResolution:
         """Default 10 should be used when neither block nor config set."""
         child_dict = {
             "version": "1.0",
-            "blocks": {"s": {"type": "placeholder"}},
+            "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
         child_file = RunsightWorkflowFile.model_validate(child_dict)
@@ -269,7 +269,7 @@ class TestParserNestedWorkflowRecursion:
         # Grandchild (deepest level)
         grandchild_dict = {
             "version": "1.0",
-            "blocks": {"step": {"type": "placeholder"}},
+            "blocks": {"step": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "grandchild",
                 "entry": "step",
@@ -349,7 +349,7 @@ class TestWorkflowBlockExecutionIntegration:
         # Create child workflow
         child_dict = {
             "version": "1.0",
-            "blocks": {"research": {"type": "placeholder"}},
+            "blocks": {"research": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "research_child",
                 "entry": "research",
@@ -365,12 +365,12 @@ class TestWorkflowBlockExecutionIntegration:
         parent_dict = {
             "version": "1.0",
             "blocks": {
-                "setup": {"type": "placeholder"},
+                "setup": {"type": "linear", "soul_ref": "researcher"},
                 "invoke_analysis": {
                     "type": "workflow",
                     "workflow_ref": "research_child",
                 },
-                "finalize": {"type": "placeholder"},
+                "finalize": {"type": "linear", "soul_ref": "researcher"},
             },
             "workflow": {
                 "name": "main",
@@ -399,7 +399,7 @@ class TestWorkflowBlockExecutionIntegration:
         # Child workflow
         child_dict = {
             "version": "1.0",
-            "blocks": {"task": {"type": "placeholder"}},
+            "blocks": {"task": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "child",
                 "entry": "task",
@@ -415,7 +415,7 @@ class TestWorkflowBlockExecutionIntegration:
         parent_dict = {
             "version": "1.0",
             "blocks": {
-                "setup": {"type": "placeholder"},
+                "setup": {"type": "linear", "soul_ref": "researcher"},
                 "invoke": {
                     "type": "workflow",
                     "workflow_ref": "child",
@@ -449,7 +449,7 @@ class TestWorkflowBlockExecutionIntegration:
         # Child
         child_dict = {
             "version": "1.0",
-            "blocks": {"s": {"type": "placeholder"}},
+            "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
         child_file = RunsightWorkflowFile.model_validate(child_dict)
@@ -524,7 +524,7 @@ class TestWorkflowBlockErrorHandling:
         # Child that expects input
         child_dict = {
             "version": "1.0",
-            "blocks": {"s": {"type": "placeholder"}},
+            "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
         child_file = RunsightWorkflowFile.model_validate(child_dict)
@@ -589,7 +589,7 @@ class TestBackwardCompatibility:
         yaml_dict = {
             "version": "1.0",
             "blocks": {
-                "step1": {"type": "placeholder"},
+                "step1": {"type": "linear", "soul_ref": "researcher"},
             },
             "workflow": {
                 "name": "simple",
@@ -608,7 +608,7 @@ class TestBackwardCompatibility:
         yaml_dict = {
             "version": "1.0",
             "blocks": {
-                "step1": {"type": "placeholder"},
+                "step1": {"type": "code", "code": "def main(data):\n    return {'step1': 'done'}"},
             },
             "workflow": {
                 "name": "simple",
@@ -635,15 +635,15 @@ blocks:
   linear_step:
     type: linear
     soul_ref: researcher
-  placeholder_step:
-    type: placeholder
-    description: Placeholder
+  final_step:
+    type: linear
+    soul_ref: researcher
 transitions:
   - from: linear_step
-    to: placeholder_step
-  - from: placeholder_step
+    to: final_step
+  - from: final_step
     to: null
 """
         wf = parse_workflow_yaml(yaml_str)
         assert "linear_step" in wf._blocks
-        assert "placeholder_step" in wf._blocks
+        assert "final_step" in wf._blocks

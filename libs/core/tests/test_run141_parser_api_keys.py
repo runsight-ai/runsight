@@ -18,9 +18,13 @@ workflow:
       to: null
 blocks:
   b1:
-    type: placeholder
-    description: test block
-souls: {}
+    type: linear
+    soul_ref: researcher
+souls:
+  researcher:
+    id: researcher_1
+    role: Researcher
+    system_prompt: You research things.
 config: {}
 """
 
