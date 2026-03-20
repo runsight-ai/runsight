@@ -22,7 +22,6 @@ from runsight_core.blocks.implementations import (
     TeamLeadBlock,
     EngineeringManagerBlock,
     RouterBlock,
-    PlaceholderBlock,
     WorkflowBlock,
 )
 from runsight_core.yaml.registry import WorkflowRegistry
@@ -278,79 +277,6 @@ class TestRouterBlockKwargsCompatibility:
         assert "router_test" in result_state.results
 
 
-class TestPlaceholderBlockKwargsCompatibility:
-    """Test PlaceholderBlock accepts and ignores **kwargs."""
-
-    @pytest.mark.asyncio
-    async def test_placeholder_block_execute_with_call_stack_kwarg(self):
-        """Verify PlaceholderBlock.execute() accepts call_stack kwarg."""
-        # Arrange
-        block = PlaceholderBlock(
-            block_id="placeholder_test",
-            description="Test placeholder",
-        )
-
-        state = WorkflowState()
-
-        # Act
-        result_state = await block.execute(
-            state,
-            call_stack=["parent_wf"],  # Should be accepted and ignored
-        )
-
-        # Assert
-        assert result_state is not None
-        assert "placeholder_test" in result_state.results
-        assert result_state.results["placeholder_test"] == "Test placeholder"
-
-    @pytest.mark.asyncio
-    async def test_placeholder_block_execute_with_workflow_registry_kwarg(self):
-        """Verify PlaceholderBlock.execute() accepts workflow_registry kwarg."""
-        # Arrange
-        block = PlaceholderBlock(
-            block_id="placeholder_test",
-            description="Test placeholder",
-        )
-
-        state = WorkflowState()
-        registry = WorkflowRegistry()
-
-        # Act
-        result_state = await block.execute(
-            state,
-            workflow_registry=registry,  # Should be accepted and ignored
-        )
-
-        # Assert
-        assert result_state is not None
-        assert "placeholder_test" in result_state.results
-
-    @pytest.mark.asyncio
-    async def test_placeholder_block_with_multiple_kwargs(self):
-        """Verify PlaceholderBlock.execute() accepts multiple **kwargs."""
-        # Arrange
-        block = PlaceholderBlock(
-            block_id="placeholder_test",
-            description="Test placeholder",
-        )
-
-        state = WorkflowState()
-        registry = WorkflowRegistry()
-
-        # Act
-        result_state = await block.execute(
-            state,
-            call_stack=["parent_wf", "child_wf"],
-            workflow_registry=registry,
-            extra_arg="should_be_ignored",
-            another_arg=123,
-        )
-
-        # Assert
-        assert result_state is not None
-        assert "placeholder_test" in result_state.results
-
-
 class TestKwargsCompatibilityWithWorkflowBlock:
     """Test that WorkflowBlock can invoke other blocks with kwargs parameters."""
 
@@ -437,24 +363,6 @@ class TestBackwardCompatibilityWithoutKwargs:
         # Assert
         assert result_state is not None
         assert "team_lead_test" in result_state.results
-
-    @pytest.mark.asyncio
-    async def test_placeholder_block_execute_without_kwargs(self):
-        """Verify PlaceholderBlock.execute() works when called without kwargs."""
-        # Arrange
-        block = PlaceholderBlock(
-            block_id="placeholder_test",
-            description="Test placeholder",
-        )
-
-        state = WorkflowState()
-
-        # Act - Call without any kwargs
-        result_state = await block.execute(state)
-
-        # Assert
-        assert result_state is not None
-        assert "placeholder_test" in result_state.results
 
     @pytest.mark.asyncio
     async def test_router_block_execute_without_kwargs(self):

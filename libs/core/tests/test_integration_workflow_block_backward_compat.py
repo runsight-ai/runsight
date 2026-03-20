@@ -15,9 +15,30 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.implementations import (
     WorkflowBlock,
     LinearBlock,
-    PlaceholderBlock,
 )
 from runsight_core.primitives import Soul, Task
+
+
+class EchoBlock(BaseBlock):
+    """Simple block that echoes a description to results. Replaces PlaceholderBlock in tests."""
+
+    def __init__(self, block_id: str, description: str) -> None:
+        super().__init__(block_id)
+        self.description = description
+
+    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+        return state.model_copy(
+            update={
+                "results": {**state.results, self.block_id: self.description},
+                "messages": state.messages
+                + [
+                    {
+                        "role": "system",
+                        "content": f"[Block {self.block_id}] EchoBlock: {self.description}",
+                    }
+                ],
+            }
+        )
 
 
 class BlockWithoutKwargs(BaseBlock):
@@ -196,7 +217,7 @@ async def test_invalid_input_mapping_raises_clear_error():
     """
     # Create child workflow
     child_wf = Workflow(name="child")
-    child_wf.add_block(PlaceholderBlock("child_step", "output"))
+    child_wf.add_block(EchoBlock("child_step", "output"))
     child_wf.set_entry("child_step")
     child_wf.add_transition("child_step", None)
 
@@ -237,7 +258,7 @@ async def test_invalid_output_mapping_raises_clear_error():
     """
     # Create child workflow that produces limited output
     child_wf = Workflow(name="child")
-    child_wf.add_block(PlaceholderBlock("child_step", "output"))
+    child_wf.add_block(EchoBlock("child_step", "output"))
     child_wf.set_entry("child_step")
     child_wf.add_transition("child_step", None)
 
@@ -302,12 +323,12 @@ async def test_backward_compat_workflow_without_workflow_blocks():
     )
     wf.add_block(linear_block)
 
-    # Add PlaceholderBlock
-    wf.add_block(PlaceholderBlock("placeholder", "placeholder output"))
+    # Add EchoBlock
+    wf.add_block(EchoBlock("echo_step", "echo output"))
 
     wf.set_entry("linear")
-    wf.add_transition("linear", "placeholder")
-    wf.add_transition("placeholder", None)
+    wf.add_transition("linear", "echo_step")
+    wf.add_transition("echo_step", None)
 
     # Execute without any WorkflowRegistry or special parameters
     initial_state = WorkflowState(current_task=Task(id="t1", instruction="Do something"))
@@ -315,7 +336,7 @@ async def test_backward_compat_workflow_without_workflow_blocks():
 
     # Verify: Execution successful
     assert "linear" in final_state.results
-    assert "placeholder" in final_state.results
+    assert "echo_step" in final_state.results
 
 
 @pytest.mark.asyncio
@@ -330,7 +351,7 @@ async def test_workflow_block_with_kwargs_in_chain():
     """
     # Create child workflow
     child_wf = Workflow(name="child")
-    child_wf.add_block(PlaceholderBlock("child_step", "child_out"))
+    child_wf.add_block(EchoBlock("child_step", "child_out"))
     child_wf.set_entry("child_step")
     child_wf.add_transition("child_step", None)
 

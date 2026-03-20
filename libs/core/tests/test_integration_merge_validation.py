@@ -21,6 +21,7 @@ from runsight_core.blocks.implementations import (
     EngineeringManagerBlock,
 )
 from runsight_core.runner import ExecutionResult
+from runsight_core.blocks.registry import BlockRegistry
 
 
 # ===== Test Doubles =====
@@ -398,7 +399,12 @@ async def test_workflow_orchestrates_team_lead_and_engineering_manager(mock_runn
         shared_memory={"error_key": "error_context"},
     )
 
-    final_state = await wf.run(state)
+    # Provide a registry for dynamically injected steps from EM block
+    registry = BlockRegistry()
+    registry.register("step1", lambda sid, desc: MockBlock(sid, desc))
+    registry.register("step2", lambda sid, desc: MockBlock(sid, desc))
+
+    final_state = await wf.run(state, registry=registry)
 
     # Both blocks should have executed
     assert "tl1" in final_state.results
@@ -478,7 +484,12 @@ async def test_all_renamed_classes_in_workflow_execution(mock_runner, test_souls
         shared_memory={"errors": ["error1", "error2"]},
     )
 
-    final_state = await wf.run(state)
+    # Provide a registry for dynamically injected steps from EM block
+    registry = BlockRegistry()
+    registry.register("step1", lambda sid, desc: MockBlock(sid, desc))
+    registry.register("step2", lambda sid, desc: MockBlock(sid, desc))
+
+    final_state = await wf.run(state, registry=registry)
 
     # Verify execution
     assert final_state.results["advisor"] == "Error analysis"

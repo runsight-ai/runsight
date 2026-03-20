@@ -20,7 +20,6 @@ from runsight_core.blocks.implementations import (
     TeamLeadBlock,
     EngineeringManagerBlock,
     RouterBlock,
-    PlaceholderBlock,
     GateBlock,
     FileWriterBlock,
     CodeBlock,
@@ -250,17 +249,6 @@ def _build_engineering_manager(
     return EngineeringManagerBlock(block_id, soul, runner)
 
 
-def _build_placeholder(
-    block_id: str,
-    block_def: BlockDef,
-    souls_map: Dict[str, Soul],
-    runner: RunsightTeamRunner,
-    all_blocks: Dict[str, BaseBlock],
-) -> PlaceholderBlock:
-    description = block_def.description or f"Placeholder block {block_id}"
-    return PlaceholderBlock(block_id, description)
-
-
 def _build_gate(
     block_id: str,
     block_def: BlockDef,
@@ -317,7 +305,6 @@ BLOCK_TYPE_REGISTRY: Dict[str, BlockBuilder] = {
     "loop": _build_loop,
     "team_lead": _build_team_lead,
     "engineering_manager": _build_engineering_manager,
-    "placeholder": _build_placeholder,
     "gate": _build_gate,
     "file_writer": _build_file_writer,
     "code": _build_code,

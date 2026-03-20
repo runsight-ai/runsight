@@ -120,12 +120,18 @@ class TestParserApiKey:
 workflow:
   name: test
   entry: b1
-  transitions: []
+  transitions:
+    - from: b1
+      to: null
 blocks:
   b1:
-    type: placeholder
-    description: test placeholder
-souls: {}
+    type: linear
+    soul_ref: researcher
+souls:
+  researcher:
+    id: researcher_1
+    role: Researcher
+    system_prompt: You research things.
 config: {}
 """
         # Should not raise — api_key is an accepted kwarg
@@ -191,7 +197,7 @@ config: {}
         child_file = Mock()
         child_file.model_dump.return_value = {
             "workflow": {"name": "child", "entry": "b1", "transitions": []},
-            "blocks": {"b1": {"type": "placeholder", "description": "t"}},
+            "blocks": {"b1": {"type": "linear", "soul_ref": "researcher"}},
             "souls": {},
             "config": {},
         }

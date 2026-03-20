@@ -11,7 +11,6 @@ from collections import deque
 from typing import TYPE_CHECKING, Any, Deque, Dict, List, Optional, Tuple
 
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.blocks.implementations import PlaceholderBlock
 from runsight_core.conditions.engine import Case, evaluate_output_conditions
 from runsight_core.state import WorkflowState
 
@@ -452,7 +451,7 @@ class Workflow:
         Args:
             initial_state: Starting workflow state.
             registry: Optional block factory registry. Used to resolve injected step_ids.
-                      If None or step_id not found, PlaceholderBlock is used as fallback.
+                      If None or step_id not found, ValueError is raised.
             call_stack: Workflow name stack for recursion tracking (default: []).
                        Used by WorkflowBlock to detect cycles and enforce depth limits.
             workflow_registry: Optional WorkflowRegistry for resolving child workflows.
@@ -572,16 +571,18 @@ class Workflow:
                         step_id: str = item["step_id"]
                         description: str = item["description"]
 
-                        # Resolve factory from registry, fallback to PlaceholderBlock
+                        # Resolve factory from registry, raise if not found
                         injected_block: BaseBlock
                         if registry is not None:
                             factory = registry.get(step_id)
                             if factory is not None:
                                 injected_block = factory(step_id, description)
                             else:
-                                injected_block = PlaceholderBlock(step_id, description)
+                                raise ValueError(
+                                    f"No factory registered for injected step '{step_id}'"
+                                )
                         else:
-                            injected_block = PlaceholderBlock(step_id, description)
+                            raise ValueError(f"No factory registered for injected step '{step_id}'")
 
                         injected_blocks.append((step_id, injected_block))
 

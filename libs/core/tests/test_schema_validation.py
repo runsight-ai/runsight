@@ -28,7 +28,6 @@ from runsight_core.yaml.schema import (
     GateBlockDef,
     LinearBlockDef,
     LoopBlockDef,
-    PlaceholderBlockDef,
     RouterBlockDef,
     RunsightWorkflowFile,
     SynthesizeBlockDef,
@@ -329,7 +328,6 @@ class TestExtraForbid:
             {"type": "team_lead", "soul_ref": "s1"},
             {"type": "engineering_manager", "soul_ref": "s1"},
             {"type": "gate", "soul_ref": "s1", "eval_key": "k"},
-            {"type": "placeholder"},
             {"type": "file_writer", "output_path": "/tmp/f", "content_key": "k"},
             {"type": "code", "code": "pass"},
             {"type": "loop", "inner_block_refs": ["b1"]},
@@ -343,7 +341,6 @@ class TestExtraForbid:
             "team_lead",
             "engineering_manager",
             "gate",
-            "placeholder",
             "file_writer",
             "code",
             "loop",
@@ -355,17 +352,6 @@ class TestExtraForbid:
         block_data_with_extra = {**block_data, "totally_unknown_field": "nope"}
         with pytest.raises(ValidationError, match="totally_unknown_field"):
             _validate_block(block_data_with_extra)
-
-    def test_placeholder_allows_description(self):
-        """PlaceholderBlockDef has an explicit 'description' field — it must be accepted."""
-        block = _validate_block({"type": "placeholder", "description": "A TODO block"})
-        assert isinstance(block, PlaceholderBlockDef)
-        assert block.description == "A TODO block"
-
-    def test_placeholder_rejects_other_extras(self):
-        """PlaceholderBlockDef should reject fields beyond its declared set."""
-        with pytest.raises(ValidationError, match="random_field"):
-            _validate_block({"type": "placeholder", "description": "ok", "random_field": "bad"})
 
 
 # ===========================================================================
@@ -380,12 +366,12 @@ class TestRunsightWorkflowFile:
         wf = RunsightWorkflowFile.model_validate(
             {
                 "workflow": {"name": "test", "entry": "b1"},
-                "blocks": {"b1": {"type": "placeholder"}},
+                "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
             }
         )
         assert wf.workflow.name == "test"
         assert "b1" in wf.blocks
-        assert isinstance(wf.blocks["b1"], PlaceholderBlockDef)
+        assert isinstance(wf.blocks["b1"], LinearBlockDef)
 
     def test_missing_workflow_key(self):
         """workflow is required at root level."""

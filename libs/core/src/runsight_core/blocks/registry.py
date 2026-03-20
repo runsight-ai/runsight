@@ -7,7 +7,6 @@ from typing import Callable, Dict, Optional
 from runsight_core.blocks.base import BaseBlock
 
 # Canonical factory type: receives (block_id, description) → BaseBlock
-# Mirrors PlaceholderBlock.__init__(block_id, description) signature.
 BlockFactory = Callable[[str, str], BaseBlock]
 
 

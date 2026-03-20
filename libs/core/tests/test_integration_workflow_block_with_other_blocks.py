@@ -11,13 +11,35 @@ These tests verify that:
 import pytest
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
+from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.implementations import (
     WorkflowBlock,
     LinearBlock,
-    PlaceholderBlock,
     RouterBlock,
 )
 from runsight_core.primitives import Soul, Task
+
+
+class EchoBlock(BaseBlock):
+    """Simple block that echoes a description to results. Replaces PlaceholderBlock in tests."""
+
+    def __init__(self, block_id: str, description: str) -> None:
+        super().__init__(block_id)
+        self.description = description
+
+    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+        return state.model_copy(
+            update={
+                "results": {**state.results, self.block_id: self.description},
+                "messages": state.messages
+                + [
+                    {
+                        "role": "system",
+                        "content": f"[Block {self.block_id}] EchoBlock: {self.description}",
+                    }
+                ],
+            }
+        )
 
 
 class MockRunner:
@@ -53,7 +75,7 @@ async def test_workflow_block_followed_by_linear_block():
     """
     # Create child workflow with placeholder (doesn't need current_task)
     child_wf = Workflow(name="child_process")
-    child_wf.add_block(PlaceholderBlock("child_step", "child result"))
+    child_wf.add_block(EchoBlock("child_step", "child result"))
     child_wf.set_entry("child_step")
     child_wf.add_transition("child_step", None)
 
@@ -123,7 +145,7 @@ async def test_workflow_block_with_placeholder_before_and_after():
     """
     # Create child workflow
     child_wf = Workflow(name="child_wf")
-    child_wf.add_block(PlaceholderBlock("child_ph", "Child execution"))
+    child_wf.add_block(EchoBlock("child_ph", "Child execution"))
     child_wf.set_entry("child_ph")
     child_wf.add_transition("child_ph", None)
 
@@ -131,7 +153,7 @@ async def test_workflow_block_with_placeholder_before_and_after():
     parent_wf = Workflow(name="parent_wf")
 
     # Add PlaceholderBlock before WorkflowBlock
-    parent_wf.add_block(PlaceholderBlock("before_wf", "Before execution"))
+    parent_wf.add_block(EchoBlock("before_wf", "Before execution"))
 
     # Add WorkflowBlock
     workflow_block = WorkflowBlock(
@@ -144,7 +166,7 @@ async def test_workflow_block_with_placeholder_before_and_after():
     parent_wf.add_block(workflow_block)
 
     # Add PlaceholderBlock after WorkflowBlock
-    parent_wf.add_block(PlaceholderBlock("after_wf", "After execution"))
+    parent_wf.add_block(EchoBlock("after_wf", "After execution"))
 
     parent_wf.set_entry("before_wf")
     parent_wf.add_transition("before_wf", "invoke_child")
@@ -184,7 +206,7 @@ async def test_nested_workflow_blocks():
     """
     # Create grandchild workflow
     grandchild_wf = Workflow(name="grandchild")
-    grandchild_wf.add_block(PlaceholderBlock("gc_step", "Grandchild executed"))
+    grandchild_wf.add_block(EchoBlock("gc_step", "Grandchild executed"))
     grandchild_wf.set_entry("gc_step")
     grandchild_wf.add_transition("gc_step", None)
 
@@ -246,7 +268,11 @@ async def test_workflow_block_state_isolation_complex():
     # Create child workflow that modifies all state fields
     child_wf = Workflow(name="modifying_child")
 
-    class ModifyingBlock(PlaceholderBlock):
+    class ModifyingBlock(BaseBlock):
+        def __init__(self, block_id: str, description: str) -> None:
+            super().__init__(block_id)
+            self.description = description
+
         async def execute(self, state, **kwargs):
             # Try to modify all state fields
             new_state = state.model_copy(
@@ -256,7 +282,18 @@ async def test_workflow_block_state_isolation_complex():
                     "metadata": {**state.metadata, "child_meta": "private"},
                 }
             )
-            return await super().execute(new_state, **kwargs)
+            return new_state.model_copy(
+                update={
+                    "results": {**new_state.results, self.block_id: self.description},
+                    "messages": new_state.messages
+                    + [
+                        {
+                            "role": "system",
+                            "content": f"[Block {self.block_id}] ModifyingBlock: {self.description}",
+                        }
+                    ],
+                }
+            )
 
     child_block = ModifyingBlock("modify_step", "Modified state")
     child_wf.add_block(child_block)
@@ -314,15 +351,19 @@ async def test_workflow_block_cost_propagation_multiple_levels():
     # Create child workflow that reports costs
     child_wf = Workflow(name="child_cost_tracking")
 
-    class CostProducingBlock(PlaceholderBlock):
+    class CostProducingBlock(BaseBlock):
         def __init__(self, block_id: str, cost: float):
-            super().__init__(block_id, "Block")
+            super().__init__(block_id)
             self.cost = cost
 
         async def execute(self, state, **kwargs):
-            new_state = await super().execute(state, **kwargs)
-            return new_state.model_copy(
+            return state.model_copy(
                 update={
+                    "results": {**state.results, self.block_id: "Block"},
+                    "messages": state.messages
+                    + [
+                        {"role": "system", "content": f"[Block {self.block_id}] CostProducingBlock"}
+                    ],
                     "total_cost_usd": state.total_cost_usd + self.cost,
                     "total_tokens": state.total_tokens + 10,
                 }
@@ -381,7 +422,7 @@ async def test_workflow_block_with_router_block():
     """
     # Create child workflow
     child_wf = Workflow(name="child_route")
-    child_wf.add_block(PlaceholderBlock("child_step", "routed"))
+    child_wf.add_block(EchoBlock("child_step", "routed"))
     child_wf.set_entry("child_step")
     child_wf.add_transition("child_step", None)
 
@@ -409,7 +450,7 @@ async def test_workflow_block_with_router_block():
     wf.add_block(workflow_block)
 
     # Final placeholder
-    wf.add_block(PlaceholderBlock("final", "Done"))
+    wf.add_block(EchoBlock("final", "Done"))
 
     wf.set_entry("router")
     wf.add_conditional_transition("router", {"invoke_child": "invoke_child", "default": "final"})

@@ -140,7 +140,8 @@ class TestParseWorkflowBlock:
             "version": "1.0",
             "blocks": {
                 "child_step": {
-                    "type": "placeholder",
+                    "type": "linear",
+                    "soul_ref": "researcher",
                 }
             },
             "workflow": {
@@ -188,7 +189,8 @@ class TestParseWorkflowBlock:
             "version": "1.0",
             "blocks": {
                 "child_step": {
-                    "type": "placeholder",
+                    "type": "linear",
+                    "soul_ref": "researcher",
                 }
             },
             "workflow": {
@@ -237,7 +239,8 @@ class TestParseWorkflowBlock:
             "version": "1.0",
             "blocks": {
                 "child_step": {
-                    "type": "placeholder",
+                    "type": "linear",
+                    "soul_ref": "researcher",
                 }
             },
             "workflow": {

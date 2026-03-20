@@ -23,8 +23,8 @@ from runsight_core.primitives import Task
 class TestBlockTypeRegistry:
     """Tests for BlockTypeRegistry completeness."""
 
-    def test_block_type_registry_has_all_11_types(self):
-        """Verify BLOCK_TYPE_REGISTRY contains all 11 block types."""
+    def test_block_type_registry_has_all_10_types(self):
+        """Verify BLOCK_TYPE_REGISTRY contains all 10 block types."""
         expected_types = {
             "linear",
             "fanout",
@@ -33,13 +33,12 @@ class TestBlockTypeRegistry:
             "loop",
             "team_lead",
             "engineering_manager",
-            "placeholder",
             "gate",
             "file_writer",
             "code",
         }
         assert set(BLOCK_TYPE_REGISTRY.keys()) == expected_types
-        assert len(BLOCK_TYPE_REGISTRY) == 11
+        assert len(BLOCK_TYPE_REGISTRY) == 10
 
     def test_all_block_builders_are_callable(self):
         """Verify all builders in registry are callable."""
@@ -386,45 +385,6 @@ workflow:
             parse_workflow_yaml(yaml_content)
 
 
-class TestPlaceholderBlock:
-    """Tests for PlaceholderBlock (block type: placeholder)."""
-
-    def test_placeholder_block_valid_yaml(self):
-        """AC-26: Parse valid placeholder block."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  placeholder_block:
-    type: placeholder
-    description: "This is a placeholder"
-workflow:
-  name: test_placeholder
-  entry: placeholder_block
-  transitions:
-    - from: placeholder_block
-      to: null
-"""
-        workflow = parse_workflow_yaml(yaml_content)
-        assert isinstance(workflow, Workflow)
-
-    def test_placeholder_block_no_description(self):
-        """AC-27: PlaceholderBlock without explicit description gets default."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  placeholder_block:
-    type: placeholder
-workflow:
-  name: test_placeholder
-  entry: placeholder_block
-  transitions:
-    - from: placeholder_block
-      to: null
-"""
-        workflow = parse_workflow_yaml(yaml_content)
-        assert isinstance(workflow, Workflow)
-
-
 class TestSoulResolution:
     """Tests for soul resolution and merging."""
 
@@ -555,9 +515,9 @@ blocks:
     input_block_ids:
       - research_block
       - review_block
-  placeholder_block:
-    type: placeholder
-    description: Final placeholder
+  final_block:
+    type: linear
+    soul_ref: generalist
 workflow:
   name: complex_workflow
   entry: research_block
@@ -567,8 +527,8 @@ workflow:
     - from: review_block
       to: synthesize_block
     - from: synthesize_block
-      to: placeholder_block
-    - from: placeholder_block
+      to: final_block
+    - from: final_block
       to: null
 """
         workflow = parse_workflow_yaml(yaml_content)

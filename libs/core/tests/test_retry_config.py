@@ -20,7 +20,6 @@ from runsight_core.yaml.schema import (
     FanOutBlockDef,
     GateBlockDef,
     LoopBlockDef,
-    PlaceholderBlockDef,
     RetryConfig,
     RunsightWorkflowFile,
 )
@@ -302,16 +301,6 @@ class TestRetryConfigOnAllBlockTypes:
         assert isinstance(block, GateBlockDef)
         assert block.retry_config.non_retryable_errors == ["AuthError"]
 
-    def test_placeholder_block_with_retry_config(self):
-        block = _validate_block(
-            {
-                "type": "placeholder",
-                "retry_config": {"max_attempts": 1},
-            }
-        )
-        assert isinstance(block, PlaceholderBlockDef)
-        assert block.retry_config.max_attempts == 1
-
     def test_loop_block_with_retry_config(self):
         """LoopBlockDef can have retry_config — they coexist."""
         block = _validate_block(
@@ -439,7 +428,9 @@ class TestYAMLParsingRetryConfig:
                     },
                     "b2": {"type": "code", "code": "pass"},
                     "b3": {
-                        "type": "placeholder",
+                        "type": "gate",
+                        "soul_ref": "s1",
+                        "eval_key": "k",
                         "retry_config": {"backoff": "exponential", "backoff_base_seconds": 5.0},
                     },
                 },
@@ -491,7 +482,6 @@ class TestBackwardCompatibility:
             {"type": "team_lead", "soul_ref": "s1"},
             {"type": "engineering_manager", "soul_ref": "s1"},
             {"type": "gate", "soul_ref": "s1", "eval_key": "k"},
-            {"type": "placeholder"},
             {"type": "file_writer", "output_path": "/tmp/f", "content_key": "k"},
             {"type": "code", "code": "pass"},
             {"type": "loop", "inner_block_refs": ["b1"]},
@@ -505,7 +495,6 @@ class TestBackwardCompatibility:
             "team_lead",
             "engineering_manager",
             "gate",
-            "placeholder",
             "file_writer",
             "code",
             "loop",

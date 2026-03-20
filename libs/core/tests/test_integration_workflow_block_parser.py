@@ -77,13 +77,13 @@ class TestWorkflowRunKwargsHandling:
 version: "1.0"
 workflow:
   name: test_wf
-  entry: placeholder
+  entry: step1
 blocks:
-  placeholder:
-    type: placeholder
-    description: Test placeholder
+  step1:
+    type: code
+    code: "def main(data):\\n    return {'step1': 'done'}"
 transitions:
-  - from: placeholder
+  - from: step1
     to: null
 """
         wf = parse_workflow_yaml(yaml_def)
@@ -101,13 +101,13 @@ transitions:
 version: "1.0"
 workflow:
   name: test_wf
-  entry: placeholder
+  entry: step1
 blocks:
-  placeholder:
-    type: placeholder
-    description: Test
+  step1:
+    type: code
+    code: "def main(data):\\n    return {'step1': 'done'}"
 transitions:
-  - from: placeholder
+  - from: step1
     to: null
 """
         wf = parse_workflow_yaml(yaml_def)
@@ -143,18 +143,6 @@ class TestBlockKwargsCompatibility:
 
         block = LinearBlock(block_id="test_linear", soul=soul, runner=runner)
         state = WorkflowState(current_task=Task(id="t1", instruction="test"))
-
-        # Execute with default signature
-        result = await block.execute(state)
-        assert isinstance(result, WorkflowState)
-
-    @pytest.mark.asyncio
-    async def test_placeholder_block_basic_execution(self):
-        """Test PlaceholderBlock.execute() basic functionality."""
-        from runsight_core.blocks.implementations import PlaceholderBlock
-
-        block = PlaceholderBlock(block_id="test_ph", description="Test placeholder")
-        state = WorkflowState()
 
         # Execute with default signature
         result = await block.execute(state)
@@ -198,8 +186,8 @@ workflow:
   entry: child_task
 blocks:
   child_task:
-    type: placeholder
-    description: Child task
+    type: code
+    code: "def main(data):\\n    return {'child_task': 'done'}"
 transitions:
   - from: child_task
     to: null
@@ -214,8 +202,8 @@ workflow:
   entry: main_task
 blocks:
   main_task:
-    type: placeholder
-    description: Main task
+    type: code
+    code: "def main(data):\\n    return {'main_task': 'done'}"
 transitions:
   - from: main_task
     to: null
@@ -418,13 +406,18 @@ class TestCrossFeatureInteraction:
         # Mock what the parser would do
         child_wf_def = """
 version: "1.0"
+souls:
+  researcher:
+    id: researcher_1
+    role: Researcher
+    system_prompt: You research things.
 workflow:
   name: child
   entry: step1
 blocks:
   step1:
-    type: placeholder
-    description: Child step
+    type: linear
+    soul_ref: researcher
 transitions:
   - from: step1
     to: null
@@ -519,7 +512,7 @@ transitions:
         child_wf_dict = {
             "version": "1.0",
             "workflow": {"name": "child_analysis", "entry": "analyze"},
-            "blocks": {"analyze": {"type": "placeholder", "description": "Analysis block"}},
+            "blocks": {"analyze": {"type": "linear", "soul_ref": "researcher"}},
             "transitions": [{"from": "analyze", "to": None}],
         }
         child_wf_file = RunsightWorkflowFile.model_validate(child_wf_dict)
