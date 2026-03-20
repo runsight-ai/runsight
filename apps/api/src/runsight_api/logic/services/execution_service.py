@@ -127,24 +127,26 @@ class ExecutionService:
                 observers.append(ExecutionObserver(engine=self.engine, run_id=run_id))
             observer = CompositeObserver(*observers)
 
+            start_time = time.time()
             state = WorkflowState(
                 current_task=Task(id=run_id, instruction=task_data["instruction"])
             )
+            observer.on_workflow_start("workflow", state)
 
             try:
                 state = await wf.run(state, observer=observer)
-                self._set_run_status(run_id, RunStatus.completed)
+                duration = time.time() - start_time
+                observer.on_workflow_complete("workflow", state, duration)
             except Exception as e:
-                self._set_run_status(run_id, RunStatus.failed, error=e)
+                duration = time.time() - start_time
+                observer.on_workflow_error("workflow", e, duration)
                 logger.exception("Workflow execution failed for run %s", run_id)
 
         # Eagerly remove from running tasks after semaphore is released.
         # The done_callback is a safety net for cancellation paths.
         self._running_tasks.pop(run_id, None)
 
-    def _set_run_status(
-        self, run_id: str, status: RunStatus, *, error: Optional[Exception] = None
-    ) -> None:
+    def _set_run_status(self, run_id: str, status: RunStatus) -> None:
         """Update the run status in the database if an engine is available."""
         if self.engine is None:
             return
@@ -158,8 +160,6 @@ class ExecutionService:
                 if run:
                     run.status = status
                     run.updated_at = time.time()
-                    if error is not None:
-                        run.error = str(error)
                     session.add(run)
                     session.commit()
         except Exception:
