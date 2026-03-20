@@ -65,6 +65,8 @@ class LinearBlock(BaseBlock):
             raise ValueError(f"LinearBlock {self.block_id}: state.current_task is None")
 
         if self.stateful:
+            # Retry-safe: _execute_with_retry passes the same input state per attempt,
+            # so `history` here never contains messages from a failed attempt.
             history_key = f"{self.block_id}_{self.soul.id}"
             history = state.conversation_histories.get(history_key, [])
             result = await self.runner.execute_task(state.current_task, self.soul, messages=history)

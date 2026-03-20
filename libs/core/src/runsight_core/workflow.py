@@ -390,6 +390,8 @@ class Workflow:
 
         for attempt in range(1, max_attempts + 1):
             try:
+                # Pass the same pre-retry `state` on every attempt so stateful blocks
+                # start from a clean history — failed-attempt messages are never carried over.
                 result_state = await execute_fn(block, state)
                 # If retries occurred, store metadata
                 if attempt > 1:
