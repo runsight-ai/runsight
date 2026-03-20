@@ -85,14 +85,16 @@ class RunsightTeamRunner:
             self._clients[override] = LiteLLMClient(model_name=override, api_key=self.api_key)
         return self._clients[override]
 
-    async def execute_task(self, task: Task, soul: Soul) -> ExecutionResult:
+    async def execute_task(
+        self, task: Task, soul: Soul, messages: list[dict] | None = None
+    ) -> ExecutionResult:
         """
         Executes a task synchronously (waits for full completion).
         """
-        messages = [{"role": "user", "content": self._build_prompt(task)}]
+        all_messages = (messages or []) + [{"role": "user", "content": self._build_prompt(task)}]
 
         client = self._get_client(soul)
-        response = await client.achat(messages=messages, system_prompt=soul.system_prompt)
+        response = await client.achat(messages=all_messages, system_prompt=soul.system_prompt)
 
         return ExecutionResult(
             task_id=task.id,
@@ -102,14 +104,18 @@ class RunsightTeamRunner:
             total_tokens=response["total_tokens"],
         )
 
-    async def stream_task(self, task: Task, soul: Soul) -> AsyncGenerator[str, None]:
+    async def stream_task(
+        self, task: Task, soul: Soul, messages: list[dict] | None = None
+    ) -> AsyncGenerator[str, None]:
         """
         Executes a task and streams the response tokens back.
         """
-        messages = [{"role": "user", "content": self._build_prompt(task)}]
+        all_messages = (messages or []) + [{"role": "user", "content": self._build_prompt(task)}]
 
         client = self._get_client(soul)
-        async for chunk in client.astream_chat(messages=messages, system_prompt=soul.system_prompt):
+        async for chunk in client.astream_chat(
+            messages=all_messages, system_prompt=soul.system_prompt
+        ):
             yield chunk
 
     def _build_prompt(self, task: Task) -> str:
