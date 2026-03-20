@@ -33,46 +33,13 @@ class BlockResult(BaseModel):
 
     # --- String-protocol methods for backward compatibility ---
     # These allow BlockResult to be used transparently where code expects
-    # a plain string (len, 'in' operator, iteration, indexing, etc.)
+    # a plain string (len checks, 'in' operator).
 
     def __len__(self) -> int:
         return len(self.output)
 
     def __contains__(self, item: object) -> bool:
         return item in self.output
-
-    def __getitem__(self, key: Any) -> str:
-        return self.output[key]
-
-    def __iter__(self):
-        return iter(self.output)
-
-    def __format__(self, format_spec: str) -> str:
-        return self.output.__format__(format_spec)
-
-    def startswith(self, *args, **kwargs):
-        return self.output.startswith(*args, **kwargs)
-
-    def endswith(self, *args, **kwargs):
-        return self.output.endswith(*args, **kwargs)
-
-    def strip(self, *args, **kwargs):
-        return self.output.strip(*args, **kwargs)
-
-    def split(self, *args, **kwargs):
-        return self.output.split(*args, **kwargs)
-
-    def upper(self):
-        return self.output.upper()
-
-    def lower(self):
-        return self.output.lower()
-
-    def replace(self, *args, **kwargs):
-        return self.output.replace(*args, **kwargs)
-
-    def encode(self, *args, **kwargs):
-        return self.output.encode(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
