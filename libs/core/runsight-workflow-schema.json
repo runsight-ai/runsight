@@ -603,6 +603,182 @@
       "title": "GateBlockDef",
       "type": "object"
     },
+    "HttpRequestBlockDef": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "http_request",
+          "default": "http_request",
+          "title": "Type",
+          "type": "string"
+        },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
+        },
+        "output_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaseDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Conditions"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InputRef"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "retry_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetryConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "method": {
+          "default": "GET",
+          "title": "Method",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "body": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Body"
+        },
+        "body_type": {
+          "default": "json",
+          "enum": [
+            "json",
+            "form",
+            "raw"
+          ],
+          "title": "Body Type",
+          "type": "string"
+        },
+        "auth_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "bearer",
+                "api_key",
+                "basic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Auth Type"
+        },
+        "auth_config": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Auth Config",
+          "type": "object"
+        },
+        "timeout_seconds": {
+          "default": 30,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "retry_count": {
+          "default": 0,
+          "title": "Retry Count",
+          "type": "integer"
+        },
+        "retry_backoff": {
+          "default": 1.0,
+          "title": "Retry Backoff",
+          "type": "number"
+        },
+        "expected_status_codes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Status Codes"
+        },
+        "allow_private_ips": {
+          "default": false,
+          "title": "Allow Private Ips",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "HttpRequestBlockDef",
+      "type": "object"
+    },
     "InputRef": {
       "additionalProperties": false,
       "description": "Reference to an upstream block's output.",
@@ -1374,6 +1550,7 @@
             "fanout": "#/$defs/FanOutBlockDef",
             "file_writer": "#/$defs/FileWriterBlockDef",
             "gate": "#/$defs/GateBlockDef",
+            "http_request": "#/$defs/HttpRequestBlockDef",
             "linear": "#/$defs/LinearBlockDef",
             "loop": "#/$defs/LoopBlockDef",
             "router": "#/$defs/RouterBlockDef",
@@ -1416,6 +1593,9 @@
           },
           {
             "$ref": "#/$defs/WorkflowBlockDef"
+          },
+          {
+            "$ref": "#/$defs/HttpRequestBlockDef"
           }
         ]
       },

@@ -24,6 +24,7 @@ from runsight_core.blocks.implementations import (
     FileWriterBlock,
     CodeBlock,
 )
+from runsight_core.blocks.http_request import HttpRequestBlock
 from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.workflow import Workflow
@@ -297,6 +298,30 @@ def _build_code(
     )
 
 
+def _build_http_request(
+    block_id: str,
+    block_def: BlockDef,
+    souls_map: Dict[str, Soul],
+    runner: RunsightTeamRunner,
+    all_blocks: Dict[str, BaseBlock],
+) -> HttpRequestBlock:
+    return HttpRequestBlock(
+        block_id,
+        url=block_def.url,
+        method=block_def.method,
+        headers=block_def.headers,
+        body=block_def.body,
+        body_type=block_def.body_type,
+        auth_type=block_def.auth_type,
+        auth_config=block_def.auth_config,
+        timeout_seconds=block_def.timeout_seconds,
+        retry_count=block_def.retry_count,
+        retry_backoff=block_def.retry_backoff,
+        expected_status_codes=block_def.expected_status_codes,
+        allow_private_ips=block_def.allow_private_ips,
+    )
+
+
 BLOCK_TYPE_REGISTRY: Dict[str, BlockBuilder] = {
     "linear": _build_linear,
     "fanout": _build_fanout,
@@ -308,6 +333,7 @@ BLOCK_TYPE_REGISTRY: Dict[str, BlockBuilder] = {
     "gate": _build_gate,
     "file_writer": _build_file_writer,
     "code": _build_code,
+    "http_request": _build_http_request,
 }
 
 

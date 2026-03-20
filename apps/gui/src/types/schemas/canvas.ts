@@ -12,7 +12,8 @@ export type StepType =
   | "team_lead"
   | "engineering_manager"
   | "file_writer"
-  | "code";
+  | "code"
+  | "http_request";
 
 export type RunStatus = "idle" | "running" | "completed" | "failed" | "paused" | "pending";
 
@@ -71,6 +72,19 @@ export interface StepNodeData extends Record<string, unknown> {
   code?: string;
   timeoutSeconds?: number;
   allowedImports?: string[];
+
+  // HTTP Request fields
+  url?: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  bodyType?: string;
+  authType?: string;
+  authConfig?: Record<string, string>;
+  retryCount?: number;
+  retryBackoff?: number | string;
+  expectedStatusCodes?: number[];
+  allowPrivateIps?: boolean;
 
   // Universal fields (from BaseBlockDef)
   outputConditions?: CaseDef[];
@@ -153,6 +167,18 @@ export interface BlockDef {
   code?: string;
   timeout_seconds?: number;
   allowed_imports?: string[];
+  // HTTP Request fields (snake_case)
+  url?: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  body_type?: string;
+  auth_type?: string;
+  auth_config?: Record<string, string>;
+  retry_count?: number;
+  retry_backoff?: number | string;
+  expected_status_codes?: number[];
+  allow_private_ips?: boolean;
   output_conditions?: CaseDef[];
   stateful?: boolean;
 }

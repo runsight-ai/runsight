@@ -43,6 +43,7 @@ const BLOCK_TYPE_FIELDS: Record<StepType, string[]> = {
   code:                ["code", "timeout_seconds", "allowed_imports"],
   loop:                ["inner_block_refs", "max_rounds", "break_condition", "carry_context"],
   workflow:            ["workflow_ref", "max_depth", "inputs", "outputs"],
+  http_request:        ["url", "method", "headers", "body", "body_type", "auth_type", "auth_config", "timeout_seconds", "retry_count", "retry_backoff", "expected_status_codes", "allow_private_ips"],
 };
 
 // ---------------------------------------------------------------------------
@@ -81,6 +82,14 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   // WorkflowBlock special mappings
   workflowInputs:     "inputs",
   workflowOutputs:    "outputs",
+  // HTTP Request mappings
+  bodyType:            "body_type",
+  authType:            "auth_type",
+  authConfig:          "auth_config",
+  retryCount:          "retry_count",
+  retryBackoff:        "retry_backoff",
+  expectedStatusCodes: "expected_status_codes",
+  allowPrivateIps:     "allow_private_ips",
 };
 
 const SNAKE_TO_CAMEL: Record<string, string> = {};
