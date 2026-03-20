@@ -114,6 +114,7 @@ class ExecutionService:
         'running'. The semaphore is released in a finally block to prevent
         deadlocks on errors or cancellation.
         """
+        from runsight_core.primitives import Task
         from runsight_core.state import WorkflowState
 
         async with self._semaphore:
@@ -127,11 +128,13 @@ class ExecutionService:
             observer = CompositeObserver(*observers)
 
             start_time = time.time()
-            state = WorkflowState()
+            state = WorkflowState(
+                current_task=Task(id=run_id, instruction=task_data["instruction"])
+            )
             observer.on_workflow_start("workflow", state)
 
             try:
-                state = await wf.run(task_data["instruction"], observer=observer)
+                state = await wf.run(state, observer=observer)
                 duration = time.time() - start_time
                 observer.on_workflow_complete("workflow", state, duration)
             except Exception as e:
