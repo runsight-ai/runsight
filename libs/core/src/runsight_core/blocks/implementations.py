@@ -1008,7 +1008,7 @@ class WorkflowBlock(BaseBlock):
         Raises:
             KeyError: If any parent_path not found in parent_state (via _resolve_dotted).
         """
-        child_state = WorkflowState()
+        child_state = WorkflowState(artifact_store=parent_state.artifact_store)
 
         for child_key, parent_path in inputs.items():
             # Resolve value from parent

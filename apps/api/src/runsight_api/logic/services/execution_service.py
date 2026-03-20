@@ -147,8 +147,12 @@ class ExecutionService:
                 observers.append(ExecutionObserver(engine=self.engine, run_id=run_id))
             observer = CompositeObserver(*observers)
 
+            from runsight_core.artifacts import InMemoryArtifactStore
+
+            artifact_store = InMemoryArtifactStore(run_id=run_id)
             state = WorkflowState(
-                current_task=Task(id=run_id, instruction=task_data["instruction"])
+                current_task=Task(id=run_id, instruction=task_data["instruction"]),
+                artifact_store=artifact_store,
             )
 
             try:
