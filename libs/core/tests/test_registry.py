@@ -18,7 +18,7 @@ class SimpleBlock(BaseBlock):
         return state.model_copy(
             update={
                 "results": {**state.results, self.block_id: self.description},
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[Block {self.block_id}] {self.description}"}],
             }
         )

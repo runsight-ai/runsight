@@ -30,7 +30,7 @@ class EchoBlock(BaseBlock):
         return state.model_copy(
             update={
                 "results": {**state.results, self.block_id: self.description},
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [
                     {
                         "role": "system",
@@ -49,7 +49,7 @@ class BlockWithoutKwargs(BaseBlock):
         return state.model_copy(
             update={
                 "results": {**state.results, self.block_id: "executed"},
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
             }
         )
@@ -64,7 +64,7 @@ class BlockWithKwargs(BaseBlock):
         return state.model_copy(
             update={
                 "results": {**state.results, self.block_id: "executed_with_kwargs"},
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed with kwargs"}],
             }
         )
@@ -424,7 +424,7 @@ async def test_nested_workflow_blocks_error_includes_stack():
             return state.model_copy(
                 update={
                     "results": {**state.results, self.block_id: "ok"},
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": f"[{self.block_id}] OK"}],
                 }
             )

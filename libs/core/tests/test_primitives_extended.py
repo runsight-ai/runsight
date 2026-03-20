@@ -80,8 +80,8 @@ async def test_step_executes_hooks(mock_runner, sample_soul):
 
     # Verify block executed successfully
     assert result_state.results["linear1"].output == "Block output"
-    assert len(result_state.messages) == 1
-    assert "[Block linear1]" in result_state.messages[0]["content"]
+    assert len(result_state.execution_log) == 1
+    assert "[Block linear1]" in result_state.execution_log[0]["content"]
 
 
 @pytest.mark.asyncio
@@ -108,8 +108,8 @@ async def test_step_no_hooks(mock_runner, sample_soul):
 
     # Verify block executed normally
     assert result_state.results["linear1"].output == "Block output"
-    assert len(result_state.messages) == 1
-    assert "[Block linear1]" in result_state.messages[0]["content"]
+    assert len(result_state.execution_log) == 1
+    assert "[Block linear1]" in result_state.execution_log[0]["content"]
 
 
 @pytest.mark.asyncio

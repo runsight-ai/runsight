@@ -21,7 +21,7 @@ class MockBlock(BaseBlock):
         return state.model_copy(
             update={
                 "results": {**state.results, self.block_id: BlockResult(output=self.output)},
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
             }
         )
@@ -105,7 +105,7 @@ async def test_workflow_linear_execution():
     }
 
     # Verify messages appended
-    assert len(final_state.messages) == 3
+    assert len(final_state.execution_log) == 3
 
 
 @pytest.mark.asyncio
@@ -301,7 +301,7 @@ async def test_dynamic_routing_global_decision():
                 update={
                     "results": {**state.results, self.block_id: BlockResult(output="approved")},
                     "metadata": {**state.metadata, "router_decision": "approved"},
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router] RouterMock"}],
                 }
             )
@@ -344,7 +344,7 @@ async def test_dynamic_routing_block_scoped_decision():
                 update={
                     "results": {**state.results, self.block_id: BlockResult(output="rejected")},
                     "metadata": {**state.metadata, "router_decision": "rejected"},
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router] RouterMock"}],
                 }
             )
@@ -394,7 +394,7 @@ async def test_dynamic_injection_with_registry():
                             {"step_id": "injected_step", "description": "Do injected work"}
                         ],
                     },
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block planner] PlannerBlock"}],
                 }
             )
@@ -443,7 +443,7 @@ async def test_dynamic_injection_placeholder_fallback():
                             }
                         ],
                     },
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block planner] PlannerBlock"}],
                 }
             )
@@ -481,7 +481,7 @@ def test_dynamic_injection_missing_step_id():
                             {"description": "Do injected work"}  # Missing step_id
                         ],
                     },
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block planner] BadPlannerBlock"}],
                 }
             )
@@ -520,7 +520,7 @@ def test_dynamic_injection_missing_description():
                             {"step_id": "injected_step"}  # Missing description
                         ],
                     },
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block planner] BadPlannerBlock"}],
                 }
             )
@@ -581,7 +581,7 @@ async def test_dynamic_routing():
                 update={
                     "results": {**state.results, self.block_id: BlockResult(output="approved")},
                     "metadata": {**state.metadata, "router_decision": "approved"},
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router] RouterMock"}],
                 }
             )
@@ -621,7 +621,7 @@ async def test_dynamic_routing():
                 update={
                     "results": {**state.results, self.block_id: BlockResult(output="rejected")},
                     "metadata": {**state.metadata, "router2_decision": "rejected"},
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router2] RouterMockScoped"}],
                 }
             )
@@ -659,7 +659,7 @@ async def test_dynamic_routing():
                         self.block_id: BlockResult(output="unknown_decision"),
                     },
                     "metadata": {**state.metadata, "router_decision": "unknown_decision"},
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router3] RouterMockUnknown"}],
                 }
             )
@@ -692,7 +692,7 @@ async def test_dynamic_routing():
                 update={
                     "results": {**state.results, self.block_id: BlockResult(output="missing")},
                     "metadata": {**state.metadata, "router_decision": "missing"},
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router4] RouterMockNoDefault"}],
                 }
             )
@@ -739,7 +739,7 @@ async def test_dynamic_injection():
                             {"step_id": "injected_step", "description": "Do injected work"}
                         ],
                     },
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block planner] PlannerBlock"}],
                 }
             )
@@ -782,7 +782,7 @@ async def test_dynamic_injection():
                             {"step_id": "injected_step", "description": "Do injected work"}
                         ],
                     },
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block planner2] PlannerBlock2"}],
                 }
             )

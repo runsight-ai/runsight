@@ -9,7 +9,7 @@ from runsight_core.primitives import Task
 def test_workflow_state_initialization():
     """Verify WorkflowState initializes with empty defaults."""
     state = WorkflowState()
-    assert state.messages == []
+    assert state.execution_log == []
     assert state.shared_memory == {}
     assert state.current_task is None
     assert state.results == {}
@@ -41,7 +41,7 @@ def test_workflow_state_model_fields():
     """Verify required fields exist (AC-2)."""
     fields = set(WorkflowState.model_fields.keys())
     required = {
-        "messages",
+        "execution_log",
         "shared_memory",
         "current_task",
         "results",
@@ -56,7 +56,7 @@ def test_workflow_state_with_all_fields():
     """Verify WorkflowState can be initialized with all fields."""
     task = Task(id="t1", instruction="Test task")
     state = WorkflowState(
-        messages=[{"role": "system", "content": "Hello"}],
+        execution_log=[{"role": "system", "content": "Hello"}],
         shared_memory={"key": "value"},
         current_task=task,
         results={"block1": BlockResult(output="output1")},
@@ -65,8 +65,8 @@ def test_workflow_state_with_all_fields():
         total_tokens=100,
     )
 
-    assert len(state.messages) == 1
-    assert state.messages[0]["role"] == "system"
+    assert len(state.execution_log) == 1
+    assert state.execution_log[0]["role"] == "system"
     assert state.shared_memory["key"] == "value"
     assert state.current_task.id == "t1"
     assert state.results["block1"].output == "output1"

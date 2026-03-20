@@ -31,7 +31,7 @@ class EchoBlock(BaseBlock):
         return state.model_copy(
             update={
                 "results": {**state.results, self.block_id: BlockResult(output=self.description)},
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [
                     {
                         "role": "system",
@@ -127,8 +127,8 @@ async def test_workflow_block_followed_by_linear_block():
     assert final_state.total_cost_usd >= 0.01
 
     # Verify: Messages from both blocks
-    assert len(final_state.messages) > 0
-    system_msgs = [m for m in final_state.messages if m["role"] == "system"]
+    assert len(final_state.execution_log) > 0
+    system_msgs = [m for m in final_state.execution_log if m["role"] == "system"]
     assert any("run_child" in m["content"] for m in system_msgs)
     assert any("parent_linear" in m["content"] for m in system_msgs)
 
@@ -183,7 +183,7 @@ async def test_workflow_block_with_placeholder_before_and_after():
     assert "after_wf" in final_state.results
 
     # Verify: Messages show correct execution order
-    messages = [m["content"] for m in final_state.messages if m["role"] == "system"]
+    messages = [m["content"] for m in final_state.execution_log if m["role"] == "system"]
     before_idx = next((i for i, m in enumerate(messages) if "before_wf" in m), -1)
     invoke_idx = next((i for i, m in enumerate(messages) if "invoke_child" in m), -1)
     after_idx = next((i for i, m in enumerate(messages) if "after_wf" in m), -1)
@@ -247,7 +247,7 @@ async def test_nested_workflow_blocks():
 
     # Verify: System messages from top-level blocks
     # Note: Messages from nested workflows are propagated up through the parent message stream
-    messages = [m["content"] for m in final_state.messages if m["role"] == "system"]
+    messages = [m["content"] for m in final_state.execution_log if m["role"] == "system"]
     assert any("invoke_child" in m for m in messages)  # Parent → child block
     # The grandchild execution message may be in the child's state, then propagated
     # We verify the final output was correctly mapped instead
@@ -288,7 +288,7 @@ async def test_workflow_block_state_isolation_complex():
                         **new_state.results,
                         self.block_id: BlockResult(output=self.description),
                     },
-                    "messages": new_state.messages
+                    "execution_log": new_state.execution_log
                     + [
                         {
                             "role": "system",
@@ -363,7 +363,7 @@ async def test_workflow_block_cost_propagation_multiple_levels():
             return state.model_copy(
                 update={
                     "results": {**state.results, self.block_id: BlockResult(output="Block")},
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [
                         {"role": "system", "content": f"[Block {self.block_id}] CostProducingBlock"}
                     ],

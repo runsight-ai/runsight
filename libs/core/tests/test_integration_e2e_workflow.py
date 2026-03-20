@@ -58,9 +58,9 @@ async def test_e2e_single_block_workflow(mock_achat):
         final_state.results["research_block"].output
         == "Research complete: Found 5 relevant papers on quantum computing."
     )
-    assert len(final_state.messages) == 1
-    assert "[Block research_block]" in final_state.messages[0]["content"]
-    assert "Research complete" in final_state.messages[0]["content"]
+    assert len(final_state.execution_log) == 1
+    assert "[Block research_block]" in final_state.execution_log[0]["content"]
+    assert "Research complete" in final_state.execution_log[0]["content"]
 
     # Verify metadata preserved
     assert final_state.metadata["workflow_name"] == "research_pipeline"
@@ -145,10 +145,10 @@ async def test_e2e_sequential_block_workflow(mock_achat):
     assert "Summary: Topic X" in state.results["step3_writing"].output
 
     # Verify message history accumulated
-    assert len(state.messages) == 3
-    assert "[Block step1_research]" in state.messages[0]["content"]
-    assert "[Block step2_analysis]" in state.messages[1]["content"]
-    assert "[Block step3_writing]" in state.messages[2]["content"]
+    assert len(state.execution_log) == 3
+    assert "[Block step1_research]" in state.execution_log[0]["content"]
+    assert "[Block step2_analysis]" in state.execution_log[1]["content"]
+    assert "[Block step3_writing]" in state.execution_log[2]["content"]
 
     # Verify metadata preserved throughout
     assert state.metadata["pipeline"] == "analysis_pipeline"
@@ -302,8 +302,8 @@ async def test_e2e_long_running_workflow_state_size(mock_achat):
         assert len(state.results[f"block{i}"].output) == 500
 
     # Verify messages are truncated (200 chars + "..." in each message)
-    assert len(state.messages) == 10
-    for msg in state.messages:
+    assert len(state.execution_log) == 10
+    for msg in state.execution_log:
         # Each message has: "[Block blockN] Completed: " + 200 chars + "..."
         assert "..." in msg["content"]
         assert "L" * 200 in msg["content"]

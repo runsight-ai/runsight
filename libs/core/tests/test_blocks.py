@@ -44,9 +44,9 @@ async def test_linear_block_execution(mock_runner, sample_soul):
     result_state = await block.execute(state)
 
     assert result_state.results["linear1"].output == "Test output"
-    assert len(result_state.messages) == 1
-    assert "[Block linear1]" in result_state.messages[0]["content"]
-    assert "Completed: Test output" in result_state.messages[0]["content"]
+    assert len(result_state.execution_log) == 1
+    assert "[Block linear1]" in result_state.execution_log[0]["content"]
+    assert "Completed: Test output" in result_state.execution_log[0]["content"]
     mock_runner.execute_task.assert_called_once_with(task, sample_soul)
 
 
@@ -81,7 +81,7 @@ async def test_linear_block_message_truncation(mock_runner, sample_soul):
     assert len(result_state.results["linear1"].output) == 300
 
     # But message content is truncated to 200 chars + "..."
-    message_content = result_state.messages[0]["content"]
+    message_content = result_state.execution_log[0]["content"]
     assert "..." in message_content
     # The truncated part should be 200 chars of "A" plus the "..." suffix
     assert "A" * 200 + "..." in message_content
@@ -117,14 +117,14 @@ async def test_linear_block_preserves_existing_messages(mock_runner, sample_soul
     block = LinearBlock("linear1", sample_soul, mock_runner)
     task = Task(id="t1", instruction="Test task")
     existing_messages = [{"role": "system", "content": "Previous message"}]
-    state = WorkflowState(current_task=task, messages=existing_messages)
+    state = WorkflowState(current_task=task, execution_log=existing_messages)
 
     result_state = await block.execute(state)
 
     # Should have 2 messages: existing + new
-    assert len(result_state.messages) == 2
-    assert result_state.messages[0]["content"] == "Previous message"
-    assert "[Block linear1]" in result_state.messages[1]["content"]
+    assert len(result_state.execution_log) == 2
+    assert result_state.execution_log[0]["content"] == "Previous message"
+    assert "[Block linear1]" in result_state.execution_log[1]["content"]
 
 
 @pytest.mark.asyncio

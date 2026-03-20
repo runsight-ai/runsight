@@ -39,7 +39,7 @@ class MockBlock(BaseBlock):
         return state.model_copy(
             update={
                 "results": {**state.results, self.block_id: self._result},
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
             }
         )
@@ -74,7 +74,7 @@ class MockCodeBlock(BaseBlock):
         return state.model_copy(
             update={
                 "results": {**state.results, self.block_id: json.dumps(self._output)},
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[CodeBlock {self.block_id}] Executed"}],
             }
         )
