@@ -122,7 +122,11 @@ class ExecutionService:
             self._set_run_status(run_id, RunStatus.running)
 
             # Build observer chain: LoggingObserver + ExecutionObserver (DB persistence)
-            observers = [LoggingObserver()]
+            # + StreamingObserver (SSE event streaming)
+            streaming_obs = StreamingObserver(run_id=run_id)
+            self.register_observer(run_id, streaming_obs)
+
+            observers = [LoggingObserver(), streaming_obs]
             if self.engine:
                 observers.append(ExecutionObserver(engine=self.engine, run_id=run_id))
             observer = CompositeObserver(*observers)
@@ -137,6 +141,8 @@ class ExecutionService:
             except Exception as e:
                 self._set_run_status(run_id, RunStatus.failed, error=e)
                 logger.exception("Workflow execution failed for run %s", run_id)
+            finally:
+                self.unregister_observer(run_id)
 
         # Eagerly remove from running tasks after semaphore is released.
         # The done_callback is a safety net for cancellation paths.
