@@ -110,7 +110,8 @@ class ExecutionObserver:
                     node.completed_at = time.time()
                     node.cost_usd = cost_delta
                     node.tokens = {"total": state.total_tokens}
-                    node.output = state.results.get(block_id)
+                    result = state.results.get(block_id)
+                    node.output = result.output if result else None
                     node.updated_at = time.time()
                     session.add(node)
                 session.commit()
@@ -189,7 +190,9 @@ class ExecutionObserver:
                     run.duration_s = duration_s
                     run.total_cost_usd = state.total_cost_usd
                     run.total_tokens = state.total_tokens
-                    run.results_json = json.dumps(state.results)
+                    run.results_json = json.dumps(
+                        {k: v.model_dump() for k, v in state.results.items()}
+                    )
                     run.updated_at = time.time()
                     session.add(run)
                 session.commit()

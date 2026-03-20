@@ -415,7 +415,7 @@ class TestOnWorkflowComplete:
             run = session.get(Run, run_id)
             assert run.results_json is not None
             parsed = json.loads(run.results_json)
-            assert parsed["block_a"] == "output_a"
+            assert parsed["block_a"]["output"] == "output_a"
 
     def test_inserts_log_entry(self, observer):
         """on_workflow_complete INSERTs a LogEntry."""
