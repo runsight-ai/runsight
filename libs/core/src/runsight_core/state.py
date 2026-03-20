@@ -2,8 +2,9 @@
 WorkflowState data model for workflow execution context.
 """
 
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Annotated, Any, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator
+from runsight_core.artifacts import ArtifactStore
 from runsight_core.primitives import Task
 
 
@@ -101,7 +102,9 @@ class WorkflowState(BaseModel):
         default=0,
         description="Cumulative token count for all LLM calls in the workflow.",
     )
-    artifact_store: Optional[Any] = Field(default=None, exclude=True)
+    artifact_store: Optional[Annotated[ArtifactStore, SkipValidation]] = Field(
+        default=None, exclude=True
+    )
 
     @field_validator("results", mode="before")
     @classmethod
