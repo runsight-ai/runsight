@@ -101,6 +101,7 @@ class BaseBlockDef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     type: str
+    stateful: bool = False
     output_conditions: Optional[List[CaseDef]] = None
     inputs: Optional[Dict[str, InputRef]] = None
     outputs: Optional[Dict[str, str]] = None  # name -> type string

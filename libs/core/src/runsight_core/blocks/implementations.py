@@ -1363,7 +1363,9 @@ class CodeBlock(BaseBlock):
 
         stdin_data = json.dumps(
             {
-                "results": state.results,
+                "results": {
+                    k: v.output if hasattr(v, "output") else v for k, v in state.results.items()
+                },
                 "metadata": state.metadata,
                 "shared_memory": state.shared_memory,
             }
