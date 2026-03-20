@@ -37,9 +37,9 @@ class WorkflowState(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    messages: List[Dict[str, str]] = Field(
+    execution_log: List[Dict[str, str]] = Field(
         default_factory=list,
-        description="Conversation history. Format: [{'role': 'system', 'content': '...'}]",
+        description="Execution audit log. Format: [{'role': 'system', 'content': '...'}]",
     )
     shared_memory: Dict[str, Any] = Field(
         default_factory=dict,

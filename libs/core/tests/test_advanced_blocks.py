@@ -60,9 +60,9 @@ async def test_router_block_soul_evaluation(mock_runner, sample_soul):
     assert result_state.metadata["router1_decision"] == "approved"
 
     # Verify message appended
-    assert len(result_state.messages) == 1
-    assert "[Block router1]" in result_state.messages[0]["content"]
-    assert "RouterBlock decision: approved" in result_state.messages[0]["content"]
+    assert len(result_state.execution_log) == 1
+    assert "[Block router1]" in result_state.execution_log[0]["content"]
+    assert "RouterBlock decision: approved" in result_state.execution_log[0]["content"]
 
     # Verify runner called with task and soul
     mock_runner.execute_task.assert_called_once_with(task, sample_soul)
@@ -93,9 +93,9 @@ async def test_router_block_callable_evaluation(mock_runner):
     assert result_state.metadata["router2_decision"] == "approved"
 
     # Verify message appended
-    assert len(result_state.messages) == 1
-    assert "[Block router2]" in result_state.messages[0]["content"]
-    assert "RouterBlock decision: approved" in result_state.messages[0]["content"]
+    assert len(result_state.execution_log) == 1
+    assert "[Block router2]" in result_state.execution_log[0]["content"]
+    assert "RouterBlock decision: approved" in result_state.execution_log[0]["content"]
 
     # Verify runner was not called (callable path)
     mock_runner.execute_task.assert_not_called()
@@ -221,8 +221,8 @@ async def test_team_lead_block_analyzes_failure(mock_runner, sample_soul):
     assert result_state.shared_memory["team_lead1_recommendation"] == expected_recommendation
 
     # Verify message logged
-    assert len(result_state.messages) == 1
-    assert "TeamLeadBlock analyzed 2 context(s)" in result_state.messages[0]["content"]
+    assert len(result_state.execution_log) == 1
+    assert "TeamLeadBlock analyzed 2 context(s)" in result_state.execution_log[0]["content"]
 
     # Verify task instruction includes both contexts
     call_args = mock_runner.execute_task.call_args
@@ -416,9 +416,9 @@ async def test_engineering_manager_generates_new_steps(mock_runner, planner_soul
     }
 
     # Verify message appended
-    assert len(result_state.messages) == 1
-    assert "[Block replanner1]" in result_state.messages[0]["content"]
-    assert "EngineeringManagerBlock generated 3 step(s)" in result_state.messages[0]["content"]
+    assert len(result_state.execution_log) == 1
+    assert "[Block replanner1]" in result_state.execution_log[0]["content"]
+    assert "EngineeringManagerBlock generated 3 step(s)" in result_state.execution_log[0]["content"]
 
 
 @pytest.mark.asyncio

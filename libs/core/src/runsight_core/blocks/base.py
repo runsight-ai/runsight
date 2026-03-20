@@ -107,7 +107,7 @@ class BaseBlock(ABC):
             state: Current workflow state. MUST NOT be mutated directly.
 
         Returns:
-            New WorkflowState with updated results, messages, or shared_memory.
+            New WorkflowState with updated results, execution_log, or shared_memory.
             MUST include this block's output in state.results[self.block_id].
 
         Raises:

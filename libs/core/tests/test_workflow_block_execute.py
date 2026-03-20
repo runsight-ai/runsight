@@ -189,7 +189,7 @@ async def test_system_message_appended(base_parent_state, mock_child_workflow):
     result = await block.execute(base_parent_state)
 
     # Assert - check for system message
-    system_messages = [m for m in result.messages if m.get("role") == "system"]
+    system_messages = [m for m in result.execution_log if m.get("role") == "system"]
     assert len(system_messages) > 0
     assert "test_msg" in system_messages[0]["content"]
     assert "child_wf" in system_messages[0]["content"]

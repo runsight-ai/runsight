@@ -679,7 +679,7 @@ class TestLoopBlockMultiBlockWorkflowIntegration:
         assert final_state.metadata["router1_decision"] == "approved"
 
         # Router block produced message
-        block_messages = [m["content"] for m in final_state.messages]
+        block_messages = [m["content"] for m in final_state.execution_log]
         has_router_msg = any("[Block router1]" in m for m in block_messages)
         assert has_router_msg, "Router block message not found"
 

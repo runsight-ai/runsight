@@ -88,9 +88,9 @@ async def test_router_callable_evaluator_workflow(mock_runner, sample_souls):
     assert final_state.results["router1"].output == "approved"
     assert final_state.metadata["router1_decision"] == "approved"
 
-    assert len(final_state.messages) == 1
-    assert "[Block router1]" in final_state.messages[0]["content"]
-    assert "RouterBlock decision: approved" in final_state.messages[0]["content"]
+    assert len(final_state.execution_log) == 1
+    assert "[Block router1]" in final_state.execution_log[0]["content"]
+    assert "RouterBlock decision: approved" in final_state.execution_log[0]["content"]
 
 
 @pytest.mark.asyncio

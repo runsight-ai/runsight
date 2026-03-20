@@ -292,10 +292,10 @@ async def test_complete_research_review_synthesis_workflow(mock_runner, sample_s
     assert final_state.metadata["workflow_type"] == "research_pipeline"
 
     # Verify messages accumulated (3 blocks = 3 messages)
-    assert len(final_state.messages) == 3
-    assert "[Block research]" in final_state.messages[0]["content"]
-    assert "[Block peer_reviews]" in final_state.messages[1]["content"]
-    assert "[Block final_report]" in final_state.messages[2]["content"]
+    assert len(final_state.execution_log) == 3
+    assert "[Block research]" in final_state.execution_log[0]["content"]
+    assert "[Block peer_reviews]" in final_state.execution_log[1]["content"]
+    assert "[Block final_report]" in final_state.execution_log[2]["content"]
 
 
 @pytest.mark.asyncio
@@ -337,13 +337,13 @@ async def test_state_immutability_across_workflow_execution(mock_runner, sample_
 
     # Verify original state unchanged
     assert initial_state.results == {"initial": BlockResult(output="value")}
-    assert len(initial_state.messages) == 0
+    assert len(initial_state.execution_log) == 0
 
     # Verify final state has accumulated data
     assert "initial" in final_state.results
     assert "b1" in final_state.results
     assert "b2" in final_state.results
-    assert len(final_state.messages) == 2
+    assert len(final_state.execution_log) == 2
 
 
 @pytest.mark.asyncio

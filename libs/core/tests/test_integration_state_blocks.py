@@ -48,7 +48,7 @@ async def test_state_immutability_across_block_execution(mock_runner, test_soul)
     original_state = WorkflowState(
         current_task=task,
         results={"previous": BlockResult(output="data")},
-        messages=[{"role": "system", "content": "Original message"}],
+        execution_log=[{"role": "system", "content": "Original message"}],
         shared_memory={"key": "value"},
         metadata={"execution_id": "test123"},
     )
@@ -58,7 +58,7 @@ async def test_state_immutability_across_block_execution(mock_runner, test_soul)
 
     # CRITICAL: Original state must be unchanged (immutability)
     assert original_state.results == {"previous": BlockResult(output="data")}
-    assert len(original_state.messages) == 1
+    assert len(original_state.execution_log) == 1
     assert original_state.shared_memory == {"key": "value"}
     assert original_state.metadata == {"execution_id": "test123"}
 
@@ -67,7 +67,7 @@ async def test_state_immutability_across_block_execution(mock_runner, test_soul)
         "previous": BlockResult(output="data"),
         "block1": BlockResult(output="Integration output"),
     }
-    assert len(new_state.messages) == 2
+    assert len(new_state.execution_log) == 2
 
     # Verify they are different instances
     assert original_state is not new_state
@@ -252,16 +252,16 @@ async def test_multi_block_state_accumulation(mock_runner, test_soul):
     }
 
     # Verify all messages accumulated
-    assert len(state.messages) == 3
-    assert "[Block block1]" in state.messages[0]["content"]
-    assert "[Block block2]" in state.messages[1]["content"]
-    assert "[Block block3]" in state.messages[2]["content"]
+    assert len(state.execution_log) == 3
+    assert "[Block block1]" in state.execution_log[0]["content"]
+    assert "[Block block2]" in state.execution_log[1]["content"]
+    assert "[Block block3]" in state.execution_log[2]["content"]
 
 
 @pytest.mark.asyncio
 async def test_state_messages_integration_with_truncation(mock_runner, test_soul):
     """
-    INTEGRATION: Verify message truncation logic works correctly with state.messages.
+    INTEGRATION: Verify message truncation logic works correctly with state.execution_log.
 
     Tests that LinearBlock's truncation (200 char limit for messages) works properly
     while full output is preserved in state.results.
@@ -284,7 +284,7 @@ async def test_state_messages_integration_with_truncation(mock_runner, test_soul
     assert len(result_state.results["block1"].output) == 250
 
     # Truncated in messages
-    message_content = result_state.messages[0]["content"]
+    message_content = result_state.execution_log[0]["content"]
     assert "..." in message_content
     assert "X" * 200 in message_content
     assert len(result_state.results["block1"].output) > 200  # results has full version

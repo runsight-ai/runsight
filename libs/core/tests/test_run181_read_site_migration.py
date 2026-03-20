@@ -51,7 +51,7 @@ def _make_state(**overrides) -> WorkflowState:
     defaults: Dict[str, Any] = {
         "current_task": Task(id="t1", instruction="do something"),
         "results": {},
-        "messages": [],
+        "execution_log": [],
         "shared_memory": {},
         "metadata": {},
         "total_cost_usd": 0.0,

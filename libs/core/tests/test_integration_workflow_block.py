@@ -25,7 +25,7 @@ class SimpleBlock(BaseBlock):
         return state.model_copy(
             update={
                 "results": {**state.results, self.block_id: BlockResult(output=self.output)},
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
             }
         )
@@ -110,7 +110,7 @@ async def test_parent_child_workflow_execution():
     assert final_state.shared_memory["other"] == "data"
 
     # ==== Verify: System message appended with cost summary ====
-    system_messages = [msg for msg in final_state.messages if msg["role"] == "system"]
+    system_messages = [msg for msg in final_state.execution_log if msg["role"] == "system"]
     assert len(system_messages) > 0
     summary_msg = system_messages[-1]["content"]
     assert "WorkflowBlock 'child_workflow' completed" in summary_msg
@@ -457,7 +457,7 @@ async def test_workflow_block_with_cost_accumulation():
                 "results": {**initial_state.results, "step": "output"},
                 "total_cost_usd": 0.15,  # Child cost
                 "total_tokens": 200,  # Child tokens
-                "messages": initial_state.messages
+                "execution_log": initial_state.execution_log
                 + [{"role": "system", "content": "Child execution"}],
             }
         )
@@ -487,7 +487,7 @@ async def test_workflow_block_with_cost_accumulation():
     assert final_state.total_tokens == 300  # 100 + 200
 
     # Verify: Cost info in system message
-    system_msgs = [m for m in final_state.messages if m["role"] == "system"]
+    system_msgs = [m for m in final_state.execution_log if m["role"] == "system"]
     summary = next((m["content"] for m in system_msgs if "cost:" in m["content"]), None)
     assert summary is not None
     assert "$0.15" in summary or "0.15" in summary

@@ -31,7 +31,7 @@ def _make_state(**overrides) -> WorkflowState:
         "results": {},
         "metadata": {},
         "shared_memory": {},
-        "messages": [],
+        "execution_log": [],
     }
     defaults.update(overrides)
     return WorkflowState(**defaults)

@@ -71,7 +71,7 @@ class LinearBlock(BaseBlock):
         return state.model_copy(
             update={
                 "results": {**state.results, self.block_id: BlockResult(output=result.output)},
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [
                     {"role": "system", "content": f"[Block {self.block_id}] Completed: {truncated}"}
                 ],
@@ -142,7 +142,7 @@ class FanOutBlock(BaseBlock):
                     **state.results,
                     self.block_id: BlockResult(output=json.dumps(outputs, indent=2)),
                 },
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [
                     {
                         "role": "system",
@@ -232,7 +232,7 @@ class SynthesizeBlock(BaseBlock):
         return state.model_copy(
             update={
                 "results": {**state.results, self.block_id: BlockResult(output=result.output)},
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [
                     {
                         "role": "system",
@@ -497,7 +497,7 @@ Provide your analysis and recommendations in a structured format."""
                     **state.shared_memory,
                     f"{self.block_id}_recommendation": result.output,
                 },
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [
                     {
                         "role": "system",
@@ -620,7 +620,7 @@ Your plan:"""
                     **state.metadata,
                     f"{self.block_id}_new_steps": structured_steps,
                 },
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [
                     {
                         "role": "system",
@@ -718,7 +718,7 @@ class RouterBlock(BaseBlock):
                     **state.metadata,
                     f"{self.block_id}_decision": decision,
                 },
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [
                     {
                         "role": "system",
@@ -868,7 +868,7 @@ class WorkflowBlock(BaseBlock):
                         output=f"WorkflowBlock '{self.child_workflow.name}' completed"
                     ),
                 },
-                "messages": new_parent_state.messages
+                "execution_log": new_parent_state.execution_log
                 + [
                     {
                         "role": "system",
@@ -1141,7 +1141,7 @@ class GateBlock(BaseBlock):
                         **state.metadata,
                         f"{self.block_id}_decision": "pass",
                     },
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [
                         {
                             "role": "system",
@@ -1204,7 +1204,7 @@ class FileWriterBlock(BaseBlock):
                         output=f"Written {char_count} chars to {self.output_path}"
                     ),
                 },
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [
                     {
                         "role": "system",
@@ -1415,7 +1415,7 @@ class CodeBlock(BaseBlock):
                         **state.results,
                         self.block_id: BlockResult(output=f"Error: {error_msg}"),
                     },
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [
                         {
                             "role": "system",
@@ -1437,7 +1437,7 @@ class CodeBlock(BaseBlock):
                             output=f"Error: output is not valid JSON: {stdout!r}"
                         ),
                     },
-                    "messages": state.messages
+                    "execution_log": state.execution_log
                     + [
                         {
                             "role": "system",
@@ -1455,7 +1455,7 @@ class CodeBlock(BaseBlock):
                         output=json.dumps(result) if not isinstance(result, str) else result
                     ),
                 },
-                "messages": state.messages
+                "execution_log": state.execution_log
                 + [
                     {
                         "role": "system",

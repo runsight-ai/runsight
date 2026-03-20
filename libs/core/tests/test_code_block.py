@@ -20,7 +20,7 @@ def _make_state(**overrides) -> WorkflowState:
         "results": {},
         "metadata": {},
         "shared_memory": {},
-        "messages": [],
+        "execution_log": [],
     }
     defaults.update(overrides)
     return WorkflowState(**defaults)
@@ -57,7 +57,7 @@ class TestCodeBlockHappyPath:
         assert "cb1" in result.results
         parsed = json.loads(result.results["cb1"].output)
         assert parsed["greeting"] == "hello alice"
-        assert any("executed successfully" in m["content"] for m in result.messages)
+        assert any("executed successfully" in m["content"] for m in result.execution_log)
 
     @pytest.mark.asyncio
     async def test_allowed_imports(self):
@@ -78,7 +78,7 @@ class TestCodeBlockHappyPath:
 
         # Original state unchanged
         assert "cb3" not in state.results
-        assert len(state.messages) == 0
+        assert len(state.execution_log) == 0
         # New state has result
         assert "cb3" in result.results
 
