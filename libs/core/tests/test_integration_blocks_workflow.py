@@ -17,7 +17,6 @@ from runsight_core.blocks.implementations import (
     LinearBlock,
     FanOutBlock,
     SynthesizeBlock,
-    DebateBlock,
 )
 from runsight_core.workflow import Workflow
 
@@ -40,8 +39,6 @@ def sample_souls():
         "reviewer2": Soul(id="reviewer2", role="Reviewer 2", system_prompt="Review code"),
         "reviewer3": Soul(id="reviewer3", role="Reviewer 3", system_prompt="Review code"),
         "synthesizer": Soul(id="synthesizer", role="Synthesizer", system_prompt="Combine feedback"),
-        "proposer": Soul(id="proposer", role="Proposer", system_prompt="Propose ideas"),
-        "critic": Soul(id="critic", role="Critic", system_prompt="Critique ideas"),
     }
 
 
@@ -52,9 +49,9 @@ def sample_souls():
 
 
 @pytest.mark.asyncio
-async def test_all_four_blocks_import_and_instantiate(mock_runner, sample_souls):
+async def test_all_three_blocks_import_and_instantiate(mock_runner, sample_souls):
     """
-    CONFLICT RESOLUTION TEST: Verify all 4 blocks can be imported and instantiated.
+    CONFLICT RESOLUTION TEST: Verify all 3 blocks can be imported and instantiated.
 
     This tests the merge conflict resolution where HEAD had all blocks and the
     correct import statements (Dict, List from typing and Task from primitives).
@@ -72,11 +69,6 @@ async def test_all_four_blocks_import_and_instantiate(mock_runner, sample_souls)
         "synth1", ["block_a", "block_b"], sample_souls["synthesizer"], mock_runner
     )
     assert synthesize.block_id == "synth1"
-
-    debate = DebateBlock(
-        "debate1", sample_souls["proposer"], sample_souls["critic"], 2, mock_runner
-    )
-    assert debate.block_id == "debate1"
 
 
 @pytest.mark.asyncio
@@ -218,116 +210,6 @@ async def test_workflow_fanout_to_synthesize_workflow(mock_runner, sample_souls)
     task_arg = synth_call[0][0]
     assert "fanout" in task_arg.instruction
     assert "Positive review" in task_arg.instruction or "Critical review" in task_arg.instruction
-
-
-@pytest.mark.asyncio
-async def test_workflow_debate_stores_conclusion_in_shared_memory(mock_runner, sample_souls):
-    """
-    CROSS-FEATURE TEST: Workflow + DebateBlock interaction with shared_memory.
-
-    Tests that DebateBlock correctly uses Task.context and stores conclusion
-    in shared_memory, which persists across the workflow.
-    """
-    # Setup mock responses for 2 debate rounds (4 calls)
-    mock_runner.execute_task.side_effect = [
-        ExecutionResult(task_id="d1_r1_a", soul_id="proposer", output="Initial proposal"),
-        ExecutionResult(task_id="d1_r1_b", soul_id="critic", output="First critique"),
-        ExecutionResult(task_id="d1_r2_a", soul_id="proposer", output="Revised proposal"),
-        ExecutionResult(task_id="d1_r2_b", soul_id="critic", output="Final critique"),
-    ]
-
-    # Build workflow with single debate block
-    wf = Workflow("debate_pipeline")
-    debate = DebateBlock(
-        "debate", sample_souls["proposer"], sample_souls["critic"], iterations=2, runner=mock_runner
-    )
-    wf.add_block(debate)
-    wf.add_transition("debate", None)  # Terminal
-    wf.set_entry("debate")
-
-    # Execute
-    initial_state = WorkflowState(
-        current_task=Task(id="main", instruction="Should we adopt microservices?")
-    )
-    final_state = await wf.run(initial_state)
-
-    # Verify transcript in results
-    assert "debate" in final_state.results
-    transcript = json.loads(final_state.results["debate"])
-    assert len(transcript) == 2
-
-    # Verify conclusion in shared_memory
-    assert "debate_conclusion" in final_state.shared_memory
-    assert final_state.shared_memory["debate_conclusion"] == "Final critique"
-
-    # Verify Task.context was used correctly (soul_b receives soul_a output with role name)
-    second_b_call = mock_runner.execute_task.call_args_list[1]
-    task_b_round1 = second_b_call[0][0]
-    assert task_b_round1.context is not None
-    assert "Proposer" in task_b_round1.context  # Role name present
-    assert "Initial proposal" in task_b_round1.context
-
-
-@pytest.mark.asyncio
-async def test_workflow_synthesize_with_multiple_block_types(mock_runner, sample_souls):
-    """
-    CROSS-FEATURE TEST: SynthesizeBlock reads from Linear + FanOut + Debate.
-
-    Tests that SynthesizeBlock can combine outputs from different block types,
-    verifying cross-block-type state sharing works correctly.
-    """
-    # Setup mocks for complex workflow
-    mock_runner.execute_task.side_effect = [
-        # LinearBlock
-        ExecutionResult(task_id="t1", soul_id="researcher", output="Linear research output"),
-        # FanOut (2 souls)
-        ExecutionResult(task_id="t2", soul_id="reviewer1", output="FanOut review 1"),
-        ExecutionResult(task_id="t2", soul_id="reviewer2", output="FanOut review 2"),
-        # Debate (1 iteration = 2 calls)
-        ExecutionResult(task_id="d1", soul_id="proposer", output="Debate proposal"),
-        ExecutionResult(task_id="d2", soul_id="critic", output="Debate critique"),
-        # Synthesize (combines all 3)
-        ExecutionResult(
-            task_id="synth", soul_id="synthesizer", output="Final synthesis combining all inputs"
-        ),
-    ]
-
-    # Build complex workflow
-    wf = Workflow("multi_block_synthesis")
-
-    linear = LinearBlock("research", sample_souls["researcher"], mock_runner)
-    fanout = FanOutBlock(
-        "reviews", [sample_souls["reviewer1"], sample_souls["reviewer2"]], mock_runner
-    )
-    debate = DebateBlock("debate", sample_souls["proposer"], sample_souls["critic"], 1, mock_runner)
-    synthesize = SynthesizeBlock(
-        "final", ["research", "reviews", "debate"], sample_souls["synthesizer"], mock_runner
-    )
-
-    wf.add_block(linear).add_block(fanout).add_block(debate).add_block(synthesize)
-    wf.add_transition("research", "reviews")
-    wf.add_transition("reviews", "debate")
-    wf.add_transition("debate", "final")
-    wf.add_transition("final", None)
-    wf.set_entry("research")
-
-    # Execute
-    initial_state = WorkflowState(current_task=Task(id="t1", instruction="Analyze topic"))
-    final_state = await wf.run(initial_state)
-
-    # Verify all 4 blocks produced results
-    assert "research" in final_state.results
-    assert "reviews" in final_state.results
-    assert "debate" in final_state.results
-    assert "final" in final_state.results
-
-    # Verify synthesizer received all 3 inputs
-    synth_call = mock_runner.execute_task.call_args_list[5]  # 6th call
-    task_arg = synth_call[0][0]
-    # Should contain references to all 3 input blocks
-    assert "research" in task_arg.instruction
-    assert "reviews" in task_arg.instruction
-    assert "debate" in task_arg.instruction
 
 
 # ============================================================================

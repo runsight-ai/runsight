@@ -126,19 +126,6 @@ class SynthesizeBlockDef(BaseBlockDef):
     input_block_ids: List[str]
 
 
-class DebateBlockDef(BaseBlockDef):
-    type: Literal["debate"] = "debate"
-    soul_a_ref: str
-    soul_b_ref: str
-    iterations: int
-
-
-class MessageBusBlockDef(BaseBlockDef):
-    type: Literal["message_bus"] = "message_bus"
-    soul_refs: List[str]
-    iterations: int
-
-
 class RouterBlockDef(BaseBlockDef):
     type: Literal["router"] = "router"
     soul_ref: str
@@ -223,8 +210,6 @@ BlockDef = Annotated[
         LinearBlockDef,
         FanOutBlockDef,
         SynthesizeBlockDef,
-        DebateBlockDef,
-        MessageBusBlockDef,
         RouterBlockDef,
         TeamLeadBlockDef,
         EngineeringManagerBlockDef,

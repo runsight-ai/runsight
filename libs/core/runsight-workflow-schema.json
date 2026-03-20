@@ -249,92 +249,6 @@
       "title": "ConditionalTransitionDef",
       "type": "object"
     },
-    "DebateBlockDef": {
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "const": "debate",
-          "default": "debate",
-          "title": "Type",
-          "type": "string"
-        },
-        "output_conditions": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/CaseDef"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Output Conditions"
-        },
-        "inputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/InputRef"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Inputs"
-        },
-        "outputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Outputs"
-        },
-        "retry_config": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RetryConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "soul_a_ref": {
-          "title": "Soul A Ref",
-          "type": "string"
-        },
-        "soul_b_ref": {
-          "title": "Soul B Ref",
-          "type": "string"
-        },
-        "iterations": {
-          "title": "Iterations",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "soul_a_ref",
-        "soul_b_ref",
-        "iterations"
-      ],
-      "title": "DebateBlockDef",
-      "type": "object"
-    },
     "EngineeringManagerBlockDef": {
       "additionalProperties": false,
       "properties": {
@@ -866,90 +780,6 @@
         "inner_block_refs"
       ],
       "title": "LoopBlockDef",
-      "type": "object"
-    },
-    "MessageBusBlockDef": {
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "const": "message_bus",
-          "default": "message_bus",
-          "title": "Type",
-          "type": "string"
-        },
-        "output_conditions": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/CaseDef"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Output Conditions"
-        },
-        "inputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/InputRef"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Inputs"
-        },
-        "outputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Outputs"
-        },
-        "retry_config": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RetryConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "soul_refs": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Soul Refs",
-          "type": "array"
-        },
-        "iterations": {
-          "title": "Iterations",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "soul_refs",
-        "iterations"
-      ],
-      "title": "MessageBusBlockDef",
       "type": "object"
     },
     "PlaceholderBlockDef": {
@@ -1566,14 +1396,12 @@
         "discriminator": {
           "mapping": {
             "code": "#/$defs/CodeBlockDef",
-            "debate": "#/$defs/DebateBlockDef",
             "engineering_manager": "#/$defs/EngineeringManagerBlockDef",
             "fanout": "#/$defs/FanOutBlockDef",
             "file_writer": "#/$defs/FileWriterBlockDef",
             "gate": "#/$defs/GateBlockDef",
             "linear": "#/$defs/LinearBlockDef",
             "loop": "#/$defs/LoopBlockDef",
-            "message_bus": "#/$defs/MessageBusBlockDef",
             "placeholder": "#/$defs/PlaceholderBlockDef",
             "router": "#/$defs/RouterBlockDef",
             "synthesize": "#/$defs/SynthesizeBlockDef",
@@ -1591,12 +1419,6 @@
           },
           {
             "$ref": "#/$defs/SynthesizeBlockDef"
-          },
-          {
-            "$ref": "#/$defs/DebateBlockDef"
-          },
-          {
-            "$ref": "#/$defs/MessageBusBlockDef"
           },
           {
             "$ref": "#/$defs/RouterBlockDef"

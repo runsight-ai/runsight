@@ -44,23 +44,31 @@ souls:
       Respond with EXACTLY "PASS" or "FAIL: <reason>" on the first line.
 
 blocks:
-  debate:
-    type: debate
-    soul_a_ref: ui_builder
-    soul_b_ref: ux_reviewer
-    iterations: 2
+  generate:
+    type: linear
+    soul_ref: ui_builder
+
+  review:
+    type: linear
+    soul_ref: ux_reviewer
+
+  generate_review_loop:
+    type: loop
+    inner_block_refs:
+      - generate
+      - review
+    max_rounds: 2
 
   gate:
     type: gate
     soul_ref: gate_evaluator
-    eval_key: debate
-    extract_field: soul_a
+    eval_key: generate
 
 workflow:
   name: mockup_generate_review
-  entry: debate
+  entry: generate_review_loop
   transitions:
-    - from: debate
+    - from: generate_review_loop
       to: gate
     - from: gate
       to: null

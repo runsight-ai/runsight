@@ -2,11 +2,10 @@
 Integration tests for **kwargs compatibility in BaseBlock implementations.
 
 This module tests the cross-feature interaction between WorkflowBlock and
-the 5 block implementations that were updated to accept **kwargs in their
+the 4 block implementations that were updated to accept **kwargs in their
 execute() signatures. This tests the conflict resolution from merging:
 - TeamLeadBlock
 - EngineeringManagerBlock
-- MessageBusBlock
 - RouterBlock
 - PlaceholderBlock
 
@@ -22,7 +21,6 @@ from runsight_core.state import WorkflowState
 from runsight_core.blocks.implementations import (
     TeamLeadBlock,
     EngineeringManagerBlock,
-    MessageBusBlock,
     RouterBlock,
     PlaceholderBlock,
     WorkflowBlock,
@@ -198,76 +196,6 @@ class TestEngineeringManagerBlockKwargsCompatibility:
         # Assert
         assert result_state is not None
         assert "eng_mgr_test" in result_state.results
-
-
-class TestMessageBusBlockKwargsCompatibility:
-    """Test MessageBusBlock accepts and ignores **kwargs."""
-
-    @pytest.mark.asyncio
-    async def test_message_bus_block_execute_with_call_stack_kwarg(self):
-        """Verify MessageBusBlock.execute() accepts call_stack kwarg."""
-        # Arrange
-        souls = [MagicMock(spec=Soul, id="soul1"), MagicMock(spec=Soul, id="soul2")]
-        block = MessageBusBlock(
-            block_id="msg_bus_test",
-            souls=souls,
-            iterations=1,
-            runner=AsyncMock(),
-        )
-
-        state = WorkflowState()
-        state = state.model_copy(update={"current_task": MagicMock(instruction="test topic")})
-
-        # Mock runner.execute_task
-        mock_result = MagicMock()
-        mock_result.output = "Test output"
-        mock_result.cost_usd = 0.01
-        mock_result.total_tokens = 100
-        block.runner.execute_task = AsyncMock(return_value=mock_result)
-
-        # Act
-        result_state = await block.execute(
-            state,
-            call_stack=["parent_wf"],  # Should be accepted and ignored
-        )
-
-        # Assert
-        assert result_state is not None
-        assert "msg_bus_test" in result_state.results
-
-    @pytest.mark.asyncio
-    async def test_message_bus_block_execute_with_workflow_registry_kwarg(self):
-        """Verify MessageBusBlock.execute() accepts workflow_registry kwarg."""
-        # Arrange
-        souls = [MagicMock(spec=Soul, id="soul1")]
-        block = MessageBusBlock(
-            block_id="msg_bus_test",
-            souls=souls,
-            iterations=1,
-            runner=AsyncMock(),
-        )
-
-        state = WorkflowState()
-        state = state.model_copy(update={"current_task": MagicMock(instruction="test topic")})
-
-        # Mock runner.execute_task
-        mock_result = MagicMock()
-        mock_result.output = "Test output"
-        mock_result.cost_usd = 0.01
-        mock_result.total_tokens = 100
-        block.runner.execute_task = AsyncMock(return_value=mock_result)
-
-        registry = WorkflowRegistry()
-
-        # Act
-        result_state = await block.execute(
-            state,
-            workflow_registry=registry,  # Should be accepted and ignored
-        )
-
-        # Assert
-        assert result_state is not None
-        assert "msg_bus_test" in result_state.results
 
 
 class TestRouterBlockKwargsCompatibility:
