@@ -111,8 +111,8 @@ class ExecutionService:
 
         Acquires the concurrency semaphore before running. Status stays
         'pending' until the semaphore is acquired, then transitions to
-        'running'. The semaphore is released in a finally block to prevent
-        deadlocks on errors or cancellation.
+        'running'. Workflow.run() is the single source of observer events;
+        this method does not call observer methods directly.
         """
         from runsight_core.primitives import Task
         from runsight_core.state import WorkflowState
@@ -122,31 +122,35 @@ class ExecutionService:
             self._set_run_status(run_id, RunStatus.running)
 
             # Build observer chain: LoggingObserver + ExecutionObserver (DB persistence)
-            observers = [LoggingObserver()]
+            # + StreamingObserver (SSE event streaming)
+            streaming_obs = StreamingObserver(run_id=run_id)
+            self.register_observer(run_id, streaming_obs)
+
+            observers = [LoggingObserver(), streaming_obs]
             if self.engine:
                 observers.append(ExecutionObserver(engine=self.engine, run_id=run_id))
             observer = CompositeObserver(*observers)
 
-            start_time = time.time()
             state = WorkflowState(
                 current_task=Task(id=run_id, instruction=task_data["instruction"])
             )
-            observer.on_workflow_start("workflow", state)
 
             try:
                 state = await wf.run(state, observer=observer)
-                duration = time.time() - start_time
-                observer.on_workflow_complete("workflow", state, duration)
+                self._set_run_status(run_id, RunStatus.completed)
             except Exception as e:
-                duration = time.time() - start_time
-                observer.on_workflow_error("workflow", e, duration)
+                self._set_run_status(run_id, RunStatus.failed, error=e)
                 logger.exception("Workflow execution failed for run %s", run_id)
+            finally:
+                self.unregister_observer(run_id)
 
         # Eagerly remove from running tasks after semaphore is released.
         # The done_callback is a safety net for cancellation paths.
         self._running_tasks.pop(run_id, None)
 
-    def _set_run_status(self, run_id: str, status: RunStatus) -> None:
+    def _set_run_status(
+        self, run_id: str, status: RunStatus, *, error: Optional[Exception] = None
+    ) -> None:
         """Update the run status in the database if an engine is available."""
         if self.engine is None:
             return
@@ -160,6 +164,8 @@ class ExecutionService:
                 if run:
                     run.status = status
                     run.updated_at = time.time()
+                    if error is not None:
+                        run.error = str(error)
                     session.add(run)
                     session.commit()
         except Exception:
