@@ -396,7 +396,12 @@ class LoopBlock(BaseBlock):
             # Carry context: collect outputs and inject into shared_memory for next round
             if self.carry_context is not None and self.carry_context.enabled:
                 source_ids = self.carry_context.source_blocks or self.inner_block_refs
-                round_outputs: Dict[str, Any] = {sid: state.results.get(sid) for sid in source_ids}
+                round_outputs: Dict[str, Any] = {
+                    sid: (result.output if hasattr(result, "output") else result)
+                    if (result := state.results.get(sid)) is not None
+                    else None
+                    for sid in source_ids
+                }
                 carry_history.append(round_outputs)
 
                 if self.carry_context.mode == "last":
