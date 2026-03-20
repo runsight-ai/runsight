@@ -82,6 +82,11 @@
           "title": "Type",
           "type": "string"
         },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
+        },
         "output_conditions": {
           "anyOf": [
             {
@@ -258,6 +263,11 @@
           "title": "Type",
           "type": "string"
         },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
+        },
         "output_conditions": {
           "anyOf": [
             {
@@ -333,6 +343,11 @@
           "default": "fanout",
           "title": "Type",
           "type": "string"
+        },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
         },
         "output_conditions": {
           "anyOf": [
@@ -412,6 +427,11 @@
           "default": "file_writer",
           "title": "Type",
           "type": "string"
+        },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
         },
         "output_conditions": {
           "anyOf": [
@@ -493,6 +513,11 @@
           "default": "gate",
           "title": "Type",
           "type": "string"
+        },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
         },
         "output_conditions": {
           "anyOf": [
@@ -602,6 +627,11 @@
           "title": "Type",
           "type": "string"
         },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
+        },
         "output_conditions": {
           "anyOf": [
             {
@@ -677,6 +707,11 @@
           "default": "loop",
           "title": "Type",
           "type": "string"
+        },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
         },
         "output_conditions": {
           "anyOf": [
@@ -836,6 +871,11 @@
           "title": "Type",
           "type": "string"
         },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
+        },
         "output_conditions": {
           "anyOf": [
             {
@@ -976,6 +1016,11 @@
           "title": "Type",
           "type": "string"
         },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
+        },
         "output_conditions": {
           "anyOf": [
             {
@@ -1059,6 +1104,11 @@
           "default": "team_lead",
           "title": "Type",
           "type": "string"
+        },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
         },
         "output_conditions": {
           "anyOf": [
@@ -1177,6 +1227,11 @@
           "default": "workflow",
           "title": "Type",
           "type": "string"
+        },
+        "stateful": {
+          "default": false,
+          "title": "Stateful",
+          "type": "boolean"
         },
         "output_conditions": {
           "anyOf": [

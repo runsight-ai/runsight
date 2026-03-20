@@ -433,6 +433,11 @@ def parse_workflow_yaml(
         if block_def.retry_config is not None and block_id in built_blocks:
             built_blocks[block_id].retry_config = block_def.retry_config
 
+    # Step 6.4: Bridge stateful from schema to runtime blocks
+    for block_id, block_def in file_def.blocks.items():
+        if block_def.stateful and block_id in built_blocks:
+            built_blocks[block_id].stateful = block_def.stateful
+
     # Step 6.5: Validate input references and detect circular dependencies
     # Build input dependency graph for cycle detection
     input_deps: Dict[str, list] = {}  # block_id -> [source_block_ids]

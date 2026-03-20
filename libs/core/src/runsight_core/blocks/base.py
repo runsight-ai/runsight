@@ -36,6 +36,7 @@ class BaseBlock(ABC):
             raise ValueError("block_id cannot be empty")
         self.block_id = block_id
         self.retry_config = retry_config
+        self.stateful = False
         self._pause_event: asyncio.Event = asyncio.Event()
         self._pause_event.set()  # not paused by default
         self._kill_flag: bool = False
