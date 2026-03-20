@@ -141,9 +141,42 @@ class FanOutBlock(BaseBlock):
         if state.current_task is None:
             raise ValueError(f"FanOutBlock {self.block_id}: state.current_task is None")
 
-        # Execute all souls in parallel (preserves order)
-        tasks = [self.runner.execute_task(state.current_task, soul) for soul in self.souls]
-        results = await asyncio.gather(*tasks)  # Raises on first failure
+        if self.stateful:
+            # Pre-read per-soul histories
+            histories = {
+                soul.id: state.conversation_histories.get(f"{self.block_id}_{soul.id}", [])
+                for soul in self.souls
+            }
+
+            # Execute all souls in parallel, passing each soul's history
+            gather_tasks = [
+                self.runner.execute_task(state.current_task, soul, messages=histories[soul.id])
+                for soul in self.souls
+            ]
+            results = await asyncio.gather(*gather_tasks)  # Raises on first failure
+
+            # Build per-soul updated histories
+            prompt = self.runner._build_prompt(state.current_task)
+            updated_histories = {**state.conversation_histories}
+            for soul, result in zip(self.souls, results):
+                history_key = f"{self.block_id}_{soul.id}"
+                updated = histories[soul.id] + [
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": result.output},
+                ]
+                model = soul.model_name or self.runner.model_name
+                updated_histories[history_key] = prune_messages(
+                    updated, get_max_tokens(model), model
+                )
+
+            conversation_update = updated_histories
+        else:
+            # Execute all souls in parallel (preserves order)
+            gather_tasks = [
+                self.runner.execute_task(state.current_task, soul) for soul in self.souls
+            ]
+            results = await asyncio.gather(*gather_tasks)  # Raises on first failure
+            conversation_update = state.conversation_histories
 
         # Aggregate outputs as JSON
         outputs = [{"soul_id": result.soul_id, "output": result.output} for result in results]
@@ -167,6 +200,7 @@ class FanOutBlock(BaseBlock):
                 ],
                 "total_cost_usd": state.total_cost_usd + total_cost,
                 "total_tokens": state.total_tokens + total_tokens,
+                "conversation_histories": conversation_update,
             }
         )
 
