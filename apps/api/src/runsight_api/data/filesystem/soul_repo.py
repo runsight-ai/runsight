@@ -2,6 +2,8 @@ import yaml
 import logging
 from pathlib import Path
 from typing import List, Optional, Dict, Any
+from urllib.parse import unquote
+
 from ...domain.value_objects import SoulEntity
 from ...domain.errors import SoulNotFound
 
@@ -15,7 +17,14 @@ class SoulRepository:
         self.souls_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_path(self, id: str) -> Path:
-        return self.souls_dir / f"{id}.yaml"
+        """Get the YAML file path for a soul id, with path traversal validation."""
+        decoded = unquote(id)
+        if ".." in decoded or "/" in decoded or "\\" in decoded:
+            raise ValueError(f"Invalid path traversal in id: {id!r}")
+        result = self.souls_dir / f"{id}.yaml"
+        if not str(result.resolve()).startswith(str(self.souls_dir.resolve())):
+            raise ValueError("Path traversal detected: resolved path escapes base directory")
+        return result
 
     def list_all(self) -> List[SoulEntity]:
         souls = []

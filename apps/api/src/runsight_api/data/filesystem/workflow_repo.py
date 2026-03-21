@@ -18,6 +18,7 @@ import random
 import yaml as yaml_mod
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import unquote
 
 from pydantic import ValidationError as PydanticValidationError
 from runsight_core.yaml.schema import RunsightWorkflowFile
@@ -119,7 +120,13 @@ class WorkflowRepository:
 
     def _get_path(self, workflow_id: str) -> Path:
         """Get the YAML file path for a workflow id (= filename stem)."""
-        return self.workflows_dir / f"{workflow_id}.yaml"
+        decoded = unquote(workflow_id)
+        if ".." in decoded or "/" in decoded or "\\" in decoded:
+            raise ValueError(f"Invalid path traversal in id: {workflow_id!r}")
+        result = self.workflows_dir / f"{workflow_id}.yaml"
+        if not str(result.resolve()).startswith(str(self.workflows_dir.resolve())):
+            raise ValueError("Path traversal detected: resolved path escapes base directory")
+        return result
 
     def _canvas_path(self, stem: str) -> Path:
         return self.canvas_dir / f"{stem}.canvas.json"
