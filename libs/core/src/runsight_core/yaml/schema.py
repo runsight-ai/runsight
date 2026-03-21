@@ -9,7 +9,7 @@ from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 
-# ── Soul / Task / Task-file (unchanged) ────────────────────────────────────
+# -- Soul / Task / Task-file (unchanged) ------------------------------------
 
 
 class SoulDef(BaseModel):
@@ -40,7 +40,7 @@ class RunsightTaskFile(BaseModel):
     task: TaskDef  # required — no default; Pydantic raises ValidationError if absent
 
 
-# ── Supporting models for output conditions / inputs ───────────────────────
+# -- Supporting models for output conditions / inputs -----------------------
 
 
 class ConditionDef(BaseModel):
@@ -80,7 +80,7 @@ class InputRef(BaseModel):
     from_ref: str = Field(alias="from")  # "step_id.output_field" dot-notation
 
 
-# ── Retry configuration ────────────────────────────────────────────────────
+# -- Retry configuration ---------------------------------------------------
 
 
 class RetryConfig(BaseModel):
@@ -92,7 +92,7 @@ class RetryConfig(BaseModel):
     non_retryable_errors: Optional[List[str]] = None
 
 
-# ── Base block model ───────────────────────────────────────────────────────
+# -- Base block model ------------------------------------------------------
 
 
 class BaseBlockDef(BaseModel):
@@ -125,118 +125,13 @@ class BaseBlockDef(BaseModel):
                 register_block_def(block_type, cls)
 
 
-# ── Per-type block models ──────────────────────────────────────────────────
+# -- Discriminated union (built dynamically from registry) ------------------
+
+# Placeholder — rebuilt by rebuild_block_def_union() once blocks are discovered.
+BlockDef = Any
 
 
-class LinearBlockDef(BaseBlockDef):
-    type: Literal["linear"] = "linear"
-    soul_ref: str
-
-
-class FanOutBlockDef(BaseBlockDef):
-    type: Literal["fanout"] = "fanout"
-    soul_refs: List[str]
-
-
-class SynthesizeBlockDef(BaseBlockDef):
-    type: Literal["synthesize"] = "synthesize"
-    soul_ref: str
-    input_block_ids: List[str]
-
-
-class RouterBlockDef(BaseBlockDef):
-    type: Literal["router"] = "router"
-    soul_ref: str
-    condition_ref: Optional[str] = None
-
-
-class TeamLeadBlockDef(BaseBlockDef):
-    type: Literal["team_lead"] = "team_lead"
-    soul_ref: str
-    failure_context_keys: Optional[List[str]] = None
-
-
-class EngineeringManagerBlockDef(BaseBlockDef):
-    type: Literal["engineering_manager"] = "engineering_manager"
-    soul_ref: str
-
-
-class GateBlockDef(BaseBlockDef):
-    type: Literal["gate"] = "gate"
-    soul_ref: str
-    eval_key: str
-    extract_field: Optional[str] = None
-
-
-class FileWriterBlockDef(BaseBlockDef):
-    type: Literal["file_writer"] = "file_writer"
-    output_path: str
-    content_key: str
-
-
-class CodeBlockDef(BaseBlockDef):
-    type: Literal["code"] = "code"
-    code: str
-    timeout_seconds: int = 30
-    allowed_imports: Optional[List[str]] = None
-
-
-class CarryContextConfig(BaseModel):
-    """Configuration for carrying context between LoopBlock rounds."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    enabled: bool = True
-    mode: Literal["last", "all"] = "last"
-    source_blocks: Optional[List[str]] = None
-    inject_as: str = "previous_round_context"
-
-
-class LoopBlockDef(BaseBlockDef):
-    type: Literal["loop"] = "loop"
-    inner_block_refs: List[str] = Field(min_length=1)
-    max_rounds: int = Field(default=5, ge=1, le=50)
-    break_condition: Optional[Union[ConditionDef, ConditionGroupDef]] = None
-    carry_context: Optional[CarryContextConfig] = None
-
-
-class WorkflowBlockDef(BaseBlockDef):
-    """
-    WorkflowBlock definition.
-
-    ``inputs`` and ``outputs`` override BaseBlockDef fields with workflow-specific
-    types (Dict[str, str] for state key mapping) to maintain backward compatibility
-    with existing YAML files and parser code that accesses ``block_def.inputs``.
-    """
-
-    type: Literal["workflow"] = "workflow"
-    workflow_ref: str
-    inputs: Optional[Dict[str, str]] = None  # type: ignore[assignment]  # child_state_key -> parent_path
-    outputs: Optional[Dict[str, str]] = None  # parent_path -> child_dotted_path
-    max_depth: Optional[int] = None
-
-
-# ── Discriminated union ────────────────────────────────────────────────────
-
-BlockDef = Annotated[
-    Union[
-        LinearBlockDef,
-        FanOutBlockDef,
-        SynthesizeBlockDef,
-        RouterBlockDef,
-        TeamLeadBlockDef,
-        EngineeringManagerBlockDef,
-        GateBlockDef,
-        FileWriterBlockDef,
-        CodeBlockDef,
-        LoopBlockDef,
-        WorkflowBlockDef,
-    ],
-    Field(discriminator="type"),
-]
-
-
-# ── Transition / Workflow / File models (unchanged) ────────────────────────
+# -- Transition / Workflow / File models (unchanged) ------------------------
 
 
 class TransitionDef(BaseModel):
@@ -289,7 +184,7 @@ class RunsightWorkflowFile(BaseModel):
     workflow: WorkflowDef  # required — no default; Pydantic raises ValidationError if absent
 
 
-# ── Dynamic union builders ─────────────────────────────────────────────────
+# -- Dynamic union builders -------------------------------------------------
 
 
 def build_block_def_union() -> Any:
@@ -318,12 +213,33 @@ def rebuild_block_def_union() -> None:
     RunsightWorkflowFile.model_rebuild(force=True)
 
 
-# ── Backward-compat re-exports (lazy) ──────────────────────────────────────
+# -- Backward-compat re-exports (lazy) -------------------------------------
+
+_BLOCK_DEF_REEXPORTS = {
+    "LinearBlockDef": ("runsight_core.blocks.linear", "LinearBlockDef"),
+    "FanOutBlockDef": ("runsight_core.blocks.fanout", "FanOutBlockDef"),
+    "SynthesizeBlockDef": ("runsight_core.blocks.synthesize", "SynthesizeBlockDef"),
+    "RouterBlockDef": ("runsight_core.blocks.router", "RouterBlockDef"),
+    "TeamLeadBlockDef": ("runsight_core.blocks.team_lead", "TeamLeadBlockDef"),
+    "EngineeringManagerBlockDef": (
+        "runsight_core.blocks.engineering_manager",
+        "EngineeringManagerBlockDef",
+    ),
+    "GateBlockDef": ("runsight_core.blocks.gate", "GateBlockDef"),
+    "FileWriterBlockDef": ("runsight_core.blocks.file_writer", "FileWriterBlockDef"),
+    "CodeBlockDef": ("runsight_core.blocks.code", "CodeBlockDef"),
+    "LoopBlockDef": ("runsight_core.blocks.loop", "LoopBlockDef"),
+    "WorkflowBlockDef": ("runsight_core.blocks.workflow_block", "WorkflowBlockDef"),
+    "HttpRequestBlockDef": ("runsight_core.blocks.http_request", "HttpRequestBlockDef"),
+    "CarryContextConfig": ("runsight_core.blocks.loop", "CarryContextConfig"),
+}
 
 
 def __getattr__(name: str) -> Any:
-    if name == "HttpRequestBlockDef":
-        from runsight_core.blocks.http_request import HttpRequestBlockDef
+    if name in _BLOCK_DEF_REEXPORTS:
+        import importlib
 
-        return HttpRequestBlockDef
+        module_path, attr_name = _BLOCK_DEF_REEXPORTS[name]
+        mod = importlib.import_module(module_path)
+        return getattr(mod, attr_name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

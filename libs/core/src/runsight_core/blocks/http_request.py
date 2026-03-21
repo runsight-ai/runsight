@@ -399,11 +399,12 @@ class HttpRequestBlockDef(BaseBlockDef):
 # Explicit registration: __init_subclass__ cannot detect Literal annotations
 # when ``from __future__ import annotations`` is active (PEP 563).
 from runsight_core.blocks._registry import register_block_def as _register_block_def  # noqa: E402
+from runsight_core.blocks._registry import register_block_builder as _register_builder  # noqa: E402
 
 _register_block_def("http_request", HttpRequestBlockDef)
 
 
-# ── Builder function (auto-discovered by blocks/__init__.py) ────────────────
+# ── Builder function ────────────────────────────────────────────────────────
 
 
 def build(
@@ -429,3 +430,6 @@ def build(
         expected_status_codes=block_def.expected_status_codes,
         allow_private_ips=block_def.allow_private_ips,
     )
+
+
+_register_builder("http_request", build)
