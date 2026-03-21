@@ -43,6 +43,12 @@ BLOCKED_BUILTINS: set = {
     "globals",
     "locals",
     "breakpoint",
+    "getattr",
+    "setattr",
+    "delattr",
+    "type",
+    "vars",
+    "dir",
 }
 
 BLOCKED_MODULES: set = {
@@ -51,6 +57,11 @@ BLOCKED_MODULES: set = {
     "subprocess",
     "socket",
     "importlib",
+    "builtins",
+    "types",
+    "ctypes",
+    "code",
+    "_thread",
 }
 
 
@@ -98,6 +109,12 @@ def _validate_code_ast(code: str, allowed_imports: List[str]) -> None:
                 name = func.attr
             if name and name in BLOCKED_BUILTINS:
                 raise ValueError(f"Call to '{name}()' is not allowed")
+
+        # --- dunder attribute access: obj.__class__, obj.__globals__, etc. ---
+        if isinstance(node, ast.Attribute):
+            attr = node.attr
+            if attr.startswith("__") and attr.endswith("__"):
+                raise ValueError(f"Access to dunder attribute '{attr}' is not allowed")
 
         # --- detect def main ---
         if isinstance(node, ast.FunctionDef) and node.name == "main":
