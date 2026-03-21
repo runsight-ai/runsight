@@ -4,6 +4,8 @@ from typing import List, Optional
 
 import httpx
 
+from runsight_core.security import SSRFError, validate_ssrf
+
 from ...data.repositories.provider_repo import ProviderRepository
 from ...domain.entities.provider import Provider
 from ...core.encryption import decrypt, encrypt
@@ -109,18 +111,23 @@ class ProviderService:
             return {"success": False, "message": "No API key configured"}
 
         api_key = decrypt(provider.api_key_encrypted) if provider.api_key_encrypted else None
+        allow_private = provider.type == "ollama"
 
         try:
             if provider.type in ("openai", "azure_openai"):
                 base = provider.base_url or "https://api.openai.com/v1"
+                url = f"{base}/models"
+                validate_ssrf(url, allow_private=allow_private)
                 resp = httpx.get(
-                    f"{base}/models",
+                    url,
                     headers={"Authorization": f"Bearer {api_key}"},
                     timeout=10,
                 )
             elif provider.type == "anthropic":
+                url = "https://api.anthropic.com/v1/models"
+                validate_ssrf(url, allow_private=allow_private)
                 resp = httpx.get(
-                    "https://api.anthropic.com/v1/models",
+                    url,
                     headers={
                         "x-api-key": api_key,
                         "anthropic-version": "2023-06-01",
@@ -128,17 +135,20 @@ class ProviderService:
                     timeout=10,
                 )
             elif provider.type == "google":
-                resp = httpx.get(
-                    f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}",
-                    timeout=10,
-                )
+                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+                validate_ssrf(url, allow_private=allow_private)
+                resp = httpx.get(url, timeout=10)
             elif provider.type == "ollama":
                 base = provider.base_url or "http://localhost:11434"
-                resp = httpx.get(f"{base}/api/tags", timeout=10)
+                url = f"{base}/api/tags"
+                validate_ssrf(url, allow_private=allow_private)
+                resp = httpx.get(url, timeout=10)
             else:
                 base = provider.base_url or "https://api.openai.com/v1"
+                url = f"{base}/models"
+                validate_ssrf(url, allow_private=allow_private)
                 resp = httpx.get(
-                    f"{base}/models",
+                    url,
                     headers={"Authorization": f"Bearer {api_key}"},
                     timeout=10,
                 )
@@ -160,6 +170,8 @@ class ProviderService:
                 else f"Connection failed (HTTP {resp.status_code})"
             )
             return {"success": success, "message": msg, "models": models}
+        except SSRFError as e:
+            return {"success": False, "message": f"SSRF blocked: {str(e)}"}
         except Exception as e:
             provider.status = "error"
             provider.last_status_check = time.time()
