@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from ...domain.errors import (
@@ -9,6 +11,8 @@ from ...domain.errors import (
     StepNotFound,
     ProviderNotConfigured,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def global_exception_handler(request: Request, exc: Exception):
@@ -27,7 +31,8 @@ async def global_exception_handler(request: Request, exc: Exception):
             content={"error": str(exc), "code": "RUN_FAILED"},
         )
 
+    logger.exception("Unhandled exception: %s", exc)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"error": str(exc), "code": "INTERNAL_ERROR"},
+        content={"error": "Internal server error", "code": "INTERNAL_ERROR"},
     )
