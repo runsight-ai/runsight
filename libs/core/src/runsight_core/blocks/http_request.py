@@ -113,14 +113,18 @@ class HttpRequestBlock(BaseBlock):
     # SSRF protection
     # ------------------------------------------------------------------
 
-    def _validate_ssrf(self, url: str) -> None:
+    def _validate_ssrf(self, url: str) -> Optional[str]:
         """Check that the resolved URL does not target a private/reserved IP.
+
+        Returns:
+            The resolved IP string to pin for the actual request, or None if
+            the URL already contains a literal IP or allow_private_ips is set.
 
         Raises:
             SSRFError: If the target IP is private/reserved and allow_private_ips is False.
         """
         if self.allow_private_ips:
-            return
+            return None
 
         parsed = urlparse(url)
         hostname = parsed.hostname
@@ -134,7 +138,8 @@ class HttpRequestBlock(BaseBlock):
                 raise SSRFError(
                     f"SSRF blocked: {hostname} resolves to private/reserved address {addr}"
                 )
-            return
+            # Already a literal IP — no rewriting needed
+            return None
         except ValueError:
             # Not a literal IP address, need to resolve via DNS
             pass
@@ -145,8 +150,9 @@ class HttpRequestBlock(BaseBlock):
         except socket.gaierror:
             # DNS resolution failed — allow the request through.
             # The HTTP client will handle unreachable hosts.
-            return
+            return None
 
+        resolved_ip: Optional[str] = None
         for addrinfo in addrinfos:
             ip_str = addrinfo[4][0]
             addr = ipaddress.ip_address(ip_str)
@@ -154,6 +160,10 @@ class HttpRequestBlock(BaseBlock):
                 raise SSRFError(
                     f"SSRF blocked: {hostname} resolves to private/reserved address {addr}"
                 )
+            if resolved_ip is None:
+                resolved_ip = ip_str
+
+        return resolved_ip
 
     # ------------------------------------------------------------------
     # Auth header building
@@ -268,13 +278,27 @@ class HttpRequestBlock(BaseBlock):
         # 1. Template resolution
         resolved_url = self._resolve_templates(self.url, state)
 
-        # 2. SSRF protection
-        self._validate_ssrf(resolved_url)
+        # 2. SSRF protection — returns pinned IP for DNS-resolved hostnames
+        pinned_ip = self._validate_ssrf(resolved_url)
 
         # 3. Auth headers + query params
         auth_headers = self._build_auth_headers()
         merged_headers = {**self.headers, **auth_headers}
         resolved_url = self._apply_auth_query_params(resolved_url)
+
+        # 3b. Pin resolved IP to prevent DNS rebinding TOCTOU
+        if pinned_ip is not None:
+            parsed = urlparse(resolved_url)
+            original_hostname = parsed.hostname
+            # Replace hostname with pinned IP, preserving port if present
+            if parsed.port:
+                new_netloc = f"{pinned_ip}:{parsed.port}"
+            else:
+                new_netloc = pinned_ip
+            resolved_url = parsed._replace(netloc=new_netloc).geturl()
+            # Set Host header to original hostname for TLS/SNI and virtual hosting
+            if "Host" not in merged_headers:
+                merged_headers["Host"] = original_hostname
 
         # 4. Build request kwargs
         request_kwargs: Dict = {
