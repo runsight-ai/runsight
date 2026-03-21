@@ -158,11 +158,10 @@ config:
         with patch("runsight_core.yaml.parser.RunsightTeamRunner") as MockRunner:
             MockRunner.return_value = Mock()
             # Need to make the workflow validate, so mock the block builder too
-            with patch("runsight_core.yaml.parser._build_linear") as mock_build:
-                mock_block = Mock()
-                mock_block.block_id = "b1"
-                mock_build.return_value = mock_block
-
+            mock_block = Mock()
+            mock_block.block_id = "b1"
+            mock_builder = Mock(return_value=mock_block)
+            with patch("runsight_core.blocks._registry.get_builder", return_value=mock_builder):
                 try:
                     parse_workflow_yaml(yaml_content, api_key="sk-fwd-test")
                 except Exception:

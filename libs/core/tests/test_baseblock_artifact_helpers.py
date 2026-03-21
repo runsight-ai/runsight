@@ -336,7 +336,7 @@ class TestInheritance:
     def test_linear_block_inherits_helpers(self):
         """LinearBlock (a real concrete block) should inherit the artifact helpers."""
         from unittest.mock import MagicMock
-        from runsight_core.blocks.implementations import LinearBlock
+        from runsight_core import LinearBlock
         from runsight_core.primitives import Soul
 
         soul = Soul(id="s1", role="Writer", system_prompt="Write.")

@@ -14,8 +14,8 @@ from runsight_core.yaml.parser import (
     parse_workflow_yaml,
     parse_task_yaml,
     BUILT_IN_SOULS,
-    BLOCK_TYPE_REGISTRY,
 )
+from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 from runsight_core.workflow import Workflow
 from runsight_core.primitives import Task
 
@@ -23,8 +23,8 @@ from runsight_core.primitives import Task
 class TestBlockTypeRegistry:
     """Tests for BlockTypeRegistry completeness."""
 
-    def test_block_type_registry_has_all_11_types(self):
-        """Verify BLOCK_TYPE_REGISTRY contains all 11 block types."""
+    def test_block_type_registry_has_all_12_types(self):
+        """Verify BLOCK_TYPE_REGISTRY contains all 12 block types."""
         expected_types = {
             "linear",
             "fanout",
@@ -37,9 +37,10 @@ class TestBlockTypeRegistry:
             "file_writer",
             "code",
             "http_request",
+            "workflow",
         }
         assert set(BLOCK_TYPE_REGISTRY.keys()) == expected_types
-        assert len(BLOCK_TYPE_REGISTRY) == 11
+        assert len(BLOCK_TYPE_REGISTRY) == 12
 
     def test_all_block_builders_are_callable(self):
         """Verify all builders in registry are callable."""

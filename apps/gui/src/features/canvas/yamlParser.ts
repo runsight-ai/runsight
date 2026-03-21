@@ -24,12 +24,6 @@ type ParsedWorkflow = Partial<RunsightWorkflowFile> & {
 const DEFAULT_GRID_X = 280;
 const DEFAULT_GRID_Y = 160;
 
-const KNOWN_BLOCK_TYPES = new Set<string>([
-  "linear", "fanout", "router", "gate",
-  "synthesize", "workflow", "loop", "team_lead", "engineering_manager",
-  "file_writer", "code", "http_request",
-]);
-
 function toStepType(value: unknown): { type: StepType; error?: string } {
   if (typeof value !== "string") return { type: "linear" as StepType, error: `Invalid block type: expected string, got ${typeof value}` };
   return { type: value as StepType };
@@ -57,7 +51,7 @@ function convertKeysToCamel(value: unknown): unknown {
 
 /**
  * Build StepNodeData from a block ID and its YAML BlockDef.
- * Only sets fields that are actually defined in the block (no undefined pollution).
+ * Uses a single generic path for all block types — no hardcoded field lists.
  */
 function buildNodeData(nodeId: string, block: BlockDef): { data: StepNodeData; error?: string } {
   const stepTypeResult = toStepType(block.type);
@@ -68,72 +62,30 @@ function buildNodeData(nodeId: string, block: BlockDef): { data: StepNodeData; e
     status: "idle",
   };
 
-  // Snake-case → camelCase field mappings (only set if defined)
-  if (block.soul_ref !== undefined) data.soulRef = block.soul_ref;
-  if (block.soul_refs !== undefined) data.soulRefs = block.soul_refs;
-  if (block.workflow_ref !== undefined) data.workflowRef = block.workflow_ref;
-  if (block.eval_key !== undefined) data.evalKey = block.eval_key;
-  if (block.extract_field !== undefined) data.extractField = block.extract_field;
-  if (block.inner_block_refs !== undefined) data.innerBlockRefs = block.inner_block_refs;
-  if (block.max_rounds !== undefined) data.maxRounds = block.max_rounds;
-  if (block.break_condition !== undefined) data.breakCondition = block.break_condition as StepNodeData["breakCondition"];
-  if (block.carry_context !== undefined) data.carryContext = convertKeysToCamel(block.carry_context) as Record<string, unknown>;
-  if (block.retry_config !== undefined) data.retryConfig = convertKeysToCamel(block.retry_config) as Record<string, unknown>;
-  if (block.input_block_ids !== undefined) data.inputBlockIds = block.input_block_ids;
-  if (block.output_path !== undefined) data.outputPath = block.output_path;
-  if (block.content_key !== undefined) data.contentKey = block.content_key;
-  if (block.failure_context_keys !== undefined) data.failureContextKeys = block.failure_context_keys;
-  if (block.condition_ref !== undefined) data.conditionRef = block.condition_ref;
-  if (block.code !== undefined) data.code = block.code;
-  if (block.timeout_seconds !== undefined) data.timeoutSeconds = block.timeout_seconds;
-  if (block.allowed_imports !== undefined) data.allowedImports = block.allowed_imports;
-  if (block.output_conditions !== undefined) data.outputConditions = block.output_conditions;
-  if (block.stateful !== undefined) data.stateful = block.stateful;
-  if (block.max_depth !== undefined) data.maxDepth = block.max_depth;
+  const isWorkflow = block.type === "workflow";
 
-  // HTTP Request fields (snake_case → camelCase)
-  if (block.url !== undefined) data.url = block.url;
-  if (block.method !== undefined) data.method = block.method;
-  if (block.headers !== undefined) data.headers = block.headers;
-  if (block.body !== undefined) data.body = block.body;
-  if (block.body_type !== undefined) data.bodyType = block.body_type;
-  if (block.auth_type !== undefined) data.authType = block.auth_type;
-  if (block.auth_config !== undefined) data.authConfig = block.auth_config;
-  if (block.timeout_seconds !== undefined) data.timeoutSeconds = block.timeout_seconds;
-  if (block.retry_count !== undefined) data.retryCount = block.retry_count;
-  if (block.retry_backoff !== undefined) data.retryBackoff = block.retry_backoff;
-  if (block.expected_status_codes !== undefined) data.expectedStatusCodes = block.expected_status_codes;
-  if (block.allow_private_ips !== undefined) data.allowPrivateIps = block.allow_private_ips;
+  for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
+    if (key === "type") continue;
+    if (value === undefined || value === null) continue;
 
-  // WorkflowBlock uses inputs/outputs as string maps → workflowInputs/workflowOutputs
-  if (block.type === "workflow") {
-    if (block.inputs !== undefined) data.workflowInputs = block.inputs as Record<string, string>;
-    if (block.outputs !== undefined) data.workflowOutputs = block.outputs;
-  } else {
-    if (block.inputs !== undefined) data.inputs = block.inputs as StepNodeData["inputs"];
-    if (block.outputs !== undefined) data.outputs = block.outputs;
-  }
+    // Workflow special case: inputs → workflowInputs, outputs → workflowOutputs
+    if (isWorkflow && key === "inputs") {
+      data.workflowInputs = value as Record<string, string>;
+      continue;
+    }
+    if (isWorkflow && key === "outputs") {
+      data.workflowOutputs = value as Record<string, string>;
+      continue;
+    }
 
-  // Generic fallback for unknown block types: map any remaining block fields
-  // not explicitly handled above with snake_case → camelCase key conversion.
-  // Only applies to unknown types — known types only accept their declared fields.
-  if (!KNOWN_BLOCK_TYPES.has(stepTypeResult.type)) {
-    const handledSnakeFields = new Set([
-      "type", "soul_ref", "soul_refs", "workflow_ref", "eval_key", "extract_field",
-      "inner_block_refs", "max_rounds", "break_condition", "carry_context",
-      "retry_config", "input_block_ids", "output_path", "content_key",
-      "failure_context_keys", "condition_ref", "code", "timeout_seconds",
-      "allowed_imports", "output_conditions", "stateful", "max_depth",
-      "url", "method", "headers", "body", "body_type", "auth_type", "auth_config",
-      "retry_count", "retry_backoff", "expected_status_codes", "allow_private_ips",
-      "inputs", "outputs",
-    ]);
-
-    for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
-      if (handledSnakeFields.has(key)) continue;
-      if (value === undefined || value === null) continue;
-      const camelKey = snakeToCamel(key);
+    const camelKey = snakeToCamel(key);
+    // Apply recursive key conversion only to plain objects (config objects like
+    // carry_context, retry_config, auth_config). Arrays (like output_conditions,
+    // inner_block_refs) are passed through as-is to preserve their schema structure.
+    if (typeof value === "object" && !Array.isArray(value)) {
       data[camelKey] = convertKeysToCamel(value);
+    } else {
+      data[camelKey] = value;
     }
   }
 

@@ -466,13 +466,13 @@ class TestBlockRegistryLoopMapping:
 
     def test_loop_in_block_type_registry(self):
         """BLOCK_TYPE_REGISTRY should have 'loop' key."""
-        from runsight_core.yaml.parser import BLOCK_TYPE_REGISTRY
+        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 
         assert "loop" in BLOCK_TYPE_REGISTRY, "'loop' not found in BLOCK_TYPE_REGISTRY"
 
     def test_retry_not_in_block_type_registry(self):
         """BLOCK_TYPE_REGISTRY should NOT have 'retry' key."""
-        from runsight_core.yaml.parser import BLOCK_TYPE_REGISTRY
+        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 
         assert "retry" not in BLOCK_TYPE_REGISTRY, (
             "'retry' still in BLOCK_TYPE_REGISTRY — remove it"
@@ -480,7 +480,7 @@ class TestBlockRegistryLoopMapping:
 
     def test_loop_builder_produces_loop_block(self):
         """The 'loop' builder in BLOCK_TYPE_REGISTRY should produce a LoopBlock."""
-        from runsight_core.yaml.parser import BLOCK_TYPE_REGISTRY
+        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 
         builder = BLOCK_TYPE_REGISTRY["loop"]
         # The builder signature is (block_id, block_def, souls_map) or similar.

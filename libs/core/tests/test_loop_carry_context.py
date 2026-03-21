@@ -25,9 +25,9 @@ from pydantic import TypeAdapter, ValidationError
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
+from runsight_core.blocks.loop import LoopBlockDef
 from runsight_core.yaml.schema import (
     BlockDef,
-    LoopBlockDef,
     RunsightWorkflowFile,
 )
 
@@ -178,13 +178,13 @@ class TestCarryContextConfigSchema:
 
     def test_import_carry_context_config(self):
         """CarryContextConfig should be importable from runsight_core.yaml.schema."""
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core.blocks.loop import CarryContextConfig
 
         assert CarryContextConfig is not None
 
     def test_default_values(self):
         """CarryContextConfig defaults: enabled=True, mode='last', source_blocks=None, inject_as='previous_round_context'."""
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig()
         assert config.enabled is True
@@ -194,49 +194,49 @@ class TestCarryContextConfigSchema:
 
     def test_mode_accepts_last(self):
         """mode='last' should be accepted."""
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(mode="last")
         assert config.mode == "last"
 
     def test_mode_accepts_all(self):
         """mode='all' should be accepted."""
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(mode="all")
         assert config.mode == "all"
 
     def test_mode_rejects_invalid(self):
         """mode='invalid' should raise ValidationError."""
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core.blocks.loop import CarryContextConfig
 
         with pytest.raises(ValidationError, match="mode"):
             CarryContextConfig(mode="invalid")
 
     def test_source_blocks_accepts_list(self):
         """source_blocks should accept a list of block IDs."""
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(source_blocks=["block_a", "block_b"])
         assert config.source_blocks == ["block_a", "block_b"]
 
     def test_source_blocks_none_means_all(self):
         """source_blocks=None means carry all inner block outputs."""
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(source_blocks=None)
         assert config.source_blocks is None
 
     def test_inject_as_custom_key(self):
         """inject_as should accept a custom key name."""
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(inject_as="feedback")
         assert config.inject_as == "feedback"
 
     def test_enabled_false_disables(self):
         """enabled=False should be stored correctly."""
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(enabled=False)
         assert config.enabled is False
@@ -384,8 +384,8 @@ class TestLoopBlockConstructorCarryContext:
 
     def test_constructor_accepts_carry_context_config(self):
         """LoopBlock should accept a carry_context parameter."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(mode="last", inject_as="feedback")
         loop = LoopBlock(
@@ -398,7 +398,7 @@ class TestLoopBlockConstructorCarryContext:
 
     def test_constructor_defaults_carry_context_to_none(self):
         """LoopBlock without carry_context should default to None."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         loop = LoopBlock(
             block_id="loop_block",
@@ -409,8 +409,8 @@ class TestLoopBlockConstructorCarryContext:
 
     def test_constructor_validates_source_blocks_against_inner_refs(self):
         """source_blocks referencing a block not in inner_block_refs should raise ValueError."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             source_blocks=["nonexistent_block"],
@@ -426,8 +426,8 @@ class TestLoopBlockConstructorCarryContext:
 
     def test_constructor_validates_partial_source_blocks_mismatch(self):
         """source_blocks with one valid and one invalid ref should still raise ValueError."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             source_blocks=["writer", "ghost_block"],
@@ -453,8 +453,8 @@ class TestCarryContextModeLast:
     @pytest.mark.asyncio
     async def test_last_mode_carries_previous_round_only(self):
         """In mode='last', shared_memory[inject_as] should contain only the previous round's output."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(mode="last", inject_as="previous_round_context")
 
@@ -491,8 +491,8 @@ class TestCarryContextModeLast:
     @pytest.mark.asyncio
     async def test_last_mode_multi_block_carries_all_inner_outputs(self):
         """In mode='last' with source_blocks=None, carry all inner block outputs from previous round."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(mode="last", source_blocks=None, inject_as="prev_ctx")
 
@@ -535,8 +535,8 @@ class TestCarryContextModeAll:
     @pytest.mark.asyncio
     async def test_all_mode_accumulates_history(self):
         """In mode='all', shared_memory[inject_as] should contain all prior rounds' outputs."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(mode="all", inject_as="all_rounds_context")
 
@@ -577,8 +577,8 @@ class TestCarryContextModeAll:
     @pytest.mark.asyncio
     async def test_all_mode_is_memory_accumulative(self):
         """mode='all' should store all rounds, not just the last. Contrast with mode='last'."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         # Run with mode="all"
         config_all = CarryContextConfig(mode="all", inject_as="ctx")
@@ -628,8 +628,8 @@ class TestCarryContextSourceBlocks:
     @pytest.mark.asyncio
     async def test_source_blocks_filters_to_specific_block(self):
         """Only outputs from blocks listed in source_blocks should be carried."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             mode="last",
@@ -665,8 +665,8 @@ class TestCarryContextSourceBlocks:
     @pytest.mark.asyncio
     async def test_source_blocks_none_carries_all(self):
         """source_blocks=None should carry all inner block outputs."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             mode="last",
@@ -701,8 +701,8 @@ class TestCarryContextSourceBlocks:
     @pytest.mark.asyncio
     async def test_source_blocks_multiple_specific_blocks(self):
         """source_blocks with multiple IDs should carry outputs from each."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             mode="last",
@@ -753,8 +753,8 @@ class TestCarryContextInjectAs:
     @pytest.mark.asyncio
     async def test_inject_as_default_key(self):
         """Default inject_as='previous_round_context' should appear in shared_memory."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig()  # defaults: inject_as="previous_round_context"
 
@@ -778,8 +778,8 @@ class TestCarryContextInjectAs:
     @pytest.mark.asyncio
     async def test_inject_as_custom_key(self):
         """Custom inject_as='feedback' should appear in shared_memory."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(inject_as="feedback")
 
@@ -813,8 +813,8 @@ class TestCarryContextRoundOne:
     @pytest.mark.asyncio
     async def test_round_1_has_no_context(self):
         """On round 1, the inject_as key should not be present in shared_memory."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(inject_as="previous_round_context")
 
@@ -839,8 +839,8 @@ class TestCarryContextRoundOne:
     @pytest.mark.asyncio
     async def test_round_1_no_inject_key_in_shared_memory(self):
         """On round 1, the inject_as key should not exist in shared_memory at all."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(inject_as="ctx")
 
@@ -903,7 +903,7 @@ class TestCarryContextNoneBackwardCompat:
     @pytest.mark.asyncio
     async def test_no_carry_context_no_inject_key(self):
         """With carry_context=None, inject_as key should never appear in shared_memory."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         reader = ContextReaderBlock("reader", read_key="previous_round_context")
         blocks = {"reader": reader}
@@ -929,7 +929,7 @@ class TestCarryContextNoneBackwardCompat:
     @pytest.mark.asyncio
     async def test_existing_loop_tests_still_pass_without_carry_context(self):
         """LoopBlock without carry_context should behave exactly as before."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner")
         blocks = {"inner": inner}
@@ -961,8 +961,8 @@ class TestCarryContextDisabled:
     @pytest.mark.asyncio
     async def test_enabled_false_no_context_injected(self):
         """With enabled=False, no context should be injected even though carry_context is configured."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             enabled=False,
@@ -1002,8 +1002,8 @@ class TestCarryContextValidation:
 
     def test_source_block_not_in_inner_refs_raises(self):
         """source_blocks containing a block not in inner_block_refs should raise ValueError."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             source_blocks=["not_an_inner_block"],
@@ -1018,8 +1018,8 @@ class TestCarryContextValidation:
 
     def test_multiple_invalid_source_blocks_raise(self):
         """Multiple invalid source_blocks should be reported in the error."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             source_blocks=["ghost_a", "ghost_b"],
@@ -1034,8 +1034,8 @@ class TestCarryContextValidation:
 
     def test_valid_source_blocks_accepted(self):
         """source_blocks that are all in inner_block_refs should be accepted."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             source_blocks=["critic"],
@@ -1062,8 +1062,8 @@ class TestCarryContextEmptyOutput:
     @pytest.mark.asyncio
     async def test_empty_output_carried_not_skipped(self):
         """Empty string output should be carried, not treated as missing."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             mode="last",
@@ -1108,8 +1108,8 @@ class TestCarryContextWriterCriticIntegration:
     @pytest.mark.asyncio
     async def test_critic_feedback_visible_to_writer_in_round_2(self):
         """Critic feedback from round 1 should be visible to writer in round 2 via shared_memory."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             mode="last",
@@ -1148,8 +1148,8 @@ class TestCarryContextWriterCriticIntegration:
     @pytest.mark.asyncio
     async def test_critic_feedback_all_rounds_accumulated(self):
         """With mode='all', writer should see accumulated feedback from all prior rounds."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             mode="all",
@@ -1189,8 +1189,8 @@ class TestCarryContextWriterCriticIntegration:
     @pytest.mark.asyncio
     async def test_writer_critic_workflow_integration(self):
         """Full workflow integration: LoopBlock with carry_context in Workflow.run()."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             mode="last",
@@ -1236,8 +1236,8 @@ class TestCarryContextFormat:
     @pytest.mark.asyncio
     async def test_carried_context_is_dict_keyed_by_block_id(self):
         """Carried context should be a dict keyed by source block IDs."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             mode="last",
@@ -1272,8 +1272,8 @@ class TestCarryContextFormat:
     @pytest.mark.asyncio
     async def test_mode_all_carried_context_is_list_of_dicts(self):
         """In mode='all', carried context should be a list of round dicts."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             mode="all",
@@ -1305,8 +1305,8 @@ class TestCarryContextFormat:
     @pytest.mark.asyncio
     async def test_mode_last_carried_context_is_single_dict(self):
         """In mode='last', carried context should be a single dict, not a list."""
-        from runsight_core.blocks.implementations import LoopBlock
-        from runsight_core.yaml.schema import CarryContextConfig
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
 
         config = CarryContextConfig(
             mode="last",

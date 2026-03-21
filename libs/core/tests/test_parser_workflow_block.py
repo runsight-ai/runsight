@@ -13,7 +13,7 @@ import pytest
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import RunsightWorkflowFile
-from runsight_core.blocks.implementations import WorkflowBlock
+from runsight_core import WorkflowBlock
 from runsight_core.workflow import Workflow
 
 

@@ -21,7 +21,7 @@ import pytest
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.yaml.schema import CarryContextConfig
+from runsight_core.blocks.loop import CarryContextConfig
 
 
 # ==============================================================================
@@ -134,7 +134,7 @@ class TestCarryContextLastModeBlockResult:
     @pytest.mark.asyncio
     async def test_last_mode_values_are_strings_not_blockresult(self):
         """shared_memory[inject_as] dict values should be strings, not BlockResult objects."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         config = CarryContextConfig(mode="last", inject_as="prev_ctx")
 
@@ -168,7 +168,7 @@ class TestCarryContextLastModeBlockResult:
     @pytest.mark.asyncio
     async def test_last_mode_multi_source_all_strings(self):
         """With multiple source blocks, all values in the carried dict must be strings."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         config = CarryContextConfig(
             mode="last",
@@ -203,7 +203,7 @@ class TestCarryContextLastModeBlockResult:
     @pytest.mark.asyncio
     async def test_last_mode_reader_sees_strings(self):
         """A downstream block reading carried context should see string values, not BlockResult."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         config = CarryContextConfig(
             mode="last",
@@ -253,7 +253,7 @@ class TestCarryContextAllModeBlockResult:
     @pytest.mark.asyncio
     async def test_all_mode_history_values_are_strings(self):
         """Each round entry in the history list should contain string values, not BlockResult."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         config = CarryContextConfig(mode="all", inject_as="history_ctx")
 
@@ -288,7 +288,7 @@ class TestCarryContextAllModeBlockResult:
     @pytest.mark.asyncio
     async def test_all_mode_reader_sees_string_history(self):
         """A downstream block should see string values in the accumulated history."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         config = CarryContextConfig(mode="all", inject_as="all_ctx")
 
@@ -332,7 +332,7 @@ class TestCarryContextArtifactRefExclusion:
     @pytest.mark.asyncio
     async def test_artifact_ref_not_in_carried_context_last_mode(self):
         """In mode='last', only .output should be carried — not artifact_ref or metadata."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         config = CarryContextConfig(
             mode="last",
@@ -375,7 +375,7 @@ class TestCarryContextArtifactRefExclusion:
     @pytest.mark.asyncio
     async def test_artifact_ref_not_in_carried_context_all_mode(self):
         """In mode='all', history entries must contain .output strings, not BlockResult."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         config = CarryContextConfig(
             mode="all",
@@ -423,7 +423,7 @@ class TestCarryHistoryContainsStrings:
     @pytest.mark.asyncio
     async def test_carry_history_values_are_strings_across_rounds(self):
         """After N rounds, every value in every carry_history entry should be a string."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         config = CarryContextConfig(mode="all", inject_as="full_history")
 
@@ -468,7 +468,7 @@ class TestCarryContextNonePreserved:
     @pytest.mark.asyncio
     async def test_missing_source_block_result_carries_none(self):
         """If source_blocks references a block whose result is missing, carry None."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         config = CarryContextConfig(
             mode="last",
@@ -512,7 +512,7 @@ class TestCarryContextMixedBlockResults:
     @pytest.mark.asyncio
     async def test_mixed_artifact_and_plain_blockresults(self):
         """Both plain and artifact BlockResults should have .output extracted."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         config = CarryContextConfig(
             mode="last",

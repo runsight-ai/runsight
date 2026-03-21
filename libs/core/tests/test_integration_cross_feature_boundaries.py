@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from runsight_core.state import WorkflowState
 from runsight_core.primitives import Soul, Task
-from runsight_core.blocks.implementations import (
+from runsight_core import (
     RouterBlock,
 )
 from runsight_core.runner import ExecutionResult

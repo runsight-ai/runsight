@@ -43,7 +43,7 @@ class TestCodeBlockSubprocessSerialization:
     @pytest.mark.asyncio
     async def test_codeblock_serializes_results_with_block_result(self):
         """json.dumps should not raise TypeError when results contain BlockResult."""
-        from runsight_core.blocks.implementations import CodeBlock
+        from runsight_core import CodeBlock
 
         block = CodeBlock(
             block_id="code1",
@@ -82,7 +82,7 @@ class TestCodeBlockSubprocessSerialization:
     @pytest.mark.asyncio
     async def test_codeblock_serializes_mixed_results(self):
         """Results dict with multiple BlockResult values serializes correctly."""
-        from runsight_core.blocks.implementations import CodeBlock
+        from runsight_core import CodeBlock
 
         block = CodeBlock(
             block_id="code2",
@@ -121,7 +121,7 @@ class TestCodeBlockSubprocessSerialization:
     @pytest.mark.asyncio
     async def test_codeblock_serializes_results_with_metadata(self):
         """BlockResult with artifact metadata — only output should appear in JSON."""
-        from runsight_core.blocks.implementations import CodeBlock
+        from runsight_core import CodeBlock
 
         block = CodeBlock(
             block_id="code3",
@@ -173,7 +173,7 @@ class TestWorkflowBlockResolveDottedBlockResult:
 
     def _make_workflow_block(self):
         """Create a minimal WorkflowBlock for testing _resolve_dotted."""
-        from runsight_core.blocks.implementations import WorkflowBlock
+        from runsight_core import WorkflowBlock
         from runsight_core.workflow import Workflow
 
         child_workflow = MagicMock(spec=Workflow)

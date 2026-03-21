@@ -12,7 +12,7 @@ from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.blocks.implementations import LinearBlock
+from runsight_core import LinearBlock
 
 
 @pytest.fixture

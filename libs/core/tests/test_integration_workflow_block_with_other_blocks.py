@@ -12,7 +12,7 @@ import pytest
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.blocks.implementations import (
+from runsight_core import (
     WorkflowBlock,
     LinearBlock,
     RouterBlock,

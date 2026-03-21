@@ -211,35 +211,3 @@ def rebuild_block_def_union() -> None:
     RunsightWorkflowFile.__pydantic_fields__["blocks"] = new_field
     RunsightWorkflowFile.__pydantic_complete__ = False
     RunsightWorkflowFile.model_rebuild(force=True)
-
-
-# -- Backward-compat re-exports (lazy) -------------------------------------
-
-_BLOCK_DEF_REEXPORTS = {
-    "LinearBlockDef": ("runsight_core.blocks.linear", "LinearBlockDef"),
-    "FanOutBlockDef": ("runsight_core.blocks.fanout", "FanOutBlockDef"),
-    "SynthesizeBlockDef": ("runsight_core.blocks.synthesize", "SynthesizeBlockDef"),
-    "RouterBlockDef": ("runsight_core.blocks.router", "RouterBlockDef"),
-    "TeamLeadBlockDef": ("runsight_core.blocks.team_lead", "TeamLeadBlockDef"),
-    "EngineeringManagerBlockDef": (
-        "runsight_core.blocks.engineering_manager",
-        "EngineeringManagerBlockDef",
-    ),
-    "GateBlockDef": ("runsight_core.blocks.gate", "GateBlockDef"),
-    "FileWriterBlockDef": ("runsight_core.blocks.file_writer", "FileWriterBlockDef"),
-    "CodeBlockDef": ("runsight_core.blocks.code", "CodeBlockDef"),
-    "LoopBlockDef": ("runsight_core.blocks.loop", "LoopBlockDef"),
-    "WorkflowBlockDef": ("runsight_core.blocks.workflow_block", "WorkflowBlockDef"),
-    "HttpRequestBlockDef": ("runsight_core.blocks.http_request", "HttpRequestBlockDef"),
-    "CarryContextConfig": ("runsight_core.blocks.loop", "CarryContextConfig"),
-}
-
-
-def __getattr__(name: str) -> Any:
-    if name in _BLOCK_DEF_REEXPORTS:
-        import importlib
-
-        module_path, attr_name = _BLOCK_DEF_REEXPORTS[name]
-        mod = importlib.import_module(module_path)
-        return getattr(mod, attr_name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

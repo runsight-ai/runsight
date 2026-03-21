@@ -30,7 +30,8 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
-from runsight_core.yaml.parser import BLOCK_TYPE_REGISTRY, parse_workflow_yaml
+from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
+from runsight_core.yaml.parser import parse_workflow_yaml
 
 # Shared TypeAdapter for the discriminated union
 block_adapter = TypeAdapter(BlockDef)
@@ -43,7 +44,7 @@ def _validate_block(data: dict):
 
 def _import_http_request_block_def():
     """Import HttpRequestBlockDef from schema; raises ImportError if not yet implemented."""
-    from runsight_core.yaml.schema import HttpRequestBlockDef
+    from runsight_core.blocks.http_request import HttpRequestBlockDef
 
     return HttpRequestBlockDef
 

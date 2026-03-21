@@ -13,11 +13,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from runsight_core.artifacts import InMemoryArtifactStore
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.blocks.implementations import LinearBlock, LoopBlock
+from runsight_core import LinearBlock, LoopBlock
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.yaml.schema import CarryContextConfig
+from runsight_core.blocks.loop import CarryContextConfig
 
 
 # ---------------------------------------------------------------------------

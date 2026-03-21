@@ -164,7 +164,7 @@ class TestLoopBlockBreakConditionReadSite:
     @pytest.mark.asyncio
     async def test_loop_break_condition_uses_output_not_str(self):
         """LoopBlock break condition should evaluate against .output, not BlockResult."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.blocks.base import BaseBlock
 
         class InnerBlock(BaseBlock):
@@ -226,7 +226,7 @@ class TestSynthesizeBlockReadSite:
     @pytest.mark.asyncio
     async def test_synthesize_block_uses_output_not_str(self):
         """SynthesizeBlock prompt should contain .output text, not __str__ value."""
-        from runsight_core.blocks.implementations import SynthesizeBlock
+        from runsight_core import SynthesizeBlock
 
         runner = _make_runner(output="synthesized result")
         soul = _make_soul()
@@ -277,7 +277,7 @@ class TestGateBlockReadSite:
     @pytest.mark.asyncio
     async def test_gate_block_uses_output_not_str(self):
         """GateBlock should evaluate .output content, not str(BlockResult)."""
-        from runsight_core.blocks.implementations import GateBlock
+        from runsight_core import GateBlock
 
         runner = _make_runner(output="PASS")
         soul = _make_soul()
@@ -329,7 +329,7 @@ class TestFileWriterBlockReadSite:
     @pytest.mark.asyncio
     async def test_file_writer_uses_output_not_str(self, tmp_path):
         """FileWriterBlock should write .output content, not str(BlockResult)."""
-        from runsight_core.blocks.implementations import FileWriterBlock
+        from runsight_core import FileWriterBlock
 
         output_file = tmp_path / "output.txt"
 

@@ -16,7 +16,7 @@ When stateful=False (default), conversation_histories must be untouched.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from runsight_core.blocks.implementations import LinearBlock
+from runsight_core import LinearBlock
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState

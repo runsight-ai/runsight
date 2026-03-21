@@ -5,10 +5,10 @@ Tests for YAML schema models, particularly TaskDef.
 import pytest
 from pydantic import ValidationError
 
+from runsight_core.blocks.linear import LinearBlockDef
 from runsight_core.yaml.schema import (
     TaskDef,
     SoulDef,
-    LinearBlockDef,
     TransitionDef,
     WorkflowDef,
     RunsightWorkflowFile,

@@ -13,7 +13,7 @@ a LoopBlock across multiple rounds:
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from runsight_core.blocks.implementations import (
+from runsight_core import (
     FanOutBlock,
     LinearBlock,
     LoopBlock,
@@ -446,7 +446,7 @@ class TestWindowingActivatesInsideLoop:
         state = WorkflowState(current_task=task)
 
         with patch(
-            "runsight_core.blocks.implementations.prune_messages",
+            "runsight_core.memory.windowing.prune_messages",
             side_effect=_aggressive_prune,
         ):
             result_state = await loop.execute(state, blocks=blocks)
@@ -490,7 +490,7 @@ class TestWindowingActivatesInsideLoop:
         state = WorkflowState(current_task=task)
 
         with patch(
-            "runsight_core.blocks.implementations.prune_messages",
+            "runsight_core.memory.windowing.prune_messages",
             side_effect=_aggressive_prune,
         ):
             result_state = await loop.execute(state, blocks=blocks)
@@ -535,7 +535,7 @@ class TestWindowingActivatesInsideLoop:
         state = WorkflowState(current_task=task)
 
         with patch(
-            "runsight_core.blocks.implementations.prune_messages",
+            "runsight_core.memory.windowing.prune_messages",
             side_effect=_prune_to_2,
         ):
             await loop.execute(state, blocks=blocks)
