@@ -90,34 +90,33 @@ describe("StepType union removal", () => {
     expect(stepTypeBlock).not.toContain('"message_bus"');
   });
 
-  it("parser VALID_STEP_TYPES does NOT include debate or message_bus", () => {
+  it("parser KNOWN_BLOCK_TYPES does NOT include debate or message_bus", () => {
     const source = readSourceFile("yamlParser.ts");
-    const validSetMatch = source.match(
-      /VALID_STEP_TYPES\s*=\s*new Set[^)]*\(\[[\s\S]*?\]\)/,
+    const knownSetMatch = source.match(
+      /KNOWN_BLOCK_TYPES\s*=\s*new Set[^)]*\(\[[\s\S]*?\]\)/,
     );
-    expect(validSetMatch).toBeTruthy();
-    const setBlock = validSetMatch![0];
+    expect(knownSetMatch).toBeTruthy();
+    const setBlock = knownSetMatch![0];
     expect(setBlock).not.toContain('"debate"');
     expect(setBlock).not.toContain('"message_bus"');
   });
 
-  it("parser falls back to linear when YAML has type: debate", () => {
+  it("parser does not treat 'debate' as a known type", () => {
     const yaml = makeYaml({
       step1: { type: "debate", soul_a_ref: "a", soul_b_ref: "b", iterations: 3 },
     });
     const result = parseWorkflowYamlToGraph(yaml);
-    // After removal, "debate" is not a valid StepType — parser should fallback
-    expect(result.nodes[0].data.stepType).not.toBe("debate");
-    expect(result.nodes[0].data.stepType).toBe("linear");
+    // After RUN-221, "debate" is accepted as a generic unknown type (no special handling)
+    expect(result.nodes[0].data.stepType).toBe("debate");
   });
 
-  it("parser falls back to linear when YAML has type: message_bus", () => {
+  it("parser does not treat 'message_bus' as a known type", () => {
     const yaml = makeYaml({
       step1: { type: "message_bus", soul_refs: ["a", "b"], iterations: 5 },
     });
     const result = parseWorkflowYamlToGraph(yaml);
-    expect(result.nodes[0].data.stepType).not.toBe("message_bus");
-    expect(result.nodes[0].data.stepType).toBe("linear");
+    // After RUN-221, "message_bus" is accepted as a generic unknown type (no special handling)
+    expect(result.nodes[0].data.stepType).toBe("message_bus");
   });
 });
 

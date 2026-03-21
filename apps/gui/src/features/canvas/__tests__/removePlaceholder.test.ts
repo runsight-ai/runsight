@@ -79,13 +79,13 @@ describe("StepType union removal", () => {
     expect(stepTypeBlock).not.toContain('"placeholder"');
   });
 
-  it("parser VALID_STEP_TYPES does NOT include placeholder", () => {
+  it("parser KNOWN_BLOCK_TYPES does NOT include placeholder", () => {
     const source = readSourceFile("yamlParser.ts");
-    const validSetMatch = source.match(
-      /VALID_STEP_TYPES\s*=\s*new Set[^)]*\(\[[\s\S]*?\]\)/,
+    const knownSetMatch = source.match(
+      /KNOWN_BLOCK_TYPES\s*=\s*new Set[^)]*\(\[[\s\S]*?\]\)/,
     );
-    expect(validSetMatch).toBeTruthy();
-    const setBlock = validSetMatch![0];
+    expect(knownSetMatch).toBeTruthy();
+    const setBlock = knownSetMatch![0];
     expect(setBlock).not.toContain('"placeholder"');
   });
 });
@@ -144,13 +144,10 @@ describe("toStepType() no placeholder fallback", () => {
       step1: { type: "totally_invalid_type", soul_ref: "agent" },
     });
     const result = parseWorkflowYamlToGraph(yaml);
-    // After removal, invalid types must produce validation feedback (error),
-    // not silently fall back to placeholder or any other type
+    // After RUN-221, unknown types are accepted generically (no error, no fallback)
     if (result.nodes.length > 0) {
       expect(result.nodes[0].data.stepType).not.toBe("placeholder");
     }
-    expect(result.error).toBeDefined();
-    expect(result.error!.message).toBeTruthy();
   });
 
   it("parser does NOT return 'placeholder' for missing type field", () => {
@@ -176,17 +173,16 @@ describe("toStepType() no placeholder fallback", () => {
     }
   });
 
-  it("parser does NOT return 'placeholder' when YAML has type: placeholder", () => {
+  it("parser does NOT treat 'placeholder' as a known type with special handling", () => {
     const yaml = makeYaml({
       step1: { type: "placeholder", description: "TODO" },
     });
     const result = parseWorkflowYamlToGraph(yaml);
-    // "placeholder" is no longer a valid type — must produce validation feedback
-    if (result.nodes.length > 0) {
-      expect(result.nodes[0].data.stepType).not.toBe("placeholder");
-    }
-    expect(result.error).toBeDefined();
-    expect(result.error!.message).toBeTruthy();
+    // After RUN-221, "placeholder" is accepted as a generic unknown type
+    // (no special placeholder handling, no fallback, no error)
+    expect(result.nodes).toHaveLength(1);
+    // It is NOT in the known types, so it gets generic handling
+    expect(result.nodes[0].data.stepType).toBe("placeholder");
   });
 });
 
@@ -276,20 +272,19 @@ describe("BlockDef description field removal", () => {
 // ===========================================================================
 
 describe("Behavioral validation", () => {
-  it("YAML with type: placeholder is treated as invalid — does not parse as placeholder", () => {
+  it("YAML with type: placeholder is treated as a generic unknown type", () => {
     const yaml = makeYaml({
       step1: { type: "placeholder", description: "legacy node" },
     });
     const result = parseWorkflowYamlToGraph(yaml);
-    // Should either error or parse as unknown/error type — never "placeholder"
-    if (result.nodes.length > 0) {
-      expect(result.nodes[0].data.stepType).not.toBe("placeholder");
-    }
+    // After RUN-221, "placeholder" is accepted as a generic unknown type
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0].data.stepType).toBe("placeholder");
   });
 
-  it("compiler does NOT produce description field for any block type", () => {
-    // Use placeholder type — if BLOCK_TYPE_FIELDS still has a "placeholder"
-    // entry with ["description"], the compiler WILL emit it and this test fails.
+  it("compiler does NOT produce description field for known block types", () => {
+    // For known block types, extra fields like "description" should NOT be emitted
+    // (only declared type-specific and universal fields are emitted for known types).
     const node: Node<StepNodeData> = {
       id: "b1",
       type: "canvasNode",
@@ -297,8 +292,9 @@ describe("Behavioral validation", () => {
       data: {
         stepId: "b1",
         name: "b1",
-        stepType: "placeholder" as StepType,
+        stepType: "linear" as StepType,
         status: "idle",
+        soulRef: "agent",
         ...(({ description: "should not appear" }) as unknown as Partial<StepNodeData>),
       },
     };

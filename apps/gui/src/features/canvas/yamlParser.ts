@@ -24,7 +24,7 @@ type ParsedWorkflow = Partial<RunsightWorkflowFile> & {
 const DEFAULT_GRID_X = 280;
 const DEFAULT_GRID_Y = 160;
 
-const VALID_STEP_TYPES = new Set<string>([
+const KNOWN_BLOCK_TYPES = new Set<string>([
   "linear", "fanout", "router", "gate",
   "synthesize", "workflow", "loop", "team_lead", "engineering_manager",
   "file_writer", "code", "http_request",
@@ -32,7 +32,6 @@ const VALID_STEP_TYPES = new Set<string>([
 
 function toStepType(value: unknown): { type: StepType; error?: string } {
   if (typeof value !== "string") return { type: "linear" as StepType, error: `Invalid block type: expected string, got ${typeof value}` };
-  if (!VALID_STEP_TYPES.has(value)) return { type: "linear" as StepType, error: `Unknown block type: "${value}"` };
   return { type: value as StepType };
 }
 
@@ -113,6 +112,29 @@ function buildNodeData(nodeId: string, block: BlockDef): { data: StepNodeData; e
   } else {
     if (block.inputs !== undefined) data.inputs = block.inputs as StepNodeData["inputs"];
     if (block.outputs !== undefined) data.outputs = block.outputs;
+  }
+
+  // Generic fallback for unknown block types: map any remaining block fields
+  // not explicitly handled above with snake_case → camelCase key conversion.
+  // Only applies to unknown types — known types only accept their declared fields.
+  if (!KNOWN_BLOCK_TYPES.has(stepTypeResult.type)) {
+    const handledSnakeFields = new Set([
+      "type", "soul_ref", "soul_refs", "workflow_ref", "eval_key", "extract_field",
+      "inner_block_refs", "max_rounds", "break_condition", "carry_context",
+      "retry_config", "input_block_ids", "output_path", "content_key",
+      "failure_context_keys", "condition_ref", "code", "timeout_seconds",
+      "allowed_imports", "output_conditions", "stateful", "max_depth",
+      "url", "method", "headers", "body", "body_type", "auth_type", "auth_config",
+      "retry_count", "retry_backoff", "expected_status_codes", "allow_private_ips",
+      "inputs", "outputs",
+    ]);
+
+    for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
+      if (handledSnakeFields.has(key)) continue;
+      if (value === undefined || value === null) continue;
+      const camelKey = snakeToCamel(key);
+      data[camelKey] = convertKeysToCamel(value);
+    }
   }
 
   return { data, error: stepTypeResult.error };

@@ -619,7 +619,7 @@ describe("Existing behavior preserved", () => {
 // ===========================================================================
 
 describe("Deprecated retry block type", () => {
-  it("type: retry YAML produces parse warning or error", () => {
+  it("type: retry is not a known block type", () => {
     const yaml = makeYaml({
       step1: {
         type: "retry",
@@ -630,11 +630,9 @@ describe("Deprecated retry block type", () => {
     });
     const result = parseWorkflowYamlToGraph(yaml);
 
-    // The parser should either produce an error/warning or
-    // NOT parse it as a valid "retry" stepType (since "retry" is removed from StepType)
-    const hasWarning = result.error !== undefined;
-    const parsedAsPlaceholder =
-      result.nodes.length > 0 && result.nodes[0].data.stepType !== "retry";
-    expect(hasWarning || parsedAsPlaceholder).toBe(true);
+    // After RUN-221, "retry" is accepted as a generic unknown type (no special handling).
+    // It is NOT in the known block types set.
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0].data.stepType).toBe("retry");
   });
 });
