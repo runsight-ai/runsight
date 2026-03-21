@@ -1562,40 +1562,40 @@
         },
         "oneOf": [
           {
-            "$ref": "#/$defs/LinearBlockDef"
-          },
-          {
-            "$ref": "#/$defs/FanOutBlockDef"
-          },
-          {
-            "$ref": "#/$defs/SynthesizeBlockDef"
-          },
-          {
-            "$ref": "#/$defs/RouterBlockDef"
-          },
-          {
-            "$ref": "#/$defs/TeamLeadBlockDef"
+            "$ref": "#/$defs/CodeBlockDef"
           },
           {
             "$ref": "#/$defs/EngineeringManagerBlockDef"
           },
           {
-            "$ref": "#/$defs/GateBlockDef"
+            "$ref": "#/$defs/FanOutBlockDef"
           },
           {
             "$ref": "#/$defs/FileWriterBlockDef"
           },
           {
-            "$ref": "#/$defs/CodeBlockDef"
+            "$ref": "#/$defs/GateBlockDef"
+          },
+          {
+            "$ref": "#/$defs/HttpRequestBlockDef"
+          },
+          {
+            "$ref": "#/$defs/LinearBlockDef"
           },
           {
             "$ref": "#/$defs/LoopBlockDef"
           },
           {
-            "$ref": "#/$defs/WorkflowBlockDef"
+            "$ref": "#/$defs/RouterBlockDef"
           },
           {
-            "$ref": "#/$defs/HttpRequestBlockDef"
+            "$ref": "#/$defs/SynthesizeBlockDef"
+          },
+          {
+            "$ref": "#/$defs/TeamLeadBlockDef"
+          },
+          {
+            "$ref": "#/$defs/WorkflowBlockDef"
           }
         ]
       },

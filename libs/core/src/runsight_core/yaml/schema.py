@@ -6,7 +6,7 @@ Phase 1 (RUN-110): Discriminated-union BlockDef with per-type models.
 """
 
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── Soul / Task / Task-file (unchanged) ────────────────────────────────────
@@ -200,31 +200,6 @@ class LoopBlockDef(BaseBlockDef):
     carry_context: Optional[CarryContextConfig] = None
 
 
-class HttpRequestBlockDef(BaseBlockDef):
-    type: Literal["http_request"] = "http_request"
-    url: str
-    method: str = "GET"
-    headers: Dict[str, str] = Field(default_factory=dict)
-    body: Optional[str] = None
-    body_type: Literal["json", "form", "raw"] = "json"
-    auth_type: Optional[Literal["bearer", "api_key", "basic"]] = None
-    auth_config: Dict[str, str] = Field(default_factory=dict)
-    timeout_seconds: int = Field(default=30, ge=1, le=300)
-    retry_count: int = 0
-    retry_backoff: float = 1.0
-    expected_status_codes: Optional[List[int]] = None
-    allow_private_ips: bool = False
-
-    @field_validator("method", mode="before")
-    @classmethod
-    def _uppercase_method(cls, v: str) -> str:
-        v = v.upper()
-        allowed = {"GET", "POST", "PUT", "DELETE", "PATCH"}
-        if v not in allowed:
-            raise ValueError(f"method must be one of {sorted(allowed)}, got '{v}'")
-        return v
-
-
 class WorkflowBlockDef(BaseBlockDef):
     """
     WorkflowBlock definition.
@@ -256,7 +231,6 @@ BlockDef = Annotated[
         CodeBlockDef,
         LoopBlockDef,
         WorkflowBlockDef,
-        HttpRequestBlockDef,
     ],
     Field(discriminator="type"),
 ]
@@ -334,4 +308,22 @@ def rebuild_block_def_union() -> None:
     """Rebuild ``BlockDef`` from the registry and call ``model_rebuild``."""
     global BlockDef
     BlockDef = build_block_def_union()
-    RunsightWorkflowFile.model_rebuild()
+    # Update model_fields and __pydantic_fields__ so Pydantic re-resolves the type
+    from pydantic.fields import FieldInfo
+
+    new_field = FieldInfo(annotation=Dict[str, BlockDef], default_factory=dict)
+    RunsightWorkflowFile.model_fields["blocks"] = new_field
+    RunsightWorkflowFile.__pydantic_fields__["blocks"] = new_field
+    RunsightWorkflowFile.__pydantic_complete__ = False
+    RunsightWorkflowFile.model_rebuild(force=True)
+
+
+# ── Backward-compat re-exports (lazy) ──────────────────────────────────────
+
+
+def __getattr__(name: str) -> Any:
+    if name == "HttpRequestBlockDef":
+        from runsight_core.blocks.http_request import HttpRequestBlockDef
+
+        return HttpRequestBlockDef
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

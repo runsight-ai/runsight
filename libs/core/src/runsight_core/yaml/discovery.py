@@ -24,7 +24,6 @@ import yaml
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul
 from runsight_core.workflow import Workflow
-from runsight_core.yaml.parser import parse_workflow_yaml
 
 
 def _to_snake_case(name: str) -> str:
@@ -150,6 +149,8 @@ def _discover_workflows(workflows_dir: Path) -> Dict[str, Workflow]:
 
     if not workflows_dir.exists():
         return workflows
+
+    from runsight_core.yaml.parser import parse_workflow_yaml
 
     for yaml_file in workflows_dir.glob("*.yaml"):
         workflow_key = yaml_file.stem

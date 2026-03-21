@@ -20,6 +20,7 @@ SCHEMA_PATH = Path(__file__).resolve().parent.parent / "runsight-workflow-schema
 
 def generate_schema() -> str:
     """Return the JSON Schema string for RunsightWorkflowFile."""
+    import runsight_core.blocks  # noqa: F401 — trigger auto-discovery
     from runsight_core.yaml.schema import RunsightWorkflowFile
 
     schema = RunsightWorkflowFile.model_json_schema()
