@@ -8,7 +8,10 @@ Tests cover:
 - rebuild_block_def_union(): updates BlockDef globally, model_rebuild succeeds
 - _helpers.py: soul resolution, condition conversion, condition group conversion
 - Parser fallback: registry-based builder lookup for unknown types
+- generate_schema.py --check: schema file is in sync with models
 """
+
+import sys
 
 import pytest
 from unittest.mock import MagicMock
@@ -410,16 +413,78 @@ class TestParserFallback:
 
     def test_parser_uses_builder_registry_fallback(self):
         """When a type is not in the hardcoded BLOCK_TYPE_REGISTRY,
-        the parser should fall back to BLOCK_BUILDER_REGISTRY."""
-        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY  # noqa: F401
+        the parser should fall back to BLOCK_BUILDER_REGISTRY.
 
-        # Verify the parser module references BLOCK_BUILDER_REGISTRY or get_builder,
-        # meaning it has a fallback path for types not in the hardcoded registry.
-        import inspect
-        from runsight_core.yaml import parser as parser_mod
+        Registers a mock builder for 'my_custom_block' in BLOCK_BUILDER_REGISTRY,
+        patches past Pydantic validation so the custom type reaches the builder
+        lookup, then verifies the mock builder was actually called.
+        """
+        from unittest.mock import patch, MagicMock as Mock
 
-        source = inspect.getsource(parser_mod)
-        assert "BLOCK_BUILDER_REGISTRY" in source or "get_builder" in source
+        from runsight_core.blocks._registry import (
+            BLOCK_BUILDER_REGISTRY,
+            register_block_builder,
+        )
+        from runsight_core.blocks.base import BaseBlock
+        from runsight_core.yaml.parser import parse_workflow_yaml
+
+        # 1. Create a mock builder that returns a BaseBlock-compatible object
+        fake_block = Mock(spec=BaseBlock)
+        fake_block.block_id = "b1"
+        mock_builder = Mock(return_value=fake_block)
+
+        # 2. Register the mock builder for our custom type
+        register_block_builder("my_custom_block", mock_builder)
+
+        try:
+            # 3. Build a fake file_def that Pydantic model_validate would return.
+            #    We patch model_validate to bypass schema validation (our custom type
+            #    is not in the BlockDef discriminated union).
+            fake_block_def = Mock()
+            fake_block_def.type = "my_custom_block"
+            fake_block_def.retry_config = None
+            fake_block_def.stateful = False
+            fake_block_def.inputs = None
+            fake_block_def.output_conditions = []
+
+            fake_soul_def = Mock()
+            fake_soul_def.id = "s1"
+            fake_soul_def.role = "R"
+            fake_soul_def.system_prompt = "P"
+            fake_soul_def.tools = None
+            fake_soul_def.model_name = None
+
+            fake_transition = Mock()
+            fake_transition.from_ = "b1"
+            fake_transition.to = None
+
+            fake_workflow_def = Mock()
+            fake_workflow_def.name = "test_wf"
+            fake_workflow_def.entry = "b1"
+            fake_workflow_def.transitions = [fake_transition]
+            fake_workflow_def.conditional_transitions = []
+
+            fake_file_def = Mock()
+            fake_file_def.souls = {"s1": fake_soul_def}
+            fake_file_def.blocks = {"b1": fake_block_def}
+            fake_file_def.workflow = fake_workflow_def
+            fake_file_def.config = {}
+
+            with patch(
+                "runsight_core.yaml.parser.RunsightWorkflowFile.model_validate",
+                return_value=fake_file_def,
+            ):
+                parse_workflow_yaml({"version": "1.0"})
+
+            # 4. Assert the mock builder was called with expected args
+            mock_builder.assert_called_once()
+            call_args = mock_builder.call_args
+            assert call_args[0][0] == "b1"  # block_id
+            assert call_args[0][1] is fake_block_def  # block_def
+
+        finally:
+            # 5. Cleanup
+            BLOCK_BUILDER_REGISTRY.pop("my_custom_block", None)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -495,3 +560,30 @@ class TestEdgeCases:
 
         # Should not raise even if called again
         _auto_discover_blocks()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8. generate_schema.py --check
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestGenerateSchemaCheck:
+    """Test that generate_schema.py --check passes (schema file is in sync)."""
+
+    def test_generate_schema_check_passes(self):
+        """Running `python generate_schema.py --check` exits 0 when schema is in sync."""
+        import subprocess
+        from pathlib import Path
+
+        script = Path(__file__).resolve().parent.parent / "scripts" / "generate_schema.py"
+        result = subprocess.run(
+            [sys.executable, str(script), "--check"],
+            capture_output=True,
+            text=True,
+            cwd=str(script.parent.parent),  # libs/core/
+        )
+        assert result.returncode == 0, (
+            f"generate_schema.py --check failed (exit {result.returncode}).\n"
+            f"stdout: {result.stdout}\n"
+            f"stderr: {result.stderr}"
+        )
