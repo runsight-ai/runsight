@@ -107,6 +107,23 @@ class BaseBlockDef(BaseModel):
     outputs: Optional[Dict[str, str]] = None  # name -> type string
     retry_config: Optional[RetryConfig] = None
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        # Only register concrete block defs (those with Literal["..."] type).
+        # Use cls.__annotations__ (not model_fields) because Pydantic has not
+        # finished building the model at __init_subclass__ time.
+        annotation = cls.__annotations__.get("type")
+        if annotation is None:
+            return
+        origin = getattr(annotation, "__origin__", None)
+        args = getattr(annotation, "__args__", None)
+        if origin is Literal or (args and len(args) == 1 and isinstance(args[0], str)):
+            block_type = args[0] if args else None
+            if block_type:
+                from runsight_core.blocks._registry import register_block_def
+
+                register_block_def(block_type, cls)
+
 
 # ── Per-type block models ──────────────────────────────────────────────────
 
@@ -296,3 +313,25 @@ class RunsightWorkflowFile(BaseModel):
     souls: Dict[str, SoulDef] = Field(default_factory=dict)
     blocks: Dict[str, BlockDef] = Field(default_factory=dict)
     workflow: WorkflowDef  # required — no default; Pydantic raises ValidationError if absent
+
+
+# ── Dynamic union builders ─────────────────────────────────────────────────
+
+
+def build_block_def_union() -> Any:
+    """Build a discriminated-union type from all registered BlockDef subclasses."""
+    from runsight_core.blocks._registry import get_all_block_types
+
+    registry = get_all_block_types()
+    if not registry:
+        raise RuntimeError("No block types registered.")
+    types = [registry[k] for k in sorted(registry.keys())]
+    union_type = Union[tuple(types)]
+    return Annotated[union_type, Field(discriminator="type")]
+
+
+def rebuild_block_def_union() -> None:
+    """Rebuild ``BlockDef`` from the registry and call ``model_rebuild``."""
+    global BlockDef
+    BlockDef = build_block_def_union()
+    RunsightWorkflowFile.model_rebuild()
