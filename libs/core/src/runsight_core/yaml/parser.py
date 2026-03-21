@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Union, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from runsight_core.yaml.registry import WorkflowRegistry
 
+from runsight_core.blocks._registry import register_block_builder as _register_builder
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.implementations import (
     LinearBlock,
@@ -336,6 +337,12 @@ BLOCK_TYPE_REGISTRY: Dict[str, BlockBuilder] = {
     "http_request": _build_http_request,
 }
 
+# Mirror hardcoded builders into the global builder registry so that
+# downstream code (and tests) can discover them via BLOCK_BUILDER_REGISTRY.
+for _bt, _bf in BLOCK_TYPE_REGISTRY.items():
+    _register_builder(_bt, _bf)
+del _bt, _bf
+
 
 def parse_workflow_yaml(
     yaml_str_or_dict: Union[str, Dict[str, Any]],
@@ -447,6 +454,10 @@ def parse_workflow_yaml(
             continue  # Skip BLOCK_TYPE_REGISTRY lookup
 
         builder = BLOCK_TYPE_REGISTRY.get(block_def.type)
+        if builder is None:
+            from runsight_core.blocks._registry import get_builder
+
+            builder = get_builder(block_def.type)
         if builder is None:
             raise ValueError(
                 f"Unknown block type '{block_def.type}' for block '{block_id}'. "
