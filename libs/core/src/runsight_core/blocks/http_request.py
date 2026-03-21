@@ -18,8 +18,10 @@ import json
 import re
 import socket
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from urllib.parse import urlparse
+
+from pydantic import Field, field_validator
 
 import httpx
 
@@ -362,3 +364,68 @@ class HttpRequestBlock(BaseBlock):
 
         # Should not reach here, but just in case
         raise HttpRequestError("Request failed after all retry attempts")
+
+
+# ── Schema definition (co-located) ─────────────────────────────────────────
+
+from runsight_core.yaml.schema import BaseBlockDef  # noqa: E402
+
+
+class HttpRequestBlockDef(BaseBlockDef):
+    type: Literal["http_request"] = "http_request"
+    url: str
+    method: str = "GET"
+    headers: Dict[str, str] = Field(default_factory=dict)
+    body: Optional[str] = None
+    body_type: Literal["json", "form", "raw"] = "json"
+    auth_type: Optional[Literal["bearer", "api_key", "basic"]] = None
+    auth_config: Dict[str, str] = Field(default_factory=dict)
+    timeout_seconds: int = Field(default=30, ge=1, le=300)
+    retry_count: int = 0
+    retry_backoff: float = 1.0
+    expected_status_codes: Optional[List[int]] = None
+    allow_private_ips: bool = False
+
+    @field_validator("method", mode="before")
+    @classmethod
+    def _uppercase_method(cls, v: str) -> str:
+        v = v.upper()
+        allowed = {"GET", "POST", "PUT", "DELETE", "PATCH"}
+        if v not in allowed:
+            raise ValueError(f"method must be one of {sorted(allowed)}, got '{v}'")
+        return v
+
+
+# Explicit registration: __init_subclass__ cannot detect Literal annotations
+# when ``from __future__ import annotations`` is active (PEP 563).
+from runsight_core.blocks._registry import register_block_def as _register_block_def  # noqa: E402
+
+_register_block_def("http_request", HttpRequestBlockDef)
+
+
+# ── Builder function (auto-discovered by blocks/__init__.py) ────────────────
+
+
+def build(
+    block_id: str,
+    block_def: Any,
+    souls_map: Dict[str, Any],
+    runner: Any,
+    all_blocks: Dict[str, Any],
+) -> HttpRequestBlock:
+    """Build an HttpRequestBlock from a block definition."""
+    return HttpRequestBlock(
+        block_id,
+        url=block_def.url,
+        method=block_def.method,
+        headers=block_def.headers,
+        body=block_def.body,
+        body_type=block_def.body_type,
+        auth_type=block_def.auth_type,
+        auth_config=block_def.auth_config,
+        timeout_seconds=block_def.timeout_seconds,
+        retry_count=block_def.retry_count,
+        retry_backoff=block_def.retry_backoff,
+        expected_status_codes=block_def.expected_status_codes,
+        allow_private_ips=block_def.allow_private_ips,
+    )
