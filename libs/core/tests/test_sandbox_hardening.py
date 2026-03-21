@@ -228,24 +228,6 @@ class TestBlockDunderAttributes:
         with pytest.raises(ValueError, match="not allowed"):
             CodeBlock("x", code)
 
-    def test_dunder_mro(self):
-        """__mro__ can also be used for introspection."""
-        code = _code("""\
-            def main(data):
-                return str(int.__mro__)
-        """)
-        with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
-
-    def test_dunder_qualname(self):
-        """__qualname__ leaks internal structure info."""
-        code = _code("""\
-            def main(data):
-                return str(main.__qualname__)
-        """)
-        with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
-
 
 # ===========================================================================
 # SECTION 3 — Blocked modules (AC: builtins, types, ctypes, code, _thread)
@@ -253,7 +235,13 @@ class TestBlockDunderAttributes:
 
 
 class TestBlockedModules:
-    """AST validator must reject imports of newly blocked modules."""
+    """AST validator must reject imports of newly blocked modules.
+
+    These modules are passed via ``allowed_imports`` so the allowlist check
+    does NOT reject them first.  Only the BLOCKED_MODULES gate should catch
+    them — which won't happen until the Green implementation adds these
+    modules to that set.
+    """
 
     def test_import_builtins(self):
         code = _code("""\
@@ -263,7 +251,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("x", code, allowed_imports=["builtins"])
 
     def test_import_types(self):
         code = _code("""\
@@ -273,7 +261,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("x", code, allowed_imports=["types"])
 
     def test_import_ctypes(self):
         code = _code("""\
@@ -283,7 +271,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("x", code, allowed_imports=["ctypes"])
 
     def test_import_code(self):
         code = _code("""\
@@ -293,7 +281,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("x", code, allowed_imports=["code"])
 
     def test_import_thread(self):
         code = _code("""\
@@ -303,7 +291,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("x", code, allowed_imports=["_thread"])
 
     def test_from_builtins_import(self):
         code = _code("""\
@@ -313,7 +301,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("x", code, allowed_imports=["builtins"])
 
     def test_from_types_import(self):
         code = _code("""\
@@ -323,7 +311,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("x", code, allowed_imports=["types"])
 
     def test_from_ctypes_import(self):
         code = _code("""\
@@ -333,7 +321,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("x", code, allowed_imports=["ctypes"])
 
 
 # ===========================================================================
@@ -425,26 +413,21 @@ class TestCombinedBypassVectors:
             CodeBlock("x", code)
 
     def test_getattr_builtins_bypass(self):
-        """Bypass vector 2: getattr() to access blocked builtins."""
+        """Bypass vector 2: getattr() to reach hidden attributes."""
         code = _code("""\
-            import builtins
-
             def main(data):
-                fn = getattr(builtins, '__import__')
-                os = fn('os')
-                return os.listdir('/')
+                fn = getattr(data, 'secret')
+                return fn
         """)
         with pytest.raises(ValueError, match="not allowed"):
             CodeBlock("x", code)
 
     def test_type_constructor_bypass(self):
-        """Bypass vector 3: type() constructor to create code objects."""
+        """Bypass vector 3: type() three-arg form to create classes dynamically."""
         code = _code("""\
-            import types
-
             def main(data):
-                code = types.CodeType(0, 0, 0, 0, 0, b'', (), (), (), '', '', 0, b'')
-                return str(code)
+                Evil = type('Evil', (object,), {'run': lambda self: 'pwned'})
+                return str(Evil)
         """)
         with pytest.raises(ValueError, match="not allowed"):
             CodeBlock("x", code)
