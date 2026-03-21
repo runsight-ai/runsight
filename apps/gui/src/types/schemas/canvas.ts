@@ -1,6 +1,6 @@
 import type { Node, Edge } from "@xyflow/react";
 
-/** All 14 block types from Runsight core (spec §2.5) */
+/** All known block types from Runsight core (spec §2.5), plus any custom string */
 export type StepType =
   | "linear"
   | "fanout"
@@ -13,7 +13,8 @@ export type StepType =
   | "engineering_manager"
   | "file_writer"
   | "code"
-  | "http_request";
+  | "http_request"
+  | (string & {});
 
 export type RunStatus = "idle" | "running" | "completed" | "failed" | "paused" | "pending";
 
@@ -181,6 +182,8 @@ export interface BlockDef {
   allow_private_ips?: boolean;
   output_conditions?: CaseDef[];
   stateful?: boolean;
+  /** Allow arbitrary fields for unknown block types */
+  [key: string]: unknown;
 }
 
 export interface TransitionDef {

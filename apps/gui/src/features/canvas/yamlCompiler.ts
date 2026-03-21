@@ -127,11 +127,16 @@ const NESTED_OBJECT_FIELDS = new Set(["carry_context", "retry_config", "break_co
 // toCompiledBlock — full per-type field emission
 // ---------------------------------------------------------------------------
 
+// Runtime/meta fields that must never be emitted in compiled blocks
+const RUNTIME_FIELDS = new Set(["stepId", "name", "stepType", "status", "cost", "executionCost"]);
+
 function toCompiledBlock(node: Node<StepNodeData>): BlockDef {
   const data = node.data;
   const stepType: StepType = data?.stepType ?? ("linear" as StepType);
 
   const result: Record<string, unknown> = { type: stepType };
+
+  const isKnownType = stepType in BLOCK_TYPE_FIELDS;
 
   // Collect allowed snake_case fields for this type
   const typeFields = BLOCK_TYPE_FIELDS[stepType] ?? [];
@@ -158,6 +163,23 @@ function toCompiledBlock(node: Node<StepNodeData>): BlockDef {
       result[snakeField] = NESTED_OBJECT_FIELDS.has(snakeField) && typeof value === "object"
         ? convertKeysToSnake(value)
         : value;
+    }
+  }
+
+  // Generic fallback for unknown block types: emit all non-runtime data fields
+  // with camelCase → snake_case conversion, applying recursive key conversion
+  // to nested objects.
+  if (!isKnownType) {
+    for (const [camelField, value] of Object.entries(data)) {
+      if (RUNTIME_FIELDS.has(camelField)) continue;
+      if (value === undefined || value === null) continue;
+
+      const snakeField = CAMEL_TO_SNAKE[camelField] ?? camelToSnake(camelField);
+
+      // Skip fields already emitted by the universal fields loop
+      if (result[snakeField] !== undefined) continue;
+
+      result[snakeField] = typeof value === "object" ? convertKeysToSnake(value) : value;
     }
   }
 
