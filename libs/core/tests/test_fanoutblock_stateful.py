@@ -15,7 +15,7 @@ When stateful=False (default), conversation_histories must be untouched.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from runsight_core.blocks.implementations import FanOutBlock
+from runsight_core import FanOutBlock
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
@@ -530,7 +530,7 @@ async def test_stateful_windowing_called_per_soul(
     state = WorkflowState(current_task=sample_task)
 
     with patch(
-        "runsight_core.blocks.implementations.prune_messages",
+        "runsight_core.memory.windowing.prune_messages",
         side_effect=lambda msgs, max_tok, model: msgs,
     ) as mock_prune:
         await block.execute(state)
@@ -615,11 +615,11 @@ async def test_stateful_windowing_uses_soul_specific_model(
 
     with (
         patch(
-            "runsight_core.blocks.implementations.get_max_tokens",
+            "runsight_core.memory.windowing.get_max_tokens",
             side_effect=_tracking_get_max_tokens,
         ),
         patch(
-            "runsight_core.blocks.implementations.prune_messages",
+            "runsight_core.memory.windowing.prune_messages",
             side_effect=lambda msgs, max_tok, model: msgs,
         ),
     ):
@@ -654,11 +654,11 @@ async def test_stateful_windowing_falls_back_to_runner_model(
 
     with (
         patch(
-            "runsight_core.blocks.implementations.get_max_tokens",
+            "runsight_core.memory.windowing.get_max_tokens",
             return_value=8000,
         ) as mock_get_max,
         patch(
-            "runsight_core.blocks.implementations.prune_messages",
+            "runsight_core.memory.windowing.prune_messages",
             side_effect=lambda msgs, max_tok, model: msgs,
         ),
     ):

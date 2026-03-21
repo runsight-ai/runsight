@@ -83,7 +83,7 @@ class TestLoopBlockForwardsKwargs:
 
     async def test_inner_block_receives_blocks_kwarg(self):
         """Inner blocks must receive 'blocks' dict via kwargs when LoopBlock gets it."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         spy = KwargsSpyBlock("spy_block")
         loop = LoopBlock(
@@ -103,7 +103,7 @@ class TestLoopBlockForwardsKwargs:
 
     async def test_inner_block_receives_call_stack_kwarg(self):
         """Inner blocks must receive 'call_stack' when LoopBlock gets it."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         spy = KwargsSpyBlock("spy_block")
         loop = LoopBlock(
@@ -125,7 +125,7 @@ class TestLoopBlockForwardsKwargs:
 
     async def test_inner_block_receives_workflow_registry_kwarg(self):
         """Inner blocks must receive 'workflow_registry' when LoopBlock gets it."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         spy = KwargsSpyBlock("spy_block")
         loop = LoopBlock(
@@ -147,7 +147,7 @@ class TestLoopBlockForwardsKwargs:
 
     async def test_inner_block_receives_observer_kwarg(self):
         """Inner blocks must receive 'observer' when LoopBlock gets it."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         spy = KwargsSpyBlock("spy_block")
         loop = LoopBlock(
@@ -169,7 +169,7 @@ class TestLoopBlockForwardsKwargs:
 
     async def test_all_kwargs_forwarded_together(self):
         """All kwargs (blocks, call_stack, workflow_registry, observer) forwarded at once."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         spy = KwargsSpyBlock("spy_block")
         loop = LoopBlock(
@@ -201,7 +201,7 @@ class TestLoopBlockForwardsKwargs:
 
     async def test_kwargs_forwarded_every_round(self):
         """kwargs should be forwarded on every round, not just the first."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         spy = KwargsSpyBlock("spy_block")
         loop = LoopBlock(
@@ -236,7 +236,7 @@ class TestNestedLoopBlockKwargs:
         Setup: outer_loop[inner_loop[leaf_block]]
         Without kwargs forwarding, inner_loop gets an empty blocks dict and raises ValueError.
         """
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         leaf = SimplePassthroughBlock("leaf_block")
         inner_loop = LoopBlock(
@@ -271,7 +271,7 @@ class TestNestedLoopBlockKwargs:
 
         Setup: outer_loop[middle_loop[inner_loop[leaf_block]]]
         """
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         leaf = SimplePassthroughBlock("leaf_block")
         inner_loop = LoopBlock(
@@ -309,7 +309,7 @@ class TestNestedLoopBlockKwargs:
         Workflow.run() passes blocks=self._blocks to LoopBlock; that must be
         forwarded so inner LoopBlock can also resolve its refs.
         """
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         leaf = SimplePassthroughBlock("leaf_block")
         inner_loop = LoopBlock(
@@ -355,7 +355,7 @@ class TestWorkflowBlockInsideLoopBlock:
         Without fix: call_stack not forwarded, WorkflowBlock defaults to [] (len=0),
         and depth check passes when it should fail.
         """
-        from runsight_core.blocks.implementations import LoopBlock, WorkflowBlock
+        from runsight_core import LoopBlock, WorkflowBlock
 
         # Create a simple child workflow
         child_leaf = SimplePassthroughBlock("child_leaf")
@@ -406,7 +406,7 @@ class TestWorkflowBlockInsideLoopBlock:
         With the fix: call_stack=['parent_wf'] is forwarded to WorkflowBlock,
         which sees 'parent_wf' in call_stack and raises RecursionError("cycle detected").
         """
-        from runsight_core.blocks.implementations import LoopBlock, WorkflowBlock
+        from runsight_core import LoopBlock, WorkflowBlock
 
         # Create parent workflow that contains a LoopBlock with a WorkflowBlock
         # that references the SAME parent workflow (cycle).
@@ -448,7 +448,7 @@ class TestObserverForwardingInsideLoop:
 
     async def test_observer_forwarded_to_inner_block(self):
         """Inner block inside LoopBlock should receive the observer kwarg."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         spy = KwargsSpyBlock("spy_block")
         loop = LoopBlock(
@@ -480,7 +480,7 @@ class TestLoopBlockSimpleRegression:
 
     async def test_simple_loop_still_works(self):
         """Basic LoopBlock with a simple inner block should still work."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = SimplePassthroughBlock("inner_block")
         loop = LoopBlock(
@@ -498,7 +498,7 @@ class TestLoopBlockSimpleRegression:
 
     async def test_simple_loop_via_workflow_run(self):
         """Basic LoopBlock through Workflow.run() still works."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = SimplePassthroughBlock("inner_block")
         loop = LoopBlock(
@@ -521,7 +521,7 @@ class TestLoopBlockSimpleRegression:
 
     async def test_multi_ref_loop_still_works(self):
         """LoopBlock with multiple inner refs still runs all per round."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         block_a = SimplePassthroughBlock("block_a")
         block_b = SimplePassthroughBlock("block_b")

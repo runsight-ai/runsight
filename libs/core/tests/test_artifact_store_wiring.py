@@ -162,7 +162,7 @@ class TestWorkflowBlockArtifactStorePropagation:
     def test_child_state_has_parent_artifact_store(self):
         """Child state created by _map_inputs should carry parent's artifact_store."""
         from runsight_core.artifacts import InMemoryArtifactStore
-        from runsight_core.blocks.implementations import WorkflowBlock
+        from runsight_core import WorkflowBlock
         from runsight_core.workflow import Workflow
 
         store = InMemoryArtifactStore(run_id="parent-run")
@@ -185,7 +185,7 @@ class TestWorkflowBlockArtifactStorePropagation:
     async def test_child_workflow_receives_artifact_store_during_execution(self):
         """Full WorkflowBlock.execute() propagates artifact_store to child workflow."""
         from runsight_core.artifacts import InMemoryArtifactStore
-        from runsight_core.blocks.implementations import WorkflowBlock
+        from runsight_core import WorkflowBlock
 
         store = InMemoryArtifactStore(run_id="parent-run")
         parent_state = WorkflowState(
@@ -216,7 +216,7 @@ class TestWorkflowBlockArtifactStorePropagation:
     async def test_returned_parent_state_keeps_artifact_store(self):
         """After WorkflowBlock.execute(), the returned parent state still has artifact_store."""
         from runsight_core.artifacts import InMemoryArtifactStore
-        from runsight_core.blocks.implementations import WorkflowBlock
+        from runsight_core import WorkflowBlock
 
         store = InMemoryArtifactStore(run_id="parent-run")
         parent_state = WorkflowState(
@@ -251,7 +251,7 @@ class TestLoopBlockArtifactStoreSharing:
     async def test_loop_block_rounds_share_same_store(self):
         """All rounds of a LoopBlock should see the same artifact_store object."""
         from runsight_core.artifacts import InMemoryArtifactStore
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         store = InMemoryArtifactStore(run_id="loop-run")
         tracker = RoundTrackingBlock("tracker")
@@ -276,7 +276,7 @@ class TestLoopBlockArtifactStoreSharing:
     async def test_loop_block_final_state_has_artifact_store(self):
         """LoopBlock final state should still have the artifact_store."""
         from runsight_core.artifacts import InMemoryArtifactStore
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         store = InMemoryArtifactStore(run_id="loop-run")
         tracker = RoundTrackingBlock("tracker")
@@ -309,7 +309,7 @@ class TestFanOutBlockArtifactStoreSharing:
         from unittest.mock import AsyncMock, Mock
 
         from runsight_core.artifacts import InMemoryArtifactStore
-        from runsight_core.blocks.implementations import FanOutBlock
+        from runsight_core import FanOutBlock
         from runsight_core.primitives import Soul, Task
 
         store = InMemoryArtifactStore(run_id="fanout-run")

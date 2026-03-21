@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from runsight_core.blocks.implementations import GateBlock, FileWriterBlock
+from runsight_core import GateBlock, FileWriterBlock
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner, ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState

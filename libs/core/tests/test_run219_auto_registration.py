@@ -197,20 +197,18 @@ class TestInitSubclassRegistration:
     def test_each_registered_class_maps_to_correct_type(self):
         """Each registered class has the expected Literal type value."""
         from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
-        from runsight_core.yaml.schema import (
-            LinearBlockDef,
-            FanOutBlockDef,
-            SynthesizeBlockDef,
-            RouterBlockDef,
-            TeamLeadBlockDef,
-            EngineeringManagerBlockDef,
-            GateBlockDef,
-            FileWriterBlockDef,
-            CodeBlockDef,
-            LoopBlockDef,
-            HttpRequestBlockDef,
-            WorkflowBlockDef,
-        )
+        from runsight_core.blocks.code import CodeBlockDef
+        from runsight_core.blocks.engineering_manager import EngineeringManagerBlockDef
+        from runsight_core.blocks.fanout import FanOutBlockDef
+        from runsight_core.blocks.file_writer import FileWriterBlockDef
+        from runsight_core.blocks.gate import GateBlockDef
+        from runsight_core.blocks.http_request import HttpRequestBlockDef
+        from runsight_core.blocks.linear import LinearBlockDef
+        from runsight_core.blocks.loop import LoopBlockDef
+        from runsight_core.blocks.router import RouterBlockDef
+        from runsight_core.blocks.synthesize import SynthesizeBlockDef
+        from runsight_core.blocks.team_lead import TeamLeadBlockDef
+        from runsight_core.blocks.workflow_block import WorkflowBlockDef
 
         expected_mapping = {
             "linear": LinearBlockDef,

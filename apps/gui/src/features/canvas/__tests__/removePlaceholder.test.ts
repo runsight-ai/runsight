@@ -79,14 +79,11 @@ describe("StepType union removal", () => {
     expect(stepTypeBlock).not.toContain('"placeholder"');
   });
 
-  it("parser KNOWN_BLOCK_TYPES does NOT include placeholder", () => {
+  it("parser does NOT include placeholder as a known type", () => {
     const source = readSourceFile("yamlParser.ts");
-    const knownSetMatch = source.match(
-      /KNOWN_BLOCK_TYPES\s*=\s*new Set[^)]*\(\[[\s\S]*?\]\)/,
-    );
-    expect(knownSetMatch).toBeTruthy();
-    const setBlock = knownSetMatch![0];
-    expect(setBlock).not.toContain('"placeholder"');
+    // After RUN-223 cleanup, KNOWN_BLOCK_TYPES was removed entirely.
+    // Verify placeholder is not referenced as a special type.
+    expect(source).not.toMatch(/["']placeholder["']/);
   });
 });
 
@@ -123,14 +120,10 @@ describe("DEFAULT_STEP_TYPE removal", () => {
 // ===========================================================================
 
 describe("BLOCK_TYPE_FIELDS removal", () => {
-  it('BLOCK_TYPE_FIELDS does NOT have a "placeholder" entry', () => {
+  it('compiler does NOT have a BLOCK_TYPE_FIELDS constant (removed in RUN-223)', () => {
     const source = readSourceFile("yamlCompiler.ts");
-    const fieldsMatch = source.match(
-      /BLOCK_TYPE_FIELDS[\s\S]*?^};/m,
-    );
-    expect(fieldsMatch).toBeTruthy();
-    const fieldsBlock = fieldsMatch![0];
-    expect(fieldsBlock).not.toMatch(/\bplaceholder\b/);
+    // After RUN-223, BLOCK_TYPE_FIELDS was removed entirely.
+    expect(source).not.toMatch(/\bBLOCK_TYPE_FIELDS\b/);
   });
 });
 
@@ -197,15 +190,10 @@ describe("Compiler no placeholder fallback", () => {
     expect(source).not.toContain('"placeholder"');
   });
 
-  it("compiler CAMEL_TO_SNAKE does NOT map description", () => {
+  it("compiler does NOT have a CAMEL_TO_SNAKE constant (removed in RUN-223)", () => {
     const source = readSourceFile("yamlCompiler.ts");
-    const mappingMatch = source.match(
-      /CAMEL_TO_SNAKE[\s\S]*?^};/m,
-    );
-    expect(mappingMatch).toBeTruthy();
-    const mappingBlock = mappingMatch![0];
-    // description was only used by placeholder blocks
-    expect(mappingBlock).not.toContain("description");
+    // After RUN-223, CAMEL_TO_SNAKE was removed entirely.
+    expect(source).not.toMatch(/\bCAMEL_TO_SNAKE\b/);
   });
 });
 
@@ -282,9 +270,8 @@ describe("Behavioral validation", () => {
     expect(result.nodes[0].data.stepType).toBe("placeholder");
   });
 
-  it("compiler does NOT produce description field for known block types", () => {
-    // For known block types, extra fields like "description" should NOT be emitted
-    // (only declared type-specific and universal fields are emitted for known types).
+  it("compiler emits all data fields via generic path (including extra fields)", () => {
+    // After RUN-223, the generic path emits ALL non-runtime fields for all types.
     const node: Node<StepNodeData> = {
       id: "b1",
       type: "canvasNode",
@@ -295,26 +282,27 @@ describe("Behavioral validation", () => {
         stepType: "linear" as StepType,
         status: "idle",
         soulRef: "agent",
-        ...(({ description: "should not appear" }) as unknown as Partial<StepNodeData>),
+        ...(({ description: "some description" }) as unknown as Partial<StepNodeData>),
       },
     };
 
     const result = compileGraphToWorkflowYaml({ nodes: [node], edges: [] });
-    const block = result.workflowDocument.blocks["b1"];
+    const block = result.workflowDocument.blocks["b1"] as Record<string, unknown>;
 
-    expect(block).not.toHaveProperty("description");
-    expect(result.yaml).not.toMatch(/^\s+description:/m);
+    // Generic path emits all fields — description is included
+    expect(block).toHaveProperty("soul_ref", "agent");
+    expect(block).toHaveProperty("description", "some description");
   });
 
-  it("parser buildNodeData does NOT set description from block data", () => {
-    // Even if YAML has a description field on a non-placeholder block,
-    // after removal it should not be mapped to node data
+  it("parser maps all block fields to node data via generic path", () => {
+    // After RUN-223, the generic path maps all block fields for all types.
     const yaml = makeYaml({
-      step1: { type: "linear", soul_ref: "agent", description: "should be ignored" },
+      step1: { type: "linear", soul_ref: "agent", description: "extra field" },
     });
     const result = parseWorkflowYamlToGraph(yaml);
     const data = result.nodes[0].data;
-    const keys = Object.keys(data);
-    expect(keys).not.toContain("description");
+    expect(data.soulRef).toBe("agent");
+    // Generic path maps description to node data
+    expect(data.description).toBe("extra field");
   });
 });

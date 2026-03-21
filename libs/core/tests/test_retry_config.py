@@ -12,14 +12,14 @@ Tests cover:
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
+from runsight_core.blocks.code import CodeBlockDef
+from runsight_core.blocks.fanout import FanOutBlockDef
+from runsight_core.blocks.gate import GateBlockDef
+from runsight_core.blocks.linear import LinearBlockDef
+from runsight_core.blocks.loop import LoopBlockDef
 from runsight_core.yaml.schema import (
     BaseBlockDef,
     BlockDef,
-    LinearBlockDef,
-    CodeBlockDef,
-    FanOutBlockDef,
-    GateBlockDef,
-    LoopBlockDef,
     RetryConfig,
     RunsightWorkflowFile,
 )

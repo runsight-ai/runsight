@@ -33,9 +33,7 @@ class LinearBlock(BaseBlock):
             raise ValueError(f"LinearBlock {self.block_id}: state.current_task is None")
 
         if self.stateful:
-            # Late import so that ``mock.patch("runsight_core.blocks.implementations.prune_messages")``
-            # in existing tests keeps working after migration.
-            import runsight_core.blocks.implementations as _impl
+            import runsight_core.memory.windowing as _windowing
 
             history_key = f"{self.block_id}_{self.soul.id}"
             history = state.conversation_histories.get(history_key, [])
@@ -46,8 +44,8 @@ class LinearBlock(BaseBlock):
                 {"role": "assistant", "content": result.output},
             ]
             model = self.soul.model_name or self.runner.model_name
-            updated_history = _impl.prune_messages(
-                updated_history, _impl.get_max_tokens(model), model
+            updated_history = _windowing.prune_messages(
+                updated_history, _windowing.get_max_tokens(model), model
             )
             conversation_update = {**state.conversation_histories, history_key: updated_history}
         else:

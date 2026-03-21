@@ -6,7 +6,7 @@ Exports: parse_workflow_yaml, parse_task_yaml, BUILT_IN_SOULS
 from __future__ import annotations
 
 import yaml
-from typing import Any, Callable, Dict, Union, Optional, TYPE_CHECKING
+from typing import Any, Dict, Union, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from runsight_core.yaml.registry import WorkflowRegistry
@@ -20,20 +20,12 @@ from runsight_core.conditions.engine import (
     ConditionGroup,
 )
 from runsight_core.yaml.schema import (
-    BlockDef,
     ConditionDef,
     ConditionGroupDef,
     InputRef,
     RunsightTaskFile,
     RunsightWorkflowFile,
 )
-
-
-# Builder function signature: (block_id, block_def, souls_map, runner, all_blocks) -> BaseBlock
-BlockBuilder = Callable[
-    [str, BlockDef, Dict[str, Soul], RunsightTeamRunner, Dict[str, BaseBlock]],
-    BaseBlock,
-]
 
 
 BUILT_IN_SOULS: Dict[str, Soul] = {
@@ -136,20 +128,6 @@ from runsight_core.yaml.schema import rebuild_block_def_union as _rebuild  # noq
 
 _rebuild()
 del _rebuild
-
-# Backward-compatible BLOCK_TYPE_REGISTRY — mirrors BLOCK_BUILDER_REGISTRY
-# without the "workflow" type (which is handled as a special case in
-# parse_workflow_yaml, not via the generic builder path).
-from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as _bbr  # noqa: E402
-
-BLOCK_TYPE_REGISTRY = {k: v for k, v in _bbr.items() if k != "workflow"}
-del _bbr
-
-# Backward-compatible aliases for builder functions that were previously
-# defined inline in this module.  Existing tests that patch these names
-# (e.g., ``mock.patch("runsight_core.yaml.parser._build_linear")``) will
-# continue to work.
-from runsight_core.blocks.linear import build as _build_linear  # noqa: E402, F401
 
 
 def parse_workflow_yaml(

@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.blocks.implementations import LinearBlock, LoopBlock
+from runsight_core import LinearBlock, LoopBlock
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState

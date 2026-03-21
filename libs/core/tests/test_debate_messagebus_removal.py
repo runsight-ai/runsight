@@ -43,19 +43,17 @@ class TestImportsRemoved:
         )
 
     def test_debate_block_not_in_implementations(self):
-        """DebateBlock class must NOT exist in blocks.implementations."""
-        from runsight_core.blocks import implementations
+        """DebateBlock class must NOT exist in blocks package."""
+        import runsight_core.blocks as blocks_pkg
 
-        assert not hasattr(implementations, "DebateBlock"), (
-            "DebateBlock still exists in blocks.implementations"
-        )
+        assert not hasattr(blocks_pkg, "DebateBlock"), "DebateBlock still exists in blocks package"
 
     def test_message_bus_block_not_in_implementations(self):
-        """MessageBusBlock class must NOT exist in blocks.implementations."""
-        from runsight_core.blocks import implementations
+        """MessageBusBlock class must NOT exist in blocks package."""
+        import runsight_core.blocks as blocks_pkg
 
-        assert not hasattr(implementations, "MessageBusBlock"), (
-            "MessageBusBlock still exists in blocks.implementations"
+        assert not hasattr(blocks_pkg, "MessageBusBlock"), (
+            "MessageBusBlock still exists in blocks package"
         )
 
 
@@ -154,12 +152,12 @@ class TestRegistryRemoved:
     """BLOCK_TYPE_REGISTRY must not have debate/message_bus entries."""
 
     def test_debate_not_in_registry(self):
-        from runsight_core.yaml.parser import BLOCK_TYPE_REGISTRY
+        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 
         assert "debate" not in BLOCK_TYPE_REGISTRY, "BLOCK_TYPE_REGISTRY still contains 'debate'"
 
     def test_message_bus_not_in_registry(self):
-        from runsight_core.yaml.parser import BLOCK_TYPE_REGISTRY
+        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 
         assert "message_bus" not in BLOCK_TYPE_REGISTRY, (
             "BLOCK_TYPE_REGISTRY still contains 'message_bus'"
@@ -260,7 +258,7 @@ class TestGateBlockDocstring:
     """GateBlock docstring must not mention 'debate'."""
 
     def test_gate_block_docstring_no_debate_reference(self):
-        from runsight_core.blocks.implementations import GateBlock
+        from runsight_core import GateBlock
 
         docstring = GateBlock.__doc__ or ""
         assert "debate" not in docstring.lower(), (
@@ -367,7 +365,7 @@ class TestOtherBlocksUnaffected:
     @pytest.mark.parametrize("key", SURVIVING_REGISTRY_KEYS)
     def test_surviving_registry_entry(self, key: str):
         """All non-removed block types must remain in BLOCK_TYPE_REGISTRY."""
-        from runsight_core.yaml.parser import BLOCK_TYPE_REGISTRY
+        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 
         assert key in BLOCK_TYPE_REGISTRY, (
             f"Surviving registry key '{key}' is missing from BLOCK_TYPE_REGISTRY"

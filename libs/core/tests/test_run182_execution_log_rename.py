@@ -87,6 +87,8 @@ class TestNoStaleReferences:
 
     def test_no_state_dot_messages_in_implementations(self):
         """implementations.py must not contain `state.messages`."""
+        if not IMPLEMENTATIONS_PY.exists():
+            return  # implementations.py has been deleted (RUN-223), assertion is trivially true
         source = IMPLEMENTATIONS_PY.read_text()
         matches = re.findall(r"state\.messages", source)
         assert matches == [], (
@@ -95,6 +97,8 @@ class TestNoStaleReferences:
 
     def test_no_messages_key_in_model_copy_dicts(self):
         """implementations.py must not use 'messages' as a key in model_copy update dicts."""
+        if not IMPLEMENTATIONS_PY.exists():
+            return  # implementations.py has been deleted (RUN-223), assertion is trivially true
         source = IMPLEMENTATIONS_PY.read_text()
         # Match patterns like  "messages": state.  or  "messages": new_
         matches = re.findall(r'"messages"\s*:', source)

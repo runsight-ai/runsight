@@ -17,11 +17,9 @@ import pytest
 from unittest.mock import MagicMock, patch
 from pydantic import ValidationError
 
-from runsight_core.yaml.parser import (
-    parse_workflow_yaml,
-    BLOCK_TYPE_REGISTRY,
-)
-from runsight_core.blocks.implementations import CodeBlock
+from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
+from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core import CodeBlock
 from runsight_core.workflow import Workflow
 from runsight_core.llm.client import LiteLLMClient
 from runsight_core.yaml.schema import BlockDef

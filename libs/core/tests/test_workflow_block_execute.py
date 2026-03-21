@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import AsyncMock
 
 from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.blocks.implementations import WorkflowBlock
+from runsight_core import WorkflowBlock
 
 
 @pytest.fixture

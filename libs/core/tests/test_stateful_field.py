@@ -14,20 +14,20 @@ Tests cover:
 import pytest
 from pydantic import TypeAdapter
 
+from runsight_core.blocks.code import CodeBlockDef
+from runsight_core.blocks.engineering_manager import EngineeringManagerBlockDef
+from runsight_core.blocks.fanout import FanOutBlockDef
+from runsight_core.blocks.file_writer import FileWriterBlockDef
+from runsight_core.blocks.gate import GateBlockDef
+from runsight_core.blocks.linear import LinearBlockDef
+from runsight_core.blocks.loop import LoopBlockDef
+from runsight_core.blocks.router import RouterBlockDef
+from runsight_core.blocks.synthesize import SynthesizeBlockDef
+from runsight_core.blocks.team_lead import TeamLeadBlockDef
+from runsight_core.blocks.workflow_block import WorkflowBlockDef
 from runsight_core.yaml.schema import (
     BaseBlockDef,
     BlockDef,
-    LinearBlockDef,
-    CodeBlockDef,
-    FanOutBlockDef,
-    GateBlockDef,
-    LoopBlockDef,
-    FileWriterBlockDef,
-    RouterBlockDef,
-    SynthesizeBlockDef,
-    TeamLeadBlockDef,
-    EngineeringManagerBlockDef,
-    WorkflowBlockDef,
     RunsightWorkflowFile,
 )
 

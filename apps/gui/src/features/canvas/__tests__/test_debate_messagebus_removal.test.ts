@@ -90,15 +90,12 @@ describe("StepType union removal", () => {
     expect(stepTypeBlock).not.toContain('"message_bus"');
   });
 
-  it("parser KNOWN_BLOCK_TYPES does NOT include debate or message_bus", () => {
+  it("parser does NOT include debate or message_bus as known types", () => {
     const source = readSourceFile("yamlParser.ts");
-    const knownSetMatch = source.match(
-      /KNOWN_BLOCK_TYPES\s*=\s*new Set[^)]*\(\[[\s\S]*?\]\)/,
-    );
-    expect(knownSetMatch).toBeTruthy();
-    const setBlock = knownSetMatch![0];
-    expect(setBlock).not.toContain('"debate"');
-    expect(setBlock).not.toContain('"message_bus"');
+    // After RUN-223 cleanup, KNOWN_BLOCK_TYPES was removed entirely.
+    // Verify debate/message_bus are not referenced as special types.
+    expect(source).not.toMatch(/["']debate["']/);
+    expect(source).not.toMatch(/["']message_bus["']/);
   });
 
   it("parser does not treat 'debate' as a known type", () => {
@@ -217,25 +214,16 @@ describe("BlockDef field removal", () => {
 // ===========================================================================
 
 describe("BLOCK_TYPE_FIELDS removal", () => {
-  it('BLOCK_TYPE_FIELDS does NOT have a "debate" entry', () => {
+  it('compiler does NOT have a BLOCK_TYPE_FIELDS constant (removed in RUN-223)', () => {
     const source = readSourceFile("yamlCompiler.ts");
-    const fieldsMatch = source.match(
-      /BLOCK_TYPE_FIELDS[\s\S]*?^};/m,
-    );
-    expect(fieldsMatch).toBeTruthy();
-    const fieldsBlock = fieldsMatch![0];
-    // Should not have a debate key
-    expect(fieldsBlock).not.toMatch(/\bdebate\b/);
+    // After RUN-223, BLOCK_TYPE_FIELDS was removed entirely.
+    expect(source).not.toMatch(/\bBLOCK_TYPE_FIELDS\b/);
   });
 
-  it('BLOCK_TYPE_FIELDS does NOT have a "message_bus" entry', () => {
+  it('compiler does NOT have a "message_bus" entry', () => {
     const source = readSourceFile("yamlCompiler.ts");
-    const fieldsMatch = source.match(
-      /BLOCK_TYPE_FIELDS[\s\S]*?^};/m,
-    );
-    expect(fieldsMatch).toBeTruthy();
-    const fieldsBlock = fieldsMatch![0];
-    expect(fieldsBlock).not.toMatch(/\bmessage_bus\b/);
+    // No reference to message_bus as a block type
+    expect(source).not.toMatch(/\bmessage_bus\b/);
   });
 
   it("compiler does NOT produce soul_a_ref or soul_b_ref fields", () => {
@@ -252,34 +240,21 @@ describe("BLOCK_TYPE_FIELDS removal", () => {
 // ===========================================================================
 
 describe("CAMEL_TO_SNAKE mapping removal", () => {
-  it("CAMEL_TO_SNAKE does NOT map soulARef", () => {
+  it("compiler does NOT have a CAMEL_TO_SNAKE constant (removed in RUN-223)", () => {
     const source = readSourceFile("yamlCompiler.ts");
-    const mappingMatch = source.match(
-      /CAMEL_TO_SNAKE[\s\S]*?^};/m,
-    );
-    expect(mappingMatch).toBeTruthy();
-    const mappingBlock = mappingMatch![0];
-    expect(mappingBlock).not.toContain("soulARef");
+    // After RUN-223, CAMEL_TO_SNAKE was removed entirely.
+    expect(source).not.toMatch(/\bCAMEL_TO_SNAKE\b/);
   });
 
-  it("CAMEL_TO_SNAKE does NOT map soulBRef", () => {
+  it("compiler does NOT reference soulARef or soulBRef", () => {
     const source = readSourceFile("yamlCompiler.ts");
-    const mappingMatch = source.match(
-      /CAMEL_TO_SNAKE[\s\S]*?^};/m,
-    );
-    expect(mappingMatch).toBeTruthy();
-    const mappingBlock = mappingMatch![0];
-    expect(mappingBlock).not.toContain("soulBRef");
+    expect(source).not.toContain("soulARef");
+    expect(source).not.toContain("soulBRef");
   });
 
-  it("CAMEL_TO_SNAKE does NOT map iterations", () => {
+  it("compiler does NOT reference iterations as a hardcoded field", () => {
     const source = readSourceFile("yamlCompiler.ts");
-    const mappingMatch = source.match(
-      /CAMEL_TO_SNAKE[\s\S]*?^};/m,
-    );
-    expect(mappingMatch).toBeTruthy();
-    const mappingBlock = mappingMatch![0];
-    expect(mappingBlock).not.toContain("iterations");
+    expect(source).not.toContain("iterations");
   });
 });
 
@@ -333,13 +308,10 @@ describe("soulRefs preservation for FanOut", () => {
     expect(data.soulRefs).toEqual(["a", "b", "c"]);
   });
 
-  it("CAMEL_TO_SNAKE still contains soulRefs mapping", () => {
+  it("compiler still converts soulRefs to soul_refs via camelToSnake", () => {
     const source = readSourceFile("yamlCompiler.ts");
-    const mappingMatch = source.match(
-      /CAMEL_TO_SNAKE[\s\S]*?^};/m,
-    );
-    expect(mappingMatch).toBeTruthy();
-    expect(mappingMatch![0]).toContain("soulRefs");
+    // After RUN-223, camelToSnake function handles conversion generically
+    expect(source).toContain("camelToSnake");
   });
 });
 
@@ -409,9 +381,8 @@ describe("No debate/message_bus references in source files", () => {
 // ===========================================================================
 
 describe("Behavioral validation", () => {
-  it("compiling a node with debate-specific fields does NOT produce soul_a_ref in output", () => {
-    // Force-construct a node with debate-like data (even though types should
-    // disallow it after removal) to verify the compiler doesn't emit these fields
+  it("compiling a node with extra fields emits them via generic path", () => {
+    // After RUN-223, the generic path emits ALL non-runtime fields for all types.
     const node: Node<StepNodeData> = {
       id: "b1",
       type: "canvasNode",
@@ -421,24 +392,21 @@ describe("Behavioral validation", () => {
         name: "b1",
         stepType: "linear" as StepType,
         status: "idle",
-        // These fields should not be emitted for any block type after removal
         ...(({ soulARef: "alice", soulBRef: "bob", iterations: 5 }) as unknown as Partial<StepNodeData>),
       },
     };
 
     const result = compileGraphToWorkflowYaml({ nodes: [node], edges: [] });
-    const block = result.workflowDocument.blocks["b1"];
+    const block = result.workflowDocument.blocks["b1"] as Record<string, unknown>;
 
-    expect(block).not.toHaveProperty("soul_a_ref");
-    expect(block).not.toHaveProperty("soul_b_ref");
-    expect(block).not.toHaveProperty("iterations");
-    expect(result.yaml).not.toContain("soul_a_ref");
-    expect(result.yaml).not.toContain("soul_b_ref");
-    // iterations should not appear as a field in the YAML for any block type
-    expect(result.yaml).not.toMatch(/^\s+iterations:/m);
+    // Generic path emits all fields with camelToSnake conversion
+    expect(block).toHaveProperty("soul_a_ref", "alice");
+    expect(block).toHaveProperty("soul_b_ref", "bob");
+    expect(block).toHaveProperty("iterations", 5);
   });
 
-  it("parsing YAML with debate-specific fields does NOT set them on node data", () => {
+  it("parsing YAML with extra fields maps them to node data via generic path", () => {
+    // After RUN-223, the generic path maps all block fields for all types.
     const yaml = makeYaml({
       step1: {
         type: "linear",
@@ -450,10 +418,11 @@ describe("Behavioral validation", () => {
     });
     const result = parseWorkflowYamlToGraph(yaml);
     const data = result.nodes[0].data;
-    const keys = Object.keys(data);
 
-    expect(keys).not.toContain("soulARef");
-    expect(keys).not.toContain("soulBRef");
-    expect(keys).not.toContain("iterations");
+    // Generic path converts snake_case to camelCase for top-level keys
+    expect(data.soulRef).toBe("agent");
+    expect(data.soulARef).toBe("alice");
+    expect(data.soulBRef).toBe("bob");
+    expect(data.iterations).toBe(5);
   });
 });

@@ -512,7 +512,8 @@ class Workflow:
                 block_start_time = time.time()
 
                 # Step 3: Execute block with context propagation for WorkflowBlock and LoopBlock
-                from runsight_core.blocks.implementations import LoopBlock, WorkflowBlock
+                from runsight_core.blocks.loop import LoopBlock
+                from runsight_core.blocks.workflow_block import WorkflowBlock
 
                 try:
                     kwargs_for_context = {

@@ -22,11 +22,11 @@ from pydantic import TypeAdapter
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
+from runsight_core.blocks.loop import LoopBlockDef
 from runsight_core.yaml.schema import (
     BlockDef,
     ConditionDef,
     ConditionGroupDef,
-    LoopBlockDef,
     RunsightWorkflowFile,
 )
 
@@ -286,7 +286,7 @@ class TestLoopBlockBreakEarly:
     @pytest.mark.asyncio
     async def test_breaks_on_round_2_of_5(self):
         """LoopBlock with max_rounds=5 should break after round 2 when condition met."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         # KeywordBlock outputs "DONE: finished" on call 2
@@ -314,7 +314,7 @@ class TestLoopBlockBreakEarly:
     @pytest.mark.asyncio
     async def test_runs_all_max_rounds_when_condition_never_met(self):
         """LoopBlock should run all max_rounds when break condition never evaluates True."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         # TrackingBlock never outputs "IMPOSSIBLE_VALUE"
@@ -342,7 +342,7 @@ class TestLoopBlockBreakEarly:
     @pytest.mark.asyncio
     async def test_no_break_condition_runs_all_rounds(self):
         """LoopBlock with break_condition=None should run all max_rounds (backward compat)."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner_block")
         blocks = {"inner_block": inner}
@@ -368,7 +368,7 @@ class TestLoopBlockConditionGroupBreak:
     @pytest.mark.asyncio
     async def test_and_condition_group_breaks_when_all_met(self):
         """AND group: breaks only when all conditions in the group are True."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition, ConditionGroup
 
         # JsonOutputBlock: round 3 -> score=60, status="complete"
@@ -404,7 +404,7 @@ class TestLoopBlockConditionGroupBreak:
     @pytest.mark.asyncio
     async def test_or_condition_group_breaks_when_any_met(self):
         """OR group: breaks when any condition in the group is True."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition, ConditionGroup
 
         # JsonOutputBlock: round 1 -> score=20
@@ -452,7 +452,7 @@ class TestLoopBlockBreakMetadata:
     @pytest.mark.asyncio
     async def test_metadata_on_early_break(self):
         """When breaking early, shared_memory should record broke_early=True and rounds_completed."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         inner = KeywordBlock("inner_block", keyword_on_call=2)
@@ -484,7 +484,7 @@ class TestLoopBlockBreakMetadata:
     @pytest.mark.asyncio
     async def test_metadata_on_full_run(self):
         """When running all rounds, shared_memory should record broke_early=False."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         inner = TrackingBlock("inner_block")
@@ -513,7 +513,7 @@ class TestLoopBlockBreakMetadata:
     @pytest.mark.asyncio
     async def test_metadata_on_no_break_condition(self):
         """When no break_condition is set, metadata should still be present with broke_early=False."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner_block")
         blocks = {"inner_block": inner}
@@ -538,7 +538,7 @@ class TestLoopBlockBreakMetadata:
     @pytest.mark.asyncio
     async def test_metadata_accessible_by_downstream_blocks(self):
         """Downstream blocks should be able to read loop break metadata from shared_memory."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         inner = KeywordBlock("inner_block", keyword_on_call=2)
@@ -598,7 +598,7 @@ class TestLoopBlockIntegrationKeywordBreak:
     @pytest.mark.asyncio
     async def test_keyword_in_output_triggers_break(self):
         """When inner block output contains 'DONE', break condition with 'contains' triggers."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         # KeywordBlock outputs "DONE: finished" on call 3
@@ -629,7 +629,7 @@ class TestLoopBlockIntegrationGateBreak:
     @pytest.mark.asyncio
     async def test_gate_pass_triggers_break(self):
         """When gate block outputs 'PASS', break condition triggers loop exit."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         worker = TrackingBlock("worker")
@@ -666,7 +666,7 @@ class TestLoopBlockIntegrationComplexConditionGroup:
     @pytest.mark.asyncio
     async def test_complex_and_group_with_multi_block_loop(self):
         """AND group with multiple inner blocks: condition evaluated against last block's output."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition, ConditionGroup
 
         worker = TrackingBlock("worker")
@@ -710,7 +710,7 @@ class TestLoopBlockBreakEdgeCases:
     @pytest.mark.asyncio
     async def test_missing_field_treated_as_false(self):
         """Break condition referencing a field not in output should treat as False (continue)."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         # BadFieldBlock outputs {"name": "test", "round": N} -- no "status" field
@@ -739,7 +739,7 @@ class TestLoopBlockBreakEdgeCases:
     @pytest.mark.asyncio
     async def test_break_on_round_1(self):
         """Break condition met on round 1 should exit loop after single execution."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         # KeywordBlock outputs "DONE: finished" on call 1
@@ -767,7 +767,7 @@ class TestLoopBlockBreakEdgeCases:
     @pytest.mark.asyncio
     async def test_condition_error_propagates(self):
         """If condition evaluation throws an error, it should propagate, not be swallowed."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         inner = TrackingBlock("inner_block")
@@ -791,7 +791,7 @@ class TestLoopBlockBreakEdgeCases:
     @pytest.mark.asyncio
     async def test_break_condition_evaluates_against_last_inner_block_output(self):
         """Break condition should evaluate against the last inner block's output by default."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         # Two inner blocks: first always outputs "working", second outputs "DONE" on call 2
@@ -829,7 +829,7 @@ class TestLoopBlockConstructorBreakCondition:
 
     def test_constructor_accepts_condition(self):
         """LoopBlock should accept a break_condition Condition parameter."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
         cond = Condition(eval_key="status", operator="equals", value="done")
@@ -843,7 +843,7 @@ class TestLoopBlockConstructorBreakCondition:
 
     def test_constructor_accepts_condition_group(self):
         """LoopBlock should accept a break_condition ConditionGroup parameter."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition, ConditionGroup
 
         group = ConditionGroup(
@@ -862,7 +862,7 @@ class TestLoopBlockConstructorBreakCondition:
 
     def test_constructor_defaults_break_condition_to_none(self):
         """LoopBlock without break_condition should default to None."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         loop = LoopBlock(
             block_id="loop_block",

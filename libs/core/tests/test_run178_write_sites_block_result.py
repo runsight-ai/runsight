@@ -140,7 +140,7 @@ class TestLinearBlockEmitsBlockResult:
         self, mock_runner, sample_soul, sample_task
     ):
         """LinearBlock must emit BlockResult(output=...) instead of raw string."""
-        from runsight_core.blocks.implementations import LinearBlock
+        from runsight_core import LinearBlock
 
         mock_runner.execute_task.return_value = _mock_execution_result()
 
@@ -167,7 +167,7 @@ class TestFanOutBlockEmitsBlockResult:
         self, mock_runner, sample_soul, sample_task
     ):
         """FanOutBlock must emit BlockResult(output=...) instead of raw json.dumps string."""
-        from runsight_core.blocks.implementations import FanOutBlock
+        from runsight_core import FanOutBlock
 
         soul_a = Soul(id="soul_a", role="Agent A", system_prompt="Do A.")
         soul_b = Soul(id="soul_b", role="Agent B", system_prompt="Do B.")
@@ -198,7 +198,7 @@ class TestSynthesizeBlockEmitsBlockResult:
         self, mock_runner, sample_soul
     ):
         """SynthesizeBlock must emit BlockResult(output=...) instead of raw string."""
-        from runsight_core.blocks.implementations import SynthesizeBlock
+        from runsight_core import SynthesizeBlock
 
         mock_runner.execute_task.return_value = _mock_execution_result(output="synthesized content")
 
@@ -227,7 +227,7 @@ class TestLoopBlockEmitsBlockResult:
     async def test_loop_block_writes_block_result_not_raw_string(self):
         """LoopBlock must emit BlockResult(output=...) for its completion marker."""
         from runsight_core.blocks.base import BaseBlock
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         # Create a minimal inner block that writes a BlockResult (compliant)
         class PassthroughBlock(BaseBlock):
@@ -264,7 +264,7 @@ class TestTeamLeadBlockEmitsBlockResult:
         self, mock_runner, sample_soul
     ):
         """TeamLeadBlock must emit BlockResult(output=...) instead of raw string."""
-        from runsight_core.blocks.implementations import TeamLeadBlock
+        from runsight_core import TeamLeadBlock
 
         mock_runner.execute_task.return_value = _mock_execution_result(
             output="Root cause: network timeout"
@@ -297,7 +297,7 @@ class TestEngineeringManagerBlockEmitsBlockResult:
         self, mock_runner, sample_soul, sample_task
     ):
         """EngineeringManagerBlock must emit BlockResult(output=...) instead of raw string."""
-        from runsight_core.blocks.implementations import EngineeringManagerBlock
+        from runsight_core import EngineeringManagerBlock
 
         plan_text = "1. research_phase: Gather data\n2. impl_phase: Build it"
         mock_runner.execute_task.return_value = _mock_execution_result(output=plan_text)
@@ -326,7 +326,7 @@ class TestRouterBlockSoulEmitsBlockResult:
         self, mock_runner, sample_soul, sample_task
     ):
         """RouterBlock (Soul) must emit BlockResult(output=...) instead of raw string."""
-        from runsight_core.blocks.implementations import RouterBlock
+        from runsight_core import RouterBlock
 
         mock_runner.execute_task.return_value = _mock_execution_result(output="approved")
 
@@ -350,7 +350,7 @@ class TestRouterBlockCallableEmitsBlockResult:
     @pytest.mark.asyncio
     async def test_router_block_callable_writes_block_result_not_raw_string(self):
         """RouterBlock (Callable) must emit BlockResult(output=...) instead of raw string."""
-        from runsight_core.blocks.implementations import RouterBlock
+        from runsight_core import RouterBlock
 
         def always_approve(state: WorkflowState) -> str:
             return "approved"
@@ -375,7 +375,7 @@ class TestWorkflowBlockEmitsBlockResult:
     @pytest.mark.asyncio
     async def test_workflow_block_writes_block_result_not_raw_string(self):
         """WorkflowBlock must emit BlockResult(output=...) instead of raw completion message."""
-        from runsight_core.blocks.implementations import WorkflowBlock
+        from runsight_core import WorkflowBlock
         from runsight_core.workflow import Workflow
 
         # Create a minimal child workflow that does nothing
@@ -411,7 +411,7 @@ class TestGateBlockEmitsBlockResult:
         self, mock_runner, sample_soul
     ):
         """GateBlock on PASS must emit BlockResult(output=...) instead of raw string."""
-        from runsight_core.blocks.implementations import GateBlock
+        from runsight_core import GateBlock
 
         mock_runner.execute_task.return_value = _mock_execution_result(output="PASS - looks good")
 
@@ -433,7 +433,7 @@ class TestGateBlockEmitsBlockResult:
         self, mock_runner, sample_soul
     ):
         """GateBlock on PASS with extract_field must also emit BlockResult."""
-        from runsight_core.blocks.implementations import GateBlock
+        from runsight_core import GateBlock
 
         mock_runner.execute_task.return_value = _mock_execution_result(output="PASS - extracted")
 
@@ -464,7 +464,7 @@ class TestFileWriterBlockEmitsBlockResult:
     @pytest.mark.asyncio
     async def test_file_writer_block_writes_block_result_not_raw_string(self, tmp_path):
         """FileWriterBlock must emit BlockResult(output=...) instead of raw confirmation string."""
-        from runsight_core.blocks.implementations import FileWriterBlock
+        from runsight_core import FileWriterBlock
 
         output_file = tmp_path / "output.txt"
         block = FileWriterBlock("fw1", output_path=str(output_file), content_key="source_block")
@@ -488,7 +488,7 @@ class TestCodeBlockErrorEmitsBlockResult:
     @pytest.mark.asyncio
     async def test_code_block_error_writes_block_result_not_raw_string(self):
         """CodeBlock on subprocess error must emit BlockResult(output=...) not raw error string."""
-        from runsight_core.blocks.implementations import CodeBlock
+        from runsight_core import CodeBlock
 
         code = 'def main(data):\n    raise ValueError("boom")\n'
         block = CodeBlock("code_err", code=code, timeout_seconds=10)
@@ -513,7 +513,7 @@ class TestCodeBlockNonJsonEmitsBlockResult:
     @pytest.mark.asyncio
     async def test_code_block_non_json_writes_block_result_not_raw_string(self):
         """CodeBlock with non-JSON stdout must emit BlockResult(output=...) not raw error string."""
-        from runsight_core.blocks.implementations import CodeBlock
+        from runsight_core import CodeBlock
 
         # main returns a non-JSON-serializable value that when printed is not JSON
         # Actually, the harness uses json.dumps on the return value, so we need to
@@ -555,7 +555,7 @@ class TestCodeBlockSuccessEmitsBlockResult:
     @pytest.mark.asyncio
     async def test_code_block_success_writes_block_result_not_raw_string(self):
         """CodeBlock with valid JSON result must emit BlockResult(output=...) not raw string."""
-        from runsight_core.blocks.implementations import CodeBlock
+        from runsight_core import CodeBlock
 
         code = 'def main(data):\n    return {"answer": 42}\n'
         block = CodeBlock("code_ok", code=code, timeout_seconds=10)
@@ -569,7 +569,7 @@ class TestCodeBlockSuccessEmitsBlockResult:
     @pytest.mark.asyncio
     async def test_code_block_success_string_return_writes_block_result(self):
         """CodeBlock with string return must emit BlockResult(output=...) not raw string."""
-        from runsight_core.blocks.implementations import CodeBlock
+        from runsight_core import CodeBlock
 
         code = 'def main(data):\n    return "hello world"\n'
         block = CodeBlock("code_str", code=code, timeout_seconds=10)
@@ -595,7 +595,7 @@ class TestNoRawStringsInResultsAfterExecution:
         self, mock_runner, sample_soul, sample_task
     ):
         """After running LinearBlock then FanOutBlock, all results are BlockResult."""
-        from runsight_core.blocks.implementations import FanOutBlock, LinearBlock
+        from runsight_core import FanOutBlock, LinearBlock
 
         mock_runner.execute_task.side_effect = [
             _mock_execution_result(output="linear output"),

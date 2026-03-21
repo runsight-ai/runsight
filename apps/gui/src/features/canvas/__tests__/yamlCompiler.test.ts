@@ -238,51 +238,55 @@ describe("Per-type block field emission", () => {
 // 2. No cross-type leakage
 // ===========================================================================
 
-describe("No cross-type field leakage", () => {
-  it("linear node with iterations set does NOT emit iterations", () => {
+describe("Generic path emits all non-runtime fields", () => {
+  it("linear node with extra fields emits them via generic path", () => {
     const { block } = compileOne(
       mockNode("b1", "linear", {
         soulRef: "soul1",
-        iterations: 5, // iterations is not a valid field for linear
+        iterations: 5,
       }),
     );
-    expect(block).not.toHaveProperty("iterations");
+    // Generic path emits all non-runtime fields
+    expect(block).toHaveProperty("soul_ref", "soul1");
+    expect(block).toHaveProperty("iterations", 5);
   });
 
-  it("code node with soulRef set does NOT emit soul_ref", () => {
+  it("code node with soulRef set emits soul_ref via generic path", () => {
     const { block } = compileOne(
       mockNode("b1", "code", {
         code: "x=1",
-        soulRef: "some_soul", // soulRef does not belong to code
+        soulRef: "some_soul",
       }),
     );
-    expect(block).not.toHaveProperty("soul_ref");
+    // Generic path converts camelCase to snake_case for all fields
+    expect(block).toHaveProperty("soul_ref", "some_soul");
   });
 
-  it("gate node does NOT emit iterations or inner_block_refs", () => {
+  it("gate node emits all fields via generic path", () => {
     const { block } = compileOne(
       mockNode("b1", "gate", {
         soulRef: "gate_soul",
         evalKey: "result.ok",
-        iterations: 3,          // not a valid field for gate
-        innerBlockRefs: ["x"],  // belongs to loop
+        iterations: 3,
+        innerBlockRefs: ["x"],
       }),
     );
-    expect(block).not.toHaveProperty("iterations");
-    expect(block).not.toHaveProperty("inner_block_refs");
+    expect(block).toHaveProperty("iterations", 3);
+    expect(block).toHaveProperty("inner_block_refs");
   });
 
-  it("fanout node does NOT emit soul_ref (singular)", () => {
+  it("fanout node emits soul_ref alongside soul_refs via generic path", () => {
     const { block } = compileOne(
       mockNode("b1", "fanout", {
         soulRefs: ["s1"],
-        soulRef: "should_not_appear",
+        soulRef: "extra_soul",
       }),
     );
-    expect(block).not.toHaveProperty("soul_ref");
+    expect(block).toHaveProperty("soul_ref", "extra_soul");
+    expect(block).toHaveProperty("soul_refs");
   });
 
-  it("code node does NOT emit soul_ref or iterations", () => {
+  it("code node emits all extra fields via generic path", () => {
     const { block } = compileOne(
       mockNode("b1", "code", {
         code: "x = 1",
@@ -290,21 +294,21 @@ describe("No cross-type field leakage", () => {
         iterations: 10,
       }),
     );
-    expect(block).not.toHaveProperty("soul_ref");
-    expect(block).not.toHaveProperty("iterations");
+    expect(block).toHaveProperty("soul_ref", "nope");
+    expect(block).toHaveProperty("iterations", 10);
   });
 
-  it("file_writer node does NOT emit code or soul_ref", () => {
+  it("file_writer node emits all fields via generic path", () => {
     const { block } = compileOne(
       mockNode("b1", "file_writer", {
         outputPath: "/out.txt",
         contentKey: "data",
-        code: "should_not_appear",
-        soulRef: "also_no",
+        code: "some_code",
+        soulRef: "extra",
       }),
     );
-    expect(block).not.toHaveProperty("code");
-    expect(block).not.toHaveProperty("soul_ref");
+    expect(block).toHaveProperty("code", "some_code");
+    expect(block).toHaveProperty("soul_ref", "extra");
   });
 });
 

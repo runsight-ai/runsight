@@ -409,7 +409,7 @@ class TestParserCleanup:
         source = inspect.getsource(parser_mod)
 
         # The parser must not import from implementations at all
-        assert "from runsight_core.blocks.implementations import" not in source, (
+        assert "from runsight_core import" not in source, (
             "parser.py still imports from runsight_core.blocks.implementations — "
             "after migration, the parser should delegate to BLOCK_BUILDER_REGISTRY"
         )
@@ -441,7 +441,7 @@ class TestCarryContextConfigMigration:
 
     def test_carry_context_config_re_exported_from_schema(self):
         """schema.py should re-export CarryContextConfig for backward compatibility."""
-        from runsight_core.yaml.schema import CarryContextConfig  # noqa: F401
+        from runsight_core.blocks.loop import CarryContextConfig  # noqa: F401
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -546,7 +546,7 @@ class TestEndToEndRoundTrip:
 
     def test_parse_linear_block(self):
         """parse_workflow_yaml must still work with linear blocks after migration."""
-        from runsight_core.blocks.implementations import LinearBlock
+        from runsight_core import LinearBlock
         from runsight_core.yaml.parser import parse_workflow_yaml
         from runsight_core.workflow import Workflow
 
@@ -559,7 +559,7 @@ class TestEndToEndRoundTrip:
 
     def test_parse_loop_block(self):
         """parse_workflow_yaml must still work with loop blocks after migration."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.yaml.parser import parse_workflow_yaml
         from runsight_core.workflow import Workflow
 
@@ -572,7 +572,7 @@ class TestEndToEndRoundTrip:
 
     def test_parse_code_block(self):
         """parse_workflow_yaml must still work with code blocks after migration."""
-        from runsight_core.blocks.implementations import CodeBlock
+        from runsight_core import CodeBlock
         from runsight_core.yaml.parser import parse_workflow_yaml
         from runsight_core.workflow import Workflow
 
@@ -590,21 +590,24 @@ class TestEndToEndRoundTrip:
 
 
 class TestSchemaReExports:
-    """After migration, schema.py must re-export BlockDef classes for backward compat."""
+    """After RUN-223 cleanup, schema.py no longer re-exports BlockDef classes.
+    Classes are importable directly from their own block modules."""
 
     @pytest.mark.parametrize(
-        "class_name",
-        PER_TYPE_BLOCK_DEF_NAMES,
-        ids=PER_TYPE_BLOCK_DEF_NAMES,
+        "module_name,type_name,class_name",
+        BLOCKS_TO_MIGRATE,
+        ids=[m for m, _, _ in BLOCKS_TO_MIGRATE],
     )
-    def test_block_def_re_exported_from_schema(self, class_name: str):
-        """schema.py must re-export {class_name} via __getattr__ for backward compat."""
-        from runsight_core.yaml import schema as schema_mod
+    def test_block_def_re_exported_from_schema(
+        self, module_name: str, type_name: str, class_name: str
+    ):
+        """BlockDef classes must be importable from their own block modules."""
+        import importlib
 
-        cls = getattr(schema_mod, class_name, None)
+        blocks_mod = importlib.import_module(f"runsight_core.blocks.{module_name}")
+        cls = getattr(blocks_mod, class_name, None)
         assert cls is not None, (
-            f"{class_name} is not accessible from schema.py — "
-            f"add a __getattr__ re-export for backward compatibility"
+            f"{class_name} is not accessible from runsight_core.blocks.{module_name}"
         )
 
     @pytest.mark.parametrize(
@@ -615,14 +618,13 @@ class TestSchemaReExports:
     def test_re_exported_class_is_same_as_blocks_class(
         self, module_name: str, type_name: str, class_name: str
     ):
-        """The re-exported class from schema must be the same object as the blocks class."""
+        """The class from the block module should be a proper BaseBlockDef subclass."""
         import importlib
-        from runsight_core.yaml import schema as schema_mod
+        from runsight_core.yaml.schema import BaseBlockDef
 
         blocks_mod = importlib.import_module(f"runsight_core.blocks.{module_name}")
         blocks_cls = getattr(blocks_mod, class_name)
-        schema_cls = getattr(schema_mod, class_name)
 
-        assert schema_cls is blocks_cls, (
-            f"schema.py re-exports a different {class_name} than blocks/{module_name}.py"
+        assert issubclass(blocks_cls, BaseBlockDef), (
+            f"{class_name} from blocks/{module_name}.py is not a BaseBlockDef subclass"
         )

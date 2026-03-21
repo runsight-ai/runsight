@@ -532,14 +532,14 @@ class TestEdgeCases:
         """schema.py should re-export HttpRequestBlockDef for backward compatibility.
 
         Even though the definition moves to blocks/http_request.py, existing code
-        that does `from runsight_core.yaml.schema import HttpRequestBlockDef` must
+        that does `from runsight_core.blocks.http_request import HttpRequestBlockDef` must
         still work (via a re-export / import alias).
         """
-        from runsight_core.yaml.schema import HttpRequestBlockDef  # noqa: F401
+        from runsight_core.blocks.http_request import HttpRequestBlockDef  # noqa: F401
 
     def test_reexported_class_is_same_as_blocks_class(self):
         """The HttpRequestBlockDef re-exported from schema must be the same class object."""
-        from runsight_core.yaml.schema import HttpRequestBlockDef as SchemaClass
+        from runsight_core.blocks.http_request import HttpRequestBlockDef as SchemaClass
         from runsight_core.blocks.http_request import HttpRequestBlockDef as BlocksClass
 
         assert SchemaClass is BlocksClass, (

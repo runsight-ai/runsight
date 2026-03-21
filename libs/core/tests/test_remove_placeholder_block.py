@@ -16,7 +16,8 @@ from pydantic import TypeAdapter, ValidationError
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
-from runsight_core.yaml.parser import BLOCK_TYPE_REGISTRY, parse_workflow_yaml
+from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
+from runsight_core.yaml.parser import parse_workflow_yaml
 
 
 # ---------------------------------------------------------------------------
@@ -90,12 +91,12 @@ class TestPlaceholderBlockRemoved:
             "PlaceholderBlock should have been removed from __all__"
         )
 
-    def test_placeholder_block_not_importable_from_implementations(self):
-        """PlaceholderBlock must not be importable from blocks.implementations."""
-        from runsight_core.blocks import implementations
+    def test_placeholder_block_not_importable_from_blocks_package(self):
+        """PlaceholderBlock must not be importable from blocks package."""
+        import runsight_core.blocks as blocks_pkg
 
-        assert not hasattr(implementations, "PlaceholderBlock"), (
-            "PlaceholderBlock class should have been removed from implementations.py"
+        assert not hasattr(blocks_pkg, "PlaceholderBlock"), (
+            "PlaceholderBlock class should have been removed from blocks package"
         )
 
 
@@ -147,9 +148,9 @@ class TestPlaceholderNotInRegistry:
         )
 
     def test_block_type_registry_count_decreased(self):
-        """BLOCK_TYPE_REGISTRY should have 11 entries (10 original + http_request)."""
-        assert len(BLOCK_TYPE_REGISTRY) == 11, (
-            f"Expected 11 block types after removing placeholder, got {len(BLOCK_TYPE_REGISTRY)}"
+        """BLOCK_TYPE_REGISTRY should have 12 entries (all block types including workflow)."""
+        assert len(BLOCK_TYPE_REGISTRY) == 12, (
+            f"Expected 12 block types after removing placeholder, got {len(BLOCK_TYPE_REGISTRY)}"
         )
 
 

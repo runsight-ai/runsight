@@ -115,14 +115,14 @@ class TestLoopBlockDefSchema:
 
     def test_loop_type_discriminator_resolves(self):
         """type='loop' should resolve to LoopBlockDef in the BlockDef union."""
-        from runsight_core.yaml.schema import LoopBlockDef
+        from runsight_core.blocks.loop import LoopBlockDef
 
         block = _validate_block({"type": "loop", "inner_block_refs": ["block_a", "block_b"]})
         assert isinstance(block, LoopBlockDef)
 
     def test_loop_default_max_rounds(self):
         """LoopBlockDef default max_rounds should be 5."""
-        from runsight_core.yaml.schema import LoopBlockDef
+        from runsight_core.blocks.loop import LoopBlockDef
 
         block = _validate_block({"type": "loop", "inner_block_refs": ["block_a"]})
         assert isinstance(block, LoopBlockDef)
@@ -130,7 +130,7 @@ class TestLoopBlockDefSchema:
 
     def test_loop_custom_max_rounds(self):
         """LoopBlockDef should accept a custom max_rounds value."""
-        from runsight_core.yaml.schema import LoopBlockDef
+        from runsight_core.blocks.loop import LoopBlockDef
 
         block = _validate_block({"type": "loop", "inner_block_refs": ["block_a"], "max_rounds": 10})
         assert isinstance(block, LoopBlockDef)
@@ -169,7 +169,7 @@ class TestLoopBlockDefSchema:
 
     def test_loop_supports_retry_config(self):
         """LoopBlockDef should support the inherited retry_config field."""
-        from runsight_core.yaml.schema import LoopBlockDef
+        from runsight_core.blocks.loop import LoopBlockDef
 
         block = _validate_block(
             {
@@ -194,7 +194,7 @@ class TestLoopBlockSingleRef:
     @pytest.mark.asyncio
     async def test_single_ref_runs_max_rounds_times(self):
         """A LoopBlock with 1 inner ref and max_rounds=3 should execute the inner block 3 times."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner_block")
         blocks = {"inner_block": inner, "loop_block": None}  # placeholder for loop
@@ -216,7 +216,7 @@ class TestLoopBlockSingleRef:
     @pytest.mark.asyncio
     async def test_single_ref_default_max_rounds(self):
         """Default max_rounds=5 should execute the inner block 5 times."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner_block")
         blocks = {"inner_block": inner}
@@ -240,7 +240,7 @@ class TestLoopBlockMultiRef:
     @pytest.mark.asyncio
     async def test_three_refs_sequential_per_round(self):
         """3 inner refs with max_rounds=2 should produce 6 total executions (3 per round)."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         block_a = TrackingBlock("block_a")
         block_b = TrackingBlock("block_b")
@@ -273,7 +273,7 @@ class TestLoopBlockMaxRoundsOne:
     @pytest.mark.asyncio
     async def test_max_rounds_one_runs_once(self):
         """max_rounds=1 means inner blocks execute exactly once."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner_block")
         blocks = {"inner_block": inner}
@@ -298,7 +298,7 @@ class TestLoopBlockRoundCounter:
     @pytest.mark.asyncio
     async def test_round_counter_increments(self):
         """shared_memory should contain the current round number, incrementing each round."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner_block")
         blocks = {"inner_block": inner}
@@ -323,7 +323,7 @@ class TestLoopBlockRoundCounter:
     @pytest.mark.asyncio
     async def test_round_counter_available_to_inner_blocks(self):
         """Inner blocks should be able to read the current round from shared_memory."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         class RoundReaderBlock(BaseBlock):
             """Block that reads the current loop round from shared_memory."""
@@ -370,7 +370,7 @@ class TestLoopBlockErrorHandling:
 
     def test_constructor_rejects_empty_refs(self):
         """LoopBlock constructor should reject empty inner_block_refs."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         with pytest.raises((ValueError, ValidationError)):
             LoopBlock(
@@ -382,7 +382,7 @@ class TestLoopBlockErrorHandling:
     @pytest.mark.asyncio
     async def test_invalid_ref_raises_at_runtime(self):
         """Referencing a block ID that doesn't exist in the blocks dict should raise at runtime."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         loop = LoopBlock(
             block_id="loop_block",
@@ -397,7 +397,7 @@ class TestLoopBlockErrorHandling:
 
     def test_self_reference_rejected(self):
         """LoopBlock referencing itself in inner_block_refs should be detected and rejected."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         with pytest.raises(ValueError, match="self-reference|itself|circular"):
             LoopBlock(
@@ -408,7 +408,7 @@ class TestLoopBlockErrorHandling:
 
     def test_self_reference_among_other_refs_rejected(self):
         """LoopBlock including itself among other refs should also be rejected."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         with pytest.raises(ValueError, match="self-reference|itself|circular"):
             LoopBlock(
@@ -420,7 +420,7 @@ class TestLoopBlockErrorHandling:
     @pytest.mark.asyncio
     async def test_inner_block_failure_propagates(self):
         """If an inner block fails mid-round, the error should propagate immediately."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         good_block = TrackingBlock("good_block")
         bad_block = FailingBlock("bad_block")
@@ -440,7 +440,7 @@ class TestLoopBlockErrorHandling:
     @pytest.mark.asyncio
     async def test_shared_block_across_multiple_loops(self):
         """A single block referenced by multiple LoopBlocks should be allowed."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         shared_inner = TrackingBlock("shared_block")
         blocks = {"shared_block": shared_inner}
@@ -477,7 +477,7 @@ class TestLoopBlockYamlParsing:
 
     def test_loop_type_parses_to_loop_block_def(self):
         """type: loop with inner_block_refs should parse to LoopBlockDef in a workflow file."""
-        from runsight_core.yaml.schema import LoopBlockDef
+        from runsight_core.blocks.loop import LoopBlockDef
 
         raw = {
             "version": "1.0",
@@ -560,7 +560,7 @@ workflow:
 
     def test_parser_produces_loop_block_instance(self):
         """parse_workflow_yaml with type: loop should produce a LoopBlock instance."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_str = """
@@ -593,14 +593,14 @@ workflow:
 
     def test_parser_single_pass_no_retry_in_registry(self):
         """BLOCK_TYPE_REGISTRY should have 'loop' and NOT have 'retry'."""
-        from runsight_core.yaml.parser import BLOCK_TYPE_REGISTRY
+        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 
         assert "loop" in BLOCK_TYPE_REGISTRY, "'loop' should be in BLOCK_TYPE_REGISTRY"
         assert "retry" not in BLOCK_TYPE_REGISTRY, "'retry' should NOT be in BLOCK_TYPE_REGISTRY"
 
     def test_parser_loop_block_stores_refs_as_strings(self):
         """LoopBlock built by parser should store inner_block_refs as strings, not resolved blocks."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_str = """
@@ -655,7 +655,7 @@ class TestLoopBlockWorkflowIntegration:
     @pytest.mark.asyncio
     async def test_workflow_passes_blocks_to_loop_execute(self):
         """Workflow.run() should pass blocks=self._blocks to LoopBlock.execute() via kwargs."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner_block")
         loop = LoopBlock(
@@ -680,7 +680,7 @@ class TestLoopBlockWorkflowIntegration:
     @pytest.mark.asyncio
     async def test_isinstance_check_uses_loop_block(self):
         """Workflow runner should use isinstance(block, LoopBlock), not RetryBlock."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner_block")
         loop = LoopBlock(
@@ -712,7 +712,7 @@ class TestLoopBlockWriterCriticIntegration:
     @pytest.mark.asyncio
     async def test_writer_critic_three_rounds(self):
         """Writer + critic pattern: 3 rounds produces 3 drafts and 3 feedbacks."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         writer = WriterBlock("writer")
         critic = CriticBlock("critic")
@@ -737,7 +737,7 @@ class TestLoopBlockWriterCriticIntegration:
     @pytest.mark.asyncio
     async def test_writer_critic_workflow_integration(self):
         """Full workflow integration: LoopBlock as entry, writer+critic pattern, 3 rounds."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         writer = WriterBlock("writer")
         critic = CriticBlock("critic")
@@ -766,7 +766,7 @@ class TestLoopBlockWriterCriticIntegration:
     @pytest.mark.asyncio
     async def test_loop_result_stored_under_loop_block_id(self):
         """LoopBlock should store its own result in state.results[loop_block_id]."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner_block")
         blocks = {"inner_block": inner}
@@ -794,7 +794,7 @@ class TestLoopBlockExports:
 
     def test_loop_block_importable_from_implementations(self):
         """LoopBlock should be importable from runsight_core.blocks.implementations."""
-        from runsight_core.blocks.implementations import LoopBlock
+        from runsight_core import LoopBlock
 
         assert LoopBlock is not None
 
@@ -812,7 +812,7 @@ class TestLoopBlockExports:
 
     def test_loop_block_def_importable_from_schema(self):
         """LoopBlockDef should be importable from runsight_core.yaml.schema."""
-        from runsight_core.yaml.schema import LoopBlockDef
+        from runsight_core.blocks.loop import LoopBlockDef
 
         assert LoopBlockDef is not None
 

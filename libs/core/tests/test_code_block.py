@@ -6,7 +6,7 @@ import json
 import pytest
 import textwrap
 
-from runsight_core.blocks.implementations import CodeBlock
+from runsight_core import CodeBlock
 from runsight_core.state import WorkflowState
 
 

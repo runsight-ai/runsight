@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from runsight_core.blocks.implementations import CodeBlock
+from runsight_core import CodeBlock
 from runsight_core.state import WorkflowState
 
 
@@ -79,7 +79,7 @@ class TestAsyncSubprocessUsed:
         state = _make_state()
 
         with patch(
-            "runsight_core.blocks.implementations.asyncio.create_subprocess_exec",
+            "runsight_core.blocks.code.asyncio.create_subprocess_exec",
             new_callable=AsyncMock,
         ) as mock_create:
             # Set up mock process
@@ -272,7 +272,7 @@ class TestMacOSEnvVars:
             return await original_create(*args, **kwargs)
 
         with patch(
-            "runsight_core.blocks.implementations.asyncio.create_subprocess_exec",
+            "runsight_core.blocks.code.asyncio.create_subprocess_exec",
             side_effect=spy_create,
         ):
             await block.execute(state)
@@ -297,7 +297,7 @@ class TestMacOSEnvVars:
             return await original_create(*args, **kwargs)
 
         with patch(
-            "runsight_core.blocks.implementations.asyncio.create_subprocess_exec",
+            "runsight_core.blocks.code.asyncio.create_subprocess_exec",
             side_effect=spy_create,
         ):
             await block.execute(state)

@@ -37,9 +37,7 @@ class FanOutBlock(BaseBlock):
             raise ValueError(f"FanOutBlock {self.block_id}: state.current_task is None")
 
         if self.stateful:
-            # Late import so that ``mock.patch("runsight_core.blocks.implementations.prune_messages")``
-            # in existing tests keeps working after migration.
-            import runsight_core.blocks.implementations as _impl
+            import runsight_core.memory.windowing as _windowing
 
             histories = {
                 soul.id: state.conversation_histories.get(f"{self.block_id}_{soul.id}", [])
@@ -61,8 +59,8 @@ class FanOutBlock(BaseBlock):
                     {"role": "assistant", "content": result.output},
                 ]
                 model = soul.model_name or self.runner.model_name
-                updated_histories[history_key] = _impl.prune_messages(
-                    updated, _impl.get_max_tokens(model), model
+                updated_histories[history_key] = _windowing.prune_messages(
+                    updated, _windowing.get_max_tokens(model), model
                 )
 
             conversation_update = updated_histories
