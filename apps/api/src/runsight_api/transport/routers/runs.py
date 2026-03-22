@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends
 from typing import List
 from ..schemas.runs import (
@@ -12,6 +14,8 @@ from ..deps import get_run_service, get_execution_service
 from ...logic.services.run_service import RunService
 from ...logic.services.execution_service import ExecutionService
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/runs", tags=["Runs"])
 
 
@@ -25,7 +29,7 @@ async def create_run(
     try:
         await execution_service.launch_execution(run.id, run.workflow_id, body.task_data)
     except Exception:
-        pass  # Execution errors are handled inside the service; run is still returned
+        logger.exception("Failed to launch execution for run %s", run.id)
     return RunResponse(
         id=run.id,
         workflow_id=run.workflow_id,
