@@ -1,4 +1,4 @@
-from runsight_api.domain.entities import Provider, Run, RunNode, RunStatus
+from runsight_api.domain.entities import Run, RunNode, RunStatus
 
 
 def test_run_status_enum():
@@ -7,14 +7,6 @@ def test_run_status_enum():
     assert RunStatus.completed == "completed"
     assert RunStatus.failed == "failed"
     assert RunStatus.cancelled == "cancelled"
-
-
-def test_provider_creation():
-    provider = Provider(id="test-1", name="Test Provider")
-    assert provider.id == "test-1"
-    assert provider.name == "Test Provider"
-    assert provider.type == "custom"
-    assert provider.status == "unknown"
 
 
 def test_run_creation():

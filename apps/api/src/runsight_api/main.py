@@ -41,23 +41,9 @@ def _recover_stale_runs(engine):
         session.commit()
 
 
-def _migrate_schema(engine):
-    """Add columns that create_all won't add to existing tables."""
-    import sqlalchemy
-
-    with engine.connect() as conn:
-        inspector = sqlalchemy.inspect(engine)
-        if "provider" in inspector.get_table_names():
-            columns = {c["name"] for c in inspector.get_columns("provider")}
-            if "models_json" not in columns:
-                conn.execute(sqlalchemy.text("ALTER TABLE provider ADD COLUMN models_json TEXT"))
-                conn.commit()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)
-    _migrate_schema(engine)
     _recover_stale_runs(engine)
     ensure_project_dirs(app_settings)
 
