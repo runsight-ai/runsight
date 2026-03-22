@@ -19,11 +19,8 @@ export interface CrudListPageConfig<T> {
     error: Error | null;
     refetch: () => void;
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   useCreate: () => UseMutationResult<any, Error, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   useUpdate: () => UseMutationResult<any, Error, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   useDelete: () => UseMutationResult<any, Error, string>;
   columns: Column[];
   searchKeys: string[];
