@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, memo } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import {
   ReactFlow,
@@ -211,7 +211,11 @@ function CanvasNodeComponent(props: { data: RunNodeData; selected?: boolean }) {
   );
 }
 
-const CanvasNode = CanvasNodeComponent;
+const CanvasNode = memo(CanvasNodeComponent, (prev, next) => {
+  return prev.data.name === next.data.name
+    && prev.data.status === next.data.status
+    && prev.data.stepType === next.data.stepType;
+});
 const nodeTypes = {
   canvasNode: CanvasNode,
 } satisfies NodeTypes;
