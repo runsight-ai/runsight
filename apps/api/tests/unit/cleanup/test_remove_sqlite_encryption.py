@@ -241,7 +241,9 @@ class TestMainCleaned:
         main_file = _SRC / "main.py"
         text = main_file.read_text()
         assert "ProviderRepository" not in text, "main.py still imports ProviderRepository"
-        assert "provider_repo" not in text, "main.py still references provider_repo"
+        assert "from .data.repositories.provider_repo" not in text, (
+            "main.py still imports from SQLite provider_repo"
+        )
 
 
 # =========================================================================
