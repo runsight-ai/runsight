@@ -46,7 +46,7 @@ class SynthesizeBlock(BaseBlock):
 
         combined_outputs = "\n\n".join(
             [
-                f"=== Output from {bid} ===\n{state.results[bid].output if hasattr(state.results[bid], 'output') else state.results[bid]}"
+                f"=== Output from {bid} ===\n{state.results[bid].output if isinstance(state.results[bid], BlockResult) else state.results[bid]}"
                 for bid in self.input_block_ids
             ]
         )

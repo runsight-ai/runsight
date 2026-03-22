@@ -36,7 +36,7 @@ class FileWriterBlock(BaseBlock):
             )
 
         _raw = state.results[self.content_key]
-        content = _raw.output if hasattr(_raw, "output") else str(_raw)
+        content = _raw.output if isinstance(_raw, BlockResult) else str(_raw)
         output = Path(self.output_path)
         await asyncio.to_thread(output.parent.mkdir, parents=True, exist_ok=True)
         await asyncio.to_thread(output.write_text, content, encoding="utf-8")

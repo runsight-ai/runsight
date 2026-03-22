@@ -97,7 +97,7 @@ class LoopBlock(BaseBlock):
             if self.carry_context is not None and self.carry_context.enabled:
                 source_ids = self.carry_context.source_blocks or self.inner_block_refs
                 round_outputs: Dict[str, Any] = {
-                    sid: (result.output if hasattr(result, "output") else result)
+                    sid: (result.output if isinstance(result, BlockResult) else result)
                     if (result := state.results.get(sid)) is not None
                     else None
                     for sid in source_ids
@@ -123,7 +123,7 @@ class LoopBlock(BaseBlock):
                 last_ref = self.inner_block_refs[-1]
                 _last_result = state.results.get(last_ref)
                 last_output = (
-                    _last_result.output if hasattr(_last_result, "output") else _last_result
+                    _last_result.output if isinstance(_last_result, BlockResult) else _last_result
                 )
                 if isinstance(self.break_condition, ConditionGroup):
                     should_break = evaluate_condition_group(self.break_condition, last_output)
