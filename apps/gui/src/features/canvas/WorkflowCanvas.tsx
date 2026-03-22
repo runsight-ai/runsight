@@ -32,9 +32,9 @@ export function WorkflowCanvas() {
 
   const onSave = async () => {
     try {
-      // TODO: wire up actual workflow save via workflowsApi
+      await useWorkflowStore.getState().saveWorkflow();
       toast.success("Workflow saved");
-    } catch (error) {
+    } catch (error: unknown) {
       toast.error("Failed to save workflow", {
         description: error instanceof Error ? error.message : "Unknown error",
       });
