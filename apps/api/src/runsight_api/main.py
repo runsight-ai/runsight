@@ -6,10 +6,11 @@ from contextlib import asynccontextmanager
 from sqlmodel import Session, SQLModel, select
 
 from .core.config import settings as app_settings, ensure_project_dirs
+from .core.secrets import SecretsEnvLoader
 from .domain.entities.run import Run, RunStatus
 from .core.di import container, engine
 from .data.repositories.run_repo import RunRepository
-from .data.repositories.provider_repo import ProviderRepository
+from .data.filesystem.provider_repo import FileSystemProviderRepo
 from .data.filesystem.workflow_repo import WorkflowRepository
 from .logic.services.execution_service import ExecutionService
 from .domain.errors import RunsightError
@@ -64,9 +65,10 @@ async def lifespan(app: FastAPI):
     session = Session(engine)
     run_repo = RunRepository(session)
     workflow_repo = WorkflowRepository(app_settings.base_path)
-    provider_repo = ProviderRepository(session)
+    provider_repo = FileSystemProviderRepo(base_path=app_settings.base_path)
+    secrets = SecretsEnvLoader(base_path=app_settings.base_path)
     app.state.execution_service = ExecutionService(
-        run_repo, workflow_repo, provider_repo, engine=engine
+        run_repo, workflow_repo, provider_repo, engine=engine, secrets=secrets
     )
 
     yield

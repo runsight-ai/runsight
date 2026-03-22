@@ -1,12 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from sqlmodel import Session
 
-from ..deps import get_provider_service, get_session
+from ..deps import get_provider_service, get_settings_repo
 from ...logic.services.provider_service import ProviderService
-from ...data.repositories.settings_repo import SettingsRepository
-from ...domain.entities.settings import AppSettings as AppSettingsEntity
+from ...data.filesystem.settings_repo import FileSystemSettingsRepo
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -63,12 +61,12 @@ def _provider_to_out(p) -> ProviderOut:
     return ProviderOut(
         id=p.id,
         name=p.name,
-        status=p.status,
-        api_key_env="configured" if p.api_key_encrypted else "",
+        status=p.status or "unknown",
+        api_key_env="configured" if p.api_key else "",
         base_url=p.base_url,
-        models=p.models,
-        created_at=str(p.created_at) if p.created_at else None,
-        updated_at=str(p.updated_at) if p.updated_at else None,
+        models=p.models if p.models else [],
+        created_at=str(p.created_at) if hasattr(p, "created_at") and p.created_at else None,
+        updated_at=str(p.updated_at) if hasattr(p, "updated_at") and p.updated_at else None,
     )
 
 
@@ -156,31 +154,19 @@ async def list_budgets():
     return {"items": [], "total": 0}
 
 
-def _settings_to_out(repo: SettingsRepository) -> dict:
-    result: dict = {}
-    for setting in repo.list_settings():
-        if setting.value in ("true", "false"):
-            result[setting.key] = setting.value == "true"
-        else:
-            result[setting.key] = setting.value
-    return result
-
-
 @router.get("/app")
-async def get_app_settings(session: Session = Depends(get_session)):
-    repo = SettingsRepository(session)
-    return _settings_to_out(repo)
+async def get_app_settings(
+    repo: FileSystemSettingsRepo = Depends(get_settings_repo),
+):
+    settings_config = repo.get_settings()
+    return settings_config.model_dump(exclude_none=True)
 
 
 @router.put("/app")
 async def update_app_settings(
     data: AppSettingsOut,
-    session: Session = Depends(get_session),
+    repo: FileSystemSettingsRepo = Depends(get_settings_repo),
 ):
-    import time
-
-    repo = SettingsRepository(session)
-    for key, value in data.model_dump(exclude_none=True).items():
-        str_value = str(value).lower() if isinstance(value, bool) else str(value)
-        repo.set_setting(AppSettingsEntity(key=key, value=str_value, updated_at=time.time()))
-    return _settings_to_out(repo)
+    updates = data.model_dump(exclude_none=True)
+    settings_config = repo.update_settings(updates)
+    return settings_config.model_dump(exclude_none=True)

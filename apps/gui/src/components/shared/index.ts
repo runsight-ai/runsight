@@ -9,3 +9,5 @@ export {
   RouteErrorBoundary,
   CanvasErrorBoundary,
 } from "./ErrorBoundary";
+export { CrudListPage, type CrudListPageConfig } from "./CrudListPage";
+export { DeleteConfirmDialog } from "./DeleteConfirmDialog";

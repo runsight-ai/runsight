@@ -3,7 +3,7 @@ from runsight_api.logic.services.provider_service import (
     ProviderService,
     _infer_provider_type,
 )
-from runsight_api.domain.entities.provider import Provider
+from runsight_api.domain.value_objects import ProviderEntity
 
 
 # --- _infer_provider_type ---
@@ -43,8 +43,9 @@ def test_infer_provider_type_case_insensitive():
 
 def test_list_providers_empty():
     repo = Mock()
+    secrets = Mock()
     repo.list_all.return_value = []
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
     result = service.list_providers()
     assert result == []
     repo.list_all.assert_called_once()
@@ -52,12 +53,13 @@ def test_list_providers_empty():
 
 def test_list_providers_multiple():
     repo = Mock()
+    secrets = Mock()
     providers = [
-        Provider(id="p1", name="P1", type="openai"),
-        Provider(id="p2", name="P2", type="anthropic"),
+        ProviderEntity(id="p1", name="P1", type="openai"),
+        ProviderEntity(id="p2", name="P2", type="anthropic"),
     ]
     repo.list_all.return_value = providers
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
     result = service.list_providers()
     assert result == providers
     assert len(result) == 2
@@ -68,9 +70,10 @@ def test_list_providers_multiple():
 
 def test_get_provider_exists():
     repo = Mock()
-    prov = Provider(id="p1", name="OpenAI", type="openai")
+    secrets = Mock()
+    prov = ProviderEntity(id="p1", name="OpenAI", type="openai")
     repo.get_by_id.return_value = prov
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
     result = service.get_provider("p1")
     assert result == prov
     assert result.id == "p1"
@@ -78,8 +81,9 @@ def test_get_provider_exists():
 
 def test_get_provider_not_found_returns_none():
     repo = Mock()
+    secrets = Mock()
     repo.get_by_id.return_value = None
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
     result = service.get_provider("missing")
     assert result is None
 
@@ -87,19 +91,25 @@ def test_get_provider_not_found_returns_none():
 # --- create_provider ---
 
 
-@patch("runsight_api.logic.services.provider_service.encrypt")
-def test_create_provider_happy_path(mock_encrypt):
-    mock_encrypt.return_value = "encrypted_key"
+def test_create_provider_happy_path():
     repo = Mock()
+    secrets = Mock()
+    secrets.store_key.return_value = "${OPENAI_API_KEY}"
     created = None
 
-    def capture_create(p):
+    def capture_create(data):
         nonlocal created
-        created = p
-        return p
+        created = data
+        return ProviderEntity(
+            id="openai",
+            name=data["name"],
+            type=data["type"],
+            api_key=data.get("api_key"),
+            base_url=data.get("base_url"),
+        )
 
     repo.create.side_effect = capture_create
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
     service.create_provider(
         name="OpenAI",
         api_key="sk-xxx",
@@ -107,44 +117,47 @@ def test_create_provider_happy_path(mock_encrypt):
         provider_type="openai",
     )
     assert created is not None
-    assert created.name == "OpenAI"
-    assert created.type == "openai"
-    assert created.api_key_encrypted == "encrypted_key"
-    assert created.base_url == "https://api.openai.com/v1"
-    assert created.id.startswith("prov_")
-    mock_encrypt.assert_called_once_with("sk-xxx")
+    assert created["name"] == "OpenAI"
+    assert created["type"] == "openai"
+    assert created["api_key"] == "${OPENAI_API_KEY}"
+    assert created["base_url"] == "https://api.openai.com/v1"
+    secrets.store_key.assert_called_once_with("openai", "sk-xxx")
 
 
-@patch("runsight_api.logic.services.provider_service.encrypt")
-def test_create_provider_type_inferred_from_name_openai(mock_encrypt):
-    mock_encrypt.return_value = "enc"
+def test_create_provider_type_inferred_from_name_openai():
     repo = Mock()
+    secrets = Mock()
+    secrets.store_key.return_value = "${OPENAI_API_KEY}"
 
-    def capture_create(p):
-        return p
+    def capture_create(data):
+        return ProviderEntity(id="openai", name=data["name"], type=data["type"])
 
     repo.create.side_effect = capture_create
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
     result = service.create_provider(name="OpenAI", api_key="sk-x")
     assert result.type == "openai"
 
 
-@patch("runsight_api.logic.services.provider_service.encrypt")
-def test_create_provider_type_inferred_from_name_claude(mock_encrypt):
-    mock_encrypt.return_value = "enc"
+def test_create_provider_type_inferred_from_name_claude():
     repo = Mock()
-    repo.create.side_effect = lambda p: p
-    service = ProviderService(repo)
+    secrets = Mock()
+    secrets.store_key.return_value = "${ANTHROPIC_API_KEY}"
+    repo.create.side_effect = lambda data: ProviderEntity(
+        id="claude-api", name=data["name"], type=data["type"]
+    )
+    service = ProviderService(repo, secrets)
     result = service.create_provider(name="Claude API", api_key="sk-x")
     assert result.type == "anthropic"
 
 
-@patch("runsight_api.logic.services.provider_service.encrypt")
-def test_create_provider_type_inferred_unknown_to_custom(mock_encrypt):
-    mock_encrypt.return_value = "enc"
+def test_create_provider_type_inferred_unknown_to_custom():
     repo = Mock()
-    repo.create.side_effect = lambda p: p
-    service = ProviderService(repo)
+    secrets = Mock()
+    secrets.store_key.return_value = "${CUSTOM_API_KEY}"
+    repo.create.side_effect = lambda data: ProviderEntity(
+        id="unknown-provider", name=data["name"], type=data["type"]
+    )
+    service = ProviderService(repo, secrets)
     result = service.create_provider(name="Unknown Provider", api_key="key")
     assert result.type == "custom"
 
@@ -152,47 +165,56 @@ def test_create_provider_type_inferred_unknown_to_custom(mock_encrypt):
 # --- update_provider ---
 
 
-@patch("runsight_api.logic.services.provider_service.encrypt")
-def test_update_provider_happy_path(mock_encrypt):
-    mock_encrypt.return_value = "enc_new"
+def test_update_provider_happy_path():
     repo = Mock()
-    prov = Provider(id="p1", name="Old", type="openai", base_url="https://old.com")
+    secrets = Mock()
+    secrets.store_key.return_value = "${OPENAI_API_KEY}"
+    prov = ProviderEntity(id="p1", name="Old", type="openai", base_url="https://old.com")
     repo.get_by_id.return_value = prov
-    repo.update.return_value = prov
-    service = ProviderService(repo)
+    repo.update.return_value = ProviderEntity(
+        id="p1",
+        name="New Name",
+        type="openai",
+        api_key="${OPENAI_API_KEY}",
+        base_url="https://new.com",
+    )
+    service = ProviderService(repo, secrets)
     result = service.update_provider(
         "p1",
         name="New Name",
         api_key="new_key",
         base_url="https://new.com",
     )
-    assert result is prov
-    assert prov.name == "New Name"
-    assert prov.api_key_encrypted == "enc_new"
-    assert prov.base_url == "https://new.com"
-    mock_encrypt.assert_called_once_with("new_key")
+    assert result is not None
+    assert result.name == "New Name"
+    assert result.api_key == "${OPENAI_API_KEY}"
+    assert result.base_url == "https://new.com"
+    secrets.store_key.assert_called_once_with("openai", "new_key")
 
 
 def test_update_provider_not_found_returns_none():
     repo = Mock()
+    secrets = Mock()
     repo.get_by_id.return_value = None
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
     result = service.update_provider("missing", name="New")
     assert result is None
     repo.update.assert_not_called()
 
 
-@patch("runsight_api.logic.services.provider_service.encrypt")
-def test_update_provider_partial_update(mock_encrypt):
+def test_update_provider_partial_update():
     repo = Mock()
-    prov = Provider(id="p1", name="Original", type="openai", base_url="https://a.com")
+    secrets = Mock()
+    prov = ProviderEntity(id="p1", name="Original", type="openai", base_url="https://a.com")
     repo.get_by_id.return_value = prov
-    repo.update.return_value = prov
-    service = ProviderService(repo)
-    service.update_provider("p1", name="Updated")
-    assert prov.name == "Updated"
-    assert prov.base_url == "https://a.com"  # unchanged
-    mock_encrypt.assert_not_called()
+    repo.update.return_value = ProviderEntity(
+        id="p1", name="Updated", type="openai", base_url="https://a.com"
+    )
+    service = ProviderService(repo, secrets)
+    result = service.update_provider("p1", name="Updated")
+    assert result.name == "Updated"
+    assert result.base_url == "https://a.com"  # unchanged
+    secrets.store_key.assert_not_called()
 
 
 # --- delete_provider ---
@@ -200,8 +222,9 @@ def test_update_provider_partial_update(mock_encrypt):
 
 def test_delete_provider_exists_returns_true():
     repo = Mock()
+    secrets = Mock()
     repo.delete.return_value = True
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
     result = service.delete_provider("p1")
     assert result is True
     repo.delete.assert_called_once_with("p1")
@@ -209,8 +232,9 @@ def test_delete_provider_exists_returns_true():
 
 def test_delete_provider_not_found_returns_false():
     repo = Mock()
+    secrets = Mock()
     repo.delete.return_value = False
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
     result = service.delete_provider("missing")
     assert result is False
 
@@ -220,8 +244,9 @@ def test_delete_provider_not_found_returns_false():
 
 def test_test_connection_provider_not_found():
     repo = Mock()
+    secrets = Mock()
     repo.get_by_id.return_value = None
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
     result = service.test_connection("missing")
     assert result["success"] is False
     assert result["message"] == "Provider not found"
@@ -230,14 +255,16 @@ def test_test_connection_provider_not_found():
 
 def test_test_connection_no_api_key_non_ollama():
     repo = Mock()
-    prov = Provider(
+    secrets = Mock()
+    secrets.is_configured.return_value = False
+    prov = ProviderEntity(
         id="p1",
         name="OpenAI",
         type="openai",
-        api_key_encrypted=None,
+        api_key=None,
     )
     repo.get_by_id.return_value = prov
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
     result = service.test_connection("p1")
     assert result["success"] is False
     assert result["message"] == "No API key configured"
@@ -245,15 +272,16 @@ def test_test_connection_no_api_key_non_ollama():
 
 def test_test_connection_ollama_no_api_key_allowed():
     repo = Mock()
-    prov = Provider(
+    secrets = Mock()
+    prov = ProviderEntity(
         id="p1",
         name="Ollama",
         type="ollama",
-        api_key_encrypted=None,
+        api_key=None,
         base_url="http://localhost:11434",
     )
     repo.get_by_id.return_value = prov
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
 
     with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
         mock_resp = Mock()
@@ -267,20 +295,21 @@ def test_test_connection_ollama_no_api_key_allowed():
     assert "llama3" in result.get("models", [])
 
 
-@patch("runsight_api.logic.services.provider_service.decrypt")
-def test_test_connection_successful_openai(mock_decrypt):
-    mock_decrypt.return_value = "sk-xxx"
+def test_test_connection_successful_openai():
     repo = Mock()
-    prov = Provider(
+    secrets = Mock()
+    secrets.is_configured.return_value = True
+    secrets.resolve.return_value = "sk-xxx"
+    prov = ProviderEntity(
         id="p1",
         name="OpenAI",
         type="openai",
-        api_key_encrypted="enc",
+        api_key="${OPENAI_API_KEY}",
         base_url="https://api.openai.com/v1",
     )
     repo.get_by_id.return_value = prov
     repo.update.return_value = prov
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
 
     with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
         mock_resp = Mock()
@@ -298,19 +327,20 @@ def test_test_connection_successful_openai(mock_decrypt):
     assert "Bearer sk-xxx" in call_kwargs["headers"]["Authorization"]
 
 
-@patch("runsight_api.logic.services.provider_service.decrypt")
-def test_test_connection_http_error(mock_decrypt):
-    mock_decrypt.return_value = "sk-xxx"
+def test_test_connection_http_error():
     repo = Mock()
-    prov = Provider(
+    secrets = Mock()
+    secrets.is_configured.return_value = True
+    secrets.resolve.return_value = "sk-xxx"
+    prov = ProviderEntity(
         id="p1",
         name="OpenAI",
         type="openai",
-        api_key_encrypted="enc",
+        api_key="${OPENAI_API_KEY}",
     )
     repo.get_by_id.return_value = prov
     repo.update.return_value = prov
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
 
     with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
         mock_resp = Mock()
@@ -323,19 +353,20 @@ def test_test_connection_http_error(mock_decrypt):
     assert "401" in result["message"]
 
 
-@patch("runsight_api.logic.services.provider_service.decrypt")
-def test_test_connection_timeout_exception(mock_decrypt):
-    mock_decrypt.return_value = "sk-xxx"
+def test_test_connection_timeout_exception():
     repo = Mock()
-    prov = Provider(
+    secrets = Mock()
+    secrets.is_configured.return_value = True
+    secrets.resolve.return_value = "sk-xxx"
+    prov = ProviderEntity(
         id="p1",
         name="OpenAI",
         type="openai",
-        api_key_encrypted="enc",
+        api_key="${OPENAI_API_KEY}",
     )
     repo.get_by_id.return_value = prov
     repo.update.return_value = prov
-    service = ProviderService(repo)
+    service = ProviderService(repo, secrets)
 
     with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
         import httpx
