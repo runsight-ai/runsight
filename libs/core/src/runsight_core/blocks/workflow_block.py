@@ -46,10 +46,12 @@ class WorkflowBlock(BaseBlock):
         self,
         state: WorkflowState,
         *,
-        call_stack: List[str] = [],
+        call_stack: Optional[List[str]] = None,
         workflow_registry: Optional["WorkflowRegistry"] = None,
         **kwargs,
     ) -> WorkflowState:
+        call_stack = call_stack or []
+
         # Step 1: Cycle detection
         if self.child_workflow.name in call_stack:
             raise RecursionError(
