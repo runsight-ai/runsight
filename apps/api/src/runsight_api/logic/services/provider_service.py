@@ -1,14 +1,17 @@
 import time
-import uuid
 from typing import List, Optional
 
 import httpx
 
 from runsight_core.security import SSRFError, validate_ssrf
 
-from ...data.repositories.provider_repo import ProviderRepository
-from ...domain.entities.provider import Provider
-from ...core.encryption import decrypt, encrypt
+from ...core.secrets import SecretsEnvLoader
+from ...data.filesystem.provider_repo import FileSystemProviderRepo
+from ...domain.value_objects import ProviderEntity
+
+# Legacy stubs — kept so negative-assertion tests can patch them to verify they're never called
+encrypt = None
+decrypt = None
 
 # Infer provider type from name (case-insensitive)
 _NAME_TO_TYPE = {
@@ -51,13 +54,14 @@ def _parse_models(body: dict, provider_type: str) -> list[str]:
 
 
 class ProviderService:
-    def __init__(self, repo: ProviderRepository):
+    def __init__(self, repo: FileSystemProviderRepo, secrets: SecretsEnvLoader):
         self.repo = repo
+        self.secrets = secrets
 
-    def list_providers(self) -> List[Provider]:
+    def list_providers(self) -> List[ProviderEntity]:
         return self.repo.list_all()
 
-    def get_provider(self, provider_id: str) -> Optional[Provider]:
+    def get_provider(self, provider_id: str) -> Optional[ProviderEntity]:
         return self.repo.get_by_id(provider_id)
 
     def create_provider(
@@ -66,19 +70,23 @@ class ProviderService:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         provider_type: Optional[str] = None,
-    ) -> Provider:
+    ) -> ProviderEntity:
         if provider_type is None:
             provider_type = _infer_provider_type(name)
-        provider = Provider(
-            id=f"prov_{uuid.uuid4().hex[:12]}",
-            name=name,
-            type=provider_type,
-            api_key_encrypted=encrypt(api_key) if api_key else None,
-            base_url=base_url,
-            status="unknown",
-            is_active=True,
-        )
-        return self.repo.create(provider)
+
+        api_key_ref: Optional[str] = None
+        if api_key:
+            api_key_ref = self.secrets.store_key(provider_type, api_key)
+
+        data = {
+            "name": name,
+            "type": provider_type,
+            "api_key": api_key_ref,
+            "base_url": base_url,
+            "status": "unknown",
+            "is_active": True,
+        }
+        return self.repo.create(data)
 
     def update_provider(
         self,
@@ -86,18 +94,25 @@ class ProviderService:
         name: Optional[str] = None,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
-    ) -> Optional[Provider]:
+    ) -> Optional[ProviderEntity]:
         provider = self.repo.get_by_id(provider_id)
         if not provider:
             return None
+
+        update_data: dict = {}
         if name is not None:
-            provider.name = name
+            update_data["name"] = name
         if api_key is not None:
-            provider.api_key_encrypted = encrypt(api_key) if api_key else None
+            if api_key:
+                api_key_ref = self.secrets.store_key(provider.type, api_key)
+                update_data["api_key"] = api_key_ref
+            else:
+                update_data["api_key"] = None
         if base_url is not None:
-            provider.base_url = base_url
-        provider.updated_at = time.time()
-        return self.repo.update(provider)
+            update_data["base_url"] = base_url
+
+        update_data["updated_at"] = time.time()
+        return self.repo.update(provider_id, update_data)
 
     def delete_provider(self, provider_id: str) -> bool:
         return self.repo.delete(provider_id)
@@ -107,10 +122,11 @@ class ProviderService:
         if not provider:
             return {"success": False, "message": "Provider not found"}
 
-        if not provider.api_key_encrypted and provider.type != "ollama":
+        has_key = provider.api_key and self.secrets.is_configured(provider.api_key)
+        if not has_key and provider.type != "ollama":
             return {"success": False, "message": "No API key configured"}
 
-        api_key = decrypt(provider.api_key_encrypted) if provider.api_key_encrypted else None
+        api_key = self.secrets.resolve(provider.api_key) if provider.api_key else None
         allow_private = provider.type == "ollama"
 
         try:
@@ -158,11 +174,13 @@ class ProviderService:
             if success:
                 models = _parse_models(resp.json(), provider.type)
 
-            provider.status = "connected" if success else "error"
-            provider.models = models
-            provider.last_status_check = time.time()
-            provider.updated_at = time.time()
-            self.repo.update(provider)
+            update_data = {
+                "status": "connected" if success else "error",
+                "models": models,
+                "last_status_check": time.time(),
+                "updated_at": time.time(),
+            }
+            self.repo.update(provider_id, update_data)
 
             msg = (
                 f"Connected — {len(models)} models available"
@@ -173,8 +191,10 @@ class ProviderService:
         except SSRFError as e:
             return {"success": False, "message": f"SSRF blocked: {str(e)}"}
         except Exception as e:
-            provider.status = "error"
-            provider.last_status_check = time.time()
-            provider.updated_at = time.time()
-            self.repo.update(provider)
+            update_data = {
+                "status": "error",
+                "last_status_check": time.time(),
+                "updated_at": time.time(),
+            }
+            self.repo.update(provider_id, update_data)
             return {"success": False, "message": f"Connection failed: {str(e)}"}

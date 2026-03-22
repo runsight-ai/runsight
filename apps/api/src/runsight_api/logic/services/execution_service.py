@@ -8,10 +8,13 @@ from typing import Any, AsyncGenerator, Dict, Optional
 from runsight_core.observer import CompositeObserver, LoggingObserver
 from runsight_core.yaml.parser import parse_workflow_yaml
 
-from ...core.encryption import decrypt
+from ...core.secrets import SecretsEnvLoader
 from ...domain.entities.run import RunStatus
 from ..observers.execution_observer import ExecutionObserver
 from ..observers.streaming_observer import StreamingObserver
+
+# Legacy stub — kept so negative-assertion tests can patch it to verify it's never called
+decrypt = None
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +23,19 @@ class ExecutionService:
     """Wires POST /runs to workflow.run() with background execution."""
 
     def __init__(
-        self, run_repo, workflow_repo, provider_repo, engine=None, max_concurrent_runs: int = 5
+        self,
+        run_repo,
+        workflow_repo,
+        provider_repo,
+        engine=None,
+        max_concurrent_runs: int = 5,
+        secrets: SecretsEnvLoader | None = None,
     ):
         self.run_repo = run_repo
         self.workflow_repo = workflow_repo
         self.provider_repo = provider_repo
         self.engine = engine
+        self.secrets = secrets
         self._running_tasks: Dict[str, asyncio.Task] = {}
         self._semaphore = asyncio.Semaphore(max_concurrent_runs)
         self._observers: Dict[str, StreamingObserver] = {}
@@ -101,7 +111,7 @@ class ExecutionService:
 
             yaml_content = wf_entity.yaml
 
-            # Resolve API keys: provider DB -> env var fallback
+            # Resolve API keys: provider repo -> env var fallback
             api_keys = self._resolve_api_keys()
 
             # Parse workflow YAML into runnable Workflow
@@ -192,20 +202,22 @@ class ExecutionService:
             logger.exception("Failed to update run %s status to %s", run_id, status)
 
     def _resolve_api_keys(self) -> Dict[str, str]:
-        """Resolve API keys from all providers in DB, with env var fallback.
+        """Resolve API keys from all providers, with env var fallback.
 
-        Returns a Dict[str, str] mapping provider_type -> decrypted API key.
+        Returns a Dict[str, str] mapping provider_type -> resolved API key.
         """
         import os
 
         result: Dict[str, str] = {}
 
-        # Collect keys from all DB providers
+        # Collect keys from all providers
         try:
             providers = self.provider_repo.list_all()
             for provider in providers:
-                if provider.api_key_encrypted:
-                    result[provider.type] = decrypt(provider.api_key_encrypted)
+                if provider.api_key and self.secrets:
+                    resolved = self.secrets.resolve(provider.api_key)
+                    if resolved:
+                        result[provider.type] = resolved
         except (TypeError, AttributeError):
             # list_all() not available or not iterable (e.g. repo not configured)
             pass
@@ -224,14 +236,17 @@ class ExecutionService:
         return result
 
     def _resolve_api_key(self) -> str | None:
-        """Resolve API key from provider DB or environment."""
+        """Resolve API key from provider repo or environment."""
         import os
 
-        # Try provider DB first
+        # Try provider repo first
         for provider_type in ("openai", "anthropic"):
-            provider = self.provider_repo.get_by_type(provider_type)
-            if provider and provider.api_key_encrypted:
-                return decrypt(provider.api_key_encrypted)
+            providers = self.provider_repo.get_by_type(provider_type)
+            provider = providers[0] if isinstance(providers, list) and providers else providers
+            if provider and provider.api_key and self.secrets:
+                resolved = self.secrets.resolve(provider.api_key)
+                if resolved:
+                    return resolved
 
         # Fallback to env vars
         for env_var in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY"):

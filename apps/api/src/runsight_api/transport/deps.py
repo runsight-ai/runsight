@@ -2,8 +2,10 @@ from fastapi import Depends, Request
 from sqlmodel import Session
 from ..core.di import engine
 from ..core.config import settings
+from ..core.secrets import SecretsEnvLoader
 from ..data.repositories.run_repo import RunRepository
-from ..data.repositories.provider_repo import ProviderRepository
+from ..data.filesystem.provider_repo import FileSystemProviderRepo
+from ..data.filesystem.settings_repo import FileSystemSettingsRepo
 from ..data.filesystem.workflow_repo import WorkflowRepository
 from ..data.filesystem.soul_repo import SoulRepository
 from ..data.filesystem.task_repo import TaskRepository
@@ -27,14 +29,23 @@ def get_run_repo(session: Session = Depends(get_session)) -> RunRepository:
     return RunRepository(session)
 
 
-def get_provider_repo(session: Session = Depends(get_session)) -> ProviderRepository:
-    return ProviderRepository(session)
+def get_provider_repo() -> FileSystemProviderRepo:
+    return FileSystemProviderRepo(base_path=settings.base_path)
+
+
+def get_secrets_loader() -> SecretsEnvLoader:
+    return SecretsEnvLoader(base_path=settings.base_path)
+
+
+def get_settings_repo() -> FileSystemSettingsRepo:
+    return FileSystemSettingsRepo(base_path=settings.base_path)
 
 
 def get_provider_service(
-    repo: ProviderRepository = Depends(get_provider_repo),
+    repo: FileSystemProviderRepo = Depends(get_provider_repo),
+    secrets: SecretsEnvLoader = Depends(get_secrets_loader),
 ) -> ProviderService:
-    return ProviderService(repo)
+    return ProviderService(repo, secrets)
 
 
 def get_workflow_repo() -> WorkflowRepository:
@@ -92,6 +103,6 @@ def get_model_catalog(request: Request) -> ModelCatalogPort:
 def get_model_service(
     request: Request,
     catalog: ModelCatalogPort = Depends(get_model_catalog),
-    provider_repo: ProviderRepository = Depends(get_provider_repo),
+    provider_repo: FileSystemProviderRepo = Depends(get_provider_repo),
 ) -> ModelService:
     return ModelService(catalog=catalog, provider_repo=provider_repo)

@@ -22,55 +22,55 @@ class TestResolveApiKeys:
         )
 
     def test_resolve_api_keys_returns_dict(self):
-        """_resolve_api_keys returns Dict[str, str] (provider_type -> decrypted key)."""
+        """_resolve_api_keys returns Dict[str, str] (provider_type -> resolved key)."""
         provider_repo = Mock()
+        secrets = Mock()
 
         # Two active providers
         openai_provider = Mock()
         openai_provider.type = "openai"
-        openai_provider.api_key_encrypted = "enc-openai"
+        openai_provider.api_key = "${OPENAI_API_KEY}"
 
         anthropic_provider = Mock()
         anthropic_provider.type = "anthropic"
-        anthropic_provider.api_key_encrypted = "enc-anthropic"
+        anthropic_provider.api_key = "${ANTHROPIC_API_KEY}"
 
         provider_repo.list_all.return_value = [openai_provider, anthropic_provider]
+        secrets.resolve.side_effect = lambda x: f"decrypted-{x}"
 
-        svc = ExecutionService(run_repo=Mock(), workflow_repo=Mock(), provider_repo=provider_repo)
+        svc = ExecutionService(
+            run_repo=Mock(), workflow_repo=Mock(), provider_repo=provider_repo, secrets=secrets
+        )
 
-        with patch(
-            "runsight_api.logic.services.execution_service.decrypt",
-            side_effect=lambda x: f"decrypted-{x}",
-        ):
-            result = svc._resolve_api_keys()
+        result = svc._resolve_api_keys()
 
         assert isinstance(result, dict)
         assert result == {
-            "openai": "decrypted-enc-openai",
-            "anthropic": "decrypted-enc-anthropic",
+            "openai": "decrypted-${OPENAI_API_KEY}",
+            "anthropic": "decrypted-${ANTHROPIC_API_KEY}",
         }
 
     def test_resolve_api_keys_skips_providers_without_key(self):
-        """Providers with no api_key_encrypted are skipped."""
+        """Providers with no api_key are skipped."""
         provider_repo = Mock()
+        secrets = Mock()
 
         openai_provider = Mock()
         openai_provider.type = "openai"
-        openai_provider.api_key_encrypted = "enc-openai"
+        openai_provider.api_key = "${OPENAI_API_KEY}"
 
         empty_provider = Mock()
         empty_provider.type = "anthropic"
-        empty_provider.api_key_encrypted = None  # no key configured
+        empty_provider.api_key = None  # no key configured
 
         provider_repo.list_all.return_value = [openai_provider, empty_provider]
+        secrets.resolve.side_effect = lambda x: f"decrypted-{x}"
 
-        svc = ExecutionService(run_repo=Mock(), workflow_repo=Mock(), provider_repo=provider_repo)
+        svc = ExecutionService(
+            run_repo=Mock(), workflow_repo=Mock(), provider_repo=provider_repo, secrets=secrets
+        )
 
-        with patch(
-            "runsight_api.logic.services.execution_service.decrypt",
-            side_effect=lambda x: f"decrypted-{x}",
-        ):
-            result = svc._resolve_api_keys()
+        result = svc._resolve_api_keys()
 
         assert "openai" in result
         assert "anthropic" not in result
@@ -97,6 +97,7 @@ class TestLaunchExecutionPassesApiKeys:
         run_repo = Mock()
         workflow_repo = Mock()
         provider_repo = Mock()
+        secrets = Mock()
 
         mock_entity = Mock()
         mock_entity.yaml = """
@@ -117,25 +118,21 @@ config: {}
 
         openai_provider = Mock()
         openai_provider.type = "openai"
-        openai_provider.api_key_encrypted = "enc-openai"
+        openai_provider.api_key = "${OPENAI_API_KEY}"
         provider_repo.list_all.return_value = [openai_provider]
         provider_repo.get_by_type.return_value = openai_provider
+        secrets.resolve.return_value = "sk-decrypted-openai"
 
         svc = ExecutionService(
             run_repo=run_repo,
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
+            secrets=secrets,
         )
 
-        with (
-            patch(
-                "runsight_api.logic.services.execution_service.parse_workflow_yaml"
-            ) as mock_parse,
-            patch(
-                "runsight_api.logic.services.execution_service.decrypt",
-                return_value="sk-decrypted-openai",
-            ),
-        ):
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
             from unittest.mock import AsyncMock
 
             mock_wf = AsyncMock()

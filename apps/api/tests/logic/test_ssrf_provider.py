@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from runsight_api.domain.entities.provider import Provider
+from runsight_api.domain.value_objects import ProviderEntity
 from runsight_api.logic.services.provider_service import ProviderService
 
 
@@ -26,25 +26,28 @@ def _make_provider(
     provider_id: str = "prov_test123",
     name: str = "Test Provider",
     provider_type: str = "openai",
-    api_key_encrypted: str | None = "encrypted_key",
+    api_key: str | None = "configured_key",
     base_url: str | None = None,
-) -> Provider:
-    """Create a Provider entity for testing."""
-    return Provider(
+) -> ProviderEntity:
+    """Create a ProviderEntity for testing."""
+    return ProviderEntity(
         id=provider_id,
         name=name,
         type=provider_type,
-        api_key_encrypted=api_key_encrypted,
+        api_key=api_key,
         base_url=base_url,
     )
 
 
-def _make_service_and_repo(provider: Provider) -> tuple[ProviderService, Mock]:
-    """Create a ProviderService with a mock repo that returns the given provider."""
+def _make_service_and_repo(provider: ProviderEntity) -> tuple[ProviderService, Mock]:
+    """Create a ProviderService with mock repo and secrets that returns the given provider."""
     repo = Mock()
     repo.get_by_id.return_value = provider
     repo.update.return_value = provider
-    return ProviderService(repo), repo
+    secrets = Mock()
+    secrets.is_configured.return_value = bool(provider.api_key)
+    secrets.resolve.return_value = "sk-xxx"
+    return ProviderService(repo, secrets), repo
 
 
 # ===========================================================================
@@ -94,10 +97,8 @@ class TestSharedSSRFUtilityExists:
 class TestSSRFBlocksPrivateIPs:
     """test_connection() should reject URLs targeting private/internal networks."""
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_blocks_private_ip_192_168(self, mock_decrypt):
+    def test_blocks_private_ip_192_168(self):
         """Private IP 192.168.x.x must be blocked."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(base_url="http://192.168.1.1/v1")
         service, _ = _make_service_and_repo(provider)
 
@@ -106,10 +107,8 @@ class TestSSRFBlocksPrivateIPs:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_blocks_private_ip_10_network(self, mock_decrypt):
+    def test_blocks_private_ip_10_network(self):
         """Private IP 10.x.x.x must be blocked."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(base_url="http://10.0.0.1:8080/admin")
         service, _ = _make_service_and_repo(provider)
 
@@ -118,10 +117,8 @@ class TestSSRFBlocksPrivateIPs:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_blocks_private_ip_172_16(self, mock_decrypt):
+    def test_blocks_private_ip_172_16(self):
         """Private IP 172.16.x.x must be blocked."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(base_url="http://172.16.0.1/v1/models")
         service, _ = _make_service_and_repo(provider)
 
@@ -134,10 +131,8 @@ class TestSSRFBlocksPrivateIPs:
 class TestSSRFBlocksLoopback:
     """test_connection() should reject loopback addresses for non-Ollama providers."""
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_blocks_loopback_127_0_0_1(self, mock_decrypt):
+    def test_blocks_loopback_127_0_0_1(self):
         """Loopback 127.0.0.1 must be blocked for non-Ollama providers."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(
             provider_type="openai",
             base_url="http://127.0.0.1:8080/v1",
@@ -149,10 +144,8 @@ class TestSSRFBlocksLoopback:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_blocks_loopback_localhost(self, mock_decrypt):
+    def test_blocks_loopback_localhost(self):
         """Loopback via 'localhost' hostname must be blocked for non-Ollama providers."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(
             provider_type="custom",
             base_url="http://localhost:9090/v1",
@@ -164,10 +157,8 @@ class TestSSRFBlocksLoopback:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_blocks_ipv6_loopback(self, mock_decrypt):
+    def test_blocks_ipv6_loopback(self):
         """IPv6 loopback ::1 must be blocked for non-Ollama providers."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(
             provider_type="openai",
             base_url="http://[::1]:8080/v1",
@@ -183,10 +174,8 @@ class TestSSRFBlocksLoopback:
 class TestSSRFBlocksLinkLocal:
     """test_connection() should reject link-local addresses (cloud metadata endpoints)."""
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_blocks_cloud_metadata_endpoint(self, mock_decrypt):
+    def test_blocks_cloud_metadata_endpoint(self):
         """AWS/GCP metadata endpoint 169.254.169.254 must be blocked."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(
             base_url="http://169.254.169.254/latest/meta-data",
         )
@@ -197,10 +186,8 @@ class TestSSRFBlocksLinkLocal:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_blocks_link_local_169_254(self, mock_decrypt):
+    def test_blocks_link_local_169_254(self):
         """Link-local range 169.254.x.x must be blocked."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(
             base_url="http://169.254.1.1/api",
         )
@@ -225,7 +212,7 @@ class TestOllamaLocalhostException:
         provider = _make_provider(
             name="Ollama",
             provider_type="ollama",
-            api_key_encrypted=None,
+            api_key=None,
             base_url="http://localhost:11434",
         )
         service, _ = _make_service_and_repo(provider)
@@ -247,7 +234,7 @@ class TestOllamaLocalhostException:
         provider = _make_provider(
             name="Ollama",
             provider_type="ollama",
-            api_key_encrypted=None,
+            api_key=None,
             base_url="http://127.0.0.1:11434",
         )
         service, _ = _make_service_and_repo(provider)
@@ -268,7 +255,7 @@ class TestOllamaLocalhostException:
         provider = _make_provider(
             name="Ollama",
             provider_type="ollama",
-            api_key_encrypted=None,
+            api_key=None,
             base_url=None,  # defaults to http://localhost:11434
         )
         service, _ = _make_service_and_repo(provider)
@@ -292,10 +279,8 @@ class TestOllamaLocalhostException:
 class TestPublicURLsStillWork:
     """Normal public URLs should not be affected by SSRF protection."""
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_public_openai_url_works(self, mock_decrypt):
+    def test_public_openai_url_works(self):
         """Public OpenAI URL should pass SSRF validation."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(
             provider_type="openai",
             base_url="https://api.openai.com/v1",
@@ -313,10 +298,8 @@ class TestPublicURLsStillWork:
         assert result["success"] is True
         mock_httpx.get.assert_called_once()
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_custom_provider_public_url_works(self, mock_decrypt):
+    def test_custom_provider_public_url_works(self):
         """Custom provider with a public URL should pass SSRF validation."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(
             provider_type="custom",
             base_url="https://my-custom-llm.example.com/v1",
@@ -343,10 +326,8 @@ class TestPublicURLsStillWork:
 class TestSSRFValidationOrder:
     """SSRF validation must occur before the outbound HTTP request is made."""
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_no_http_call_for_private_ip(self, mock_decrypt):
+    def test_no_http_call_for_private_ip(self):
         """When SSRF blocks a URL, httpx.get() should never be called."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(base_url="http://192.168.1.1/v1")
         service, _ = _make_service_and_repo(provider)
 
@@ -357,10 +338,8 @@ class TestSSRFValidationOrder:
         # The HTTP client must NOT have been called
         mock_httpx.get.assert_not_called()
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_no_http_call_for_metadata_endpoint(self, mock_decrypt):
+    def test_no_http_call_for_metadata_endpoint(self):
         """When SSRF blocks cloud metadata, httpx.get() should never be called."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(
             base_url="http://169.254.169.254/latest/meta-data",
         )
@@ -372,10 +351,8 @@ class TestSSRFValidationOrder:
         assert result["success"] is False
         mock_httpx.get.assert_not_called()
 
-    @patch("runsight_api.logic.services.provider_service.decrypt")
-    def test_no_http_call_for_loopback_non_ollama(self, mock_decrypt):
+    def test_no_http_call_for_loopback_non_ollama(self):
         """When SSRF blocks loopback for non-Ollama, httpx.get() should never be called."""
-        mock_decrypt.return_value = "sk-xxx"
         provider = _make_provider(
             provider_type="openai",
             base_url="http://127.0.0.1:8080/v1",
