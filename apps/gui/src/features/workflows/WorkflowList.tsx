@@ -43,7 +43,8 @@ import {
   AlertCircle,
   RotateCcw,
 } from "lucide-react";
-import { getWorkflowIcon, getWorkflowIconBg, getTimeAgo } from "@/utils/formatting";
+import { getWorkflowIcon, getWorkflowIconBg } from "@/utils/icons";
+import { getTimeAgo } from "@/utils/formatting";
 import type { WorkflowResponse } from "@/types/schemas/workflows";
 
 type SortOption = "updated" | "name" | "created";

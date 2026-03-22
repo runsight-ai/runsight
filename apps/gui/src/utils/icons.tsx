@@ -1,3 +1,9 @@
+/**
+ * Workflow icon utilities.
+ *
+ * These return JSX so the file keeps the .tsx extension.
+ */
+
 import type { ReactNode } from "react";
 
 export function getWorkflowIcon(name: string): ReactNode {
@@ -73,22 +79,4 @@ export function getWorkflowIconBg(name: string): string {
   if (lower.includes("support") || lower.includes("ticket")) return "bg-[var(--surface-elevated)] text-[var(--muted-foreground)]";
   if (lower.includes("sync") || lower.includes("data")) return "bg-[var(--error-12)] text-[var(--error)]";
   return "bg-[var(--primary-12)] text-[var(--primary)]";
-}
-
-export function getTimeAgo(date: string | undefined): string {
-  if (!date) return "\u2014";
-  const now = new Date();
-  const then = new Date(date);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  const diffWeeks = Math.floor(diffDays / 7);
-
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins} min ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-  if (diffWeeks < 4) return `${diffWeeks} week${diffWeeks > 1 ? "s" : ""} ago`;
-  return then.toLocaleDateString();
 }

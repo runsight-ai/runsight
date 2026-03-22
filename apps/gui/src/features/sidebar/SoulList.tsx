@@ -33,6 +33,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { SoulResponse } from "@/types/schemas/souls";
+import { truncateText } from "@/utils/formatting";
 
 // Available models for multi-select
 const AVAILABLE_MODELS = [
@@ -43,12 +44,6 @@ const AVAILABLE_MODELS = [
   { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
   { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
 ];
-
-function truncateText(text: string | null | undefined, maxLength: number): string {
-  if (!text) return "—";
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + "...";
-}
 
 // New Soul Modal Component
 interface NewSoulModalProps {

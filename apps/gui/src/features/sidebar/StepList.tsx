@@ -45,6 +45,8 @@ import {
   Pencil,
 } from "lucide-react";
 import type { StepResponse } from "@/types/schemas/steps";
+import { truncateText } from "@/utils/formatting";
+import { getStepTypeColor } from "@/utils/colors";
 
 // Available step types
 const STEP_TYPES = [
@@ -57,33 +59,6 @@ const STEP_TYPES = [
   { value: "condition", label: "Condition" },
   { value: "loop", label: "Loop" },
 ];
-
-function truncateText(text: string | null | undefined, maxLength: number): string {
-  if (!text) return "—";
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + "...";
-}
-
-function getStepTypeColor(type: string): string {
-  switch (type.toLowerCase()) {
-    case "python":
-      return "bg-[var(--success-12)] text-[var(--success)]";
-    case "javascript":
-      return "bg-[var(--warning-12)] text-[var(--warning)]";
-    case "shell":
-      return "bg-[var(--surface-elevated)] text-[var(--muted-foreground)]";
-    case "http":
-      return "bg-[var(--running-12)] text-[var(--running)]";
-    case "prompt":
-      return "bg-[var(--primary-12)] text-[var(--primary)]";
-    case "condition":
-      return "bg-[var(--error-12)] text-[var(--error)]";
-    case "loop":
-      return "bg-[var(--accent-alt-12)] text-[var(--accent-alt)]";
-    default:
-      return "bg-[var(--muted-12)] text-[var(--muted-foreground)]";
-  }
-}
 
 // New Step Modal Component
 interface NewStepModalProps {

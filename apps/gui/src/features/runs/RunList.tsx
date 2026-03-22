@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Workflow, Search, X, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { cn } from "@/utils/helpers";
+import { formatDuration, formatCost, formatTimestamp } from "@/utils/formatting";
 import React, { useState, useMemo } from "react";
 
 // Status badge component matching design spec
@@ -99,41 +100,6 @@ function StatusBadge({ status }: { status: string }) {
       {status}
     </Badge>
   );
-}
-
-// Format duration as '2m 34s'
-function formatDuration(seconds: number | null | undefined): string {
-  if (!seconds || seconds <= 0) return "—";
-
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${secs}s`;
-  }
-  return `${secs}s`;
-}
-
-// Format cost with mill accuracy: $0.127
-function formatCost(cost: number | null | undefined): string {
-  if (cost === null || cost === undefined) return "—";
-  return `$${cost.toFixed(3)}`;
-}
-
-// Format timestamp for completed_at
-function formatTimestamp(timestamp: number | null | undefined): string {
-  if (!timestamp) return "—";
-  const date = new Date(timestamp * 1000);
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 // Count agents from node_summary
