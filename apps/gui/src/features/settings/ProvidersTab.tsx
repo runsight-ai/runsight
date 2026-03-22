@@ -156,9 +156,15 @@ function ProviderCard({
                 <span className="w-20 text-xs uppercase tracking-wider text-muted-foreground">
                   API Key
                 </span>
-                <span className="font-mono text-muted-foreground">
-                  {maskApiKey(provider.api_key_env)}
-                </span>
+                {provider.api_key_env?.startsWith("$") ? (
+                  <span className="font-mono text-muted-foreground">
+                    Configured via {provider.api_key_env}
+                  </span>
+                ) : (
+                  <span className="font-mono text-muted-foreground">
+                    {maskApiKey(provider.api_key_env)}
+                  </span>
+                )}
               </div>
 
               {provider.base_url && (

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardR
 import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -53,6 +54,7 @@ export interface ProviderSetupState {
   step2Done: boolean;
   canStepBack: boolean;
   isEditMode: boolean;
+  useEnvVar: boolean;
 }
 
 export interface ProviderSetupRef {
@@ -95,6 +97,8 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
     const [displayName, setDisplayName] = useState(editing?.name ?? "");
     const [apiKey, setApiKey] = useState("");
     const [showApiKey, setShowApiKey] = useState(false);
+    const [useEnvVar, setUseEnvVar] = useState<boolean>(false);
+    const [envVarName, setEnvVarName] = useState("");
     const [baseUrl, setBaseUrl] = useState(editing?.baseUrl ?? "");
     const [testStatus, setTestStatus] = useState<TestStatus>("idle");
     const [testMessage, setTestMessage] = useState("");
@@ -116,6 +120,9 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
       setApiKey("");
       setBaseUrl("");
       setShowApiKey(false);
+      // Reset useEnvVar toggle and env var name
+      setUseEnvVar(false);
+      setEnvVarName("");
       setTestStatus("idle");
       setTestMessage("");
       createdProviderIdRef.current = null;
@@ -143,8 +150,9 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
         step2Done,
         canStepBack,
         isEditMode,
+        useEnvVar,
       });
-    }, [provider, testStatus, testMessage, step1Done, step2Done, canStepBack, isEditMode, onStateChange]);
+    }, [provider, testStatus, testMessage, step1Done, step2Done, canStepBack, isEditMode, useEnvVar, onStateChange]);
 
     const selectProvider = (id: string) => {
       setSelectedProviderId(id);
@@ -152,6 +160,9 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
       const catalogName = ALL_PROVIDERS.find((p) => p.id === id)?.name ?? "";
       setDisplayName(catalogName);
       setApiKey("");
+      // Reset useEnvVar toggle for new provider
+      setUseEnvVar(false);
+      setEnvVarName("");
       setBaseUrl(id === "ollama" ? "http://localhost:11434" : "");
       setTestStatus("idle");
       setTestMessage("");
@@ -162,7 +173,8 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
       if (!provider) return;
       const currentKey = apiKey.trim();
       const currentBaseUrl = baseUrl.trim();
-      if (!currentKey && !isOllama && !isEditMode) return;
+      const envVarValue = useEnvVar ? "$" + envVarName.trim() : "";
+      if (!currentKey && !envVarValue && !isOllama && !isEditMode) return;
 
       setTestStatus("testing");
       setTestMessage("");
@@ -172,7 +184,11 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
         if (isEditMode && editing) {
           const data: Record<string, string | undefined> = {};
           if (displayName && displayName !== editing.name) data.name = displayName;
-          if (currentKey) data.api_key_env = currentKey;
+          if (useEnvVar && envVarName.trim()) {
+            data.api_key_env = "$" + envVarName.trim();
+          } else if (currentKey) {
+            data.api_key_env = currentKey;
+          }
           if (currentBaseUrl !== (editing.baseUrl ?? "")) data.base_url = currentBaseUrl || undefined;
           if (Object.keys(data).length > 0) {
             await updateProvider.mutateAsync({ id: editing.id, data });
@@ -183,7 +199,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
           if (!pid) {
             const created = await createProvider.mutateAsync({
               name: displayName || provider.name,
-              api_key_env: currentKey || undefined,
+              api_key_env: useEnvVar ? "$" + envVarName.trim() : (currentKey || undefined),
               base_url: currentBaseUrl || undefined,
             });
             pid = created.id;
@@ -198,7 +214,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
         setTestStatus("error");
         setTestMessage(err instanceof Error ? err.message : "Connection failed");
       }
-    }, [provider, apiKey, baseUrl, displayName, isOllama, isEditMode, editing, createProvider, updateProvider, testConnection]);
+    }, [provider, apiKey, baseUrl, displayName, isOllama, isEditMode, editing, useEnvVar, envVarName, createProvider, updateProvider, testConnection]);
 
     const runTestRef = useRef(runTest);
     runTestRef.current = runTest;
@@ -345,26 +361,47 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
               {/* API Key */}
               {!step2Done && !isOllama && (
                 <div className="mb-4">
-                  <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--muted-foreground)] mb-2">
-                    API Key
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type={showApiKey ? "text" : "password"}
-                      placeholder={isEditMode && editing?.hasKey ? "••••••••••••(leave empty to keep)" : "sk-••••••••••••••••••••••••••••••"}
-                      value={apiKey}
-                      onChange={(e) => { setApiKey(e.target.value); clearInput(); }}
-                      className="h-9 px-3 pr-9 bg-[var(--card)] border-[var(--border)] font-mono text-sm"
-                      autoFocus={!isEditMode}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                    >
-                      {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--muted-foreground)]">
+                      {useEnvVar ? "Environment Variable Name" : "API Key"}
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-[var(--muted-foreground)]">Use environment variable</span>
+                      <Switch
+                        checked={useEnvVar}
+                        onCheckedChange={setUseEnvVar}
+                        aria-label="Use environment variable"
+                      />
+                    </div>
                   </div>
+                  {useEnvVar ? (
+                    <Input
+                      type="text"
+                      placeholder={provider?.apiKeyEnv || "OPENAI_API_KEY"}
+                      value={envVarName}
+                      onChange={(e) => { setEnvVarName(e.target.value); clearInput(); }}
+                      className="h-9 px-3 bg-[var(--card)] border-[var(--border)] font-mono text-sm"
+                      autoFocus
+                    />
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        type={showApiKey ? "text" : "password"}
+                        placeholder={isEditMode && editing?.hasKey ? "••••••••••••(leave empty to keep)" : "sk-••••••••••••••••••••••••••••••"}
+                        value={apiKey}
+                        onChange={(e) => { setApiKey(e.target.value); clearInput(); }}
+                        className="h-9 px-3 pr-9 bg-[var(--card)] border-[var(--border)] font-mono text-sm"
+                        autoFocus={!isEditMode}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                      >
+                        {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
