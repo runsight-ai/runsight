@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import Depends, Request
 from sqlmodel import Session
 from ..core.di import engine
@@ -71,7 +73,7 @@ def get_run_service(
 
 def get_execution_service(
     request: Request,
-) -> ExecutionService:
+) -> Optional[ExecutionService]:
     try:
         return request.app.state.execution_service
     except AttributeError:

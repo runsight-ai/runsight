@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends
-from typing import List
+from typing import List, Optional
 from ..schemas.runs import (
     RunCreate,
     RunResponse,
@@ -23,13 +23,14 @@ router = APIRouter(prefix="/runs", tags=["Runs"])
 async def create_run(
     body: RunCreate,
     run_service: RunService = Depends(get_run_service),
-    execution_service: ExecutionService = Depends(get_execution_service),
+    execution_service: Optional[ExecutionService] = Depends(get_execution_service),
 ):
     run = run_service.create_run(body.workflow_id, body.task_data)
-    try:
-        await execution_service.launch_execution(run.id, run.workflow_id, body.task_data)
-    except Exception:
-        logger.exception("Failed to launch execution for run %s", run.id)
+    if execution_service is not None:
+        try:
+            await execution_service.launch_execution(run.id, run.workflow_id, body.task_data)
+        except Exception:
+            logger.exception("Failed to launch execution for run %s", run.id)
     return RunResponse(
         id=run.id,
         workflow_id=run.workflow_id,
@@ -113,7 +114,7 @@ async def get_run(run_id: str, run_service: RunService = Depends(get_run_service
 async def cancel_run(
     run_id: str,
     run_service: RunService = Depends(get_run_service),
-    execution_service: ExecutionService = Depends(get_execution_service),
+    execution_service: Optional[ExecutionService] = Depends(get_execution_service),
 ):
     if execution_service is not None:
         execution_service.cancel_execution(run_id)
