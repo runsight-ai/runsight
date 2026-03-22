@@ -16,12 +16,26 @@ from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
 
 
+class GateError(Exception):
+    """Structured error raised when a GateBlock evaluation fails.
+
+    Inherits from Exception (not ValueError) to avoid silent swallowing
+    by generic ValueError catches. Carries gate_id and the updated
+    workflow state so callers (e.g. LoopBlock) can inspect and retry.
+    """
+
+    def __init__(self, message: str, *, gate_id: str, state: WorkflowState) -> None:
+        super().__init__(message)
+        self.gate_id = gate_id
+        self.state = state
+
+
 class GateBlock(BaseBlock):
     """
     Quality gate that evaluates content and either passes or fails the workflow.
 
     On PASS: stores result (or extracted content) and continues execution.
-    On FAIL: raises ValueError with feedback, enabling LoopBlock to catch and retry.
+    On FAIL: raises GateError with structured fields, enabling LoopBlock to catch and retry.
     """
 
     def __init__(
@@ -95,8 +109,7 @@ class GateBlock(BaseBlock):
             )
         else:
             feedback = decision_line[5:].strip() if ":" in decision_line else decision_line
-            error = ValueError(f"GateBlock '{self.block_id}' FAILED: {feedback}")
-            error.state = state.model_copy(
+            updated_state = state.model_copy(
                 update={
                     "total_cost_usd": state.total_cost_usd + result.cost_usd,
                     "total_tokens": state.total_tokens + result.total_tokens,
@@ -106,7 +119,11 @@ class GateBlock(BaseBlock):
                     },
                 }
             )
-            raise error
+            raise GateError(
+                f"GateBlock '{self.block_id}' FAILED: {feedback}",
+                gate_id=self.block_id,
+                state=updated_state,
+            )
 
 
 # -- Schema definition (co-located) -----------------------------------------

@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from runsight_core import GateBlock, FileWriterBlock
+from runsight_core.blocks.gate import GateError
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner, ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
@@ -58,7 +59,7 @@ class TestGateBlock:
 
     @pytest.mark.asyncio
     async def test_gate_fail_raises(self):
-        """runner returns FAIL: bad quality, verify ValueError raised with feedback."""
+        """runner returns FAIL: bad quality, verify GateError raised with feedback."""
         block_id = "gate2"
         eval_key = "draft_output"
         gate_soul = _make_soul()
@@ -72,7 +73,7 @@ class TestGateBlock:
         )
         state = WorkflowState(results={eval_key: BlockResult(output="Draft content")})
 
-        with pytest.raises(ValueError, match=r"GateBlock 'gate2' FAILED: bad quality"):
+        with pytest.raises(GateError, match=r"GateBlock 'gate2' FAILED: bad quality"):
             await block.execute(state)
 
     @pytest.mark.asyncio
