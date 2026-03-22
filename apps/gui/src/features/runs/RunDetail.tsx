@@ -16,6 +16,7 @@ import "@xyflow/react/dist/style.css";
 
 import { useRun, useRunNodes, useRunLogs } from "@/queries/runs";
 import { Button } from "@/components/ui/button";
+import { CanvasErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { cn } from "@/utils/helpers";
 import { formatTimestamp, formatDuration } from "@/utils/formatting";
@@ -917,42 +918,44 @@ function RunDetailInner() {
         <div className="flex-1 flex overflow-hidden">
           {/* Canvas */}
           <div className="flex-1 relative">
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onNodeClick={onNodeClick}
-              onPaneClick={onPaneClick}
-              nodeTypes={nodeTypes}
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable={true}
-              fitView
-              fitViewOptions={{ padding: 0.2 }}
-              minZoom={0.1}
-              maxZoom={4}
-              className="bg-[var(--background)]"
-            >
-              {/* Grid Background */}
-              <Background color="var(--border)" gap={20} size={1} style={{ opacity: 0.3 }} />
+            <CanvasErrorBoundary>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onNodeClick={onNodeClick}
+                onPaneClick={onPaneClick}
+                nodeTypes={nodeTypes}
+                nodesDraggable={false}
+                nodesConnectable={false}
+                elementsSelectable={true}
+                fitView
+                fitViewOptions={{ padding: 0.2 }}
+                minZoom={0.1}
+                maxZoom={4}
+                className="bg-[var(--background)]"
+              >
+                {/* Grid Background */}
+                <Background color="var(--border)" gap={20} size={1} style={{ opacity: 0.3 }} />
 
-              {/* Controls */}
-              <Controls className="!bg-[var(--card)] !border-[var(--border)]" />
+                {/* Controls */}
+                <Controls className="!bg-[var(--card)] !border-[var(--border)]" />
 
-              {/* MiniMap */}
-              <MiniMap
-                className="!bg-[var(--card)]/90 !border-[var(--border)]"
-                nodeColor={(node) => {
-                  const status = (node.data as RunNodeData)?.status;
-                  if (status === "completed") return "var(--success)";
-                  if (status === "failed") return "var(--error)";
-                  if (status === "pending") return "var(--muted-foreground)";
-                  return "var(--primary)";
-                }}
-                maskColor="var(--background-70)"
-              />
-            </ReactFlow>
+                {/* MiniMap */}
+                <MiniMap
+                  className="!bg-[var(--card)]/90 !border-[var(--border)]"
+                  nodeColor={(node) => {
+                    const status = (node.data as RunNodeData)?.status;
+                    if (status === "completed") return "var(--success)";
+                    if (status === "failed") return "var(--error)";
+                    if (status === "pending") return "var(--muted-foreground)";
+                    return "var(--primary)";
+                  }}
+                  maskColor="var(--background-70)"
+                />
+              </ReactFlow>
+            </CanvasErrorBoundary>
           </div>
 
           {/* Right Inspector Panel */}

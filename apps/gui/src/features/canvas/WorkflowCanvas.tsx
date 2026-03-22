@@ -25,6 +25,7 @@ import type { StepNodeData } from "../../types/schemas/canvas";
 import { compileGraphToWorkflowYaml } from "./yamlCompiler";
 import { parseWorkflowYamlToGraph } from "./yamlParser";
 import { runWorkflow } from "./runWorkflow";
+import { CanvasErrorBoundary } from "../../components/shared/ErrorBoundary";
 
 function CanvasNode({ data }: NodeProps) {
   const typedData = (data ?? {}) as Partial<StepNodeData>;
@@ -254,22 +255,24 @@ function CanvasInner() {
       <div className="min-h-0 flex-1 p-4 pt-3">
         {mode === "visual" ? (
           <div className="h-full w-full rounded-lg border border-[var(--border)] overflow-hidden">
-            <ReactFlow
-              data-testid="canvas-reactflow"
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onSelectionChange={(sel) => selectNode(sel.nodes[0]?.id ?? null)}
-              onMoveEnd={onMoveEnd}
-              fitView
-            >
-              <MiniMap />
-              <Controls />
-              <Background />
-            </ReactFlow>
+            <CanvasErrorBoundary>
+              <ReactFlow
+                data-testid="canvas-reactflow"
+                nodes={nodes}
+                edges={edges}
+                nodeTypes={nodeTypes}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onSelectionChange={(sel) => selectNode(sel.nodes[0]?.id ?? null)}
+                onMoveEnd={onMoveEnd}
+                fitView
+              >
+                <MiniMap />
+                <Controls />
+                <Background />
+              </ReactFlow>
+            </CanvasErrorBoundary>
           </div>
         ) : (
           <div className="h-full w-full rounded-lg border border-[var(--border)] overflow-hidden">

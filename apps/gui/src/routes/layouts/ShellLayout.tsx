@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router";
 import { useProviders } from "@/queries/settings";
+import { RouteErrorBoundary } from "@/components/shared/ErrorBoundary";
 import {
   LayoutDashboard,
   Workflow,
@@ -194,7 +195,9 @@ export function ShellLayout() {
 
         {/* Page content */}
         <main className="flex-1 flex flex-col overflow-y-auto">
-          <Outlet />
+          <RouteErrorBoundary>
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
 
         {/* Bottom bar */}
