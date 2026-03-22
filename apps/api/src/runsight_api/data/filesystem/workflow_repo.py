@@ -10,9 +10,7 @@ from the filename stem (e.g., onboarding-flow-k8x3m.yaml → id = "onboarding-fl
 
 import json
 import logging
-import os
 import re
-import tempfile
 import time
 import random
 import yaml as yaml_mod
@@ -25,6 +23,7 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 
 from ...domain.errors import WorkflowNotFound
 from ...domain.value_objects import WorkflowEntity
+from ._utils import atomic_write as _shared_atomic_write
 
 logger = logging.getLogger(__name__)
 
@@ -101,22 +100,9 @@ class WorkflowRepository:
     def _atomic_write(path: Path, content: str) -> None:
         """Write content to a file atomically via temp file + rename.
 
-        The temp file is created in the same directory to ensure os.rename
-        operates within a single filesystem.
+        Delegates to the shared utility in _utils.py.
         """
-        parent = path.parent
-        fd, tmp_path = tempfile.mkstemp(dir=parent, suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w") as f:
-                f.write(content)
-            os.rename(tmp_path, str(path))
-        except BaseException:
-            # Clean up temp file on failure
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
+        _shared_atomic_write(path, content)
 
     def _get_path(self, workflow_id: str) -> Path:
         """Get the YAML file path for a workflow id (= filename stem)."""

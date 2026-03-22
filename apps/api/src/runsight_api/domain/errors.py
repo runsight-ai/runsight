@@ -44,3 +44,9 @@ class StepNotFound(RunsightError):
     """Raised when a step cannot be found."""
 
     pass
+
+
+class ProviderNotFound(RunsightError):
+    """Raised when a provider cannot be found."""
+
+    pass
