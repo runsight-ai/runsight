@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 from runsight_api.main import app
 from runsight_api.transport.deps import get_provider_service, get_session
 
@@ -84,7 +84,7 @@ def test_settings_providers_delete_404():
 
 def test_settings_providers_test():
     mock_service = Mock()
-    mock_service.test_connection.return_value = {"success": True}
+    mock_service.test_connection = AsyncMock(return_value={"success": True})
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
     response = client.post("/api/settings/providers/openai/test")

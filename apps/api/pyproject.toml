@@ -43,3 +43,4 @@ exclude = ["tests/test_run134_openapi_codegen.py"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+asyncio_mode = "auto"

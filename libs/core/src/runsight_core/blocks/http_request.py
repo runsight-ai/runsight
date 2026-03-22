@@ -13,10 +13,8 @@ Implements:
 from __future__ import annotations
 
 import base64
-import ipaddress
 import json
 import re
-import socket
 import time
 from typing import Any, Dict, List, Literal, Optional
 from urllib.parse import urlparse
@@ -26,6 +24,7 @@ from pydantic import Field, field_validator
 import httpx
 
 from runsight_core.blocks.base import BaseBlock
+from runsight_core.security import SSRFError, validate_ssrf  # noqa: F401 — SSRFError re-exported
 from runsight_core.state import BlockResult, WorkflowState
 
 # Regex to match {{variable_name}} templates
@@ -34,10 +33,6 @@ _TEMPLATE_RE = re.compile(r"\{\{(\w+)\}\}")
 
 class HttpRequestError(Exception):
     """Domain error for HTTP request failures."""
-
-
-class SSRFError(HttpRequestError):
-    """Raised when a request targets a private/reserved IP address."""
 
 
 class TemplateResolutionError(HttpRequestError):
@@ -108,62 +103,6 @@ class HttpRequestBlock(BaseBlock):
             return state.results[var_name].output
 
         return _TEMPLATE_RE.sub(_replacer, url)
-
-    # ------------------------------------------------------------------
-    # SSRF protection
-    # ------------------------------------------------------------------
-
-    def _validate_ssrf(self, url: str) -> Optional[str]:
-        """Check that the resolved URL does not target a private/reserved IP.
-
-        Returns:
-            The resolved IP string to pin for the actual request, or None if
-            the URL already contains a literal IP or allow_private_ips is set.
-
-        Raises:
-            SSRFError: If the target IP is private/reserved and allow_private_ips is False.
-        """
-        if self.allow_private_ips:
-            return None
-
-        parsed = urlparse(url)
-        hostname = parsed.hostname
-        if hostname is None:
-            raise SSRFError(f"Cannot parse hostname from URL: {url}")
-
-        # Try to parse hostname directly as an IP address first
-        try:
-            addr = ipaddress.ip_address(hostname)
-            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
-                raise SSRFError(
-                    f"SSRF blocked: {hostname} resolves to private/reserved address {addr}"
-                )
-            # Already a literal IP — no rewriting needed
-            return None
-        except ValueError:
-            # Not a literal IP address, need to resolve via DNS
-            pass
-
-        # Resolve hostname to IP addresses
-        try:
-            addrinfos = socket.getaddrinfo(hostname, None)
-        except socket.gaierror:
-            # DNS resolution failed — allow the request through.
-            # The HTTP client will handle unreachable hosts.
-            return None
-
-        resolved_ip: Optional[str] = None
-        for addrinfo in addrinfos:
-            ip_str = addrinfo[4][0]
-            addr = ipaddress.ip_address(ip_str)
-            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
-                raise SSRFError(
-                    f"SSRF blocked: {hostname} resolves to private/reserved address {addr}"
-                )
-            if resolved_ip is None:
-                resolved_ip = ip_str
-
-        return resolved_ip
 
     # ------------------------------------------------------------------
     # Auth header building
@@ -279,7 +218,7 @@ class HttpRequestBlock(BaseBlock):
         resolved_url = self._resolve_templates(self.url, state)
 
         # 2. SSRF protection — returns pinned IP for DNS-resolved hostnames
-        pinned_ip = self._validate_ssrf(resolved_url)
+        pinned_ip = await validate_ssrf(resolved_url, allow_private=self.allow_private_ips)
 
         # 3. Auth headers + query params
         auth_headers = self._build_auth_headers()
