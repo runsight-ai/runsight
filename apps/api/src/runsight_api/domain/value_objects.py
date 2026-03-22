@@ -52,3 +52,15 @@ class StepEntity(BaseModel):
     id: str
     name: Optional[str] = None
     model_config = {"extra": "allow"}
+
+
+class ProviderEntity(BaseModel):
+    id: str
+    name: Optional[str] = None
+    type: Optional[str] = None
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+    is_active: bool = True
+    status: Optional[str] = None
+    models: list = []
+    model_config = {"extra": "allow"}
