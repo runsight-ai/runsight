@@ -46,16 +46,37 @@ async def create_run(
     )
 
 
+def _fetch_paginated_runs(run_service: RunService, offset: int, limit: int):
+    """Fetch runs with SQL pagination, falling back to in-memory for compatibility."""
+    result = run_service.list_runs_paginated(offset=offset, limit=limit)
+    if isinstance(result, tuple):
+        return result
+    all_runs = run_service.list_runs()
+    return all_runs, len(all_runs)
+
+
+def _resolve_summaries(run_service: RunService, run_ids: list, raw_batch):
+    """Resolve summaries from batch result, falling back to per-run calls."""
+    if isinstance(raw_batch, dict):
+        return raw_batch
+    return {rid: run_service.get_node_summary(rid) for rid in run_ids}
+
+
 @router.get("", response_model=RunListResponse)
 async def list_runs(
-    offset: int = 0, limit: int = 50, run_service: RunService = Depends(get_run_service)
+    offset: int = 0, limit: int = 20, run_service: RunService = Depends(get_run_service)
 ):
-    runs = run_service.list_runs()
-    items = runs[offset : offset + limit]
+    limit = min(limit, 100)
+    runs, total = _fetch_paginated_runs(run_service, offset, limit)
+
+    run_ids = [run.id for run in runs]
+    summaries_map = _resolve_summaries(
+        run_service, run_ids, run_service.get_node_summaries_batch(run_ids=run_ids)
+    )
 
     response_items = []
-    for run in items:
-        summaries = run_service.get_node_summary(run.id)
+    for run in runs:
+        summaries = summaries_map.get(run.id, {})
         response_items.append(
             RunResponse(
                 id=run.id,
@@ -65,20 +86,20 @@ async def list_runs(
                 started_at=run.started_at,
                 completed_at=run.completed_at,
                 duration_seconds=run.duration_s,
-                total_cost_usd=summaries["total_cost_usd"],
-                total_tokens=summaries["total_tokens"],
+                total_cost_usd=summaries.get("total_cost_usd", 0.0),
+                total_tokens=summaries.get("total_tokens", 0),
                 created_at=run.created_at,
                 node_summary=NodeSummary(
-                    total=summaries["total"],
-                    completed=summaries["completed"],
-                    running=summaries["running"],
-                    pending=summaries["pending"],
-                    failed=summaries["failed"],
+                    total=summaries.get("total", 0),
+                    completed=summaries.get("completed", 0),
+                    running=summaries.get("running", 0),
+                    pending=summaries.get("pending", 0),
+                    failed=summaries.get("failed", 0),
                 ),
             )
         )
 
-    return RunListResponse(items=response_items, total=len(runs), offset=offset, limit=limit)
+    return RunListResponse(items=response_items, total=total, offset=offset, limit=limit)
 
 
 @router.get("/{run_id}", response_model=RunResponse)

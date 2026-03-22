@@ -1,7 +1,7 @@
 import uuid
 import time
 import json
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 from ...domain.entities.run import Run, RunNode, RunStatus
 from ...domain.entities.log import LogEntry
@@ -20,6 +20,10 @@ class RunService:
 
     def list_runs(self) -> List[Run]:
         return self.run_repo.list_runs()
+
+    def list_runs_paginated(self, offset: int, limit: int) -> Tuple[List[Run], int]:
+        """Return a page of runs and total count via SQL pagination."""
+        return self.run_repo.list_runs_paginated(offset, limit)
 
     def get_run_nodes(self, run_id: str) -> List[RunNode]:
         return self.run_repo.list_nodes_for_run(run_id)
@@ -82,3 +86,10 @@ class RunService:
             "pending": pending,
             "failed": failed,
         }
+
+    def get_node_summaries_batch(self, run_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """Fetch node summaries for multiple runs in a single batch."""
+        result: Dict[str, Dict[str, Any]] = {}
+        for run_id in run_ids:
+            result[run_id] = self.get_node_summary(run_id)
+        return result
