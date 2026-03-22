@@ -1,7 +1,8 @@
 import logging
 from pathlib import Path
+from typing import List
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .project import resolve_base_path
@@ -19,14 +20,27 @@ def _default_base_path() -> str:
     return resolve_base_path(env_value=None)
 
 
+def _parse_cors_origins(raw: str) -> List[str]:
+    """Parse a comma-separated string into a list of origin URLs."""
+    return [origin.strip() for origin in raw.split(",")]
+
+
 class Settings(BaseSettings):
     base_path: str = Field(default_factory=_default_base_path)
     db_url: str = "sqlite:///./runsight.db"
     debug: bool = False
     host: str = "0.0.0.0"
     port: int = 8000
+    cors_origins: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(env_prefix="RUNSIGHT_")
+
+    @model_validator(mode="after")
+    def _split_cors_origins(self) -> "Settings":
+        raw = self.cors_origins
+        if isinstance(raw, str):
+            object.__setattr__(self, "cors_origins", _parse_cors_origins(raw))
+        return self
 
 
 def ensure_project_dirs(settings: Settings) -> None:
