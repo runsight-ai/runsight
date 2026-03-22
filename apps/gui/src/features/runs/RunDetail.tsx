@@ -18,6 +18,7 @@ import { useRun, useRunNodes, useRunLogs } from "@/queries/runs";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { cn } from "@/utils/helpers";
+import { formatTimestamp, formatDuration } from "@/utils/formatting";
 import {
   ChevronLeft,
   RefreshCw,
@@ -213,26 +214,6 @@ const CanvasNode = CanvasNodeComponent;
 const nodeTypes = {
   canvasNode: CanvasNode,
 } satisfies NodeTypes;
-
-// Format timestamp helper
-function formatTimestamp(timestamp: number): string {
-  const date = new Date(timestamp * 1000);
-  return date.toLocaleTimeString("en-US", {
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-function formatDuration(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  if (mins > 0) {
-    return `${mins}m ${secs}s`;
-  }
-  return `${secs}s`;
-}
 
 // Inspector Panel Component (Read-only)
 interface InspectorPanelProps {

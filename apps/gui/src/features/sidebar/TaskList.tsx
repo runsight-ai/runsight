@@ -45,6 +45,7 @@ import {
   Pencil,
 } from "lucide-react";
 import type { TaskResponse } from "@/types/schemas/tasks";
+import { truncateText } from "@/utils/formatting";
 
 // Available task types
 const TASK_TYPES = [
@@ -55,12 +56,6 @@ const TASK_TYPES = [
   { value: "http", label: "HTTP" },
   { value: "prompt", label: "Prompt" },
 ];
-
-function truncateText(text: string | null | undefined, maxLength: number): string {
-  if (!text) return "—";
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + "...";
-}
 
 function getTaskTypeColor(type: string): string {
   switch (type.toLowerCase()) {
