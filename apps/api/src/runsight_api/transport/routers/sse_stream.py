@@ -1,6 +1,7 @@
 """SSE streaming endpoint for real-time run execution events."""
 
 import json
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -16,13 +17,16 @@ router = APIRouter(prefix="/runs", tags=["SSE Stream"])
 async def stream_run_events(
     run_id: str,
     run_service: RunService = Depends(get_run_service),
-    execution_service: ExecutionService = Depends(get_execution_service),
+    execution_service: Optional[ExecutionService] = Depends(get_execution_service),
 ):
     """SSE endpoint that streams real-time execution events for a run."""
     # 404 if run doesn't exist
     run = run_service.get_run(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+
+    if execution_service is None:
+        raise HTTPException(status_code=503, detail="Execution service not available")
 
     async def event_generator():
         # Late-join: replay missed events from DB logs
