@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { soulsApi } from "../api/souls";
 import { queryKeys } from "./keys";
 import { SoulCreate, SoulUpdate } from "../types/schemas/souls";
@@ -24,6 +25,10 @@ export function useCreateSoul() {
     mutationFn: (data: SoulCreate) => soulsApi.createSoul(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.souls.all });
+      toast.success("Soul created");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to create soul", { description: error.message });
     },
   });
 }
@@ -36,6 +41,10 @@ export function useUpdateSoul() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.souls.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.souls.detail(variables.id) });
+      toast.success("Soul updated");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to update soul", { description: error.message });
     },
   });
 }
@@ -46,6 +55,10 @@ export function useDeleteSoul() {
     mutationFn: (id: string) => soulsApi.deleteSoul(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.souls.all });
+      toast.success("Soul deleted");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to delete soul", { description: error.message });
     },
   });
 }

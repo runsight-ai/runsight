@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { workflowsApi } from "../api/workflows";
 import { queryKeys } from "./keys";
 import { WorkflowCreate, WorkflowUpdate } from "../types/schemas/workflows";
@@ -24,6 +25,10 @@ export function useCreateWorkflow() {
     mutationFn: (data: WorkflowCreate) => workflowsApi.createWorkflow(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workflows.all });
+      toast.success("Workflow created");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to create workflow", { description: error.message });
     },
   });
 }
@@ -36,6 +41,10 @@ export function useUpdateWorkflow() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workflows.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.workflows.detail(variables.id) });
+      toast.success("Workflow updated");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to update workflow", { description: error.message });
     },
   });
 }
@@ -46,6 +55,10 @@ export function useDeleteWorkflow() {
     mutationFn: (id: string) => workflowsApi.deleteWorkflow(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workflows.all });
+      toast.success("Workflow deleted");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to delete workflow", { description: error.message });
     },
   });
 }
