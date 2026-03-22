@@ -60,6 +60,7 @@ class LoopBlock(BaseBlock):
         self.carry_context = carry_context
 
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+        from runsight_core.blocks.gate import GateError
         from runsight_core.conditions.engine import (
             ConditionGroup,
             evaluate_condition,
@@ -70,6 +71,7 @@ class LoopBlock(BaseBlock):
         broke_early = False
         rounds_completed = 0
         carry_history: List[Dict[str, Any]] = []
+        last_gate_error: Optional[GateError] = None
 
         for round_num in range(1, self.max_rounds + 1):
             state = state.model_copy(
@@ -81,17 +83,33 @@ class LoopBlock(BaseBlock):
                 }
             )
 
-            for ref in self.inner_block_refs:
-                inner_block = blocks.get(ref)
-                if inner_block is None:
-                    raise ValueError(
-                        f"LoopBlock '{self.block_id}': inner block ref '{ref}' "
-                        f"not found in blocks dict. "
-                        f"Available blocks: {sorted(blocks.keys())}"
-                    )
-                state = await inner_block.execute(state, **kwargs)
+            gate_failed_this_round = False
+            try:
+                for ref in self.inner_block_refs:
+                    inner_block = blocks.get(ref)
+                    if inner_block is None:
+                        raise ValueError(
+                            f"LoopBlock '{self.block_id}': inner block ref '{ref}' "
+                            f"not found in blocks dict. "
+                            f"Available blocks: {sorted(blocks.keys())}"
+                        )
+                    state = await inner_block.execute(state, **kwargs)
+            except GateError as e:
+                # Gate failed — use state from the error and retry on next round
+                state = e.state
+                last_gate_error = e
+                gate_failed_this_round = True
 
             rounds_completed = round_num
+
+            if gate_failed_this_round:
+                continue
+
+            # Round completed successfully after previous gate failure — gate passed, exit loop
+            if last_gate_error is not None:
+                last_gate_error = None
+                broke_early = True
+                break
 
             # Carry context: collect outputs and inject into shared_memory for next round
             if self.carry_context is not None and self.carry_context.enabled:
@@ -132,6 +150,10 @@ class LoopBlock(BaseBlock):
                 if should_break:
                     broke_early = True
                     break
+
+        # If all rounds exhausted due to gate failures, re-raise the last GateError
+        if last_gate_error is not None and not broke_early:
+            raise last_gate_error
 
         # Store loop metadata in shared_memory
         if broke_early:
