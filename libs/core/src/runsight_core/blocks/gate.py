@@ -47,7 +47,7 @@ class GateBlock(BaseBlock):
 
         content = (
             state.results[self.eval_key].output
-            if hasattr(state.results[self.eval_key], "output")
+            if isinstance(state.results[self.eval_key], BlockResult)
             else str(state.results[self.eval_key])
         )
 

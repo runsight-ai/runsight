@@ -4,8 +4,6 @@ CodeBlock — sandboxed Python code execution.
 Co-located: runtime class + BlockDef schema + build() function.
 """
 
-from __future__ import annotations
-
 import ast
 import asyncio
 import json
@@ -188,7 +186,8 @@ class CodeBlock(BaseBlock):
         stdin_data = json.dumps(
             {
                 "results": {
-                    k: v.output if hasattr(v, "output") else v for k, v in state.results.items()
+                    k: v.output if isinstance(v, BlockResult) else v
+                    for k, v in state.results.items()
                 },
                 "metadata": state.metadata,
                 "shared_memory": state.shared_memory,
@@ -314,19 +313,19 @@ _register_block_def("code", CodeBlockDef)
 
 def build(
     block_id: str,
-    block_def: Any,
+    block_def: CodeBlockDef,
     souls_map: Dict[str, Any],
     runner: Any,
     all_blocks: Dict[str, Any],
 ) -> CodeBlock:
     """Build a CodeBlock from a block definition."""
-    if not hasattr(block_def, "code") or not block_def.code:
+    if not block_def.code:
         raise ValueError(f"CodeBlock '{block_id}': code is required")
     return CodeBlock(
         block_id,
         code=block_def.code,
-        timeout_seconds=getattr(block_def, "timeout_seconds", 30),
-        allowed_imports=getattr(block_def, "allowed_imports", None),
+        timeout_seconds=block_def.timeout_seconds,
+        allowed_imports=block_def.allowed_imports,
     )
 
 
