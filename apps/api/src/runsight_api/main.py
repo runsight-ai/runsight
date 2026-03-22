@@ -1,9 +1,13 @@
 import time
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from sqlmodel import Session, SQLModel, select
+from sqlmodel import Session, select
+
+from alembic.config import Config as AlembicConfig
+from alembic import command as alembic_command
 
 from .core.config import settings as app_settings, ensure_project_dirs
 from .core.secrets import SecretsEnvLoader
@@ -43,7 +47,8 @@ def _recover_stale_runs(engine):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    SQLModel.metadata.create_all(engine)
+    alembic_cfg = AlembicConfig(str(Path(__file__).parent / "alembic.ini"))
+    alembic_command.upgrade(alembic_cfg, "head")
     _recover_stale_runs(engine)
     ensure_project_dirs(app_settings)
 
