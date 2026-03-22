@@ -6,6 +6,7 @@ Co-located: runtime class + BlockDef schema + build() function.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any, Dict, Literal
 
@@ -37,8 +38,8 @@ class FileWriterBlock(BaseBlock):
         _raw = state.results[self.content_key]
         content = _raw.output if hasattr(_raw, "output") else str(_raw)
         output = Path(self.output_path)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(content, encoding="utf-8")
+        await asyncio.to_thread(output.parent.mkdir, parents=True, exist_ok=True)
+        await asyncio.to_thread(output.write_text, content, encoding="utf-8")
 
         char_count = len(content)
         return state.model_copy(
