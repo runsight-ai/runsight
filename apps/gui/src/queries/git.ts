@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { gitApi } from "../api/git";
 import { queryKeys } from "./keys";
 import { POLL_INTERVALS } from "../utils/constants";
@@ -33,6 +34,10 @@ export function useCommit() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.git.status });
       queryClient.invalidateQueries({ queryKey: queryKeys.git.log });
+      toast.success("Changes committed");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to commit changes", { description: error.message });
     },
   });
 }
