@@ -4,3 +4,8 @@ export { EmptyState } from "./EmptyState";
 export { NodeBadge, type NodeType } from "./NodeBadge";
 export { DataTable, type Column } from "./DataTable";
 export { CostDisplay } from "./CostDisplay";
+export {
+  AppErrorBoundary,
+  RouteErrorBoundary,
+  CanvasErrorBoundary,
+} from "./ErrorBoundary";
