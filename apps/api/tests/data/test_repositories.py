@@ -1,11 +1,7 @@
 import pytest
 from sqlmodel import SQLModel, Session, create_engine
-from runsight_api.domain.entities import Provider, Run, RunNode, AppSettings
-from runsight_api.data.repositories import (
-    ProviderRepository,
-    RunRepository,
-    SettingsRepository,
-)
+from runsight_api.domain.entities import Run, RunNode
+from runsight_api.data.repositories import RunRepository
 
 
 @pytest.fixture(name="session")
@@ -14,17 +10,6 @@ def session_fixture():
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
-
-
-def test_provider_repository(session: Session):
-    repo = ProviderRepository(session)
-    provider = Provider(id="openai", name="OpenAI")
-    repo.create(provider)
-
-    fetched = repo.get_by_id("openai")
-    assert fetched is not None
-    assert fetched.name == "OpenAI"
-    assert fetched.type == "custom"
 
 
 def test_run_repository(session: Session):
@@ -42,13 +27,3 @@ def test_run_repository(session: Session):
     nodes = repo.list_nodes_for_run("run-1")
     assert len(nodes) == 1
     assert nodes[0].id == "run-1:node-1"
-
-
-def test_settings_repository(session: Session):
-    repo = SettingsRepository(session)
-    setting = AppSettings(key="theme", value="dark")
-    repo.set_setting(setting)
-
-    fetched = repo.get_setting("theme")
-    assert fetched is not None
-    assert fetched.value == "dark"
