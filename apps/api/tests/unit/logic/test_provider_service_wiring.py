@@ -192,7 +192,7 @@ class TestUpdateProviderUsesSecrets:
 class TestTestConnectionUsesSecrets:
     """test_connection must resolve API keys via secrets.resolve, not decrypt()."""
 
-    def test_test_connection_resolves_key_via_secrets(self, service, secrets):
+    async def test_test_connection_resolves_key_via_secrets(self, service, secrets):
         """test_connection must use secrets.resolve to get the actual API key."""
         service.create_provider(
             name="OpenAI",
@@ -206,7 +206,7 @@ class TestTestConnectionUsesSecrets:
             mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}]}
             mock_httpx.get.return_value = mock_resp
 
-            result = service.test_connection("openai")
+            result = await service.test_connection("openai")
 
         assert result["success"] is True
         # Verify the HTTP call used the real key, not the ${ENV_VAR} reference
@@ -215,7 +215,7 @@ class TestTestConnectionUsesSecrets:
         assert "sk-real-key" in auth_header
         assert "${" not in auth_header, "Must not send ${ENV_VAR} as auth header"
 
-    def test_test_connection_does_not_call_decrypt(self, service):
+    async def test_test_connection_does_not_call_decrypt(self, service):
         """test_connection must NOT call the legacy decrypt() function."""
         service.create_provider(
             name="OpenAI",
@@ -236,12 +236,12 @@ class TestTestConnectionUsesSecrets:
             mock_httpx.get.return_value = mock_resp
 
             # Should succeed without calling decrypt
-            service.test_connection("openai")
+            await service.test_connection("openai")
 
-    def test_test_connection_no_key_configured(self, service):
+    async def test_test_connection_no_key_configured(self, service):
         """test_connection with no API key must return failure for non-ollama."""
         service.create_provider(name="OpenAI", provider_type="openai")
-        result = service.test_connection("openai")
+        result = await service.test_connection("openai")
         assert result["success"] is False
         assert "No API key configured" in result["message"]
 
@@ -264,7 +264,7 @@ class TestTestConnectionUsesSecrets:
 class TestSSRFPreserved:
     """SSRF validation must still be called in test_connection after rewiring."""
 
-    def test_ssrf_blocks_private_ip(self, service):
+    async def test_ssrf_blocks_private_ip(self, service):
         """Private IP in base_url must still be blocked after filesystem rewiring."""
         service.create_provider(
             name="OpenAI",
@@ -273,12 +273,12 @@ class TestSSRFPreserved:
             base_url="http://192.168.1.1/v1",
         )
 
-        result = service.test_connection("openai")
+        result = await service.test_connection("openai")
 
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
-    def test_ssrf_blocks_metadata_endpoint(self, service):
+    async def test_ssrf_blocks_metadata_endpoint(self, service):
         """Cloud metadata endpoint must still be blocked."""
         service.create_provider(
             name="OpenAI",
@@ -287,12 +287,12 @@ class TestSSRFPreserved:
             base_url="http://169.254.169.254/latest",
         )
 
-        result = service.test_connection("openai")
+        result = await service.test_connection("openai")
 
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
-    def test_ssrf_allows_ollama_localhost(self, service):
+    async def test_ssrf_allows_ollama_localhost(self, service):
         """Ollama localhost must still be allowed after rewiring."""
         service.create_provider(
             name="Ollama",
@@ -306,7 +306,7 @@ class TestSSRFPreserved:
             mock_resp.json.return_value = {"models": [{"name": "llama3"}]}
             mock_httpx.get.return_value = mock_resp
 
-            result = service.test_connection("ollama")
+            result = await service.test_connection("ollama")
 
         assert result["success"] is True
 
@@ -318,7 +318,7 @@ class TestSSRFPreserved:
             "validate_ssrf must remain imported in provider_service"
         )
 
-    def test_ssrf_no_http_call_for_blocked_url(self, service):
+    async def test_ssrf_no_http_call_for_blocked_url(self, service):
         """When SSRF blocks a URL, httpx.get must NOT be called."""
         service.create_provider(
             name="OpenAI",
@@ -328,7 +328,7 @@ class TestSSRFPreserved:
         )
 
         with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            result = service.test_connection("openai")
+            result = await service.test_connection("openai")
 
         assert result["success"] is False
         mock_httpx.get.assert_not_called()

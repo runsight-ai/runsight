@@ -242,18 +242,18 @@ def test_delete_provider_not_found_returns_false():
 # --- test_connection ---
 
 
-def test_test_connection_provider_not_found():
+async def test_test_connection_provider_not_found():
     repo = Mock()
     secrets = Mock()
     repo.get_by_id.return_value = None
     service = ProviderService(repo, secrets)
-    result = service.test_connection("missing")
+    result = await service.test_connection("missing")
     assert result["success"] is False
     assert result["message"] == "Provider not found"
     assert "models" not in result or result.get("models") == []
 
 
-def test_test_connection_no_api_key_non_ollama():
+async def test_test_connection_no_api_key_non_ollama():
     repo = Mock()
     secrets = Mock()
     secrets.is_configured.return_value = False
@@ -265,12 +265,12 @@ def test_test_connection_no_api_key_non_ollama():
     )
     repo.get_by_id.return_value = prov
     service = ProviderService(repo, secrets)
-    result = service.test_connection("p1")
+    result = await service.test_connection("p1")
     assert result["success"] is False
     assert result["message"] == "No API key configured"
 
 
-def test_test_connection_ollama_no_api_key_allowed():
+async def test_test_connection_ollama_no_api_key_allowed():
     repo = Mock()
     secrets = Mock()
     prov = ProviderEntity(
@@ -289,13 +289,13 @@ def test_test_connection_ollama_no_api_key_allowed():
         mock_resp.json.return_value = {"models": [{"name": "llama3"}]}
         mock_httpx.get.return_value = mock_resp
 
-        result = service.test_connection("p1")
+        result = await service.test_connection("p1")
 
     assert result["success"] is True
     assert "llama3" in result.get("models", [])
 
 
-def test_test_connection_successful_openai():
+async def test_test_connection_successful_openai():
     repo = Mock()
     secrets = Mock()
     secrets.is_configured.return_value = True
@@ -317,7 +317,7 @@ def test_test_connection_successful_openai():
         mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}, {"id": "gpt-3.5"}]}
         mock_httpx.get.return_value = mock_resp
 
-        result = service.test_connection("p1")
+        result = await service.test_connection("p1")
 
     assert result["success"] is True
     assert "gpt-4o" in result.get("models", [])
@@ -327,7 +327,7 @@ def test_test_connection_successful_openai():
     assert "Bearer sk-xxx" in call_kwargs["headers"]["Authorization"]
 
 
-def test_test_connection_http_error():
+async def test_test_connection_http_error():
     repo = Mock()
     secrets = Mock()
     secrets.is_configured.return_value = True
@@ -347,13 +347,13 @@ def test_test_connection_http_error():
         mock_resp.status_code = 401
         mock_httpx.get.return_value = mock_resp
 
-        result = service.test_connection("p1")
+        result = await service.test_connection("p1")
 
     assert result["success"] is False
     assert "401" in result["message"]
 
 
-def test_test_connection_timeout_exception():
+async def test_test_connection_timeout_exception():
     repo = Mock()
     secrets = Mock()
     secrets.is_configured.return_value = True
@@ -373,7 +373,7 @@ def test_test_connection_timeout_exception():
 
         mock_httpx.get.side_effect = httpx.TimeoutException("Connection timed out")
 
-        result = service.test_connection("p1")
+        result = await service.test_connection("p1")
 
     assert result["success"] is False
     assert "Connection failed" in result["message"]

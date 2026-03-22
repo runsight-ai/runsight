@@ -117,7 +117,7 @@ class ProviderService:
     def delete_provider(self, provider_id: str) -> bool:
         return self.repo.delete(provider_id)
 
-    def test_connection(self, provider_id: str) -> dict:
+    async def test_connection(self, provider_id: str) -> dict:
         provider = self.repo.get_by_id(provider_id)
         if not provider:
             return {"success": False, "message": "Provider not found"}
@@ -133,7 +133,7 @@ class ProviderService:
             if provider.type in ("openai", "azure_openai"):
                 base = provider.base_url or "https://api.openai.com/v1"
                 url = f"{base}/models"
-                validate_ssrf(url, allow_private=allow_private)
+                await validate_ssrf(url, allow_private=allow_private)
                 resp = httpx.get(
                     url,
                     headers={"Authorization": f"Bearer {api_key}"},
@@ -141,7 +141,7 @@ class ProviderService:
                 )
             elif provider.type == "anthropic":
                 url = "https://api.anthropic.com/v1/models"
-                validate_ssrf(url, allow_private=allow_private)
+                await validate_ssrf(url, allow_private=allow_private)
                 resp = httpx.get(
                     url,
                     headers={
@@ -152,17 +152,17 @@ class ProviderService:
                 )
             elif provider.type == "google":
                 url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
-                validate_ssrf(url, allow_private=allow_private)
+                await validate_ssrf(url, allow_private=allow_private)
                 resp = httpx.get(url, timeout=10)
             elif provider.type == "ollama":
                 base = provider.base_url or "http://localhost:11434"
                 url = f"{base}/api/tags"
-                validate_ssrf(url, allow_private=allow_private)
+                await validate_ssrf(url, allow_private=allow_private)
                 resp = httpx.get(url, timeout=10)
             else:
                 base = provider.base_url or "https://api.openai.com/v1"
                 url = f"{base}/models"
-                validate_ssrf(url, allow_private=allow_private)
+                await validate_ssrf(url, allow_private=allow_private)
                 resp = httpx.get(
                     url,
                     headers={"Authorization": f"Bearer {api_key}"},

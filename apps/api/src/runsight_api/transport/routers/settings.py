@@ -136,7 +136,7 @@ async def test_provider(
     provider_id: str,
     service: ProviderService = Depends(get_provider_service),
 ):
-    return service.test_connection(provider_id)
+    return await service.test_connection(provider_id)
 
 
 @router.get("/models")
