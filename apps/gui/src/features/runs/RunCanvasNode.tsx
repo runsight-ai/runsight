@@ -1,0 +1,153 @@
+import { memo } from "react";
+import type { NodeTypes } from "@xyflow/react";
+
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { cn } from "@/utils/helpers";
+import {
+  Server,
+  Layers,
+  Mail,
+  Layers2,
+  User,
+} from "lucide-react";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface RunNodeData extends Record<string, unknown> {
+  name: string;
+  stepType?: string;
+  soulRef?: string;
+  model?: string;
+  status: "idle" | "pending" | "running" | "completed" | "failed" | "paused";
+  cost?: number;
+  icon?: string;
+  iconColor?: string;
+  executionCost?: number;
+  duration?: number;
+  tokens?: { input?: number; output?: number; total?: number };
+  error?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Node icon helper
+// ---------------------------------------------------------------------------
+
+function getNodeIcon(icon: string | undefined, iconColor: string | undefined) {
+  const color = iconColor || "var(--muted-foreground)";
+  const className = "w-4 h-4";
+  switch (icon) {
+    case "server":
+      return <Server className={className} style={{ color }} />;
+    case "layers":
+      return <Layers className={className} style={{ color }} />;
+    case "mail":
+      return <Mail className={className} style={{ color }} />;
+    case "layers2":
+      return <Layers2 className={className} style={{ color }} />;
+    case "user":
+    default:
+      return <User className={className} style={{ color }} />;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Border style helper
+// ---------------------------------------------------------------------------
+
+function getBorderStyles(status: string, selected?: boolean) {
+  switch (status) {
+    case "completed":
+      return { borderColor: "var(--success)", borderWidth: "2px", boxShadow: "none" };
+    case "failed":
+      return { borderColor: "var(--error)", borderWidth: "2px", boxShadow: "0 0 0 2px var(--error-40)" };
+    case "pending":
+      return { borderColor: "var(--muted-foreground)", borderWidth: "1px", boxShadow: "none", opacity: 0.7 };
+    default:
+      return {
+        borderColor: selected ? "var(--primary)" : "var(--border)",
+        borderWidth: selected ? "2px" : "1px",
+        boxShadow: selected ? "0 0 0 2px var(--primary-40)" : "none",
+      };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Status mapper for StatusBadge
+// ---------------------------------------------------------------------------
+
+function mapNodeStatus(status: string): { variant: "success" | "error" | "pending"; label: string } {
+  if (status === "completed") return { variant: "success", label: "Completed" };
+  if (status === "failed") return { variant: "error", label: "Failed" };
+  if (status === "pending") return { variant: "pending", label: "Pending" };
+  return { variant: "pending", label: "Idle" };
+}
+
+// ---------------------------------------------------------------------------
+// Canvas Node Component
+// ---------------------------------------------------------------------------
+
+export function CanvasNodeComponent(props: { data: RunNodeData; selected?: boolean }) {
+  const { data, selected } = props;
+  const status = data.status || "idle";
+  const borderStyles = getBorderStyles(status, selected);
+  const displayCost = data.executionCost !== undefined ? data.executionCost : data.cost;
+  const isEstimate = data.executionCost === undefined;
+  const { variant, label } = mapNodeStatus(status);
+
+  return (
+    <div
+      data-testid={`node-${data.name}`}
+      className={cn("w-[240px] bg-[var(--card)] rounded-md transition-all duration-150", status === "pending" && "opacity-70")}
+      style={{ border: `${borderStyles.borderWidth} solid ${borderStyles.borderColor}`, boxShadow: borderStyles.boxShadow }}
+    >
+      <div className={cn("h-9 px-3 flex items-center justify-between border-b", status === "completed" ? "border-[var(--success)]/30" : status === "failed" ? "border-[var(--error)]/30" : "border-[var(--border)]")}>
+        <div className="flex items-center gap-2">
+          {getNodeIcon(data.icon, data.iconColor)}
+          <span className={cn("text-sm font-medium truncate max-w-[120px]", status === "pending" ? "text-[var(--muted-subtle)]" : "text-[var(--foreground)]")}>{data.name}</span>
+        </div>
+        {displayCost !== undefined && (
+          <span className="font-mono text-xs text-[var(--muted-foreground)]">{isEstimate ? "~" : ""}${displayCost.toFixed(3)}</span>
+        )}
+      </div>
+      <div className="p-3 space-y-2">
+        {data.soulRef && (
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-[var(--muted-subtle)]">Soul</span>
+            <span className="text-xs text-[var(--muted-foreground)]">{data.soulRef}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-[var(--muted-subtle)]">Status</span>
+          <StatusBadge status={variant} label={label} />
+        </div>
+      </div>
+      {(data.duration || data.tokens) && (
+        <div className="px-3 py-1.5 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)]">
+          {data.duration ? `${data.duration.toFixed(1)}s` : ""}
+          {data.duration && data.tokens ? " • " : ""}
+          {data.tokens?.total ? `${data.tokens.total.toLocaleString()} tokens` : ""}
+        </div>
+      )}
+      {status === "failed" && data.error && (
+        <div className="px-3 py-2 border-t border-[var(--border)] bg-[var(--error-08)]">
+          <span className="text-xs text-[var(--error)]">{data.error}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const RunCanvasNode = memo(CanvasNodeComponent, (prev, next) => {
+  return (
+    prev.data.status === next.data.status &&
+    prev.data.executionCost === next.data.executionCost &&
+    prev.data.duration === next.data.duration &&
+    prev.selected === next.selected
+  );
+});
+
+export const nodeTypes = {
+  canvasNode: RunCanvasNode,
+} satisfies NodeTypes;
