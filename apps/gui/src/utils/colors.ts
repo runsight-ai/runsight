@@ -50,6 +50,35 @@ export function getStatusColor(status: string): string {
 
 // ── Run status string → StatusVariant ───────────────────────────────────────
 
+/** Map a raw run-node status string to a canonical RunNodeData status. */
+export function mapRunStatus(
+  status: string,
+): "idle" | "pending" | "running" | "completed" | "failed" | "paused" {
+  switch (status) {
+    case "completed":
+    case "success":
+      return "completed";
+    case "failed":
+    case "error":
+      return "failed";
+    case "running":
+      return "running";
+    case "pending":
+    default:
+      return "pending";
+  }
+}
+
+/** Map a block_type string to an icon key for canvas nodes. */
+export function getIconForBlockType(blockType: string): string {
+  if (blockType.includes("agent") || blockType.includes("llm")) return "user";
+  if (blockType.includes("condition") || blockType.includes("if"))
+    return "layers";
+  if (blockType.includes("input") || blockType.includes("output"))
+    return "mail";
+  return "server";
+}
+
 export function mapRunStatusToVariant(status: string): StatusVariant {
   switch (status.toLowerCase()) {
     case "completed":
