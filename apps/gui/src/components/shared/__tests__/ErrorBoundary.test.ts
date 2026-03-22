@@ -14,7 +14,7 @@
  * Environment: Vitest + Node (no DOM). Tests verify the class interface only.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   AppErrorBoundary,
   RouteErrorBoundary,
@@ -107,6 +107,30 @@ describe("componentDidCatch", () => {
   it("CanvasErrorBoundary.prototype.componentDidCatch is a function", () => {
     expect(CanvasErrorBoundary.prototype.componentDidCatch).toBeTypeOf("function");
   });
+
+  it("AppErrorBoundary.componentDidCatch logs to console.error", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const instance = new AppErrorBoundary({});
+    instance.componentDidCatch(new Error("boom"), { componentStack: "stack" });
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("RouteErrorBoundary.componentDidCatch logs to console.error", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const instance = new RouteErrorBoundary({});
+    instance.componentDidCatch(new Error("boom"), { componentStack: "stack" });
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("CanvasErrorBoundary.componentDidCatch logs to console.error", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const instance = new CanvasErrorBoundary({});
+    instance.componentDidCatch(new Error("boom"), { componentStack: "stack" });
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -143,5 +167,29 @@ describe("state reset mechanism", () => {
 
   it("CanvasErrorBoundary.prototype.resetError is a function", () => {
     expect(CanvasErrorBoundary.prototype.resetError).toBeTypeOf("function");
+  });
+
+  it("AppErrorBoundary.resetError sets hasError to false", () => {
+    const instance = new AppErrorBoundary({});
+    instance.state = { hasError: true };
+    instance.setState = vi.fn();
+    instance.resetError();
+    expect(instance.setState).toHaveBeenCalledWith({ hasError: false });
+  });
+
+  it("RouteErrorBoundary.resetError sets hasError to false", () => {
+    const instance = new RouteErrorBoundary({});
+    instance.state = { hasError: true };
+    instance.setState = vi.fn();
+    instance.resetError();
+    expect(instance.setState).toHaveBeenCalledWith({ hasError: false });
+  });
+
+  it("CanvasErrorBoundary.resetError sets hasError to false", () => {
+    const instance = new CanvasErrorBoundary({});
+    instance.state = { hasError: true };
+    instance.setState = vi.fn();
+    instance.resetError();
+    expect(instance.setState).toHaveBeenCalledWith({ hasError: false });
   });
 });
