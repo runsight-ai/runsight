@@ -7,6 +7,7 @@ TokenCounter is a Protocol — implementations are injected at call sites.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Optional, Protocol, runtime_checkable
 
@@ -133,3 +134,60 @@ def get_model_budget(
         output_reserve = min(int(max_input * 0.1), 4096)
 
     return int(max_input * budget_ratio) - output_reserve
+
+
+_DELIMITED_ENTRY_RE = re.compile(r"^===\s.*===\s*$")
+
+
+def _truncate_context(
+    context: str,
+    max_tokens: int,
+    model: str,
+    counter: TokenCounter,
+) -> tuple[str, int, int]:
+    """Truncate P2 elastic content at entry boundaries.
+
+    Splits *context* into logical entries delimited by ``=== ... ===`` lines.
+    Iterates from newest (last) to oldest (first), accumulating token counts.
+    Drops entire entries from the front when the budget is exceeded.
+
+    If no delimiters are found the context is treated as a single atomic entry:
+    it either fits entirely or is dropped entirely.
+
+    Returns ``(truncated_context, tokens_used, entries_dropped)``.
+    """
+    if not context or not context.strip():
+        return ("", 0, 0)
+
+    # Detect whether context has delimited entries
+    lines = context.split("\n")
+    has_delimiters = any(_DELIMITED_ENTRY_RE.match(line) for line in lines)
+
+    if not has_delimiters:
+        # Atomic: single entry — fits or doesn't
+        tokens = counter(context, model)
+        if tokens <= max_tokens:
+            return (context, tokens, 0)
+        return ("", 0, 1)
+
+    # Split into individual delimited entries (each non-blank line)
+    entries = [line for line in lines if line.strip()]
+    total_entries = len(entries)
+
+    # Build from newest (end) to oldest (start), stopping when budget exceeded
+    kept: list[str] = []
+    for entry in reversed(entries):
+        candidate = "\n".join([entry] + kept)
+        candidate_tokens = counter(candidate, model)
+        if candidate_tokens <= max_tokens:
+            kept.insert(0, entry)
+        else:
+            break
+
+    entries_dropped = total_entries - len(kept)
+    if not kept:
+        return ("", 0, total_entries)
+
+    truncated = "\n".join(kept)
+    tokens_used = counter(truncated, model)
+    return (truncated, tokens_used, entries_dropped)
