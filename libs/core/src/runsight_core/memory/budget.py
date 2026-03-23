@@ -139,26 +139,109 @@ def get_model_budget(
 _SAFETY_VALVE_OUTPUT_RESERVE = 256
 
 
+def _count_messages_tokens(
+    messages: list[dict],
+    model: str,
+    counter: TokenCounter,
+) -> int:
+    """Sum token counts across all message contents using the injected counter."""
+    total = 0
+    for msg in messages:
+        content = msg.get("content", "")
+        if content:
+            total += counter(content, model)
+    return total
+
+
+def _prune_messages_with_counter(
+    messages: list[dict],
+    max_tokens: int,
+    model: str,
+    counter: TokenCounter,
+) -> list[dict]:
+    """Remove oldest message pairs (FIFO) until total tokens fit within *max_tokens*.
+
+    Uses the injected *counter* instead of litellm's token_counter so callers
+    can supply custom counting logic (e.g. len-based counters in tests).
+    """
+    if not messages:
+        return []
+
+    msgs = list(messages)
+
+    while len(msgs) > 2:
+        if _count_messages_tokens(msgs, model, counter) <= max_tokens:
+            return msgs
+        msgs = msgs[2:]
+
+    # Last pair (or single message) — check if it fits
+    if _count_messages_tokens(msgs, model, counter) <= max_tokens:
+        return msgs
+    return []
+
+
+def _clean_orphaned_tool_messages(messages: list[dict]) -> list[dict]:
+    """Remove orphaned tool-related messages after pruning.
+
+    Orphan rules:
+    - Remove ``role: "tool"`` messages whose ``tool_call_id`` has no matching
+      ``tool_calls`` entry in any preceding assistant message.
+    - Remove assistant messages with ``tool_calls`` that have no matching
+      ``role: "tool"`` response after them.
+    """
+    # Collect all tool_call_ids from assistant messages
+    assistant_call_ids: set[str] = set()
+    for msg in messages:
+        for tc in msg.get("tool_calls", []):
+            assistant_call_ids.add(tc["id"])
+
+    # Collect all tool response ids
+    response_ids: set[str] = set()
+    for msg in messages:
+        if msg.get("role") == "tool" and msg.get("tool_call_id"):
+            response_ids.add(msg["tool_call_id"])
+
+    cleaned: list[dict] = []
+    for msg in messages:
+        # Remove orphaned tool responses (no matching assistant tool_call)
+        if msg.get("role") == "tool" and msg.get("tool_call_id"):
+            if msg["tool_call_id"] not in assistant_call_ids:
+                continue
+
+        # Remove orphaned assistant tool_calls (no matching tool response)
+        if msg.get("tool_calls"):
+            call_ids = {tc["id"] for tc in msg["tool_calls"]}
+            if not call_ids.issubset(response_ids):
+                continue
+
+        cleaned.append(msg)
+
+    return cleaned
+
+
 def fit_to_budget(
     request: ContextBudgetRequest,
     counter: TokenCounter,
 ) -> BudgetedContext:
-    """Allocate a context budget for *request* (Phase 1: P1 accounting + safety valve).
+    """Allocate a context budget for *request* (Phase 1 + Phase 2).
+
+    Phase 1: P1 accounting + safety valve.
+    Phase 2: P3 pruning, orphan cleanup, P2 truncation, BudgetReport population.
 
     1. Count P1 tokens (system_prompt + instruction).
     2. Compute effective_budget via ``get_model_budget``.
     3. If P1 exceeds budget, apply safety valve (output_reserve=256) and retry.
     4. If still exceeded, raise ``ContextBudgetExceeded``.
-    5. Phase 1: P2 context and P3 history pass through unchanged.
-    6. Return ``BudgetedContext`` with task, messages, and diagnostic report.
+    5. Prune P3 (conversation_history) via FIFO pair removal if over budget.
+    6. Clean orphaned tool messages from pruned P3.
+    7. Truncate P2 (context) if P1 + P3_pruned + P2 still exceeds budget.
+    8. Return ``BudgetedContext`` with task, messages, and diagnostic report.
     """
     from runsight_core.primitives import Task
 
     model = request.model
 
     # Count P1 tokens directly via the injected counter.
-    # P1 content (system_prompt, instruction) is immutable — no repetitive-defense
-    # needed, as these are authored prompts, not generated content.
     sys_tokens = counter(request.system_prompt, model) if request.system_prompt else 0
     instr_tokens = counter(request.instruction, model) if request.instruction else 0
     p1_tokens = sys_tokens + instr_tokens
@@ -184,14 +267,44 @@ def fit_to_budget(
                 model=model,
             )
 
-    # Phase 1: P2 and P3 pass through unchanged
-    p2_tokens = _count_tokens(request.context, model, counter)
-    total_tokens = p1_tokens + p2_tokens
+    remaining = effective_budget - p1_tokens
+
+    # --- Phase 2: Count P2 and P3 tokens before any adjustments ---
+    p2_tokens_before = _count_tokens(request.context, model, counter)
+    p3_tokens_before = _count_messages_tokens(request.conversation_history, model, counter)
+
+    # --- Phase 2 step 1: Prune P3 (lowest priority, pruned first) ---
+    # P3 budget = remaining minus what P2 needs (P2 has higher priority)
+    p3_budget = max(0, remaining - p2_tokens_before)
+    messages = list(request.conversation_history)
+    if p3_tokens_before > p3_budget:
+        messages = _prune_messages_with_counter(messages, p3_budget, model, counter)
+
+    # Clean orphaned tool messages
+    messages = _clean_orphaned_tool_messages(messages)
+
+    p3_tokens_after = _count_messages_tokens(messages, model, counter)
+
+    # Count pairs dropped
+    original_pair_count = len(request.conversation_history) // 2
+    remaining_pair_count = len(messages) // 2
+    p3_pairs_dropped = original_pair_count - remaining_pair_count
+
+    # --- Phase 2 step 2: Truncate P2 if still over budget ---
+    remaining_for_p2 = max(0, remaining - p3_tokens_after)
+    context = request.context
+
+    if p2_tokens_before > remaining_for_p2:
+        context, p2_tokens_after, _ = _truncate_context(context, remaining_for_p2, model, counter)
+    else:
+        p2_tokens_after = p2_tokens_before
+
+    total_tokens = p1_tokens + p2_tokens_after + p3_tokens_after
 
     task = Task(
         id="budget_task",
         instruction=request.instruction,
-        context=request.context,
+        context=context,
     )
 
     output_reserve = request.output_token_reserve if request.output_token_reserve is not None else 0
@@ -202,11 +315,11 @@ def fit_to_budget(
         output_reserve=output_reserve,
         effective_budget=effective_budget,
         p1_tokens=p1_tokens,
-        p2_tokens_before=p2_tokens,
-        p2_tokens_after=p2_tokens,
-        p3_tokens_before=0,
-        p3_tokens_after=0,
-        p3_pairs_dropped=0,
+        p2_tokens_before=p2_tokens_before,
+        p2_tokens_after=p2_tokens_after,
+        p3_tokens_before=p3_tokens_before,
+        p3_tokens_after=p3_tokens_after,
+        p3_pairs_dropped=p3_pairs_dropped,
         total_tokens=total_tokens,
         headroom=effective_budget - total_tokens,
         warnings=[],
@@ -214,7 +327,7 @@ def fit_to_budget(
 
     return BudgetedContext(
         task=task,
-        messages=list(request.conversation_history),
+        messages=messages,
         report=report,
     )
 
