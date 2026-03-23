@@ -136,6 +136,89 @@ def get_model_budget(
     return int(max_input * budget_ratio) - output_reserve
 
 
+_SAFETY_VALVE_OUTPUT_RESERVE = 256
+
+
+def fit_to_budget(
+    request: ContextBudgetRequest,
+    counter: TokenCounter,
+) -> BudgetedContext:
+    """Allocate a context budget for *request* (Phase 1: P1 accounting + safety valve).
+
+    1. Count P1 tokens (system_prompt + instruction).
+    2. Compute effective_budget via ``get_model_budget``.
+    3. If P1 exceeds budget, apply safety valve (output_reserve=256) and retry.
+    4. If still exceeded, raise ``ContextBudgetExceeded``.
+    5. Phase 1: P2 context and P3 history pass through unchanged.
+    6. Return ``BudgetedContext`` with task, messages, and diagnostic report.
+    """
+    from runsight_core.primitives import Task
+
+    model = request.model
+
+    # Count P1 tokens directly via the injected counter.
+    # P1 content (system_prompt, instruction) is immutable — no repetitive-defense
+    # needed, as these are authored prompts, not generated content.
+    sys_tokens = counter(request.system_prompt, model) if request.system_prompt else 0
+    instr_tokens = counter(request.instruction, model) if request.instruction else 0
+    p1_tokens = sys_tokens + instr_tokens
+
+    # First attempt with original output_reserve
+    effective_budget = get_model_budget(
+        model,
+        budget_ratio=request.budget_ratio,
+        output_reserve=request.output_token_reserve,
+    )
+
+    # Safety valve: if P1 exceeds budget, retry with reduced output_reserve
+    if p1_tokens > effective_budget:
+        effective_budget = get_model_budget(
+            model,
+            budget_ratio=request.budget_ratio,
+            output_reserve=_SAFETY_VALVE_OUTPUT_RESERVE,
+        )
+        if p1_tokens > effective_budget:
+            raise ContextBudgetExceeded(
+                p1_tokens=p1_tokens,
+                effective_budget=effective_budget,
+                model=model,
+            )
+
+    # Phase 1: P2 and P3 pass through unchanged
+    p2_tokens = _count_tokens(request.context, model, counter)
+    total_tokens = p1_tokens + p2_tokens
+
+    task = Task(
+        id="budget_task",
+        instruction=request.instruction,
+        context=request.context,
+    )
+
+    output_reserve = request.output_token_reserve if request.output_token_reserve is not None else 0
+
+    report = BudgetReport(
+        model=model,
+        max_input_tokens=0,
+        output_reserve=output_reserve,
+        effective_budget=effective_budget,
+        p1_tokens=p1_tokens,
+        p2_tokens_before=p2_tokens,
+        p2_tokens_after=p2_tokens,
+        p3_tokens_before=0,
+        p3_tokens_after=0,
+        p3_pairs_dropped=0,
+        total_tokens=total_tokens,
+        headroom=effective_budget - total_tokens,
+        warnings=[],
+    )
+
+    return BudgetedContext(
+        task=task,
+        messages=list(request.conversation_history),
+        report=report,
+    )
+
+
 _DELIMITED_ENTRY_RE = re.compile(r"^===\s.*===\s*$")
 
 
