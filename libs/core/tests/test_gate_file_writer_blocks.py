@@ -18,6 +18,7 @@ from runsight_core.state import BlockResult, WorkflowState
 
 def _mock_runner(output: str, cost: float = 0.01, tokens: int = 100) -> RunsightTeamRunner:
     runner = MagicMock(spec=RunsightTeamRunner)
+    runner.model_name = "gpt-4o"
     runner.execute_task = AsyncMock(
         return_value=ExecutionResult(
             task_id="test", soul_id="test", output=output, cost_usd=cost, total_tokens=tokens

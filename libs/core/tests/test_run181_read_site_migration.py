@@ -67,6 +67,7 @@ def _make_soul(name: str = "test_soul") -> Soul:
 
 def _make_runner(output: str = "PASS") -> MagicMock:
     runner = MagicMock()
+    runner.model_name = "gpt-4o"
     runner.execute_task = AsyncMock(
         return_value=ExecutionResult(
             task_id="test_task",
@@ -249,12 +250,12 @@ class TestSynthesizeBlockReadSite:
         call_args = runner.execute_task.call_args
         task_sent: Task = call_args[0][0]
 
-        # The instruction should contain the actual .output value
-        assert REAL_OUTPUT in task_sent.instruction, (
+        # The context should contain the actual .output value (variable data is in context)
+        assert REAL_OUTPUT in task_sent.context, (
             f"SynthesizeBlock prompt used __str__() ({PATCHED_STR!r}) "
             f"instead of .output ({REAL_OUTPUT!r})"
         )
-        assert PATCHED_STR not in task_sent.instruction, (
+        assert PATCHED_STR not in task_sent.context, (
             "SynthesizeBlock prompt contains patched __str__ value, "
             "proving it uses implicit string conversion instead of .output"
         )
@@ -296,16 +297,16 @@ class TestGateBlockReadSite:
         with patch.object(BlockResult, "__str__", return_value=PATCHED_STR):
             await gate.execute(state)
 
-        # Check the task instruction sent to the runner
+        # Check the task context sent to the runner (variable data is in context)
         call_args = runner.execute_task.call_args
         task_sent: Task = call_args[0][0]
 
-        # The instruction should contain .output value, not __str__ value
-        assert REAL_OUTPUT in task_sent.instruction, (
+        # The context should contain .output value, not __str__ value
+        assert REAL_OUTPUT in task_sent.context, (
             f"GateBlock prompt used str(BlockResult) ({PATCHED_STR!r}) "
             f"instead of .output ({REAL_OUTPUT!r})"
         )
-        assert PATCHED_STR not in task_sent.instruction, (
+        assert PATCHED_STR not in task_sent.context, (
             "GateBlock prompt contains patched __str__ value, "
             "proving it uses str() instead of .output"
         )

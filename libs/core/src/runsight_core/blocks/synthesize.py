@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Literal
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks._helpers import resolve_soul
+from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
+from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
@@ -51,14 +53,27 @@ class SynthesizeBlock(BaseBlock):
             ]
         )
 
-        synthesis_instruction = (
-            "Synthesize the following outputs into a cohesive, unified result. "
-            "Identify common themes, resolve conflicts, and provide a comprehensive summary.\n\n"
-            f"{combined_outputs}"
+        synthesis_task = Task(
+            id=f"{self.block_id}_synthesis",
+            instruction=(
+                "Synthesize the following outputs into a cohesive, unified result. "
+                "Identify common themes, resolve conflicts, and provide a comprehensive summary."
+            ),
+            context=combined_outputs,
         )
-        synthesis_task = Task(id=f"{self.block_id}_synthesis", instruction=synthesis_instruction)
+        model = self.synthesizer_soul.model_name or self.runner.model_name
+        budgeted = fit_to_budget(
+            ContextBudgetRequest(
+                model=model,
+                system_prompt=self.synthesizer_soul.system_prompt or "",
+                instruction=synthesis_task.instruction,
+                context=synthesis_task.context or "",
+                conversation_history=[],
+            ),
+            counter=litellm_token_counter,
+        )
 
-        result = await self.runner.execute_task(synthesis_task, self.synthesizer_soul)
+        result = await self.runner.execute_task(budgeted.task, self.synthesizer_soul)
 
         return state.model_copy(
             update={

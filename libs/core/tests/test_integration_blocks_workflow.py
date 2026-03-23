@@ -25,6 +25,7 @@ from runsight_core.workflow import Workflow
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
+    runner.model_name = "gpt-4o"
     runner.execute_task = AsyncMock()
     return runner
 
@@ -205,11 +206,11 @@ async def test_workflow_fanout_to_synthesize_workflow(mock_runner, sample_souls)
     assert "synthesis" in final_state.results
     assert "Combined" in final_state.results["synthesis"].output
 
-    # Verify synthesizer task included fanout JSON output
+    # Verify synthesizer task included fanout JSON output (variable data is in context)
     synth_call = mock_runner.execute_task.call_args_list[2]  # 3rd call
     task_arg = synth_call[0][0]
-    assert "fanout" in task_arg.instruction
-    assert "Positive review" in task_arg.instruction or "Critical review" in task_arg.instruction
+    assert "fanout" in task_arg.context
+    assert "Positive review" in task_arg.context or "Critical review" in task_arg.context
 
 
 # ============================================================================
