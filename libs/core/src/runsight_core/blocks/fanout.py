@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Literal
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks._helpers import resolve_soul
+from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
+from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
@@ -36,38 +38,51 @@ class FanOutBlock(BaseBlock):
         if state.current_task is None:
             raise ValueError(f"FanOutBlock {self.block_id}: state.current_task is None")
 
-        if self.stateful:
-            import runsight_core.memory.windowing as _windowing
+        task = state.current_task
 
+        if self.stateful:
             histories = {
                 soul.id: state.conversation_histories.get(f"{self.block_id}_{soul.id}", [])
                 for soul in self.souls
             }
 
+            budgeted_per_soul = {}
+            for soul in self.souls:
+                model = soul.model_name or self.runner.model_name
+                budgeted_per_soul[soul.id] = fit_to_budget(
+                    ContextBudgetRequest(
+                        model=model,
+                        system_prompt=soul.system_prompt or "",
+                        instruction=task.instruction or "",
+                        context=task.context or "",
+                        conversation_history=histories[soul.id],
+                    ),
+                    counter=litellm_token_counter,
+                )
+
             gather_tasks = [
-                self.runner.execute_task(state.current_task, soul, messages=histories[soul.id])
+                self.runner.execute_task(
+                    budgeted_per_soul[soul.id].task,
+                    soul,
+                    messages=budgeted_per_soul[soul.id].messages,
+                )
                 for soul in self.souls
             ]
             results = await asyncio.gather(*gather_tasks)
 
-            prompt = self.runner._build_prompt(state.current_task)
             updated_histories = {**state.conversation_histories}
             for soul, result in zip(self.souls, results):
                 history_key = f"{self.block_id}_{soul.id}"
-                updated = histories[soul.id] + [
+                budgeted = budgeted_per_soul[soul.id]
+                prompt = self.runner._build_prompt(budgeted.task)
+                updated_histories[history_key] = budgeted.messages + [
                     {"role": "user", "content": prompt},
                     {"role": "assistant", "content": result.output},
                 ]
-                model = soul.model_name or self.runner.model_name
-                updated_histories[history_key] = _windowing.prune_messages(
-                    updated, _windowing.get_max_tokens(model), model
-                )
 
             conversation_update = updated_histories
         else:
-            gather_tasks = [
-                self.runner.execute_task(state.current_task, soul) for soul in self.souls
-            ]
+            gather_tasks = [self.runner.execute_task(task, soul) for soul in self.souls]
             results = await asyncio.gather(*gather_tasks)
             conversation_update = state.conversation_histories
 

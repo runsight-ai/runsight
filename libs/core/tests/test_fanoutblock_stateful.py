@@ -507,7 +507,7 @@ async def test_stateful_history_key_format(
 
 
 # ---------------------------------------------------------------------------
-# AC: Windowing is applied per-soul
+# AC: Budget fitting is applied per-soul
 # ---------------------------------------------------------------------------
 
 
@@ -517,7 +517,7 @@ async def test_stateful_windowing_called_per_soul(
     soul_beta,
     sample_task,
 ):
-    """prune_messages must be invoked once per soul during stateful execution."""
+    """fit_to_budget must be invoked once per soul during stateful execution."""
     _setup_runner_side_effect(
         mock_runner,
         {
@@ -529,15 +529,41 @@ async def test_stateful_windowing_called_per_soul(
     block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task)
 
+    from runsight_core.memory.budget import BudgetedContext, BudgetReport
+
+    def _passthrough_budget(request, counter):
+        report = BudgetReport(
+            model=request.model,
+            max_input_tokens=0,
+            output_reserve=0,
+            effective_budget=100000,
+            p1_tokens=0,
+            p2_tokens_before=0,
+            p2_tokens_after=0,
+            p3_tokens_before=0,
+            p3_tokens_after=0,
+            p3_pairs_dropped=0,
+            total_tokens=0,
+            headroom=100000,
+            warnings=[],
+        )
+        from runsight_core.primitives import Task as _Task
+
+        return BudgetedContext(
+            task=_Task(id="budget_task", instruction=request.instruction, context=request.context),
+            messages=list(request.conversation_history),
+            report=report,
+        )
+
     with patch(
-        "runsight_core.memory.windowing.prune_messages",
-        side_effect=lambda msgs, max_tok, model: msgs,
-    ) as mock_prune:
+        "runsight_core.blocks.fanout.fit_to_budget",
+        side_effect=_passthrough_budget,
+    ) as mock_budget:
         await block.execute(state)
 
     # Must be called once per soul (2 souls = 2 calls)
-    assert mock_prune.call_count == 2, (
-        f"prune_messages called {mock_prune.call_count} times, expected 2 (once per soul)"
+    assert mock_budget.call_count == 2, (
+        f"fit_to_budget called {mock_budget.call_count} times, expected 2 (once per soul)"
     )
 
 
@@ -583,7 +609,7 @@ async def test_stateful_windowing_prunes_large_history(
 
 
 # ---------------------------------------------------------------------------
-# AC: Different model per soul → windowing uses correct model's token limit
+# AC: Different model per soul → budget fitting uses correct model
 # ---------------------------------------------------------------------------
 
 
@@ -593,8 +619,8 @@ async def test_stateful_windowing_uses_soul_specific_model(
     soul_gamma_with_model,
     sample_task,
 ):
-    """When souls have different models, windowing must use each soul's
-    correct model for get_max_tokens. soul_alpha uses runner default (gpt-4o),
+    """When souls have different models, fit_to_budget must use each soul's
+    correct model. soul_alpha uses runner default (gpt-4o),
     soul_gamma uses its own model (claude-3-opus-20240229)."""
     _setup_runner_side_effect(
         mock_runner,
@@ -609,23 +635,40 @@ async def test_stateful_windowing_uses_soul_specific_model(
 
     models_seen = []
 
-    def _tracking_get_max_tokens(model):
-        models_seen.append(model)
-        return 16000
+    from runsight_core.memory.budget import BudgetedContext, BudgetReport
 
-    with (
-        patch(
-            "runsight_core.memory.windowing.get_max_tokens",
-            side_effect=_tracking_get_max_tokens,
-        ),
-        patch(
-            "runsight_core.memory.windowing.prune_messages",
-            side_effect=lambda msgs, max_tok, model: msgs,
-        ),
+    def _tracking_budget(request, counter):
+        models_seen.append(request.model)
+        report = BudgetReport(
+            model=request.model,
+            max_input_tokens=0,
+            output_reserve=0,
+            effective_budget=100000,
+            p1_tokens=0,
+            p2_tokens_before=0,
+            p2_tokens_after=0,
+            p3_tokens_before=0,
+            p3_tokens_after=0,
+            p3_pairs_dropped=0,
+            total_tokens=0,
+            headroom=100000,
+            warnings=[],
+        )
+        from runsight_core.primitives import Task as _Task
+
+        return BudgetedContext(
+            task=_Task(id="budget_task", instruction=request.instruction, context=request.context),
+            messages=list(request.conversation_history),
+            report=report,
+        )
+
+    with patch(
+        "runsight_core.blocks.fanout.fit_to_budget",
+        side_effect=_tracking_budget,
     ):
         await block.execute(state)
 
-    # get_max_tokens must have been called with both models
+    # fit_to_budget must have been called with both models
     assert "gpt-4o" in models_seen, (
         f"Expected 'gpt-4o' (runner default) in models_seen, got {models_seen}"
     )
@@ -639,7 +682,7 @@ async def test_stateful_windowing_falls_back_to_runner_model(
     soul_alpha,
     sample_task,
 ):
-    """When a soul has no model_name, windowing must use runner.model_name."""
+    """When a soul has no model_name, fit_to_budget must use runner.model_name."""
     assert soul_alpha.model_name is None  # precondition
 
     _setup_runner_side_effect(
@@ -652,19 +695,42 @@ async def test_stateful_windowing_falls_back_to_runner_model(
     block = _make_stateful_fanout("review", [soul_alpha], mock_runner)
     state = WorkflowState(current_task=sample_task)
 
-    with (
-        patch(
-            "runsight_core.memory.windowing.get_max_tokens",
-            return_value=8000,
-        ) as mock_get_max,
-        patch(
-            "runsight_core.memory.windowing.prune_messages",
-            side_effect=lambda msgs, max_tok, model: msgs,
-        ),
-    ):
+    from runsight_core.memory.budget import BudgetedContext, BudgetReport
+
+    def _tracking_budget(request, counter):
+        report = BudgetReport(
+            model=request.model,
+            max_input_tokens=0,
+            output_reserve=0,
+            effective_budget=100000,
+            p1_tokens=0,
+            p2_tokens_before=0,
+            p2_tokens_after=0,
+            p3_tokens_before=0,
+            p3_tokens_after=0,
+            p3_pairs_dropped=0,
+            total_tokens=0,
+            headroom=100000,
+            warnings=[],
+        )
+        from runsight_core.primitives import Task as _Task
+
+        return BudgetedContext(
+            task=_Task(id="budget_task", instruction=request.instruction, context=request.context),
+            messages=list(request.conversation_history),
+            report=report,
+        )
+
+    with patch(
+        "runsight_core.blocks.fanout.fit_to_budget",
+        side_effect=_tracking_budget,
+    ) as mock_budget:
         await block.execute(state)
 
-    mock_get_max.assert_called_with("gpt-4o")
+    # fit_to_budget must have been called with "gpt-4o" (runner default)
+    assert mock_budget.call_count == 1
+    call_request = mock_budget.call_args[0][0]
+    assert call_request.model == "gpt-4o"
 
 
 # ---------------------------------------------------------------------------
