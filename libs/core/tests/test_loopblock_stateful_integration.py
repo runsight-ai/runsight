@@ -412,7 +412,7 @@ class TestStatefulFanOutBlockInsideLoop:
 
 
 class TestWindowingActivatesInsideLoop:
-    """When history exceeds token budget inside a loop, windowing must prune."""
+    """When history exceeds token budget inside a loop, budget fitting must prune."""
 
     async def test_windowing_prunes_during_loop_rounds(self):
         """With a tiny token budget simulated by mock, old messages get dropped."""
@@ -437,23 +437,47 @@ class TestWindowingActivatesInsideLoop:
         )
         blocks = {"analyze": inner, "loop": loop}
 
-        # Mock prune_messages to keep only the last 4 messages (2 rounds)
-        def _aggressive_prune(msgs, max_tok, model):
-            if len(msgs) > 4:
-                return msgs[-4:]
-            return msgs
+        from runsight_core.memory.budget import BudgetedContext, BudgetReport
+
+        # Pre-call budget fitting keeps only the last 2 messages (1 pair)
+        # so after appending the new pair: 2 + 2 = 4 messages stored
+        def _aggressive_budget(request, counter):
+            msgs = list(request.conversation_history)
+            if len(msgs) > 2:
+                msgs = msgs[-2:]
+            report = BudgetReport(
+                model=request.model,
+                max_input_tokens=0,
+                output_reserve=0,
+                effective_budget=100000,
+                p1_tokens=0,
+                p2_tokens_before=0,
+                p2_tokens_after=0,
+                p3_tokens_before=0,
+                p3_tokens_after=0,
+                p3_pairs_dropped=0,
+                total_tokens=0,
+                headroom=100000,
+                warnings=[],
+            )
+            return BudgetedContext(
+                task=Task(
+                    id="budget_task", instruction=request.instruction, context=request.context
+                ),
+                messages=msgs,
+                report=report,
+            )
 
         state = WorkflowState(current_task=task)
 
         with patch(
-            "runsight_core.memory.windowing.prune_messages",
-            side_effect=_aggressive_prune,
+            "runsight_core.blocks.linear.fit_to_budget",
+            side_effect=_aggressive_budget,
         ):
             result_state = await loop.execute(state, blocks=blocks)
 
         history = result_state.conversation_histories["analyze_analyst"]
-        # With aggressive pruning keeping only 4 messages, after 5 rounds
-        # the history should be capped at 4 messages, not 10
+        # Pre-call pruning keeps 2 msgs + appends 2 new = 4 stored
         assert len(history) == 4, (
             f"Expected 4 messages after aggressive pruning, got {len(history)}"
         )
@@ -462,7 +486,7 @@ class TestWindowingActivatesInsideLoop:
         assert history[-1]["content"] == "Response 5"
 
     async def test_windowing_prunes_fanout_per_soul_inside_loop(self):
-        """Windowing should prune per-soul histories independently inside a loop."""
+        """Budget fitting should prune per-soul histories independently inside a loop."""
         runner = _make_mock_runner()
         soul_a = Soul(id="soul_a", role="A", system_prompt="A.")
         soul_b = Soul(id="soul_b", role="B", system_prompt="B.")
@@ -481,17 +505,40 @@ class TestWindowingActivatesInsideLoop:
         )
         blocks = {"fan": inner, "loop": loop}
 
-        # Prune to only last 2 messages per soul
-        def _aggressive_prune(msgs, max_tok, model):
-            if len(msgs) > 2:
-                return msgs[-2:]
-            return msgs
+        from runsight_core.memory.budget import BudgetedContext, BudgetReport
+
+        # Pre-call budget fitting returns empty messages (drops all history)
+        # so after appending the new pair: 0 + 2 = 2 messages stored
+        def _aggressive_budget(request, counter):
+            msgs = []  # drop all history
+            report = BudgetReport(
+                model=request.model,
+                max_input_tokens=0,
+                output_reserve=0,
+                effective_budget=100000,
+                p1_tokens=0,
+                p2_tokens_before=0,
+                p2_tokens_after=0,
+                p3_tokens_before=0,
+                p3_tokens_after=0,
+                p3_pairs_dropped=0,
+                total_tokens=0,
+                headroom=100000,
+                warnings=[],
+            )
+            return BudgetedContext(
+                task=Task(
+                    id="budget_task", instruction=request.instruction, context=request.context
+                ),
+                messages=msgs,
+                report=report,
+            )
 
         state = WorkflowState(current_task=task)
 
         with patch(
-            "runsight_core.memory.windowing.prune_messages",
-            side_effect=_aggressive_prune,
+            "runsight_core.blocks.fanout.fit_to_budget",
+            side_effect=_aggressive_budget,
         ):
             result_state = await loop.execute(state, blocks=blocks)
 
@@ -503,7 +550,7 @@ class TestWindowingActivatesInsideLoop:
             assert history[-1]["role"] == "assistant"
 
     async def test_pruned_history_still_passed_to_next_round(self):
-        """After pruning, the pruned (shorter) history should be what the
+        """After budget fitting, the pruned (shorter) history should be what the
         next round's LLM call receives — proving state passthrough works."""
         runner = _make_mock_runner()
         soul = Soul(id="analyst", role="Analyst", system_prompt="Analyze.")
@@ -526,29 +573,53 @@ class TestWindowingActivatesInsideLoop:
         )
         blocks = {"analyze": inner, "loop": loop}
 
-        # Prune to last 2 messages after round 2 onward
-        def _prune_to_2(msgs, max_tok, model):
+        from runsight_core.memory.budget import BudgetedContext, BudgetReport
+
+        # Pre-call budget fitting prunes to last 2 messages
+        def _budget_prune_to_2(request, counter):
+            msgs = list(request.conversation_history)
             if len(msgs) > 2:
-                return msgs[-2:]
-            return msgs
+                msgs = msgs[-2:]
+            report = BudgetReport(
+                model=request.model,
+                max_input_tokens=0,
+                output_reserve=0,
+                effective_budget=100000,
+                p1_tokens=0,
+                p2_tokens_before=0,
+                p2_tokens_after=0,
+                p3_tokens_before=0,
+                p3_tokens_after=0,
+                p3_pairs_dropped=0,
+                total_tokens=0,
+                headroom=100000,
+                warnings=[],
+            )
+            return BudgetedContext(
+                task=Task(
+                    id="budget_task", instruction=request.instruction, context=request.context
+                ),
+                messages=msgs,
+                report=report,
+            )
 
         state = WorkflowState(current_task=task)
 
         with patch(
-            "runsight_core.memory.windowing.prune_messages",
-            side_effect=_prune_to_2,
+            "runsight_core.blocks.linear.fit_to_budget",
+            side_effect=_budget_prune_to_2,
         ):
             await loop.execute(state, blocks=blocks)
 
         assert len(messages_received) == 4
 
-        # Round 1: no history
+        # Round 1: no history (fit_to_budget gets [], returns [])
         assert len(messages_received[0]) == 0
         # Round 2: 2 messages from round 1 (not pruned yet — only 2 messages)
         assert len(messages_received[1]) == 2
-        # Round 3: pruned to 2 after round 2 (had 4, pruned to 2)
+        # Round 3: pruned to 2 by fit_to_budget (had 4, pruned to 2)
         assert len(messages_received[2]) == 2
-        # Round 4: pruned to 2 after round 3 (had 4, pruned to 2)
+        # Round 4: pruned to 2 by fit_to_budget (had 4, pruned to 2)
         assert len(messages_received[3]) == 2
 
 

@@ -10,6 +10,8 @@ from typing import Any, Dict, Literal
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks._helpers import resolve_soul
+from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
+from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
@@ -32,24 +34,33 @@ class LinearBlock(BaseBlock):
         if state.current_task is None:
             raise ValueError(f"LinearBlock {self.block_id}: state.current_task is None")
 
-        if self.stateful:
-            import runsight_core.memory.windowing as _windowing
+        task = state.current_task
 
+        if self.stateful:
+            model = self.soul.model_name or self.runner.model_name
             history_key = f"{self.block_id}_{self.soul.id}"
             history = state.conversation_histories.get(history_key, [])
-            result = await self.runner.execute_task(state.current_task, self.soul, messages=history)
-            prompt = self.runner._build_prompt(state.current_task)
-            updated_history = history + [
+            budgeted = fit_to_budget(
+                ContextBudgetRequest(
+                    model=model,
+                    system_prompt=self.soul.system_prompt or "",
+                    instruction=task.instruction or "",
+                    context=task.context or "",
+                    conversation_history=history,
+                ),
+                counter=litellm_token_counter,
+            )
+            result = await self.runner.execute_task(
+                budgeted.task, self.soul, messages=budgeted.messages
+            )
+            prompt = self.runner._build_prompt(budgeted.task)
+            updated_history = budgeted.messages + [
                 {"role": "user", "content": prompt},
                 {"role": "assistant", "content": result.output},
             ]
-            model = self.soul.model_name or self.runner.model_name
-            updated_history = _windowing.prune_messages(
-                updated_history, _windowing.get_max_tokens(model), model
-            )
             conversation_update = {**state.conversation_histories, history_key: updated_history}
         else:
-            result = await self.runner.execute_task(state.current_task, self.soul)
+            result = await self.runner.execute_task(task, self.soul)
             conversation_update = state.conversation_histories
 
         # Truncate output for message log (prevent state size explosion)
