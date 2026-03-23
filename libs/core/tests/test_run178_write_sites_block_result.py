@@ -86,6 +86,7 @@ class NoCoercionWorkflowState(WorkflowState):
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
+    runner.model_name = "gpt-4o"
     runner.execute_task = AsyncMock()
     return runner
 

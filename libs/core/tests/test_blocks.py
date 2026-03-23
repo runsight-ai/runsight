@@ -169,6 +169,7 @@ async def test_fanout_block_empty_souls(mock_runner):
 @pytest.mark.asyncio
 async def test_synthesize_block_combination(mock_runner, sample_soul):
     """AC-7: SynthesizeBlock combines multiple inputs."""
+    mock_runner.model_name = "gpt-4o"
     mock_runner.execute_task.return_value = ExecutionResult(
         task_id="synth_task", soul_id="test_soul", output="Synthesized result combining both inputs"
     )
@@ -185,11 +186,11 @@ async def test_synthesize_block_combination(mock_runner, sample_soul):
 
     assert result_state.results["synth1"].output == "Synthesized result combining both inputs"
 
-    # Verify synthesis task includes both inputs
+    # Verify synthesis task includes both inputs (now in context, not instruction)
     call_args = mock_runner.execute_task.call_args
     task_arg = call_args[0][0]  # First positional arg is Task
-    assert "Output A" in task_arg.instruction
-    assert "Output B" in task_arg.instruction
+    assert "Output A" in task_arg.context
+    assert "Output B" in task_arg.context
 
 
 @pytest.mark.asyncio
