@@ -61,7 +61,6 @@ class LoopBlock(BaseBlock):
         self.carry_context = carry_context
 
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        from runsight_core.blocks.gate import GateError
         from runsight_core.conditions.engine import (
             ConditionGroup,
             evaluate_condition,
@@ -72,7 +71,7 @@ class LoopBlock(BaseBlock):
         broke_early = False
         rounds_completed = 0
         carry_history: List[Dict[str, Any]] = []
-        last_gate_error: Optional[GateError] = None
+        last_gate_error: Optional[Exception] = None
 
         for round_num in range(1, self.max_rounds + 1):
             state = state.model_copy(
@@ -95,8 +94,11 @@ class LoopBlock(BaseBlock):
                             f"Available blocks: {sorted(blocks.keys())}"
                         )
                     state = await inner_block.execute(state, **kwargs)
-            except GateError as e:
-                # Gate failed — use state from the error and retry on next round
+            except Exception as e:
+                # Only handle exceptions that carry a .state (legacy gate errors).
+                # Re-raise anything else (ValueError, KeyError, etc.).
+                if not hasattr(e, "state"):
+                    raise
                 state = e.state
                 last_gate_error = e
                 gate_failed_this_round = True
@@ -207,7 +209,7 @@ class LoopBlock(BaseBlock):
                     broke_early = True
                     break
 
-        # If all rounds exhausted due to gate failures, re-raise the last GateError
+        # If all rounds exhausted due to gate failures, re-raise the last Exception
         if last_gate_error is not None and not broke_early:
             raise last_gate_error
 
