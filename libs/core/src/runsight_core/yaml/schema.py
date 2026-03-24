@@ -110,6 +110,14 @@ class ExitDef(BaseModel):
     label: str
 
 
+class FanOutExitDef(ExitDef):
+    """Exit port on a FanOut block with per-exit soul and task."""
+
+    model_config = ConfigDict(extra="forbid")
+    soul_ref: str
+    task: str
+
+
 # -- Base block model ------------------------------------------------------
 
 
