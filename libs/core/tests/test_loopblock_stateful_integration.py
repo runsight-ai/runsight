@@ -18,6 +18,7 @@ from runsight_core import (
     LinearBlock,
     LoopBlock,
 )
+from runsight_core.blocks.fanout import FanOutBranch
 from runsight_core.conditions.engine import Condition
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
@@ -66,9 +67,17 @@ def _make_stateful_linear(block_id, soul, runner):
     return block
 
 
+def _souls_to_branches(souls):
+    """Convert a list of Soul objects to FanOutBranch objects."""
+    return [
+        FanOutBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
+        for s in souls
+    ]
+
+
 def _make_stateful_fanout(block_id, souls, runner):
     """Helper to create a stateful FanOutBlock."""
-    block = FanOutBlock(block_id, souls, runner)
+    block = FanOutBlock(block_id, _souls_to_branches(souls), runner)
     block.stateful = True
     return block
 

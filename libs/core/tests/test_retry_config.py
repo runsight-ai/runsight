@@ -282,7 +282,10 @@ class TestRetryConfigOnAllBlockTypes:
         block = _validate_block(
             {
                 "type": "fanout",
-                "soul_refs": ["s1", "s2"],
+                "exits": [
+                    {"id": "e1", "label": "E1", "soul_ref": "s1", "task": "Do A"},
+                    {"id": "e2", "label": "E2", "soul_ref": "s2", "task": "Do B"},
+                ],
                 "retry_config": {"max_attempts": 3},
             }
         )
@@ -476,7 +479,10 @@ class TestBackwardCompatibility:
         "block_data",
         [
             {"type": "linear", "soul_ref": "s1"},
-            {"type": "fanout", "soul_refs": ["s1"]},
+            {
+                "type": "fanout",
+                "exits": [{"id": "e1", "label": "E1", "soul_ref": "s1", "task": "Do"}],
+            },
             {"type": "synthesize", "soul_ref": "s1", "input_block_ids": ["b1"]},
             {"type": "gate", "soul_ref": "s1", "eval_key": "k"},
             {"type": "code", "code": "pass"},

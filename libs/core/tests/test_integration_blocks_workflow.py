@@ -18,7 +18,16 @@ from runsight_core import (
     FanOutBlock,
     SynthesizeBlock,
 )
+from runsight_core.blocks.fanout import FanOutBranch
 from runsight_core.workflow import Workflow
+
+
+def _souls_to_branches(souls):
+    """Convert a list of Soul objects to FanOutBranch objects for backwards compat."""
+    return [
+        FanOutBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
+        for s in souls
+    ]
 
 
 @pytest.fixture
@@ -62,7 +71,9 @@ async def test_all_three_blocks_import_and_instantiate(mock_runner, sample_souls
     assert linear.block_id == "linear1"
 
     fanout = FanOutBlock(
-        "fanout1", [sample_souls["reviewer1"], sample_souls["reviewer2"]], mock_runner
+        "fanout1",
+        _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
+        mock_runner,
     )
     assert fanout.block_id == "fanout1"
 
@@ -99,7 +110,9 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
     # Update task and execute FanOutBlock
     state = state.model_copy(update={"current_task": Task(id="t2", instruction="Review research")})
     fanout = FanOutBlock(
-        "reviews", [sample_souls["reviewer1"], sample_souls["reviewer2"]], mock_runner
+        "reviews",
+        _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
+        mock_runner,
     )
     state = await fanout.execute(state)
 
@@ -138,7 +151,9 @@ async def test_workflow_linear_to_fanout_workflow(mock_runner, sample_souls):
     linear = LinearBlock("research", sample_souls["researcher"], mock_runner)
     fanout = FanOutBlock(
         "reviews",
-        [sample_souls["reviewer1"], sample_souls["reviewer2"], sample_souls["reviewer3"]],
+        _souls_to_branches(
+            [sample_souls["reviewer1"], sample_souls["reviewer2"], sample_souls["reviewer3"]]
+        ),
         mock_runner,
     )
 
@@ -161,9 +176,9 @@ async def test_workflow_linear_to_fanout_workflow(mock_runner, sample_souls):
     # Verify FanOut produced JSON with 3 reviews
     reviews = json.loads(final_state.results["reviews"].output)
     assert len(reviews) == 3
-    assert reviews[0]["soul_id"] == "reviewer1"
-    assert reviews[1]["soul_id"] == "reviewer2"
-    assert reviews[2]["soul_id"] == "reviewer3"
+    assert reviews[0]["exit_id"] == "reviewer1"
+    assert reviews[1]["exit_id"] == "reviewer2"
+    assert reviews[2]["exit_id"] == "reviewer3"
 
 
 @pytest.mark.asyncio
@@ -189,7 +204,9 @@ async def test_workflow_fanout_to_synthesize_workflow(mock_runner, sample_souls)
     wf = Workflow("review_synthesis_pipeline")
 
     fanout = FanOutBlock(
-        "fanout", [sample_souls["reviewer1"], sample_souls["reviewer2"]], mock_runner
+        "fanout",
+        _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
+        mock_runner,
     )
     synthesize = SynthesizeBlock("synthesis", ["fanout"], sample_souls["synthesizer"], mock_runner)
 
@@ -261,7 +278,9 @@ async def test_complete_research_review_synthesis_workflow(mock_runner, sample_s
     research_block = LinearBlock("research", sample_souls["researcher"], mock_runner)
     review_block = FanOutBlock(
         "peer_reviews",
-        [sample_souls["reviewer1"], sample_souls["reviewer2"], sample_souls["reviewer3"]],
+        _souls_to_branches(
+            [sample_souls["reviewer1"], sample_souls["reviewer2"], sample_souls["reviewer3"]]
+        ),
         mock_runner,
     )
     synthesis_block = SynthesizeBlock(
@@ -283,8 +302,7 @@ async def test_complete_research_review_synthesis_workflow(mock_runner, sample_s
     )
     final_state = await wf.run(initial_state)
 
-    # Verify complete workflow execution
-    assert len(final_state.results) == 3
+    # Verify complete workflow execution (3 combined + 3 per-exit from FanOut)
     assert "research" in final_state.results
     assert "peer_reviews" in final_state.results
     assert "final_report" in final_state.results

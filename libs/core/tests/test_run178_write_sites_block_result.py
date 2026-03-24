@@ -176,7 +176,13 @@ class TestFanOutBlockEmitsBlockResult:
             _mock_execution_result(soul_id="soul_b", output="output B"),
         ]
 
-        block = FanOutBlock("fanout1", [soul_a, soul_b], mock_runner)
+        from runsight_core.blocks.fanout import FanOutBranch
+
+        branches = [
+            FanOutBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Do work")
+            for s in [soul_a, soul_b]
+        ]
+        block = FanOutBlock("fanout1", branches, mock_runner)
         state = _make_state(current_task=sample_task)
 
         result_state = await block.execute(state)
@@ -466,12 +472,15 @@ class TestNoRawStringsInResultsAfterExecution:
         ]
 
         linear = LinearBlock("step1", sample_soul, mock_runner)
+        from runsight_core.blocks.fanout import FanOutBranch as _FB
+
+        _souls = [
+            Soul(id="soul_a", role="A", system_prompt="A"),
+            Soul(id="soul_b", role="B", system_prompt="B"),
+        ]
         fanout = FanOutBlock(
             "step2",
-            [
-                Soul(id="soul_a", role="A", system_prompt="A"),
-                Soul(id="soul_b", role="B", system_prompt="B"),
-            ],
+            [_FB(exit_id=s.id, label=s.role, soul=s, task_instruction="Do work") for s in _souls],
             mock_runner,
         )
 

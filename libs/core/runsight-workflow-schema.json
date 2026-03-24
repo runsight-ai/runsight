@@ -359,32 +359,47 @@
           "default": null
         },
         "exits": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/ExitDef"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Exits"
-        },
-        "soul_refs": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/FanOutExitDef"
           },
-          "title": "Soul Refs",
+          "title": "Exits",
           "type": "array"
         }
       },
       "required": [
-        "soul_refs"
+        "exits"
       ],
       "title": "FanOutBlockDef",
+      "type": "object"
+    },
+    "FanOutExitDef": {
+      "additionalProperties": false,
+      "description": "Exit port on a FanOut block with per-exit soul and task.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "soul_ref": {
+          "title": "Soul Ref",
+          "type": "string"
+        },
+        "task": {
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "soul_ref",
+        "task"
+      ],
+      "title": "FanOutExitDef",
       "type": "object"
     },
     "GateBlockDef": {

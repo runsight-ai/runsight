@@ -75,7 +75,15 @@ class TestTypeDiscrimination:
             _validate_block({"type": "conditional"})
 
     def test_fanout_valid(self):
-        block = _validate_block({"type": "fanout", "soul_refs": ["s1", "s2"]})
+        block = _validate_block(
+            {
+                "type": "fanout",
+                "exits": [
+                    {"id": "e1", "label": "E1", "soul_ref": "s1", "task": "Do A"},
+                    {"id": "e2", "label": "E2", "soul_ref": "s2", "task": "Do B"},
+                ],
+            }
+        )
         assert isinstance(block, FanOutBlockDef)
 
     def test_synthesize_valid(self):
@@ -316,7 +324,10 @@ class TestExtraForbid:
         "block_data",
         [
             {"type": "linear", "soul_ref": "s1"},
-            {"type": "fanout", "soul_refs": ["s1"]},
+            {
+                "type": "fanout",
+                "exits": [{"id": "e1", "label": "E1", "soul_ref": "s1", "task": "Do"}],
+            },
             {"type": "synthesize", "soul_ref": "s1", "input_block_ids": ["b1"]},
             {"type": "gate", "soul_ref": "s1", "eval_key": "k"},
             {"type": "code", "code": "pass"},
