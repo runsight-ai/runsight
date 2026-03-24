@@ -58,11 +58,18 @@ blocks:
       - generate
       - review
     max_rounds: 2
+    break_on_exit: pass
+    retry_on_exit: fail
 
   gate:
     type: gate
     soul_ref: gate_evaluator
     eval_key: generate
+    exits:
+      - id: pass
+        label: Pass
+      - id: fail
+        label: Fail
 
 workflow:
   name: mockup_generate_review
@@ -70,5 +77,7 @@ workflow:
   transitions:
     - from: generate_review_loop
       to: gate
+  conditional_transitions:
     - from: gate
-      to: null
+      pass: null
+      fail: null

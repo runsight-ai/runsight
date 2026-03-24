@@ -346,7 +346,9 @@ def parse_workflow_yaml(
             condition_map["default"] = ct.default
         # Extra fields = decision_key -> target_block_id (model_extra excludes defined fields)
         for decision_key, target_id in (ct.model_extra or {}).items():
-            condition_map[decision_key] = str(target_id)
+            if target_id is not None:
+                condition_map[decision_key] = str(target_id)
+            # target_id=None means terminal (no successor for this decision path)
         wf.add_conditional_transition(ct.from_, condition_map)
 
     # Step 10: Set entry block
