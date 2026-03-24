@@ -9,6 +9,12 @@ from typing import Optional
 
 from sqlmodel import Session
 
+from runsight_api.core.context import (
+    bind_block_context,
+    bind_execution_context,
+    clear_block_context,
+    clear_execution_context,
+)
 from runsight_api.domain.entities.log import LogEntry
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_core.state import WorkflowState
@@ -27,6 +33,7 @@ class ExecutionObserver:
         self.engine = engine
         self.run_id = run_id
         self._last_cumulative_cost: float = 0.0
+        self._log_hwm: int = 0
 
     # ------------------------------------------------------------------
     # on_workflow_start
@@ -34,6 +41,7 @@ class ExecutionObserver:
 
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
         try:
+            bind_execution_context(run_id=self.run_id, workflow_name=workflow_name)
             with Session(self.engine) as session:
                 run = session.get(Run, self.run_id)
                 if run:
@@ -61,6 +69,7 @@ class ExecutionObserver:
 
     def on_block_start(self, workflow_name: str, block_id: str, block_type: str) -> None:
         try:
+            bind_block_context(block_id)
             node = RunNode(
                 id=f"{self.run_id}:{block_id}",
                 run_id=self.run_id,
@@ -128,6 +137,9 @@ class ExecutionObserver:
                     }
                 ),
             )
+
+            clear_block_context()
+            self._persist_execution_log(state, node_id=block_id)
         except Exception:
             logger.warning("ExecutionObserver.on_block_complete failed", exc_info=True)
 
@@ -171,6 +183,8 @@ class ExecutionObserver:
                     }
                 ),
             )
+
+            clear_block_context()
         except Exception:
             logger.warning("ExecutionObserver.on_block_error failed", exc_info=True)
 
@@ -207,6 +221,9 @@ class ExecutionObserver:
                     }
                 ),
             )
+
+            self._persist_execution_log(state)
+            clear_execution_context()
         except Exception:
             logger.warning("ExecutionObserver.on_workflow_complete failed", exc_info=True)
 
@@ -246,12 +263,34 @@ class ExecutionObserver:
                     }
                 ),
             )
+
+            clear_execution_context()
         except Exception:
             logger.warning("ExecutionObserver.on_workflow_error failed", exc_info=True)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _persist_execution_log(self, state: WorkflowState, node_id: Optional[str] = None) -> None:
+        """Persist new execution_log entries since the last high-water mark."""
+        try:
+            new_entries = state.execution_log[self._log_hwm :]
+            if not new_entries:
+                return
+            with Session(self.engine) as session:
+                for entry in new_entries:
+                    log = LogEntry(
+                        run_id=self.run_id,
+                        node_id=node_id,
+                        level="trace",
+                        message=json.dumps(entry),
+                    )
+                    session.add(log)
+                session.commit()
+            self._log_hwm = len(state.execution_log)
+        except Exception:
+            logger.warning("ExecutionObserver._persist_execution_log failed", exc_info=True)
 
     def _insert_log(self, level: str, message: str, node_id: Optional[str] = None) -> None:
         try:
