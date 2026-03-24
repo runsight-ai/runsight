@@ -315,57 +315,6 @@ class TestEngineeringManagerBlockEmitsBlockResult:
 
 
 # ==============================================================================
-# RouterBlock — Soul evaluator
-# ==============================================================================
-
-
-class TestRouterBlockSoulEmitsBlockResult:
-    """RouterBlock with Soul evaluator must write BlockResult to state.results."""
-
-    @pytest.mark.asyncio
-    async def test_router_block_soul_writes_block_result_not_raw_string(
-        self, mock_runner, sample_soul, sample_task
-    ):
-        """RouterBlock (Soul) must emit BlockResult(output=...) instead of raw string."""
-        from runsight_core import RouterBlock
-
-        mock_runner.execute_task.return_value = _mock_execution_result(output="approved")
-
-        block = RouterBlock("router1", condition_evaluator=sample_soul, runner=mock_runner)
-        state = _make_state(current_task=sample_task)
-
-        result_state = await block.execute(state)
-
-        assert isinstance(result_state.results["router1"], BlockResult)
-        assert result_state.results["router1"].output == "approved"
-
-
-# ==============================================================================
-# RouterBlock — Callable evaluator
-# ==============================================================================
-
-
-class TestRouterBlockCallableEmitsBlockResult:
-    """RouterBlock with Callable evaluator must write BlockResult to state.results."""
-
-    @pytest.mark.asyncio
-    async def test_router_block_callable_writes_block_result_not_raw_string(self):
-        """RouterBlock (Callable) must emit BlockResult(output=...) instead of raw string."""
-        from runsight_core import RouterBlock
-
-        def always_approve(state: WorkflowState) -> str:
-            return "approved"
-
-        block = RouterBlock("router2", condition_evaluator=always_approve)
-        state = _make_state()
-
-        result_state = await block.execute(state)
-
-        assert isinstance(result_state.results["router2"], BlockResult)
-        assert result_state.results["router2"].output == "approved"
-
-
-# ==============================================================================
 # WorkflowBlock
 # ==============================================================================
 

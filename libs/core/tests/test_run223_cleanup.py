@@ -240,7 +240,6 @@ workflow:
         from runsight_core.blocks.loop import LoopBlock
         from runsight_core.blocks.team_lead import TeamLeadBlock
         from runsight_core.blocks.engineering_manager import EngineeringManagerBlock
-        from runsight_core.blocks.router import RouterBlock
         from runsight_core.blocks.gate import GateBlock
         from runsight_core.blocks.file_writer import FileWriterBlock
         from runsight_core.blocks.code import CodeBlock
@@ -254,7 +253,6 @@ workflow:
         assert callable(LoopBlock)
         assert callable(TeamLeadBlock)
         assert callable(EngineeringManagerBlock)
-        assert callable(RouterBlock)
         assert callable(GateBlock)
         assert callable(FileWriterBlock)
         assert callable(CodeBlock)
@@ -273,7 +271,6 @@ workflow:
         assert hasattr(runsight_core, "LoopBlock")
         assert hasattr(runsight_core, "TeamLeadBlock")
         assert hasattr(runsight_core, "EngineeringManagerBlock")
-        assert hasattr(runsight_core, "RouterBlock")
         assert hasattr(runsight_core, "GateBlock")
         assert hasattr(runsight_core, "FileWriterBlock")
         assert hasattr(runsight_core, "CodeBlock")
@@ -292,7 +289,6 @@ workflow:
             "loop",
             "team_lead",
             "engineering_manager",
-            "router",
             "gate",
             "file_writer",
             "code",

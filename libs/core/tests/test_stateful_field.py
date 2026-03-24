@@ -21,7 +21,6 @@ from runsight_core.blocks.file_writer import FileWriterBlockDef
 from runsight_core.blocks.gate import GateBlockDef
 from runsight_core.blocks.linear import LinearBlockDef
 from runsight_core.blocks.loop import LoopBlockDef
-from runsight_core.blocks.router import RouterBlockDef
 from runsight_core.blocks.synthesize import SynthesizeBlockDef
 from runsight_core.blocks.team_lead import TeamLeadBlockDef
 from runsight_core.blocks.workflow_block import WorkflowBlockDef
@@ -127,11 +126,6 @@ class TestStatefulOnAllBlockTypes:
             }
         )
         assert isinstance(block, FileWriterBlockDef)
-        assert block.stateful is True
-
-    def test_router_block_stateful_true(self):
-        block = _validate_block({"type": "router", "soul_ref": "s1", "stateful": True})
-        assert isinstance(block, RouterBlockDef)
         assert block.stateful is True
 
     def test_synthesize_block_stateful_true(self):
@@ -448,7 +442,6 @@ class TestBackwardCompatibilityStateful:
             {"type": "linear", "soul_ref": "s1"},
             {"type": "fanout", "soul_refs": ["s1"]},
             {"type": "synthesize", "soul_ref": "s1", "input_block_ids": ["b1"]},
-            {"type": "router", "soul_ref": "s1"},
             {"type": "team_lead", "soul_ref": "s1"},
             {"type": "engineering_manager", "soul_ref": "s1"},
             {"type": "gate", "soul_ref": "s1", "eval_key": "k"},
@@ -461,7 +454,6 @@ class TestBackwardCompatibilityStateful:
             "linear",
             "fanout",
             "synthesize",
-            "router",
             "team_lead",
             "engineering_manager",
             "gate",

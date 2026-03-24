@@ -139,7 +139,6 @@ class TestInitSubclassRegistration:
         "linear",
         "fanout",
         "synthesize",
-        "router",
         "team_lead",
         "engineering_manager",
         "gate",
@@ -150,8 +149,8 @@ class TestInitSubclassRegistration:
         "workflow",
     }
 
-    def test_all_12_types_registered(self):
-        """After importing schema, all 12 existing BlockDef subclasses are registered."""
+    def test_all_11_types_registered(self):
+        """After importing schema, all 11 existing BlockDef subclasses are registered."""
         from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
 
         # Force schema import to trigger __init_subclass__
@@ -159,16 +158,16 @@ class TestInitSubclassRegistration:
 
         registered_types = set(BLOCK_DEF_REGISTRY.keys())
         assert self.EXPECTED_BLOCK_TYPES.issubset(registered_types)
-        assert len(BLOCK_DEF_REGISTRY) >= 12
+        assert len(BLOCK_DEF_REGISTRY) >= 11
 
-    def test_registry_count_is_12(self):
-        """Exactly 12 block types are in the registry (no extras from base classes)."""
+    def test_registry_count_is_11(self):
+        """Exactly 11 block types are in the registry (no extras from base classes)."""
         from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
         import runsight_core.yaml.schema  # noqa: F401
 
         # Filter out any test artifacts — only count the known types
         known = {k: v for k, v in BLOCK_DEF_REGISTRY.items() if k in self.EXPECTED_BLOCK_TYPES}
-        assert len(known) == 12
+        assert len(known) == 11
 
     def test_base_block_def_does_not_register(self):
         """BaseBlockDef itself should NOT appear in the registry."""
@@ -205,7 +204,6 @@ class TestInitSubclassRegistration:
         from runsight_core.blocks.http_request import HttpRequestBlockDef
         from runsight_core.blocks.linear import LinearBlockDef
         from runsight_core.blocks.loop import LoopBlockDef
-        from runsight_core.blocks.router import RouterBlockDef
         from runsight_core.blocks.synthesize import SynthesizeBlockDef
         from runsight_core.blocks.team_lead import TeamLeadBlockDef
         from runsight_core.blocks.workflow_block import WorkflowBlockDef
@@ -214,7 +212,6 @@ class TestInitSubclassRegistration:
             "linear": LinearBlockDef,
             "fanout": FanOutBlockDef,
             "synthesize": SynthesizeBlockDef,
-            "router": RouterBlockDef,
             "team_lead": TeamLeadBlockDef,
             "engineering_manager": EngineeringManagerBlockDef,
             "gate": GateBlockDef,

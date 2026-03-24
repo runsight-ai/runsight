@@ -2,12 +2,10 @@
 Integration tests for **kwargs compatibility in BaseBlock implementations.
 
 This module tests the cross-feature interaction between WorkflowBlock and
-the 4 block implementations that were updated to accept **kwargs in their
+the block implementations that were updated to accept **kwargs in their
 execute() signatures. This tests the conflict resolution from merging:
 - TeamLeadBlock
 - EngineeringManagerBlock
-- RouterBlock
-- (Placeholder block removed in RUN-201)
 
 The **kwargs are required for WorkflowBlock to pass call_stack and
 workflow_registry through the workflow execution chain without raising
@@ -21,7 +19,6 @@ from runsight_core.state import WorkflowState
 from runsight_core import (
     TeamLeadBlock,
     EngineeringManagerBlock,
-    RouterBlock,
     WorkflowBlock,
 )
 from runsight_core.yaml.registry import WorkflowRegistry
@@ -197,86 +194,6 @@ class TestEngineeringManagerBlockKwargsCompatibility:
         assert "eng_mgr_test" in result_state.results
 
 
-class TestRouterBlockKwargsCompatibility:
-    """Test RouterBlock accepts and ignores **kwargs."""
-
-    @pytest.mark.asyncio
-    async def test_router_block_execute_with_call_stack_kwarg(self):
-        """Verify RouterBlock.execute() accepts call_stack kwarg."""
-        # Arrange - Use callable evaluator (simpler)
-        block = RouterBlock(
-            block_id="router_test",
-            condition_evaluator=lambda state: "approved",
-        )
-
-        state = WorkflowState()
-
-        # Act
-        result_state = await block.execute(
-            state,
-            call_stack=["parent_wf"],  # Should be accepted and ignored
-        )
-
-        # Assert
-        assert result_state is not None
-        assert "router_test" in result_state.results
-
-    @pytest.mark.asyncio
-    async def test_router_block_execute_with_workflow_registry_kwarg(self):
-        """Verify RouterBlock.execute() accepts workflow_registry kwarg."""
-        # Arrange
-        block = RouterBlock(
-            block_id="router_test",
-            condition_evaluator=lambda state: "approved",
-        )
-
-        state = WorkflowState()
-        registry = WorkflowRegistry()
-
-        # Act
-        result_state = await block.execute(
-            state,
-            workflow_registry=registry,  # Should be accepted and ignored
-        )
-
-        # Assert
-        assert result_state is not None
-        assert "router_test" in result_state.results
-
-    @pytest.mark.asyncio
-    async def test_router_block_with_soul_evaluator_and_kwargs(self):
-        """Verify RouterBlock with Soul evaluator accepts **kwargs."""
-        # Arrange
-        soul = MagicMock(spec=Soul, id="router_soul")
-        runner = AsyncMock()
-        block = RouterBlock(
-            block_id="router_test",
-            condition_evaluator=soul,
-            runner=runner,
-        )
-
-        state = WorkflowState()
-        state = state.model_copy(update={"current_task": MagicMock(instruction="test task")})
-
-        # Mock runner.execute_task
-        mock_result = MagicMock()
-        mock_result.output = "approved"
-        mock_result.cost_usd = 0.01
-        mock_result.total_tokens = 100
-        runner.execute_task = AsyncMock(return_value=mock_result)
-
-        # Act - Pass multiple kwargs
-        result_state = await block.execute(
-            state,
-            call_stack=["parent_wf"],
-            workflow_registry=WorkflowRegistry(),
-        )
-
-        # Assert
-        assert result_state is not None
-        assert "router_test" in result_state.results
-
-
 class TestKwargsCompatibilityWithWorkflowBlock:
     """Test that WorkflowBlock can invoke other blocks with kwargs parameters."""
 
@@ -363,21 +280,3 @@ class TestBackwardCompatibilityWithoutKwargs:
         # Assert
         assert result_state is not None
         assert "team_lead_test" in result_state.results
-
-    @pytest.mark.asyncio
-    async def test_router_block_execute_without_kwargs(self):
-        """Verify RouterBlock.execute() works when called without kwargs."""
-        # Arrange
-        block = RouterBlock(
-            block_id="router_test",
-            condition_evaluator=lambda state: "approved",
-        )
-
-        state = WorkflowState()
-
-        # Act - Call without any kwargs
-        result_state = await block.execute(state)
-
-        # Assert
-        assert result_state is not None
-        assert "router_test" in result_state.results

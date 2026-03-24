@@ -1,5 +1,5 @@
 """
-Tests for advanced block implementations (RouterBlock, etc.).
+Tests for advanced block implementations (TeamLeadBlock, EngineeringManagerBlock).
 """
 
 import pytest
@@ -8,14 +8,10 @@ from unittest.mock import AsyncMock, MagicMock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul, Task
 from runsight_core import (
-    RouterBlock,
     TeamLeadBlock,
     EngineeringManagerBlock,
 )
 from runsight_core.runner import ExecutionResult
-
-
-# ===== Fixtures for RouterBlock Tests =====
 
 
 @pytest.fixture
@@ -30,156 +26,6 @@ def mock_runner():
 def sample_soul():
     """Sample soul for testing."""
     return Soul(id="test_soul", role="Tester", system_prompt="You test things.")
-
-
-# ===== RouterBlock Tests =====
-
-
-@pytest.mark.asyncio
-async def test_router_block_soul_evaluation(mock_runner, sample_soul):
-    """
-    AC-10: RouterBlock with Soul evaluator executes task, stores decision in results and metadata, appends message.
-    """
-    # Setup: Mock runner returns a decision
-    mock_runner.execute_task.return_value = ExecutionResult(
-        task_id="decision_task", soul_id="test_soul", output="approved"
-    )
-
-    # Create RouterBlock with Soul evaluator
-    block = RouterBlock("router1", sample_soul, mock_runner)
-    task = Task(id="decision_task", instruction="Should we proceed with this plan?")
-    state = WorkflowState(current_task=task)
-
-    # Execute
-    result_state = await block.execute(state)
-
-    # Verify decision stored in results
-    assert result_state.results["router1"].output == "approved"
-
-    # Verify decision stored in metadata
-    assert result_state.metadata["router1_decision"] == "approved"
-
-    # Verify message appended
-    assert len(result_state.execution_log) == 1
-    assert "[Block router1]" in result_state.execution_log[0]["content"]
-    assert "RouterBlock decision: approved" in result_state.execution_log[0]["content"]
-
-    # Verify runner called with task and soul
-    mock_runner.execute_task.assert_called_once_with(task, sample_soul)
-
-
-@pytest.mark.asyncio
-async def test_router_block_callable_evaluation(mock_runner):
-    """
-    AC-11: RouterBlock with Callable evaluator calls function with state, stores decision in results and metadata.
-    """
-
-    # Define a callable evaluator
-    def check_budget(state: WorkflowState) -> str:
-        budget = state.shared_memory.get("remaining_budget", 0)
-        return "approved" if budget > 1000 else "rejected"
-
-    # Create RouterBlock with Callable evaluator (no runner needed)
-    block = RouterBlock("router2", check_budget, runner=None)
-    state = WorkflowState(shared_memory={"remaining_budget": 5000})
-
-    # Execute
-    result_state = await block.execute(state)
-
-    # Verify decision stored in results
-    assert result_state.results["router2"].output == "approved"
-
-    # Verify decision stored in metadata
-    assert result_state.metadata["router2_decision"] == "approved"
-
-    # Verify message appended
-    assert len(result_state.execution_log) == 1
-    assert "[Block router2]" in result_state.execution_log[0]["content"]
-    assert "RouterBlock decision: approved" in result_state.execution_log[0]["content"]
-
-    # Verify runner was not called (callable path)
-    mock_runner.execute_task.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_router_block_callable_evaluation_rejected(mock_runner):
-    """
-    RouterBlock with Callable evaluator returns 'rejected' when condition fails.
-    """
-
-    def check_budget(state: WorkflowState) -> str:
-        budget = state.shared_memory.get("remaining_budget", 0)
-        return "approved" if budget > 1000 else "rejected"
-
-    block = RouterBlock("router3", check_budget, runner=None)
-    state = WorkflowState(shared_memory={"remaining_budget": 500})
-
-    result_state = await block.execute(state)
-
-    assert result_state.results["router3"].output == "rejected"
-    assert result_state.metadata["router3_decision"] == "rejected"
-
-
-@pytest.mark.asyncio
-async def test_router_block_requires_runner_for_soul(sample_soul):
-    """
-    AC-12: ValueError raised in constructor if condition_evaluator is Soul but runner=None.
-    """
-    with pytest.raises(ValueError, match="runner is required when condition_evaluator is Soul"):
-        RouterBlock("router_fail", sample_soul, runner=None)
-
-
-@pytest.mark.asyncio
-async def test_router_block_soul_requires_current_task(mock_runner, sample_soul):
-    """
-    AC: RouterBlock validates current_task not None when using Soul evaluator during execute().
-    """
-    block = RouterBlock("router4", sample_soul, mock_runner)
-    state = WorkflowState(current_task=None)
-
-    with pytest.raises(
-        ValueError, match="state.current_task is None \\(required for Soul evaluator\\)"
-    ):
-        await block.execute(state)
-
-
-@pytest.mark.asyncio
-async def test_router_block_soul_strips_whitespace(mock_runner, sample_soul):
-    """
-    RouterBlock strips whitespace from Soul evaluator output.
-    """
-    # Mock runner returns decision with whitespace
-    mock_runner.execute_task.return_value = ExecutionResult(
-        task_id="task", soul_id="test_soul", output="  approved  \n"
-    )
-
-    block = RouterBlock("router5", sample_soul, mock_runner)
-    task = Task(id="task", instruction="Evaluate this")
-    state = WorkflowState(current_task=task)
-
-    result_state = await block.execute(state)
-
-    # Decision should be stripped
-    assert result_state.results["router5"].output == "approved"
-    assert result_state.metadata["router5_decision"] == "approved"
-
-
-@pytest.mark.asyncio
-async def test_router_block_callable_with_runner_allowed(mock_runner):
-    """
-    RouterBlock allows runner parameter even when using Callable evaluator (runner is optional).
-    """
-
-    def simple_check(state: WorkflowState) -> str:
-        return "pass"
-
-    # Should not raise error - runner is optional for Callable
-    block = RouterBlock("router6", simple_check, runner=mock_runner)
-    state = WorkflowState()
-
-    result_state = await block.execute(state)
-
-    assert result_state.results["router6"].output == "pass"
 
 
 @pytest.mark.asyncio

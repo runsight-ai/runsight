@@ -331,7 +331,6 @@ class TestRegistryIntegration:
             "linear",
             "fanout",
             "synthesize",
-            "router",
             "team_lead",
             "engineering_manager",
             "gate",
@@ -342,8 +341,8 @@ class TestRegistryIntegration:
             "workflow",
         }
         known = {k: v for k, v in BLOCK_DEF_REGISTRY.items() if k in expected_types}
-        assert len(known) == 12, (
-            f"Expected 12 registered block types, got {len(known)}. "
+        assert len(known) == 11, (
+            f"Expected 11 registered block types, got {len(known)}. "
             f"Missing: {expected_types - set(known.keys())}"
         )
 

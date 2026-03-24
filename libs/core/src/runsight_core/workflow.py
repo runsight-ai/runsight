@@ -247,7 +247,19 @@ class Workflow:
                         f"(decision='{decision_key}') to unknown block '{to_id}'"
                     )
 
-        # Check 4: Cycle detection (DFS)
+        # Check 4: Exit validation — transition keys must match declared exits
+        for from_id, cmap in self._conditional_transitions.items():
+            block = self._blocks.get(from_id)
+            declared_exits = getattr(block, "_declared_exits", None)
+            if declared_exits is not None:
+                declared_ids = {e.id for e in declared_exits} | {"default"}
+                for key in cmap.keys():
+                    if key not in declared_ids:
+                        errors.append(
+                            f"'{from_id}': transition key '{key}' not in declared exits {sorted(declared_ids)}"
+                        )
+
+        # Check 5: Cycle detection (DFS)
         if not errors:  # Only check cycles if structure is valid
             cycle = self._detect_cycle()
             if cycle:
