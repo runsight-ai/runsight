@@ -284,8 +284,7 @@ class TestDiscoverSouls:
                 role: Tool User
                 system_prompt: You have tools
                 tools:
-                  - name: tool1
-                    description: First tool
+                  - tool1
                 """)
             )
 

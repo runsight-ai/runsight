@@ -20,11 +20,19 @@ class Soul(BaseModel):
     system_prompt: str = Field(
         ..., description="The system instructions defining the agent's behavior and constraints"
     )
-    tools: Optional[List[Dict[str, Any]]] = Field(
-        default=None, description="Optional list of tools the agent can use"
+    tools: Optional[List[str]] = Field(
+        default=None, description="Optional list of tool name references"
+    )
+    max_tool_iterations: int = Field(
+        default=5, description="Maximum number of tool-use iterations per execution"
     )
     model_name: Optional[str] = Field(
         default=None, description="Optional model override (uses runner default if None)"
+    )
+    resolved_tools: Optional[List[Any]] = Field(
+        default=None,
+        exclude=True,
+        description="Resolved tool objects (excluded from serialization)",
     )
 
 
