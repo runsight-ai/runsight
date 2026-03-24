@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Literal
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks._helpers import resolve_soul
+from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
+from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
@@ -46,23 +48,50 @@ class EngineeringManagerBlock(BaseBlock):
 
         combined_context = "\n\n".join(context_parts)
 
-        planning_instruction = f"""You are a workflow planner. Given the context below, create a detailed execution plan.
+        planning_instruction = (
+            "You are a workflow planner. Given the context below, create a detailed execution plan.\n\n"
+            + combined_context
+            + "\n\nProvide your plan as a numbered list where each step follows this format:\n"
+            "<step_number>. <step_id>: <description>\n\n"
+            "Example:\n"
+            "1. research_phase: Gather requirements and analyze constraints\n"
+            "2. design_phase: Create technical architecture\n"
+            "3. implementation_phase: Implement core features\n\n"
+            "Your plan:"
+        )
 
-{combined_context}
+        planning_task = Task(
+            id=f"{self.block_id}_planning",
+            instruction=planning_instruction,
+            context=combined_context,
+        )
 
-Provide your plan as a numbered list where each step follows this format:
-<step_number>. <step_id>: <description>
+        _soul_model = getattr(self.engineering_manager_soul, "model_name", None)
+        _runner_model = getattr(self.runner, "model_name", None)
+        model = (
+            _soul_model
+            if isinstance(_soul_model, str)
+            else _runner_model
+            if isinstance(_runner_model, str)
+            else "gpt-4o-mini"
+        )
+        budgeted = fit_to_budget(
+            ContextBudgetRequest(
+                model=model,
+                system_prompt=getattr(self.engineering_manager_soul, "system_prompt", "") or "",
+                instruction=planning_task.instruction,
+                context=planning_task.context or "",
+                conversation_history=[],
+            ),
+            counter=litellm_token_counter,
+        )
 
-Example:
-1. research_phase: Gather requirements and analyze constraints
-2. design_phase: Create technical architecture
-3. implementation_phase: Implement core features
-
-Your plan:"""
-
-        planning_task = Task(id=f"{self.block_id}_planning", instruction=planning_instruction)
-
-        result = await self.runner.execute_task(planning_task, self.engineering_manager_soul)
+        fitted_task = (
+            planning_task.model_copy(update={"context": budgeted.task.context})
+            if budgeted.task.context
+            else planning_task
+        )
+        result = await self.runner.execute_task(fitted_task, self.engineering_manager_soul)
         text_plan = result.output
 
         step_pattern = re.compile(r"^\d+\.\s+([^:]+):\s+(.+)$", re.MULTILINE)

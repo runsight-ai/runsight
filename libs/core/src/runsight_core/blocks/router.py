@@ -10,6 +10,8 @@ from typing import Any, Callable, Dict, Literal, Optional, Union
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks._helpers import resolve_soul
+from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
+from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
@@ -52,7 +54,31 @@ class RouterBlock(BaseBlock):
                     f"RouterBlock {self.block_id}: state.current_task is None (required for Soul evaluator)"
                 )
             assert self.runner is not None, "Runner must be provided for Soul evaluator"
-            result = await self.runner.execute_task(state.current_task, self.condition_evaluator)
+            task = state.current_task
+            _soul_model = getattr(self.condition_evaluator, "model_name", None)
+            _runner_model = getattr(self.runner, "model_name", None)
+            model = (
+                _soul_model
+                if isinstance(_soul_model, str)
+                else _runner_model
+                if isinstance(_runner_model, str)
+                else "gpt-4o-mini"
+            )
+            budgeted = fit_to_budget(
+                ContextBudgetRequest(
+                    model=model,
+                    system_prompt=getattr(self.condition_evaluator, "system_prompt", "") or "",
+                    instruction=task.instruction if isinstance(task.instruction, str) else "",
+                    context=task.context if isinstance(task.context, str) else "",
+                    conversation_history=[],
+                ),
+                counter=litellm_token_counter,
+            )
+            budgeted_context = budgeted.task.context
+            fitted_task = (
+                task.model_copy(update={"context": budgeted_context}) if budgeted_context else task
+            )
+            result = await self.runner.execute_task(fitted_task, self.condition_evaluator)
             decision = result.output.strip()
             additional_cost = result.cost_usd
             additional_tokens = result.total_tokens
