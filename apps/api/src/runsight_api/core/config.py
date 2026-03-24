@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     cors_origins: str = "http://localhost:5173"
+    log_level: str = "INFO"
+    log_format: str = "json"
 
     model_config = SettingsConfigDict(env_prefix="RUNSIGHT_")
 

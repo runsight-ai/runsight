@@ -12,6 +12,7 @@ dependencies = [
     "runsight-core",
     "pydantic-settings>=2.0",
     "httpx>=0.28.0",
+    "structlog>=24.0.0",
 ]
 
 [project.optional-dependencies]
