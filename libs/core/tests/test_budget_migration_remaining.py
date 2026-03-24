@@ -48,35 +48,6 @@ def _get_class_method_source(module_path: str, class_name: str, method_name: str
 
 
 # ===========================================================================
-# RouterBlock source-level migration checks
-# ===========================================================================
-
-ROUTER_MODULE = "runsight_core.blocks.router"
-
-
-class TestRouterBlockImportsBudget:
-    """router.py must import from the budget module."""
-
-    def test_router_source_imports_budget(self):
-        source = _get_source(ROUTER_MODULE)
-        assert "budget" in source, (
-            "router.py does not reference the budget module — "
-            "fit_to_budget must be imported from runsight_core.memory.budget"
-        )
-
-
-class TestRouterBlockCallsFitToBudget:
-    """router.py execute() must call fit_to_budget (Soul evaluator path)."""
-
-    def test_router_execute_contains_fit_to_budget(self):
-        source = _get_class_method_source(ROUTER_MODULE, "RouterBlock", "execute")
-        assert "fit_to_budget" in source, (
-            "RouterBlock.execute() does not contain 'fit_to_budget' — "
-            "budget fitting must happen before runner.execute_task() in the Soul path"
-        )
-
-
-# ===========================================================================
 # TeamLeadBlock source-level migration checks
 # ===========================================================================
 

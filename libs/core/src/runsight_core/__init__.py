@@ -12,7 +12,6 @@ from .blocks.synthesize import SynthesizeBlock
 from .blocks.loop import LoopBlock
 from .blocks.team_lead import TeamLeadBlock
 from .blocks.engineering_manager import EngineeringManagerBlock
-from .blocks.router import RouterBlock
 from .blocks.gate import GateBlock
 from .blocks.file_writer import FileWriterBlock
 from .blocks.workflow_block import WorkflowBlock
@@ -38,7 +37,6 @@ __all__ = [
     "LoopBlock",
     "TeamLeadBlock",
     "EngineeringManagerBlock",
-    "RouterBlock",
     "GateBlock",
     "FileWriterBlock",
     "WorkflowBlock",

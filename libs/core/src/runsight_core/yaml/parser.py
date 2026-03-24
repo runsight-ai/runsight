@@ -251,6 +251,11 @@ def parse_workflow_yaml(
             )
         built_blocks[block_id] = builder(block_id, block_def, souls_map, runner, built_blocks)
 
+    # Step 6.2: Bridge _declared_exits from schema to runtime blocks
+    for block_id, block_def in file_def.blocks.items():
+        if block_def.exits and block_id in built_blocks:
+            built_blocks[block_id]._declared_exits = block_def.exits
+
     # Step 6.3: Bridge retry_config from schema to runtime blocks
     for block_id, block_def in file_def.blocks.items():
         if block_def.retry_config is not None and block_id in built_blocks:

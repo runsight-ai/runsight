@@ -23,13 +23,12 @@ from runsight_core.primitives import Task
 class TestBlockTypeRegistry:
     """Tests for BlockTypeRegistry completeness."""
 
-    def test_block_type_registry_has_all_12_types(self):
-        """Verify BLOCK_TYPE_REGISTRY contains all 12 block types."""
+    def test_block_type_registry_has_all_11_types(self):
+        """Verify BLOCK_TYPE_REGISTRY contains all 11 block types."""
         expected_types = {
             "linear",
             "fanout",
             "synthesize",
-            "router",
             "loop",
             "team_lead",
             "engineering_manager",
@@ -40,7 +39,7 @@ class TestBlockTypeRegistry:
             "workflow",
         }
         assert set(BLOCK_TYPE_REGISTRY.keys()) == expected_types
-        assert len(BLOCK_TYPE_REGISTRY) == 12
+        assert len(BLOCK_TYPE_REGISTRY) == 11
 
     def test_all_block_builders_are_callable(self):
         """Verify all builders in registry are callable."""
@@ -252,42 +251,6 @@ workflow:
   entry: synthesize_block
 """
         with pytest.raises(ValueError, match="input_block_ids"):
-            parse_workflow_yaml(yaml_content)
-
-
-class TestRouterBlock:
-    """Tests for RouterBlock (block type: router)."""
-
-    def test_router_block_valid_yaml(self):
-        """AC-16: Parse valid router block with soul_ref."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  router_block:
-    type: router
-    soul_ref: reviewer
-workflow:
-  name: test_router
-  entry: router_block
-  transitions:
-    - from: router_block
-      to: null
-"""
-        workflow = parse_workflow_yaml(yaml_content)
-        assert isinstance(workflow, Workflow)
-
-    def test_router_block_missing_soul_ref_raises_error(self):
-        """AC-17: RouterBlock without soul_ref raises ValueError."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  router_block:
-    type: router
-workflow:
-  name: test_router
-  entry: router_block
-"""
-        with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
 
@@ -730,7 +693,6 @@ task:
 # TestLinearBlock: 3
 # TestFanOutBlock: 3
 # TestSynthesizeBlock: 3
-# TestRouterBlock: 2
 # TestTeamLeadBlock: 3
 # TestEngineeringManagerBlock: 2
 # TestSoulResolution: 2

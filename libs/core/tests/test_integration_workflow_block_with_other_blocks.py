@@ -15,7 +15,6 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core import (
     WorkflowBlock,
     LinearBlock,
-    RouterBlock,
 )
 from runsight_core.primitives import Soul, Task
 
@@ -411,62 +410,3 @@ async def test_workflow_block_cost_propagation_multiple_levels():
     # Total: 0.10
     assert final_state.total_cost_usd == pytest.approx(0.10, abs=0.001)
     assert final_state.total_tokens == 30  # 3 blocks × 10 tokens
-
-
-@pytest.mark.asyncio
-async def test_workflow_block_with_router_block():
-    """
-    Verify WorkflowBlock can be used with RouterBlock for conditional routing.
-
-    Tests:
-    1. RouterBlock can route to WorkflowBlock
-    2. RouterBlock can route based on result from WorkflowBlock
-    3. Conditional branching works correctly
-    """
-    # Create child workflow
-    child_wf = Workflow(name="child_route")
-    child_wf.add_block(EchoBlock("child_step", "routed"))
-    child_wf.set_entry("child_step")
-    child_wf.add_transition("child_step", None)
-
-    # Create workflow with router → workflow_block → placeholder
-    wf = Workflow(name="conditional_workflow")
-
-    # Router block that uses callable
-    def route_decision(state: WorkflowState) -> str:
-        return "invoke_child"
-
-    router = RouterBlock(
-        block_id="router",
-        condition_evaluator=route_decision,
-    )
-    wf.add_block(router)
-
-    # WorkflowBlock
-    workflow_block = WorkflowBlock(
-        block_id="invoke_child",
-        child_workflow=child_wf,
-        inputs={},
-        outputs={"results.routed": "results.child_step"},
-        max_depth=10,
-    )
-    wf.add_block(workflow_block)
-
-    # Final placeholder
-    wf.add_block(EchoBlock("final", "Done"))
-
-    wf.set_entry("router")
-    wf.add_conditional_transition("router", {"invoke_child": "invoke_child", "default": "final"})
-    wf.add_transition("invoke_child", "final")
-    wf.add_transition("final", None)
-
-    # Execute
-    initial_state = WorkflowState()
-    final_state = await wf.run(initial_state)
-
-    # Verify: Routing worked
-    assert "router" in final_state.results
-    assert "invoke_child" in final_state.results
-    assert "routed" in final_state.results
-    assert final_state.results["routed"].output == "routed"
-    assert "final" in final_state.results

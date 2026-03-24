@@ -1201,114 +1201,6 @@
       "title": "RetryConfig",
       "type": "object"
     },
-    "RouterBlockDef": {
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "const": "router",
-          "default": "router",
-          "title": "Type",
-          "type": "string"
-        },
-        "stateful": {
-          "default": false,
-          "title": "Stateful",
-          "type": "boolean"
-        },
-        "output_conditions": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/CaseDef"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Output Conditions"
-        },
-        "inputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/InputRef"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Inputs"
-        },
-        "outputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Outputs"
-        },
-        "retry_config": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RetryConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "exits": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/ExitDef"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Exits"
-        },
-        "soul_ref": {
-          "title": "Soul Ref",
-          "type": "string"
-        },
-        "condition_ref": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Condition Ref"
-        }
-      },
-      "required": [
-        "soul_ref"
-      ],
-      "title": "RouterBlockDef",
-      "type": "object"
-    },
     "SoulDef": {
       "description": "Soul definition as expressed in the YAML souls: section.",
       "properties": {
@@ -1776,7 +1668,6 @@
             "http_request": "#/$defs/HttpRequestBlockDef",
             "linear": "#/$defs/LinearBlockDef",
             "loop": "#/$defs/LoopBlockDef",
-            "router": "#/$defs/RouterBlockDef",
             "synthesize": "#/$defs/SynthesizeBlockDef",
             "team_lead": "#/$defs/TeamLeadBlockDef",
             "workflow": "#/$defs/WorkflowBlockDef"
@@ -1807,9 +1698,6 @@
           },
           {
             "$ref": "#/$defs/LoopBlockDef"
-          },
-          {
-            "$ref": "#/$defs/RouterBlockDef"
           },
           {
             "$ref": "#/$defs/SynthesizeBlockDef"

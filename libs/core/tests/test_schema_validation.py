@@ -25,7 +25,6 @@ from runsight_core.blocks.fanout import FanOutBlockDef
 from runsight_core.blocks.gate import GateBlockDef
 from runsight_core.blocks.linear import LinearBlockDef
 from runsight_core.blocks.loop import LoopBlockDef
-from runsight_core.blocks.router import RouterBlockDef
 from runsight_core.blocks.synthesize import SynthesizeBlockDef
 from runsight_core.blocks.workflow_block import WorkflowBlockDef
 from runsight_core.yaml.schema import (
@@ -89,10 +88,6 @@ class TestTypeDiscrimination:
         block = _validate_block({"type": "code", "code": "print(1)"})
         assert isinstance(block, CodeBlockDef)
         assert block.timeout_seconds == 30  # default
-
-    def test_router_valid(self):
-        block = _validate_block({"type": "router", "soul_ref": "s1"})
-        assert isinstance(block, RouterBlockDef)
 
     def test_gate_valid(self):
         block = _validate_block({"type": "gate", "soul_ref": "s1", "eval_key": "response.ok"})
@@ -323,7 +318,6 @@ class TestExtraForbid:
             {"type": "linear", "soul_ref": "s1"},
             {"type": "fanout", "soul_refs": ["s1"]},
             {"type": "synthesize", "soul_ref": "s1", "input_block_ids": ["b1"]},
-            {"type": "router", "soul_ref": "s1"},
             {"type": "team_lead", "soul_ref": "s1"},
             {"type": "engineering_manager", "soul_ref": "s1"},
             {"type": "gate", "soul_ref": "s1", "eval_key": "k"},
@@ -336,7 +330,6 @@ class TestExtraForbid:
             "linear",
             "fanout",
             "synthesize",
-            "router",
             "team_lead",
             "engineering_manager",
             "gate",
