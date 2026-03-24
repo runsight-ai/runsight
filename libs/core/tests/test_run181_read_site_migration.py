@@ -143,7 +143,7 @@ class TestEvaluateOutputConditionsReadSite:
         # the "contains REAL_OUTPUT" condition would match and decision = "found_real".
         # If it passed the BlockResult (and str() was called), it gets "PATCHED_STR"
         # and the condition won't match, falling through to "fallback".
-        assert final_state.metadata.get("b1_decision") == "found_real", (
+        assert final_state.results["b1"].exit_handle == "found_real", (
             "evaluate_output_conditions received str(BlockResult) instead of .output"
         )
 

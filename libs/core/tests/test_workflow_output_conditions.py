@@ -19,7 +19,7 @@ import pytest
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, Condition, ConditionGroup
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 
 
@@ -255,8 +255,8 @@ class TestResolveNextWithOutputConditions:
         next_id = wf._resolve_next("step_a", state)
         assert next_id == "step_fallback"
 
-    def test_output_conditions_decision_written_to_metadata(self):
-        """_resolve_next writes the decision to state.metadata[f'{block_id}_decision']."""
+    def test_output_conditions_decision_written_to_exit_handle(self):
+        """_resolve_next writes the decision to state.results[block_id].exit_handle."""
         wf = Workflow(name="test_wf")
 
         step_a = MockJsonBlock("step_a", {"val": "match"})
@@ -280,19 +280,13 @@ class TestResolveNextWithOutputConditions:
         )
 
         state = _initial_state().model_copy(
-            update={"results": {"step_a": json.dumps({"val": "match"})}}
+            update={"results": {"step_a": BlockResult(output=json.dumps({"val": "match"}))}}
         )
 
-        # After _resolve_next, state.metadata should contain the decision.
-        #
-        # Implementation note: _resolve_next is expected to mutate
-        # state.metadata IN-PLACE (dict mutation on Pydantic models works
-        # because metadata is a plain dict attribute, not an immutable field).
-        # This is intentional — _resolve_next is a private method that mutates
-        # state as a side effect, and this is the same pattern that
-        # Workflow.run() uses.
+        # After _resolve_next, the decision is persisted on the BlockResult's
+        # exit_handle field (not in state.metadata).
         wf._resolve_next("step_a", state)
-        assert state.metadata.get("step_a_decision") == "matched"
+        assert state.results["step_a"].exit_handle == "matched"
 
 
 # ===== Block without output_conditions =====
@@ -671,13 +665,14 @@ class TestOutputConditionsOverwriteStaleMetadata:
     """Prove that output_conditions evaluation overwrites any pre-existing
     stale ``{block_id}_decision`` value in ``state.metadata``."""
 
-    def test_output_conditions_overwrite_stale_decision(self):
-        """A stale decision in state.metadata is overwritten by output_conditions.
+    def test_output_conditions_overwrite_stale_exit_handle(self):
+        """output_conditions evaluation sets exit_handle even when metadata has stale data.
 
-        Scenario: state.metadata already contains ``step_a_decision = "stale_val"``
-        from a previous (or manually-set) run.  When ``_resolve_next`` evaluates
-        output_conditions, it must overwrite that stale value with the freshly
-        computed decision so that conditional_transitions see the correct value.
+        Scenario: state.metadata already contains a stale ``step_a_decision``
+        from a previous run, but the BlockResult has no exit_handle yet
+        (exit_handle=None).  When ``_resolve_next`` evaluates output_conditions,
+        it must compute the fresh decision and persist it on
+        ``state.results[block_id].exit_handle``, ignoring stale metadata.
         """
         wf = Workflow(name="stale_wf")
 
@@ -705,19 +700,23 @@ class TestOutputConditionsOverwriteStaleMetadata:
             },
         )
 
-        # Pre-populate metadata with a stale decision that differs from what
-        # output_conditions would produce ("good").
+        # BlockResult has no exit_handle (None), so output_conditions will be
+        # evaluated.  Stale metadata is present but no longer consulted.
         state = _initial_state().model_copy(
             update={
-                "results": {"step_a": json.dumps({"status": "ok"})},
+                "results": {
+                    "step_a": BlockResult(
+                        output=json.dumps({"status": "ok"}),
+                    )
+                },
                 "metadata": {"step_a_decision": "stale_val"},
             }
         )
 
         next_id = wf._resolve_next("step_a", state)
 
-        # output_conditions must win: decision should now be "good", not "stale_val"
-        assert state.metadata["step_a_decision"] == "good"
+        # output_conditions must win: exit_handle should be "good"
+        assert state.results["step_a"].exit_handle == "good"
         assert next_id == "step_good"
 
 

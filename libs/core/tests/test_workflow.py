@@ -235,26 +235,30 @@ def test_detect_cycle_with_conditional_transitions():
 
 
 def test_resolve_next_global_key():
-    """AC-8: _resolve_next() reads state.metadata['router_decision'] first."""
+    """AC-8: _resolve_next() reads exit_handle from BlockResult."""
     wf = Workflow(name="test_wf")
     wf.add_block(MockBlock("router"))
     wf.add_block(MockBlock("path_a"))
     wf.add_conditional_transition("router", {"approved": "path_a"})
 
-    state = WorkflowState(metadata={"router_decision": "approved"})
+    state = WorkflowState(
+        results={"router": BlockResult(output="approved", exit_handle="approved")}
+    )
     next_id = wf._resolve_next("router", state)
     assert next_id == "path_a"
 
 
 def test_resolve_next_block_scoped_key_fallback():
-    """AC-8: _resolve_next() falls back to state.metadata['{block_id}_decision']."""
+    """AC-8: _resolve_next() reads exit_handle from BlockResult (block-scoped)."""
     wf = Workflow(name="test_wf")
     wf.add_block(MockBlock("router"))
     wf.add_block(MockBlock("path_a"))
     wf.add_conditional_transition("router", {"approved": "path_a"})
 
-    # Only block-scoped key present (no global key)
-    state = WorkflowState(metadata={"router_decision": "approved"})
+    # exit_handle set on BlockResult (replaces block-scoped metadata key)
+    state = WorkflowState(
+        results={"router": BlockResult(output="approved", exit_handle="approved")}
+    )
     next_id = wf._resolve_next("router", state)
     assert next_id == "path_a"
 
@@ -287,7 +291,7 @@ def test_resolve_next_no_default_raises_key_error():
 
 @pytest.mark.asyncio
 async def test_dynamic_routing_global_decision():
-    """Test conditional routing with global router_decision key."""
+    """Test conditional routing with exit_handle on BlockResult."""
     approved_block = MockBlock("approve_path", "Approved output")
     rejected_block = MockBlock("reject_path", "Rejected output")
 
@@ -296,11 +300,13 @@ async def test_dynamic_routing_global_decision():
             super().__init__("router")
 
         async def execute(self, state: WorkflowState) -> WorkflowState:
-            # Simulate RouterBlock writing global decision key
+            # Set exit_handle on BlockResult for routing decision
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: BlockResult(output="approved")},
-                    "metadata": {**state.metadata, "router_decision": "approved"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="approved", exit_handle="approved"),
+                    },
                     "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router] RouterMock"}],
                 }
@@ -330,7 +336,7 @@ async def test_dynamic_routing_global_decision():
 
 @pytest.mark.asyncio
 async def test_dynamic_routing_block_scoped_decision():
-    """Test conditional routing with block-scoped {block_id}_decision key."""
+    """Test conditional routing with block-scoped exit_handle on BlockResult."""
     approved_block = MockBlock("approve_path", "Approved output")
     rejected_block = MockBlock("reject_path", "Rejected output")
 
@@ -339,11 +345,13 @@ async def test_dynamic_routing_block_scoped_decision():
             super().__init__("router")
 
         async def execute(self, state: WorkflowState) -> WorkflowState:
-            # Write only block-scoped key (no global router_decision)
+            # Set exit_handle on BlockResult for routing decision
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: BlockResult(output="rejected")},
-                    "metadata": {**state.metadata, "router_decision": "rejected"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="rejected", exit_handle="rejected"),
+                    },
                     "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router] RouterMock"}],
                 }
@@ -565,22 +573,24 @@ async def test_run_backward_compatible_without_registry():
 
 @pytest.mark.asyncio
 async def test_dynamic_routing():
-    """AC-3: Conditional routing branches on state.metadata decision."""
-    # ── Scenario 1: Global router_decision = "approved" ───────────────
+    """AC-3: Conditional routing branches on BlockResult.exit_handle."""
+    # ── Scenario 1: exit_handle = "approved" ───────────────
     approved_block = MockBlock("approve_path", "Approved output")
     rejected_block = MockBlock("reject_path", "Rejected output")
 
-    # Router mock: sets metadata via RouterBlock convention
+    # Router mock: sets exit_handle on BlockResult
     class RouterMock(BaseBlock):
         def __init__(self) -> None:
             super().__init__("router")
 
         async def execute(self, state: WorkflowState) -> WorkflowState:
-            # Simulate RouterBlock writing global decision key
+            # Set exit_handle on BlockResult for routing decision
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: BlockResult(output="approved")},
-                    "metadata": {**state.metadata, "router_decision": "approved"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="approved", exit_handle="approved"),
+                    },
                     "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router] RouterMock"}],
                 }
@@ -607,7 +617,7 @@ async def test_dynamic_routing():
     assert approved_block.executed is True
     assert rejected_block.executed is False
 
-    # ── Scenario 2: Block-scoped decision key only ─────────────────────
+    # ── Scenario 2: Block-scoped exit_handle ─────────────────────
     approved_block2 = MockBlock("approve_path2", "Approved2")
     rejected_block2 = MockBlock("reject_path2", "Rejected2")
 
@@ -616,11 +626,13 @@ async def test_dynamic_routing():
             super().__init__("router2")
 
         async def execute(self, state: WorkflowState) -> WorkflowState:
-            # Only write block-scoped key (no global router_decision)
+            # Set exit_handle on BlockResult for routing decision
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: BlockResult(output="rejected")},
-                    "metadata": {**state.metadata, "router2_decision": "rejected"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="rejected", exit_handle="rejected"),
+                    },
                     "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router2] RouterMockScoped"}],
                 }
@@ -656,9 +668,10 @@ async def test_dynamic_routing():
                 update={
                     "results": {
                         **state.results,
-                        self.block_id: BlockResult(output="unknown_decision"),
+                        self.block_id: BlockResult(
+                            output="unknown_decision", exit_handle="unknown_decision"
+                        ),
                     },
-                    "metadata": {**state.metadata, "router_decision": "unknown_decision"},
                     "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router3] RouterMockUnknown"}],
                 }
@@ -690,8 +703,10 @@ async def test_dynamic_routing():
         async def execute(self, state: WorkflowState) -> WorkflowState:
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: BlockResult(output="missing")},
-                    "metadata": {**state.metadata, "router_decision": "missing"},
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output="missing", exit_handle="missing"),
+                    },
                     "execution_log": state.execution_log
                     + [{"role": "system", "content": "[Block router4] RouterMockNoDefault"}],
                 }

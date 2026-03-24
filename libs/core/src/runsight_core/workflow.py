@@ -184,8 +184,8 @@ class Workflow:
         """Store output_conditions for a block.
 
         When _resolve_next runs for this block, the cases are evaluated against
-        the block's result. The winning case_id (or the default) is written to
-        state.metadata[f"{block_id}_decision"] so that conditional_transitions
+        the block's result. The winning case_id (or the default) is persisted
+        as exit_handle on the BlockResult so that conditional_transitions
         can consume it.
 
         Args:
@@ -319,17 +319,16 @@ class Workflow:
         Determine the next block ID after current_block_id executes.
 
         Resolution order:
-        1. If current_block_id has a conditional transition:
-           a. Read state.metadata.get("router_decision") (global key)
-           b. Fallback: state.metadata.get(f"{current_block_id}_decision") (block-scoped)
-           c. Look up decision in condition_map
-           d. Fallback: condition_map.get("default")
-           e. Raise KeyError if neither found
-        2. Otherwise: return self._transitions.get(current_block_id) (plain or terminal)
+        1. Read exit_handle from state.results[block_id].exit_handle (if present)
+        2. If no exit_handle, evaluate output_conditions (if present) and persist
+           the computed exit_handle on the BlockResult
+        3. If conditional_transitions exist: use exit_handle as lookup key
+        4. Fallback to "default" key in condition_map
+        5. Fallback to plain transition
 
         Args:
             current_block_id: ID of block that just executed.
-            state: State returned by block.execute() (contains fresh metadata).
+            state: State returned by block.execute() (contains fresh results).
 
         Returns:
             Next block ID string, or None if terminal.
@@ -337,43 +336,47 @@ class Workflow:
         Raises:
             KeyError: If conditional transition resolution fails (no matching key, no default).
         """
-        # Evaluate output_conditions first (if present), writing decision to metadata
-        if current_block_id in self._output_conditions:
+        # Step 1: Read exit_handle from BlockResult (if present)
+        exit_handle: Optional[str] = None
+        block_result = state.results.get(current_block_id)
+        if block_result is not None and hasattr(block_result, "exit_handle"):
+            exit_handle = block_result.exit_handle
+
+        # Step 2: If no exit_handle, evaluate output_conditions (if present)
+        if exit_handle is None and current_block_id in self._output_conditions:
             cases, default_decision = self._output_conditions[current_block_id]
-            _result = state.results.get(current_block_id)
             _output = (
-                _result.output
-                if hasattr(_result, "output")
-                else (_result if _result is not None else "")
+                block_result.output
+                if block_result is not None and hasattr(block_result, "output")
+                else (block_result if isinstance(block_result, str) else "")
             )
             decision_oc, warnings_oc = evaluate_output_conditions(cases, _output, default_decision)
-            state.metadata[f"{current_block_id}_decision"] = decision_oc
+            # Persist exit_handle on the BlockResult (not metadata)
+            if block_result is not None and hasattr(block_result, "exit_handle"):
+                state.results[current_block_id].exit_handle = decision_oc
+            exit_handle = decision_oc
             if warnings_oc:
                 state.metadata[f"{current_block_id}_warnings"] = warnings_oc
 
+        # Step 3: If conditional_transitions exist, use exit_handle as lookup key
         if current_block_id in self._conditional_transitions:
             condition_map = self._conditional_transitions[current_block_id]
 
-            # Read decision: global key first, block-scoped fallback
-            decision: Any = state.metadata.get("router_decision")
-            if decision is None:
-                decision = state.metadata.get(f"{current_block_id}_decision")
-
-            # Look up in condition_map; fallback to "default"
-            next_id = condition_map.get(str(decision)) if decision is not None else None
+            next_id = condition_map.get(str(exit_handle)) if exit_handle is not None else None
+            # Step 4: Fallback to "default" key
             if next_id is None:
                 next_id = condition_map.get("default")
 
             if next_id is None:
                 raise KeyError(
                     f"Conditional transition from '{current_block_id}': "
-                    f"decision {decision!r} not found in condition_map "
+                    f"exit_handle {exit_handle!r} not found in condition_map "
                     f"and no 'default' key present. "
                     f"condition_map keys: {list(condition_map.keys())}"
                 )
             return next_id
 
-        # Plain transition (or terminal if absent)
+        # Step 5: Plain transition (or terminal if absent)
         return self._transitions.get(current_block_id)
 
     async def _execute_with_retry(
