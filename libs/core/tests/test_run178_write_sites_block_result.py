@@ -404,30 +404,6 @@ class TestGateBlockEmitsBlockResult:
 
 
 # ==============================================================================
-# FileWriterBlock
-# ==============================================================================
-
-
-class TestFileWriterBlockEmitsBlockResult:
-    """FileWriterBlock.execute must write BlockResult to state.results."""
-
-    @pytest.mark.asyncio
-    async def test_file_writer_block_writes_block_result_not_raw_string(self, tmp_path):
-        """FileWriterBlock must emit BlockResult(output=...) instead of raw confirmation string."""
-        from runsight_core import FileWriterBlock
-
-        output_file = tmp_path / "output.txt"
-        block = FileWriterBlock("fw1", output_path=str(output_file), content_key="source_block")
-
-        state = _make_state(results={"source_block": BlockResult(output="file content here")})
-
-        result_state = await block.execute(state)
-
-        assert isinstance(result_state.results["fw1"], BlockResult)
-        assert output_file.read_text() == "file content here"
-
-
-# ==============================================================================
 # CodeBlock — error path (non-zero exit code)
 # ==============================================================================
 

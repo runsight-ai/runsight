@@ -1,15 +1,13 @@
 """
-Unit tests for GateBlock and FileWriterBlock implementations.
+Unit tests for GateBlock implementation.
 """
 
 import json
-import tempfile
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from runsight_core import GateBlock, FileWriterBlock
+from runsight_core import GateBlock
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner, ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
@@ -169,119 +167,3 @@ class TestGateBlock:
 
         assert result_state.total_cost_usd == 1.0 + cost
         assert result_state.total_tokens == 500 + tokens
-
-
-# ===== TestFileWriterBlock =====
-
-
-class TestFileWriterBlock:
-    @pytest.mark.asyncio
-    async def test_write_file_creates_file(self):
-        """content_key in results, verify file created with correct content."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = str(Path(tmpdir) / "output.txt")
-            content_key = "report"
-            content = "Hello, world!\nThis is the report content."
-            block_id = "writer1"
-
-            block = FileWriterBlock(
-                block_id=block_id,
-                output_path=output_path,
-                content_key=content_key,
-            )
-            state = WorkflowState(results={content_key: BlockResult(output=content)})
-
-            await block.execute(state)
-
-            assert Path(output_path).exists()
-            assert Path(output_path).read_text(encoding="utf-8") == content
-
-    @pytest.mark.asyncio
-    async def test_write_file_creates_parent_dirs(self):
-        """output_path has nested dirs, verify they're created."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = str(Path(tmpdir) / "nested" / "subdir" / "file.txt")
-            content_key = "data"
-            content = "nested content"
-            block_id = "writer2"
-
-            block = FileWriterBlock(
-                block_id=block_id,
-                output_path=output_path,
-                content_key=content_key,
-            )
-            state = WorkflowState(results={content_key: BlockResult(output=content)})
-
-            await block.execute(state)
-
-            assert Path(output_path).exists()
-            assert Path(output_path).read_text(encoding="utf-8") == content
-
-    @pytest.mark.asyncio
-    async def test_write_file_missing_content_key(self):
-        """content_key not in results, verify ValueError."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = str(Path(tmpdir) / "out.txt")
-            content_key = "missing_content"
-            block_id = "writer3"
-
-            block = FileWriterBlock(
-                block_id=block_id,
-                output_path=output_path,
-                content_key=content_key,
-            )
-            state = WorkflowState(results={"other_key": BlockResult(output="value")})
-
-            with pytest.raises(ValueError, match=f"content_key '{content_key}'"):
-                await block.execute(state)
-
-    @pytest.mark.asyncio
-    async def test_write_file_result_message(self):
-        """Verify results[block_id] contains char count and path."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = str(Path(tmpdir) / "result.txt")
-            content_key = "text"
-            content = "Exactly 20 chars here!!"
-            block_id = "writer4"
-
-            block = FileWriterBlock(
-                block_id=block_id,
-                output_path=output_path,
-                content_key=content_key,
-            )
-            state = WorkflowState(results={content_key: BlockResult(output=content)})
-
-            result_state = await block.execute(state)
-
-            msg = result_state.results[block_id].output
-            assert "Written" in msg
-            assert "chars to" in msg
-            assert str(len(content)) in msg
-            assert output_path in msg
-            assert msg == f"Written {len(content)} chars to {output_path}"
-
-    @pytest.mark.asyncio
-    async def test_write_file_no_cost_change(self):
-        """Verify total_cost_usd unchanged (no LLM calls)."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = str(Path(tmpdir) / "out.txt")
-            content_key = "data"
-            content = "some content"
-            block_id = "writer5"
-
-            block = FileWriterBlock(
-                block_id=block_id,
-                output_path=output_path,
-                content_key=content_key,
-            )
-            initial_cost = 2.5
-            state = WorkflowState(
-                results={content_key: BlockResult(output=content)},
-                total_cost_usd=initial_cost,
-                total_tokens=1000,
-            )
-
-            result_state = await block.execute(state)
-
-            assert result_state.total_cost_usd == initial_cost
-            assert result_state.total_tokens == 1000

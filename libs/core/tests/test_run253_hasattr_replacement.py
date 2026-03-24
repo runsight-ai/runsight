@@ -75,7 +75,7 @@ class TestNoHasattrOutputInBlocks:
 
     @pytest.mark.parametrize(
         "filename",
-        ["loop.py", "gate.py", "synthesize.py", "file_writer.py", "code.py"],
+        ["loop.py", "gate.py", "synthesize.py", "code.py"],
     )
     def test_no_hasattr_output_in_file(self, filename: str):
         """File must not contain any `hasattr(*, 'output')` calls."""
@@ -92,7 +92,7 @@ class TestIsinstanceBlockResultUsed:
 
     @pytest.mark.parametrize(
         "filename",
-        ["loop.py", "gate.py", "synthesize.py", "file_writer.py", "code.py"],
+        ["loop.py", "gate.py", "synthesize.py", "code.py"],
     )
     def test_isinstance_blockresult_present(self, filename: str):
         """File must contain at least one `isinstance(*, BlockResult)` call."""

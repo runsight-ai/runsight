@@ -8,6 +8,18 @@
     </file>
     <file path="./apps/api/src/runsight_api/__init__.py">
     </file>
+    <file path="./apps/api/src/runsight_api/alembic.ini">
+    </file>
+    <file path="./apps/api/src/runsight_api/alembic/env.py">
+      <signature>Function run_migrations_offline</signature>
+      <signature>Function run_migrations_online</signature>
+    </file>
+    <file path="./apps/api/src/runsight_api/alembic/script.py.mako">
+    </file>
+    <file path="./apps/api/src/runsight_api/alembic/versions/001_initial_schema.py">
+      <signature>Function upgrade</signature>
+      <signature>Function downgrade</signature>
+    </file>
     <file path="./apps/api/src/runsight_api/core/__init__.py">
     </file>
     <file path="./apps/api/src/runsight_api/core/config.py">
@@ -1059,6 +1071,23 @@
       <signature>Function test_update_workflow_not_found</signature>
       <signature>Function test_delete_workflow_happy_path</signature>
       <signature>Function test_delete_workflow_not_found</signature>
+    </file>
+    <file path="./apps/api/tests/test_alembic_migrations.py">
+      <signature>Class TestAlembicDirectoryStructure</signature>
+      <signature>Function TestAlembicDirectoryStructure.test_alembic_ini_exists</signature>
+      <signature>Function TestAlembicDirectoryStructure.test_alembic_env_py_exists</signature>
+      <signature>Function TestAlembicDirectoryStructure.test_alembic_script_mako_exists</signature>
+      <signature>Function TestAlembicDirectoryStructure.test_versions_directory_exists</signature>
+      <signature>Class TestAlembicEnvPy</signature>
+      <signature>Function TestAlembicEnvPy.test_render_as_batch_enabled</signature>
+      <signature>Function TestAlembicEnvPy.test_target_metadata_uses_sqlmodel</signature>
+      <signature>Class TestInitialMigration</signature>
+      <signature>Function TestInitialMigration.test_at_least_one_migration_exists</signature>
+      <signature>Function TestInitialMigration.test_migration_contains_upgrade_function</signature>
+      <signature>Function TestInitialMigration.test_migration_contains_downgrade_function</signature>
+      <signature>Class TestMainPyMigration</signature>
+      <signature>Function TestMainPyMigration.test_create_all_removed_from_main</signature>
+      <signature>Function TestMainPyMigration.test_main_references_alembic</signature>
     </file>
     <file path="./apps/api/tests/test_cors_config.py">
       <signature>Class TestCorsOriginsSettingsField</signature>
@@ -2615,6 +2644,26 @@
     </file>
     <file path="./libs/core/src/runsight_core/memory/__init__.py">
     </file>
+    <file path="./libs/core/src/runsight_core/memory/budget.py">
+      <signature>Class TokenCounter</signature>
+      <signature>Function TokenCounter.__call__</signature>
+      <signature>Class ContextBudgetRequest</signature>
+      <signature>Class BudgetReport</signature>
+      <signature>Class BudgetedContext</signature>
+      <signature>Class ContextBudgetExceeded</signature>
+      <signature>Function ContextBudgetExceeded.__init__</signature>
+      <signature>Function _count_tokens</signature>
+      <signature>Function _is_repetitive</signature>
+      <signature>Function get_model_budget</signature>
+      <signature>Function _count_messages_tokens</signature>
+      <signature>Function _prune_messages_with_counter</signature>
+      <signature>Function _clean_orphaned_tool_messages</signature>
+      <signature>Function fit_to_budget</signature>
+      <signature>Function _truncate_context</signature>
+    </file>
+    <file path="./libs/core/src/runsight_core/memory/token_counting.py">
+      <signature>Function litellm_token_counter</signature>
+    </file>
     <file path="./libs/core/src/runsight_core/memory/windowing.py">
       <signature>Function get_max_tokens</signature>
       <signature>Function prune_messages</signature>
@@ -2937,6 +2986,99 @@
       <signature>Function test_synthesize_block_empty_inputs</signature>
       <signature>Function test_linear_block_aggregates_cost_and_tokens</signature>
     </file>
+    <file path="./libs/core/tests/test_budget_migration_gate_synthesize.py">
+      <signature>Function _get_source</signature>
+      <signature>Function _get_class_method_source</signature>
+      <signature>Class TestGateBlockImportsBudget</signature>
+      <signature>Function TestGateBlockImportsBudget.test_gate_source_imports_budget</signature>
+      <signature>Class TestGateBlockCallsFitToBudget</signature>
+      <signature>Function TestGateBlockCallsFitToBudget.test_gate_execute_contains_fit_to_budget</signature>
+      <signature>Class TestGateBlockUsesTaskContext</signature>
+      <signature>Function TestGateBlockUsesTaskContext.test_gate_execute_constructs_task_with_context</signature>
+      <signature>Class TestGateBlockNoContentInInstruction</signature>
+      <signature>Function TestGateBlockNoContentInInstruction.test_gate_execute_does_not_interpolate_content_into_instruction</signature>
+      <signature>Class TestSynthesizeBlockImportsBudget</signature>
+      <signature>Function TestSynthesizeBlockImportsBudget.test_synthesize_source_imports_budget</signature>
+      <signature>Class TestSynthesizeBlockCallsFitToBudget</signature>
+      <signature>Function TestSynthesizeBlockCallsFitToBudget.test_synthesize_execute_contains_fit_to_budget</signature>
+      <signature>Class TestSynthesizeBlockUsesTaskContext</signature>
+      <signature>Function TestSynthesizeBlockUsesTaskContext.test_synthesize_execute_constructs_task_with_context</signature>
+      <signature>Class TestSynthesizeBlockNoOutputsInInstruction</signature>
+      <signature>Function TestSynthesizeBlockNoOutputsInInstruction.test_synthesize_execute_does_not_interpolate_outputs_into_instruction</signature>
+    </file>
+    <file path="./libs/core/tests/test_budget_migration_linear_fanout.py">
+      <signature>Function _get_source</signature>
+      <signature>Function _get_class_method_source</signature>
+      <signature>Class TestLinearBlockNoPruneMessages</signature>
+      <signature>Function TestLinearBlockNoPruneMessages.test_linear_source_does_not_contain_prune_messages</signature>
+      <signature>Class TestLinearBlockNoGetMaxTokens</signature>
+      <signature>Function TestLinearBlockNoGetMaxTokens.test_linear_source_does_not_contain_get_max_tokens</signature>
+      <signature>Class TestLinearBlockNoWindowingImport</signature>
+      <signature>Function TestLinearBlockNoWindowingImport.test_linear_source_does_not_import_windowing</signature>
+      <signature>Class TestLinearBlockImportsBudget</signature>
+      <signature>Function TestLinearBlockImportsBudget.test_linear_source_imports_budget</signature>
+      <signature>Class TestLinearBlockCallsFitToBudget</signature>
+      <signature>Function TestLinearBlockCallsFitToBudget.test_linear_execute_contains_fit_to_budget</signature>
+      <signature>Class TestFanOutBlockNoPruneMessages</signature>
+      <signature>Function TestFanOutBlockNoPruneMessages.test_fanout_source_does_not_contain_prune_messages</signature>
+      <signature>Class TestFanOutBlockNoGetMaxTokens</signature>
+      <signature>Function TestFanOutBlockNoGetMaxTokens.test_fanout_source_does_not_contain_get_max_tokens</signature>
+      <signature>Class TestFanOutBlockNoWindowingImport</signature>
+      <signature>Function TestFanOutBlockNoWindowingImport.test_fanout_source_does_not_import_windowing</signature>
+      <signature>Class TestFanOutBlockImportsBudget</signature>
+      <signature>Function TestFanOutBlockImportsBudget.test_fanout_source_imports_budget</signature>
+      <signature>Class TestFanOutBlockCallsFitToBudget</signature>
+      <signature>Function TestFanOutBlockCallsFitToBudget.test_fanout_execute_contains_fit_to_budget</signature>
+    </file>
+    <file path="./libs/core/tests/test_budget_models.py">
+      <signature>Class TestBudgetModuleExists</signature>
+      <signature>Function TestBudgetModuleExists.test_budget_module_importable</signature>
+      <signature>Function TestBudgetModuleExists.test_token_counting_module_importable</signature>
+      <signature>Class TestBudgetNoDirectLLMImport</signature>
+      <signature>Function TestBudgetNoDirectLLMImport.test_budget_does_not_import_litellm</signature>
+      <signature>Class TestTokenCounterProtocol</signature>
+      <signature>Function TestTokenCounterProtocol.test_token_counter_protocol_exists</signature>
+      <signature>Function TestTokenCounterProtocol.test_token_counter_is_protocol</signature>
+      <signature>Function TestTokenCounterProtocol.test_token_counter_is_runtime_checkable</signature>
+      <signature>Function TestTokenCounterProtocol.test_token_counter_is_runtime_checkable.my_counter</signature>
+      <signature>Function TestTokenCounterProtocol.test_token_counter_callable_signature</signature>
+      <signature>Class TestContextBudgetRequest</signature>
+      <signature>Function TestContextBudgetRequest.test_importable</signature>
+      <signature>Function TestContextBudgetRequest.test_is_pydantic_model</signature>
+      <signature>Function TestContextBudgetRequest.test_required_fields_present</signature>
+      <signature>Function TestContextBudgetRequest.test_budget_ratio_default_is_0_9</signature>
+      <signature>Function TestContextBudgetRequest.test_instantiation_with_minimal_fields</signature>
+      <signature>Class TestBudgetReport</signature>
+      <signature>Function TestBudgetReport.test_importable</signature>
+      <signature>Function TestBudgetReport.test_has_expected_fields</signature>
+      <signature>Class TestBudgetedContext</signature>
+      <signature>Function TestBudgetedContext.test_importable</signature>
+      <signature>Function TestBudgetedContext.test_has_expected_fields</signature>
+      <signature>Class TestContextBudgetExceeded</signature>
+      <signature>Function TestContextBudgetExceeded.test_importable</signature>
+      <signature>Function TestContextBudgetExceeded.test_is_exception_subclass</signature>
+      <signature>Function TestContextBudgetExceeded.test_has_p1_tokens_attribute</signature>
+      <signature>Function TestContextBudgetExceeded.test_has_effective_budget_attribute</signature>
+      <signature>Function TestContextBudgetExceeded.test_has_model_attribute</signature>
+      <signature>Function TestContextBudgetExceeded.test_is_raisable_and_catchable</signature>
+      <signature>Class TestCountTokensEmpty</signature>
+      <signature>Function TestCountTokensEmpty.test_none_input_returns_zero</signature>
+      <signature>Function TestCountTokensEmpty.test_empty_string_returns_zero</signature>
+      <signature>Class TestCountTokensRepetitiveContent</signature>
+      <signature>Function TestCountTokensRepetitiveContent.test_highly_repetitive_text_uses_len_estimate</signature>
+      <signature>Function TestCountTokensRepetitiveContent.test_repetitive_threshold_boundary</signature>
+      <signature>Class TestCountTokensDelegatesToCounter</signature>
+      <signature>Function TestCountTokensDelegatesToCounter.test_normal_text_uses_injected_counter</signature>
+      <signature>Function TestCountTokensDelegatesToCounter.test_counter_receives_model_argument</signature>
+      <signature>Class TestGetModelBudget</signature>
+      <signature>Function TestGetModelBudget.test_computes_effective_budget</signature>
+      <signature>Function TestGetModelBudget.test_default_output_reserve_min_formula</signature>
+      <signature>Function TestGetModelBudget.test_default_output_reserve_for_small_model</signature>
+      <signature>Function TestGetModelBudget.test_custom_budget_ratio</signature>
+      <signature>Class TestDefaultTokenCounterAdapter</signature>
+      <signature>Function TestDefaultTokenCounterAdapter.test_has_callable_counter</signature>
+      <signature>Function TestDefaultTokenCounterAdapter.test_adapter_delegates_to_litellm</signature>
+    </file>
     <file path="./libs/core/tests/test_carry_context_blockresult.py">
       <signature>Class BlockResultProducer</signature>
       <signature>Function BlockResultProducer.__init__</signature>
@@ -3086,6 +3228,33 @@
       <signature>Function TestEvaluateOutputConditions.test_numeric_coercion_warning</signature>
       <signature>Function TestEvaluateOutputConditions.test_multiple_cases_complex_routing</signature>
       <signature>Function TestEvaluateOutputConditions.test_exists_operator_in_case</signature>
+    </file>
+    <file path="./libs/core/tests/test_context_truncation.py">
+      <signature>Function _len_counter</signature>
+      <signature>Function _make_delimited_entries</signature>
+      <signature>Class TestTruncateContextImportable</signature>
+      <signature>Function TestTruncateContextImportable.test_truncate_context_importable</signature>
+      <signature>Class TestTruncateContextEmpty</signature>
+      <signature>Function TestTruncateContextEmpty.test_empty_string_returns_empty_tuple</signature>
+      <signature>Function TestTruncateContextEmpty.test_whitespace_only_treated_as_empty</signature>
+      <signature>Class TestTruncateContextFitsWithinBudget</signature>
+      <signature>Function TestTruncateContextFitsWithinBudget.test_short_context_returned_unchanged</signature>
+      <signature>Function TestTruncateContextFitsWithinBudget.test_delimited_context_within_budget_returned_unchanged</signature>
+      <signature>Class TestTruncateContextDelimitedExceedsBudget</signature>
+      <signature>Function TestTruncateContextDelimitedExceedsBudget.test_drops_oldest_entries_first</signature>
+      <signature>Function TestTruncateContextDelimitedExceedsBudget.test_drops_minimum_entries_needed</signature>
+      <signature>Function TestTruncateContextDelimitedExceedsBudget.test_preserves_newest_entry_when_all_others_exceed</signature>
+      <signature>Class TestTruncateContextNoDelimitersAtomic</signature>
+      <signature>Function TestTruncateContextNoDelimitersAtomic.test_no_delimiters_fits_returned_unchanged</signature>
+      <signature>Function TestTruncateContextNoDelimitersAtomic.test_no_delimiters_exceeds_budget_returns_empty</signature>
+      <signature>Class TestTruncateContextDropCount</signature>
+      <signature>Function TestTruncateContextDropCount.test_drop_count_matches_entries_removed</signature>
+      <signature>Function TestTruncateContextDropCount.test_zero_drops_when_all_fit</signature>
+      <signature>Class TestTruncateContextTokenCountAccuracy</signature>
+      <signature>Function TestTruncateContextTokenCountAccuracy.test_tokens_used_matches_counter_on_truncated_output</signature>
+      <signature>Function TestTruncateContextTokenCountAccuracy.test_tokens_used_zero_for_empty_result</signature>
+      <signature>Function TestTruncateContextTokenCountAccuracy.test_never_exceeds_budget</signature>
+      <signature>Function TestTruncateContextTokenCountAccuracy.test_whole_entries_not_partial</signature>
     </file>
     <file path="./libs/core/tests/test_conversation_histories.py">
       <signature>Class TestConversationHistoriesFieldExists</signature>
@@ -3252,10 +3421,12 @@
       <signature>Function test_stateful_preserves_other_block_histories</signature>
       <signature>Function test_stateful_history_key_format</signature>
       <signature>Function test_stateful_windowing_called_per_soul</signature>
+      <signature>Function test_stateful_windowing_called_per_soul._passthrough_budget</signature>
       <signature>Function test_stateful_windowing_prunes_large_history</signature>
       <signature>Function test_stateful_windowing_uses_soul_specific_model</signature>
-      <signature>Function test_stateful_windowing_uses_soul_specific_model._tracking_get_max_tokens</signature>
+      <signature>Function test_stateful_windowing_uses_soul_specific_model._tracking_budget</signature>
       <signature>Function test_stateful_windowing_falls_back_to_runner_model</signature>
+      <signature>Function test_stateful_windowing_falls_back_to_runner_model._tracking_budget</signature>
       <signature>Function test_stateful_no_system_messages_stored</signature>
       <signature>Function test_non_stateful_no_history_entries</signature>
       <signature>Function test_non_stateful_preserves_other_histories</signature>
@@ -3264,6 +3435,79 @@
       <signature>Function test_stateful_does_not_mutate_original_state</signature>
       <signature>Function test_stateful_gather_failure_writes_no_history</signature>
       <signature>Function test_stateful_gather_failure_writes_no_history._failing_side_effect</signature>
+    </file>
+    <file path="./libs/core/tests/test_fit_to_budget_phase1.py">
+      <signature>Function _len_counter</signature>
+      <signature>Function _make_request</signature>
+      <signature>Class TestFitToBudgetImportable</signature>
+      <signature>Function TestFitToBudgetImportable.test_fit_to_budget_importable</signature>
+      <signature>Function TestFitToBudgetImportable.test_fit_to_budget_is_callable</signature>
+      <signature>Class TestFitToBudgetReturnsCorrectTask</signature>
+      <signature>Function TestFitToBudgetReturnsCorrectTask.test_returns_budgeted_context</signature>
+      <signature>Function TestFitToBudgetReturnsCorrectTask.test_task_has_instruction_from_request</signature>
+      <signature>Function TestFitToBudgetReturnsCorrectTask.test_task_has_context_from_request</signature>
+      <signature>Class TestFitToBudgetP1Accounting</signature>
+      <signature>Function TestFitToBudgetP1Accounting.test_p1_tokens_equals_system_prompt_plus_instruction</signature>
+      <signature>Function TestFitToBudgetP1Accounting.test_p1_tokens_with_empty_system_prompt</signature>
+      <signature>Function TestFitToBudgetP1Accounting.test_report_effective_budget_matches_get_model_budget</signature>
+      <signature>Class TestFitToBudgetPassthrough</signature>
+      <signature>Function TestFitToBudgetPassthrough.test_p2_context_passes_through_unchanged</signature>
+      <signature>Function TestFitToBudgetPassthrough.test_p3_history_passes_through_unchanged</signature>
+      <signature>Function TestFitToBudgetPassthrough.test_empty_context_passes_through</signature>
+      <signature>Function TestFitToBudgetPassthrough.test_empty_history_passes_through</signature>
+      <signature>Class TestFitToBudgetExceeded</signature>
+      <signature>Function TestFitToBudgetExceeded.test_raises_when_p1_exceeds_budget</signature>
+      <signature>Function TestFitToBudgetExceeded.test_exception_contains_effective_budget</signature>
+      <signature>Class TestFitToBudgetSafetyValve</signature>
+      <signature>Function TestFitToBudgetSafetyValve.test_safety_valve_retries_with_reduced_output_reserve</signature>
+      <signature>Function TestFitToBudgetSafetyValve.test_safety_valve_retries_with_reduced_output_reserve.mock_get_model_budget</signature>
+      <signature>Function TestFitToBudgetSafetyValve.test_safety_valve_raises_if_still_exceeded</signature>
+      <signature>Function TestFitToBudgetSafetyValve.test_safety_valve_raises_if_still_exceeded.mock_get_model_budget</signature>
+      <signature>Function TestFitToBudgetSafetyValve.test_no_safety_valve_when_p1_fits_initially</signature>
+      <signature>Function TestFitToBudgetSafetyValve.test_no_safety_valve_when_p1_fits_initially.mock_get_model_budget</signature>
+      <signature>Class TestFitToBudgetReportHeadroom</signature>
+      <signature>Function TestFitToBudgetReportHeadroom.test_headroom_calculation</signature>
+      <signature>Function TestFitToBudgetReportHeadroom.test_headroom_positive_when_under_budget</signature>
+      <signature>Function TestFitToBudgetReportHeadroom.test_report_model_matches_request</signature>
+    </file>
+    <file path="./libs/core/tests/test_fit_to_budget_phase2.py">
+      <signature>Function _len_counter</signature>
+      <signature>Function _make_request</signature>
+      <signature>Function _make_history_pairs</signature>
+      <signature>Function _sum_message_tokens</signature>
+      <signature>Class TestP3PrunedWhenOverBudget</signature>
+      <signature>Function TestP3PrunedWhenOverBudget.test_p3_pairs_removed_from_front</signature>
+      <signature>Function TestP3PrunedWhenOverBudget.test_p3_not_pruned_when_under_budget</signature>
+      <signature>Class TestP2TruncatedAfterP3FullyPruned</signature>
+      <signature>Function TestP2TruncatedAfterP3FullyPruned.test_p3_pruned_first_p2_untouched_if_fits</signature>
+      <signature>Function TestP2TruncatedAfterP3FullyPruned.test_p2_truncated_when_p3_fully_pruned_still_over</signature>
+      <signature>Class TestBudgetReportTokenCounts</signature>
+      <signature>Function TestBudgetReportTokenCounts.test_p3_tokens_before_reflects_original_history</signature>
+      <signature>Function TestBudgetReportTokenCounts.test_p3_tokens_after_reflects_pruned_history</signature>
+      <signature>Function TestBudgetReportTokenCounts.test_p3_tokens_after_less_than_before_when_pruned</signature>
+      <signature>Function TestBudgetReportTokenCounts.test_p2_tokens_before_reflects_original_context</signature>
+      <signature>Function TestBudgetReportTokenCounts.test_p2_tokens_after_reflects_truncated_context</signature>
+      <signature>Function TestBudgetReportTokenCounts.test_p2_tokens_after_less_than_before_when_truncated</signature>
+      <signature>Class TestOrphanedToolMessageCleanup</signature>
+      <signature>Function TestOrphanedToolMessageCleanup.test_orphaned_tool_response_removed</signature>
+      <signature>Function TestOrphanedToolMessageCleanup.test_orphaned_assistant_tool_calls_removed</signature>
+      <signature>Function TestOrphanedToolMessageCleanup.test_valid_tool_pairs_preserved</signature>
+      <signature>Class TestEmptyP2OnlyP3Pruned</signature>
+      <signature>Function TestEmptyP2OnlyP3Pruned.test_empty_context_p3_pruned_to_fit</signature>
+      <signature>Function TestEmptyP2OnlyP3Pruned.test_empty_context_report_has_correct_p3_before</signature>
+      <signature>Class TestEmptyP3OnlyP2Truncated</signature>
+      <signature>Function TestEmptyP3OnlyP2Truncated.test_empty_history_p2_truncated_to_fit</signature>
+      <signature>Function TestEmptyP3OnlyP2Truncated.test_empty_history_report_has_correct_p2_before</signature>
+      <signature>Class TestBothEmpty</signature>
+      <signature>Function TestBothEmpty.test_pure_p1_call_succeeds</signature>
+      <signature>Function TestBothEmpty.test_pure_p1_report_zeroed</signature>
+      <signature>Class TestP3PairsDroppedCount</signature>
+      <signature>Function TestP3PairsDroppedCount.test_pairs_dropped_count_matches_actual_pruning</signature>
+      <signature>Function TestP3PairsDroppedCount.test_pairs_dropped_zero_when_no_pruning</signature>
+      <signature>Function TestP3PairsDroppedCount.test_all_pairs_dropped_when_budget_allows_none</signature>
+      <signature>Class TestTotalTokensAndHeadroomAfterPhase2</signature>
+      <signature>Function TestTotalTokensAndHeadroomAfterPhase2.test_total_tokens_reflects_final_state</signature>
+      <signature>Function TestTotalTokensAndHeadroomAfterPhase2.test_headroom_reflects_final_budget_minus_total</signature>
     </file>
     <file path="./libs/core/tests/test_gate_error_subclass.py">
       <signature>Function _mock_runner</signature>
@@ -3997,13 +4241,13 @@
       <signature>Class TestWindowingActivatesInsideLoop</signature>
       <signature>Function TestWindowingActivatesInsideLoop.test_windowing_prunes_during_loop_rounds</signature>
       <signature>Function TestWindowingActivatesInsideLoop.test_windowing_prunes_during_loop_rounds._side_effect</signature>
-      <signature>Function TestWindowingActivatesInsideLoop.test_windowing_prunes_during_loop_rounds._aggressive_prune</signature>
+      <signature>Function TestWindowingActivatesInsideLoop.test_windowing_prunes_during_loop_rounds._aggressive_budget</signature>
       <signature>Function TestWindowingActivatesInsideLoop.test_windowing_prunes_fanout_per_soul_inside_loop</signature>
       <signature>Function TestWindowingActivatesInsideLoop.test_windowing_prunes_fanout_per_soul_inside_loop._side_effect</signature>
-      <signature>Function TestWindowingActivatesInsideLoop.test_windowing_prunes_fanout_per_soul_inside_loop._aggressive_prune</signature>
+      <signature>Function TestWindowingActivatesInsideLoop.test_windowing_prunes_fanout_per_soul_inside_loop._aggressive_budget</signature>
       <signature>Function TestWindowingActivatesInsideLoop.test_pruned_history_still_passed_to_next_round</signature>
       <signature>Function TestWindowingActivatesInsideLoop.test_pruned_history_still_passed_to_next_round._capture</signature>
-      <signature>Function TestWindowingActivatesInsideLoop.test_pruned_history_still_passed_to_next_round._prune_to_2</signature>
+      <signature>Function TestWindowingActivatesInsideLoop.test_pruned_history_still_passed_to_next_round._budget_prune_to_2</signature>
       <signature>Class TestBreakConditionWithBlockResult</signature>
       <signature>Function TestBreakConditionWithBlockResult.test_break_condition_receives_string_output</signature>
       <signature>Function TestBreakConditionWithBlockResult.test_break_condition_receives_string_output._side_effect</signature>
