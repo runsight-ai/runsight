@@ -12,6 +12,7 @@ class BlockResult(BaseModel):
     """Structured result from a block execution."""
 
     output: str
+    exit_handle: Optional[str] = None
     artifact_ref: Optional[str] = None
     artifact_type: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None

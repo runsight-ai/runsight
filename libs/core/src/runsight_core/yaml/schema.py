@@ -92,6 +92,16 @@ class RetryConfig(BaseModel):
     non_retryable_errors: Optional[List[str]] = None
 
 
+# -- Exit definition -------------------------------------------------------
+
+
+class ExitDef(BaseModel):
+    """Named exit port on a block definition."""
+
+    id: str
+    label: str
+
+
 # -- Base block model ------------------------------------------------------
 
 
@@ -106,6 +116,7 @@ class BaseBlockDef(BaseModel):
     inputs: Optional[Dict[str, InputRef]] = None
     outputs: Optional[Dict[str, str]] = None  # name -> type string
     retry_config: Optional[RetryConfig] = None
+    exits: Optional[List[ExitDef]] = None
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
