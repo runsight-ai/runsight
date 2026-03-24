@@ -1220,8 +1220,7 @@
           "anyOf": [
             {
               "items": {
-                "additionalProperties": true,
-                "type": "object"
+                "type": "string"
               },
               "type": "array"
             },
@@ -1231,6 +1230,11 @@
           ],
           "default": null,
           "title": "Tools"
+        },
+        "max_tool_iterations": {
+          "default": 5,
+          "title": "Max Tool Iterations",
+          "type": "integer"
         },
         "model_name": {
           "anyOf": [
@@ -1468,6 +1472,26 @@
       "title": "TeamLeadBlockDef",
       "type": "object"
     },
+    "ToolDef": {
+      "description": "Tool definition as expressed in the YAML tools: section.",
+      "properties": {
+        "type": {
+          "const": "builtin",
+          "title": "Type",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "source"
+      ],
+      "title": "ToolDef",
+      "type": "object"
+    },
     "TransitionDef": {
       "description": "Plain (single-path) transition: from -> to. to=None means terminal block.",
       "properties": {
@@ -1647,6 +1671,13 @@
     "config": {
       "additionalProperties": true,
       "title": "Config",
+      "type": "object"
+    },
+    "tools": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ToolDef"
+      },
+      "title": "Tools",
       "type": "object"
     },
     "souls": {

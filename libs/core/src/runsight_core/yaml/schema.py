@@ -12,13 +12,21 @@ from pydantic import BaseModel, ConfigDict, Field
 # -- Soul / Task / Task-file (unchanged) ------------------------------------
 
 
+class ToolDef(BaseModel):
+    """Tool definition as expressed in the YAML tools: section."""
+
+    type: Literal["builtin"]
+    source: str
+
+
 class SoulDef(BaseModel):
     """Soul definition as expressed in the YAML souls: section."""
 
     id: str
     role: str
     system_prompt: str
-    tools: Optional[List[Dict[str, Any]]] = None
+    tools: Optional[List[str]] = None
+    max_tool_iterations: int = 5
     model_name: Optional[str] = None
 
 
@@ -190,6 +198,7 @@ class RunsightWorkflowFile(BaseModel):
 
     version: str = "1.0"
     config: Dict[str, Any] = Field(default_factory=dict)
+    tools: Dict[str, ToolDef] = Field(default_factory=dict)
     souls: Dict[str, SoulDef] = Field(default_factory=dict)
     blocks: Dict[str, BlockDef] = Field(default_factory=dict)
     workflow: WorkflowDef  # required — no default; Pydantic raises ValidationError if absent

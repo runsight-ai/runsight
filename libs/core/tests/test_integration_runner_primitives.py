@@ -19,10 +19,7 @@ def integration_soul():
         id="integration_test_soul",
         role="Integration Test Agent",
         system_prompt="You are an integration test agent that validates system behavior.",
-        tools=[
-            {"name": "calculator", "description": "Performs calculations"},
-            {"name": "search", "description": "Searches information"},
-        ],
+        tools=["calculator", "search"],
     )
 
 
@@ -248,10 +245,7 @@ async def test_soul_tools_field_preserved_through_execution(
         id="tooled_soul",
         role="Tool User",
         system_prompt="You can use tools.",
-        tools=[
-            {"name": "file_reader", "description": "Reads files"},
-            {"name": "web_search", "description": "Searches web"},
-        ],
+        tools=["file_reader", "web_search"],
     )
 
     mock_achat.return_value = {
@@ -266,7 +260,7 @@ async def test_soul_tools_field_preserved_through_execution(
     # Verify soul tools are still accessible after execution
     assert soul_with_tools.tools is not None
     assert len(soul_with_tools.tools) == 2
-    assert soul_with_tools.tools[0]["name"] == "file_reader"
+    assert soul_with_tools.tools[0] == "file_reader"
 
 
 @pytest.mark.asyncio

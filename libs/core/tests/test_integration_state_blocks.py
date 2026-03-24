@@ -146,7 +146,7 @@ async def test_soul_primitive_integration_with_block(mock_runner):
         id="detailed_soul",
         role="Senior Engineer",
         system_prompt="You are a senior engineer with expertise in testing.",
-        tools=[{"name": "test_tool", "description": "A test tool"}],
+        tools=["test_tool"],
     )
 
     mock_runner.execute_task.return_value = ExecutionResult(
@@ -167,7 +167,7 @@ async def test_soul_primitive_integration_with_block(mock_runner):
     assert actual_soul.id == "detailed_soul"
     assert actual_soul.role == "Senior Engineer"
     assert actual_soul.system_prompt == "You are a senior engineer with expertise in testing."
-    assert actual_soul.tools == [{"name": "test_tool", "description": "A test tool"}]
+    assert actual_soul.tools == ["test_tool"]
 
 
 @pytest.mark.asyncio
