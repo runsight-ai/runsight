@@ -18,26 +18,12 @@ from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
 
 
-class GateError(Exception):
-    """Structured error raised when a GateBlock evaluation fails.
-
-    Inherits from Exception (not ValueError) to avoid silent swallowing
-    by generic ValueError catches. Carries gate_id and the updated
-    workflow state so callers (e.g. LoopBlock) can inspect and retry.
-    """
-
-    def __init__(self, message: str, *, gate_id: str, state: WorkflowState) -> None:
-        super().__init__(message)
-        self.gate_id = gate_id
-        self.state = state
-
-
 class GateBlock(BaseBlock):
     """
     Quality gate that evaluates content and either passes or fails the workflow.
 
-    On PASS: stores result (or extracted content) and continues execution.
-    On FAIL: raises GateError with structured fields, enabling LoopBlock to catch and retry.
+    On PASS: returns state with BlockResult(exit_handle="pass").
+    On FAIL: returns state with BlockResult(exit_handle="fail") and feedback as output.
     """
 
     def __init__(
@@ -104,10 +90,9 @@ class GateBlock(BaseBlock):
 
             return state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: BlockResult(output=pass_through)},
-                    "metadata": {
-                        **state.metadata,
-                        f"{self.block_id}_decision": "pass",
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output=pass_through, exit_handle="pass"),
                     },
                     "execution_log": state.execution_log
                     + [
@@ -122,20 +107,22 @@ class GateBlock(BaseBlock):
             )
         else:
             feedback = decision_line[5:].strip() if ":" in decision_line else decision_line
-            updated_state = state.model_copy(
+            return state.model_copy(
                 update={
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(output=feedback, exit_handle="fail"),
+                    },
+                    "execution_log": state.execution_log
+                    + [
+                        {
+                            "role": "system",
+                            "content": f"[Block {self.block_id}] Gate: FAIL — {feedback}",
+                        }
+                    ],
                     "total_cost_usd": state.total_cost_usd + result.cost_usd,
                     "total_tokens": state.total_tokens + result.total_tokens,
-                    "metadata": {
-                        **state.metadata,
-                        f"{self.block_id}_decision": "fail",
-                    },
                 }
-            )
-            raise GateError(
-                f"GateBlock '{self.block_id}' FAILED: {feedback}",
-                gate_id=self.block_id,
-                state=updated_state,
             )
 
 
@@ -173,6 +160,16 @@ def build(
         raise ValueError(f"GateBlock '{block_id}': soul_ref is required")
     if block_def.eval_key is None:
         raise ValueError(f"GateBlock '{block_id}': eval_key is required")
+
+    # Auto-inject pass/fail exits when not explicitly defined
+    if block_def.exits is None:
+        from runsight_core.yaml.schema import ExitDef
+
+        block_def.exits = [
+            ExitDef(id="pass", label="Pass"),
+            ExitDef(id="fail", label="Fail"),
+        ]
+
     soul = resolve_soul(block_def.soul_ref, souls_map)
     return GateBlock(
         block_id, soul, block_def.eval_key, runner, extract_field=block_def.extract_field
