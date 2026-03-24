@@ -1,5 +1,7 @@
-from typing import Any, AsyncGenerator, Dict, Optional
-from pydantic import BaseModel
+import json
+from typing import Any, AsyncGenerator, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 from runsight_core.primitives import Soul, Task
 from runsight_core.llm.client import LiteLLMClient
@@ -16,6 +18,8 @@ class ExecutionResult(BaseModel):
     metadata: Dict[str, Any] = {}
     cost_usd: float = 0.0
     total_tokens: int = 0
+    tool_iterations: int = 0
+    tool_calls_made: List[str] = Field(default_factory=list)
 
 
 def _detect_provider(model_name: str) -> str:
@@ -90,18 +94,106 @@ class RunsightTeamRunner:
     ) -> ExecutionResult:
         """
         Executes a task synchronously (waits for full completion).
+
+        When the soul has resolved_tools, enters an agentic tool-use loop:
+        sends tool schemas to the LLM, executes tool calls, feeds results back,
+        and repeats until the LLM responds with text or max iterations is reached.
         """
         all_messages = (messages or []) + [{"role": "user", "content": self._build_prompt(task)}]
-
         client = self._get_client(soul)
-        response = await client.achat(messages=all_messages, system_prompt=soul.system_prompt)
+
+        # Single-shot path: no tools
+        if not soul.resolved_tools:
+            response = await client.achat(messages=all_messages, system_prompt=soul.system_prompt)
+            return ExecutionResult(
+                task_id=task.id,
+                soul_id=soul.id,
+                output=response["content"],
+                cost_usd=response["cost_usd"],
+                total_tokens=response["total_tokens"],
+                tool_iterations=0,
+                tool_calls_made=[],
+            )
+
+        # Agentic tool loop
+        tool_schemas = [t.to_openai_schema() for t in soul.resolved_tools]
+        tool_map = {t.name: t for t in soul.resolved_tools}
+        max_iters = soul.max_tool_iterations
+        iteration = 0
+        accumulated_cost = 0.0
+        accumulated_tokens = 0
+        tool_calls_made: List[str] = []
+        response: Dict[str, Any] = {}
+
+        while iteration < max_iters:
+            is_last = iteration == max_iters - 1
+            tools_for_llm = [] if is_last else tool_schemas
+
+            response = await client.achat(
+                messages=all_messages,
+                system_prompt=soul.system_prompt,
+                tools=tools_for_llm,
+            )
+            accumulated_cost += response["cost_usd"]
+            accumulated_tokens += response["total_tokens"]
+
+            if not response.get("tool_calls"):
+                # LLM responded with text -- done
+                return ExecutionResult(
+                    task_id=task.id,
+                    soul_id=soul.id,
+                    output=response["content"],
+                    cost_usd=accumulated_cost,
+                    total_tokens=accumulated_tokens,
+                    tool_iterations=iteration,
+                    tool_calls_made=tool_calls_made,
+                )
+
+            # Append assistant message with tool_calls to conversation
+            all_messages.append(response["raw_message"])
+
+            # Execute each tool call
+            for tc in response["tool_calls"]:
+                tool_name = tc["function"]["name"]
+                tool_calls_made.append(tool_name)
+
+                tool = tool_map.get(tool_name)
+                if tool is None:
+                    result_str = f"Error: unknown tool '{tool_name}'"
+                else:
+                    try:
+                        args = json.loads(tc["function"]["arguments"])
+                        result_str = await tool.execute(args)
+                    except Exception as e:
+                        result_str = f"Error: {e}"
+
+                all_messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": result_str,
+                    }
+                )
+
+            iteration += 1
+
+        # Max iterations exhausted -- force a final text response with no tools
+        response = await client.achat(
+            messages=all_messages,
+            system_prompt=soul.system_prompt,
+            tools=[],
+        )
+        accumulated_cost += response["cost_usd"]
+        accumulated_tokens += response["total_tokens"]
 
         return ExecutionResult(
             task_id=task.id,
             soul_id=soul.id,
-            output=response["content"],
-            cost_usd=response["cost_usd"],
-            total_tokens=response["total_tokens"],
+            output=response.get("content", ""),
+            cost_usd=accumulated_cost,
+            total_tokens=accumulated_tokens,
+            tool_iterations=iteration,
+            tool_calls_made=tool_calls_made,
         )
 
     async def stream_task(
