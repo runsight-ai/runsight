@@ -158,9 +158,9 @@ class TestKnownExceptionsPreserved:
         assert body["error"] == "Soul 'planner' not found"
         assert body["code"] == "NOT_FOUND"
 
-    def test_run_failed_returns_400_with_message(self):
+    def test_run_failed_returns_500_with_message(self):
         resp = client.get("/raise-run-failed")
-        assert resp.status_code == 400
+        assert resp.status_code == 500
         body = resp.json()
         assert body["error"] == "Step 3 timed out after 30s"
         assert body["code"] == "RUN_FAILED"

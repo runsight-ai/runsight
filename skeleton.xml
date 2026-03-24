@@ -29,10 +29,20 @@
       <signature>Function Settings._split_cors_origins</signature>
       <signature>Function ensure_project_dirs</signature>
     </file>
+    <file path="./apps/api/src/runsight_api/core/context.py">
+      <signature>Function bind_request_context</signature>
+      <signature>Function bind_execution_context</signature>
+      <signature>Function bind_block_context</signature>
+      <signature>Function clear_block_context</signature>
+      <signature>Function clear_execution_context</signature>
+    </file>
     <file path="./apps/api/src/runsight_api/core/di.py">
       <signature>Class Container</signature>
       <signature>Function Container.__init__</signature>
       <signature>Function Container.setup_app_state</signature>
+    </file>
+    <file path="./apps/api/src/runsight_api/core/logging.py">
+      <signature>Function configure_logging</signature>
     </file>
     <file path="./apps/api/src/runsight_api/core/project.py">
       <signature>Function _parse_marker</signature>
@@ -1195,6 +1205,49 @@
       <signature>Function TestStaleRunRecovery.test_no_running_runs_is_noop</signature>
       <signature>Function TestStaleRunRecovery.test_empty_database_is_noop</signature>
       <signature>Function TestStaleRunRecovery.test_mixed_statuses_only_running_affected</signature>
+    </file>
+    <file path="./apps/api/tests/test_structlog_foundation.py">
+      <signature>Class TestContextVarsExist</signature>
+      <signature>Function TestContextVarsExist.test_context_module_importable</signature>
+      <signature>Function TestContextVarsExist.test_request_id_default_is_empty_string</signature>
+      <signature>Function TestContextVarsExist.test_run_id_default_is_empty_string</signature>
+      <signature>Function TestContextVarsExist.test_block_id_default_is_empty_string</signature>
+      <signature>Function TestContextVarsExist.test_workflow_name_default_is_empty_string</signature>
+      <signature>Class TestBindRequestContext</signature>
+      <signature>Function TestBindRequestContext.test_sets_request_id</signature>
+      <signature>Class TestBindExecutionContext</signature>
+      <signature>Function TestBindExecutionContext.test_sets_run_id_and_workflow_name</signature>
+      <signature>Class TestBindBlockContext</signature>
+      <signature>Function TestBindBlockContext.test_sets_block_id</signature>
+      <signature>Class TestClearBlockContext</signature>
+      <signature>Function TestClearBlockContext.test_resets_block_id_to_empty</signature>
+      <signature>Function TestClearBlockContext.test_preserves_run_id</signature>
+      <signature>Class TestClearExecutionContext</signature>
+      <signature>Function TestClearExecutionContext.test_resets_run_id</signature>
+      <signature>Function TestClearExecutionContext.test_resets_workflow_name</signature>
+      <signature>Function TestClearExecutionContext.test_resets_block_id</signature>
+      <signature>Class TestLoggingModuleImportable</signature>
+      <signature>Function TestLoggingModuleImportable.test_configure_logging_importable</signature>
+      <signature>Class TestConfigureLoggingJson</signature>
+      <signature>Function TestConfigureLoggingJson.test_json_output_has_required_keys</signature>
+      <signature>Class TestConfigureLoggingText</signature>
+      <signature>Function TestConfigureLoggingText.test_text_output_is_not_json</signature>
+      <signature>Class TestContextVarsInjectedIntoLogs</signature>
+      <signature>Function TestContextVarsInjectedIntoLogs.test_request_id_appears_in_json_log</signature>
+      <signature>Function TestContextVarsInjectedIntoLogs.test_execution_context_appears_in_json_log</signature>
+      <signature>Class TestSettingsLogFields</signature>
+      <signature>Function TestSettingsLogFields.test_settings_has_log_level</signature>
+      <signature>Function TestSettingsLogFields.test_log_level_default_is_info</signature>
+      <signature>Function TestSettingsLogFields.test_settings_has_log_format</signature>
+      <signature>Function TestSettingsLogFields.test_log_format_default_is_json</signature>
+      <signature>Class TestSettingsLogEnvOverrides</signature>
+      <signature>Function TestSettingsLogEnvOverrides.test_log_level_env_override</signature>
+      <signature>Function TestSettingsLogEnvOverrides.test_log_format_env_override</signature>
+      <signature>Class TestStructlogDependency</signature>
+      <signature>Function TestStructlogDependency.test_structlog_in_dependencies</signature>
+      <signature>Class TestMainCallsConfigureLogging</signature>
+      <signature>Function TestMainCallsConfigureLogging.test_main_imports_configure_logging</signature>
+      <signature>Function TestMainCallsConfigureLogging.test_main_invokes_configure_logging</signature>
     </file>
     <file path="./apps/api/tests/test_swallowed_exception_logging.py">
       <signature>Function _parse_create_run_function</signature>
@@ -2506,51 +2559,19 @@
       <signature>Class CodeBlockDef</signature>
       <signature>Function build</signature>
     </file>
-    <file path="./libs/core/src/runsight_core/blocks/engineering_manager.py">
-      <signature>Class EngineeringManagerBlock</signature>
-      <signature>Function EngineeringManagerBlock.__init__</signature>
-      <signature>Function EngineeringManagerBlock.execute</signature>
-      <signature>Class EngineeringManagerBlockDef</signature>
-      <signature>Function build</signature>
-    </file>
     <file path="./libs/core/src/runsight_core/blocks/fanout.py">
+      <signature>Class FanOutBranch</signature>
       <signature>Class FanOutBlock</signature>
       <signature>Function FanOutBlock.__init__</signature>
       <signature>Function FanOutBlock.execute</signature>
       <signature>Class FanOutBlockDef</signature>
       <signature>Function build</signature>
     </file>
-    <file path="./libs/core/src/runsight_core/blocks/file_writer.py">
-      <signature>Class FileWriterBlock</signature>
-      <signature>Function FileWriterBlock.__init__</signature>
-      <signature>Function FileWriterBlock.execute</signature>
-      <signature>Class FileWriterBlockDef</signature>
-      <signature>Function build</signature>
-    </file>
     <file path="./libs/core/src/runsight_core/blocks/gate.py">
-      <signature>Class GateError</signature>
-      <signature>Function GateError.__init__</signature>
       <signature>Class GateBlock</signature>
       <signature>Function GateBlock.__init__</signature>
       <signature>Function GateBlock.execute</signature>
       <signature>Class GateBlockDef</signature>
-      <signature>Function build</signature>
-    </file>
-    <file path="./libs/core/src/runsight_core/blocks/http_request.py">
-      <signature>Class HttpRequestError</signature>
-      <signature>Class TemplateResolutionError</signature>
-      <signature>Class HttpStatusError</signature>
-      <signature>Class HttpRequestBlock</signature>
-      <signature>Function HttpRequestBlock.__init__</signature>
-      <signature>Function HttpRequestBlock._resolve_templates</signature>
-      <signature>Function HttpRequestBlock._resolve_templates._replacer</signature>
-      <signature>Function HttpRequestBlock._build_auth_headers</signature>
-      <signature>Function HttpRequestBlock._apply_auth_query_params</signature>
-      <signature>Function HttpRequestBlock._parse_response</signature>
-      <signature>Function HttpRequestBlock._validate_status</signature>
-      <signature>Function HttpRequestBlock.execute</signature>
-      <signature>Class HttpRequestBlockDef</signature>
-      <signature>Function HttpRequestBlockDef._uppercase_method</signature>
       <signature>Function build</signature>
     </file>
     <file path="./libs/core/src/runsight_core/blocks/linear.py">
@@ -2574,25 +2595,11 @@
       <signature>Function BlockRegistry.register</signature>
       <signature>Function BlockRegistry.get</signature>
     </file>
-    <file path="./libs/core/src/runsight_core/blocks/router.py">
-      <signature>Class RouterBlock</signature>
-      <signature>Function RouterBlock.__init__</signature>
-      <signature>Function RouterBlock.execute</signature>
-      <signature>Class RouterBlockDef</signature>
-      <signature>Function build</signature>
-    </file>
     <file path="./libs/core/src/runsight_core/blocks/synthesize.py">
       <signature>Class SynthesizeBlock</signature>
       <signature>Function SynthesizeBlock.__init__</signature>
       <signature>Function SynthesizeBlock.execute</signature>
       <signature>Class SynthesizeBlockDef</signature>
-      <signature>Function build</signature>
-    </file>
-    <file path="./libs/core/src/runsight_core/blocks/team_lead.py">
-      <signature>Class TeamLeadBlock</signature>
-      <signature>Function TeamLeadBlock.__init__</signature>
-      <signature>Function TeamLeadBlock.execute</signature>
-      <signature>Class TeamLeadBlockDef</signature>
       <signature>Function build</signature>
     </file>
     <file path="./libs/core/src/runsight_core/blocks/workflow_block.py">
@@ -2735,6 +2742,28 @@
       <signature>Function BlockResult.__iter__</signature>
       <signature>Class WorkflowState</signature>
     </file>
+    <file path="./libs/core/src/runsight_core/tools/__init__.py">
+    </file>
+    <file path="./libs/core/src/runsight_core/tools/_catalog.py">
+      <signature>Class ToolInstance</signature>
+      <signature>Function ToolInstance.to_openai_schema</signature>
+      <signature>Function register_builtin</signature>
+      <signature>Function get_builtin</signature>
+      <signature>Function resolve_tool</signature>
+    </file>
+    <file path="./libs/core/src/runsight_core/tools/delegate.py">
+      <signature>Function create_delegate_tool</signature>
+      <signature>Function create_delegate_tool._execute</signature>
+    </file>
+    <file path="./libs/core/src/runsight_core/tools/file_io.py">
+      <signature>Function _validate_path</signature>
+      <signature>Function create_file_io_tool</signature>
+      <signature>Function create_file_io_tool._execute</signature>
+    </file>
+    <file path="./libs/core/src/runsight_core/tools/http.py">
+      <signature>Function _execute</signature>
+      <signature>Function create_http_tool</signature>
+    </file>
     <file path="./libs/core/src/runsight_core/workflow.py">
       <signature>Class Workflow</signature>
       <signature>Function Workflow.__init__</signature>
@@ -2777,6 +2806,7 @@
       <signature>Function WorkflowRegistry.get</signature>
     </file>
     <file path="./libs/core/src/runsight_core/yaml/schema.py">
+      <signature>Class ToolDef</signature>
       <signature>Class SoulDef</signature>
       <signature>Class TaskDef</signature>
       <signature>Class RunsightTaskFile</signature>
@@ -2785,6 +2815,8 @@
       <signature>Class CaseDef</signature>
       <signature>Class InputRef</signature>
       <signature>Class RetryConfig</signature>
+      <signature>Class ExitDef</signature>
+      <signature>Class FanOutExitDef</signature>
       <signature>Class BaseBlockDef</signature>
       <signature>Function BaseBlockDef.__init_subclass__</signature>
       <signature>Class TransitionDef</signature>
@@ -2795,37 +2827,9 @@
       <signature>Function rebuild_block_def_union</signature>
     </file>
     <file path="./libs/core/tests/conftest.py">
+      <signature>Function _ensure_event_loop</signature>
       <signature>Function make_test_yaml</signature>
       <signature>Function test_souls_map</signature>
-    </file>
-    <file path="./libs/core/tests/test_advanced_blocks.py">
-      <signature>Function mock_runner</signature>
-      <signature>Function sample_soul</signature>
-      <signature>Function test_router_block_soul_evaluation</signature>
-      <signature>Function test_router_block_callable_evaluation</signature>
-      <signature>Function test_router_block_callable_evaluation.check_budget</signature>
-      <signature>Function test_router_block_callable_evaluation_rejected</signature>
-      <signature>Function test_router_block_callable_evaluation_rejected.check_budget</signature>
-      <signature>Function test_router_block_requires_runner_for_soul</signature>
-      <signature>Function test_router_block_soul_requires_current_task</signature>
-      <signature>Function test_router_block_soul_strips_whitespace</signature>
-      <signature>Function test_router_block_callable_with_runner_allowed</signature>
-      <signature>Function test_router_block_callable_with_runner_allowed.simple_check</signature>
-      <signature>Function test_team_lead_block_analyzes_failure</signature>
-      <signature>Function test_team_lead_block_missing_context_keys</signature>
-      <signature>Function test_team_lead_block_empty_failure_context_keys</signature>
-      <signature>Function test_team_lead_block_handles_list_and_string_values</signature>
-      <signature>Function test_team_lead_block_preserves_existing_shared_memory</signature>
-      <signature>Function planner_soul</signature>
-      <signature>Function test_engineering_manager_generates_new_steps</signature>
-      <signature>Function test_engineering_manager_validates_current_task</signature>
-      <signature>Function test_engineering_manager_regex_pattern_parsing</signature>
-      <signature>Function test_engineering_manager_fallback_creates_generic_step</signature>
-      <signature>Function test_engineering_manager_fallback_truncates_at_200_chars</signature>
-      <signature>Function test_engineering_manager_regex_with_whitespace_variations</signature>
-      <signature>Function test_engineering_manager_preserves_existing_results_and_metadata</signature>
-      <signature>Function test_engineering_manager_reads_previous_errors_from_shared_memory</signature>
-      <signature>Function test_engineering_manager_multiline_descriptions</signature>
     </file>
     <file path="./libs/core/tests/test_artifact_store_wiring.py">
       <signature>Class ArtifactCapturingBlock</signature>
@@ -2903,22 +2907,6 @@
       <signature>Function TestInMemoryArtifactStoreMetadata.test_metadata_none_when_not_provided</signature>
       <signature>Function TestInMemoryArtifactStoreMetadata.test_metadata_overwritten_with_key</signature>
     </file>
-    <file path="./libs/core/tests/test_async_file_io.py">
-      <signature>Function _get_execute_source</signature>
-      <signature>Function _get_module_source</signature>
-      <signature>Class TestAsyncToThreadWrapping</signature>
-      <signature>Function TestAsyncToThreadWrapping.test_module_imports_asyncio</signature>
-      <signature>Function TestAsyncToThreadWrapping.test_execute_uses_asyncio_to_thread</signature>
-      <signature>Class TestNoSynchronousCalls</signature>
-      <signature>Function TestNoSynchronousCalls.test_no_bare_mkdir_call</signature>
-      <signature>Function TestNoSynchronousCalls.test_no_bare_write_text_call</signature>
-      <signature>Class TestFunctionalCorrectness</signature>
-      <signature>Function TestFunctionalCorrectness.test_file_written_correctly</signature>
-      <signature>Function TestFunctionalCorrectness.test_parent_directories_created</signature>
-      <signature>Function TestFunctionalCorrectness.test_result_state_contains_char_count</signature>
-      <signature>Function TestFunctionalCorrectness.test_execute_does_not_block_event_loop</signature>
-      <signature>Function TestFunctionalCorrectness.test_execute_does_not_block_event_loop.tracking_to_thread</signature>
-    </file>
     <file path="./libs/core/tests/test_base_block.py">
       <signature>Class SimpleTestBlock</signature>
       <signature>Function SimpleTestBlock.execute</signature>
@@ -2980,7 +2968,7 @@
       <signature>Function test_linear_block_preserves_existing_results</signature>
       <signature>Function test_linear_block_preserves_existing_messages</signature>
       <signature>Function test_fanout_block_parallel</signature>
-      <signature>Function test_fanout_block_empty_souls</signature>
+      <signature>Function test_fanout_block_empty_branches</signature>
       <signature>Function test_synthesize_block_combination</signature>
       <signature>Function test_synthesize_block_missing_input</signature>
       <signature>Function test_synthesize_block_empty_inputs</signature>
@@ -3029,6 +3017,23 @@
       <signature>Function TestFanOutBlockImportsBudget.test_fanout_source_imports_budget</signature>
       <signature>Class TestFanOutBlockCallsFitToBudget</signature>
       <signature>Function TestFanOutBlockCallsFitToBudget.test_fanout_execute_contains_fit_to_budget</signature>
+    </file>
+    <file path="./libs/core/tests/test_budget_migration_remaining.py">
+      <signature>Function _get_source</signature>
+      <signature>Function _get_class_method_source</signature>
+      <signature>Class TestLoopBlockCarryContextFlowsThroughTaskContext</signature>
+      <signature>Function TestLoopBlockCarryContextFlowsThroughTaskContext.test_loop_carry_context_injects_into_task_context</signature>
+      <signature>Function _make_soul</signature>
+      <signature>Function _make_mock_runner</signature>
+      <signature>Function _make_mock_runner._execute</signature>
+      <signature>Class TestLoopCarryContextBudgetIntegration</signature>
+      <signature>Function TestLoopCarryContextBudgetIntegration._run_loop</signature>
+      <signature>Function TestLoopCarryContextBudgetIntegration.test_twenty_two_rounds_complete_with_carry_context_in_task</signature>
+      <signature>Function TestLoopCarryContextBudgetIntegration.test_carry_context_is_set_on_task_context</signature>
+      <signature>Function TestLoopCarryContextBudgetIntegration.test_fit_to_budget_receives_carry_context_as_p2</signature>
+      <signature>Function TestLoopCarryContextBudgetIntegration.test_fit_to_budget_receives_carry_context_as_p2._tracking_fit</signature>
+      <signature>Function TestLoopCarryContextBudgetIntegration.test_budget_report_shows_pruning_in_later_rounds</signature>
+      <signature>Function TestLoopCarryContextBudgetIntegration.test_budget_report_shows_pruning_in_later_rounds._tracking_fit</signature>
     </file>
     <file path="./libs/core/tests/test_budget_models.py">
       <signature>Class TestBudgetModuleExists</signature>
@@ -3342,6 +3347,39 @@
       <signature>Function TestOtherBlocksUnaffected.test_surviving_block_importable</signature>
       <signature>Function TestOtherBlocksUnaffected.test_surviving_registry_entry</signature>
     </file>
+    <file path="./libs/core/tests/test_delete_teamlead_em.py">
+      <signature>Class TestBlockFilesDeleted</signature>
+      <signature>Function TestBlockFilesDeleted.test_team_lead_file_does_not_exist</signature>
+      <signature>Function TestBlockFilesDeleted.test_engineering_manager_file_does_not_exist</signature>
+      <signature>Class TestImportsRaiseError</signature>
+      <signature>Function TestImportsRaiseError.test_import_team_lead_block_raises</signature>
+      <signature>Function TestImportsRaiseError.test_import_engineering_manager_block_raises</signature>
+      <signature>Function TestImportsRaiseError.test_import_team_lead_block_def_raises</signature>
+      <signature>Function TestImportsRaiseError.test_import_engineering_manager_block_def_raises</signature>
+      <signature>Class TestAllExports</signature>
+      <signature>Function TestAllExports.test_team_lead_block_not_in_all</signature>
+      <signature>Function TestAllExports.test_engineering_manager_block_not_in_all</signature>
+      <signature>Class TestRegistryCleanup</signature>
+      <signature>Function TestRegistryCleanup.test_team_lead_not_in_block_def_registry</signature>
+      <signature>Function TestRegistryCleanup.test_engineering_manager_not_in_block_def_registry</signature>
+      <signature>Function TestRegistryCleanup.test_team_lead_not_in_block_builder_registry</signature>
+      <signature>Function TestRegistryCleanup.test_engineering_manager_not_in_block_builder_registry</signature>
+      <signature>Function TestRegistryCleanup.test_block_def_registry_has_7_known_types</signature>
+      <signature>Function TestRegistryCleanup.test_block_builder_registry_has_7_known_types</signature>
+      <signature>Class TestYamlValidationErrors</signature>
+      <signature>Function TestYamlValidationErrors.test_team_lead_yaml_raises_validation_error</signature>
+      <signature>Function TestYamlValidationErrors.test_engineering_manager_yaml_raises_validation_error</signature>
+      <signature>Class TestBuiltInSoulsCleanup</signature>
+      <signature>Function TestBuiltInSoulsCleanup.test_engineering_manager_not_in_built_in_souls</signature>
+      <signature>Function TestBuiltInSoulsCleanup.test_built_in_souls_still_has_other_entries</signature>
+      <signature>Class TestAdvancedBlocksTestFileDeleted</signature>
+      <signature>Function TestAdvancedBlocksTestFileDeleted.test_advanced_blocks_test_file_does_not_exist</signature>
+      <signature>Class TestInitPyCleanup</signature>
+      <signature>Function TestInitPyCleanup.test_no_team_lead_import_in_init</signature>
+      <signature>Function TestInitPyCleanup.test_no_engineering_manager_import_in_init</signature>
+      <signature>Function TestInitPyCleanup.test_no_team_lead_module_import_in_init</signature>
+      <signature>Function TestInitPyCleanup.test_no_engineering_manager_module_import_in_init</signature>
+    </file>
     <file path="./libs/core/tests/test_discovery.py">
       <signature>Class SimpleBlock</signature>
       <signature>Function SimpleBlock.execute</signature>
@@ -3375,28 +3413,119 @@
       <signature>Function TestDiscoverCustomAssets.test_missing_custom_dir_returns_empty_maps</signature>
       <signature>Function TestDiscoverCustomAssets.test_partial_directory_structure</signature>
     </file>
-    <file path="./libs/core/tests/test_dns_rebinding.py">
-      <signature>Function _make_state</signature>
-      <signature>Function _make_block</signature>
-      <signature>Function _fake_getaddrinfo_factory</signature>
-      <signature>Function _fake_getaddrinfo_factory._fake_getaddrinfo</signature>
-      <signature>Function _build_success_response</signature>
-      <signature>Class TestNormalFlowWithPinnedIP</signature>
-      <signature>Function TestNormalFlowWithPinnedIP.test_request_uses_pinned_ip_not_hostname</signature>
-      <signature>Function TestNormalFlowWithPinnedIP.test_successful_execution_returns_block_result</signature>
-      <signature>Class TestDNSRebindingPrevention</signature>
-      <signature>Function TestDNSRebindingPrevention.test_dns_rebinding_uses_first_resolved_ip</signature>
-      <signature>Function TestDNSRebindingPrevention.test_dns_rebinding_to_loopback_prevented</signature>
-      <signature>Function TestDNSRebindingPrevention.test_dns_rebinding_to_internal_network_prevented</signature>
-      <signature>Class TestHostHeaderPreservation</signature>
-      <signature>Function TestHostHeaderPreservation.test_host_header_contains_original_hostname</signature>
-      <signature>Function TestHostHeaderPreservation.test_host_header_not_overridden_if_user_set</signature>
-      <signature>Class TestSSRFStillBlocksOnFirstResolution</signature>
-      <signature>Function TestSSRFStillBlocksOnFirstResolution.test_first_resolution_to_link_local_raises_ssrf</signature>
-      <signature>Function TestSSRFStillBlocksOnFirstResolution.test_first_resolution_to_loopback_raises_ssrf</signature>
-      <signature>Function TestSSRFStillBlocksOnFirstResolution.test_first_resolution_to_private_10_raises_ssrf</signature>
-      <signature>Function TestSSRFStillBlocksOnFirstResolution.test_literal_private_ip_still_blocked</signature>
-      <signature>Function TestSSRFStillBlocksOnFirstResolution.test_allow_private_ips_still_bypasses</signature>
+    <file path="./libs/core/tests/test_fanout_exit_def.py">
+      <signature>Class TestFanOutExitDefImportAndSubclass</signature>
+      <signature>Function TestFanOutExitDefImportAndSubclass.test_importable_from_schema</signature>
+      <signature>Function TestFanOutExitDefImportAndSubclass.test_is_subclass_of_exitdef</signature>
+      <signature>Class TestFanOutExitDefValidConstruction</signature>
+      <signature>Function TestFanOutExitDefValidConstruction.test_valid_with_all_fields</signature>
+      <signature>Function TestFanOutExitDefValidConstruction.test_model_dump_contains_all_four_fields</signature>
+      <signature>Class TestFanOutExitDefInheritsIdAndLabel</signature>
+      <signature>Function TestFanOutExitDefInheritsIdAndLabel.test_id_accessible_on_instance</signature>
+      <signature>Function TestFanOutExitDefInheritsIdAndLabel.test_label_accessible_on_instance</signature>
+      <signature>Class TestFanOutExitDefRequiredFields</signature>
+      <signature>Function TestFanOutExitDefRequiredFields.test_missing_soul_ref_raises</signature>
+      <signature>Function TestFanOutExitDefRequiredFields.test_missing_task_raises</signature>
+      <signature>Function TestFanOutExitDefRequiredFields.test_missing_both_soul_ref_and_task_raises</signature>
+      <signature>Class TestFanOutExitDefExtraForbid</signature>
+      <signature>Function TestFanOutExitDefExtraForbid.test_extra_field_rejected</signature>
+    </file>
+    <file path="./libs/core/tests/test_fanout_synthesize_integration.py">
+      <signature>Function _make_exec_result</signature>
+      <signature>Function _mock_runner</signature>
+      <signature>Class TestFullPipeline</signature>
+      <signature>Function TestFullPipeline.test_full_pipeline_parse_and_run</signature>
+      <signature>Function TestFullPipeline.test_full_pipeline_parse_and_run._mock_acompletion</signature>
+      <signature>Function TestFullPipeline.test_fanout_branches_receive_different_tasks</signature>
+      <signature>Function TestFullPipeline.test_fanout_branches_receive_different_tasks._mock_acompletion</signature>
+      <signature>Function TestFullPipeline.test_synthesize_receives_combined_fanout_output</signature>
+      <signature>Function TestFullPipeline.test_synthesize_receives_combined_fanout_output._mock_acompletion</signature>
+      <signature>Function TestFullPipeline.test_cost_tokens_accumulated_correctly</signature>
+      <signature>Class TestPerExitReferences</signature>
+      <signature>Function TestPerExitReferences.test_per_exit_ref_yaml_parses</signature>
+      <signature>Function TestPerExitReferences.test_per_exit_ref_yaml_parses._mock_acompletion</signature>
+      <signature>Function TestPerExitReferences.test_synthesize_reads_per_exit_keys</signature>
+      <signature>Function TestPerExitReferences.test_synthesize_fails_if_per_exit_key_missing</signature>
+      <signature>Class TestStatefulFanOutInLoop</signature>
+      <signature>Function TestStatefulFanOutInLoop.test_stateful_fanout_preserves_histories_across_loop_rounds</signature>
+      <signature>Function TestStatefulFanOutInLoop.test_stateful_fanout_round2_receives_round1_history</signature>
+      <signature>Function TestStatefulFanOutInLoop.test_histories_are_independent_per_exit</signature>
+      <signature>Class TestContextInheritance</signature>
+      <signature>Function TestContextInheritance.test_branches_inherit_current_task_context</signature>
+      <signature>Function TestContextInheritance.test_branches_have_different_instructions_same_context</signature>
+      <signature>Function TestContextInheritance.test_no_context_when_current_task_is_none</signature>
+      <signature>Function TestContextInheritance.test_context_inheritance_through_full_yaml_pipeline</signature>
+      <signature>Function TestContextInheritance.test_context_inheritance_through_full_yaml_pipeline._mock_acompletion</signature>
+    </file>
+    <file path="./libs/core/tests/test_fanout_v2.py">
+      <signature>Function soul_analyst</signature>
+      <signature>Function soul_reviewer</signature>
+      <signature>Function soul_editor</signature>
+      <signature>Function mock_runner</signature>
+      <signature>Function _make_exec_result</signature>
+      <signature>Class TestFanOutBranchDataclass</signature>
+      <signature>Function TestFanOutBranchDataclass.test_importable_from_fanout_module</signature>
+      <signature>Function TestFanOutBranchDataclass.test_is_dataclass</signature>
+      <signature>Function TestFanOutBranchDataclass.test_has_required_fields</signature>
+      <signature>Class TestFanOutBlockNewConstructor</signature>
+      <signature>Function TestFanOutBlockNewConstructor.test_accepts_branches_parameter</signature>
+      <signature>Function TestFanOutBlockNewConstructor.test_empty_branches_raises_valueerror</signature>
+      <signature>Function TestFanOutBlockNewConstructor.test_branches_attribute_accessible</signature>
+      <signature>Class TestPerExitTaskDifferentiation</signature>
+      <signature>Function TestPerExitTaskDifferentiation.test_each_branch_receives_unique_instruction</signature>
+      <signature>Function TestPerExitTaskDifferentiation.test_each_branch_receives_unique_instruction._capture</signature>
+      <signature>Function TestPerExitTaskDifferentiation.test_each_branch_task_has_correct_id_format</signature>
+      <signature>Function TestPerExitTaskDifferentiation.test_each_branch_task_has_correct_id_format._capture</signature>
+      <signature>Class TestPerExitResultKeying</signature>
+      <signature>Function TestPerExitResultKeying.test_per_exit_results_stored</signature>
+      <signature>Function TestPerExitResultKeying.test_per_exit_results_stored._side_effect</signature>
+      <signature>Function TestPerExitResultKeying.test_per_exit_result_contains_correct_output</signature>
+      <signature>Function TestPerExitResultKeying.test_per_exit_result_contains_correct_output._side_effect</signature>
+      <signature>Function TestPerExitResultKeying.test_per_exit_result_exit_handle_set</signature>
+      <signature>Function TestPerExitResultKeying.test_per_exit_result_exit_handle_set._side_effect</signature>
+      <signature>Class TestCombinedResult</signature>
+      <signature>Function TestCombinedResult.test_combined_result_exists</signature>
+      <signature>Function TestCombinedResult.test_combined_result_exists._side_effect</signature>
+      <signature>Function TestCombinedResult.test_combined_result_is_json_list</signature>
+      <signature>Function TestCombinedResult.test_combined_result_is_json_list._side_effect</signature>
+      <signature>Class TestContextInheritance</signature>
+      <signature>Function TestContextInheritance.test_context_passed_to_branch_task</signature>
+      <signature>Function TestContextInheritance.test_context_passed_to_branch_task._capture</signature>
+      <signature>Function TestContextInheritance.test_current_task_none_does_not_crash</signature>
+      <signature>Function TestContextInheritance.test_current_task_none_does_not_crash._capture</signature>
+      <signature>Function TestContextInheritance.test_current_task_without_context_passes_none</signature>
+      <signature>Function TestContextInheritance.test_current_task_without_context_passes_none._capture</signature>
+      <signature>Class TestCostTokenAggregation</signature>
+      <signature>Function TestCostTokenAggregation.test_cost_aggregation</signature>
+      <signature>Function TestCostTokenAggregation.test_cost_aggregation._side_effect</signature>
+      <signature>Class TestFanOutBlockDefSchema</signature>
+      <signature>Function TestFanOutBlockDefSchema.test_old_soul_refs_rejected</signature>
+      <signature>Function TestFanOutBlockDefSchema.test_exits_with_fanout_exit_defs_validates</signature>
+      <signature>Function TestFanOutBlockDefSchema.test_exits_field_is_required</signature>
+      <signature>Function TestFanOutBlockDefSchema.test_exits_field_typed_as_fanout_exit_def</signature>
+      <signature>Function TestFanOutBlockDefSchema.test_no_soul_refs_field_on_model</signature>
+      <signature>Class TestBuildFunction</signature>
+      <signature>Function TestBuildFunction.test_build_creates_block_with_branches</signature>
+      <signature>Function TestBuildFunction.test_build_raises_on_missing_soul_ref</signature>
+      <signature>Function TestBuildFunction.test_build_empty_exits_raises_valueerror</signature>
+      <signature>Class TestStatefulPerExitHistories</signature>
+      <signature>Function TestStatefulPerExitHistories.test_stateful_creates_per_exit_history_keys</signature>
+      <signature>Function TestStatefulPerExitHistories.test_stateful_creates_per_exit_history_keys._side_effect</signature>
+      <signature>Function TestStatefulPerExitHistories.test_stateful_continuation_reads_per_exit_history</signature>
+      <signature>Function TestStatefulPerExitHistories.test_stateful_continuation_reads_per_exit_history._capture</signature>
+      <signature>Function TestStatefulPerExitHistories.test_stateful_budget_fitting_uses_branch_soul_model</signature>
+      <signature>Function TestStatefulPerExitHistories.test_stateful_budget_fitting_uses_branch_soul_model._side_effect</signature>
+      <signature>Function TestStatefulPerExitHistories.test_stateful_budget_fitting_uses_branch_soul_model._tracking_budget</signature>
+      <signature>Class TestSameSoulMultipleExits</signature>
+      <signature>Function TestSameSoulMultipleExits.test_same_soul_different_exits_independent_histories</signature>
+      <signature>Function TestSameSoulMultipleExits.test_same_soul_different_exits_independent_histories._side_effect</signature>
+      <signature>Function TestSameSoulMultipleExits.test_same_soul_different_exits_round_2_reads_correct_history</signature>
+      <signature>Function TestSameSoulMultipleExits.test_same_soul_different_exits_round_2_reads_correct_history._capture</signature>
+      <signature>Class TestNonStatefulPath</signature>
+      <signature>Function TestNonStatefulPath.test_non_stateful_no_history_entries</signature>
+      <signature>Function TestNonStatefulPath.test_non_stateful_no_history_entries._side_effect</signature>
+      <signature>Function TestNonStatefulPath.test_non_stateful_still_produces_per_exit_results</signature>
+      <signature>Function TestNonStatefulPath.test_non_stateful_still_produces_per_exit_results._side_effect</signature>
     </file>
     <file path="./libs/core/tests/test_fanoutblock_stateful.py">
       <signature>Function mock_runner</signature>
@@ -3406,6 +3535,7 @@
       <signature>Function sample_task</signature>
       <signature>Function sample_task_with_context</signature>
       <signature>Function _make_result</signature>
+      <signature>Function _souls_to_branches</signature>
       <signature>Function _make_stateful_fanout</signature>
       <signature>Function _setup_runner_side_effect</signature>
       <signature>Function _setup_runner_side_effect._side_effect</signature>
@@ -3510,180 +3640,20 @@
       <signature>Function TestTotalTokensAndHeadroomAfterPhase2.test_headroom_reflects_final_budget_minus_total</signature>
     </file>
     <file path="./libs/core/tests/test_gate_error_subclass.py">
-      <signature>Function _mock_runner</signature>
-      <signature>Function _make_soul</signature>
-      <signature>Class TestGateErrorClassExists</signature>
-      <signature>Function TestGateErrorClassExists.test_gate_error_importable</signature>
-      <signature>Function TestGateErrorClassExists.test_gate_error_is_exception_subclass</signature>
-      <signature>Function TestGateErrorClassExists.test_gate_error_is_not_value_error_subclass</signature>
-      <signature>Class TestGateErrorStructuredFields</signature>
-      <signature>Function TestGateErrorStructuredFields.test_gate_error_has_gate_id_attribute</signature>
-      <signature>Function TestGateErrorStructuredFields.test_gate_error_has_state_attribute</signature>
-      <signature>Function TestGateErrorStructuredFields.test_gate_error_message_in_str</signature>
-      <signature>Function TestGateErrorStructuredFields.test_gate_error_is_instantiable</signature>
-      <signature>Class TestNoMonkeyPatching</signature>
-      <signature>Function TestNoMonkeyPatching.test_gate_source_has_no_error_dot_state_assignment</signature>
-      <signature>Class TestGateBlockRaisesGateError</signature>
-      <signature>Function TestGateBlockRaisesGateError.test_gate_fail_raises_gate_error</signature>
-      <signature>Function TestGateBlockRaisesGateError.test_gate_error_contains_gate_id</signature>
-      <signature>Function TestGateBlockRaisesGateError.test_gate_error_contains_updated_state</signature>
-      <signature>Class _GateFailBlock</signature>
-      <signature>Function _GateFailBlock.__init__</signature>
-      <signature>Function _GateFailBlock.execute</signature>
-      <signature>Class TestLoopBlockCatchesGateError</signature>
-      <signature>Function TestLoopBlockCatchesGateError.test_loop_continues_on_gate_error</signature>
-      <signature>Function TestLoopBlockCatchesGateError.test_loop_exhausts_rounds_on_persistent_gate_failure</signature>
-      <signature>Function TestLoopBlockCatchesGateError.test_loop_preserves_state_from_gate_error</signature>
-      <signature>Function TestLoopBlockCatchesGateError.test_loop_does_not_catch_value_error</signature>
-      <signature>Class TestLoopBlockCatchesGateError.test_loop_does_not_catch_value_error.ValueErrorBlock</signature>
-      <signature>Function TestLoopBlockCatchesGateError.test_loop_does_not_catch_value_error.ValueErrorBlock.execute</signature>
     </file>
     <file path="./libs/core/tests/test_gate_file_writer_blocks.py">
       <signature>Function _mock_runner</signature>
       <signature>Function _make_soul</signature>
       <signature>Class TestGateBlock</signature>
       <signature>Function TestGateBlock.test_gate_pass</signature>
-      <signature>Function TestGateBlock.test_gate_fail_raises</signature>
+      <signature>Function TestGateBlock.test_gate_fail_returns_state</signature>
       <signature>Function TestGateBlock.test_gate_missing_eval_key</signature>
       <signature>Function TestGateBlock.test_gate_extract_field_on_pass</signature>
       <signature>Function TestGateBlock.test_gate_extract_field_invalid_json</signature>
       <signature>Function TestGateBlock.test_gate_cost_propagation</signature>
-      <signature>Class TestFileWriterBlock</signature>
-      <signature>Function TestFileWriterBlock.test_write_file_creates_file</signature>
-      <signature>Function TestFileWriterBlock.test_write_file_creates_parent_dirs</signature>
-      <signature>Function TestFileWriterBlock.test_write_file_missing_content_key</signature>
-      <signature>Function TestFileWriterBlock.test_write_file_result_message</signature>
-      <signature>Function TestFileWriterBlock.test_write_file_no_cost_change</signature>
-    </file>
-    <file path="./libs/core/tests/test_http_request_block.py">
-      <signature>Function _make_state</signature>
-      <signature>Function _make_block</signature>
-      <signature>Function _execute_must_not_raise_not_implemented</signature>
-      <signature>Function _execute_expecting_error</signature>
-      <signature>Class TestTemplateResolution</signature>
-      <signature>Function TestTemplateResolution.test_resolve_simple_variable</signature>
-      <signature>Function TestTemplateResolution.test_resolve_multiple_variables</signature>
-      <signature>Function TestTemplateResolution.test_resolve_missing_variable_raises</signature>
-      <signature>Function TestTemplateResolution.test_resolve_no_templates</signature>
-      <signature>Function TestTemplateResolution.test_resolve_partial_template</signature>
-      <signature>Class TestSSRFProtection</signature>
-      <signature>Function TestSSRFProtection.test_ssrf_blocks_localhost</signature>
-      <signature>Function TestSSRFProtection.test_ssrf_blocks_private_10</signature>
-      <signature>Function TestSSRFProtection.test_ssrf_blocks_private_172</signature>
-      <signature>Function TestSSRFProtection.test_ssrf_blocks_private_192</signature>
-      <signature>Function TestSSRFProtection.test_ssrf_blocks_link_local</signature>
-      <signature>Function TestSSRFProtection.test_ssrf_allows_public_ip</signature>
-      <signature>Function TestSSRFProtection.test_ssrf_bypass_with_flag</signature>
-      <signature>Function TestSSRFProtection.test_ssrf_blocks_ipv6_loopback</signature>
-      <signature>Class TestAuth</signature>
-      <signature>Function TestAuth.test_auth_bearer</signature>
-      <signature>Function TestAuth.test_auth_api_key_header</signature>
-      <signature>Function TestAuth.test_auth_basic</signature>
-      <signature>Function TestAuth.test_auth_api_key_query</signature>
-      <signature>Function TestAuth.test_auth_none</signature>
-      <signature>Class TestRequestExecution</signature>
-      <signature>Function TestRequestExecution.test_get_json_response</signature>
-      <signature>Function TestRequestExecution.test_post_with_json_body</signature>
-      <signature>Function TestRequestExecution.test_post_with_form_body</signature>
-      <signature>Function TestRequestExecution.test_put_request</signature>
-      <signature>Function TestRequestExecution.test_delete_request</signature>
-      <signature>Function TestRequestExecution.test_custom_headers</signature>
-      <signature>Function TestRequestExecution.test_timeout_raises</signature>
-      <signature>Class TestResponseHandling</signature>
-      <signature>Function TestResponseHandling.test_json_content_type_parsed</signature>
-      <signature>Function TestResponseHandling.test_text_content_type_raw</signature>
-      <signature>Function TestResponseHandling.test_html_content_type_raw</signature>
-      <signature>Function TestResponseHandling.test_metadata_contains_status_code</signature>
-      <signature>Function TestResponseHandling.test_metadata_contains_headers</signature>
-      <signature>Function TestResponseHandling.test_metadata_contains_latency</signature>
-      <signature>Class TestStatusCodeValidation</signature>
-      <signature>Function TestStatusCodeValidation.test_2xx_success_200</signature>
-      <signature>Function TestStatusCodeValidation.test_2xx_success_201</signature>
-      <signature>Function TestStatusCodeValidation.test_2xx_success_204</signature>
-      <signature>Function TestStatusCodeValidation.test_4xx_raises_400</signature>
-      <signature>Function TestStatusCodeValidation.test_4xx_raises_404</signature>
-      <signature>Function TestStatusCodeValidation.test_5xx_raises_500</signature>
-      <signature>Function TestStatusCodeValidation.test_5xx_raises_503</signature>
-      <signature>Function TestStatusCodeValidation.test_204_no_content</signature>
-      <signature>Function TestStatusCodeValidation.test_expected_status_overrides</signature>
-      <signature>Class TestRetry</signature>
-      <signature>Function TestRetry.test_retry_on_5xx</signature>
-      <signature>Function TestRetry.test_retry_on_connection_error</signature>
-      <signature>Function TestRetry.test_no_retry_on_4xx</signature>
-    </file>
-    <file path="./libs/core/tests/test_http_request_schema.py">
-      <signature>Function _validate_block</signature>
-      <signature>Function _import_http_request_block_def</signature>
-      <signature>Function _import_http_request_block</signature>
-      <signature>Class TestHttpRequestMinimalValid</signature>
-      <signature>Function TestHttpRequestMinimalValid.test_minimal_valid_instance</signature>
-      <signature>Function TestHttpRequestMinimalValid.test_minimal_defaults</signature>
-      <signature>Function TestHttpRequestMinimalValid.test_url_is_required</signature>
-      <signature>Class TestHttpRequestFullValid</signature>
-      <signature>Function TestHttpRequestFullValid.test_all_fields_populated</signature>
-      <signature>Class TestHttpRequestMethodValidation</signature>
-      <signature>Function TestHttpRequestMethodValidation.test_valid_methods_accepted</signature>
-      <signature>Function TestHttpRequestMethodValidation.test_invalid_method_trace_rejected</signature>
-      <signature>Function TestHttpRequestMethodValidation.test_invalid_method_options_rejected</signature>
-      <signature>Function TestHttpRequestMethodValidation.test_invalid_method_head_rejected</signature>
-      <signature>Function TestHttpRequestMethodValidation.test_lowercase_method_uppercased</signature>
-      <signature>Function TestHttpRequestMethodValidation.test_mixed_case_method_uppercased</signature>
-      <signature>Function TestHttpRequestMethodValidation.test_lowercase_invalid_method_still_rejected</signature>
-      <signature>Class TestHttpRequestBodyTypeValidation</signature>
-      <signature>Function TestHttpRequestBodyTypeValidation.test_valid_body_types_accepted</signature>
-      <signature>Function TestHttpRequestBodyTypeValidation.test_invalid_body_type_rejected</signature>
-      <signature>Function TestHttpRequestBodyTypeValidation.test_invalid_body_type_multipart_rejected</signature>
-      <signature>Class TestHttpRequestAuthTypeValidation</signature>
-      <signature>Function TestHttpRequestAuthTypeValidation.test_valid_auth_types_accepted</signature>
-      <signature>Function TestHttpRequestAuthTypeValidation.test_none_auth_type_accepted</signature>
-      <signature>Function TestHttpRequestAuthTypeValidation.test_invalid_auth_type_oauth_rejected</signature>
-      <signature>Function TestHttpRequestAuthTypeValidation.test_invalid_auth_type_custom_rejected</signature>
-      <signature>Class TestHttpRequestTimeoutValidation</signature>
-      <signature>Function TestHttpRequestTimeoutValidation.test_default_timeout_is_30</signature>
-      <signature>Function TestHttpRequestTimeoutValidation.test_valid_timeout_1</signature>
-      <signature>Function TestHttpRequestTimeoutValidation.test_valid_timeout_300</signature>
-      <signature>Function TestHttpRequestTimeoutValidation.test_valid_timeout_150</signature>
-      <signature>Function TestHttpRequestTimeoutValidation.test_timeout_0_rejected</signature>
-      <signature>Function TestHttpRequestTimeoutValidation.test_timeout_negative_rejected</signature>
-      <signature>Function TestHttpRequestTimeoutValidation.test_timeout_301_rejected</signature>
-      <signature>Function TestHttpRequestTimeoutValidation.test_timeout_1000_rejected</signature>
-      <signature>Class TestHttpRequestEdgeCases</signature>
-      <signature>Function TestHttpRequestEdgeCases.test_empty_headers_valid</signature>
-      <signature>Function TestHttpRequestEdgeCases.test_body_with_get_method_valid</signature>
-      <signature>Function TestHttpRequestEdgeCases.test_extra_fields_rejected</signature>
-      <signature>Function TestHttpRequestEdgeCases.test_empty_auth_config_valid</signature>
-      <signature>Function TestHttpRequestEdgeCases.test_expected_status_codes_list</signature>
-      <signature>Class TestHttpRequestDiscriminatedUnion</signature>
-      <signature>Function TestHttpRequestDiscriminatedUnion.test_union_routes_to_http_request</signature>
-      <signature>Function TestHttpRequestDiscriminatedUnion.test_union_preserves_fields</signature>
-      <signature>Function TestHttpRequestDiscriminatedUnion.test_union_rejects_extra_fields</signature>
-      <signature>Class TestHttpRequestWorkflowFileParsing</signature>
-      <signature>Function TestHttpRequestWorkflowFileParsing.test_workflow_file_validates_http_request_block</signature>
-      <signature>Function TestHttpRequestWorkflowFileParsing.test_workflow_file_mixed_block_types</signature>
-      <signature>Function TestHttpRequestWorkflowFileParsing.test_parse_workflow_yaml_with_http_request</signature>
-      <signature>Class TestHttpRequestParserRegistration</signature>
-      <signature>Function TestHttpRequestParserRegistration.test_http_request_in_block_registry</signature>
-      <signature>Function TestHttpRequestParserRegistration.test_http_request_builder_is_callable</signature>
-      <signature>Class TestHttpRequestBuilder</signature>
-      <signature>Function TestHttpRequestBuilder.test_builder_returns_http_request_block_instance</signature>
-      <signature>Function TestHttpRequestBuilder.test_builder_sets_correct_block_id</signature>
-      <signature>Function TestHttpRequestBuilder.test_builder_passes_config_values</signature>
-      <signature>Function TestHttpRequestBuilder.test_parsed_http_block_is_instance</signature>
-      <signature>Function TestHttpRequestBuilder.test_parsed_http_block_has_correct_url</signature>
-      <signature>Function TestHttpRequestBuilder.test_parsed_http_block_has_correct_method</signature>
-      <signature>Class TestHttpRequestJsonSchema</signature>
-      <signature>Function TestHttpRequestJsonSchema.test_http_request_in_json_schema</signature>
-      <signature>Function TestHttpRequestJsonSchema.test_http_request_type_discriminator_in_schema</signature>
-      <signature>Function TestHttpRequestJsonSchema.test_http_request_url_field_in_schema</signature>
-    </file>
-    <file path="./libs/core/tests/test_integration_advanced_blocks.py">
-      <signature>Function mock_runner</signature>
-      <signature>Function sample_souls</signature>
-      <signature>Function test_router_callable_evaluator_workflow</signature>
-      <signature>Function test_router_callable_evaluator_workflow.evaluate_state</signature>
-      <signature>Function test_router_soul_evaluator_workflow</signature>
     </file>
     <file path="./libs/core/tests/test_integration_blocks_workflow.py">
+      <signature>Function _souls_to_branches</signature>
       <signature>Function mock_runner</signature>
       <signature>Function sample_souls</signature>
       <signature>Function test_all_three_blocks_import_and_instantiate</signature>
@@ -3693,16 +3663,6 @@
       <signature>Function test_complete_research_review_synthesis_workflow</signature>
       <signature>Function test_state_immutability_across_workflow_execution</signature>
       <signature>Function test_error_propagation_through_workflow</signature>
-    </file>
-    <file path="./libs/core/tests/test_integration_cross_feature_boundaries.py">
-      <signature>Function mock_runner</signature>
-      <signature>Function test_souls</signature>
-      <signature>Function test_router_block_evaluator_types_both_branches</signature>
-      <signature>Function test_router_block_evaluator_types_both_branches.evaluate_callable</signature>
-      <signature>Function test_router_with_shared_memory_consumers</signature>
-      <signature>Function test_router_with_shared_memory_consumers.route_decision</signature>
-      <signature>Function test_workflow_integration_with_router_block</signature>
-      <signature>Function test_workflow_integration_with_router_block.route_logic</signature>
     </file>
     <file path="./libs/core/tests/test_integration_e2e_workflow.py">
       <signature>Function test_e2e_single_block_workflow</signature>
@@ -3715,22 +3675,8 @@
       <signature>Function test_e2e_baseblock_empty_id_validation</signature>
     </file>
     <file path="./libs/core/tests/test_integration_kwargs_compatibility.py">
-      <signature>Class TestTeamLeadBlockKwargsCompatibility</signature>
-      <signature>Function TestTeamLeadBlockKwargsCompatibility.test_team_lead_block_execute_with_call_stack_kwarg</signature>
-      <signature>Function TestTeamLeadBlockKwargsCompatibility.test_team_lead_block_execute_with_workflow_registry_kwarg</signature>
-      <signature>Function TestTeamLeadBlockKwargsCompatibility.test_team_lead_block_execute_with_multiple_kwargs</signature>
-      <signature>Class TestEngineeringManagerBlockKwargsCompatibility</signature>
-      <signature>Function TestEngineeringManagerBlockKwargsCompatibility.test_engineering_manager_block_execute_with_call_stack_kwarg</signature>
-      <signature>Function TestEngineeringManagerBlockKwargsCompatibility.test_engineering_manager_block_execute_with_workflow_registry_kwarg</signature>
-      <signature>Class TestRouterBlockKwargsCompatibility</signature>
-      <signature>Function TestRouterBlockKwargsCompatibility.test_router_block_execute_with_call_stack_kwarg</signature>
-      <signature>Function TestRouterBlockKwargsCompatibility.test_router_block_execute_with_workflow_registry_kwarg</signature>
-      <signature>Function TestRouterBlockKwargsCompatibility.test_router_block_with_soul_evaluator_and_kwargs</signature>
       <signature>Class TestKwargsCompatibilityWithWorkflowBlock</signature>
       <signature>Function TestKwargsCompatibilityWithWorkflowBlock.test_workflow_block_execution_passes_kwargs_to_child</signature>
-      <signature>Class TestBackwardCompatibilityWithoutKwargs</signature>
-      <signature>Function TestBackwardCompatibilityWithoutKwargs.test_team_lead_block_execute_without_kwargs</signature>
-      <signature>Function TestBackwardCompatibilityWithoutKwargs.test_router_block_execute_without_kwargs</signature>
     </file>
     <file path="./libs/core/tests/test_integration_merge_validation.py">
       <signature>Class MockBlock</signature>
@@ -3739,8 +3685,6 @@
       <signature>Class ErrorProducingBlock</signature>
       <signature>Function ErrorProducingBlock.__init__</signature>
       <signature>Function ErrorProducingBlock.execute</signature>
-      <signature>Function mock_runner</signature>
-      <signature>Function test_souls</signature>
       <signature>Function test_workflow_class_exists_and_instantiates</signature>
       <signature>Function test_workflow_fluent_api_chain</signature>
       <signature>Function test_workflow_execution_renamed_class</signature>
@@ -3750,17 +3694,6 @@
       <signature>Function test_step_primitive_works_independently</signature>
       <signature>Function test_step_primitive_works_independently.pre_hook</signature>
       <signature>Function test_step_primitive_works_independently.post_hook</signature>
-      <signature>Function test_team_lead_block_renamed_from_advisor</signature>
-      <signature>Function test_team_lead_block_team_lead_soul_parameter</signature>
-      <signature>Function test_team_lead_soul_attribute_accessible</signature>
-      <signature>Function test_engineering_manager_block_renamed_from_replanner</signature>
-      <signature>Function test_engineering_manager_soul_parameter</signature>
-      <signature>Function test_engineering_manager_soul_attribute_accessible</signature>
-      <signature>Function test_workflow_with_team_lead_block</signature>
-      <signature>Function test_workflow_with_engineering_manager_block</signature>
-      <signature>Function test_workflow_orchestrates_team_lead_and_engineering_manager</signature>
-      <signature>Function test_renamed_blocks_share_memory_format_compatibility</signature>
-      <signature>Function test_all_renamed_classes_in_workflow_execution</signature>
     </file>
     <file path="./libs/core/tests/test_integration_runner_primitives.py">
       <signature>Function integration_soul</signature>
@@ -3909,8 +3842,6 @@
       <signature>Class test_workflow_block_cost_propagation_multiple_levels.CostProducingBlock</signature>
       <signature>Function test_workflow_block_cost_propagation_multiple_levels.CostProducingBlock.__init__</signature>
       <signature>Function test_workflow_block_cost_propagation_multiple_levels.CostProducingBlock.execute</signature>
-      <signature>Function test_workflow_block_with_router_block</signature>
-      <signature>Function test_workflow_block_with_router_block.route_decision</signature>
     </file>
     <file path="./libs/core/tests/test_linearblock_stateful.py">
       <signature>Function mock_runner</signature>
@@ -4217,6 +4148,7 @@
       <signature>Function _make_mock_runner</signature>
       <signature>Function _make_result</signature>
       <signature>Function _make_stateful_linear</signature>
+      <signature>Function _souls_to_branches</signature>
       <signature>Function _make_stateful_fanout</signature>
       <signature>Class TestStatefulLinearBlockInsideLoop</signature>
       <signature>Function TestStatefulLinearBlockInsideLoop.test_history_grows_2n_after_n_rounds</signature>
@@ -4646,45 +4578,24 @@
       <signature>Class FailNTimesThenSucceed</signature>
       <signature>Function FailNTimesThenSucceed.__init__</signature>
       <signature>Function FailNTimesThenSucceed.execute</signature>
-      <signature>Function mock_runner</signature>
-      <signature>Function sample_souls</signature>
       <signature>Class TestStaleRetryBlockComments</signature>
-      <signature>Function TestStaleRetryBlockComments.test_no_stale_retryblock_comment_in_integration_advanced_blocks</signature>
-      <signature>Function TestStaleRetryBlockComments.test_no_stale_retryblock_comment_in_integration_cross_feature</signature>
+      <signature>Function TestStaleRetryBlockComments.test_integration_advanced_blocks_file_deleted</signature>
+      <signature>Function TestStaleRetryBlockComments.test_integration_cross_feature_file_deleted</signature>
       <signature>Function TestStaleRetryBlockComments.test_no_stale_retryblock_comment_in_yaml_parser</signature>
       <signature>Function TestStaleRetryBlockComments.test_no_retryblock_stale_comments_in_any_test_file</signature>
       <signature>Class TestLoopBlockUpstreamWorkflowIntegration</signature>
       <signature>Function TestLoopBlockUpstreamWorkflowIntegration.test_upstream_then_loop_block_workflow</signature>
-      <signature>Class TestLoopBlockRouterCrossFeatureIntegration</signature>
-      <signature>Function TestLoopBlockRouterCrossFeatureIntegration.test_loop_then_router_workflow</signature>
-      <signature>Function TestLoopBlockRouterCrossFeatureIntegration.test_loop_then_router_workflow.evaluate_loop_result</signature>
-      <signature>Function TestLoopBlockRouterCrossFeatureIntegration.test_loop_with_break_then_router_workflow</signature>
-      <signature>Class TestLoopBlockRouterCrossFeatureIntegration.test_loop_with_break_then_router_workflow.KeywordWorker</signature>
-      <signature>Function TestLoopBlockRouterCrossFeatureIntegration.test_loop_with_break_then_router_workflow.KeywordWorker.__init__</signature>
-      <signature>Function TestLoopBlockRouterCrossFeatureIntegration.test_loop_with_break_then_router_workflow.KeywordWorker.execute</signature>
-      <signature>Function TestLoopBlockRouterCrossFeatureIntegration.test_loop_with_break_then_router_workflow.evaluate_break_status</signature>
       <signature>Class TestLoopBlockWithRetryConfig</signature>
       <signature>Function TestLoopBlockWithRetryConfig.test_inner_block_with_retry_config_in_loop_workflow</signature>
       <signature>Function TestLoopBlockWithRetryConfig.test_loop_block_itself_with_retry_config_in_workflow</signature>
       <signature>Class TestLoopBlockWithRetryConfig.test_loop_block_itself_with_retry_config_in_workflow.FailOnFirstLoopAttempt</signature>
       <signature>Function TestLoopBlockWithRetryConfig.test_loop_block_itself_with_retry_config_in_workflow.FailOnFirstLoopAttempt.__init__</signature>
       <signature>Function TestLoopBlockWithRetryConfig.test_loop_block_itself_with_retry_config_in_workflow.FailOnFirstLoopAttempt.execute</signature>
-      <signature>Class TestLoopBlockTeamLeadIntegration</signature>
-      <signature>Function TestLoopBlockTeamLeadIntegration.test_loop_exhaustion_then_teamlead_analysis</signature>
-      <signature>Class TestLoopBlockMultiBlockWorkflowIntegration</signature>
-      <signature>Function TestLoopBlockMultiBlockWorkflowIntegration.test_upstream_loop_router_full_workflow</signature>
-      <signature>Function TestLoopBlockMultiBlockWorkflowIntegration.test_upstream_loop_router_full_workflow.evaluate_quality</signature>
       <signature>Class TestLoopBlockStateFlowBetweenRounds</signature>
       <signature>Function TestLoopBlockStateFlowBetweenRounds.test_inner_block_reads_previous_round_output</signature>
       <signature>Class TestLoopBlockStateFlowBetweenRounds.test_inner_block_reads_previous_round_output.AccumulatingBlock</signature>
       <signature>Function TestLoopBlockStateFlowBetweenRounds.test_inner_block_reads_previous_round_output.AccumulatingBlock.__init__</signature>
       <signature>Function TestLoopBlockStateFlowBetweenRounds.test_inner_block_reads_previous_round_output.AccumulatingBlock.execute</signature>
-      <signature>Class TestLoopBlockConditionalTransition</signature>
-      <signature>Function TestLoopBlockConditionalTransition.test_conditional_transition_after_loop_early_break</signature>
-      <signature>Class TestLoopBlockConditionalTransition.test_conditional_transition_after_loop_early_break.KeywordBlock</signature>
-      <signature>Function TestLoopBlockConditionalTransition.test_conditional_transition_after_loop_early_break.KeywordBlock.__init__</signature>
-      <signature>Function TestLoopBlockConditionalTransition.test_conditional_transition_after_loop_early_break.KeywordBlock.execute</signature>
-      <signature>Function TestLoopBlockConditionalTransition.test_conditional_transition_after_loop_early_break.route_on_break</signature>
     </file>
     <file path="./libs/core/tests/test_run126_code_block_parser_and_achat.py">
       <signature>Class TestCodeBlockRegistration</signature>
@@ -4880,22 +4791,11 @@
       <signature>Function TestLoopBlockEmitsBlockResult.test_loop_block_writes_block_result_not_raw_string</signature>
       <signature>Class TestLoopBlockEmitsBlockResult.test_loop_block_writes_block_result_not_raw_string.PassthroughBlock</signature>
       <signature>Function TestLoopBlockEmitsBlockResult.test_loop_block_writes_block_result_not_raw_string.PassthroughBlock.execute</signature>
-      <signature>Class TestTeamLeadBlockEmitsBlockResult</signature>
-      <signature>Function TestTeamLeadBlockEmitsBlockResult.test_team_lead_block_writes_block_result_not_raw_string</signature>
-      <signature>Class TestEngineeringManagerBlockEmitsBlockResult</signature>
-      <signature>Function TestEngineeringManagerBlockEmitsBlockResult.test_em_block_writes_block_result_not_raw_string</signature>
-      <signature>Class TestRouterBlockSoulEmitsBlockResult</signature>
-      <signature>Function TestRouterBlockSoulEmitsBlockResult.test_router_block_soul_writes_block_result_not_raw_string</signature>
-      <signature>Class TestRouterBlockCallableEmitsBlockResult</signature>
-      <signature>Function TestRouterBlockCallableEmitsBlockResult.test_router_block_callable_writes_block_result_not_raw_string</signature>
-      <signature>Function TestRouterBlockCallableEmitsBlockResult.test_router_block_callable_writes_block_result_not_raw_string.always_approve</signature>
       <signature>Class TestWorkflowBlockEmitsBlockResult</signature>
       <signature>Function TestWorkflowBlockEmitsBlockResult.test_workflow_block_writes_block_result_not_raw_string</signature>
       <signature>Class TestGateBlockEmitsBlockResult</signature>
       <signature>Function TestGateBlockEmitsBlockResult.test_gate_block_pass_writes_block_result_not_raw_string</signature>
       <signature>Function TestGateBlockEmitsBlockResult.test_gate_block_pass_with_extract_field_writes_block_result</signature>
-      <signature>Class TestFileWriterBlockEmitsBlockResult</signature>
-      <signature>Function TestFileWriterBlockEmitsBlockResult.test_file_writer_block_writes_block_result_not_raw_string</signature>
       <signature>Class TestCodeBlockErrorEmitsBlockResult</signature>
       <signature>Function TestCodeBlockErrorEmitsBlockResult.test_code_block_error_writes_block_result_not_raw_string</signature>
       <signature>Class TestCodeBlockNonJsonEmitsBlockResult</signature>
@@ -4940,8 +4840,6 @@
       <signature>Function TestSynthesizeBlockReadSite.test_synthesize_block_uses_output_not_str</signature>
       <signature>Class TestGateBlockReadSite</signature>
       <signature>Function TestGateBlockReadSite.test_gate_block_uses_output_not_str</signature>
-      <signature>Class TestFileWriterBlockReadSite</signature>
-      <signature>Function TestFileWriterBlockReadSite.test_file_writer_uses_output_not_str</signature>
     </file>
     <file path="./libs/core/tests/test_run182_execution_log_rename.py">
       <signature>Class TestFieldExistence</signature>
@@ -4974,8 +4872,8 @@
       <signature>Function TestBlockDefRegistry.test_get_builder_returns_callable_or_none</signature>
       <signature>Function TestBlockDefRegistry.test_registry_has_zero_project_imports</signature>
       <signature>Class TestInitSubclassRegistration</signature>
-      <signature>Function TestInitSubclassRegistration.test_all_12_types_registered</signature>
-      <signature>Function TestInitSubclassRegistration.test_registry_count_is_12</signature>
+      <signature>Function TestInitSubclassRegistration.test_all_7_types_registered</signature>
+      <signature>Function TestInitSubclassRegistration.test_registry_count_is_7</signature>
       <signature>Function TestInitSubclassRegistration.test_base_block_def_does_not_register</signature>
       <signature>Function TestInitSubclassRegistration.test_non_literal_subclass_does_not_register</signature>
       <signature>Class TestInitSubclassRegistration.test_non_literal_subclass_does_not_register.IntermediateBlockDef</signature>
@@ -5007,82 +4905,28 @@
       <signature>Class TestGenerateSchemaCheck</signature>
       <signature>Function TestGenerateSchemaCheck.test_generate_schema_check_passes</signature>
     </file>
-    <file path="./libs/core/tests/test_run220_co_locate_http_request.py">
-      <signature>Class TestHttpRequestBlockDefLocation</signature>
-      <signature>Function TestHttpRequestBlockDefLocation.test_import_from_blocks_http_request</signature>
-      <signature>Function TestHttpRequestBlockDefLocation.test_is_base_block_def_subclass</signature>
-      <signature>Function TestHttpRequestBlockDefLocation.test_type_literal_is_http_request</signature>
-      <signature>Function TestHttpRequestBlockDefLocation.test_has_all_expected_fields</signature>
-      <signature>Function TestHttpRequestBlockDefLocation.test_method_validator_uppercases</signature>
-      <signature>Function TestHttpRequestBlockDefLocation.test_method_validator_rejects_invalid</signature>
-      <signature>Class TestHttpRequestBlockDefRemovedFromSchema</signature>
-      <signature>Function TestHttpRequestBlockDefRemovedFromSchema.test_not_defined_in_schema_source</signature>
-      <signature>Function TestHttpRequestBlockDefRemovedFromSchema.test_not_in_hardcoded_block_def_union</signature>
-      <signature>Class TestBuildHttpRequestRemovedFromParser</signature>
-      <signature>Function TestBuildHttpRequestRemovedFromParser.test_build_http_request_not_in_parser_source</signature>
-      <signature>Function TestBuildHttpRequestRemovedFromParser.test_http_request_not_in_hardcoded_block_type_registry</signature>
-      <signature>Class TestBuildFunctionExists</signature>
-      <signature>Function TestBuildFunctionExists.test_build_function_importable</signature>
-      <signature>Function TestBuildFunctionExists.test_build_function_is_callable</signature>
-      <signature>Function TestBuildFunctionExists.test_build_returns_http_request_block</signature>
-      <signature>Function TestBuildFunctionExists.test_build_sets_correct_block_id</signature>
-      <signature>Function TestBuildFunctionExists.test_build_passes_all_config_values</signature>
-      <signature>Class TestRegistryIntegration</signature>
-      <signature>Function TestRegistryIntegration.test_block_def_registry_has_http_request</signature>
-      <signature>Function TestRegistryIntegration.test_block_def_registry_http_request_from_blocks_module</signature>
-      <signature>Function TestRegistryIntegration.test_block_builder_registry_has_http_request</signature>
-      <signature>Function TestRegistryIntegration.test_block_builder_registry_points_to_module_build</signature>
-      <signature>Function TestRegistryIntegration.test_block_def_registry_count_is_12</signature>
-      <signature>Class TestSchemaValidationStillWorks</signature>
-      <signature>Function TestSchemaValidationStillWorks.test_discriminated_union_routes_http_request</signature>
-      <signature>Function TestSchemaValidationStillWorks.test_workflow_file_validates_http_request_block</signature>
-      <signature>Function TestSchemaValidationStillWorks.test_http_request_in_json_schema</signature>
-      <signature>Function TestSchemaValidationStillWorks.test_http_request_url_field_in_schema</signature>
-      <signature>Class TestRoundTrip</signature>
-      <signature>Function TestRoundTrip.test_parse_workflow_yaml_with_http_request</signature>
-      <signature>Function TestRoundTrip.test_parsed_block_is_http_request_block</signature>
-      <signature>Function TestRoundTrip.test_parsed_block_has_correct_url</signature>
-      <signature>Function TestRoundTrip.test_parsed_block_has_correct_method</signature>
-      <signature>Function TestRoundTrip.test_parsed_block_has_correct_config</signature>
-      <signature>Class TestGenerateSchemaCheck</signature>
-      <signature>Function TestGenerateSchemaCheck.test_generate_schema_check_passes</signature>
-      <signature>Class TestEdgeCases</signature>
-      <signature>Function TestEdgeCases.test_no_duplicate_registration</signature>
-      <signature>Function TestEdgeCases.test_schema_module_still_exports_http_request_via_reexport</signature>
-      <signature>Function TestEdgeCases.test_reexported_class_is_same_as_blocks_class</signature>
-      <signature>Function TestEdgeCases.test_auto_discover_runs_before_yaml_validation</signature>
-      <signature>Function TestEdgeCases.test_generate_schema_imports_blocks_before_generating</signature>
-    </file>
     <file path="./libs/core/tests/test_run222_migrate_blocks.py">
       <signature>Class TestBlockFileExistence</signature>
       <signature>Function TestBlockFileExistence.test_block_file_exists</signature>
       <signature>Class TestBlockDefImportable</signature>
       <signature>Function TestBlockDefImportable.test_code_block_def_importable</signature>
-      <signature>Function TestBlockDefImportable.test_file_writer_block_def_importable</signature>
       <signature>Function TestBlockDefImportable.test_linear_block_def_importable</signature>
-      <signature>Function TestBlockDefImportable.test_engineering_manager_block_def_importable</signature>
       <signature>Function TestBlockDefImportable.test_gate_block_def_importable</signature>
-      <signature>Function TestBlockDefImportable.test_router_block_def_importable</signature>
-      <signature>Function TestBlockDefImportable.test_team_lead_block_def_importable</signature>
       <signature>Function TestBlockDefImportable.test_fanout_block_def_importable</signature>
       <signature>Function TestBlockDefImportable.test_synthesize_block_def_importable</signature>
       <signature>Function TestBlockDefImportable.test_loop_block_def_importable</signature>
       <signature>Function TestBlockDefImportable.test_workflow_block_def_importable</signature>
       <signature>Class TestBuildFunctionExists</signature>
       <signature>Function TestBuildFunctionExists.test_code_build_function</signature>
-      <signature>Function TestBuildFunctionExists.test_file_writer_build_function</signature>
       <signature>Function TestBuildFunctionExists.test_linear_build_function</signature>
-      <signature>Function TestBuildFunctionExists.test_engineering_manager_build_function</signature>
       <signature>Function TestBuildFunctionExists.test_gate_build_function</signature>
-      <signature>Function TestBuildFunctionExists.test_router_build_function</signature>
-      <signature>Function TestBuildFunctionExists.test_team_lead_build_function</signature>
       <signature>Function TestBuildFunctionExists.test_fanout_build_function</signature>
       <signature>Function TestBuildFunctionExists.test_synthesize_build_function</signature>
       <signature>Function TestBuildFunctionExists.test_loop_build_function</signature>
       <signature>Function TestBuildFunctionExists.test_workflow_block_build_function</signature>
       <signature>Class TestRegistryCounts</signature>
-      <signature>Function TestRegistryCounts.test_block_def_registry_has_12_entries</signature>
-      <signature>Function TestRegistryCounts.test_block_builder_registry_has_12_entries</signature>
+      <signature>Function TestRegistryCounts.test_block_def_registry_has_7_entries</signature>
+      <signature>Function TestRegistryCounts.test_block_builder_registry_has_7_entries</signature>
       <signature>Function TestRegistryCounts.test_all_block_def_classes_from_blocks_package</signature>
       <signature>Function TestRegistryCounts.test_all_block_builder_functions_from_blocks_package</signature>
       <signature>Class TestSchemaCleanup</signature>
@@ -5253,7 +5097,6 @@
       <signature>Function TestTypeDiscrimination.test_fanout_valid</signature>
       <signature>Function TestTypeDiscrimination.test_synthesize_valid</signature>
       <signature>Function TestTypeDiscrimination.test_code_valid</signature>
-      <signature>Function TestTypeDiscrimination.test_router_valid</signature>
       <signature>Function TestTypeDiscrimination.test_gate_valid</signature>
       <signature>Function TestTypeDiscrimination.test_loop_valid</signature>
       <signature>Function TestTypeDiscrimination.test_workflow_block_valid</signature>
@@ -5281,26 +5124,6 @@
       <signature>Function TestSchemaGenerationScript.test_schema_file_exists</signature>
       <signature>Function TestSchemaGenerationScript.test_schema_is_valid_json</signature>
     </file>
-    <file path="./libs/core/tests/test_ssrf_consolidation.py">
-      <signature>Class TestNoDuplicateSSRFError</signature>
-      <signature>Function TestNoDuplicateSSRFError.test_http_request_does_not_define_ssrf_error_class</signature>
-      <signature>Class TestNoDuplicateValidateSSRF</signature>
-      <signature>Function TestNoDuplicateValidateSSRF.test_http_request_does_not_define_validate_ssrf</signature>
-      <signature>Class TestHTTPRequestImportsSharedSSRFError</signature>
-      <signature>Function TestHTTPRequestImportsSharedSSRFError.test_http_request_imports_ssrf_error_from_security</signature>
-      <signature>Function TestHTTPRequestImportsSharedSSRFError.test_http_request_imports_validate_ssrf_from_security</signature>
-      <signature>Class TestValidateSSRFIsAsync</signature>
-      <signature>Function TestValidateSSRFIsAsync.test_validate_ssrf_is_coroutine_function</signature>
-      <signature>Function TestValidateSSRFIsAsync.test_validate_ssrf_can_be_awaited</signature>
-      <signature>Function TestValidateSSRFIsAsync.test_validate_ssrf_raises_ssrf_error_when_awaited</signature>
-      <signature>Class TestNoBlockingDNS</signature>
-      <signature>Function TestNoBlockingDNS.test_security_does_not_use_socket_getaddrinfo</signature>
-      <signature>Function TestNoBlockingDNS.test_security_does_not_import_socket</signature>
-      <signature>Class TestSSRFErrorInheritance</signature>
-      <signature>Function TestSSRFErrorInheritance.test_ssrf_error_does_not_inherit_from_http_request_error</signature>
-      <signature>Function TestSSRFErrorInheritance.test_ssrf_error_is_exception_subclass</signature>
-      <signature>Function TestSSRFErrorInheritance.test_ssrf_error_identity_is_shared</signature>
-    </file>
     <file path="./libs/core/tests/test_state.py">
       <signature>Function test_workflow_state_initialization</signature>
       <signature>Function test_workflow_state_with_task</signature>
@@ -5309,52 +5132,95 @@
       <signature>Function test_workflow_state_with_all_fields</signature>
       <signature>Function test_workflow_state_model_copy_preserves_other_fields</signature>
     </file>
-    <file path="./libs/core/tests/test_stateful_field.py">
-      <signature>Function _validate_block</signature>
-      <signature>Class TestBaseBlockDefStatefulField</signature>
-      <signature>Function TestBaseBlockDefStatefulField.test_stateful_field_exists_on_base_block_def</signature>
-      <signature>Function TestBaseBlockDefStatefulField.test_stateful_defaults_to_false</signature>
-      <signature>Function TestBaseBlockDefStatefulField.test_stateful_can_be_set_true</signature>
-      <signature>Function TestBaseBlockDefStatefulField.test_stateful_can_be_set_false_explicitly</signature>
-      <signature>Function TestBaseBlockDefStatefulField.test_stateful_is_bool_type</signature>
-      <signature>Class TestStatefulOnAllBlockTypes</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_linear_block_stateful_true</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_linear_block_stateful_default</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_code_block_stateful_true</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_fanout_block_stateful_true</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_gate_block_stateful_true</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_loop_block_stateful_true</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_file_writer_block_stateful_true</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_router_block_stateful_true</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_synthesize_block_stateful_true</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_team_lead_block_stateful_true</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_engineering_manager_block_stateful_true</signature>
-      <signature>Function TestStatefulOnAllBlockTypes.test_workflow_block_stateful_true</signature>
-      <signature>Class TestStatefulValidation</signature>
-      <signature>Function TestStatefulValidation.test_stateful_non_bool_string_rejected</signature>
-      <signature>Class TestYAMLParsingStateful</signature>
-      <signature>Function TestYAMLParsingStateful.test_block_with_stateful_true_parses</signature>
-      <signature>Function TestYAMLParsingStateful.test_block_without_stateful_defaults_to_false</signature>
-      <signature>Function TestYAMLParsingStateful.test_block_with_stateful_false_explicit</signature>
-      <signature>Function TestYAMLParsingStateful.test_multiple_blocks_mixed_stateful</signature>
-      <signature>Function TestYAMLParsingStateful.test_non_soul_block_with_stateful_true_parses</signature>
-      <signature>Function TestYAMLParsingStateful.test_stateful_coexists_with_retry_config</signature>
-      <signature>Class TestParserStatefulWiring</signature>
-      <signature>Function TestParserStatefulWiring.test_block_instance_has_stateful_attribute</signature>
-      <signature>Function TestParserStatefulWiring.test_block_instance_stateful_defaults_false</signature>
-      <signature>Function TestParserStatefulWiring.test_parser_wires_stateful_to_soul_block</signature>
-      <signature>Function TestParserStatefulWiring.test_parser_wires_stateful_false_when_omitted</signature>
-      <signature>Class TestBaseBlockStatefulDefault</signature>
-      <signature>Function TestBaseBlockStatefulDefault.test_base_block_subclass_has_stateful</signature>
-      <signature>Class TestBaseBlockStatefulDefault.test_base_block_subclass_has_stateful.DummyBlock</signature>
-      <signature>Function TestBaseBlockStatefulDefault.test_base_block_subclass_has_stateful.DummyBlock.execute</signature>
-      <signature>Class TestBackwardCompatibilityStateful</signature>
-      <signature>Function TestBackwardCompatibilityStateful.test_existing_block_parses_without_stateful</signature>
-      <signature>Class TestStatefulSerialization</signature>
-      <signature>Function TestStatefulSerialization.test_model_dump_with_stateful_true</signature>
-      <signature>Function TestStatefulSerialization.test_model_dump_with_stateful_false</signature>
-      <signature>Function TestStatefulSerialization.test_round_trip_via_dict</signature>
-      <signature>Function TestStatefulSerialization.test_round_trip_stateful_false</signature>
+    <file path="./libs/core/tests/test_tool_integration.py">
+      <signature>Function _text_response</signature>
+      <signature>Function _tool_call_response</signature>
+      <signature>Function _workflow_dict</signature>
+      <signature>Function _create_echo_tool</signature>
+      <signature>Function _create_echo_tool._execute</signature>
+      <signature>Class TestFullPipeline</signature>
+      <signature>Function TestFullPipeline.test_yaml_parse_and_execute_with_tool_call</signature>
+      <signature>Function TestFullPipeline.test_tool_execute_receives_parsed_args</signature>
+      <signature>Function TestFullPipeline.test_tool_schema_sent_to_llm</signature>
+      <signature>Class TestSoulIsolation</signature>
+      <signature>Function TestSoulIsolation.test_soul_a_only_sees_http_schema</signature>
+      <signature>Function TestSoulIsolation.test_soul_b_only_sees_file_io_schema</signature>
+      <signature>Function TestSoulIsolation.test_parsed_soul_a_resolved_tools_contains_only_http</signature>
+      <signature>Class TestMaxIterationsIntegration</signature>
+      <signature>Function TestMaxIterationsIntegration.test_loop_caps_at_max_tool_iterations</signature>
+      <signature>Function TestMaxIterationsIntegration.test_last_iteration_call_strips_tools</signature>
+      <signature>Function TestMaxIterationsIntegration.test_tool_calls_made_tracks_all_iterations</signature>
+      <signature>Class TestToolErrorFeedback</signature>
+      <signature>Function TestToolErrorFeedback.test_tool_error_fed_back_as_string</signature>
+      <signature>Function TestToolErrorFeedback.test_tool_error_fed_back_as_string._fail_execute</signature>
+      <signature>Function TestToolErrorFeedback.test_tool_error_loop_does_not_raise</signature>
+      <signature>Function TestToolErrorFeedback.test_tool_error_loop_does_not_raise._raise_execute</signature>
+      <signature>Class TestParseValidation</signature>
+      <signature>Function TestParseValidation.test_soul_references_undeclared_tool_raises_value_error</signature>
+      <signature>Function TestParseValidation.test_undeclared_tool_error_mentions_soul_name</signature>
+      <signature>Function TestParseValidation.test_unknown_tool_source_raises_value_error</signature>
+      <signature>Function TestParseValidation.test_unknown_source_error_mentions_source_string</signature>
+      <signature>Class TestDelegateTool</signature>
+      <signature>Function TestDelegateTool.test_delegate_port_enum_matches_block_exits</signature>
+      <signature>Function TestDelegateTool.test_delegate_execute_returns_valid_port</signature>
+      <signature>Function TestDelegateTool.test_delegate_execute_returns_reject_port</signature>
+      <signature>Function TestDelegateTool.test_delegate_port_returned_in_tool_result</signature>
+      <signature>Function TestDelegateTool.test_delegate_three_exits_port_enum_complete</signature>
+      <signature>Class TestCostAccumulationIntegration</signature>
+      <signature>Function TestCostAccumulationIntegration.test_cost_sums_three_iterations</signature>
+      <signature>Function TestCostAccumulationIntegration.test_cost_accumulation_matches_call_count</signature>
+      <signature>Class TestNoToolsPath</signature>
+      <signature>Function TestNoToolsPath.test_soul_without_tools_single_achat_call</signature>
+      <signature>Function TestNoToolsPath.test_no_tools_achat_not_given_tools_kwarg</signature>
+      <signature>Function TestNoToolsPath.test_parsed_soul_without_tools_has_none_resolved_tools</signature>
+      <signature>Function TestNoToolsPath.test_no_tools_cost_and_tokens_populated</signature>
+      <signature>Class TestExistingYamlWorkflowsParseClean</signature>
+      <signature>Function TestExistingYamlWorkflowsParseClean.test_mockup_pipeline_yaml_is_valid_yaml</signature>
+      <signature>Function TestExistingYamlWorkflowsParseClean.test_mockup_generate_review_yaml_parses</signature>
+    </file>
+    <file path="./libs/core/tests/test_tool_registry.py">
+      <signature>Function _noop_execute</signature>
+      <signature>Function _make_simple_tool_instance</signature>
+      <signature>Class TestBuiltinCatalogPopulated</signature>
+      <signature>Function TestBuiltinCatalogPopulated.test_http_source_registered</signature>
+      <signature>Function TestBuiltinCatalogPopulated.test_file_io_source_registered</signature>
+      <signature>Function TestBuiltinCatalogPopulated.test_delegate_source_registered</signature>
+      <signature>Function TestBuiltinCatalogPopulated.test_catalog_contains_callables</signature>
+      <signature>Function TestBuiltinCatalogPopulated.test_catalog_has_at_least_three_entries</signature>
+      <signature>Class TestToolInstanceOpenAISchema</signature>
+      <signature>Function TestToolInstanceOpenAISchema.test_schema_top_level_type_is_function</signature>
+      <signature>Function TestToolInstanceOpenAISchema.test_schema_has_function_key</signature>
+      <signature>Function TestToolInstanceOpenAISchema.test_schema_function_name_matches_tool_name</signature>
+      <signature>Function TestToolInstanceOpenAISchema.test_schema_function_description_matches</signature>
+      <signature>Function TestToolInstanceOpenAISchema.test_schema_function_parameters_matches</signature>
+      <signature>Function TestToolInstanceOpenAISchema.test_schema_full_structure</signature>
+      <signature>Function TestToolInstanceOpenAISchema.test_http_tool_schema_name</signature>
+      <signature>Function TestToolInstanceOpenAISchema.test_file_io_tool_schema_name</signature>
+      <signature>Function TestToolInstanceOpenAISchema.test_delegate_tool_schema_name</signature>
+      <signature>Class TestRegisterBuiltinRoundTrip</signature>
+      <signature>Function TestRegisterBuiltinRoundTrip.test_register_and_retrieve</signature>
+      <signature>Function TestRegisterBuiltinRoundTrip.test_register_and_retrieve.my_factory</signature>
+      <signature>Function TestRegisterBuiltinRoundTrip.test_second_registration_overwrites_first</signature>
+      <signature>Function TestRegisterBuiltinRoundTrip.test_second_registration_overwrites_first.factory_v1</signature>
+      <signature>Function TestRegisterBuiltinRoundTrip.test_second_registration_overwrites_first.factory_v2</signature>
+      <signature>Function TestRegisterBuiltinRoundTrip.test_get_builtin_unknown_returns_none</signature>
+      <signature>Class TestResolveToolUnknownSource</signature>
+      <signature>Function TestResolveToolUnknownSource.test_unknown_source_raises_value_error</signature>
+      <signature>Function TestResolveToolUnknownSource.test_error_message_mentions_source</signature>
+      <signature>Class TestResolveToolKwargs</signature>
+      <signature>Function TestResolveToolKwargs.test_kwargs_forwarded_to_factory</signature>
+      <signature>Function TestResolveToolKwargs.test_kwargs_forwarded_to_factory.factory</signature>
+      <signature>Function TestResolveToolKwargs.test_delegate_resolve_passes_exits</signature>
+      <signature>Class TestToolInstanceExecuteAsync</signature>
+      <signature>Function TestToolInstanceExecuteAsync.test_execute_is_callable</signature>
+      <signature>Function TestToolInstanceExecuteAsync.test_execute_returns_string</signature>
+      <signature>Function TestToolInstanceExecuteAsync.test_file_io_execute_write_returns_string</signature>
+      <signature>Function TestToolInstanceExecuteAsync.test_delegate_execute_returns_port_string</signature>
+      <signature>Class TestCatalogMutability</signature>
+      <signature>Function TestCatalogMutability.test_registered_key_appears_in_catalog</signature>
+      <signature>Function TestCatalogMutability.test_registered_key_appears_in_catalog.factory</signature>
+      <signature>Function TestCatalogMutability.test_removed_key_no_longer_in_catalog</signature>
+      <signature>Function TestCatalogMutability.test_removed_key_no_longer_in_catalog.factory</signature>
     </file>
     <file path="./libs/core/tests/test_windowing.py">
       <signature>Function _make_messages</signature>
@@ -5535,7 +5401,7 @@
       <signature>Function TestResolveNextWithOutputConditions.test_resolve_next_evaluates_output_conditions</signature>
       <signature>Function TestResolveNextWithOutputConditions.test_output_conditions_before_conditional_transitions</signature>
       <signature>Function TestResolveNextWithOutputConditions.test_output_conditions_default_fallback</signature>
-      <signature>Function TestResolveNextWithOutputConditions.test_output_conditions_decision_written_to_metadata</signature>
+      <signature>Function TestResolveNextWithOutputConditions.test_output_conditions_decision_written_to_exit_handle</signature>
       <signature>Class TestBlockWithoutOutputConditions</signature>
       <signature>Function TestBlockWithoutOutputConditions.test_block_without_output_conditions_routes_normally</signature>
       <signature>Class TestSameBlockDifferentWorkflows</signature>
@@ -5550,13 +5416,13 @@
       <signature>Function TestOutputConditionsOnCodeBlock.test_output_conditions_on_code_block</signature>
       <signature>Function TestOutputConditionsOnCodeBlock.test_output_conditions_on_code_block_failure_route</signature>
       <signature>Class TestOutputConditionsOverwriteStaleMetadata</signature>
-      <signature>Function TestOutputConditionsOverwriteStaleMetadata.test_output_conditions_overwrite_stale_decision</signature>
+      <signature>Function TestOutputConditionsOverwriteStaleMetadata.test_output_conditions_overwrite_stale_exit_handle</signature>
       <signature>Class TestAllOperatorsViaOutputConditions</signature>
       <signature>Function TestAllOperatorsViaOutputConditions.test_operator_via_output_conditions</signature>
     </file>
     <file path="./libs/core/tests/test_yaml_parser.py">
       <signature>Class TestBlockTypeRegistry</signature>
-      <signature>Function TestBlockTypeRegistry.test_block_type_registry_has_all_12_types</signature>
+      <signature>Function TestBlockTypeRegistry.test_block_type_registry_has_all_7_types</signature>
       <signature>Function TestBlockTypeRegistry.test_all_block_builders_are_callable</signature>
       <signature>Class TestBuiltInSouls</signature>
       <signature>Function TestBuiltInSouls.test_built_in_souls_exist</signature>
@@ -5567,22 +5433,12 @@
       <signature>Function TestLinearBlock.test_linear_block_with_builtin_soul</signature>
       <signature>Class TestFanOutBlock</signature>
       <signature>Function TestFanOutBlock.test_fanout_block_valid_yaml</signature>
-      <signature>Function TestFanOutBlock.test_fanout_block_missing_soul_refs_raises_error</signature>
-      <signature>Function TestFanOutBlock.test_fanout_block_empty_soul_refs_raises_error</signature>
+      <signature>Function TestFanOutBlock.test_fanout_block_missing_exits_raises_error</signature>
+      <signature>Function TestFanOutBlock.test_fanout_block_empty_exits_raises_error</signature>
       <signature>Class TestSynthesizeBlock</signature>
       <signature>Function TestSynthesizeBlock.test_synthesize_block_valid_yaml</signature>
       <signature>Function TestSynthesizeBlock.test_synthesize_block_missing_soul_ref_raises_error</signature>
       <signature>Function TestSynthesizeBlock.test_synthesize_block_missing_input_block_ids_raises_error</signature>
-      <signature>Class TestRouterBlock</signature>
-      <signature>Function TestRouterBlock.test_router_block_valid_yaml</signature>
-      <signature>Function TestRouterBlock.test_router_block_missing_soul_ref_raises_error</signature>
-      <signature>Class TestTeamLeadBlock</signature>
-      <signature>Function TestTeamLeadBlock.test_team_lead_block_valid_yaml</signature>
-      <signature>Function TestTeamLeadBlock.test_team_lead_block_missing_soul_ref_raises_error</signature>
-      <signature>Function TestTeamLeadBlock.test_team_lead_block_missing_failure_context_keys_raises_error</signature>
-      <signature>Class TestEngineeringManagerBlock</signature>
-      <signature>Function TestEngineeringManagerBlock.test_engineering_manager_block_valid_yaml</signature>
-      <signature>Function TestEngineeringManagerBlock.test_engineering_manager_block_missing_soul_ref_raises_error</signature>
       <signature>Class TestSoulResolution</signature>
       <signature>Function TestSoulResolution.test_soul_resolution_missing_soul_raises_error</signature>
       <signature>Function TestSoulResolution.test_custom_soul_overrides_builtin</signature>
@@ -5609,6 +5465,530 @@
       <signature>Function TestParseTaskYAML.test_parse_task_yaml_returns_task_primitive</signature>
       <signature>Function TestParseTaskYAML.test_parse_task_yaml_with_multiline_instruction</signature>
       <signature>Function TestParseTaskYAML.test_parse_task_yaml_with_multiline_context</signature>
+    </file>
+    <file path="./libs/core/tests/unit/__init__.py">
+    </file>
+    <file path="./libs/core/tests/unit/test_agentic_tool_loop.py">
+      <signature>Function _make_soul</signature>
+      <signature>Function _make_task</signature>
+      <signature>Function _make_tool_instance</signature>
+      <signature>Function _achat_text_response</signature>
+      <signature>Function _achat_tool_response</signature>
+      <signature>Class TestSingleShotNoTools</signature>
+      <signature>Function TestSingleShotNoTools.test_no_resolved_tools_single_call</signature>
+      <signature>Function TestSingleShotNoTools.test_empty_resolved_tools_single_call</signature>
+      <signature>Function TestSingleShotNoTools.test_no_tools_does_not_pass_tools_to_achat</signature>
+      <signature>Class TestToolLoopBasic</signature>
+      <signature>Function TestToolLoopBasic.test_one_tool_call_then_text</signature>
+      <signature>Function TestToolLoopBasic.test_tool_execute_called_with_parsed_args</signature>
+      <signature>Function TestToolLoopBasic.test_tool_result_fed_back_as_tool_message</signature>
+      <signature>Function TestToolLoopBasic.test_assistant_raw_message_appended_before_tool_result</signature>
+      <signature>Function TestToolLoopBasic.test_tools_schema_passed_to_achat</signature>
+      <signature>Class TestToolLoopMultiIteration</signature>
+      <signature>Function TestToolLoopMultiIteration.test_two_tool_iterations_then_text</signature>
+      <signature>Class TestMaxIterations</signature>
+      <signature>Function TestMaxIterations.test_max_iterations_stops_loop</signature>
+      <signature>Function TestMaxIterations.test_last_iteration_strips_tools</signature>
+      <signature>Function TestMaxIterations.test_non_last_iteration_has_tools</signature>
+      <signature>Class TestCostAccumulation</signature>
+      <signature>Function TestCostAccumulation.test_cost_accumulated_across_iterations</signature>
+      <signature>Function TestCostAccumulation.test_cost_accumulated_three_iterations</signature>
+      <signature>Function TestCostAccumulation.test_single_shot_cost_unchanged</signature>
+      <signature>Class TestToolErrorHandling</signature>
+      <signature>Function TestToolErrorHandling.test_tool_exception_fed_back_as_string</signature>
+      <signature>Function TestToolErrorHandling.test_tool_error_does_not_crash_loop</signature>
+      <signature>Class TestUnknownTool</signature>
+      <signature>Function TestUnknownTool.test_unknown_tool_error_fed_back</signature>
+      <signature>Function TestUnknownTool.test_unknown_tool_does_not_crash</signature>
+      <signature>Class TestExecutionResultToolFields</signature>
+      <signature>Function TestExecutionResultToolFields.test_execution_result_has_tool_iterations_field</signature>
+      <signature>Function TestExecutionResultToolFields.test_execution_result_has_tool_calls_made_field</signature>
+      <signature>Function TestExecutionResultToolFields.test_execution_result_tool_iterations_default_zero</signature>
+      <signature>Function TestExecutionResultToolFields.test_execution_result_tool_calls_made_default_empty</signature>
+      <signature>Function TestExecutionResultToolFields.test_tool_iterations_count_populated</signature>
+      <signature>Function TestExecutionResultToolFields.test_tool_calls_made_list_populated</signature>
+      <signature>Function TestExecutionResultToolFields.test_no_tools_zero_iterations</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_builtin_tools.py">
+      <signature>Class TestCatalogRegistration</signature>
+      <signature>Function TestCatalogRegistration.test_http_registered</signature>
+      <signature>Function TestCatalogRegistration.test_file_io_registered</signature>
+      <signature>Function TestCatalogRegistration.test_delegate_registered</signature>
+      <signature>Class TestHttpToolFactory</signature>
+      <signature>Function TestHttpToolFactory.test_factory_returns_tool_instance</signature>
+      <signature>Function TestHttpToolFactory.test_tool_name_is_http_request</signature>
+      <signature>Function TestHttpToolFactory.test_parameters_schema_has_method</signature>
+      <signature>Function TestHttpToolFactory.test_parameters_schema_has_url</signature>
+      <signature>Function TestHttpToolFactory.test_parameters_schema_has_headers</signature>
+      <signature>Function TestHttpToolFactory.test_parameters_schema_has_body</signature>
+      <signature>Function TestHttpToolFactory.test_parameters_schema_requires_method_and_url</signature>
+      <signature>Function TestHttpToolFactory.test_openai_schema_name</signature>
+      <signature>Class TestHttpToolExecute</signature>
+      <signature>Function TestHttpToolExecute.test_execute_get_returns_json_with_status_code</signature>
+      <signature>Function TestHttpToolExecute.test_execute_get_returns_json_with_headers</signature>
+      <signature>Function TestHttpToolExecute.test_execute_get_returns_json_with_body</signature>
+      <signature>Function TestHttpToolExecute.test_execute_calls_validate_ssrf</signature>
+      <signature>Function TestHttpToolExecute.test_execute_ssrf_blocks_private_ip</signature>
+      <signature>Function TestHttpToolExecute.test_execute_post_with_body</signature>
+      <signature>Class TestFileIoToolFactory</signature>
+      <signature>Function TestFileIoToolFactory.test_factory_returns_tool_instance</signature>
+      <signature>Function TestFileIoToolFactory.test_tool_name_is_file_io</signature>
+      <signature>Function TestFileIoToolFactory.test_parameters_schema_has_action</signature>
+      <signature>Function TestFileIoToolFactory.test_parameters_action_has_enum</signature>
+      <signature>Function TestFileIoToolFactory.test_parameters_schema_has_path</signature>
+      <signature>Function TestFileIoToolFactory.test_parameters_schema_has_content</signature>
+      <signature>Function TestFileIoToolFactory.test_parameters_schema_requires_action_and_path</signature>
+      <signature>Class TestFileIoToolExecute</signature>
+      <signature>Function TestFileIoToolExecute.test_read_returns_file_content</signature>
+      <signature>Function TestFileIoToolExecute.test_write_creates_file</signature>
+      <signature>Function TestFileIoToolExecute.test_write_returns_confirmation</signature>
+      <signature>Function TestFileIoToolExecute.test_path_traversal_rejected_dotdot</signature>
+      <signature>Function TestFileIoToolExecute.test_path_traversal_rejected_absolute</signature>
+      <signature>Function TestFileIoToolExecute.test_read_nonexistent_file_returns_error</signature>
+      <signature>Class TestDelegateToolFactory</signature>
+      <signature>Function TestDelegateToolFactory.test_factory_returns_tool_instance</signature>
+      <signature>Function TestDelegateToolFactory.test_tool_name_is_delegate</signature>
+      <signature>Function TestDelegateToolFactory.test_parameters_schema_has_port</signature>
+      <signature>Class TestDelegateToolSchemaEnum</signature>
+      <signature>Function TestDelegateToolSchemaEnum.test_port_enum_from_exit_ids</signature>
+      <signature>Function TestDelegateToolSchemaEnum.test_port_enum_single_exit</signature>
+      <signature>Function TestDelegateToolSchemaEnum.test_openai_schema_contains_port_enum</signature>
+      <signature>Function TestDelegateToolSchemaEnum.test_empty_exits_no_enum</signature>
+      <signature>Class TestDelegateToolExecute</signature>
+      <signature>Function TestDelegateToolExecute.test_valid_port_returns_port_string</signature>
+      <signature>Function TestDelegateToolExecute.test_another_valid_port</signature>
+      <signature>Function TestDelegateToolExecute.test_invalid_port_returns_error</signature>
+      <signature>Function TestDelegateToolExecute.test_invalid_port_does_not_raise</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_delete_http_filewriter.py">
+      <signature>Function _make_minimal_yaml</signature>
+      <signature>Class TestFilesDontExist</signature>
+      <signature>Function TestFilesDontExist.test_http_request_py_deleted</signature>
+      <signature>Function TestFilesDontExist.test_file_writer_py_deleted</signature>
+      <signature>Class TestRegistryCleanup</signature>
+      <signature>Function TestRegistryCleanup.test_http_request_not_in_block_def_registry</signature>
+      <signature>Function TestRegistryCleanup.test_file_writer_not_in_block_def_registry</signature>
+      <signature>Function TestRegistryCleanup.test_http_request_not_in_block_builder_registry</signature>
+      <signature>Function TestRegistryCleanup.test_file_writer_not_in_block_builder_registry</signature>
+      <signature>Class TestImportsFail</signature>
+      <signature>Function TestImportsFail.test_import_http_request_block_fails</signature>
+      <signature>Function TestImportsFail.test_import_file_writer_block_fails</signature>
+      <signature>Function TestImportsFail.test_top_level_import_http_request_block_fails</signature>
+      <signature>Function TestImportsFail.test_top_level_import_file_writer_block_fails</signature>
+      <signature>Class TestYamlParseFails</signature>
+      <signature>Function TestYamlParseFails.test_yaml_http_request_raises</signature>
+      <signature>Function TestYamlParseFails.test_yaml_file_writer_raises</signature>
+      <signature>Class TestSurvivingBlocksWork</signature>
+      <signature>Function TestSurvivingBlocksWork.test_block_type_still_in_registry</signature>
+      <signature>Function TestSurvivingBlocksWork.test_block_type_has_builder</signature>
+      <signature>Class TestNoStaleImports</signature>
+      <signature>Function TestNoStaleImports._collect_python_files</signature>
+      <signature>Function TestNoStaleImports._collect_yaml_files</signature>
+      <signature>Function TestNoStaleImports.test_no_stale_references_in_source</signature>
+      <signature>Function TestNoStaleImports.test_no_stale_block_types_in_custom_workflows</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_exit_handle_models.py">
+      <signature>Class TestBlockResultExitHandle</signature>
+      <signature>Function TestBlockResultExitHandle.test_exit_handle_defaults_to_none</signature>
+      <signature>Function TestBlockResultExitHandle.test_exit_handle_explicit_none</signature>
+      <signature>Function TestBlockResultExitHandle.test_exit_handle_set_to_string</signature>
+      <signature>Function TestBlockResultExitHandle.test_exit_handle_various_values</signature>
+      <signature>Function TestBlockResultExitHandle.test_exit_handle_preserved_in_model_dump</signature>
+      <signature>Function TestBlockResultExitHandle.test_exit_handle_none_in_model_dump</signature>
+      <signature>Function TestBlockResultExitHandle.test_exit_handle_excluded_when_none_with_exclude_none</signature>
+      <signature>Function TestBlockResultExitHandle.test_from_string_exit_handle_is_none</signature>
+      <signature>Function TestBlockResultExitHandle.test_exit_handle_with_all_other_fields</signature>
+      <signature>Function TestBlockResultExitHandle.test_exit_handle_str_representation_unchanged</signature>
+      <signature>Function TestBlockResultExitHandle.test_exit_handle_not_iterable</signature>
+      <signature>Class TestExitDef</signature>
+      <signature>Function TestExitDef.test_exitdef_valid</signature>
+      <signature>Function TestExitDef.test_exitdef_missing_id_raises</signature>
+      <signature>Function TestExitDef.test_exitdef_missing_label_raises</signature>
+      <signature>Function TestExitDef.test_exitdef_missing_both_raises</signature>
+      <signature>Function TestExitDef.test_exitdef_model_dump</signature>
+      <signature>Function TestExitDef.test_exitdef_from_dict</signature>
+      <signature>Function TestExitDef.test_exitdef_multiple_instances</signature>
+      <signature>Class TestBaseBlockDefExits</signature>
+      <signature>Function TestBaseBlockDefExits.test_exits_defaults_to_none</signature>
+      <signature>Function TestBaseBlockDefExits.test_exits_explicit_none</signature>
+      <signature>Function TestBaseBlockDefExits.test_exits_with_exit_defs</signature>
+      <signature>Function TestBaseBlockDefExits.test_exits_empty_list</signature>
+      <signature>Function TestBaseBlockDefExits.test_exits_single_exit</signature>
+      <signature>Function TestBaseBlockDefExits.test_exits_model_dump</signature>
+      <signature>Function TestBaseBlockDefExits.test_exits_none_in_model_dump</signature>
+      <signature>Function TestBaseBlockDefExits.test_exits_excluded_with_exclude_none</signature>
+      <signature>Function TestBaseBlockDefExits.test_exits_from_raw_dicts</signature>
+      <signature>Function TestBaseBlockDefExits.test_existing_fields_still_work_with_exits</signature>
+      <signature>Class TestExitsYAMLParsing</signature>
+      <signature>Function TestExitsYAMLParsing.test_parse_block_with_exits_from_yaml_dict</signature>
+      <signature>Function TestExitsYAMLParsing.test_parse_block_without_exits_from_yaml_dict</signature>
+      <signature>Function TestExitsYAMLParsing.test_parse_block_with_exits_null_from_yaml_dict</signature>
+      <signature>Class TestBackwardCompatibility</signature>
+      <signature>Function TestBackwardCompatibility.test_block_result_in_workflow_state</signature>
+      <signature>Function TestBackwardCompatibility.test_block_result_without_exit_handle_in_workflow_state</signature>
+      <signature>Function TestBackwardCompatibility.test_model_copy_preserves_exit_handle</signature>
+      <signature>Function TestBackwardCompatibility.test_exitdef_importable_from_schema</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_exit_ports_integration.py">
+      <signature>Function _mock_runner</signature>
+      <signature>Function _make_soul</signature>
+      <signature>Class StubBlock</signature>
+      <signature>Function StubBlock.__init__</signature>
+      <signature>Function StubBlock.execute</signature>
+      <signature>Class ExitHandleBlock</signature>
+      <signature>Function ExitHandleBlock.__init__</signature>
+      <signature>Function ExitHandleBlock.execute</signature>
+      <signature>Class JsonOutputBlock</signature>
+      <signature>Function JsonOutputBlock.__init__</signature>
+      <signature>Function JsonOutputBlock.execute</signature>
+      <signature>Function _fresh_state</signature>
+      <signature>Class TestExistingYamlWorkflowsParse</signature>
+      <signature>Function TestExistingYamlWorkflowsParse.test_custom_workflows_dir_exists</signature>
+      <signature>Function TestExistingYamlWorkflowsParse.test_all_yaml_files_found</signature>
+      <signature>Function TestExistingYamlWorkflowsParse.test_mockup_generate_review_has_exits_on_gate</signature>
+      <signature>Function TestExistingYamlWorkflowsParse.test_mockup_generate_review_loop_has_break_on_exit</signature>
+      <signature>Function TestExistingYamlWorkflowsParse.test_mockup_generate_review_has_conditional_transitions_for_gate</signature>
+      <signature>Function TestExistingYamlWorkflowsParse.test_no_type_router_in_any_yaml</signature>
+      <signature>Function TestExistingYamlWorkflowsParse.test_mockup_generate_review_parses_successfully</signature>
+      <signature>Function TestExistingYamlWorkflowsParse.test_mockup_pipeline_parses_successfully</signature>
+      <signature>Class TestGateStandaloneRoutingE2E</signature>
+      <signature>Function TestGateStandaloneRoutingE2E.test_gate_pass_routes_to_success_block</signature>
+      <signature>Function TestGateStandaloneRoutingE2E.test_gate_fail_routes_to_failure_block</signature>
+      <signature>Function TestGateStandaloneRoutingE2E.test_gate_standalone_default_fallback</signature>
+      <signature>Class TestGateInLoopRoutingE2E</signature>
+      <signature>Function TestGateInLoopRoutingE2E.test_gate_pass_triggers_break_on_exit</signature>
+      <signature>Function TestGateInLoopRoutingE2E.test_gate_fail_triggers_retry_on_exit</signature>
+      <signature>Function TestGateInLoopRoutingE2E.test_gate_fail_then_pass_in_loop</signature>
+      <signature>Function TestGateInLoopRoutingE2E.test_gate_fail_then_pass_in_loop._side_effect</signature>
+      <signature>Function TestGateInLoopRoutingE2E.test_loop_without_break_or_retry_falls_through_to_break_condition</signature>
+      <signature>Class TestOutputConditionsExitHandleChainE2E</signature>
+      <signature>Function TestOutputConditionsExitHandleChainE2E.test_output_conditions_match_routes_correctly</signature>
+      <signature>Function TestOutputConditionsExitHandleChainE2E.test_output_conditions_no_match_uses_default</signature>
+      <signature>Function TestOutputConditionsExitHandleChainE2E.test_block_with_exit_handle_and_output_conditions</signature>
+      <signature>Class TestValidationCatchesInvalidConfigs</signature>
+      <signature>Function TestValidationCatchesInvalidConfigs.test_transition_key_not_in_declared_exits_fails</signature>
+      <signature>Function TestValidationCatchesInvalidConfigs.test_default_key_always_allowed</signature>
+      <signature>Function TestValidationCatchesInvalidConfigs.test_yaml_with_bad_transition_key_fails_parse</signature>
+      <signature>Function TestValidationCatchesInvalidConfigs.test_yaml_with_valid_exits_parses_ok</signature>
+      <signature>Function TestValidationCatchesInvalidConfigs.test_yaml_gate_auto_injects_exits_then_validates</signature>
+      <signature>Class TestFullWorkflowBranchingFromYAML</signature>
+      <signature>Function TestFullWorkflowBranchingFromYAML.test_full_yaml_gate_workflow_pass_path</signature>
+      <signature>Function TestFullWorkflowBranchingFromYAML.test_full_yaml_gate_workflow_pass_path._side_effect</signature>
+      <signature>Function TestFullWorkflowBranchingFromYAML.test_full_yaml_gate_workflow_fail_path</signature>
+      <signature>Function TestFullWorkflowBranchingFromYAML.test_full_yaml_gate_workflow_fail_path._side_effect</signature>
+      <signature>Class TestYamlExitPortRoundTrip</signature>
+      <signature>Function TestYamlExitPortRoundTrip.test_gate_exits_survive_schema_round_trip</signature>
+      <signature>Function TestYamlExitPortRoundTrip.test_loop_break_on_exit_survives_schema_round_trip</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_gate_exit_handle.py">
+      <signature>Function _mock_runner</signature>
+      <signature>Function _make_soul</signature>
+      <signature>Function _make_gate</signature>
+      <signature>Class TestGateNeverRaisesOnFail</signature>
+      <signature>Function TestGateNeverRaisesOnFail.test_fail_returns_state_not_exception</signature>
+      <signature>Function TestGateNeverRaisesOnFail.test_fail_does_not_raise_gate_error</signature>
+      <signature>Function TestGateNeverRaisesOnFail.test_fail_preserves_cost_propagation</signature>
+      <signature>Class TestGatePassExitHandle</signature>
+      <signature>Function TestGatePassExitHandle.test_pass_exit_handle_is_pass</signature>
+      <signature>Function TestGatePassExitHandle.test_pass_output_preserved</signature>
+      <signature>Function TestGatePassExitHandle.test_pass_with_extract_field_has_exit_handle</signature>
+      <signature>Class TestGateFailExitHandle</signature>
+      <signature>Function TestGateFailExitHandle.test_fail_exit_handle_is_fail</signature>
+      <signature>Function TestGateFailExitHandle.test_fail_output_contains_feedback</signature>
+      <signature>Function TestGateFailExitHandle.test_fail_block_result_stored_in_results</signature>
+      <signature>Class TestGateErrorDeleted</signature>
+      <signature>Function TestGateErrorDeleted.test_gate_error_not_importable</signature>
+      <signature>Function TestGateErrorDeleted.test_gate_module_has_no_gate_error_attr</signature>
+      <signature>Class TestNoMetadataWrites</signature>
+      <signature>Function TestNoMetadataWrites.test_pass_no_decision_metadata</signature>
+      <signature>Function TestNoMetadataWrites.test_fail_no_decision_metadata</signature>
+      <signature>Function TestNoMetadataWrites.test_metadata_unchanged_on_pass</signature>
+      <signature>Class TestGateStandaloneWithConditionalTransitions</signature>
+      <signature>Function TestGateStandaloneWithConditionalTransitions.test_pass_exit_handle_matches_transition_key</signature>
+      <signature>Function TestGateStandaloneWithConditionalTransitions.test_fail_exit_handle_matches_transition_key</signature>
+      <signature>Function TestGateStandaloneWithConditionalTransitions.test_gate_returns_without_loop_wrapping</signature>
+      <signature>Class TestAutoInjectExits</signature>
+      <signature>Function TestAutoInjectExits.test_build_injects_pass_fail_exits_when_none</signature>
+      <signature>Function TestAutoInjectExits.test_build_injected_exits_have_correct_labels</signature>
+      <signature>Function TestAutoInjectExits.test_build_preserves_explicit_exits</signature>
+      <signature>Function TestAutoInjectExits.test_build_injects_exit_def_types</signature>
+      <signature>Class TestGateErrorRemovedFromLoop</signature>
+      <signature>Function TestGateErrorRemovedFromLoop.test_loop_module_does_not_import_gate_error</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_litellm_tool_calling.py">
+      <signature>Function _make_tool_call</signature>
+      <signature>Function _make_response</signature>
+      <signature>Class TestAchatBackwardCompatWithToolFields</signature>
+      <signature>Function TestAchatBackwardCompatWithToolFields.test_no_tools_returns_original_keys</signature>
+      <signature>Function TestAchatBackwardCompatWithToolFields.test_no_tools_tool_calls_is_none</signature>
+      <signature>Function TestAchatBackwardCompatWithToolFields.test_no_tools_finish_reason_present</signature>
+      <signature>Function TestAchatBackwardCompatWithToolFields.test_no_tools_raw_message_present</signature>
+      <signature>Function TestAchatBackwardCompatWithToolFields.test_no_tools_does_not_pass_tools_to_acompletion</signature>
+      <signature>Class TestAchatToolCalling</signature>
+      <signature>Function TestAchatToolCalling.test_tools_passed_to_acompletion</signature>
+      <signature>Function TestAchatToolCalling.test_tool_choice_passed_to_acompletion</signature>
+      <signature>Function TestAchatToolCalling.test_tool_calls_extracted_from_response</signature>
+      <signature>Function TestAchatToolCalling.test_tool_calls_structure_has_id_and_function</signature>
+      <signature>Function TestAchatToolCalling.test_multiple_tool_calls</signature>
+      <signature>Function TestAchatToolCalling.test_tools_provided_but_llm_responds_with_text</signature>
+      <signature>Class TestAchatFinishReason</signature>
+      <signature>Function TestAchatFinishReason.test_finish_reason_tool_calls</signature>
+      <signature>Function TestAchatFinishReason.test_finish_reason_stop</signature>
+      <signature>Function TestAchatFinishReason.test_finish_reason_length</signature>
+      <signature>Class TestAchatRawMessage</signature>
+      <signature>Function TestAchatRawMessage.test_raw_message_contains_role</signature>
+      <signature>Function TestAchatRawMessage.test_raw_message_contains_content</signature>
+      <signature>Function TestAchatRawMessage.test_raw_message_contains_tool_calls_when_present</signature>
+      <signature>Function TestAchatRawMessage.test_raw_message_no_tool_calls_when_absent</signature>
+      <signature>Function TestAchatRawMessage.test_raw_message_is_dict</signature>
+      <signature>Class TestAchatContentWithToolCalls</signature>
+      <signature>Function TestAchatContentWithToolCalls.test_none_content_defaults_to_empty_string</signature>
+      <signature>Function TestAchatContentWithToolCalls.test_empty_content_with_tool_calls</signature>
+      <signature>Class TestAchatSignature</signature>
+      <signature>Function TestAchatSignature.test_achat_accepts_tools_kwarg</signature>
+      <signature>Function TestAchatSignature.test_achat_accepts_tool_choice_kwarg</signature>
+      <signature>Function TestAchatSignature.test_tool_choice_none_not_sent_to_acompletion</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_loop_exit_handle.py">
+      <signature>Class TrackingBlock</signature>
+      <signature>Function TrackingBlock.__init__</signature>
+      <signature>Function TrackingBlock.execute</signature>
+      <signature>Class ExitHandleBlock</signature>
+      <signature>Function ExitHandleBlock.__init__</signature>
+      <signature>Function ExitHandleBlock.execute</signature>
+      <signature>Function _validate_block</signature>
+      <signature>Class TestRetryOnExit</signature>
+      <signature>Function TestRetryOnExit.test_fail_exit_handle_triggers_retry</signature>
+      <signature>Function TestRetryOnExit.test_retry_on_exit_skips_remaining_inner_blocks</signature>
+      <signature>Function TestRetryOnExit.test_non_matching_exit_handle_does_not_trigger_retry</signature>
+      <signature>Class TestBreakOnExit</signature>
+      <signature>Function TestBreakOnExit.test_pass_exit_handle_triggers_break</signature>
+      <signature>Function TestBreakOnExit.test_break_on_exit_immediate_round_1</signature>
+      <signature>Function TestBreakOnExit.test_non_matching_exit_handle_does_not_trigger_break</signature>
+      <signature>Class TestMidLoopExit</signature>
+      <signature>Function TestMidLoopExit.test_break_on_exit_mid_loop_skips_block_3</signature>
+      <signature>Function TestMidLoopExit.test_retry_on_exit_mid_loop_skips_block_3</signature>
+      <signature>Function TestMidLoopExit.test_mid_loop_break_after_retry_rounds</signature>
+      <signature>Class TestNoGateErrorInLoopBlock</signature>
+      <signature>Function TestNoGateErrorInLoopBlock.test_no_gate_error_in_source</signature>
+      <signature>Function TestNoGateErrorInLoopBlock.test_no_except_with_hasattr_state_pattern</signature>
+      <signature>Function TestNoGateErrorInLoopBlock.test_no_broad_exception_catch_in_execute</signature>
+      <signature>Function TestNoGateErrorInLoopBlock.test_no_last_gate_error_variable</signature>
+      <signature>Class TestBreakConditionStillWorks</signature>
+      <signature>Function TestBreakConditionStillWorks.test_break_condition_without_exit_handle_fields</signature>
+      <signature>Function TestBreakConditionStillWorks.test_break_condition_coexists_with_break_on_exit</signature>
+      <signature>Class TestMaxRoundsEnforced</signature>
+      <signature>Function TestMaxRoundsEnforced.test_max_rounds_caps_retry_on_exit</signature>
+      <signature>Function TestMaxRoundsEnforced.test_max_rounds_1_with_retry_on_exit</signature>
+      <signature>Class TestLoopMetadataWithExitHandle</signature>
+      <signature>Function TestLoopMetadataWithExitHandle.test_metadata_on_break_on_exit</signature>
+      <signature>Function TestLoopMetadataWithExitHandle.test_metadata_on_retry_exhaustion</signature>
+      <signature>Function TestLoopMetadataWithExitHandle.test_metadata_break_reason_on_exit_handle</signature>
+      <signature>Class TestLoopBlockDefExitHandleFields</signature>
+      <signature>Function TestLoopBlockDefExitHandleFields.test_loop_block_def_has_break_on_exit</signature>
+      <signature>Function TestLoopBlockDefExitHandleFields.test_loop_block_def_has_retry_on_exit</signature>
+      <signature>Function TestLoopBlockDefExitHandleFields.test_base_block_def_does_not_have_break_on_exit</signature>
+      <signature>Function TestLoopBlockDefExitHandleFields.test_base_block_def_does_not_have_retry_on_exit</signature>
+      <signature>Function TestLoopBlockDefExitHandleFields.test_break_on_exit_defaults_to_none</signature>
+      <signature>Function TestLoopBlockDefExitHandleFields.test_retry_on_exit_defaults_to_none</signature>
+      <signature>Function TestLoopBlockDefExitHandleFields.test_break_on_exit_accepts_string</signature>
+      <signature>Function TestLoopBlockDefExitHandleFields.test_retry_on_exit_accepts_string</signature>
+      <signature>Function TestLoopBlockDefExitHandleFields.test_both_fields_set_simultaneously</signature>
+      <signature>Class TestLoopBlockConstructorExitHandleParams</signature>
+      <signature>Function TestLoopBlockConstructorExitHandleParams.test_constructor_accepts_break_on_exit</signature>
+      <signature>Function TestLoopBlockConstructorExitHandleParams.test_constructor_accepts_retry_on_exit</signature>
+      <signature>Function TestLoopBlockConstructorExitHandleParams.test_constructor_defaults_exit_handle_fields_to_none</signature>
+      <signature>Class TestParserWiresExitHandleFields</signature>
+      <signature>Function TestParserWiresExitHandleFields.test_build_passes_break_on_exit</signature>
+      <signature>Function TestParserWiresExitHandleFields.test_build_passes_retry_on_exit</signature>
+      <signature>Function TestParserWiresExitHandleFields.test_build_defaults_exit_fields_to_none</signature>
+      <signature>Function TestParserWiresExitHandleFields.test_full_yaml_parsing_with_exit_handle_fields</signature>
+      <signature>Class TestCombinedBreakAndRetryOnExit</signature>
+      <signature>Function TestCombinedBreakAndRetryOnExit.test_retry_then_break</signature>
+      <signature>Class TestCombinedBreakAndRetryOnExit.test_retry_then_break.PhasedGate</signature>
+      <signature>Function TestCombinedBreakAndRetryOnExit.test_retry_then_break.PhasedGate.__init__</signature>
+      <signature>Function TestCombinedBreakAndRetryOnExit.test_retry_then_break.PhasedGate.execute</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_parser_tool_validation.py">
+      <signature>Function _make_yaml</signature>
+      <signature>Class TestToolResolutionHappyPath</signature>
+      <signature>Function TestToolResolutionHappyPath.test_soul_resolved_tools_is_list_of_tool_instance</signature>
+      <signature>Function TestToolResolutionHappyPath.test_soul_resolved_tools_contains_correct_tool_name</signature>
+      <signature>Function TestToolResolutionHappyPath.test_multiple_tools_all_resolved</signature>
+      <signature>Class TestUndeclaredToolReference</signature>
+      <signature>Function TestUndeclaredToolReference.test_soul_references_undeclared_tool_raises_valueerror</signature>
+      <signature>Function TestUndeclaredToolReference.test_undeclared_tool_error_mentions_soul_name</signature>
+      <signature>Class TestUnknownToolSource</signature>
+      <signature>Function TestUnknownToolSource.test_unknown_builtin_source_raises_valueerror</signature>
+      <signature>Function TestUnknownToolSource.test_unknown_source_error_mentions_available_sources</signature>
+      <signature>Class TestDelegateToolWithExits</signature>
+      <signature>Function TestDelegateToolWithExits.test_delegate_tool_resolves_with_exit_enum</signature>
+      <signature>Function TestDelegateToolWithExits.test_delegate_tool_with_three_exits</signature>
+      <signature>Class TestDelegateWithoutExits</signature>
+      <signature>Function TestDelegateWithoutExits.test_delegate_tool_without_block_exits_raises_valueerror</signature>
+      <signature>Function TestDelegateWithoutExits.test_delegate_without_exits_error_mentions_soul_and_block</signature>
+      <signature>Class TestSoulWithNoTools</signature>
+      <signature>Function TestSoulWithNoTools.test_soul_without_tools_has_none_resolved_tools</signature>
+      <signature>Function TestSoulWithNoTools.test_builtin_soul_without_tools_has_none_resolved_tools</signature>
+      <signature>Class TestMultipleSoulsDifferentTools</signature>
+      <signature>Function TestMultipleSoulsDifferentTools.test_two_souls_get_different_resolved_tools</signature>
+      <signature>Function TestMultipleSoulsDifferentTools.test_soul_with_tools_and_soul_without_tools</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_resolve_next_exit_handle.py">
+      <signature>Class StubBlock</signature>
+      <signature>Function StubBlock.__init__</signature>
+      <signature>Function StubBlock.execute</signature>
+      <signature>Class ExitHandleBlock</signature>
+      <signature>Function ExitHandleBlock.__init__</signature>
+      <signature>Function ExitHandleBlock.execute</signature>
+      <signature>Class JsonOutputBlock</signature>
+      <signature>Function JsonOutputBlock.__init__</signature>
+      <signature>Function JsonOutputBlock.execute</signature>
+      <signature>Function _make_case</signature>
+      <signature>Function _fresh_state</signature>
+      <signature>Class TestExitHandleRoutesViaConditionalTransitions</signature>
+      <signature>Function TestExitHandleRoutesViaConditionalTransitions.test_exit_handle_pass_routes_to_correct_block</signature>
+      <signature>Function TestExitHandleRoutesViaConditionalTransitions.test_exit_handle_fail_routes_to_correct_block</signature>
+      <signature>Function TestExitHandleRoutesViaConditionalTransitions.test_exit_handle_custom_key_routes_correctly</signature>
+      <signature>Function TestExitHandleRoutesViaConditionalTransitions.test_exit_handle_takes_priority_over_metadata</signature>
+      <signature>Class TestExitHandleEndToEnd</signature>
+      <signature>Function TestExitHandleEndToEnd.test_full_run_exit_handle_pass</signature>
+      <signature>Function TestExitHandleEndToEnd.test_full_run_exit_handle_fail</signature>
+      <signature>Class TestOutputConditionsPersistExitHandleOnBlockResult</signature>
+      <signature>Function TestOutputConditionsPersistExitHandleOnBlockResult.test_output_conditions_set_exit_handle_on_block_result</signature>
+      <signature>Function TestOutputConditionsPersistExitHandleOnBlockResult.test_output_conditions_do_NOT_write_to_metadata</signature>
+      <signature>Function TestOutputConditionsPersistExitHandleOnBlockResult.test_output_conditions_default_persists_on_block_result</signature>
+      <signature>Function TestOutputConditionsPersistExitHandleOnBlockResult.test_output_conditions_e2e_exit_handle_persisted</signature>
+      <signature>Class TestPlainTransitionFallback</signature>
+      <signature>Function TestPlainTransitionFallback.test_plain_transition_no_exit_handle</signature>
+      <signature>Function TestPlainTransitionFallback.test_terminal_block_returns_none</signature>
+      <signature>Function TestPlainTransitionFallback.test_plain_transition_with_exit_handle_none</signature>
+      <signature>Class TestDefaultFallbackInConditionMap</signature>
+      <signature>Function TestDefaultFallbackInConditionMap.test_unknown_exit_handle_falls_back_to_default</signature>
+      <signature>Function TestDefaultFallbackInConditionMap.test_output_conditions_no_match_uses_default_then_condition_map_default</signature>
+      <signature>Class TestMissingExitHandleNoDefaultRaises</signature>
+      <signature>Function TestMissingExitHandleNoDefaultRaises.test_no_exit_handle_no_default_raises_key_error</signature>
+      <signature>Function TestMissingExitHandleNoDefaultRaises.test_unmatched_exit_handle_no_default_raises_key_error</signature>
+      <signature>Class TestRouterDecisionRemoved</signature>
+      <signature>Function TestRouterDecisionRemoved.test_router_decision_string_absent_from_resolve_next</signature>
+      <signature>Function TestRouterDecisionRemoved.test_router_decision_string_absent_from_workflow_module</signature>
+      <signature>Function TestRouterDecisionRemoved.test_resolve_next_does_not_read_global_metadata_key</signature>
+      <signature>Class TestBlockScopedDecisionMetadataRemoved</signature>
+      <signature>Function TestBlockScopedDecisionMetadataRemoved.test_block_scoped_decision_string_absent_from_source</signature>
+      <signature>Function TestBlockScopedDecisionMetadataRemoved.test_block_scoped_metadata_not_used_for_routing</signature>
+      <signature>Function TestBlockScopedDecisionMetadataRemoved.test_metadata_get_f_decision_absent_from_resolve_next_source</signature>
+      <signature>Class TestResolutionOrder</signature>
+      <signature>Function TestResolutionOrder.test_exit_handle_beats_output_conditions</signature>
+      <signature>Function TestResolutionOrder.test_no_conditional_transition_ignores_exit_handle</signature>
+      <signature>Function TestResolutionOrder.test_no_block_result_in_state_with_conditional_and_default</signature>
+      <signature>Function TestResolutionOrder.test_no_block_result_no_default_raises</signature>
+      <signature>Class TestDocstringUpdated</signature>
+      <signature>Function TestDocstringUpdated.test_set_output_conditions_docstring_no_metadata_reference</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_router_delete_exit_validation.py">
+      <signature>Class StubBlock</signature>
+      <signature>Function StubBlock.__init__</signature>
+      <signature>Function StubBlock.execute</signature>
+      <signature>Class StubBlockWithExits</signature>
+      <signature>Function StubBlockWithExits.__init__</signature>
+      <signature>Function StubBlockWithExits.execute</signature>
+      <signature>Class TestRouterBlockDeleted</signature>
+      <signature>Function TestRouterBlockDeleted.test_router_py_file_does_not_exist</signature>
+      <signature>Function TestRouterBlockDeleted.test_router_not_in_block_def_registry</signature>
+      <signature>Function TestRouterBlockDeleted.test_router_not_in_block_builder_registry</signature>
+      <signature>Function TestRouterBlockDeleted.test_importing_router_block_fails</signature>
+      <signature>Function TestRouterBlockDeleted.test_type_router_yaml_raises_parse_error</signature>
+      <signature>Class TestValidateExitMismatch</signature>
+      <signature>Function TestValidateExitMismatch.test_mismatched_transition_key_produces_error</signature>
+      <signature>Function TestValidateExitMismatch.test_multiple_mismatched_keys_produce_multiple_errors</signature>
+      <signature>Function TestValidateExitMismatch.test_all_declared_exits_valid_no_errors</signature>
+      <signature>Class TestValidateSkipsBlocksWithoutExits</signature>
+      <signature>Function TestValidateSkipsBlocksWithoutExits.test_block_without_declared_exits_skips_check</signature>
+      <signature>Function TestValidateSkipsBlocksWithoutExits.test_block_with_declared_exits_none_skips_check</signature>
+      <signature>Class TestDefaultAlwaysAllowed</signature>
+      <signature>Function TestDefaultAlwaysAllowed.test_default_key_allowed_even_without_exit_def</signature>
+      <signature>Function TestDefaultAlwaysAllowed.test_default_key_alone_with_exits_is_valid</signature>
+      <signature>Class TestExistingYamlWithoutExitsStillValid</signature>
+      <signature>Function TestExistingYamlWithoutExitsStillValid.test_plain_workflow_no_exits_validates</signature>
+      <signature>Function TestExistingYamlWithoutExitsStillValid.test_conditional_workflow_no_exits_validates</signature>
+      <signature>Class TestParserStoresDeclaredExits</signature>
+      <signature>Function TestParserStoresDeclaredExits.test_parsed_block_has_declared_exits_attribute</signature>
+      <signature>Function TestParserStoresDeclaredExits.test_parsed_block_without_exits_has_no_declared_exits</signature>
+      <signature>Class TestValidateWithParsedExits</signature>
+      <signature>Function TestValidateWithParsedExits.test_parsed_workflow_with_mismatched_exits_fails_validation</signature>
+      <signature>Function TestValidateWithParsedExits.test_parsed_workflow_with_valid_exits_passes_validation</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_tool_catalog.py">
+      <signature>Function _dummy_execute</signature>
+      <signature>Function _make_dummy_tool_instance</signature>
+      <signature>Class TestToolInstanceConstruction</signature>
+      <signature>Function TestToolInstanceConstruction.test_tool_instance_has_name</signature>
+      <signature>Function TestToolInstanceConstruction.test_tool_instance_has_description</signature>
+      <signature>Function TestToolInstanceConstruction.test_tool_instance_has_parameters</signature>
+      <signature>Function TestToolInstanceConstruction.test_tool_instance_has_execute_callable</signature>
+      <signature>Function TestToolInstanceConstruction.test_tool_instance_execute_is_async</signature>
+      <signature>Class TestToolInstanceToOpenAISchema</signature>
+      <signature>Function TestToolInstanceToOpenAISchema.test_to_openai_schema_returns_dict</signature>
+      <signature>Function TestToolInstanceToOpenAISchema.test_to_openai_schema_has_type_function</signature>
+      <signature>Function TestToolInstanceToOpenAISchema.test_to_openai_schema_has_function_key</signature>
+      <signature>Function TestToolInstanceToOpenAISchema.test_to_openai_schema_function_has_name</signature>
+      <signature>Function TestToolInstanceToOpenAISchema.test_to_openai_schema_function_has_description</signature>
+      <signature>Function TestToolInstanceToOpenAISchema.test_to_openai_schema_function_has_parameters</signature>
+      <signature>Function TestToolInstanceToOpenAISchema.test_to_openai_schema_full_structure</signature>
+      <signature>Class TestRegisterAndGetBuiltin</signature>
+      <signature>Function TestRegisterAndGetBuiltin.test_register_builtin_then_get_builtin</signature>
+      <signature>Function TestRegisterAndGetBuiltin.test_register_builtin_then_get_builtin.factory</signature>
+      <signature>Function TestRegisterAndGetBuiltin.test_register_builtin_overwrites_existing</signature>
+      <signature>Function TestRegisterAndGetBuiltin.test_register_builtin_overwrites_existing.factory_a</signature>
+      <signature>Function TestRegisterAndGetBuiltin.test_register_builtin_overwrites_existing.factory_b</signature>
+      <signature>Class TestGetBuiltinUnknown</signature>
+      <signature>Function TestGetBuiltinUnknown.test_get_builtin_nonexistent_returns_none</signature>
+      <signature>Function TestGetBuiltinUnknown.test_get_builtin_empty_string_returns_none</signature>
+      <signature>Class TestBuiltinToolCatalog</signature>
+      <signature>Function TestBuiltinToolCatalog.test_catalog_is_importable</signature>
+      <signature>Function TestBuiltinToolCatalog.test_catalog_is_dict</signature>
+      <signature>Class TestResolveTool</signature>
+      <signature>Function TestResolveTool.test_resolve_tool_with_valid_source</signature>
+      <signature>Function TestResolveTool.test_resolve_tool_with_valid_source.factory</signature>
+      <signature>Function TestResolveTool.test_resolve_tool_calls_factory</signature>
+      <signature>Function TestResolveTool.test_resolve_tool_calls_factory.factory</signature>
+      <signature>Function TestResolveTool.test_resolve_tool_unknown_source_raises</signature>
+      <signature>Function TestResolveTool.test_resolve_tool_passes_kwargs_to_factory</signature>
+      <signature>Function TestResolveTool.test_resolve_tool_passes_kwargs_to_factory.factory</signature>
+    </file>
+    <file path="./libs/core/tests/unit/test_tooldef_schema.py">
+      <signature>Class TestToolDef</signature>
+      <signature>Function TestToolDef.test_tooldef_valid_builtin</signature>
+      <signature>Function TestToolDef.test_tooldef_requires_source</signature>
+      <signature>Function TestToolDef.test_tooldef_requires_type</signature>
+      <signature>Function TestToolDef.test_tooldef_rejects_invalid_type</signature>
+      <signature>Function TestToolDef.test_tooldef_type_literal_builtin_only</signature>
+      <signature>Class TestRunsightWorkflowFileTools</signature>
+      <signature>Function TestRunsightWorkflowFileTools.test_workflow_file_tools_default_empty</signature>
+      <signature>Function TestRunsightWorkflowFileTools.test_workflow_file_accepts_tools_dict</signature>
+      <signature>Function TestRunsightWorkflowFileTools.test_workflow_file_tools_in_model_dump</signature>
+      <signature>Class TestSoulDefToolsUpdate</signature>
+      <signature>Function TestSoulDefToolsUpdate.test_souldef_tools_accepts_list_of_strings</signature>
+      <signature>Function TestSoulDefToolsUpdate.test_souldef_tools_rejects_list_of_dicts</signature>
+      <signature>Function TestSoulDefToolsUpdate.test_souldef_tools_defaults_to_none</signature>
+      <signature>Function TestSoulDefToolsUpdate.test_souldef_tools_empty_list</signature>
+      <signature>Class TestSoulDefMaxToolIterations</signature>
+      <signature>Function TestSoulDefMaxToolIterations.test_souldef_max_tool_iterations_default</signature>
+      <signature>Function TestSoulDefMaxToolIterations.test_souldef_max_tool_iterations_custom</signature>
+      <signature>Class TestSoulToolsUpdate</signature>
+      <signature>Function TestSoulToolsUpdate.test_soul_tools_accepts_list_of_strings</signature>
+      <signature>Function TestSoulToolsUpdate.test_soul_tools_rejects_list_of_dicts</signature>
+      <signature>Function TestSoulToolsUpdate.test_soul_max_tool_iterations_default</signature>
+      <signature>Function TestSoulToolsUpdate.test_soul_max_tool_iterations_custom</signature>
+      <signature>Function TestSoulToolsUpdate.test_soul_without_tools_still_works</signature>
+      <signature>Class TestSoulResolvedTools</signature>
+      <signature>Function TestSoulResolvedTools.test_soul_resolved_tools_defaults_to_none</signature>
+      <signature>Function TestSoulResolvedTools.test_soul_resolved_tools_accepts_value</signature>
+      <signature>Function TestSoulResolvedTools.test_soul_resolved_tools_excluded_from_model_dump</signature>
+      <signature>Function TestSoulResolvedTools.test_soul_resolved_tools_excluded_from_model_dump_json</signature>
+      <signature>Class TestFullYamlToolsParse</signature>
+      <signature>Function TestFullYamlToolsParse.test_full_workflow_with_tools_section_and_soul_refs</signature>
+      <signature>Function TestFullYamlToolsParse.test_workflow_model_validate_with_tools_raw_dict</signature>
     </file>
     <file path="./openapi.json">
     </file>

@@ -1,38 +1,41 @@
 import logging
 
-from fastapi import Request, status
+from fastapi import Request
 from fastapi.responses import JSONResponse
-from ...domain.errors import (
-    WorkflowNotFound,
-    SoulNotFound,
-    RunFailed,
-    RunNotFound,
-    TaskNotFound,
-    StepNotFound,
-    ProviderNotConfigured,
-)
+
+from ...core.context import request_id as _request_id_var
+from ...domain.errors import RunsightError
 
 logger = logging.getLogger(__name__)
 
+# Map status codes to legacy simplified "code" values for backward compatibility.
+_LEGACY_CODE_BY_STATUS = {
+    404: "NOT_FOUND",
+}
 
-async def global_exception_handler(request: Request, exc: Exception):
-    if isinstance(exc, (WorkflowNotFound, SoulNotFound, RunNotFound, TaskNotFound, StepNotFound)):
-        return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND, content={"error": str(exc), "code": "NOT_FOUND"}
-        )
-    if isinstance(exc, ProviderNotConfigured):
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"error": str(exc), "code": "PROVIDER_NOT_CONFIGURED"},
-        )
-    if isinstance(exc, RunFailed):
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"error": str(exc), "code": "RUN_FAILED"},
-        )
+
+def _legacy_code(exc: RunsightError) -> str:
+    """Derive the legacy 'code' field from the structured error."""
+    return _LEGACY_CODE_BY_STATUS.get(exc.status_code, exc.error_code)
+
+
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    rid = _request_id_var.get() or None
+
+    if isinstance(exc, RunsightError):
+        body = exc.to_dict()
+        body["code"] = _legacy_code(exc)
+        if rid:
+            body["request_id"] = rid
+        return JSONResponse(status_code=exc.status_code, content=body)
 
     logger.exception("Unhandled exception: %s", exc)
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"error": "Internal server error", "code": "INTERNAL_ERROR"},
-    )
+    body: dict = {
+        "error": "Internal server error",
+        "error_code": "INTERNAL_ERROR",
+        "code": "INTERNAL_ERROR",
+        "status_code": 500,
+    }
+    if rid:
+        body["request_id"] = rid
+    return JSONResponse(status_code=500, content=body)
