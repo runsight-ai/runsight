@@ -19,6 +19,7 @@ from runsight_core.conditions.engine import (
     Condition,
     ConditionGroup,
 )
+from runsight_core.tools._catalog import BUILTIN_TOOL_CATALOG, resolve_tool
 from runsight_core.yaml.schema import (
     ConditionDef,
     ConditionGroupDef,
@@ -123,6 +124,11 @@ def _convert_condition_group(group_def: ConditionGroupDef) -> ConditionGroup:
 # Trigger auto-discovery of co-located blocks and rebuild the discriminated
 # union so that BlockDef includes all registered block types.
 import runsight_core.blocks  # noqa: E402, F401
+
+# Trigger auto-discovery of built-in tools so BUILTIN_TOOL_CATALOG is populated.
+import runsight_core.tools.delegate  # noqa: E402, F401
+import runsight_core.tools.file_io  # noqa: E402, F401
+import runsight_core.tools.http  # noqa: E402, F401
 
 from runsight_core.yaml.schema import rebuild_block_def_union as _rebuild  # noqa: E402
 
@@ -265,6 +271,59 @@ def parse_workflow_yaml(
     for block_id, block_def in file_def.blocks.items():
         if block_def.stateful and block_id in built_blocks:
             built_blocks[block_id].stateful = block_def.stateful
+
+    # Step 6.6: Validate and resolve tools per soul
+    # 6.6a: Validate tool sources exist in BUILTIN_TOOL_CATALOG
+    for tool_key, tool_def in file_def.tools.items():
+        if tool_def.source not in BUILTIN_TOOL_CATALOG:
+            available = sorted(BUILTIN_TOOL_CATALOG.keys())
+            raise ValueError(
+                f"Tool '{tool_key}' has unknown source '{tool_def.source}'. Available: {available}"
+            )
+
+    # 6.6b: Validate soul tool references exist in file_def.tools keys
+    for soul_key, soul_def in file_def.souls.items():
+        if soul_def.tools:
+            for tool_name in soul_def.tools:
+                if tool_name not in file_def.tools:
+                    raise ValueError(
+                        f"Soul '{soul_key}' references undeclared tool '{tool_name}'. "
+                        f"Declared tools: {sorted(file_def.tools.keys())}"
+                    )
+
+    # 6.6c: Resolve ToolInstance objects per soul
+    for soul_key, soul_def in file_def.souls.items():
+        if not soul_def.tools:
+            continue
+
+        resolved_tools = []
+        for tool_name in soul_def.tools:
+            tool_def = file_def.tools[tool_name]
+
+            if tool_def.source == "runsight/delegate":
+                # Find the block that references this soul via soul_ref
+                block_id_for_soul = None
+                block_def_for_soul = None
+                for bid, bdef in file_def.blocks.items():
+                    if getattr(bdef, "soul_ref", None) == soul_key:
+                        block_id_for_soul = bid
+                        block_def_for_soul = bdef
+                        break
+
+                exits = getattr(block_def_for_soul, "exits", None) if block_def_for_soul else None
+                if not exits:
+                    raise ValueError(
+                        f"Soul '{soul_key}' uses delegate tool but block "
+                        f"'{block_id_for_soul}' has no exits defined"
+                    )
+                resolved_tools.append(resolve_tool(tool_def, exits=exits))
+            else:
+                resolved_tools.append(resolve_tool(tool_def))
+
+        # Attach resolved tools to the soul in souls_map
+        soul = souls_map.get(soul_key)
+        if soul is not None:
+            soul.resolved_tools = resolved_tools
 
     # Step 6.5: Validate input references and detect circular dependencies
     # Build input dependency graph for cycle detection
