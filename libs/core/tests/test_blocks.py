@@ -129,11 +129,17 @@ async def test_linear_block_preserves_existing_messages(mock_runner, sample_soul
 
 @pytest.mark.asyncio
 async def test_fanout_block_parallel(mock_runner):
-    """AC-6: FanOutBlock executes multiple souls in parallel."""
+    """AC-6: FanOutBlock executes multiple branches in parallel."""
+    from runsight_core.blocks.fanout import FanOutBranch
+
     souls = [
         Soul(id="s1", role="R1", system_prompt="P1"),
         Soul(id="s2", role="R2", system_prompt="P2"),
         Soul(id="s3", role="R3", system_prompt="P3"),
+    ]
+    branches = [
+        FanOutBranch(exit_id=f"exit_{s.id}", label=s.role, soul=s, task_instruction="Review this")
+        for s in souls
     ]
 
     mock_runner.execute_task.side_effect = [
@@ -142,27 +148,27 @@ async def test_fanout_block_parallel(mock_runner):
         ExecutionResult(task_id="t1", soul_id="s3", output="Output from s3"),
     ]
 
-    block = FanOutBlock("fanout1", souls, mock_runner)
+    block = FanOutBlock("fanout1", branches, mock_runner)
     task = Task(id="t1", instruction="Review this")
     state = WorkflowState(current_task=task)
 
     result_state = await block.execute(state)
 
-    # Verify JSON output format
+    # Verify JSON output format (now uses exit_id instead of soul_id)
     outputs = json.loads(result_state.results["fanout1"].output)
     assert len(outputs) == 3
-    assert outputs[0] == {"soul_id": "s1", "output": "Output from s1"}
-    assert outputs[1] == {"soul_id": "s2", "output": "Output from s2"}
-    assert outputs[2] == {"soul_id": "s3", "output": "Output from s3"}
+    assert outputs[0] == {"exit_id": "exit_s1", "output": "Output from s1"}
+    assert outputs[1] == {"exit_id": "exit_s2", "output": "Output from s2"}
+    assert outputs[2] == {"exit_id": "exit_s3", "output": "Output from s3"}
 
-    # Verify all souls called
+    # Verify all branches called
     assert mock_runner.execute_task.call_count == 3
 
 
 @pytest.mark.asyncio
-async def test_fanout_block_empty_souls(mock_runner):
-    """FanOutBlock raises ValueError for empty souls list (tech lead issue #6)."""
-    with pytest.raises(ValueError, match="souls list cannot be empty"):
+async def test_fanout_block_empty_branches(mock_runner):
+    """FanOutBlock raises ValueError for empty branches list."""
+    with pytest.raises(ValueError, match="branches"):
         FanOutBlock("fanout1", [], mock_runner)
 
 

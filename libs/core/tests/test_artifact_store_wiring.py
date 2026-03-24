@@ -325,7 +325,13 @@ class TestFanOutBlockArtifactStoreSharing:
         mock_result.total_tokens = 10
         mock_runner.execute_task = AsyncMock(return_value=mock_result)
 
-        block = FanOutBlock(block_id="fanout", souls=[soul1, soul2], runner=mock_runner)
+        from runsight_core.blocks.fanout import FanOutBranch
+
+        branches = [
+            FanOutBranch(exit_id="s1", label="S1", soul=soul1, task_instruction="Do work"),
+            FanOutBranch(exit_id="s2", label="S2", soul=soul2, task_instruction="Do work"),
+        ]
+        block = FanOutBlock(block_id="fanout", branches=branches, runner=mock_runner)
 
         state = WorkflowState(
             artifact_store=store,

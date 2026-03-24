@@ -133,15 +133,21 @@ class TestFanOutBlock:
     """Tests for FanOutBlock (block type: fanout)."""
 
     def test_fanout_block_valid_yaml(self):
-        """AC-4: Parse valid fanout block with multiple soul_refs."""
+        """AC-4: Parse valid fanout block with exits."""
         yaml_content = """
 version: "1.0"
 blocks:
   fanout_block:
     type: fanout
-    soul_refs:
-      - researcher
-      - reviewer
+    exits:
+      - id: exit_research
+        label: Research
+        soul_ref: researcher
+        task: Research the topic
+      - id: exit_review
+        label: Review
+        soul_ref: reviewer
+        task: Review the topic
 workflow:
   name: test_fanout
   entry: fanout_block
@@ -153,8 +159,8 @@ workflow:
         assert isinstance(workflow, Workflow)
         assert workflow.name == "test_fanout"
 
-    def test_fanout_block_missing_soul_refs_raises_error(self):
-        """AC-5: FanOutBlock without soul_refs raises ValueError."""
+    def test_fanout_block_missing_exits_raises_error(self):
+        """AC-5: FanOutBlock without exits raises ValidationError."""
         yaml_content = """
 version: "1.0"
 blocks:
@@ -164,22 +170,22 @@ workflow:
   name: test_fanout
   entry: fanout_block
 """
-        with pytest.raises(ValueError, match="soul_refs"):
+        with pytest.raises((ValueError, Exception), match="exits"):
             parse_workflow_yaml(yaml_content)
 
-    def test_fanout_block_empty_soul_refs_raises_error(self):
-        """AC-6: FanOutBlock with empty soul_refs raises ValueError."""
+    def test_fanout_block_empty_exits_raises_error(self):
+        """AC-6: FanOutBlock with empty exits raises ValueError."""
         yaml_content = """
 version: "1.0"
 blocks:
   fanout_block:
     type: fanout
-    soul_refs: []
+    exits: []
 workflow:
   name: test_fanout
   entry: fanout_block
 """
-        with pytest.raises(ValueError, match="soul_refs is required"):
+        with pytest.raises(ValueError, match="exits"):
             parse_workflow_yaml(yaml_content)
 
 
@@ -370,9 +376,15 @@ blocks:
     soul_ref: researcher
   review_block:
     type: fanout
-    soul_refs:
-      - reviewer
-      - coder
+    exits:
+      - id: exit_reviewer
+        label: Reviewer
+        soul_ref: reviewer
+        task: Review the research
+      - id: exit_coder
+        label: Coder
+        soul_ref: coder
+        task: Code review
   synthesize_block:
     type: synthesize
     soul_ref: synthesizer

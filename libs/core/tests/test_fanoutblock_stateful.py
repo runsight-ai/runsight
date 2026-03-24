@@ -16,6 +16,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from runsight_core import FanOutBlock
+from runsight_core.blocks.fanout import FanOutBranch
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
@@ -86,9 +87,17 @@ def _make_result(soul_id, output, cost=0.0, tokens=0):
     )
 
 
+def _souls_to_branches(souls):
+    """Convert a list of Soul objects to FanOutBranch objects (exit_id = soul.id)."""
+    return [
+        FanOutBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
+        for s in souls
+    ]
+
+
 def _make_stateful_fanout(block_id, souls, runner):
     """Helper to create a stateful FanOutBlock."""
-    block = FanOutBlock(block_id, souls, runner)
+    block = FanOutBlock(block_id, _souls_to_branches(souls), runner)
     block.stateful = True
     return block
 
@@ -160,7 +169,9 @@ async def test_stateful_first_invocation_stores_correct_user_and_assistant(
 
     block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task)
-    expected_prompt = mock_runner._build_prompt(sample_task)
+    # With per-exit branches, prompt is built from the branch's task instruction
+    branch_task = Task(id="t", instruction="Execute task")
+    expected_prompt = mock_runner._build_prompt(branch_task)
 
     new_state = await block.execute(state)
 
@@ -194,7 +205,9 @@ async def test_stateful_first_invocation_user_message_includes_context(
 
     block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task_with_context)
-    expected_prompt = mock_runner._build_prompt(sample_task_with_context)
+    # Prompt is built from branch task instruction + context from current_task
+    branch_task = Task(id="t", instruction="Execute task", context="Budget is $10k")
+    expected_prompt = mock_runner._build_prompt(branch_task)
 
     new_state = await block.execute(state)
 
@@ -290,7 +303,9 @@ async def test_stateful_continuation_appends_new_pair_per_soul(
             "review_soul_beta": prior_beta,
         },
     )
-    expected_prompt = mock_runner._build_prompt(sample_task)
+    # Prompt is built from branch's task instruction (not the original sample_task)
+    branch_task = Task(id="t", instruction="Execute task")
+    expected_prompt = mock_runner._build_prompt(branch_task)
 
     new_state = await block.execute(state)
 
@@ -790,7 +805,7 @@ async def test_non_stateful_no_history_entries(
         },
     )
 
-    block = FanOutBlock("review", [soul_alpha, soul_beta], mock_runner)
+    block = FanOutBlock("review", _souls_to_branches([soul_alpha, soul_beta]), mock_runner)
     assert block.stateful is False  # default
 
     state = WorkflowState(current_task=sample_task)
@@ -819,7 +834,7 @@ async def test_non_stateful_preserves_other_histories(
         },
     )
 
-    block = FanOutBlock("review", [soul_alpha, soul_beta], mock_runner)
+    block = FanOutBlock("review", _souls_to_branches([soul_alpha, soul_beta]), mock_runner)
     assert block.stateful is False
 
     state = WorkflowState(
@@ -847,7 +862,7 @@ async def test_non_stateful_does_not_pass_messages_to_runner(
         },
     )
 
-    block = FanOutBlock("review", [soul_alpha, soul_beta], mock_runner)
+    block = FanOutBlock("review", _souls_to_branches([soul_alpha, soul_beta]), mock_runner)
     assert block.stateful is False
 
     state = WorkflowState(current_task=sample_task)
