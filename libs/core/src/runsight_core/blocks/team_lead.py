@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks._helpers import resolve_soul
+from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
+from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
@@ -55,19 +57,48 @@ class TeamLeadBlock(BaseBlock):
 
         combined_context = "\n\n".join(error_contexts)
 
-        analysis_instruction = f"""You are analyzing a workflow failure. Review the error context below and provide:
-1. Root cause analysis
-2. Recommended remediation steps
-3. Prevention strategies for future runs
+        analysis_instruction = (
+            "You are analyzing a workflow failure. Review the error context below and provide:\n"
+            "1. Root cause analysis\n"
+            "2. Recommended remediation steps\n"
+            "3. Prevention strategies for future runs\n\n"
+            "Error Context:\n"
+            + combined_context
+            + "\n\nProvide your analysis and recommendations in a structured format."
+        )
 
-Error Context:
-{combined_context}
+        analysis_task = Task(
+            id=f"{self.block_id}_analysis",
+            instruction=analysis_instruction,
+            context=combined_context,
+        )
 
-Provide your analysis and recommendations in a structured format."""
+        _soul_model = getattr(self.team_lead_soul, "model_name", None)
+        _runner_model = getattr(self.runner, "model_name", None)
+        model = (
+            _soul_model
+            if isinstance(_soul_model, str)
+            else _runner_model
+            if isinstance(_runner_model, str)
+            else "gpt-4o-mini"
+        )
+        budgeted = fit_to_budget(
+            ContextBudgetRequest(
+                model=model,
+                system_prompt=getattr(self.team_lead_soul, "system_prompt", "") or "",
+                instruction=analysis_task.instruction,
+                context=analysis_task.context or "",
+                conversation_history=[],
+            ),
+            counter=litellm_token_counter,
+        )
 
-        analysis_task = Task(id=f"{self.block_id}_analysis", instruction=analysis_instruction)
-
-        result = await self.runner.execute_task(analysis_task, self.team_lead_soul)
+        fitted_task = (
+            analysis_task.model_copy(update={"context": budgeted.task.context})
+            if budgeted.task.context
+            else analysis_task
+        )
+        result = await self.runner.execute_task(fitted_task, self.team_lead_soul)
 
         return state.model_copy(
             update={

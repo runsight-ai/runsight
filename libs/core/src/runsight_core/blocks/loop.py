@@ -6,6 +6,7 @@ Co-located: runtime class + BlockDef schema + CarryContextConfig + build() funct
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -135,6 +136,61 @@ class LoopBlock(BaseBlock):
                         },
                     }
                 )
+
+                # Also inject carry_context into task.context as P2 elastic data
+                # so inner blocks can pass it through fit_to_budget.
+                # Format as delimited entries so _truncate_context can prune
+                # oldest entries when the budget is exceeded.
+                if state.current_task is not None:
+                    if isinstance(inject_value, list):
+                        parts = []
+                        for idx, entry in enumerate(inject_value):
+                            parts.append(f"=== round_{idx + 1} ===")
+                            parts.append(json.dumps(entry, default=str))
+                        carry_context_str = "\n".join(parts)
+                    else:
+                        carry_context_str = json.dumps(inject_value, default=str)
+
+                    # Pre-fit carry_context through the budget system to
+                    # truncate oldest entries when accumulation grows too large.
+                    # Uses a per-round budget (3% of model capacity) to keep
+                    # carry_context bounded — older entries are pruned first.
+                    from runsight_core.blocks.linear import fit_to_budget as _fit
+                    from runsight_core.memory.budget import ContextBudgetRequest
+                    from runsight_core.memory.token_counting import (
+                        litellm_token_counter,
+                    )
+
+                    _inner_model = "gpt-4o-mini"
+                    for ref in self.inner_block_refs:
+                        _ib = blocks.get(ref)
+                        if _ib and hasattr(_ib, "soul"):
+                            _inner_model = _ib.soul.model_name or (
+                                _ib.runner.model_name if hasattr(_ib, "runner") else _inner_model
+                            )
+                            break
+
+                    _budgeted = _fit(
+                        ContextBudgetRequest(
+                            model=_inner_model,
+                            system_prompt="",
+                            instruction="",
+                            context=carry_context_str,
+                            conversation_history=[],
+                            budget_ratio=0.03,
+                            output_token_reserve=0,
+                        ),
+                        counter=litellm_token_counter,
+                    )
+                    task_context = _budgeted.task.context or carry_context_str
+
+                    state = state.model_copy(
+                        update={
+                            "current_task": state.current_task.model_copy(
+                                update={"context": task_context}
+                            ),
+                        }
+                    )
 
             # Evaluate break condition against the last inner block's output
             if self.break_condition is not None:
