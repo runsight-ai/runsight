@@ -8,22 +8,18 @@ Validates:
    - LoopBlock in cross-feature workflow (LoopBlock + Router conditional branching)
    - LoopBlock with retry_config in full workflow (retry-on-error + loop-for-iteration)
 3. LoopBlock nested workflow integration (sub-workflow inside loop)
-4. LoopBlock + TeamLeadBlock failure analysis pattern (loop exhaustion -> analysis)
 """
 
 import subprocess
 from pathlib import Path
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core import (
     LoopBlock,
-    TeamLeadBlock,
 )
-from runsight_core.primitives import Soul, Task
-from runsight_core.runner import ExecutionResult
+from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import RetryConfig
@@ -119,28 +115,6 @@ class FailNTimesThenSucceed(BaseBlock):
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
-
-
-@pytest.fixture
-def mock_runner():
-    """Mock RunsightTeamRunner with controlled outputs."""
-    runner = MagicMock()
-    runner.execute_task = AsyncMock()
-    return runner
-
-
-@pytest.fixture
-def sample_souls():
-    """Sample souls for testing."""
-    return {
-        "agent1": Soul(id="agent1", role="Agent 1", system_prompt="You are agent 1."),
-        "agent2": Soul(id="agent2", role="Agent 2", system_prompt="You are agent 2."),
-        "advisor": Soul(
-            id="team_lead",
-            role="Team Lead",
-            system_prompt="You analyze failures and provide recommendations.",
-        ),
-    }
 
 
 # ===========================================================================
@@ -391,82 +365,6 @@ class TestLoopBlockWithRetryConfig:
         # LoopBlock should have completed (retried after first failure)
         assert "loop_block" in final_state.results
         assert FailOnFirstLoopAttempt.attempt_count == 2
-
-
-# ===========================================================================
-# 5. LoopBlock + TeamLeadBlock: loop exhaustion -> failure analysis
-#    Replaces pattern from removed RetryBlock tests that tested
-#    retry exhaustion followed by error analysis.
-# ===========================================================================
-
-
-class TestLoopBlockTeamLeadIntegration:
-    """LoopBlock exhaustion followed by TeamLeadBlock failure analysis.
-
-    Pattern: loop_block -> teamlead (analyzes loop results)
-    This replaces the old RetryBlock -> TeamLeadBlock integration pattern.
-    """
-
-    @pytest.mark.asyncio
-    async def test_loop_exhaustion_then_teamlead_analysis(self, mock_runner, sample_souls):
-        """Integration: LoopBlock runs all rounds, TeamLeadBlock analyzes the results.
-
-        Full workflow: loop_block(writer, critic) -> teamlead -> terminal
-        TeamLeadBlock reads loop metadata and feedback to produce recommendation.
-        """
-        # Setup
-        writer = WriterBlock("writer")
-        critic = CriticBlock("critic")
-
-        loop = LoopBlock(
-            block_id="loop_block",
-            inner_block_refs=["writer", "critic"],
-            max_rounds=3,
-        )
-
-        # TeamLeadBlock reads feedback from shared_memory
-        mock_runner.execute_task.return_value = ExecutionResult(
-            task_id="analysis",
-            soul_id="team_lead",
-            output="Root cause: Critic feedback shows no convergence after 3 rounds.",
-        )
-
-        teamlead = TeamLeadBlock(
-            block_id="teamlead1",
-            failure_context_keys=["feedback"],
-            team_lead_soul=sample_souls["advisor"],
-            runner=mock_runner,
-        )
-
-        wf = Workflow("loop_teamlead_workflow")
-        wf.add_block(writer)
-        wf.add_block(critic)
-        wf.add_block(loop)
-        wf.add_block(teamlead)
-        wf.add_transition("loop_block", "teamlead1")
-        wf.add_transition("teamlead1", None)
-        wf.set_entry("loop_block")
-
-        errors = wf.validate()
-        assert errors == [], f"Workflow validation failed: {errors}"
-
-        final_state = await wf.run(WorkflowState())
-
-        # LoopBlock should have run 3 rounds
-        drafts = final_state.shared_memory.get("drafts", [])
-        feedback = final_state.shared_memory.get("feedback", [])
-        assert len(drafts) == 3
-        assert len(feedback) == 3
-
-        # TeamLeadBlock should have produced a recommendation
-        assert "teamlead1" in final_state.results
-        assert "Root cause" in final_state.results["teamlead1"].output
-        assert "teamlead1_recommendation" in final_state.shared_memory
-
-        # TeamLeadBlock should have been called with feedback context
-        call_args = mock_runner.execute_task.call_args
-        task_arg = call_args[0][0]
-        assert "feedback" in task_arg.instruction
 
 
 # ===========================================================================

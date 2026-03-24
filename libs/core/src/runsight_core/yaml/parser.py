@@ -46,14 +46,6 @@ BUILT_IN_SOULS: Dict[str, Soul] = {
             "and provide actionable, specific feedback."
         ),
     ),
-    "engineering_manager": Soul(
-        id="manager_1",
-        role="Engineering Manager",
-        system_prompt=(
-            "You are an engineering manager. Break down complex problems into "
-            "clear, executable steps with defined owners and outcomes."
-        ),
-    ),
     "coder": Soul(
         id="coder_1",
         role="Software Engineer",

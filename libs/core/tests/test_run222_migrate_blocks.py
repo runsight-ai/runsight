@@ -41,22 +41,18 @@ BLOCKS_DIR = Path(__file__).resolve().parent.parent / "src" / "runsight_core" / 
 BLOCKS_TO_MIGRATE = [
     ("code", "code", "CodeBlockDef"),
     ("linear", "linear", "LinearBlockDef"),
-    ("engineering_manager", "engineering_manager", "EngineeringManagerBlockDef"),
     ("gate", "gate", "GateBlockDef"),
-    ("team_lead", "team_lead", "TeamLeadBlockDef"),
     ("fanout", "fanout", "FanOutBlockDef"),
     ("synthesize", "synthesize", "SynthesizeBlockDef"),
     ("loop", "loop", "LoopBlockDef"),
     ("workflow_block", "workflow", "WorkflowBlockDef"),
 ]
 
-# All 9 block types (after removing http_request and file_writer)
+# All 7 block types (after removing http_request, file_writer, team_lead, engineering_manager)
 ALL_BLOCK_TYPES = {
     "code",
     "linear",
-    "engineering_manager",
     "gate",
-    "team_lead",
     "fanout",
     "synthesize",
     "loop",
@@ -68,8 +64,6 @@ PER_TYPE_BLOCK_DEF_NAMES = [
     "LinearBlockDef",
     "FanOutBlockDef",
     "SynthesizeBlockDef",
-    "TeamLeadBlockDef",
-    "EngineeringManagerBlockDef",
     "GateBlockDef",
     "CodeBlockDef",
     "LoopBlockDef",
@@ -116,20 +110,10 @@ class TestBlockDefImportable:
 
         assert LinearBlockDef.model_fields["type"].default == "linear"
 
-    def test_engineering_manager_block_def_importable(self):
-        from runsight_core.blocks.engineering_manager import EngineeringManagerBlockDef
-
-        assert EngineeringManagerBlockDef.model_fields["type"].default == "engineering_manager"
-
     def test_gate_block_def_importable(self):
         from runsight_core.blocks.gate import GateBlockDef
 
         assert GateBlockDef.model_fields["type"].default == "gate"
-
-    def test_team_lead_block_def_importable(self):
-        from runsight_core.blocks.team_lead import TeamLeadBlockDef
-
-        assert TeamLeadBlockDef.model_fields["type"].default == "team_lead"
 
     def test_fanout_block_def_importable(self):
         from runsight_core.blocks.fanout import FanOutBlockDef
@@ -170,18 +154,8 @@ class TestBuildFunctionExists:
 
         assert callable(build)
 
-    def test_engineering_manager_build_function(self):
-        from runsight_core.blocks.engineering_manager import build
-
-        assert callable(build)
-
     def test_gate_build_function(self):
         from runsight_core.blocks.gate import build
-
-        assert callable(build)
-
-    def test_team_lead_build_function(self):
-        from runsight_core.blocks.team_lead import build
 
         assert callable(build)
 
@@ -214,29 +188,29 @@ class TestBuildFunctionExists:
 class TestRegistryCounts:
     """After full migration, all 12 types are auto-registered (no hardcoded entries)."""
 
-    def test_block_def_registry_has_9_entries(self):
-        """BLOCK_DEF_REGISTRY must have exactly 9 entries from auto-discovery."""
+    def test_block_def_registry_has_7_entries(self):
+        """BLOCK_DEF_REGISTRY must have exactly 7 entries from auto-discovery."""
         from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
 
         # Trigger all imports
         import runsight_core.blocks  # noqa: F401
 
         known = {k: v for k, v in BLOCK_DEF_REGISTRY.items() if k in ALL_BLOCK_TYPES}
-        assert len(known) == 9, (
-            f"Expected 9 registered block-def types, got {len(known)}. "
+        assert len(known) == 7, (
+            f"Expected 7 registered block-def types, got {len(known)}. "
             f"Missing: {ALL_BLOCK_TYPES - set(known.keys())}"
         )
 
-    def test_block_builder_registry_has_9_entries(self):
-        """BLOCK_BUILDER_REGISTRY must have exactly 9 entries from auto-discovery."""
+    def test_block_builder_registry_has_7_entries(self):
+        """BLOCK_BUILDER_REGISTRY must have exactly 7 entries from auto-discovery."""
         from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY
 
         # Trigger all imports
         import runsight_core.blocks  # noqa: F401
 
         known = {k: v for k, v in BLOCK_BUILDER_REGISTRY.items() if k in ALL_BLOCK_TYPES}
-        assert len(known) == 9, (
-            f"Expected 9 registered block builders, got {len(known)}. "
+        assert len(known) == 7, (
+            f"Expected 7 registered block builders, got {len(known)}. "
             f"Missing: {ALL_BLOCK_TYPES - set(known.keys())}"
         )
 

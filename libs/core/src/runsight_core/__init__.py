@@ -10,8 +10,6 @@ from .blocks.linear import LinearBlock
 from .blocks.fanout import FanOutBlock
 from .blocks.synthesize import SynthesizeBlock
 from .blocks.loop import LoopBlock
-from .blocks.team_lead import TeamLeadBlock
-from .blocks.engineering_manager import EngineeringManagerBlock
 from .blocks.gate import GateBlock
 from .blocks.workflow_block import WorkflowBlock
 from .blocks.code import CodeBlock
@@ -34,8 +32,6 @@ __all__ = [
     "FanOutBlock",
     "SynthesizeBlock",
     "LoopBlock",
-    "TeamLeadBlock",
-    "EngineeringManagerBlock",
     "GateBlock",
     "WorkflowBlock",
     "CodeBlock",

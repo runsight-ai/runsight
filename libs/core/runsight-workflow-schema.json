@@ -269,102 +269,6 @@
       "title": "ConditionalTransitionDef",
       "type": "object"
     },
-    "EngineeringManagerBlockDef": {
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "const": "engineering_manager",
-          "default": "engineering_manager",
-          "title": "Type",
-          "type": "string"
-        },
-        "stateful": {
-          "default": false,
-          "title": "Stateful",
-          "type": "boolean"
-        },
-        "output_conditions": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/CaseDef"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Output Conditions"
-        },
-        "inputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/InputRef"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Inputs"
-        },
-        "outputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Outputs"
-        },
-        "retry_config": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RetryConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "exits": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/ExitDef"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Exits"
-        },
-        "soul_ref": {
-          "title": "Soul Ref",
-          "type": "string"
-        }
-      },
-      "required": [
-        "soul_ref"
-      ],
-      "title": "EngineeringManagerBlockDef",
-      "type": "object"
-    },
     "ExitDef": {
       "description": "Named exit port on a block definition.",
       "properties": {
@@ -1069,117 +973,6 @@
       "title": "SynthesizeBlockDef",
       "type": "object"
     },
-    "TeamLeadBlockDef": {
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "const": "team_lead",
-          "default": "team_lead",
-          "title": "Type",
-          "type": "string"
-        },
-        "stateful": {
-          "default": false,
-          "title": "Stateful",
-          "type": "boolean"
-        },
-        "output_conditions": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/CaseDef"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Output Conditions"
-        },
-        "inputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/InputRef"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Inputs"
-        },
-        "outputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Outputs"
-        },
-        "retry_config": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RetryConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "exits": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/ExitDef"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Exits"
-        },
-        "soul_ref": {
-          "title": "Soul Ref",
-          "type": "string"
-        },
-        "failure_context_keys": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Failure Context Keys"
-        }
-      },
-      "required": [
-        "soul_ref"
-      ],
-      "title": "TeamLeadBlockDef",
-      "type": "object"
-    },
     "ToolDef": {
       "description": "Tool definition as expressed in the YAML tools: section.",
       "properties": {
@@ -1400,13 +1193,11 @@
         "discriminator": {
           "mapping": {
             "code": "#/$defs/CodeBlockDef",
-            "engineering_manager": "#/$defs/EngineeringManagerBlockDef",
             "fanout": "#/$defs/FanOutBlockDef",
             "gate": "#/$defs/GateBlockDef",
             "linear": "#/$defs/LinearBlockDef",
             "loop": "#/$defs/LoopBlockDef",
             "synthesize": "#/$defs/SynthesizeBlockDef",
-            "team_lead": "#/$defs/TeamLeadBlockDef",
             "workflow": "#/$defs/WorkflowBlockDef"
           },
           "propertyName": "type"
@@ -1414,9 +1205,6 @@
         "oneOf": [
           {
             "$ref": "#/$defs/CodeBlockDef"
-          },
-          {
-            "$ref": "#/$defs/EngineeringManagerBlockDef"
           },
           {
             "$ref": "#/$defs/FanOutBlockDef"
@@ -1432,9 +1220,6 @@
           },
           {
             "$ref": "#/$defs/SynthesizeBlockDef"
-          },
-          {
-            "$ref": "#/$defs/TeamLeadBlockDef"
           },
           {
             "$ref": "#/$defs/WorkflowBlockDef"
