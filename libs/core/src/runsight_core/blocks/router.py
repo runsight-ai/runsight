@@ -87,7 +87,10 @@ class RouterBlock(BaseBlock):
 
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: BlockResult(output=decision)},
+                "results": {
+                    **state.results,
+                    self.block_id: BlockResult(output=decision, exit_handle=decision),
+                },
                 "metadata": {
                     **state.metadata,
                     f"{self.block_id}_decision": decision,
