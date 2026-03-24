@@ -10,6 +10,7 @@ from alembic.config import Config as AlembicConfig
 from alembic import command as alembic_command
 
 from .core.config import settings as app_settings, ensure_project_dirs
+from .core.logging import configure_logging
 from .core.secrets import SecretsEnvLoader
 from .domain.entities.run import Run, RunStatus
 from .core.di import container, engine
@@ -68,6 +69,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    configure_logging(app_settings.log_level, app_settings.log_format)
     app = FastAPI(title="Runsight API", lifespan=lifespan)
 
     # DI Setup
