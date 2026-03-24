@@ -2,8 +2,22 @@
 Shared test infrastructure for runsight_core tests.
 """
 
+import asyncio
+
 import pytest
 from runsight_core.primitives import Soul
+
+
+# Python 3.14 removed the implicit event-loop creation in get_event_loop().
+# Ensure a loop exists so legacy sync tests that call
+# ``asyncio.get_event_loop().run_until_complete(...)`` still work.
+@pytest.fixture(autouse=True)
+def _ensure_event_loop():
+    """Guarantee an asyncio event loop is set for every test."""
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
 
 
 def make_test_yaml(steps_yaml: str) -> str:
