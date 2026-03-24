@@ -188,6 +188,7 @@ def parse_workflow_yaml(
             role=soul_def.role,
             system_prompt=soul_def.system_prompt,
             tools=soul_def.tools,
+            max_tool_iterations=soul_def.max_tool_iterations,
             model_name=soul_def.model_name,
         )
 
