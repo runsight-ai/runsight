@@ -20,6 +20,8 @@ from .data.filesystem.workflow_repo import WorkflowRepository
 from .logic.services.execution_service import ExecutionService
 from .domain.errors import RunsightError
 from .transport.middleware.error_handler import global_exception_handler
+from .transport.middleware.request_id import RequestIdMiddleware
+from .transport.middleware.access_log import AccessLogMiddleware
 from .transport.routers import (
     runs,
     workflows,
@@ -84,6 +86,8 @@ def create_app() -> FastAPI:
     )
 
     # Middleware
+    app.add_middleware(AccessLogMiddleware)
+    app.add_middleware(RequestIdMiddleware)
     app.add_exception_handler(RunsightError, global_exception_handler)
     app.add_exception_handler(Exception, global_exception_handler)
 
