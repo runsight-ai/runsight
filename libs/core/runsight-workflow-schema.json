@@ -1124,6 +1124,30 @@
             }
           ],
           "default": null
+        },
+        "break_on_exit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Break On Exit"
+        },
+        "retry_on_exit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retry On Exit"
         }
       },
       "required": [

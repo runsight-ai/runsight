@@ -42,6 +42,8 @@ class LoopBlock(BaseBlock):
         max_rounds: int = 5,
         break_condition: Optional[Union[Any, Any]] = None,
         carry_context: Optional[CarryContextConfig] = None,
+        break_on_exit: Optional[str] = None,
+        retry_on_exit: Optional[str] = None,
     ) -> None:
         super().__init__(block_id)
         if not inner_block_refs:
@@ -59,6 +61,8 @@ class LoopBlock(BaseBlock):
         self.max_rounds = max_rounds
         self.break_condition = break_condition
         self.carry_context = carry_context
+        self.break_on_exit = break_on_exit
+        self.retry_on_exit = retry_on_exit
 
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
         from runsight_core.conditions.engine import (
@@ -69,9 +73,9 @@ class LoopBlock(BaseBlock):
 
         blocks: Dict[str, BaseBlock] = kwargs.get("blocks", {})
         broke_early = False
+        break_reason: Optional[str] = None
         rounds_completed = 0
         carry_history: List[Dict[str, Any]] = []
-        last_gate_error: Optional[Exception] = None
 
         for round_num in range(1, self.max_rounds + 1):
             state = state.model_copy(
@@ -83,36 +87,35 @@ class LoopBlock(BaseBlock):
                 }
             )
 
-            gate_failed_this_round = False
-            try:
-                for ref in self.inner_block_refs:
-                    inner_block = blocks.get(ref)
-                    if inner_block is None:
-                        raise ValueError(
-                            f"LoopBlock '{self.block_id}': inner block ref '{ref}' "
-                            f"not found in blocks dict. "
-                            f"Available blocks: {sorted(blocks.keys())}"
-                        )
-                    state = await inner_block.execute(state, **kwargs)
-            except Exception as e:
-                # Only handle exceptions that carry a .state (legacy gate errors).
-                # Re-raise anything else (ValueError, KeyError, etc.).
-                if not hasattr(e, "state"):
-                    raise
-                state = e.state
-                last_gate_error = e
-                gate_failed_this_round = True
+            should_retry = False
+            for ref in self.inner_block_refs:
+                inner_block = blocks.get(ref)
+                if inner_block is None:
+                    raise ValueError(
+                        f"LoopBlock '{self.block_id}': inner block ref '{ref}' "
+                        f"not found in blocks dict. "
+                        f"Available blocks: {sorted(blocks.keys())}"
+                    )
+                state = await inner_block.execute(state, **kwargs)
+
+                # Check exit_handle after each inner block
+                result = state.results.get(ref)
+                if isinstance(result, BlockResult) and result.exit_handle is not None:
+                    if self.break_on_exit and result.exit_handle == self.break_on_exit:
+                        broke_early = True
+                        break_reason = f"exit_handle '{result.exit_handle}' matched break_on_exit"
+                        break
+                    if self.retry_on_exit and result.exit_handle == self.retry_on_exit:
+                        should_retry = True
+                        break
 
             rounds_completed = round_num
 
-            if gate_failed_this_round:
-                continue
-
-            # Round completed successfully after previous gate failure — gate passed, exit loop
-            if last_gate_error is not None:
-                last_gate_error = None
-                broke_early = True
+            if broke_early:
                 break
+
+            if should_retry:
+                continue
 
             # Carry context: collect outputs and inject into shared_memory for next round
             if self.carry_context is not None and self.carry_context.enabled:
@@ -209,14 +212,10 @@ class LoopBlock(BaseBlock):
                     broke_early = True
                     break
 
-        # If all rounds exhausted due to gate failures, re-raise the last Exception
-        if last_gate_error is not None and not broke_early:
-            raise last_gate_error
-
         # Store loop metadata in shared_memory
-        if broke_early:
+        if broke_early and break_reason is None:
             break_reason = "condition met"
-        else:
+        elif not broke_early:
             break_reason = "max_rounds reached"
 
         meta_key = f"__loop__{self.block_id}"
@@ -251,6 +250,8 @@ class LoopBlockDef(BaseBlockDef):
     max_rounds: int = Field(default=5, ge=1, le=50)
     break_condition: Optional[Union[ConditionDef, ConditionGroupDef]] = None
     carry_context: Optional[CarryContextConfig] = None
+    break_on_exit: Optional[str] = None
+    retry_on_exit: Optional[str] = None
 
 
 # Explicit registration (PEP 563 workaround)
@@ -283,6 +284,8 @@ def build(
         max_rounds=block_def.max_rounds,
         break_condition=break_condition,
         carry_context=block_def.carry_context,
+        break_on_exit=block_def.break_on_exit,
+        retry_on_exit=block_def.retry_on_exit,
     )
 
 
