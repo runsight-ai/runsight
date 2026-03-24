@@ -148,9 +148,9 @@ class TestPlaceholderNotInRegistry:
         )
 
     def test_block_type_registry_count_decreased(self):
-        """BLOCK_TYPE_REGISTRY should have 9 entries (after removing router, placeholder, http_request, and file_writer)."""
-        assert len(BLOCK_TYPE_REGISTRY) == 9, (
-            f"Expected 9 block types after removing router+placeholder, got {len(BLOCK_TYPE_REGISTRY)}"
+        """BLOCK_TYPE_REGISTRY should have 7 entries (after removing router, placeholder, http_request, file_writer, team_lead, and engineering_manager)."""
+        assert len(BLOCK_TYPE_REGISTRY) == 7, (
+            f"Expected 7 block types after removing router+placeholder+http_request+file_writer+team_lead+engineering_manager, got {len(BLOCK_TYPE_REGISTRY)}"
         )
 
 

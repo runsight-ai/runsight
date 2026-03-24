@@ -23,8 +23,6 @@ Tests cover every write site in implementations.py:
   - FanOutBlock           (line 141)
   - SynthesizeBlock       (line 228)
   - LoopBlock             (line 381)
-  - TeamLeadBlock         (line 486)
-  - EngineeringManagerBlock (line 609)
   - RouterBlock — Soul    (line 707)
   - RouterBlock — Callable(line 707)
   - WorkflowBlock         (line 856)
@@ -250,68 +248,6 @@ class TestLoopBlockEmitsBlockResult:
         result_state = await loop.execute(state, blocks={"inner1": inner})
 
         assert isinstance(result_state.results["loop1"], BlockResult)
-
-
-# ==============================================================================
-# TeamLeadBlock
-# ==============================================================================
-
-
-class TestTeamLeadBlockEmitsBlockResult:
-    """TeamLeadBlock.execute must write BlockResult to state.results."""
-
-    @pytest.mark.asyncio
-    async def test_team_lead_block_writes_block_result_not_raw_string(
-        self, mock_runner, sample_soul
-    ):
-        """TeamLeadBlock must emit BlockResult(output=...) instead of raw string."""
-        from runsight_core import TeamLeadBlock
-
-        mock_runner.execute_task.return_value = _mock_execution_result(
-            output="Root cause: network timeout"
-        )
-
-        block = TeamLeadBlock(
-            "tl1",
-            failure_context_keys=["errors"],
-            team_lead_soul=sample_soul,
-            runner=mock_runner,
-        )
-        state = _make_state(shared_memory={"errors": ["Error: connection refused"]})
-
-        result_state = await block.execute(state)
-
-        assert isinstance(result_state.results["tl1"], BlockResult)
-        assert result_state.results["tl1"].output == "Root cause: network timeout"
-
-
-# ==============================================================================
-# EngineeringManagerBlock
-# ==============================================================================
-
-
-class TestEngineeringManagerBlockEmitsBlockResult:
-    """EngineeringManagerBlock.execute must write BlockResult to state.results."""
-
-    @pytest.mark.asyncio
-    async def test_em_block_writes_block_result_not_raw_string(
-        self, mock_runner, sample_soul, sample_task
-    ):
-        """EngineeringManagerBlock must emit BlockResult(output=...) instead of raw string."""
-        from runsight_core import EngineeringManagerBlock
-
-        plan_text = "1. research_phase: Gather data\n2. impl_phase: Build it"
-        mock_runner.execute_task.return_value = _mock_execution_result(output=plan_text)
-
-        block = EngineeringManagerBlock(
-            "em1", engineering_manager_soul=sample_soul, runner=mock_runner
-        )
-        state = _make_state(current_task=sample_task)
-
-        result_state = await block.execute(state)
-
-        assert isinstance(result_state.results["em1"], BlockResult)
-        assert result_state.results["em1"].output == plan_text
 
 
 # ==============================================================================

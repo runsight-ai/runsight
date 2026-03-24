@@ -23,21 +23,19 @@ from runsight_core.primitives import Task
 class TestBlockTypeRegistry:
     """Tests for BlockTypeRegistry completeness."""
 
-    def test_block_type_registry_has_all_11_types(self):
-        """Verify BLOCK_TYPE_REGISTRY contains all 9 block types."""
+    def test_block_type_registry_has_all_7_types(self):
+        """Verify BLOCK_TYPE_REGISTRY contains all 7 block types."""
         expected_types = {
             "linear",
             "fanout",
             "synthesize",
             "loop",
-            "team_lead",
-            "engineering_manager",
             "gate",
             "code",
             "workflow",
         }
         assert set(BLOCK_TYPE_REGISTRY.keys()) == expected_types
-        assert len(BLOCK_TYPE_REGISTRY) == 9
+        assert len(BLOCK_TYPE_REGISTRY) == 7
 
     def test_all_block_builders_are_callable(self):
         """Verify all builders in registry are callable."""
@@ -53,14 +51,13 @@ class TestBuiltInSouls:
         expected_souls = {
             "researcher",
             "reviewer",
-            "engineering_manager",
             "coder",
             "architect",
             "synthesizer",
             "generalist",
         }
         assert set(BUILT_IN_SOULS.keys()) == expected_souls
-        assert len(BUILT_IN_SOULS) == 7
+        assert len(BUILT_IN_SOULS) == 6
 
     def test_built_in_souls_have_required_fields(self):
         """Verify each built-in soul has required fields."""
@@ -249,102 +246,6 @@ workflow:
   entry: synthesize_block
 """
         with pytest.raises(ValueError, match="input_block_ids"):
-            parse_workflow_yaml(yaml_content)
-
-
-class TestTeamLeadBlock:
-    """Tests for TeamLeadBlock (block type: team_lead)."""
-
-    def test_team_lead_block_valid_yaml(self):
-        """AC-21: Parse valid team_lead block with soul and failure_context_keys."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  team_lead_block:
-    type: team_lead
-    soul_ref: engineering_manager
-    failure_context_keys:
-      - error_details
-      - retry_count
-workflow:
-  name: test_team_lead
-  entry: team_lead_block
-  transitions:
-    - from: team_lead_block
-      to: null
-"""
-        workflow = parse_workflow_yaml(yaml_content)
-        assert isinstance(workflow, Workflow)
-
-    def test_team_lead_block_missing_soul_ref_raises_error(self):
-        """AC-22: TeamLeadBlock without soul_ref raises ValueError."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  team_lead_block:
-    type: team_lead
-    failure_context_keys:
-      - error_details
-workflow:
-  name: test_team_lead
-  entry: team_lead_block
-"""
-        with pytest.raises(ValueError, match="soul_ref"):
-            parse_workflow_yaml(yaml_content)
-
-    def test_team_lead_block_missing_failure_context_keys_raises_error(self):
-        """AC-23: TeamLeadBlock without failure_context_keys raises ValueError.
-
-        Note: failure_context_keys is Optional on the schema, so schema validation
-        passes. The parser builder raises ValueError for empty/missing keys.
-        """
-        yaml_content = """
-version: "1.0"
-blocks:
-  team_lead_block:
-    type: team_lead
-    soul_ref: engineering_manager
-workflow:
-  name: test_team_lead
-  entry: team_lead_block
-"""
-        with pytest.raises(ValueError, match="failure_context_keys is required"):
-            parse_workflow_yaml(yaml_content)
-
-
-class TestEngineeringManagerBlock:
-    """Tests for EngineeringManagerBlock (block type: engineering_manager)."""
-
-    def test_engineering_manager_block_valid_yaml(self):
-        """AC-24: Parse valid engineering_manager block with soul_ref."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  manager_block:
-    type: engineering_manager
-    soul_ref: engineering_manager
-workflow:
-  name: test_manager
-  entry: manager_block
-  transitions:
-    - from: manager_block
-      to: null
-"""
-        workflow = parse_workflow_yaml(yaml_content)
-        assert isinstance(workflow, Workflow)
-
-    def test_engineering_manager_block_missing_soul_ref_raises_error(self):
-        """AC-25: EngineeringManagerBlock without soul_ref raises ValueError."""
-        yaml_content = """
-version: "1.0"
-blocks:
-  manager_block:
-    type: engineering_manager
-workflow:
-  name: test_manager
-  entry: manager_block
-"""
-        with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
 
@@ -691,11 +592,9 @@ task:
 # TestLinearBlock: 3
 # TestFanOutBlock: 3
 # TestSynthesizeBlock: 3
-# TestTeamLeadBlock: 3
-# TestEngineeringManagerBlock: 2
 # TestSoulResolution: 2
 # TestInvalidYAML: 3
 # TestParseFromDict: 1
 # TestComplexWorkflow: 1
 # TestParseTaskYAML: 14
-# Total: 48+ test functions
+# Total: 43+ test functions

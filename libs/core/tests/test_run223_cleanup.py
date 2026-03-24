@@ -238,8 +238,6 @@ workflow:
         from runsight_core.blocks.fanout import FanOutBlock
         from runsight_core.blocks.synthesize import SynthesizeBlock
         from runsight_core.blocks.loop import LoopBlock
-        from runsight_core.blocks.team_lead import TeamLeadBlock
-        from runsight_core.blocks.engineering_manager import EngineeringManagerBlock
         from runsight_core.blocks.gate import GateBlock
         from runsight_core.blocks.code import CodeBlock
         from runsight_core.blocks.workflow_block import WorkflowBlock
@@ -249,8 +247,6 @@ workflow:
         assert callable(FanOutBlock)
         assert callable(SynthesizeBlock)
         assert callable(LoopBlock)
-        assert callable(TeamLeadBlock)
-        assert callable(EngineeringManagerBlock)
         assert callable(GateBlock)
         assert callable(CodeBlock)
         assert callable(WorkflowBlock)
@@ -265,8 +261,6 @@ workflow:
         assert hasattr(runsight_core, "FanOutBlock")
         assert hasattr(runsight_core, "SynthesizeBlock")
         assert hasattr(runsight_core, "LoopBlock")
-        assert hasattr(runsight_core, "TeamLeadBlock")
-        assert hasattr(runsight_core, "EngineeringManagerBlock")
         assert hasattr(runsight_core, "GateBlock")
         assert hasattr(runsight_core, "CodeBlock")
         assert hasattr(runsight_core, "WorkflowBlock")
@@ -282,8 +276,6 @@ workflow:
             "fanout",
             "synthesize",
             "loop",
-            "team_lead",
-            "engineering_manager",
             "gate",
             "code",
             "workflow",

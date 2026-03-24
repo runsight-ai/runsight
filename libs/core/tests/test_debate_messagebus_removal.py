@@ -331,8 +331,6 @@ class TestOtherBlocksUnaffected:
         "FanOutBlock",
         "SynthesizeBlock",
         "LoopBlock",
-        "TeamLeadBlock",
-        "EngineeringManagerBlock",
         "GateBlock",
         "WorkflowBlock",
         "CodeBlock",
@@ -343,8 +341,6 @@ class TestOtherBlocksUnaffected:
         "fanout",
         "synthesize",
         "loop",
-        "team_lead",
-        "engineering_manager",
         "gate",
         "code",
     ]

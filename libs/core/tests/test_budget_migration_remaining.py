@@ -1,13 +1,5 @@
 """
-RUN-263: Verify RouterBlock, TeamLeadBlock, EngineeringManagerBlock have migrated
-to the budget manager pattern (fit_to_budget), and LoopBlock carry_context flows
-through task.context as P2 elastic data.
-
-Source-inspection tests confirm:
-1. Budget module is imported (fit_to_budget or related)
-2. fit_to_budget is called in the execute() method
-3. TeamLeadBlock and EngineeringManagerBlock construct Task with context= parameter
-4. Old patterns (f-string interpolation into instruction) are gone
+RUN-263: Verify LoopBlock carry_context flows through task.context as P2 elastic data.
 
 Integration test: 20+ loop rounds with carry_context mode="all" on a tight budget
 must complete without ContextBudgetExceeded, with BudgetReport proving truncation.
@@ -45,110 +37,6 @@ def _get_class_method_source(module_path: str, class_name: str, method_name: str
     cls = getattr(mod, class_name)
     method = getattr(cls, method_name)
     return inspect.getsource(method)
-
-
-# ===========================================================================
-# TeamLeadBlock source-level migration checks
-# ===========================================================================
-
-TEAM_LEAD_MODULE = "runsight_core.blocks.team_lead"
-
-
-class TestTeamLeadBlockImportsBudget:
-    """team_lead.py must import from the budget module."""
-
-    def test_team_lead_source_imports_budget(self):
-        source = _get_source(TEAM_LEAD_MODULE)
-        assert "budget" in source, (
-            "team_lead.py does not reference the budget module — "
-            "fit_to_budget must be imported from runsight_core.memory.budget"
-        )
-
-
-class TestTeamLeadBlockCallsFitToBudget:
-    """team_lead.py execute() must call fit_to_budget."""
-
-    def test_team_lead_execute_contains_fit_to_budget(self):
-        source = _get_class_method_source(TEAM_LEAD_MODULE, "TeamLeadBlock", "execute")
-        assert "fit_to_budget" in source, (
-            "TeamLeadBlock.execute() does not contain 'fit_to_budget' — "
-            "budget fitting must happen before runner.execute_task()"
-        )
-
-
-class TestTeamLeadBlockUsesTaskContext:
-    """TeamLeadBlock must construct Task with context= for error context data."""
-
-    def test_team_lead_execute_constructs_task_with_context(self):
-        source = _get_class_method_source(TEAM_LEAD_MODULE, "TeamLeadBlock", "execute")
-        assert re.search(r"Task\(.*context\s*=", source, re.DOTALL), (
-            "TeamLeadBlock.execute() does not construct Task with context= parameter — "
-            "error context data must go in task.context (P2 elastic), "
-            "not interpolated into task.instruction"
-        )
-
-
-class TestTeamLeadBlockNoContentInInstruction:
-    """TeamLeadBlock must NOT f-string interpolate error context into the instruction."""
-
-    def test_team_lead_execute_does_not_interpolate_context_into_instruction(self):
-        source = _get_class_method_source(TEAM_LEAD_MODULE, "TeamLeadBlock", "execute")
-        assert "{combined_context}" not in source, (
-            "TeamLeadBlock.execute() still f-string interpolates {combined_context} "
-            "into instruction — error context must be passed via task.context instead"
-        )
-
-
-# ===========================================================================
-# EngineeringManagerBlock source-level migration checks
-# ===========================================================================
-
-EM_MODULE = "runsight_core.blocks.engineering_manager"
-
-
-class TestEngineeringManagerBlockImportsBudget:
-    """engineering_manager.py must import from the budget module."""
-
-    def test_em_source_imports_budget(self):
-        source = _get_source(EM_MODULE)
-        assert "budget" in source, (
-            "engineering_manager.py does not reference the budget module — "
-            "fit_to_budget must be imported from runsight_core.memory.budget"
-        )
-
-
-class TestEngineeringManagerBlockCallsFitToBudget:
-    """engineering_manager.py execute() must call fit_to_budget."""
-
-    def test_em_execute_contains_fit_to_budget(self):
-        source = _get_class_method_source(EM_MODULE, "EngineeringManagerBlock", "execute")
-        assert "fit_to_budget" in source, (
-            "EngineeringManagerBlock.execute() does not contain 'fit_to_budget' — "
-            "budget fitting must happen before runner.execute_task()"
-        )
-
-
-class TestEngineeringManagerBlockUsesTaskContext:
-    """EngineeringManagerBlock must construct Task with context= for planning context."""
-
-    def test_em_execute_constructs_task_with_context(self):
-        source = _get_class_method_source(EM_MODULE, "EngineeringManagerBlock", "execute")
-        assert re.search(r"Task\(.*context\s*=", source, re.DOTALL), (
-            "EngineeringManagerBlock.execute() does not construct Task with context= — "
-            "planning context must go in task.context (P2 elastic), "
-            "not interpolated into task.instruction"
-        )
-
-
-class TestEngineeringManagerBlockNoContextInInstruction:
-    """EngineeringManagerBlock must NOT f-string interpolate context into instruction."""
-
-    def test_em_execute_does_not_interpolate_context_into_instruction(self):
-        source = _get_class_method_source(EM_MODULE, "EngineeringManagerBlock", "execute")
-        assert "{combined_context}" not in source, (
-            "EngineeringManagerBlock.execute() still f-string interpolates "
-            "{combined_context} into instruction — context must go in task.context"
-        )
 
 
 # ===========================================================================
