@@ -13,7 +13,6 @@ from .blocks.loop import LoopBlock
 from .blocks.team_lead import TeamLeadBlock
 from .blocks.engineering_manager import EngineeringManagerBlock
 from .blocks.gate import GateBlock
-from .blocks.file_writer import FileWriterBlock
 from .blocks.workflow_block import WorkflowBlock
 from .blocks.code import CodeBlock
 from .blocks.registry import BlockRegistry, BlockFactory
@@ -38,7 +37,6 @@ __all__ = [
     "TeamLeadBlock",
     "EngineeringManagerBlock",
     "GateBlock",
-    "FileWriterBlock",
     "WorkflowBlock",
     "CodeBlock",
     "BlockRegistry",

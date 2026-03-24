@@ -241,10 +241,8 @@ workflow:
         from runsight_core.blocks.team_lead import TeamLeadBlock
         from runsight_core.blocks.engineering_manager import EngineeringManagerBlock
         from runsight_core.blocks.gate import GateBlock
-        from runsight_core.blocks.file_writer import FileWriterBlock
         from runsight_core.blocks.code import CodeBlock
         from runsight_core.blocks.workflow_block import WorkflowBlock
-        from runsight_core.blocks.http_request import HttpRequestBlock
 
         # Verify they are actual classes
         assert callable(LinearBlock)
@@ -254,10 +252,8 @@ workflow:
         assert callable(TeamLeadBlock)
         assert callable(EngineeringManagerBlock)
         assert callable(GateBlock)
-        assert callable(FileWriterBlock)
         assert callable(CodeBlock)
         assert callable(WorkflowBlock)
-        assert callable(HttpRequestBlock)
 
     def test_block_classes_importable_from_package_init(self):
         """All block classes should be importable from runsight_core top-level
@@ -272,7 +268,6 @@ workflow:
         assert hasattr(runsight_core, "TeamLeadBlock")
         assert hasattr(runsight_core, "EngineeringManagerBlock")
         assert hasattr(runsight_core, "GateBlock")
-        assert hasattr(runsight_core, "FileWriterBlock")
         assert hasattr(runsight_core, "CodeBlock")
         assert hasattr(runsight_core, "WorkflowBlock")
 
@@ -290,10 +285,8 @@ workflow:
             "team_lead",
             "engineering_manager",
             "gate",
-            "file_writer",
             "code",
             "workflow",
-            "http_request",
         }
 
         for t in expected_types:

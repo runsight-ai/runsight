@@ -334,7 +334,6 @@ class TestOtherBlocksUnaffected:
         "TeamLeadBlock",
         "EngineeringManagerBlock",
         "GateBlock",
-        "FileWriterBlock",
         "WorkflowBlock",
         "CodeBlock",
     ]
@@ -347,7 +346,6 @@ class TestOtherBlocksUnaffected:
         "team_lead",
         "engineering_manager",
         "gate",
-        "file_writer",
         "code",
     ]
 

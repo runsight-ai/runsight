@@ -40,7 +40,6 @@ BLOCKS_DIR = Path(__file__).resolve().parent.parent / "src" / "runsight_core" / 
 # All 11 blocks to migrate (module_name, type_name, BlockDef class name)
 BLOCKS_TO_MIGRATE = [
     ("code", "code", "CodeBlockDef"),
-    ("file_writer", "file_writer", "FileWriterBlockDef"),
     ("linear", "linear", "LinearBlockDef"),
     ("engineering_manager", "engineering_manager", "EngineeringManagerBlockDef"),
     ("gate", "gate", "GateBlockDef"),
@@ -51,10 +50,9 @@ BLOCKS_TO_MIGRATE = [
     ("workflow_block", "workflow", "WorkflowBlockDef"),
 ]
 
-# All 12 block types (11 migrated + http_request already done)
+# All 9 block types (after removing http_request and file_writer)
 ALL_BLOCK_TYPES = {
     "code",
-    "file_writer",
     "linear",
     "engineering_manager",
     "gate",
@@ -63,7 +61,6 @@ ALL_BLOCK_TYPES = {
     "synthesize",
     "loop",
     "workflow",
-    "http_request",
 }
 
 # Per-type BlockDef class names that must be removed from schema.py
@@ -74,7 +71,6 @@ PER_TYPE_BLOCK_DEF_NAMES = [
     "TeamLeadBlockDef",
     "EngineeringManagerBlockDef",
     "GateBlockDef",
-    "FileWriterBlockDef",
     "CodeBlockDef",
     "LoopBlockDef",
     "WorkflowBlockDef",
@@ -114,11 +110,6 @@ class TestBlockDefImportable:
         from runsight_core.blocks.code import CodeBlockDef
 
         assert CodeBlockDef.model_fields["type"].default == "code"
-
-    def test_file_writer_block_def_importable(self):
-        from runsight_core.blocks.file_writer import FileWriterBlockDef
-
-        assert FileWriterBlockDef.model_fields["type"].default == "file_writer"
 
     def test_linear_block_def_importable(self):
         from runsight_core.blocks.linear import LinearBlockDef
@@ -174,11 +165,6 @@ class TestBuildFunctionExists:
 
         assert callable(build)
 
-    def test_file_writer_build_function(self):
-        from runsight_core.blocks.file_writer import build
-
-        assert callable(build)
-
     def test_linear_build_function(self):
         from runsight_core.blocks.linear import build
 
@@ -228,29 +214,29 @@ class TestBuildFunctionExists:
 class TestRegistryCounts:
     """After full migration, all 12 types are auto-registered (no hardcoded entries)."""
 
-    def test_block_def_registry_has_11_entries(self):
-        """BLOCK_DEF_REGISTRY must have exactly 11 entries from auto-discovery."""
+    def test_block_def_registry_has_9_entries(self):
+        """BLOCK_DEF_REGISTRY must have exactly 9 entries from auto-discovery."""
         from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
 
         # Trigger all imports
         import runsight_core.blocks  # noqa: F401
 
         known = {k: v for k, v in BLOCK_DEF_REGISTRY.items() if k in ALL_BLOCK_TYPES}
-        assert len(known) == 11, (
-            f"Expected 11 registered block-def types, got {len(known)}. "
+        assert len(known) == 9, (
+            f"Expected 9 registered block-def types, got {len(known)}. "
             f"Missing: {ALL_BLOCK_TYPES - set(known.keys())}"
         )
 
-    def test_block_builder_registry_has_11_entries(self):
-        """BLOCK_BUILDER_REGISTRY must have exactly 11 entries from auto-discovery."""
+    def test_block_builder_registry_has_9_entries(self):
+        """BLOCK_BUILDER_REGISTRY must have exactly 9 entries from auto-discovery."""
         from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY
 
         # Trigger all imports
         import runsight_core.blocks  # noqa: F401
 
         known = {k: v for k, v in BLOCK_BUILDER_REGISTRY.items() if k in ALL_BLOCK_TYPES}
-        assert len(known) == 11, (
-            f"Expected 11 registered block builders, got {len(known)}. "
+        assert len(known) == 9, (
+            f"Expected 9 registered block builders, got {len(known)}. "
             f"Missing: {ALL_BLOCK_TYPES - set(known.keys())}"
         )
 

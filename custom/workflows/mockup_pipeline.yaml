@@ -19,16 +19,9 @@ blocks:
       - inner_workflow
     max_rounds: 2
 
-  write_file:
-    type: file_writer
-    output_path: .agora/mockups/canvas_screen.html
-    content_key: mockup_html
-
 workflow:
   name: mockup_pipeline
   entry: retry_generate
   transitions:
     - from: retry_generate
-      to: write_file
-    - from: write_file
       to: null
