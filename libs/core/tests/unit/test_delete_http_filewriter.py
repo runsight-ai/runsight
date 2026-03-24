@@ -25,6 +25,8 @@ from pydantic import ValidationError
 # ---------------------------------------------------------------------------
 
 CORE_SRC = Path(__file__).resolve().parents[2] / "src" / "runsight_core"
+REPO_ROOT = Path(__file__).resolve().parents[4]  # runsight/
+CUSTOM_WORKFLOWS = REPO_ROOT / "custom" / "workflows"
 
 
 def _make_minimal_yaml(block_type: str, **extra_fields: str) -> dict:
@@ -110,14 +112,14 @@ class TestImportsFail:
             from runsight_core.blocks.file_writer import FileWriterBlock  # noqa: F401
 
     def test_top_level_import_http_request_block_fails(self):
-        """HttpRequestBlock must not be importable from the top-level package."""
-        rc = importlib.import_module("runsight_core")
-        assert not hasattr(rc, "HttpRequestBlock"), "runsight_core still exports HttpRequestBlock"
+        """HttpRequestBlock must not be importable from any sub-package path."""
+        with pytest.raises(ImportError):
+            importlib.import_module("runsight_core.blocks.http_request")
 
     def test_top_level_import_file_writer_block_fails(self):
-        """FileWriterBlock must not be importable from the top-level package."""
-        rc = importlib.import_module("runsight_core")
-        assert not hasattr(rc, "FileWriterBlock"), "runsight_core still exports FileWriterBlock"
+        """FileWriterBlock must not be importable from any sub-package path."""
+        with pytest.raises(ImportError):
+            importlib.import_module("runsight_core.blocks.file_writer")
 
 
 # ===== 4. YAML parse errors ================================================
@@ -131,10 +133,13 @@ class TestYamlParseFails:
             "http_request",
             url="https://example.com",
         )
-        with pytest.raises((ValidationError, ValueError)):
-            from runsight_core.yaml.parser import parse_workflow_yaml
+        from runsight_core.yaml.parser import parse_workflow_yaml
 
+        with pytest.raises((ValidationError, ValueError)) as exc_info:
             parse_workflow_yaml(yaml_dict)
+        assert "http_request" in str(exc_info.value), (
+            f"Expected error message to mention 'http_request', got: {exc_info.value}"
+        )
 
     def test_yaml_file_writer_raises(self):
         yaml_dict = _make_minimal_yaml(
@@ -142,10 +147,13 @@ class TestYamlParseFails:
             output_path="/tmp/test.txt",
             content_key="some_key",
         )
-        with pytest.raises((ValidationError, ValueError)):
-            from runsight_core.yaml.parser import parse_workflow_yaml
+        from runsight_core.yaml.parser import parse_workflow_yaml
 
+        with pytest.raises((ValidationError, ValueError)) as exc_info:
             parse_workflow_yaml(yaml_dict)
+        assert "file_writer" in str(exc_info.value), (
+            f"Expected error message to mention 'file_writer', got: {exc_info.value}"
+        )
 
 
 # ===== 5. Surviving block types still work ==================================
@@ -194,8 +202,11 @@ class TestNoStaleImports:
         "from .blocks.file_writer",
     ]
 
-    # Directories to scan (relative to CORE_SRC)
-    SCAN_DIRS = [CORE_SRC]
+    # Block type strings that must not appear as YAML block types in custom workflows
+    YAML_BLOCK_TYPE_PATTERNS = [
+        "type: http_request",
+        "type: file_writer",
+    ]
 
     def _collect_python_files(self) -> list[Path]:
         """Recursively collect .py files under CORE_SRC, excluding test files."""
@@ -203,6 +214,17 @@ class TestNoStaleImports:
         for dirpath, _dirnames, filenames in os.walk(CORE_SRC):
             for fname in filenames:
                 if fname.endswith(".py"):
+                    files.append(Path(dirpath) / fname)
+        return files
+
+    def _collect_yaml_files(self) -> list[Path]:
+        """Recursively collect .yaml/.yml files under custom/workflows/."""
+        files = []
+        if not CUSTOM_WORKFLOWS.exists():
+            return files
+        for dirpath, _dirnames, filenames in os.walk(CUSTOM_WORKFLOWS):
+            for fname in filenames:
+                if fname.endswith(".yaml") or fname.endswith(".yml"):
                     files.append(Path(dirpath) / fname)
         return files
 
@@ -219,4 +241,21 @@ class TestNoStaleImports:
                     violations.append(f"  {rel}: contains '{pattern}'")
         assert not violations, "Stale references to deleted blocks found in source:\n" + "\n".join(
             violations
+        )
+
+    def test_no_stale_block_types_in_custom_workflows(self):
+        """Deleted block types must not appear as 'type:' values in custom workflow YAML files."""
+        violations: list[str] = []
+        for yaml_file in self._collect_yaml_files():
+            try:
+                content = yaml_file.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for pattern in self.YAML_BLOCK_TYPE_PATTERNS:
+                if pattern in content:
+                    rel = yaml_file.relative_to(REPO_ROOT)
+                    violations.append(f"  {rel}: contains '{pattern}'")
+        assert not violations, (
+            "Deleted block types still referenced in custom workflow YAML files:\n"
+            + "\n".join(violations)
         )
