@@ -238,9 +238,9 @@ describe("Reference tokens: typography scale", () => {
     expect(css).toMatch(/--font-weight-/);
   });
 
-  it("defines letter-spacing tokens", () => {
+  it("defines letter-spacing (tracking) tokens", () => {
     const css = readGlobals();
-    expect(css).toMatch(/--letter-spacing-/);
+    expect(css).toMatch(/--tracking-/);
   });
 });
 
@@ -840,6 +840,21 @@ describe("Accessibility features", () => {
 describe("Sidebar component tokens", () => {
   it("defines sidebar tokens using design system references", () => {
     const css = readGlobals();
-    expect(css).toMatch(/--sidebar-/);
+    // New token names must exist
+    expect(css).toMatch(/--sidebar-bg\s*:/);
+    expect(css).toMatch(/--sidebar-fg\s*:/);
+    expect(css).toMatch(/--sidebar-border\s*:/);
+    expect(css).toMatch(/--sidebar-accent\s*:/);
+    expect(css).toMatch(/--sidebar-accent-fg\s*:/);
+    expect(css).toMatch(/--sidebar-muted\s*:/);
+    expect(css).toMatch(/--sidebar-hover\s*:/);
+    expect(css).toMatch(/--sidebar-active-indicator\s*:/);
+    // Sidebar tokens must reference design system tokens via var(), not raw hex values
+    expect(css).toMatch(/--sidebar-bg\s*:\s*var\(/);
+    expect(css).toMatch(/--sidebar-fg\s*:\s*var\(/);
+    expect(css).toMatch(/--sidebar-border\s*:\s*var\(/);
+    // Old sidebar token names must be absent
+    expect(css).not.toMatch(/--sidebar\s*:/);
+    expect(css).not.toMatch(/--sidebar-foreground\s*:/);
   });
 });
