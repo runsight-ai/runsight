@@ -46,9 +46,12 @@ export function ShellLayout() {
     <div className="h-screen flex overflow-hidden bg-surface-primary text-primary">
       {/* Sidebar */}
       <aside
+        style={{
+          backgroundColor: "var(--sidebar-bg)",
+          width: sidebarOpen ? "var(--sidebar-width-expanded)" : "var(--sidebar-width-collapsed)",
+        }}
         className={cn(
-          "flex flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
-          sidebarOpen ? "w-[240px]" : "w-[52px]",
+          "flex flex-col border-r border-sidebar-border transition-[width] duration-200",
         )}
       >
         {/* Logo */}
@@ -130,12 +133,28 @@ export function ShellLayout() {
                 cn(
                   "flex items-center gap-3 h-9 px-3 rounded-md text-sm transition-colors",
                   isActive
-                    ? "bg-interactive/12 text-primary"
-                    : "text-muted hover:bg-surface-elevated hover:text-primary",
+                    ? "text-primary"
+                    : "text-muted hover:text-primary",
                 )
               }
+              style={({ isActive }) => isActive
+                ? { backgroundColor: "var(--sidebar-active-indicator)" }
+                : { ["--nav-hover" as string]: "var(--sidebar-hover)" }
+              }
+              onMouseEnter={(e) => {
+                const el = e.currentTarget;
+                if (!el.getAttribute("aria-current")) {
+                  el.style.backgroundColor = "var(--sidebar-hover)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget;
+                if (!el.getAttribute("aria-current")) {
+                  el.style.backgroundColor = "";
+                }
+              }}
             >
-              <Icon className="size-[18px] shrink-0" strokeWidth={1.5} />
+              <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
               {sidebarOpen && <span>{label}</span>}
             </NavLink>
           ))}
@@ -151,12 +170,28 @@ export function ShellLayout() {
                 cn(
                   "flex items-center gap-3 h-9 px-3 rounded-md text-sm transition-colors",
                   isActive
-                    ? "bg-interactive/12 text-primary"
-                    : "text-muted hover:bg-surface-elevated hover:text-primary",
+                    ? "text-primary"
+                    : "text-muted hover:text-primary",
                 )
               }
+              style={({ isActive }) => isActive
+                ? { backgroundColor: "var(--sidebar-active-indicator)" }
+                : {}
+              }
+              onMouseEnter={(e) => {
+                const el = e.currentTarget;
+                if (!el.getAttribute("aria-current")) {
+                  el.style.backgroundColor = "var(--sidebar-hover)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget;
+                if (!el.getAttribute("aria-current")) {
+                  el.style.backgroundColor = "";
+                }
+              }}
             >
-              <Icon className="size-[18px] shrink-0" strokeWidth={1.5} />
+              <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
               {sidebarOpen && <span>{label}</span>}
             </NavLink>
           ))}
