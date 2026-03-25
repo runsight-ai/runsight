@@ -11,12 +11,20 @@ type Story = StoryObj;
 
 export const Text: Story = {
   name: "Variant: text",
-  render: () => <div className="skeleton skeleton--text" />,
+  render: () => (
+    <div style={{ width: "300px" }}>
+      <div className="skeleton skeleton--text" />
+    </div>
+  ),
 };
 
 export const TextSm: Story = {
   name: "Variant: text-sm",
-  render: () => <div className="skeleton skeleton--text-sm" />,
+  render: () => (
+    <div style={{ width: "300px" }}>
+      <div className="skeleton skeleton--text-sm" />
+    </div>
+  ),
 };
 
 export const Heading: Story = {

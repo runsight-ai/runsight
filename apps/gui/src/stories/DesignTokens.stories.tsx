@@ -265,10 +265,20 @@ function TypographyDoc() {
                 fontFamily: "var(--font-mono, monospace)",
                 fontSize: 11,
                 color: "var(--accent-9, #f5a623)",
+                marginBottom: 4,
+              }}
+            >
+              --font-display: Satoshi — Display (rare — onboarding/about only)
+            </p>
+            <p
+              style={{
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: 10,
+                color: "var(--neutral-8, #777)",
                 marginBottom: 8,
               }}
             >
-              --font-display: Satoshi — headlines &amp; display
+              &lt;1% usage. Product UI uses Geist (--font-body) exclusively.
             </p>
             <p
               style={{

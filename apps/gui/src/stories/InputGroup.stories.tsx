@@ -68,3 +68,43 @@ export const Disabled: Story = {
     </div>
   ),
 };
+
+export const NumberSpinner: Story = {
+  name: "Number Spinner (up/down buttons)",
+  render: () => (
+    <div style={{ display: "flex", width: "160px" }}>
+      <input
+        className="input"
+        type="number"
+        defaultValue={4}
+        min={1}
+        max={32}
+        style={{ borderRadius: "var(--radius-md) 0 0 var(--radius-md)", borderRight: "none", flex: 1 }}
+      />
+      <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--border-default)", borderRight: "1px solid var(--border-default)", borderBottom: "1px solid var(--border-default)", borderRadius: "0 var(--radius-md) var(--radius-md) 0", overflow: "hidden" }}>
+        <button
+          className="btn btn--ghost btn--icon btn--xs"
+          aria-label="Increment"
+          style={{ borderRadius: 0, height: "50%", minHeight: "unset", flex: 1, borderBottom: "1px solid var(--border-subtle)" }}
+        >
+          <span className="icon icon--md">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 15l7-7 7 7" />
+            </svg>
+          </span>
+        </button>
+        <button
+          className="btn btn--ghost btn--icon btn--xs"
+          aria-label="Decrement"
+          style={{ borderRadius: 0, height: "50%", minHeight: "unset", flex: 1 }}
+        >
+          <span className="icon icon--md">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 9l-7 7-7-7" />
+            </svg>
+          </span>
+        </button>
+      </div>
+    </div>
+  ),
+};

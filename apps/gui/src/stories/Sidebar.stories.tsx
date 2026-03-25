@@ -50,13 +50,29 @@ function SidebarDemo({ collapsed = false }: { collapsed?: boolean }) {
   ];
 
   return (
-    <div className={`sidebar${isCollapsed ? " sidebar--collapsed" : ""}`} style={{ height: "480px" }}>
+    <div className={`sidebar${isCollapsed ? " sidebar--collapsed" : ""}`} style={{ height: "480px", position: "relative" }}>
+      {/* Palette notch — top-right collapse toggle */}
+      <button
+        className="palette__notch"
+        aria-label={isCollapsed ? "Expand palette" : "Collapse palette"}
+        aria-expanded={!isCollapsed}
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        style={{ position: "absolute", top: "var(--space-2)", right: "var(--space-2)", zIndex: 10 }}
+      >
+        {isCollapsed ? "\u25B6" : "\u25C0"}
+      </button>
+
       <div className="sidebar__section" style={{ borderBottom: "1px solid var(--sidebar-border)", paddingTop: "var(--space-2)", paddingBottom: "var(--space-2)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", height: "var(--control-height-md)", padding: "0 var(--space-2)" }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+          {/* Correct logo from canvas-editor spec */}
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
             <circle cx="12" cy="5" r="2.5" fill="var(--interactive-default)" />
             <circle cx="5" cy="17" r="2.5" fill="var(--interactive-default)" opacity="0.7" />
             <circle cx="19" cy="17" r="2.5" fill="var(--interactive-default)" opacity="0.7" />
+            <circle cx="12" cy="13" r="1.5" fill="var(--interactive-default)" opacity="0.5" />
+            <line x1="12" y1="7.5" x2="12" y2="11.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="10.8" y1="14" x2="6.5" y2="15.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+            <line x1="13.2" y1="14" x2="17.5" y2="15.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
           </svg>
           <span className="sidebar__item-label" style={{ fontSize: "var(--font-size-sm)", fontWeight: "var(--font-weight-semibold)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-primary)" }}>
             Runsight
@@ -78,14 +94,6 @@ function SidebarDemo({ collapsed = false }: { collapsed?: boolean }) {
           <span className="sidebar__item-icon"><SettingsIcon /></span>
           <span className="sidebar__item-label">Settings</span>
         </div>
-        <button className="sidebar__item" style={{ width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer" }} onClick={() => setIsCollapsed(!isCollapsed)}>
-          <span className="sidebar__item-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
-            </svg>
-          </span>
-          <span className="sidebar__item-label">{isCollapsed ? "Expand" : "Collapse"}</span>
-        </button>
       </div>
     </div>
   );

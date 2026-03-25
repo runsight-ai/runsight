@@ -11,14 +11,15 @@ type Story = StoryObj;
 
 export const Default: Story = {
   render: () => (
-    <div style={{ position: "relative", display: "inline-block", padding: "var(--space-8)" }}>
+    // Minimal wrapper — popover sits directly below trigger, no extra padding
+    <div style={{ position: "relative", display: "inline-block" }}>
       <button className="btn btn--secondary">Open Popover</button>
       <div className="popover" style={{ position: "absolute", top: "calc(100% + var(--space-2))", left: 0, minWidth: "240px" }}>
         <div style={{ marginBottom: "var(--space-2)" }}>
           <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>Soul Configuration</div>
           <div style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", marginTop: "var(--space-0-5)" }}>Adjust the active soul for this step.</div>
         </div>
-        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-muted)" }}>
+        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-muted)", margin: 0 }}>
           Select a soul from the list or create a new one.
         </p>
       </div>
@@ -29,7 +30,7 @@ export const Default: Story = {
 export const WithFormContent: Story = {
   name: "With Form Content",
   render: () => (
-    <div style={{ position: "relative", display: "inline-block", padding: "var(--space-8)" }}>
+    <div style={{ position: "relative", display: "inline-block" }}>
       <button className="btn btn--secondary">Filter Results</button>
       <div className="popover" style={{ position: "absolute", top: "calc(100% + var(--space-2))", left: 0, minWidth: "260px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>

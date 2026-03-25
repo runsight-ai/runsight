@@ -110,6 +110,48 @@ export const SortableHeader: Story = {
   ),
 };
 
+export const SelectedRow: Story = {
+  name: "Selected Row",
+  render: () => (
+    <table className="table">
+      <thead className="table__head">
+        <tr>
+          <th className="table__header">Workflow</th>
+          <th className="table__header">Status</th>
+          <th className="table__header">Started</th>
+          <th className="table__header">Duration</th>
+        </tr>
+      </thead>
+      <tbody className="table__body">
+        <tr className="table__row">
+          <td className="table__cell">customer-support-triage</td>
+          <td className="table__cell">
+            <span className="badge badge--success"><span className="badge__dot" />Running</span>
+          </td>
+          <td className="table__cell">2 min ago</td>
+          <td className="table__cell table__cell--mono">34s</td>
+        </tr>
+        <tr className="table__row" aria-selected="true">
+          <td className="table__cell">email-classifier</td>
+          <td className="table__cell">
+            <span className="badge badge--neutral">Completed</span>
+          </td>
+          <td className="table__cell">5 min ago</td>
+          <td className="table__cell table__cell--mono">12s</td>
+        </tr>
+        <tr className="table__row">
+          <td className="table__cell">data-pipeline</td>
+          <td className="table__cell">
+            <span className="badge badge--danger">Failed</span>
+          </td>
+          <td className="table__cell">10 min ago</td>
+          <td className="table__cell table__cell--mono">1m 22s</td>
+        </tr>
+      </tbody>
+    </table>
+  ),
+};
+
 export const Empty: Story = {
   render: () => (
     <table className="table">

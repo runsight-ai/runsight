@@ -1,13 +1,49 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-const meta = {
+type StatusDotVariant = "neutral" | "active" | "success" | "warning" | "danger";
+type StatusDotAnimation = "none" | "pulse" | "spin";
+
+interface StatusDotProps {
+  variant: StatusDotVariant;
+  animation: StatusDotAnimation;
+}
+
+function StatusDotComponent({ variant, animation }: StatusDotProps) {
+  const classes = [
+    "status-dot",
+    `status-dot--${variant}`,
+    animation !== "none" ? `status-dot--${animation}` : "",
+  ].filter(Boolean).join(" ");
+  return <span className={classes} />;
+}
+
+const meta: Meta<StatusDotProps> = {
   title: "Primitives/StatusDot",
+  component: StatusDotComponent,
   parameters: { layout: "centered" },
+  argTypes: {
+    variant: {
+      control: { type: "select" },
+      options: ["neutral", "active", "success", "warning", "danger"],
+    },
+    animation: {
+      control: { type: "select" },
+      options: ["none", "pulse", "spin"],
+    },
+  },
 };
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<StatusDotProps>;
+
+export const Default: Story = {
+  name: "Default (controls)",
+  args: {
+    variant: "active",
+    animation: "pulse",
+  },
+};
 
 export const Neutral: Story = {
   name: "Variant: neutral",

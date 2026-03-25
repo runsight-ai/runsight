@@ -214,3 +214,108 @@ export const AllExecutionStates: Story = {
     </div>
   ),
 };
+
+export const TwoPortGate: Story = {
+  name: "Ports — 2-port gate (pass/fail)",
+  render: () => (
+    <div className="node-card" data-category="logic">
+      <div className="node-card__port node-card__port--input" />
+      <div className="node-card__header">
+        <div className="node-card__icon"><LogicIcon /></div>
+        <div className="node-card__name">Quality Gate</div>
+      </div>
+      <div className="node-card__meta"><span>LOGIC</span></div>
+      <div className="node-card__port-rows">
+        <div className="node-card__port-row">
+          <span className="node-card__port-row-name">pass</span>
+          <div className="node-card__port-row-dot node-card__port-row-dot--pass" />
+        </div>
+        <div className="node-card__port-row">
+          <span className="node-card__port-row-name">fail</span>
+          <div className="node-card__port-row-dot node-card__port-row-dot--fail" />
+        </div>
+      </div>
+    </div>
+  ),
+};
+
+export const FivePortBranch: Story = {
+  name: "Ports — 5-port branching node",
+  render: () => (
+    <div className="node-card" data-category="logic">
+      <div className="node-card__port node-card__port--input" />
+      <div className="node-card__header">
+        <div className="node-card__icon"><LogicIcon /></div>
+        <div className="node-card__name">Route by Department</div>
+      </div>
+      <div className="node-card__meta"><span>LOGIC</span></div>
+      <div className="node-card__port-rows">
+        {["market", "tech", "legal", "finance", "ux"].map((name) => (
+          <div key={name} className="node-card__port-row">
+            <span className="node-card__port-row-name">{name}</span>
+            <div className="node-card__port-row-dot" />
+          </div>
+        ))}
+      </div>
+    </div>
+  ),
+};
+
+export const WithSouls: Story = {
+  name: "Souls — avatar stack in header",
+  render: () => (
+    <div className="node-card" data-category="agent">
+      <div className="node-card__port node-card__port--input" />
+      <div className="node-card__header">
+        <div className="node-card__icon"><AgentIcon /></div>
+        <div className="node-card__name">Draft &amp; Evaluate</div>
+        <div className="node-card__avatar-stack">
+          <span className="node-card__avatar" style={{ background: "hsl(38, 85%, 45%)" }}>W</span>
+          <span className="node-card__avatar" style={{ background: "hsl(142, 55%, 42%)" }}>E</span>
+          <span className="node-card__avatar" style={{ background: "hsl(210, 60%, 50%)" }}>A</span>
+        </div>
+      </div>
+      <div className="node-card__meta"><span>AGENT</span><span className="node-card__meta-sep">·</span><span>3 souls</span></div>
+      <div className="node-card__port node-card__port--output" />
+    </div>
+  ),
+};
+
+export const WithSoulTooltip: Story = {
+  name: "Souls — soul tooltip visible",
+  render: () => (
+    <div style={{ padding: "160px var(--space-8) var(--space-8)" }}>
+      <div className="node-card" data-category="agent">
+        <div className="node-card__port node-card__port--input" />
+        <div className="node-card__header">
+          <div className="node-card__icon"><AgentIcon /></div>
+          <div className="node-card__name">Research Pipeline</div>
+          <div className="node-card__avatar-stack">
+            <div className="soul-tip-wrap">
+              <span className="node-card__avatar" style={{ background: "hsl(38, 85%, 45%)" }}>W</span>
+              {/* Tooltip pinned visible for demo */}
+              <span className="soul-tip" style={{ opacity: 1 }}>
+                <span className="soul-tip__name">
+                  <span className="soul-tip__dot" style={{ background: "hsl(38, 85%, 45%)" }} />
+                  writer_main
+                </span>
+                <span className="soul-tip__row">
+                  <span className="soul-tip__key">Model</span>
+                  <span className="soul-tip__val">gpt-4o</span>
+                </span>
+                <span className="soul-tip__row">
+                  <span className="soul-tip__key">Provider</span>
+                  <span className="soul-tip__val">OpenAI</span>
+                </span>
+                <span className="soul-tip__prompt">Generate a first draft from the structured brief, focusing on clarity and completeness.</span>
+              </span>
+            </div>
+            <span className="node-card__avatar" style={{ background: "hsl(142, 55%, 42%)" }}>E</span>
+          </div>
+        </div>
+        <div className="node-card__meta"><span>AGENT</span><span className="node-card__meta-sep">·</span><span>GPT-4o</span></div>
+        <div className="node-card__port node-card__port--output" />
+      </div>
+    </div>
+  ),
+};
