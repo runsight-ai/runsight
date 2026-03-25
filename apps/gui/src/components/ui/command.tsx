@@ -1,9 +1,3 @@
-// Design tokens applied via BEM classes:
-// .command-palette — bg-surface-overlay (elevation-overlay-surface), z-modal, scale-in animation
-// .command-palette__input — text-heading, bg-surface-overlay
-// .command-palette__item — text-muted, bg-surface-hover on selected
-// .command-palette__item-shortcut — font-mono, font-size-2xs
-
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
 
@@ -17,6 +11,13 @@ import {
 } from "@/components/ui/dialog"
 import { SearchIcon, CheckIcon } from "lucide-react"
 
+// ---------------------------------------------------------------------------
+// Command palette — pure Tailwind
+// Spec: fixed top-20%, centered, overlay-width-sm, elevation-overlay-surface,
+//       elevation-border-raised, overlay-shadow, z-modal, radius-2xl
+// ---------------------------------------------------------------------------
+
+/** Base command palette container (also used stand-alone without a dialog). */
 function Command({
   className,
   ...props
@@ -24,12 +25,22 @@ function Command({
   return (
     <CommandPrimitive
       data-slot="command"
-      className={cn("command-palette", className)}
+      className={cn(
+        // position (when used stand-alone / inside CommandDialog)
+        "flex flex-col",
+        // elevation surface
+        "bg-(--elevation-overlay-surface)",
+        "border border-(--elevation-border-raised)",
+        "rounded-[var(--radius-2xl)]",
+        "shadow-[var(--elevation-overlay-shadow)]",
+        className
+      )}
       {...props}
     />
   )
 }
 
+/** Full-screen command dialog — wraps DialogContent + Command. */
 function CommandDialog({
   title = "Command Palette",
   description = "Search for a command to run...",
@@ -51,7 +62,15 @@ function CommandDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <DialogContent
-        className={cn("command-palette", className)}
+        className={cn(
+          // position override for palette-style (top-20% instead of center)
+          "fixed! top-[20%]! -translate-y-0! left-1/2! -translate-x-1/2!",
+          "w-[min(var(--overlay-width-sm),90vw)] max-h-(--overlay-height-xl)",
+          // no default dialog padding — command sub-components handle it
+          "p-0",
+          className
+        )}
+        size="md"
         showCloseButton={showCloseButton}
       >
         {children}
@@ -65,11 +84,19 @@ function CommandInput({
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
-    <div data-slot="command-input-wrapper" className="command-palette__input-wrapper">
-      <SearchIcon className="command-palette__item-icon" />
+    <div
+      data-slot="command-input-wrapper"
+      className="flex items-center gap-2 px-4 py-3 border-b border-(--border-subtle)"
+    >
+      <SearchIcon className="text-(--text-muted) flex-shrink-0" />
       <CommandPrimitive.Input
         data-slot="command-input"
-        className={cn("command-palette__input", className)}
+        className={cn(
+          "flex-1 bg-transparent border-none outline-none",
+          "font-[var(--font-body)] text-[length:var(--font-size-lg)] text-(--text-heading)",
+          "placeholder:text-(--text-muted)",
+          className
+        )}
         {...props}
       />
     </div>
@@ -83,7 +110,10 @@ function CommandList({
   return (
     <CommandPrimitive.List
       data-slot="command-list"
-      className={cn("command-palette__results", className)}
+      className={cn(
+        "overflow-y-auto p-2 max-h-[calc(var(--overlay-height-xl)-60px)]",
+        className
+      )}
       {...props}
     />
   )
@@ -110,7 +140,12 @@ function CommandGroup({
     <CommandPrimitive.Group
       data-slot="command-group"
       className={cn(
-        "overflow-hidden **:[[cmdk-group-heading]]:command-palette__group-label",
+        "overflow-hidden",
+        // target the cmdk group heading element
+        "**:[[cmdk-group-heading]]:font-mono **:[[cmdk-group-heading]]:text-[length:var(--font-size-2xs)]",
+        "**:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:tracking-[var(--tracking-wider)]",
+        "**:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:text-(--text-muted)",
+        "**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:pt-2",
         className
       )}
       {...props}
@@ -125,7 +160,7 @@ function CommandSeparator({
   return (
     <CommandPrimitive.Separator
       data-slot="command-separator"
-      className={cn("-mx-1 h-px bg-border-default", className)}
+      className={cn("-mx-1 h-px bg-(--border-default)", className)}
       {...props}
     />
   )
@@ -139,7 +174,17 @@ function CommandItem({
   return (
     <CommandPrimitive.Item
       data-slot="command-item"
-      className={cn("command-palette__item", className)}
+      className={cn(
+        "flex items-center gap-2",
+        "px-2 py-2 rounded-[var(--radius-md)]",
+        "cursor-pointer",
+        "text-[length:var(--font-size-md)] text-(--text-primary)",
+        "transition-[background] duration-[var(--duration-50)]",
+        "hover:bg-(--surface-hover)",
+        "aria-selected:bg-(--surface-hover)",
+        "outline-none",
+        className
+      )}
       {...props}
     >
       {children}
@@ -155,7 +200,10 @@ function CommandShortcut({
   return (
     <span
       data-slot="command-shortcut"
-      className={cn("command-palette__item-shortcut", className)}
+      className={cn(
+        "font-mono text-[length:var(--font-size-2xs)] text-(--text-muted)",
+        className
+      )}
       {...props}
     />
   )

@@ -1,15 +1,6 @@
 import * as React from "react"
 import { ChevronRight } from "lucide-react"
-
-// Design system tokens used by BEM classes in components.css:
-//   .breadcrumb          — font-size: var(--font-size-sm); gap: var(--space-1)
-//   .breadcrumb__item    — color: var(--text-muted); transition to var(--text-primary) on hover
-//   .breadcrumb__item:hover — color: var(--text-primary)
-//   .breadcrumb__item[aria-current="page"] — color: var(--text-heading);
-//                                            font-weight: var(--font-weight-medium)
-//   .breadcrumb__separator — color: var(--text-muted); font-size: var(--font-size-xs)
-//   .breadcrumb__item--id  — font-family: var(--font-mono); font-size: var(--font-size-xs)
-// Ancestor items use text-secondary for body text before hover state transitions to text-primary.
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
 
@@ -36,7 +27,10 @@ export function Breadcrumb({
     <BreadcrumbContext.Provider value={{ separator }}>
       <nav
         aria-label="breadcrumb"
-        className={cn("breadcrumb", className)}
+        className={cn(
+          "flex items-center gap-1 text-sm overflow-hidden",
+          className
+        )}
         {...props}
       />
     </BreadcrumbContext.Provider>
@@ -76,13 +70,35 @@ export function BreadcrumbItem({
 }
 
 // ---------------------------------------------------------------------------
-// BreadcrumbLink — ancestor items (clickable, text-secondary → text-primary on hover)
+// BreadcrumbLink variants
 // ---------------------------------------------------------------------------
+
+const breadcrumbItemVariants = cva(
+  // base — muted, no underline, nowrap, transition to primary on hover
+  "text-muted no-underline whitespace-nowrap transition-colors duration-100 hover:text-primary",
+  {
+    variants: {
+      variant: {
+        default: "",
+        /** ID segments — monospace, xs */
+        id: "font-mono text-xs",
+      },
+      current: {
+        true: "text-heading font-medium",
+        false: null,
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      current: false,
+    },
+  }
+)
 
 export interface BreadcrumbLinkProps
   extends React.ComponentPropsWithoutRef<"a"> {
   asChild?: boolean
-  /** variant="id" applies .breadcrumb__item--id — monospace, xs font for IDs like "RUN-423" */
+  /** variant="id" — monospace, xs font for IDs like "RUN-423" */
   variant?: "default" | "id"
 }
 
@@ -93,23 +109,19 @@ export function BreadcrumbLink({
 }: BreadcrumbLinkProps) {
   return (
     <a
-      className={cn(
-        "breadcrumb__item",
-        variant === "id" && "breadcrumb__item--id",
-        className
-      )}
+      className={cn(breadcrumbItemVariants({ variant, current: false }), className)}
       {...props}
     />
   )
 }
 
 // ---------------------------------------------------------------------------
-// BreadcrumbPage — current (active) item; aria-current triggers text-heading color
+// BreadcrumbPage — current (active) item
 // ---------------------------------------------------------------------------
 
 export interface BreadcrumbPageProps
   extends React.ComponentPropsWithoutRef<"span"> {
-  /** variant="id" applies .breadcrumb__item--id — monospace, xs font for IDs like "RUN-423" */
+  /** variant="id" — monospace, xs font for IDs like "RUN-423" */
   variant?: "default" | "id"
 }
 
@@ -123,18 +135,14 @@ export function BreadcrumbPage({
       role="link"
       aria-current="page"
       aria-disabled="true"
-      className={cn(
-        "breadcrumb__item",
-        variant === "id" && "breadcrumb__item--id",
-        className
-      )}
+      className={cn(breadcrumbItemVariants({ variant, current: true }), className)}
       {...props}
     />
   )
 }
 
 // ---------------------------------------------------------------------------
-// BreadcrumbSeparator — uses breadcrumb__separator (text-muted, font-size-xs)
+// BreadcrumbSeparator — text-muted, xs, flex-shrink-0
 // ---------------------------------------------------------------------------
 
 export function BreadcrumbSeparator({
@@ -147,7 +155,7 @@ export function BreadcrumbSeparator({
     <li
       role="presentation"
       aria-hidden="true"
-      className={cn("breadcrumb__separator", className)}
+      className={cn("text-muted text-xs flex-shrink-0", className)}
       {...props}
     >
       {children ?? separator ?? <ChevronRight />}
@@ -167,7 +175,10 @@ export function BreadcrumbEllipsis({
     <span
       role="presentation"
       aria-hidden="true"
-      className={cn("breadcrumb__item", className)}
+      className={cn(
+        "text-muted no-underline whitespace-nowrap transition-colors duration-100 hover:text-primary",
+        className
+      )}
       {...props}
     >
       <span>…</span>

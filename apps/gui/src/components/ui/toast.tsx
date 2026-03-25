@@ -1,14 +1,14 @@
-// Design system tokens used by BEM classes in components.css:
-//   .toast        — background: var(--elevation-overlay-surface); (surface-raised equivalent)
-//                   border: var(--elevation-border-raised); border-radius: var(--radius-lg)
-//                   box-shadow: var(--elevation-overlay-shadow)
-//   .toast--success / .toast--danger / .toast--warning / .toast--info
-//                 — variant modifier classes for semantic color variants
-//   .toast__icon  — flex-shrink: 0; color set per variant
-//   .toast__content — flex: 1
-//   .toast__title  — font-weight: medium; color: var(--text-heading)
-//   .toast__description — color: var(--text-secondary)
-//   .toast__dismiss — color: var(--text-muted)
+// Design system tokens:
+//   Toast container — elevation-overlay-surface (surface-overlay = neutral-2) bg,
+//                     elevation-border-raised (rgba(255,255,255,0.1)) border,
+//                     radius-lg (6px), elevation-overlay-shadow box-shadow
+//   Padding: space-3 (12px) / space-4 (16px), gap: space-3 (12px)
+//   Min-width: 300px, max-width: 420px
+//   slide-up animation: globals.css (duration-200 ease-out)
+//   Title: font-size-md (14px), font-weight-medium (500), text-heading
+//   Description: font-size-sm (13px), text-secondary, margin-top space-0-5 (2px)
+//   Dismiss button: text-muted, cursor-pointer, flex-shrink-0
+//   Left border accent: 3px solid per variant (inline style — kept as-is)
 // ARIA: role="status" for info/success; role="alert" for danger/warning
 
 import * as React from "react"
@@ -19,12 +19,12 @@ type ToastVariant = "success" | "danger" | "warning" | "info"
 
 const toastAccentColors: Record<ToastVariant, string> = {
   success: "var(--success-9)",
-  danger: "var(--danger-9)",
+  danger:  "var(--danger-9)",
   warning: "var(--warning-9)",
-  info: "var(--info-9)",
+  info:    "var(--info-9)",
 }
 
-interface ToastProps extends React.HTMLAttributes<HTMLDivElement> {
+interface ToastProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
   variant?: ToastVariant
   title?: React.ReactNode
   description?: React.ReactNode
@@ -47,20 +47,47 @@ function Toast({
       role={isAlert ? "alert" : "status"}
       data-slot="toast"
       data-variant={variant}
-      style={{
-        borderLeft: `3px solid ${toastAccentColors[variant]}`,
-      }}
-      className={cn("toast", `toast--${variant}`, className)}
+      style={{ borderLeft: `3px solid ${toastAccentColors[variant]}` }}
+      className={cn(
+        // Layout
+        "flex items-start gap-3",
+        // Sizing
+        "min-w-[300px] max-w-[420px]",
+        // Spacing: py-3 px-4
+        "p-3 px-4",
+        // Surface: elevation-overlay-surface (surface-overlay = neutral-2)
+        "bg-surface-overlay",
+        // Border: border-width-thin (1px), elevation-border-raised
+        "border border-[rgba(255,255,255,0.1)]",
+        // Radius: radius-lg = 6px
+        "rounded-lg",
+        // Shadow: elevation-overlay-shadow
+        "shadow-overlay",
+        // Pointer events
+        "pointer-events-auto",
+        // Entrance animation: slide-up duration-200 ease-out
+        "[animation:slide-up_var(--duration-200)_var(--ease-out)]",
+        className
+      )}
       {...props}
     >
-      <div className="toast__content">
+      <div
+        data-slot="toast-content"
+        className="flex-1 min-w-0"
+      >
         {title && (
-          <p data-slot="toast-title" className="toast__title">
+          <p
+            data-slot="toast-title"
+            className="text-md font-medium text-heading"
+          >
             {title}
           </p>
         )}
         {description && (
-          <p data-slot="toast-description" className="toast__description">
+          <p
+            data-slot="toast-description"
+            className="text-sm text-secondary mt-0.5"
+          >
             {description}
           </p>
         )}
@@ -72,7 +99,7 @@ function Toast({
           data-slot="toast-dismiss"
           aria-label="Dismiss"
           onClick={onDismiss}
-          className="toast__dismiss"
+          className="shrink-0 text-muted cursor-pointer"
         >
           <svg
             aria-hidden="true"

@@ -1,20 +1,38 @@
+import { cva, type VariantProps } from "class-variance-authority"
 import * as React from "react"
 
 import { cn } from "@/utils/helpers"
 
-// Design system tokens: icon-size-xs (12px), icon-size-sm (14px), icon-size-md (16px),
-// icon-size-lg (20px), icon-size-xl (24px)
-// SVG inherits stroke: currentColor, fill: none, stroke-width: 1.5
+// .icon: inline-flex, items-center, justify-center, flex-shrink-0, currentColor
+// .icon svg: width/height 100%, stroke currentColor, fill none, stroke-width 1.5,
+//            stroke-linecap round, stroke-linejoin round
+//
+// Icon sizes (from --icon-size-* tokens):
+//   xs = 12px → size-3
+//   sm = 14px → size-3.5
+//   md = 16px → size-4
+//   lg = 20px → size-5
+//   xl = 24px → size-6
 
-const sizeVariants = {
-  xs: "icon--xs",
-  sm: "icon--sm",
-  md: "icon--md",
-  lg: "icon--lg",
-  xl: "icon--xl",
-} as const
+const iconVariants = cva(
+  "inline-flex items-center justify-center flex-shrink-0 text-current [&_svg]:size-full [&_svg]:stroke-current [&_svg]:fill-none [&_svg]:stroke-[1.5] [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]",
+  {
+    variants: {
+      size: {
+        xs: "size-3",
+        sm: "size-3.5",
+        md: "size-4",
+        lg: "size-5",
+        xl: "size-6",
+      },
+    },
+    defaultVariants: {
+      size: "md",
+    },
+  }
+)
 
-type IconSize = keyof typeof sizeVariants
+type IconSize = NonNullable<VariantProps<typeof iconVariants>["size"]>
 
 interface IconProps extends React.HTMLAttributes<HTMLSpanElement> {
   size?: IconSize
@@ -31,11 +49,7 @@ function Icon({
   return (
     <span
       data-slot="icon"
-      className={cn(
-        "icon",
-        sizeVariants[size],
-        className
-      )}
+      className={cn(iconVariants({ size }), className)}
       {...props}
     >
       {children}
@@ -43,5 +57,5 @@ function Icon({
   )
 }
 
-export { Icon }
+export { Icon, iconVariants }
 export type { IconSize, IconProps }

@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-/* BEM CSS removed — all styling via CVA + Tailwind + @theme tokens */
 
 /* ========================================
    FONT LOADING

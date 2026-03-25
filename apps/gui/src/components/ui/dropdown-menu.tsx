@@ -1,17 +1,60 @@
 "use client"
 
-// Design tokens applied via BEM classes:
-// .dropdown-menu — bg-surface-overlay, elevation-overlay-shadow, z-dropdown
-// .dropdown-menu__item — text-muted icons, bg-surface-hover on highlight, icon-size-sm
-// .dropdown-menu__item--danger — text-danger, bg-danger on hover
-// .dropdown-menu__separator — border-subtle background
-// .dropdown-menu__section-label — text-muted, font-mono, font-size-2xs
-
 import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
+
+// ---------------------------------------------------------------------------
+// Variants
+// ---------------------------------------------------------------------------
+
+const dropdownContentVariants = cva(
+  [
+    "min-w-(--overlay-width-xs)",
+    "bg-(--elevation-overlay-surface)",
+    "border border-(--elevation-border-raised)",
+    "rounded-[var(--radius-lg)]",
+    "shadow-[var(--elevation-overlay-shadow)]",
+    "p-1",
+    "animate-[scale-in_var(--duration-100)_var(--ease-out)]",
+  ].join(" ")
+)
+
+const dropdownItemVariants = cva(
+  [
+    "flex items-center gap-2",
+    "px-2 py-1.5",
+    "rounded-[var(--radius-sm)]",
+    "cursor-pointer",
+    "text-[length:var(--font-size-md)] text-(--text-primary)",
+    "transition-[background] duration-[var(--duration-50)]",
+    "hover:bg-(--surface-hover)",
+    "data-[highlighted]:bg-(--surface-hover)",
+    "outline-none",
+  ].join(" "),
+  {
+    variants: {
+      variant: {
+        default: "",
+        destructive: [
+          "text-(--danger-11)",
+          "hover:bg-(--danger-3)",
+          "data-[highlighted]:bg-(--danger-3)",
+        ].join(" "),
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
+
+// ---------------------------------------------------------------------------
+// Components
+// ---------------------------------------------------------------------------
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
   return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />
@@ -48,7 +91,7 @@ function DropdownMenuContent({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
-          className={cn("dropdown-menu", className)}
+          className={cn(dropdownContentVariants(), className)}
           {...props}
         />
       </MenuPrimitive.Positioner>
@@ -71,7 +114,12 @@ function DropdownMenuLabel({
     <MenuPrimitive.GroupLabel
       data-slot="dropdown-menu-label"
       data-inset={inset}
-      className={cn("dropdown-menu__section-label", className)}
+      className={cn(
+        "font-mono text-[length:var(--font-size-2xs)] font-medium",
+        "tracking-[var(--tracking-wider)] uppercase text-(--text-muted)",
+        "px-2 pb-1 pt-2",
+        className
+      )}
       {...props}
     />
   )
@@ -82,20 +130,16 @@ function DropdownMenuItem({
   inset,
   variant = "default",
   ...props
-}: MenuPrimitive.Item.Props & {
-  inset?: boolean
-  variant?: "default" | "destructive"
-}) {
+}: MenuPrimitive.Item.Props &
+  VariantProps<typeof dropdownItemVariants> & {
+    inset?: boolean
+  }) {
   return (
     <MenuPrimitive.Item
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
-      className={cn(
-        "dropdown-menu__item",
-        variant === "destructive" && "dropdown-menu__item--danger",
-        className
-      )}
+      className={cn(dropdownItemVariants({ variant }), className)}
       {...props}
     />
   )
@@ -117,7 +161,7 @@ function DropdownMenuSubTrigger({
     <MenuPrimitive.SubmenuTrigger
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
-      className={cn("dropdown-menu__item", className)}
+      className={cn(dropdownItemVariants(), className)}
       {...props}
     >
       {children}
@@ -160,7 +204,7 @@ function DropdownMenuCheckboxItem({
     <MenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       data-inset={inset}
-      className={cn("dropdown-menu__item", className)}
+      className={cn(dropdownItemVariants(), className)}
       checked={checked}
       {...props}
     >
@@ -198,7 +242,7 @@ function DropdownMenuRadioItem({
     <MenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       data-inset={inset}
-      className={cn("dropdown-menu__item", className)}
+      className={cn(dropdownItemVariants(), className)}
       {...props}
     >
       <span
@@ -221,7 +265,10 @@ function DropdownMenuSeparator({
   return (
     <MenuPrimitive.Separator
       data-slot="dropdown-menu-separator"
-      className={cn("dropdown-menu__separator", className)}
+      className={cn(
+        "h-px bg-(--border-subtle) -mx-1 my-1",
+        className
+      )}
       {...props}
     />
   )
@@ -234,7 +281,10 @@ function DropdownMenuShortcut({
   return (
     <span
       data-slot="dropdown-menu-shortcut"
-      className={cn("dropdown-menu__item-shortcut", className)}
+      className={cn(
+        "font-mono text-[length:var(--font-size-2xs)] text-(--text-muted) ml-auto",
+        className
+      )}
       {...props}
     />
   )

@@ -4,8 +4,8 @@ import { Separator as SeparatorPrimitive } from "@base-ui/react/separator"
 
 import { cn } from "@/utils/helpers"
 
-// Design system tokens: border-subtle
-// divider BEM classes handle: divider--horizontal, divider--vertical using border-subtle
+// .divider--horizontal: height 1px, bg border-subtle, width 100%
+// .divider--vertical: width 1px, bg border-subtle, align-self stretch
 
 function Separator({
   className,
@@ -17,8 +17,10 @@ function Separator({
       data-slot="separator"
       orientation={orientation}
       className={cn(
-        "divider",
-        orientation === "horizontal" ? "divider--horizontal" : "divider--vertical",
+        "border-none m-0",
+        orientation === "horizontal"
+          ? "h-px w-full bg-border-subtle"
+          : "w-px self-stretch bg-border-subtle",
         className
       )}
       {...props}
