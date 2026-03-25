@@ -1,112 +1,144 @@
-import type { Meta, StoryObj } from "@storybook/react";
-import React, { useState } from "react";
+import type { Meta, StoryObj } from "@storybook/react"
+import React from "react"
 
-const meta = {
-  title: "Navigation/Sidebar",
-  parameters: { layout: "centered" },
-};
-export default meta;
+import { Badge } from "@/components/ui/badge"
+import { Sidebar } from "@/components/ui/sidebar"
+import type { SidebarNavItem, SidebarSection } from "@/components/ui/sidebar"
 
-type Story = StoryObj;
+// --- Icon helpers (inline SVG, no external dep) ---
 
 const DashboardIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="9" />
+    <rect x="14" y="3" width="7" height="5" />
+    <rect x="14" y="12" width="7" height="9" />
+    <rect x="3" y="16" width="7" height="5" />
   </svg>
-);
+)
 
 const WorkflowIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
   </svg>
-);
+)
 
-const BotIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+const RunsIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20V10M18 20V4M6 20v-4" />
   </svg>
-);
+)
 
-const PlayIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+const ProvidersIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
   </svg>
-);
+)
 
-const SettingsIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+const RunsightLogo = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+    <circle cx="12" cy="5" r="2.5" fill="var(--interactive-default)" />
+    <circle cx="5" cy="17" r="2.5" fill="var(--interactive-default)" opacity="0.7" />
+    <circle cx="19" cy="17" r="2.5" fill="var(--interactive-default)" opacity="0.7" />
+    <circle cx="12" cy="13" r="1.5" fill="var(--interactive-default)" opacity="0.5" />
+    <line x1="12" y1="7.5" x2="12" y2="11.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="10.8" y1="14" x2="6.5" y2="15.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+    <line x1="13.2" y1="14" x2="17.5" y2="15.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
   </svg>
-);
+)
 
-function SidebarDemo({ collapsed = false }: { collapsed?: boolean }) {
-  const [isCollapsed, setIsCollapsed] = useState(collapsed);
-  const navItems = [
-    { icon: <DashboardIcon />, label: "Dashboard" },
-    { icon: <WorkflowIcon />, label: "Workflows", active: true },
-    { icon: <BotIcon />, label: "Souls" },
-    { icon: <PlayIcon />, label: "Runs" },
-  ];
+// --- Data ---
 
-  return (
-    <div className={`sidebar${isCollapsed ? " sidebar--collapsed" : ""}`} style={{ height: "480px", position: "relative" }}>
-      {/* Palette notch — top-right collapse toggle */}
-      <button
-        className="palette__notch"
-        aria-label={isCollapsed ? "Expand palette" : "Collapse palette"}
-        aria-expanded={!isCollapsed}
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        style={{ position: "absolute", top: "var(--space-2)", right: "var(--space-2)", zIndex: 10 }}
-      >
-        {isCollapsed ? "\u25B6" : "\u25C0"}
-      </button>
+const defaultSections: SidebarSection[] = [
+  { id: "main" },
+  { id: "system", label: "System" },
+]
 
-      <div className="sidebar__section" style={{ borderBottom: "1px solid var(--sidebar-border)", paddingTop: "var(--space-2)", paddingBottom: "var(--space-2)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", height: "var(--control-height-md)", padding: "0 var(--space-2)" }}>
-          {/* Correct logo from canvas-editor spec */}
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="5" r="2.5" fill="var(--interactive-default)" />
-            <circle cx="5" cy="17" r="2.5" fill="var(--interactive-default)" opacity="0.7" />
-            <circle cx="19" cy="17" r="2.5" fill="var(--interactive-default)" opacity="0.7" />
-            <circle cx="12" cy="13" r="1.5" fill="var(--interactive-default)" opacity="0.5" />
-            <line x1="12" y1="7.5" x2="12" y2="11.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="10.8" y1="14" x2="6.5" y2="15.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
-            <line x1="13.2" y1="14" x2="17.5" y2="15.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
-          </svg>
-          <span className="sidebar__item-label" style={{ fontSize: "var(--font-size-sm)", fontWeight: "var(--font-weight-semibold)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-primary)" }}>
-            Runsight
-          </span>
-        </div>
-      </div>
+const defaultItems: SidebarNavItem[] = [
+  { id: "dashboard", label: "Dashboard", icon: <DashboardIcon />, section: "main" },
+  {
+    id: "workflows",
+    label: "Workflows",
+    icon: <WorkflowIcon />,
+    badge: <Badge variant="neutral">12</Badge>,
+    section: "main",
+  },
+  { id: "runs", label: "Runs", icon: <RunsIcon />, section: "main" },
+  { id: "providers", label: "Providers", icon: <ProvidersIcon />, section: "system" },
+]
 
-      <div className="sidebar__section" style={{ flex: 1 }}>
-        {navItems.map(({ icon, label, active }) => (
-          <div key={label} className={`sidebar__item${active ? " sidebar__item--active" : ""}`} role="menuitem" tabIndex={0}>
-            <span className="sidebar__item-icon">{icon}</span>
-            <span className="sidebar__item-label">{label}</span>
-          </div>
-        ))}
-      </div>
+const logoSlot = (
+  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", height: "var(--control-height-md)", padding: "0 var(--space-2)" }}>
+    <RunsightLogo />
+    <span style={{ fontSize: "var(--font-size-sm)", fontWeight: "var(--font-weight-semibold)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-primary)" }}>
+      Runsight
+    </span>
+  </div>
+)
 
-      <div className="sidebar__section" style={{ borderTop: "1px solid var(--sidebar-border)" }}>
-        <div className="sidebar__item" role="menuitem">
-          <span className="sidebar__item-icon"><SettingsIcon /></span>
-          <span className="sidebar__item-label">Settings</span>
-        </div>
-      </div>
+// --- Meta ---
+
+const meta: Meta<typeof Sidebar> = {
+  title: "Navigation/Sidebar",
+  component: Sidebar,
+  parameters: { layout: "centered" },
+  argTypes: {
+    collapsed: {
+      control: "boolean",
+      description: "Toggle collapsed (icon-rail) mode",
+    },
+    activeId: {
+      control: { type: "select" },
+      options: ["dashboard", "workflows", "runs", "providers"],
+      description: "Active navigation item id",
+    },
+  },
+}
+export default meta
+
+type Story = StoryObj<typeof Sidebar>
+
+export const Default: Story = {
+  name: "Default (controls)",
+  args: {
+    collapsed: false,
+    activeId: "workflows",
+    items: defaultItems,
+    sections: defaultSections,
+    logo: logoSlot,
+  },
+  render: (args) => (
+    <div style={{ height: 400 }}>
+      <Sidebar {...args} />
     </div>
-  );
+  ),
 }
 
-export const Expanded: Story = {
-  render: () => <SidebarDemo collapsed={false} />,
-};
-
 export const Collapsed: Story = {
-  render: () => <SidebarDemo collapsed={true} />,
-};
+  name: "Collapsed",
+  render: () => (
+    <div style={{ height: 400 }}>
+      <Sidebar
+        collapsed
+        activeId="workflows"
+        items={defaultItems}
+        sections={defaultSections}
+        logo={logoSlot}
+      />
+    </div>
+  ),
+}
 
-export const Interactive: Story = {
-  render: () => <SidebarDemo collapsed={false} />,
-};
+export const WithSections: Story = {
+  name: "With Sections",
+  render: () => (
+    <div style={{ height: 400 }}>
+      <Sidebar
+        collapsed={false}
+        activeId="dashboard"
+        items={defaultItems}
+        sections={defaultSections}
+        logo={logoSlot}
+      />
+    </div>
+  ),
+}
