@@ -1,18 +1,47 @@
-// Design tokens applied via BEM classes:
-// .modal-backdrop — rgba overlay, z-modal, fade-in animation
-// .modal — bg-surface-overlay (elevation-overlay-surface), elevation-overlay-shadow,
-//           elevation-border-raised ring, overlay-width-md, scale-in animation
-// .modal__header — border-subtle bottom border
-// .modal__title — text-heading, font-size-lg
-// .modal__body — bg-surface-overlay scrollable
-// .modal__footer — border-subtle top border
-
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
+
+// ---------------------------------------------------------------------------
+// Variants
+// ---------------------------------------------------------------------------
+
+const dialogOverlayVariants = cva(
+  "fixed inset-0 bg-black/60 z-[var(--z-modal)] animate-[fade-in_var(--duration-150)_var(--ease-out)]"
+)
+
+const dialogContentVariants = cva(
+  [
+    "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
+    "z-[calc(var(--z-modal)+1)]",
+    "bg-(--elevation-overlay-surface)",
+    "border border-(--elevation-border-raised)",
+    "rounded-[var(--radius-xl)]",
+    "shadow-[var(--elevation-overlay-shadow)]",
+    "flex flex-col max-h-[85vh]",
+    "animate-[scale-in_var(--duration-200)_var(--ease-out)]",
+  ].join(" "),
+  {
+    variants: {
+      size: {
+        sm: "w-(--overlay-width-sm)",
+        md: "w-(--overlay-width-md)",
+        lg: "w-(--overlay-width-lg)",
+      },
+    },
+    defaultVariants: {
+      size: "md",
+    },
+  }
+)
+
+// ---------------------------------------------------------------------------
+// Primitives
+// ---------------------------------------------------------------------------
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -37,7 +66,7 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
-      className={cn("modal-backdrop", className)}
+      className={cn(dialogOverlayVariants(), className)}
       {...props}
     />
   )
@@ -49,16 +78,16 @@ function DialogContent({
   showCloseButton = true,
   size = "md",
   ...props
-}: DialogPrimitive.Popup.Props & {
-  showCloseButton?: boolean
-  size?: "sm" | "md" | "lg"
-}) {
+}: DialogPrimitive.Popup.Props &
+  VariantProps<typeof dialogContentVariants> & {
+    showCloseButton?: boolean
+  }) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
-        className={cn("modal", `modal--${size}`, className)}
+        className={cn(dialogContentVariants({ size }), className)}
         {...props}
       >
         {children}
@@ -86,7 +115,12 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("modal__header", className)}
+      className={cn(
+        "flex items-center justify-between flex-shrink-0",
+        "px-5 py-4",
+        "border-b border-(--border-subtle)",
+        className
+      )}
       {...props}
     />
   )
@@ -103,12 +137,17 @@ function DialogFooter({
   return (
     <div
       data-slot="dialog-footer"
-      className={cn("modal__footer", className)}
+      className={cn(
+        "flex items-center justify-end gap-2 flex-shrink-0",
+        "px-5 py-3",
+        "border-t border-(--border-subtle)",
+        className
+      )}
       {...props}
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="outline" />}>
+        <DialogPrimitive.Close render={<Button variant="ghost" />}>
           Close
         </DialogPrimitive.Close>
       )}
@@ -120,7 +159,10 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("modal__title", className)}
+      className={cn(
+        "text-lg font-semibold text-(--text-heading)",
+        className
+      )}
       {...props}
     />
   )
@@ -146,7 +188,7 @@ function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-body"
-      className={cn("modal__body", className)}
+      className={cn("px-5 py-5 overflow-y-auto flex-1", className)}
       {...props}
     />
   )

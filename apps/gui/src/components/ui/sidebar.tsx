@@ -1,29 +1,69 @@
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
 
 // Design system tokens:
-// .sidebar: sidebar-width-expanded, sidebar-bg, sidebar-border, flex-col, overflow-y auto,
-//           transition width duration-200
-// .sidebar--collapsed: sidebar-width-collapsed; hides labels/badges/section-labels, centers items
-// .sidebar__section: padding space-2
-// .sidebar__section-label: font-mono, font-size-2xs, tracking-wider, uppercase, sidebar-muted
-// .sidebar__item: flex, align-center, gap space-2, height density-nav-item-height,
-//                 padding 0 space-2, radius-md, sidebar-fg, font-size-md, transition
-// .sidebar__item:hover: sidebar-hover bg, text-heading
-// .sidebar__item--active / [aria-current="page"]: surface-selected bg, text-heading,
-//   ::before amber left bar (sidebar-active-indicator)
-// .sidebar__item-icon: icon-size-md, text-muted; active → text-accent
-// .sidebar__item-label: overflow hidden, text-overflow ellipsis
-// .sidebar__item-badge: margin-left auto, flex-shrink 0
-// .sidebar__nested: padding-left space-6
+// sidebar-width-expanded, sidebar-width-collapsed
+// sidebar-bg, sidebar-border, sidebar-fg, sidebar-hover, sidebar-muted
+// sidebar-active-indicator (amber left bar)
+// surface-selected, text-heading, text-muted, text-accent
+// icon-size-md, control-height-sm (nav item height), font-size-md
+// font-mono, font-size-2xs, tracking-wider, radius-md
+
+// ---------------------------------------------------------------------------
+// CVA variants
+// ---------------------------------------------------------------------------
+
+const sidebarItemVariants = cva(
+  [
+    // base layout
+    "flex items-center gap-2",
+    "h-[var(--density-nav-item-height,var(--control-height-sm))]",
+    "px-2 rounded-[var(--radius-md)]",
+    // typography
+    "text-[length:var(--font-size-md)] text-(--sidebar-fg)",
+    "no-underline cursor-pointer whitespace-nowrap overflow-hidden",
+    // transitions
+    "transition-[background,color] duration-100",
+    // focus
+    "focus-visible:outline focus-visible:outline-[var(--focus-ring-width)] focus-visible:outline-[var(--focus-ring-color)] focus-visible:outline-offset-[-4px]",
+    // position for ::before amber indicator
+    "relative",
+    // hover
+    "hover:bg-(--sidebar-hover) hover:text-(--text-heading)",
+  ].join(" "),
+  {
+    variants: {
+      active: {
+        true: [
+          "bg-(--surface-selected) text-(--text-heading)",
+          // amber left indicator bar via pseudo
+          "before:content-[''] before:absolute before:left-0",
+          "before:top-[var(--space-1-5)] before:bottom-[var(--space-1-5)]",
+          "before:w-[var(--border-width-thick)]",
+          "before:bg-(--sidebar-active-indicator)",
+          "before:rounded-r-[var(--radius-xs)]",
+        ].join(" "),
+        false: "",
+      },
+    },
+    defaultVariants: {
+      active: false,
+    },
+  }
+)
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 export interface SidebarNavItem {
   id: string
   label: string
-  /** ReactNode rendered inside .sidebar__item-icon */
+  /** Icon node rendered in the icon slot */
   icon?: React.ReactNode
-  /** Optional badge content (e.g. count) rendered in .sidebar__item-badge */
+  /** Optional badge content (e.g. count) */
   badge?: React.ReactNode
   /** Section this item belongs to (matches SidebarSection.id) */
   section?: string
@@ -53,6 +93,10 @@ interface SidebarProps extends React.HTMLAttributes<HTMLElement> {
   header?: React.ReactNode
 }
 
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 function Sidebar({
   className,
   collapsed = false,
@@ -65,18 +109,16 @@ function Sidebar({
   children,
   ...props
 }: SidebarProps) {
-  // If sections are provided, group items; otherwise render as a single flat section
   const hasSections = sections.length > 0
 
   function renderItem(item: SidebarNavItem) {
     const isActive = item.id === activeId
+    const iconColorClass = isActive ? "text-(--text-accent)" : "text-(--text-muted)"
+
     return (
       <div
         key={item.id}
-        className={cn(
-          "sidebar__item",
-          isActive && "sidebar__item--active"
-        )}
+        className={cn(sidebarItemVariants({ active: isActive }))}
         role="menuitem"
         tabIndex={0}
         aria-current={isActive ? "page" : undefined}
@@ -89,20 +131,36 @@ function Sidebar({
         }}
       >
         {item.icon && (
-          <span className="sidebar__item-icon">{item.icon}</span>
+          <span
+            className={cn(
+              "flex-shrink-0 w-(--icon-size-md) h-(--icon-size-md)",
+              iconColorClass,
+              // In collapsed mode the icon is the only visible element
+              collapsed ? "mx-auto" : ""
+            )}
+          >
+            {item.icon}
+          </span>
         )}
-        <span className="sidebar__item-label">{item.label}</span>
+
+        {/* Hidden in collapsed mode */}
+        <span className={cn("overflow-hidden text-ellipsis", collapsed && "hidden")}>
+          {item.label}
+        </span>
+
         {item.badge !== undefined && (
-          <span className="sidebar__item-badge">{item.badge}</span>
+          <span className={cn("ml-auto flex-shrink-0", collapsed && "hidden")}>
+            {item.badge}
+          </span>
         )}
       </div>
     )
   }
 
-  function renderNestedItems(children: SidebarNavItem[]) {
+  function renderNestedItems(childItems: SidebarNavItem[]) {
     return (
-      <div className="sidebar__nested">
-        {children.map(renderItem)}
+      <div className="pl-6">
+        {childItems.map(renderItem)}
       </div>
     )
   }
@@ -111,8 +169,14 @@ function Sidebar({
     <nav
       data-slot="sidebar"
       className={cn(
-        "sidebar",
-        collapsed && "sidebar--collapsed",
+        // base
+        "flex flex-col overflow-y-auto overflow-x-hidden flex-shrink-0 h-full",
+        "bg-(--sidebar-bg) border-r border-(--sidebar-border)",
+        // width transition
+        "transition-[width] duration-200 ease-out",
+        collapsed
+          ? "w-(--sidebar-width-collapsed)"
+          : "w-(--sidebar-width-expanded)",
         className
       )}
       aria-label="Navigation"
@@ -120,21 +184,31 @@ function Sidebar({
     >
       {/* Logo / branding area */}
       {logo && (
-        <div className="sidebar__section">{logo}</div>
+        <div className="px-2 py-2">{logo}</div>
       )}
 
       {/* Optional header slot */}
       {header && (
-        <div className="sidebar__section">{header}</div>
+        <div className="px-2 py-2">{header}</div>
       )}
 
       {hasSections ? (
         sections.map((section) => {
           const sectionItems = items.filter((i) => i.section === section.id)
           return (
-            <div key={section.id} className="sidebar__section">
+            <div key={section.id} className="px-2 py-2">
               {section.label && (
-                <div className="sidebar__section-label">{section.label}</div>
+                <div
+                  className={cn(
+                    "font-mono text-[length:var(--font-size-2xs)] font-medium",
+                    "tracking-[var(--tracking-wider)] uppercase text-(--sidebar-muted)",
+                    "px-2 py-2",
+                    // Hidden in collapsed mode
+                    collapsed && "hidden"
+                  )}
+                >
+                  {section.label}
+                </div>
               )}
               {sectionItems.map((item) => (
                 <React.Fragment key={item.id}>
@@ -147,7 +221,7 @@ function Sidebar({
           )
         })
       ) : (
-        <div className="sidebar__section">
+        <div className="px-2 py-2">
           {items.map((item) => (
             <React.Fragment key={item.id}>
               {renderItem(item)}

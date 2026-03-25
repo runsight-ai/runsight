@@ -42,7 +42,17 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
-      className={cn("select", className)}
+      className={cn(
+        "appearance-none w-full h-[var(--density-input-height,var(--control-height-sm))]",
+        "pl-[var(--space-2-5)] pr-[var(--space-8)]",
+        "font-body text-md text-(--text-heading)",
+        "bg-(--surface-primary) border border-(--border-default) rounded-[var(--radius-md)]",
+        "cursor-pointer transition-[border-color] duration-[var(--duration-100)] ease-[var(--ease-default)]",
+        "hover:border-(--border-hover)",
+        "disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-(--surface-secondary)",
+        "focus:border-(--border-focus) focus:shadow-[0_0_0_var(--space-0-5)_var(--accent-3)] focus:outline-none",
+        className
+      )}
       {...props}
     >
       {children}
@@ -82,7 +92,13 @@ function SelectContent({
         <SelectPrimitive.Popup
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
-          className={cn("dropdown-menu", className)}
+          className={cn(
+            "min-w-[var(--overlay-width-xs)] bg-(--elevation-overlay-surface)",
+            "border border-(--elevation-border-raised) rounded-[var(--radius-lg)]",
+            "shadow-[var(--elevation-overlay-shadow)] p-[var(--space-1)]",
+            "animate-[scale-in_var(--duration-100)_var(--ease-out)]",
+            className
+          )}
           {...props}
         >
           <SelectScrollUpButton />

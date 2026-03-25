@@ -1,18 +1,15 @@
 // Design system tokens used by this component:
 // Category stripes:  block-agent, block-logic, block-control, block-utility, block-custom
-// Card surface:      surface-secondary, border-subtle, radius-lg
-// Selected state:    border-accent, surface-selected
-// Header text:       text-heading, font-size-sm
-// Cost badge:        font-mono, font-size-2xs
-// Execution states:  accent-9 (running), success-7 (success), danger-7 (error), neutral-6 (skipped)
+// Card surface:      surface-tertiary, neutral-4, radius-lg
+// Selected state:    amber 38/92%/55% sides + glow
+// Header text:       text-heading, 13px
+// Cost badge:        font-mono, font-size-2xs, accent-themed
+// Execution states:  accent-9 (running), success-9 (completed), danger-9 (failed/error)
 // Port handles:      interactive-default
-// Soul avatars:      .node-card__avatar-stack, .node-card__avatar, .soul-tip-wrap, .soul-tip
-// Meta row:          .node-card__meta, .node-card__meta-sep
-// Port rows:         .node-card__port-rows, .node-card__port-row, .node-card__port-row-name,
-//                    .node-card__port-row-dot, .node-card__port-row-dot--pass/fail
-// Status badge:      .node-card__status-badge (hidden by default, used for running/completed/failed)
+// Soul avatars:      inline Tailwind (no BEM)
 
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
 
@@ -34,15 +31,15 @@ export type ExecutionState =
   | "error"
   | "skipped"
 
-/** A named output port row rendered inside .node-card__port-rows */
+/** A named output port row rendered inside the port-rows section */
 export interface NodeCardPort {
   /** Port name shown in monospace uppercase (e.g. "pass", "fail", "market") */
   name: string
-  /** Port type drives .node-card__port-row-dot BEM modifier colour */
+  /** Port type drives dot colour */
   type?: "pass" | "fail" | "default"
 }
 
-/** Soul assignment shown as a coloured avatar with tooltip in .node-card__avatar-stack */
+/** Soul assignment shown as a coloured avatar with tooltip */
 export interface NodeCardSoul {
   /** Single uppercase letter(s) for the avatar (e.g. "W", "TL") */
   initial: string
@@ -61,31 +58,116 @@ export interface NodeCardSoul {
 }
 
 // ---------------------------------------------------------------------------
-// Token maps
+// CVA variants
 // ---------------------------------------------------------------------------
 
-/**
- * Maps BlockCategory prop values to the data-category attribute values
- * expected by the .node-card BEM CSS (strips the "block-" prefix).
- */
-const categoryDataAttrMap: Record<BlockCategory, string> = {
-  "block-agent":   "agent",
-  "block-logic":   "logic",
-  "block-control": "control",
-  "block-utility": "utility",
-  "block-custom":  "custom",
+/** Top-stripe colour by category */
+const categoryStripe: Record<BlockCategory, string> = {
+  "block-agent":   "border-t-[var(--block-agent)]",
+  "block-logic":   "border-t-[var(--block-logic)]",
+  "block-control": "border-t-[var(--block-control)]",
+  "block-utility": "border-t-[var(--block-utility)]",
+  "block-custom":  "border-t-[var(--block-custom)]",
 }
 
-/**
- * Maps ExecutionState prop values to data-state attribute values used by BEM CSS.
- * idle / skipped have no BEM state override — omit attribute.
- */
-const executionStateDataAttrMap: Record<ExecutionState, string | undefined> = {
-  idle:    undefined,
-  running: "running",
-  success: "completed",
-  error:   "failed",
-  skipped: undefined,
+/** Icon colour by category */
+const categoryIconColor: Record<BlockCategory, string> = {
+  "block-agent":   "text-[var(--block-agent)]",
+  "block-logic":   "text-[var(--block-logic)]",
+  "block-control": "text-[var(--block-control)]",
+  "block-utility": "text-[var(--block-utility)]",
+  "block-custom":  "text-[var(--block-custom)]",
+}
+
+/** Icon colour override for execution states */
+const stateIconColor: Partial<Record<ExecutionState, string>> = {
+  running: "text-(--accent-11)",
+  success: "text-(--success-9)",
+  error:   "text-(--danger-9)",
+}
+
+// ---------------------------------------------------------------------------
+// SoulAvatar sub-component
+// Pure Tailwind — no BEM
+// ---------------------------------------------------------------------------
+
+function SoulAvatar({ soul }: { soul: NodeCardSoul }) {
+  const rows: Array<{ key: string; val: string }> = [
+    ...(soul.model ? [{ key: "Model", val: soul.model }] : []),
+    ...(soul.provider ? [{ key: "Provider", val: soul.provider }] : []),
+    ...(soul.rows ?? []),
+  ]
+
+  return (
+    <span className="relative inline-flex group/soul-tip">
+      {/* Avatar circle */}
+      <span
+        className={[
+          "inline-flex items-center justify-center",
+          "w-5 h-5 rounded-full flex-shrink-0",
+          "text-[9px] font-semibold text-white leading-none",
+          "shadow-[0_0_0_1px_hsla(40,6%,24%,0.5)]",
+          "cursor-default select-none",
+        ].join(" ")}
+        style={{ background: soul.color }}
+      >
+        {soul.initial}
+      </span>
+
+      {/* Tooltip panel — opacity-driven, shown on group hover */}
+      <span
+        className={[
+          "absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2",
+          "w-[160px]",
+          "bg-(--neutral-2) border border-(--neutral-4)",
+          "rounded-[var(--radius-md)]",
+          "px-3 py-2",
+          "shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
+          "font-mono text-[10px]",
+          "opacity-0 pointer-events-none",
+          "transition-opacity duration-[var(--duration-100)]",
+          "group-hover/soul-tip:opacity-100",
+          "z-[var(--z-popover)]",
+        ].join(" ")}
+      >
+        {/* Down-pointing caret */}
+        <span
+          className={[
+            "absolute left-1/2 -translate-x-1/2 top-full",
+            "w-0 h-0",
+            "border-l-[6px] border-l-transparent",
+            "border-r-[6px] border-r-transparent",
+            "border-t-[6px] border-t-(--neutral-4)",
+          ].join(" ")}
+          aria-hidden="true"
+        />
+
+        {/* Name row */}
+        <span className="flex items-center gap-1.5 mb-1.5">
+          <span
+            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+            style={{ background: soul.color }}
+          />
+          <span className="text-[10px] text-(--text-primary) font-medium">{soul.name}</span>
+        </span>
+
+        {/* Key/value rows */}
+        {rows.map(({ key, val }) => (
+          <span key={key} className="flex justify-between items-baseline mb-[3px]">
+            <span className="text-(--text-muted) uppercase tracking-wider text-[9px]">{key}</span>
+            <span className="text-(--accent-11) font-mono text-[10px]">{val}</span>
+          </span>
+        ))}
+
+        {/* Prompt preview */}
+        {soul.prompt && (
+          <span className="block text-[10px] text-(--text-muted) mt-1.5 leading-tight line-clamp-2">
+            {soul.prompt}
+          </span>
+        )}
+      </span>
+    </span>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -97,21 +179,21 @@ export interface NodeCardProps extends Omit<React.ComponentProps<"div">, "title"
   title: string
   /** Block category determines the top stripe colour */
   category?: BlockCategory
-  /** Current execution state (affects left border indicator) */
+  /** Current execution state (affects top stripe + background + animation) */
   executionState?: ExecutionState
   /** Whether the node is currently selected on the canvas */
   selected?: boolean
   /** Optional cost display (e.g. "$0.0024") rendered in font-mono */
   cost?: string
-  /** Whether to render the .node-card__port--input handle on the left edge */
+  /** Whether to render the input port handle on the left edge */
   inputPort?: boolean
-  /** Whether to render the .node-card__port--output handle on the right edge */
+  /** Whether to render the output port handle on the right edge */
   outputPort?: boolean
-  /** Named output port rows — renders .node-card__port-rows */
+  /** Named output port rows */
   ports?: NodeCardPort[]
-  /** Soul assignments — renders .node-card__avatar-stack with tooltip */
+  /** Soul assignments — renders overlapping avatar stack with tooltips */
   souls?: NodeCardSoul[]
-  /** Status badge text (e.g. "Running") — renders .node-card__status-badge */
+  /** Status badge text (hidden by CSS per spec; kept for a11y/data layer) */
   statusBadge?: string
   /** Meta label(s) shown below the header row in uppercase monospace */
   meta?: string | string[]
@@ -119,44 +201,6 @@ export interface NodeCardProps extends Omit<React.ComponentProps<"div">, "title"
   icon?: React.ReactNode
   /** Body content (only used when no souls/meta) */
   children?: React.ReactNode
-}
-
-// ---------------------------------------------------------------------------
-// SoulAvatar sub-component — .soul-tip-wrap > .node-card__avatar + .soul-tip
-// ---------------------------------------------------------------------------
-
-function SoulAvatar({ soul }: { soul: NodeCardSoul }) {
-  const rows: Array<{ key: string; val: string }> = [
-    ...(soul.model ? [{ key: "Model", val: soul.model }] : []),
-    ...(soul.provider ? [{ key: "Provider", val: soul.provider }] : []),
-    ...(soul.rows ?? []),
-  ]
-
-  return (
-    <span className="soul-tip-wrap">
-      <span
-        className="node-card__avatar"
-        style={{ background: soul.color }}
-      >
-        {soul.initial}
-      </span>
-      <span className="soul-tip">
-        <span className="soul-tip__name">
-          <span className="soul-tip__dot" style={{ background: soul.color }} />
-          {soul.name}
-        </span>
-        {rows.map(({ key, val }) => (
-          <span key={key} className="soul-tip__row">
-            <span className="soul-tip__key">{key}</span>
-            <span className="soul-tip__val">{val}</span>
-          </span>
-        ))}
-        {soul.prompt && (
-          <span className="soul-tip__prompt">{soul.prompt}</span>
-        )}
-      </span>
-    </span>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -180,113 +224,166 @@ export function NodeCard({
   className,
   ...props
 }: NodeCardProps) {
-  const dataCategory = categoryDataAttrMap[category]
-  const dataState = executionStateDataAttrMap[executionState]
-
-  // Normalise meta to array for rendering
+  // Normalise meta to array
   const metaItems = meta
     ? Array.isArray(meta) ? meta : [meta]
     : undefined
 
-  // Status badge BEM modifier derives from executionState when statusBadge text is provided
-  const statusBadgeModifier =
-    executionState === "running" ? "running"
-    : executionState === "success" ? "completed"
-    : executionState === "error" ? "failed"
-    : undefined
+  // Execution-state top stripe override
+  const stateStripe: Partial<Record<ExecutionState, string>> = {
+    running: "border-t-[var(--accent-9)]",
+    success: "border-t-[var(--success-9)]",
+    error:   "border-t-[var(--danger-9)]",
+  }
+
+  // Execution-state background tint
+  const stateBg: Partial<Record<ExecutionState, string>> = {
+    success: "bg-[hsla(142,40%,40%,0.03)]",
+    error:   "bg-[hsla(0,50%,50%,0.04)]",
+  }
+
+  // Selection border (amber sides + glow, preserves top stripe)
+  const selectedClasses = selected
+    ? [
+        "border-l-[hsla(38,92%,55%,0.5)]",
+        "border-r-[hsla(38,92%,55%,0.5)]",
+        "border-b-[hsla(38,92%,55%,0.5)]",
+        "shadow-[0_0_16px_hsla(38,92%,55%,0.15)]",
+      ].join(" ")
+    : ""
+
+  // Running pulse animation
+  const runningAnimation = executionState === "running"
+    ? "animate-[node-pulse-glow_2.5s_ease-in-out_infinite]"
+    : ""
+
+  // Resolve icon colour: state overrides category
+  const iconColorClass =
+    stateIconColor[executionState] ?? categoryIconColor[category] ?? "text-(--neutral-9)"
+
+  // Top stripe: state overrides category
+  const topStripeClass =
+    stateStripe[executionState] ?? categoryStripe[category]
 
   return (
-    // .node-card BEM root:
-    //   background: surface-secondary  border: border-subtle  radius: radius-lg
-    //   data-category drives border-top color (block-agent / block-logic / etc.)
-    //   aria-selected="true" drives border-accent + surface-selected selected state
-    //   data-state drives execution-state overrides
     <div
       data-slot="node-card"
-      data-category={dataCategory}
-      data-state={dataState}
+      data-category={category}
+      data-state={executionState}
       aria-selected={selected || undefined}
-      className={cn("node-card", className)}
+      className={cn(
+        // base layout
+        "relative w-[260px] cursor-pointer",
+        // surface
+        "bg-(--surface-tertiary)",
+        // border: thin neutral on sides/bottom, 3px top stripe
+        "border border-(--neutral-4) border-t-[3px]",
+        // radius: flat top (stripe acts as top), rounded bottom
+        "rounded-b-[var(--radius-lg)] rounded-t-none",
+        // shadow + transition
+        "shadow-[0_1px_2px_hsla(40,12%,4%,0.3)]",
+        "transition-[border-color,box-shadow] duration-150 ease-out",
+        // hover
+        "hover:border-(--border-hover) hover:shadow-[0_4px_8px_hsla(40,12%,4%,0.4)]",
+        // top stripe colour (state > category)
+        topStripeClass,
+        // execution bg tint
+        stateBg[executionState],
+        // selected amber outline
+        selectedClasses,
+        // running glow animation
+        runningAnimation,
+        className
+      )}
       {...props}
     >
-      {/* ---------------------------------------------------------------- */}
-      {/* Input port handle — .node-card__port--input (left edge)          */}
-      {/* ---------------------------------------------------------------- */}
+      {/* Input port handle — left edge */}
       {inputPort && (
         <div
           data-slot="node-card-port"
-          className="node-card__port node-card__port--input"
+          className={[
+            "absolute left-[-5px] top-1/2 -translate-y-1/2",
+            "w-[10px] h-[10px] rounded-full",
+            "bg-(--surface-primary) border-2 border-(--border-default)",
+            "transition-[border-color,background,box-shadow] duration-150 ease-out",
+            "hover:border-(--interactive-default) hover:bg-(--interactive-default)",
+            "cursor-crosshair",
+          ].join(" ")}
         />
       )}
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Status badge — .node-card__status-badge (hidden by CSS default)  */}
-      {/* ---------------------------------------------------------------- */}
+      {/* Status badge — hidden per spec (stripe-as-status replaces badges) */}
       {statusBadge && (
         <div
           data-slot="node-card-status-badge"
-          className={cn(
-            "node-card__status-badge",
-            statusBadgeModifier && `node-card__status-badge--${statusBadgeModifier}`
-          )}
-        >
-          {statusBadge}
-        </div>
+          className="hidden"
+          aria-label={statusBadge}
+        />
       )}
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Header: .node-card__header                                        */}
-      {/* icon + name + avatar-stack                                        */}
-      {/* ---------------------------------------------------------------- */}
+      {/* Header: icon + name + avatar stack */}
       <div
         data-slot="node-card-header"
-        className="node-card__header"
+        className="flex items-center gap-2 px-3 pt-[10px] pb-[6px] relative z-[2]"
       >
         {icon && (
-          // .node-card__icon — color driven by category / state via CSS
           <div
             aria-hidden="true"
             data-slot="node-card-icon"
-            className="node-card__icon"
+            className={cn(
+              "w-4 h-4 flex-shrink-0 flex items-center justify-center leading-none",
+              iconColorClass
+            )}
           >
             {icon}
           </div>
         )}
 
-        {/* .node-card__name — text-heading + font-size-sm */}
         <span
           data-slot="node-card-title"
-          className="node-card__name"
+          className={[
+            "text-[13px] font-medium text-(--text-heading)",
+            "overflow-hidden text-ellipsis whitespace-nowrap",
+            "flex-1 min-w-0 tracking-[-0.02em]",
+          ].join(" ")}
         >
           {title}
         </span>
 
-        {/* .node-card__avatar-stack — soul avatar circles with tooltips */}
+        {/* Soul avatar stack — overlapping circles */}
         {souls && souls.length > 0 && (
           <div
             data-slot="node-card-avatar-stack"
-            className="node-card__avatar-stack"
+            className="flex flex-shrink-0"
           >
             {souls.map((soul, idx) => (
-              <SoulAvatar key={idx} soul={soul} />
+              <span
+                key={idx}
+                className={idx > 0 ? "-ml-1.5" : ""}
+              >
+                <SoulAvatar soul={soul} />
+              </span>
             ))}
           </div>
         )}
       </div>
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Meta row — .node-card__meta                                       */}
-      {/* uppercase monospace accent label (e.g. "Linear · 2 ports")       */}
-      {/* ---------------------------------------------------------------- */}
+      {/* Meta row — uppercase mono, accent-coloured */}
       {metaItems && (
         <div
           data-slot="node-card-meta"
-          className="node-card__meta"
+          className={[
+            "flex items-center gap-1 flex-wrap",
+            "px-3 pb-[10px]",
+            "font-mono text-[10px] tracking-wider uppercase",
+            "text-(--accent-9) opacity-80",
+            "relative z-[2]",
+          ].join(" ")}
         >
           {metaItems.map((item, idx) => (
             <React.Fragment key={idx}>
               {idx > 0 && (
-                <span className="node-card__meta-sep">&middot;</span>
+                <span className="text-(--accent-7) opacity-60">&middot;</span>
               )}
               <span>{item}</span>
             </React.Fragment>
@@ -294,36 +391,40 @@ export function NodeCard({
         </div>
       )}
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Body (optional children) — .node-card__body                      */}
-      {/* Only used when no souls/meta present                              */}
-      {/* ---------------------------------------------------------------- */}
+      {/* Body (optional children) */}
       {children && (
         <div
           data-slot="node-card-body"
-          className="node-card__body"
+          className="px-3 pb-[10px] font-mono text-[10px] text-(--text-muted) leading-relaxed"
         >
           {children}
         </div>
       )}
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Named port rows — .node-card__port-rows                          */}
-      {/* Renders conditional output port dots (pass/fail/default)         */}
-      {/* ---------------------------------------------------------------- */}
+      {/* Named port rows — conditional output port dots */}
       {ports && ports.length > 0 && (
         <div
           data-slot="node-card-port-rows"
-          className="node-card__port-rows"
+          className="flex flex-col gap-[6px] px-3 pb-[10px] relative z-[2]"
         >
           {ports.map((port, idx) => (
-            <div key={idx} className="node-card__port-row">
-              <span className="node-card__port-row-name">{port.name}</span>
+            <div
+              key={idx}
+              className="flex items-center justify-between relative"
+            >
+              <span className="font-mono text-[9px] text-(--text-muted) tracking-wider uppercase">
+                {port.name}
+              </span>
               <div
                 className={cn(
-                  "node-card__port-row-dot",
-                  port.type === "pass" && "node-card__port-row-dot--pass",
-                  port.type === "fail" && "node-card__port-row-dot--fail"
+                  "w-[10px] h-[10px] rounded-full",
+                  "transition-[box-shadow,transform] duration-150 ease-out",
+                  "hover:scale-[1.3]",
+                  port.type === "pass"
+                    ? "bg-(--success-9) hover:shadow-[0_0_8px_hsla(38,92%,55%,0.4)]"
+                    : port.type === "fail"
+                      ? "bg-(--danger-9)"
+                      : "bg-(--border-default)"
                 )}
               />
             </div>
@@ -331,25 +432,37 @@ export function NodeCard({
         </div>
       )}
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Cost badge — .node-card__cost-badge (positioned bottom-right)    */}
-      {/* ---------------------------------------------------------------- */}
+      {/* Cost badge — amber-themed pill, positioned bottom-right */}
       {cost && (
         <div
           data-slot="node-card-cost"
-          className="node-card__cost-badge"
+          className={[
+            "absolute bottom-[-9px] right-3",
+            "px-2 py-[2px]",
+            "bg-(--accent-3) border border-(--accent-6)",
+            "rounded-full",
+            "font-mono text-[10px] text-(--accent-11)",
+            "tracking-wider",
+            "pointer-events-none",
+            "z-[3]",
+          ].join(" ")}
         >
           {cost}
         </div>
       )}
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Output port handle — .node-card__port--output (right edge)       */}
-      {/* ---------------------------------------------------------------- */}
+      {/* Output port handle — right edge */}
       {outputPort && (
         <div
           data-slot="node-card-port"
-          className="node-card__port node-card__port--output"
+          className={[
+            "absolute right-[-5px] top-1/2 -translate-y-1/2",
+            "w-[10px] h-[10px] rounded-full",
+            "bg-(--surface-primary) border-2 border-(--border-default)",
+            "transition-[border-color,background,box-shadow] duration-150 ease-out",
+            "hover:border-(--interactive-default) hover:bg-(--interactive-default)",
+            "cursor-crosshair",
+          ].join(" ")}
         />
       )}
     </div>
