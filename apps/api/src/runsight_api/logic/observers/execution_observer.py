@@ -17,6 +17,8 @@ from runsight_api.core.context import (
 )
 from runsight_api.domain.entities.log import LogEntry
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
+from runsight_core.observer import compute_prompt_hash, compute_soul_version
+from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 
 logger = logging.getLogger(__name__)
@@ -67,7 +69,9 @@ class ExecutionObserver:
     # on_block_start
     # ------------------------------------------------------------------
 
-    def on_block_start(self, workflow_name: str, block_id: str, block_type: str) -> None:
+    def on_block_start(
+        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+    ) -> None:
         try:
             bind_block_context(block_id)
             node = RunNode(
@@ -106,6 +110,8 @@ class ExecutionObserver:
         block_type: str,
         duration_s: float,
         state: WorkflowState,
+        *,
+        soul: Optional[Soul] = None,
     ) -> None:
         try:
             cost_delta = state.total_cost_usd - self._last_cumulative_cost
@@ -121,6 +127,9 @@ class ExecutionObserver:
                     node.tokens = {"total": state.total_tokens}
                     result = state.results.get(block_id)
                     node.output = result.output if result else None
+                    if soul is not None:
+                        node.prompt_hash = compute_prompt_hash(soul)
+                        node.soul_version = compute_soul_version(soul)
                     node.updated_at = time.time()
                     session.add(node)
                 session.commit()

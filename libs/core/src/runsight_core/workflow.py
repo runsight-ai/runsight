@@ -518,9 +518,13 @@ class Workflow:
                 current_block_id, block = queue.popleft()
 
                 block_type = type(block).__name__
+                soul = getattr(block, "soul", None)
                 if observer:
                     try:
-                        observer.on_block_start(self.name, current_block_id, block_type)
+                        soul_kwargs = {"soul": soul} if soul is not None else {}
+                        observer.on_block_start(
+                            self.name, current_block_id, block_type, **soul_kwargs
+                        )
                     except Exception:
                         logger.warning("Observer.on_block_start failed", exc_info=True)
 
@@ -557,7 +561,12 @@ class Workflow:
                     if observer:
                         try:
                             observer.on_block_complete(
-                                self.name, current_block_id, block_type, block_duration, state
+                                self.name,
+                                current_block_id,
+                                block_type,
+                                block_duration,
+                                state,
+                                **soul_kwargs,
                             )
                         except Exception:
                             logger.warning("Observer.on_block_complete failed", exc_info=True)

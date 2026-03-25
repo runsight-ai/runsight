@@ -2,8 +2,10 @@
 
 import asyncio
 import logging
+from typing import Optional
 
 from runsight_core.artifacts import ArtifactStore
+from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 
 logger = logging.getLogger(__name__)
@@ -39,7 +41,9 @@ class ArtifactCleanupObserver:
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
         pass
 
-    def on_block_start(self, workflow_name: str, block_id: str, block_type: str) -> None:
+    def on_block_start(
+        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+    ) -> None:
         pass
 
     def on_block_complete(
@@ -49,6 +53,8 @@ class ArtifactCleanupObserver:
         block_type: str,
         duration_s: float,
         state: WorkflowState,
+        *,
+        soul: Optional[Soul] = None,
     ) -> None:
         pass
 
