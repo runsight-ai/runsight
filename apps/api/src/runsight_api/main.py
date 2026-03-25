@@ -23,6 +23,7 @@ from .transport.middleware.error_handler import global_exception_handler
 from .transport.middleware.request_id import RequestIdMiddleware
 from .transport.middleware.access_log import AccessLogMiddleware
 from .transport.routers import (
+    eval,
     runs,
     workflows,
     souls,
@@ -92,6 +93,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(Exception, global_exception_handler)
 
     # Routers
+    app.include_router(eval.router, prefix="/api")
     app.include_router(runs.router, prefix="/api")
     app.include_router(workflows.router, prefix="/api")
     app.include_router(souls.router, prefix="/api")

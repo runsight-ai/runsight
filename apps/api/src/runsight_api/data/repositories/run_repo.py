@@ -51,6 +51,10 @@ class RunRepository:
         statement = select(RunNode).where(RunNode.run_id == run_id).order_by(RunNode.created_at)
         return list(self.session.exec(statement).all())
 
+    def list_nodes_for_soul(self, soul_id: str) -> List[RunNode]:
+        statement = select(RunNode).where(RunNode.soul_id == soul_id).order_by(RunNode.created_at)
+        return list(self.session.exec(statement).all())
+
     def update_node(self, node: RunNode) -> RunNode:
         self.session.add(node)
         self.session.commit()

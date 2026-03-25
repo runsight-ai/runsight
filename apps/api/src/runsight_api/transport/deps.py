@@ -12,6 +12,7 @@ from ..data.filesystem.workflow_repo import WorkflowRepository
 from ..data.filesystem.soul_repo import SoulRepository
 from ..data.filesystem.task_repo import TaskRepository
 from ..data.filesystem.step_repo import StepRepository
+from ..logic.services.eval_service import EvalService
 from ..logic.services.provider_service import ProviderService
 from ..logic.services.run_service import RunService
 from ..logic.services.soul_service import SoulService
@@ -108,3 +109,7 @@ def get_model_service(
     provider_repo: FileSystemProviderRepo = Depends(get_provider_repo),
 ) -> ModelService:
     return ModelService(catalog=catalog, provider_repo=provider_repo)
+
+
+def get_eval_service(run_repo: RunRepository = Depends(get_run_repo)) -> EvalService:
+    return EvalService(run_repo)
