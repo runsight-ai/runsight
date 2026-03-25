@@ -1,3 +1,12 @@
+// Design tokens applied via BEM classes:
+// .modal-backdrop — rgba overlay, z-modal, fade-in animation
+// .modal — bg-surface-overlay (elevation-overlay-surface), elevation-overlay-shadow,
+//           elevation-border-raised ring, overlay-width-md, scale-in animation
+// .modal__header — border-subtle bottom border
+// .modal__title — text-heading, font-size-lg
+// .modal__body — bg-surface-overlay scrollable
+// .modal__footer — border-subtle top border
+
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 
@@ -28,10 +37,7 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
-      className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
-        className
-      )}
+      className={cn("modal-backdrop", className)}
       {...props}
     />
   )
@@ -41,19 +47,18 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  size = "md",
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
+  size?: "sm" | "md" | "lg"
 }) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
-        className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-surface-overlay p-4 text-sm [box-shadow:var(--elevation-overlay-shadow)] [ring:var(--elevation-border-raised)] ring-1 ring-(--elevation-border-raised) duration-100 outline-none max-w-(--overlay-width-md) data-open:animate-in data-open:fade-in-0 data-open:scale-in data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
-        )}
+        className={cn("modal", `modal--${size}`, className)}
         {...props}
       >
         {children}
@@ -68,8 +73,7 @@ function DialogContent({
               />
             }
           >
-            <XIcon
-            />
+            <XIcon />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         )}
@@ -82,7 +86,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      className={cn("modal__header", className)}
       {...props}
     />
   )
@@ -99,10 +103,7 @@ function DialogFooter({
   return (
     <div
       data-slot="dialog-footer"
-      className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-surface-tertiary/50 p-4 sm:flex-row sm:justify-end",
-        className
-      )}
+      className={cn("modal__footer", className)}
       {...props}
     >
       {children}
@@ -119,7 +120,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg leading-none font-semibold text-heading", className)}
+      className={cn("modal__title", className)}
       {...props}
     />
   )
@@ -141,6 +142,16 @@ function DialogDescription({
   )
 }
 
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn("modal__body", className)}
+      {...props}
+    />
+  )
+}
+
 export {
   Dialog,
   DialogClose,
@@ -148,6 +159,7 @@ export {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogBody,
   DialogOverlay,
   DialogPortal,
   DialogTitle,

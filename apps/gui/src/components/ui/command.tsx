@@ -1,3 +1,9 @@
+// Design tokens applied via BEM classes:
+// .command-palette — bg-surface-overlay (elevation-overlay-surface), z-modal, scale-in animation
+// .command-palette__input — text-heading, bg-surface-overlay
+// .command-palette__item — text-muted, bg-surface-hover on selected
+// .command-palette__item-shortcut — font-mono, font-size-2xs
+
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
 
@@ -9,10 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  InputGroup,
-  InputGroupAddon,
-} from "@/components/ui/input-group"
 import { SearchIcon, CheckIcon } from "lucide-react"
 
 function Command({
@@ -22,10 +24,7 @@ function Command({
   return (
     <CommandPrimitive
       data-slot="command"
-      className={cn(
-        "flex size-full flex-col overflow-hidden rounded-xl! bg-surface-overlay p-1 text-primary",
-        className
-      )}
+      className={cn("command-palette", className)}
       {...props}
     />
   )
@@ -52,10 +51,7 @@ function CommandDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <DialogContent
-        className={cn(
-          "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0 z-modal",
-          className
-        )}
+        className={cn("command-palette", className)}
         showCloseButton={showCloseButton}
       >
         {children}
@@ -69,20 +65,13 @@ function CommandInput({
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
-    <div data-slot="command-input-wrapper" className="p-1 pb-0">
-      <InputGroup className="h-8! rounded-lg! border-border-default/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
-        <CommandPrimitive.Input
-          data-slot="command-input"
-          className={cn(
-            "w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
-            className
-          )}
-          {...props}
-        />
-        <InputGroupAddon>
-          <SearchIcon className="size-4 shrink-0 opacity-50" />
-        </InputGroupAddon>
-      </InputGroup>
+    <div data-slot="command-input-wrapper" className="command-palette__input-wrapper">
+      <SearchIcon className="command-palette__item-icon" />
+      <CommandPrimitive.Input
+        data-slot="command-input"
+        className={cn("command-palette__input", className)}
+        {...props}
+      />
     </div>
   )
 }
@@ -94,10 +83,7 @@ function CommandList({
   return (
     <CommandPrimitive.List
       data-slot="command-list"
-      className={cn(
-        "no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none",
-        className
-      )}
+      className={cn("command-palette__results", className)}
       {...props}
     />
   )
@@ -124,7 +110,7 @@ function CommandGroup({
     <CommandPrimitive.Group
       data-slot="command-group"
       className={cn(
-        "overflow-hidden p-1 text-primary **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted",
+        "overflow-hidden **:[[cmdk-group-heading]]:command-palette__group-label",
         className
       )}
       {...props}
@@ -153,10 +139,7 @@ function CommandItem({
   return (
     <CommandPrimitive.Item
       data-slot="command-item"
-      className={cn(
-        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-surface-tertiary data-selected:text-primary [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-primary",
-        className
-      )}
+      className={cn("command-palette__item", className)}
       {...props}
     >
       {children}
@@ -172,10 +155,7 @@ function CommandShortcut({
   return (
     <span
       data-slot="command-shortcut"
-      className={cn(
-        "ml-auto font-mono text-2xs font-size-2xs tracking-widest text-muted group-data-selected/command-item:text-primary",
-        className
-      )}
+      className={cn("command-palette__item-shortcut", className)}
       {...props}
     />
   )
