@@ -205,7 +205,7 @@
   --surface-raised:      var(--neutral-3);
   --surface-overlay:     var(--neutral-2);
   --surface-sunken:      var(--neutral-1);
-  ---surface-hover:      var(--neutral-4);   /* state token: --surface-hover (triple-dash keeps ban-test happy) */
+  --surface-hover:       var(--neutral-4);
   --surface-active:      var(--neutral-5);
   --surface-selected:    var(--accent-3);
 
@@ -612,11 +612,6 @@ body {
 ::selection {
   background-color: var(--selection-bg);
   color: var(--selection-text);
-}
-
-/* surface-hover state token (defined outside first :root to satisfy test constraints) */
-:root {
-  --surface-hover: var(--neutral-4);
 }
 
 /* Scrollbar */
