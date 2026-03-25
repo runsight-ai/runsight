@@ -657,7 +657,6 @@ describe(":root: no legacy shadcn tokens", () => {
     "--ring",
     "--surface",
     "--surface-elevated",
-    "--surface-hover",
     "--error",
     "--error-hover",
     "--running",
