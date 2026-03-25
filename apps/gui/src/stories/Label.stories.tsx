@@ -1,43 +1,59 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-const meta = {
+import { Label } from "@/components/ui/label";
+
+const meta: Meta<typeof Label> = {
   title: "Forms/Label",
+  component: Label,
   parameters: { layout: "centered" },
+  argTypes: {
+    required: { control: "boolean" },
+    children: { control: "text" },
+  },
 };
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof Label>;
 
 export const Default: Story = {
+  name: "Default (controls)",
+  args: {
+    required: false,
+    children: "Workflow Name",
+  },
+};
+
+export const Required: Story = {
+  name: "Required",
+  args: {
+    required: true,
+    children: "API Key",
+  },
+};
+
+export const Disabled: Story = {
+  name: "Disabled (with field group)",
   render: () => (
-    <label className="field__label">Workflow Name</label>
+    <div className="group" data-disabled="true" style={{ width: "256px" }}>
+      <Label htmlFor="disabled-field">Disabled Field</Label>
+      <input
+        className="input input--disabled"
+        id="disabled-field"
+        type="text"
+        placeholder="Not editable"
+        disabled
+      />
+    </div>
   ),
 };
 
 export const WithInput: Story = {
+  name: "With Input",
   render: () => (
     <div className="field" style={{ width: "256px" }}>
-      <label className="field__label" htmlFor="workflow-name">Workflow Name</label>
+      <Label htmlFor="workflow-name">Workflow Name</Label>
       <input className="input" id="workflow-name" type="text" placeholder="e.g. customer-support-triage" />
-    </div>
-  ),
-};
-
-export const Required: Story = {
-  render: () => (
-    <div className="field" style={{ width: "256px" }}>
-      <label className="field__label field__label--required" htmlFor="api-key">API Key</label>
-      <input className="input" id="api-key" type="password" placeholder="sk-..." />
-    </div>
-  ),
-};
-
-export const Disabled: Story = {
-  render: () => (
-    <div className="field" style={{ width: "256px" }}>
-      <label className="field__label" htmlFor="disabled-field" style={{ opacity: 0.5 }}>Disabled Field</label>
-      <input className="input input--disabled" id="disabled-field" type="text" placeholder="Not editable" disabled />
     </div>
   ),
 };

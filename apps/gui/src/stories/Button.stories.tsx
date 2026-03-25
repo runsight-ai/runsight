@@ -1,70 +1,95 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-const meta = {
+import { Button } from "@/components/ui/button";
+
+const meta: Meta<typeof Button> = {
   title: "Primitives/Button",
+  component: Button,
   parameters: { layout: "centered" },
+  argTypes: {
+    variant: {
+      control: { type: "select" },
+      options: ["primary", "secondary", "ghost", "danger", "icon-only"],
+    },
+    size: {
+      control: { type: "select" },
+      options: ["xs", "sm", "md", "lg"],
+    },
+    loading: { control: "boolean" },
+    disabled: { control: "boolean" },
+    children: { control: "text" },
+  },
 };
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof Button>;
 
-export const Primary: Story = {
-  render: () => <button className="btn btn--primary btn--sm">Save Workflow</button>,
+export const Default: Story = {
+  name: "Default (controls)",
+  args: {
+    variant: "primary",
+    size: "sm",
+    loading: false,
+    disabled: false,
+    children: "Save Workflow",
+  },
 };
 
-export const Secondary: Story = {
-  render: () => <button className="btn btn--secondary btn--sm">Cancel</button>,
+export const AllVariants: Story = {
+  name: "All Variants",
+  render: () => (
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+      <Button variant="primary" size="sm">Primary</Button>
+      <Button variant="secondary" size="sm">Secondary</Button>
+      <Button variant="ghost" size="sm">Ghost</Button>
+      <Button variant="danger" size="sm">Danger</Button>
+    </div>
+  ),
 };
 
-export const Ghost: Story = {
-  render: () => <button className="btn btn--ghost btn--sm">Reset</button>,
+export const AllSizes: Story = {
+  name: "All Sizes",
+  render: () => (
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+      <Button variant="primary" size="xs">XS</Button>
+      <Button variant="primary" size="sm">SM</Button>
+      <Button variant="primary" size="md">MD</Button>
+      <Button variant="primary" size="lg">LG</Button>
+    </div>
+  ),
 };
 
-export const Danger: Story = {
-  render: () => <button className="btn btn--danger btn--sm">Delete Workflow</button>,
+export const Loading: Story = {
+  name: "Loading",
+  args: {
+    variant: "primary",
+    size: "sm",
+    loading: true,
+    children: "Saving…",
+  },
+};
+
+export const Disabled: Story = {
+  name: "Disabled",
+  args: {
+    variant: "primary",
+    size: "sm",
+    disabled: true,
+    children: "Disabled",
+  },
 };
 
 export const IconOnly: Story = {
   name: "Icon Only",
   render: () => (
-    <button className="btn btn--secondary btn--icon btn--sm" aria-label="Settings">
-      <span className="icon icon--lg">
+    <Button variant="icon-only" size="sm" aria-label="Settings">
+      <span className="icon icon--md">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 005 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.67a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09A1.65 1.65 0 0019.4 15z" />
         </svg>
       </span>
-    </button>
-  ),
-};
-
-export const Loading: Story = {
-  render: () => <button className="btn btn--primary btn--sm btn--loading">Saving...</button>,
-};
-
-export const Disabled: Story = {
-  render: () => <button className="btn btn--primary btn--sm" disabled>Disabled</button>,
-};
-
-export const Sizes: Story = {
-  render: () => (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-      <button className="btn btn--primary btn--xs">XS</button>
-      <button className="btn btn--primary btn--sm">SM</button>
-      <button className="btn btn--primary btn--md">MD</button>
-      <button className="btn btn--primary btn--lg">LG</button>
-    </div>
-  ),
-};
-
-export const AllVariants: Story = {
-  render: () => (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-      <button className="btn btn--primary">Primary</button>
-      <button className="btn btn--secondary">Secondary</button>
-      <button className="btn btn--ghost">Ghost</button>
-      <button className="btn btn--danger">Danger</button>
-    </div>
+    </Button>
   ),
 };

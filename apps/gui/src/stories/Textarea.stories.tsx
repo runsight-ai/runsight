@@ -1,53 +1,73 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-const meta = {
+import { Textarea } from "@/components/ui/textarea";
+
+const meta: Meta<typeof Textarea> = {
   title: "Forms/Textarea",
+  component: Textarea,
   parameters: { layout: "centered" },
+  argTypes: {
+    code: { control: "boolean" },
+    autoResize: { control: "boolean" },
+    disabled: { control: "boolean" },
+    placeholder: { control: "text" },
+    rows: { control: { type: "number", min: 2, max: 20 } },
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ width: "320px" }}>
+        <Story />
+      </div>
+    ),
+  ],
 };
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof Textarea>;
 
 export const Default: Story = {
-  render: () => (
-    <div style={{ width: "320px" }}>
-      <textarea className="textarea" rows={4} placeholder="Enter a description…" />
-    </div>
-  ),
-};
-
-export const WithValue: Story = {
-  render: () => (
-    <div style={{ width: "320px" }}>
-      <textarea className="textarea" rows={4} defaultValue="You are a helpful AI assistant that routes customer support tickets based on their content and urgency." />
-    </div>
-  ),
-};
-
-export const Disabled: Story = {
-  render: () => (
-    <div style={{ width: "320px" }}>
-      <textarea className="textarea" rows={3} placeholder="Disabled textarea" disabled />
-    </div>
-  ),
+  name: "Default (controls)",
+  args: {
+    placeholder: "Enter a description…",
+    rows: 4,
+    code: false,
+    autoResize: false,
+    disabled: false,
+  },
 };
 
 export const CodeVariant: Story = {
   name: "Code Variant",
-  render: () => (
-    <div style={{ width: "320px" }}>
-      <textarea className="textarea textarea--code" rows={6} placeholder="# Enter YAML here…" />
-    </div>
-  ),
+  args: {
+    code: true,
+    rows: 6,
+    placeholder: "# Enter YAML here…",
+  },
+};
+
+export const Disabled: Story = {
+  name: "Disabled",
+  args: {
+    placeholder: "Disabled textarea",
+    rows: 3,
+    disabled: true,
+  },
 };
 
 export const WithLabel: Story = {
+  name: "With Label",
   render: () => (
-    <div className="field" style={{ width: "320px" }}>
-      <label className="field__label">System Prompt</label>
-      <textarea className="textarea" rows={4} placeholder="You are a helpful assistant…" />
-      <span className="field__helper">This prompt is injected at the start of every conversation.</span>
+    <div className="field">
+      <label className="field__label" htmlFor="system-prompt">System Prompt</label>
+      <Textarea
+        id="system-prompt"
+        rows={4}
+        placeholder="You are a helpful assistant…"
+      />
+      <span className="field__helper">
+        This prompt is injected at the start of every conversation.
+      </span>
     </div>
   ),
 };
