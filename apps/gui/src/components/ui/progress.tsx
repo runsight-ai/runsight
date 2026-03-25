@@ -21,7 +21,7 @@ const progressVariants = cva(
         // success/danger/indeterminate keep default height
         success: "h-1",
         danger: "h-1",
-        indeterminate: "h-1",
+        indeterminate: "h-2", // reference pairs indeterminate with md height
       },
     },
     defaultVariants: {

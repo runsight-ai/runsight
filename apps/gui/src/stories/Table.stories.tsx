@@ -110,9 +110,9 @@ export const SortableHeaders: Story = {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead aria-sort="none">Workflow ↕</TableHead>
-          <TableHead aria-sort="descending">Started ↓</TableHead>
-          <TableHead aria-sort="none">Duration ↕</TableHead>
+          <TableHead aria-sort="none">Workflow</TableHead>
+          <TableHead aria-sort="descending">Started</TableHead>
+          <TableHead aria-sort="none">Duration</TableHead>
           <TableHead>Status</TableHead>
         </TableRow>
       </TableHeader>

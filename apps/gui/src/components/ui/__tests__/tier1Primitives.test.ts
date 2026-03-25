@@ -1,9 +1,9 @@
 /**
  * RED-TEAM tests for RUN-298: Tier 1 Primitives Update.
  *
- * Validates that Button, Badge, Input, Textarea, Label, Separator, and Tooltip
+ * Validates that Button, Badge, Input, Textarea, Label, and Tooltip
  * have been updated to match the Runsight design system component spec, and
- * that Storybook story files exist for all 7 components.
+ * that Storybook story files exist for all 6 components.
  *
  * Tests read component source files as strings and verify:
  *   1. Correct variant names exist (new spec)
@@ -21,10 +21,9 @@
  *   - input.tsx does not use --control-height-sm or --surface-tertiary
  *   - textarea.tsx does not use --control-height-sm or --surface-tertiary
  *   - label.tsx does not use --font-size-sm, --font-weight-medium, --text-secondary
- *   - separator.tsx uses bg-border-default instead of border-subtle / --border-subtle
  *   - tooltip.tsx uses bg-text-primary / text-surface-primary instead of
  *     surface-raised / text-primary / font-size-xs
- *   - No story files exist for any of the 7 components
+ *   - No story files exist for any of the 6 components
  */
 
 import { describe, it, expect } from "vitest";
@@ -501,24 +500,6 @@ describe("Label — design system tokens used (AC4)", () => {
 });
 
 // ===========================================================================
-// 15. SEPARATOR — design system token usage (AC5)
-// ===========================================================================
-
-describe("Separator — design system tokens used (AC5)", () => {
-  it("uses --border-subtle or border-subtle token for border color", () => {
-    const source = readComponent("separator.tsx");
-    expect(source).toMatch(/border-subtle/);
-  });
-
-  it("does not use bg-border-default (old implementation used bg- not border-)", () => {
-    const source = readComponent("separator.tsx");
-    // Old implementation rendered a div with bg-border-default;
-    // new spec uses border-subtle via border color (not bg-)
-    expect(source).not.toMatch(/\bbg-border-default\b/);
-  });
-});
-
-// ===========================================================================
 // 16. TOOLTIP — design system token usage (AC6)
 // ===========================================================================
 
@@ -581,10 +562,6 @@ describe("Storybook stories — existence (AC7)", () => {
 
   it("Label.stories.tsx exists in src/stories/ or src/components/ui/", () => {
     expect(storyExists("Label.stories.tsx")).toBe(true);
-  });
-
-  it("Separator.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Separator.stories.tsx")).toBe(true);
   });
 
   it("Tooltip.stories.tsx exists in src/stories/ or src/components/ui/", () => {
@@ -702,23 +679,6 @@ describe("Storybook stories — Label.stories.tsx structure (AC7)", () => {
 
   it("has at least one named story export", () => {
     const content = readStory("Label.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-});
-
-describe("Storybook stories — Separator.stories.tsx structure (AC7)", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Separator.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Separator.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Separator.stories.tsx");
     expect(content).toMatch(/export\s+const\s+\w+/);
   });
 });

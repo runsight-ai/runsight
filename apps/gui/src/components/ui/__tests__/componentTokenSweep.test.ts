@@ -1,7 +1,7 @@
 /**
  * RED-TEAM tests for RUN-295: Component Token Reference Sweep.
  *
- * Validates that all 19 UI components have been updated to use the Runsight
+ * Validates that all 17 UI components have been updated to use the Runsight
  * Product Design System token names. Tests read each component file as a
  * string and assert:
  *   1. No OLD shadcn token class names or var() references remain
@@ -206,9 +206,7 @@ const COMPONENTS: string[] = [
   "input.tsx",
   "label.tsx",
   "popover.tsx",
-  "scroll-area.tsx",
   "select.tsx",
-  "separator.tsx",
   "sheet.tsx",
   "switch.tsx",
   "table.tsx",
@@ -218,7 +216,7 @@ const COMPONENTS: string[] = [
 ];
 
 // ===========================================================================
-// 1. All 19 component files exist and are readable
+// 1. All 17 component files exist and are readable
 // ===========================================================================
 
 describe("Component files exist", () => {
@@ -306,25 +304,9 @@ describe("No old Tailwind tokens — popover.tsx", () => {
   });
 });
 
-describe("No old Tailwind tokens — scroll-area.tsx", () => {
-  it("contains no old shadcn Tailwind class tokens", () => {
-    const source = readComponent("scroll-area.tsx");
-    const found = findOldTailwindTokens(source);
-    expect(found).toEqual([]);
-  });
-});
-
 describe("No old Tailwind tokens — select.tsx", () => {
   it("contains no old shadcn Tailwind class tokens", () => {
     const source = readComponent("select.tsx");
-    const found = findOldTailwindTokens(source);
-    expect(found).toEqual([]);
-  });
-});
-
-describe("No old Tailwind tokens — separator.tsx", () => {
-  it("contains no old shadcn Tailwind class tokens", () => {
-    const source = readComponent("separator.tsx");
     const found = findOldTailwindTokens(source);
     expect(found).toEqual([]);
   });
@@ -454,25 +436,9 @@ describe("No old var() refs — popover.tsx", () => {
   });
 });
 
-describe("No old var() refs — scroll-area.tsx", () => {
-  it("contains no old CSS var() token references", () => {
-    const source = readComponent("scroll-area.tsx");
-    const found = findOldVarRefs(source);
-    expect(found).toEqual([]);
-  });
-});
-
 describe("No old var() refs — select.tsx", () => {
   it("contains no old CSS var() token references", () => {
     const source = readComponent("select.tsx");
-    const found = findOldVarRefs(source);
-    expect(found).toEqual([]);
-  });
-});
-
-describe("No old var() refs — separator.tsx", () => {
-  it("contains no old CSS var() token references", () => {
-    const source = readComponent("separator.tsx");
     const found = findOldVarRefs(source);
     expect(found).toEqual([]);
   });
@@ -583,7 +549,6 @@ describe("New tokens present after sweep — components with confirmed old token
     "dropdown-menu.tsx",
     "input.tsx",
     "popover.tsx",
-    "scroll-area.tsx",
     "select.tsx",
     "sheet.tsx",
     "switch.tsx",

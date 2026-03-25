@@ -129,7 +129,7 @@ function SoulTip({
       <span
         className={[
           "inline-flex items-center justify-center",
-          "w-5 h-5 rounded-full",
+          "size-5 rounded-full", // icon-size-lg = 20px
           "text-[9px] font-semibold text-white",
           "border border-[hsla(40,6%,24%,0.5)]",
           "cursor-default select-none",
@@ -145,7 +145,7 @@ function SoulTip({
           // position — float above avatar
           "absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2",
           // sizing
-          "w-[160px]",
+          "w-[200px]", // soul-tip spec: 200px
           // surface
           "bg-(--neutral-2) border border-(--neutral-4)",
           "rounded-[var(--radius-md)]",

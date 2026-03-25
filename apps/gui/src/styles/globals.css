@@ -127,6 +127,11 @@
   --tracking-wider:   var(--tracking-wider);
   --tracking-widest:  var(--tracking-widest);
 
+  /* Font families — Tailwind v4 uses --font-family-* for font-* utilities */
+  --font-family-sans:    var(--font-body);
+  --font-family-mono:    var(--font-mono);
+  --font-family-display: var(--font-display);
+
   /* Shadows */
   --shadow-raised:  var(--elevation-raised-shadow);
   --shadow-overlay: var(--elevation-overlay-shadow);

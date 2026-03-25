@@ -104,7 +104,7 @@ function SoulAvatar({ soul }: { soul: NodeCardSoul }) {
       <span
         className={[
           "inline-flex items-center justify-center",
-          "w-5 h-5 rounded-full flex-shrink-0",
+          "size-5 rounded-full flex-shrink-0", // icon-size-lg = 20px
           "text-[9px] font-semibold text-white leading-none",
           "shadow-[0_0_0_1px_hsla(40,6%,24%,0.5)]",
           "cursor-default select-none",
@@ -118,7 +118,7 @@ function SoulAvatar({ soul }: { soul: NodeCardSoul }) {
       <span
         className={[
           "absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2",
-          "w-[160px]",
+          "w-[200px]", // soul-tip spec: 200px
           "bg-(--neutral-2) border border-(--neutral-4)",
           "rounded-[var(--radius-md)]",
           "px-3 py-2",
@@ -191,8 +191,8 @@ export interface NodeCardProps extends Omit<React.ComponentProps<"div">, "title"
   outputPort?: boolean
   /** Named output port rows */
   ports?: NodeCardPort[]
-  /** Soul assignments — renders overlapping avatar stack with tooltips */
-  souls?: NodeCardSoul[]
+  /** Soul assignment — renders an avatar with tooltip */
+  soul?: NodeCardSoul
   /** Status badge text (hidden by CSS per spec; kept for a11y/data layer) */
   statusBadge?: string
   /** Meta label(s) shown below the header row in uppercase monospace */
@@ -216,7 +216,7 @@ export function NodeCard({
   inputPort = false,
   outputPort = false,
   ports,
-  souls,
+  soul,
   statusBadge,
   meta,
   icon,
@@ -350,20 +350,13 @@ export function NodeCard({
           {title}
         </span>
 
-        {/* Soul avatar stack — overlapping circles */}
-        {souls && souls.length > 0 && (
+        {/* Soul avatar */}
+        {soul && (
           <div
             data-slot="node-card-avatar-stack"
             className="flex flex-shrink-0"
           >
-            {souls.map((soul, idx) => (
-              <span
-                key={idx}
-                className={idx > 0 ? "-ml-1.5" : ""}
-              >
-                <SoulAvatar soul={soul} />
-              </span>
-            ))}
+            <SoulAvatar soul={soul} />
           </div>
         )}
       </div>
@@ -374,7 +367,8 @@ export function NodeCard({
           data-slot="node-card-meta"
           className={[
             "flex items-center gap-1 flex-wrap",
-            "px-3 pb-[10px]",
+            "px-3",
+            ports && ports.length > 0 ? "pb-0" : "pb-[10px]",
             "font-mono text-[10px] tracking-wider uppercase",
             "text-(--accent-9) opacity-80",
             "relative z-[2]",
@@ -405,18 +399,19 @@ export function NodeCard({
       {ports && ports.length > 0 && (
         <div
           data-slot="node-card-port-rows"
-          className="flex flex-col gap-[6px] px-3 pb-[10px] relative z-[2]"
+          className="flex flex-col gap-[6px] pb-4 relative z-[2]"
         >
           {ports.map((port, idx) => (
             <div
               key={idx}
-              className="flex items-center justify-between relative"
+              className="flex items-center justify-end relative px-3 py-1.5"
             >
-              <span className="font-mono text-[9px] text-(--text-muted) tracking-wider uppercase">
+              <span className="font-mono text-[9px] text-(--text-muted) tracking-wider uppercase mr-2">
                 {port.name}
               </span>
               <div
                 className={cn(
+                  "absolute right-[-5px] top-1/2 -translate-y-1/2",
                   "w-[10px] h-[10px] rounded-full",
                   "transition-[box-shadow,transform] duration-150 ease-out",
                   "hover:scale-[1.3]",

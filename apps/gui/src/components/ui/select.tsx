@@ -43,7 +43,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "appearance-none w-full h-[var(--density-input-height,var(--control-height-sm))]",
+        "flex items-center appearance-none w-full h-[var(--density-input-height,var(--control-height-sm))]",
         "pl-[var(--space-2-5)] pr-[var(--space-8)]",
         "font-body text-md text-(--text-heading)",
         "bg-(--surface-primary) border border-(--border-default) rounded-[var(--radius-md)]",

@@ -3,6 +3,7 @@ import React from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Field, FieldHelper, FieldError } from "@/components/ui/field";
 
 const meta: Meta<typeof Input> = {
   title: "Forms/Input",
@@ -43,43 +44,43 @@ export const Default: Story = {
 export const WithLabel: Story = {
   name: "With Label",
   render: () => (
-    <div className="field">
+    <Field>
       <Label htmlFor="soul-name">Soul Name</Label>
       <Input id="soul-name" type="text" placeholder="e.g. analyst-soul" />
-    </div>
+    </Field>
   ),
 };
 
 export const WithHelperText: Story = {
   name: "With Helper Text",
   render: () => (
-    <div className="field">
+    <Field>
       <Label htmlFor="soul-name-helper">Soul Name</Label>
       <Input id="soul-name-helper" type="text" placeholder="e.g. analyst-soul" />
-      <span className="field__helper">Used to identify this soul in YAML definitions.</span>
-    </div>
+      <FieldHelper>Used to identify this soul in YAML definitions.</FieldHelper>
+    </Field>
   ),
 };
 
 export const WithError: Story = {
   name: "With Error",
   render: () => (
-    <div className="field">
+    <Field>
       <Label htmlFor="error-field">Webhook URL</Label>
       <Input id="error-field" type="text" defaultValue="not-a-valid-url" error />
-      <span className="field__error">Must be a valid URL</span>
-    </div>
+      <FieldError>Must be a valid URL</FieldError>
+    </Field>
   ),
 };
 
 export const Error: Story = {
   name: "Error State",
   render: () => (
-    <div className="field">
+    <Field>
       <Label htmlFor="error-field-2">Invalid Field</Label>
       <Input id="error-field-2" type="text" defaultValue="not-a-valid-url" error />
-      <span className="field__error">Must be a valid URL</span>
-    </div>
+      <FieldError>Must be a valid URL</FieldError>
+    </Field>
   ),
 };
 
