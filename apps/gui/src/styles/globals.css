@@ -44,14 +44,6 @@
   --color-surface-active:     var(--surface-active);
   --color-surface-selected:   var(--surface-selected);
 
-  /* Text */
-  --color-text-heading:   var(--text-heading);
-  --color-text-primary:   var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted:     var(--text-muted);
-  --color-text-on-accent: var(--text-on-accent);
-  --color-text-accent:    var(--text-accent);
-
   /* Interactive */
   --color-interactive-default: var(--interactive-default);
   --color-interactive-hover:   var(--interactive-hover);
