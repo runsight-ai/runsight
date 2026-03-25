@@ -246,17 +246,17 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
         <div className="mb-1">
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-semibold shrink-0 ${
-              step1Done ? "bg-[var(--success)] text-white" : "bg-[var(--primary)] text-white"
+              step1Done ? "bg-[var(--success-9)] text-white" : "bg-[var(--interactive-default)] text-white"
             }`}>
               {step1Done ? <Check className="size-4" strokeWidth={2} /> : "1"}
             </div>
-            <span className={`text-[16px] font-medium ${step1Done ? "text-[var(--muted-foreground)] line-through opacity-70" : "text-[var(--foreground)]"}`}>
+            <span className={`text-[16px] font-medium ${step1Done ? "text-[var(--muted-foreground)] line-through opacity-70" : "text-[var(--text-primary)]"}`}>
               Step 1: Select Provider
             </span>
           </div>
 
           {step1Done && provider && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-[var(--success-10)] border border-[var(--success)] rounded-md text-[var(--success)] text-[13px] font-medium mb-4">
+            <div className="flex items-center gap-2 px-3 py-2 bg-[var(--success-10)] border border-[var(--success-9)] rounded-md text-[var(--success-9)] text-[13px] font-medium mb-4">
               <Check className="size-4" strokeWidth={2} />
               <span>{provider.name} selected</span>
             </div>
@@ -272,27 +272,27 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                   disabled={step1Done && selectedProviderId !== p.id}
                   className={`flex items-center gap-4 px-4 py-3 rounded-md transition-all text-left ${
                     selectedProviderId === p.id
-                      ? "border border-[var(--success)] bg-[var(--success-08)]"
-                      : "bg-[var(--background)] border border-[var(--border)] hover:border-[var(--input)]"
+                      ? "border border-[var(--success-9)] bg-[var(--success-08)]"
+                      : "bg-[var(--surface-primary)] border border-[var(--border-default)] hover:border-[var(--border-default)]"
                   } ${step1Done && selectedProviderId !== p.id ? "hidden" : ""}`}
                 >
-                  <div className="w-10 h-10 flex items-center justify-center bg-[var(--surface-elevated)] rounded-md text-xl shrink-0">{p.emoji}</div>
+                  <div className="w-10 h-10 flex items-center justify-center bg-[var(--surface-raised)] rounded-md text-xl shrink-0">{p.emoji}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14px] font-medium text-[var(--foreground)] mb-0.5">{p.name}</div>
+                    <div className="text-[14px] font-medium text-[var(--text-primary)] mb-0.5">{p.name}</div>
                     <div className="text-[12px] text-[var(--muted-foreground)]">{p.desc}</div>
                   </div>
-                  {selectedProviderId === p.id && <Check className="size-5 text-[var(--success)] shrink-0" strokeWidth={2} />}
+                  {selectedProviderId === p.id && <Check className="size-5 text-[var(--success-9)] shrink-0" strokeWidth={2} />}
                 </button>
               ))}
 
               {step1Done && provider && DROPDOWN_PROVIDERS.some((p) => p.id === selectedProviderId) && (
-                <div className="flex items-center gap-4 px-4 py-3 rounded-md border border-[var(--success)] bg-[var(--success-08)] text-left">
-                  <div className="w-10 h-10 flex items-center justify-center bg-[var(--surface-elevated)] rounded-md text-xl shrink-0">{provider.emoji}</div>
+                <div className="flex items-center gap-4 px-4 py-3 rounded-md border border-[var(--success-9)] bg-[var(--success-08)] text-left">
+                  <div className="w-10 h-10 flex items-center justify-center bg-[var(--surface-raised)] rounded-md text-xl shrink-0">{provider.emoji}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14px] font-medium text-[var(--foreground)] mb-0.5">{provider.name}</div>
+                    <div className="text-[14px] font-medium text-[var(--text-primary)] mb-0.5">{provider.name}</div>
                     <div className="text-[12px] text-[var(--muted-foreground)]">{provider.desc}</div>
                   </div>
-                  <Check className="size-5 text-[var(--success)] shrink-0" strokeWidth={2} />
+                  <Check className="size-5 text-[var(--success-9)] shrink-0" strokeWidth={2} />
                 </div>
               )}
 
@@ -302,7 +302,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                     Other Provider
                   </Label>
                   <Select value={dropdownValue} onValueChange={(v) => { if (v) selectProvider(v); }}>
-                    <SelectTrigger className="h-9 w-full bg-[var(--background)] border-[var(--border)]">
+                    <SelectTrigger className="h-9 w-full bg-[var(--surface-primary)] border-[var(--border-default)]">
                       <SelectValue placeholder="Select a provider…" />
                     </SelectTrigger>
                     <SelectContent>
@@ -323,18 +323,18 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
           )}
         </div>
 
-        <div className="h-px bg-[var(--border)] my-6" />
+        <div className="h-px bg-[var(--border-default)] my-6" />
 
         {/* Step 2: Configure */}
         <div className="mb-1">
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-semibold shrink-0 ${
-              step2Done ? "bg-[var(--success)] text-white" : step1Done ? "bg-[var(--primary)] text-white" : "bg-[var(--background)] border border-[var(--border)] text-[var(--muted-subtle)]"
+              step2Done ? "bg-[var(--success-9)] text-white" : step1Done ? "bg-[var(--interactive-default)] text-white" : "bg-[var(--surface-primary)] border border-[var(--border-default)] text-[var(--text-muted)]"
             }`}>
               {step2Done ? <Check className="size-4" strokeWidth={2} /> : "2"}
             </div>
             <span className={`text-[16px] font-medium ${
-              step2Done ? "text-[var(--muted-foreground)] line-through opacity-70" : step1Done ? "text-[var(--foreground)]" : "text-[var(--muted-subtle)]"
+              step2Done ? "text-[var(--muted-foreground)] line-through opacity-70" : step1Done ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"
             }`}>
               Step 2: Configure
             </span>
@@ -353,7 +353,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                     value={displayName}
                     onChange={(e) => { setDisplayName(e.target.value); clearInput(); }}
                     placeholder={provider.name}
-                    className="h-9 px-3 bg-[var(--card)] border-[var(--border)] text-sm"
+                    className="h-9 px-3 bg-[var(--surface-secondary)] border-[var(--border-default)] text-sm"
                   />
                 </div>
               )}
@@ -380,7 +380,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                       placeholder={provider?.apiKeyEnv || "OPENAI_API_KEY"}
                       value={envVarName}
                       onChange={(e) => { setEnvVarName(e.target.value); clearInput(); }}
-                      className="h-9 px-3 bg-[var(--card)] border-[var(--border)] font-mono text-sm"
+                      className="h-9 px-3 bg-[var(--surface-secondary)] border-[var(--border-default)] font-mono text-sm"
                       autoFocus
                     />
                   ) : (
@@ -390,13 +390,13 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                         placeholder={isEditMode && editing?.hasKey ? "••••••••••••(leave empty to keep)" : "sk-••••••••••••••••••••••••••••••"}
                         value={apiKey}
                         onChange={(e) => { setApiKey(e.target.value); clearInput(); }}
-                        className="h-9 px-3 pr-9 bg-[var(--card)] border-[var(--border)] font-mono text-sm"
+                        className="h-9 px-3 pr-9 bg-[var(--surface-secondary)] border-[var(--border-default)] font-mono text-sm"
                         autoFocus={!isEditMode}
                       />
                       <button
                         type="button"
                         onClick={() => setShowApiKey(!showApiKey)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--text-primary)]"
                       >
                         {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                       </button>
@@ -416,10 +416,10 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                     value={baseUrl}
                     onChange={(e) => { setBaseUrl(e.target.value); clearInput(); }}
                     placeholder={isOllama ? "http://localhost:11434" : "https://api.provider.com/v1"}
-                    className="h-9 px-3 bg-[var(--card)] border-[var(--border)] font-mono text-sm"
+                    className="h-9 px-3 bg-[var(--surface-secondary)] border-[var(--border-default)] font-mono text-sm"
                   />
                   {!isOllama && (
-                    <p className="text-[11px] text-[var(--muted-subtle)] mt-1">Override default endpoint for proxies or enterprise deployments</p>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-1">Override default endpoint for proxies or enterprise deployments</p>
                   )}
                 </div>
               )}
@@ -432,13 +432,13 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                   </div>
                 )}
                 {testStatus === "success" && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-[var(--success-10)] border border-[var(--success)] rounded-md text-[var(--success)] text-[13px]">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-[var(--success-10)] border border-[var(--success-9)] rounded-md text-[var(--success-9)] text-[13px]">
                     <Check className="size-4" strokeWidth={2} />
                     <span>{testMessage}</span>
                   </div>
                 )}
                 {testStatus === "error" && (
-                  <div className="flex items-center gap-2 text-[13px] text-[var(--error)]">
+                  <div className="flex items-center gap-2 text-[13px] text-[var(--danger-9)]">
                     <XCircle className="size-4" strokeWidth={2} />
                     <span>{testMessage}</span>
                   </div>
@@ -448,46 +448,46 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
           )}
 
           {!step1Done && (
-            <div className="p-4 bg-[var(--background)] border border-dashed border-[var(--border)] rounded-md text-[var(--muted-subtle)] text-[13px] text-center">
+            <div className="p-4 bg-[var(--surface-primary)] border border-dashed border-[var(--border-default)] rounded-md text-[var(--text-muted)] text-[13px] text-center">
               Select a provider first
             </div>
           )}
         </div>
 
-        <div className="h-px bg-[var(--border)] my-6" />
+        <div className="h-px bg-[var(--border-default)] my-6" />
 
         {/* Step 3: Confirm */}
         <div className={`mb-1 ${!step2Done ? "opacity-50" : ""}`}>
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-semibold shrink-0 ${
-              step2Done ? "bg-[var(--primary)] text-white" : "bg-[var(--background)] border border-[var(--border)] text-[var(--muted-subtle)]"
+              step2Done ? "bg-[var(--interactive-default)] text-white" : "bg-[var(--surface-primary)] border border-[var(--border-default)] text-[var(--text-muted)]"
             }`}>
               3
             </div>
-            <span className={`text-[16px] font-medium ${step2Done ? "text-[var(--foreground)]" : "text-[var(--muted-subtle)]"}`}>
+            <span className={`text-[16px] font-medium ${step2Done ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}`}>
               Step 3: Confirm Setup
             </span>
           </div>
 
           {step2Done && provider ? (
             <>
-              <div className="p-4 bg-[var(--background)] border border-[var(--border)] rounded-md mb-4">
+              <div className="p-4 bg-[var(--surface-primary)] border border-[var(--border-default)] rounded-md mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[14px] font-medium text-[var(--foreground)]">{displayName || provider.name}</span>
-                  <span className="flex items-center gap-2 text-[var(--success)] text-[13px]">
+                  <span className="text-[14px] font-medium text-[var(--text-primary)]">{displayName || provider.name}</span>
+                  <span className="flex items-center gap-2 text-[var(--success-9)] text-[13px]">
                     <Check className="size-4" strokeWidth={2} />
                     Connected
                   </span>
                 </div>
                 <div className="flex justify-between text-[13px]">
                   <span className="text-[var(--muted-foreground)]">Model families</span>
-                  <span className="text-[var(--foreground)] font-mono">{provider.families}</span>
+                  <span className="text-[var(--text-primary)] font-mono">{provider.families}</span>
                 </div>
               </div>
               {confirmAction}
             </>
           ) : (
-            <div className="p-4 bg-[var(--background)] border border-dashed border-[var(--border)] rounded-md text-[var(--muted-subtle)] text-[13px] text-center">
+            <div className="p-4 bg-[var(--surface-primary)] border border-dashed border-[var(--border-default)] rounded-md text-[var(--text-muted)] text-[13px] text-center">
               Complete previous steps to finish setup
             </div>
           )}

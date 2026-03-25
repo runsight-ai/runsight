@@ -24,7 +24,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "flex h-12 items-center justify-between border-b border-border px-4",
+        "flex h-12 items-center justify-between border-b border-border-default px-4",
         className
       )}
     >
@@ -45,11 +45,11 @@ export function PageHeader({
           </>
         )}
         <div className="flex flex-col">
-          <h1 className="text-base font-medium leading-tight text-foreground">
+          <h1 className="text-base font-medium leading-tight text-primary">
             {title}
           </h1>
           {subtitle && (
-            <span className="text-xs text-muted-foreground">{subtitle}</span>
+            <span className="text-xs text-muted">{subtitle}</span>
           )}
         </div>
       </div>

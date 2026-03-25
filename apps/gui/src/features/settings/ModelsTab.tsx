@@ -33,8 +33,8 @@ function ModelRow({
   const models = availableModels.length > 0 ? availableModels : [model.model_name];
 
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-0">
-      <span className="w-28 shrink-0 text-sm font-medium text-foreground">
+    <div className="flex items-center justify-between gap-4 border-b border-border-default py-3 last:border-0">
+      <span className="w-28 shrink-0 text-sm font-medium text-primary">
         {model.provider_name}
       </span>
       <div className="flex flex-1 items-center gap-2">
@@ -42,7 +42,7 @@ function ModelRow({
           value={selectedModel}
           onValueChange={(v) => v && setSelectedModel(v)}
         >
-          <SelectTrigger className="h-8 min-w-[180px] rounded-lg border-border bg-card">
+          <SelectTrigger className="h-8 min-w-[180px] rounded-lg border-border-default bg-surface-secondary">
             <SelectValue placeholder="Select model" />
           </SelectTrigger>
           <SelectContent>
@@ -58,7 +58,7 @@ function ModelRow({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-[var(--success)] hover:text-[var(--success)]"
+              className="h-8 w-8 text-[var(--success-9)] hover:text-[var(--success-9)]"
               onClick={() => onSave(model.id, selectedModel)}
             >
               <Check className="h-4 w-4" />
@@ -66,7 +66,7 @@ function ModelRow({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground"
+              className="h-8 w-8 text-muted"
               onClick={onCancel}
             >
               <X className="h-4 w-4" />
@@ -121,7 +121,7 @@ function FallbackChainSection({
 
   if (localChain.length === 0 && !hasChanges) {
     return (
-      <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed border-border-default bg-surface-tertiary/30 p-4 text-center text-sm text-muted">
         No fallback models configured. Set default models above first.
       </div>
     );
@@ -130,7 +130,7 @@ function FallbackChainSection({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-muted">
           Retry order when primary fails
         </span>
         {hasChanges && (
@@ -158,7 +158,7 @@ function FallbackChainSection({
         {localChain.map((name, i) => (
           <li
             key={`${name}-${i}`}
-            className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm"
+            className="flex items-center gap-2 rounded-md border border-border-default bg-surface-secondary px-3 py-2 text-sm"
           >
             <div className="flex shrink-0 gap-0.5">
               <Button
@@ -180,7 +180,7 @@ function FallbackChainSection({
                 <ChevronDown className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <span className="flex-1 font-medium text-foreground">{name}</span>
+            <span className="flex-1 font-medium text-primary">{name}</span>
           </li>
         ))}
       </ul>
@@ -230,7 +230,7 @@ export function ModelsTab() {
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="text-2xl font-semibold tracking-tight text-primary">
           Models
         </h2>
       </div>
@@ -240,12 +240,12 @@ export function ModelsTab() {
           {[1, 2].map((i) => (
             <div
               key={i}
-              className="h-40 animate-pulse rounded-lg border border-border bg-card"
+              className="h-40 animate-pulse rounded-lg border border-border-default bg-surface-secondary"
             />
           ))}
         </div>
       ) : modelDefaults.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card p-8">
+        <div className="rounded-lg border border-border-default bg-surface-secondary p-8">
           <EmptyState
             icon={Bot}
             title="No model defaults configured"
@@ -254,11 +254,11 @@ export function ModelsTab() {
         </div>
       ) : (
         <div className="space-y-6">
-          <section className="rounded-lg border border-border bg-card p-5">
-            <h3 className="mb-4 text-base font-medium text-foreground">
+          <section className="rounded-lg border border-border-default bg-surface-secondary p-5">
+            <h3 className="mb-4 text-base font-medium text-primary">
               Default Models per Provider
             </h3>
-            <p className="mb-6 text-sm text-muted-foreground">
+            <p className="mb-6 text-sm text-muted">
               Select the default model for each provider. Souls without an
               explicit model will use these defaults.
             </p>
@@ -276,12 +276,12 @@ export function ModelsTab() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-card p-5">
+          <section className="rounded-lg border border-border-default bg-surface-secondary p-5">
             <div className="mb-4">
-              <h3 className="text-base font-medium text-foreground">
+              <h3 className="text-base font-medium text-primary">
                 Fallback Chain
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-muted">
                 When the primary model fails (rate limit, error), the system
                 retries with the next model in chain.
               </p>

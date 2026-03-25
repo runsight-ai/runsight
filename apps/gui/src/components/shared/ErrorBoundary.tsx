@@ -36,16 +36,16 @@ export class AppErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <div className="h-screen w-screen flex items-center justify-center bg-surface-primary">
           <div className="text-center space-y-4">
-            <h1 className="text-xl font-semibold text-foreground">
+            <h1 className="text-xl font-semibold text-primary">
               Something went wrong
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted">
               An unexpected error occurred. Please reload the page.
             </p>
             <button
-              className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium"
+              className="px-4 py-2 rounded-md bg-interactive text-on-accent text-sm font-medium"
               onClick={() => window.location.reload()}
             >
               Reload
@@ -88,22 +88,22 @@ export class RouteErrorBoundary extends React.Component<
     if (this.state.hasError) {
       return (
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="rounded-lg border border-border bg-card p-6 text-center space-y-4 max-w-md">
-            <h2 className="text-lg font-semibold text-foreground">
+          <div className="rounded-lg border border-border-default bg-surface-secondary p-6 text-center space-y-4 max-w-md">
+            <h2 className="text-lg font-semibold text-primary">
               This page encountered an error
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted">
               Something went wrong while rendering this page.
             </p>
             <div className="flex items-center justify-center gap-3">
               <a
                 href="/"
-                className="px-4 py-2 rounded-md border border-border bg-background text-sm font-medium text-foreground hover:bg-surface-elevated"
+                className="px-4 py-2 rounded-md border border-border-default bg-surface-primary text-sm font-medium text-primary hover:bg-surface-raised"
               >
                 Go to Dashboard
               </a>
               <button
-                className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium"
+                className="px-4 py-2 rounded-md bg-interactive text-on-accent text-sm font-medium"
                 onClick={() => this.resetError()}
               >
                 Retry
@@ -146,13 +146,13 @@ export class CanvasErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-full w-full flex items-center justify-center bg-background/50 rounded-lg border border-border">
+        <div className="h-full w-full flex items-center justify-center bg-surface-primary/50 rounded-lg border border-border-default">
           <div className="text-center space-y-3">
-            <p className="text-sm font-medium text-foreground">
+            <p className="text-sm font-medium text-primary">
               Canvas failed to render
             </p>
             <button
-              className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium"
+              className="px-3 py-1.5 rounded-md bg-interactive text-on-accent text-xs font-medium"
               onClick={() => this.resetError()}
             >
               Retry

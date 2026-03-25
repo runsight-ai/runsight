@@ -74,43 +74,43 @@ export function NewSoulModal({ open, onClose }: NewSoulModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
-      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[var(--card)] border-[var(--border)] rounded-xl overflow-hidden">
-        <DialogHeader className="h-14 px-4 border-b border-[var(--border)] flex flex-row items-center justify-between shrink-0">
-          <DialogTitle className="text-base font-medium text-foreground tracking-tight">
+      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-xl overflow-hidden">
+        <DialogHeader className="h-14 px-4 border-b border-[var(--border-default)] flex flex-row items-center justify-between shrink-0">
+          <DialogTitle className="text-base font-medium text-primary tracking-tight">
             New Soul
           </DialogTitle>
         </DialogHeader>
         <div className="p-4 space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Name <span className="text-[var(--error)]">*</span>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted">
+              Name <span className="text-[var(--danger-9)]">*</span>
             </Label>
             <Input
               type="text"
               placeholder="Enter soul name..."
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-9 bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-9 bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-md text-sm text-primary placeholder:text-[var(--text-muted)] focus:border-[var(--interactive-default)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
-            <p className="text-xs text-[var(--muted-subtle)]">A unique name to identify this soul</p>
+            <p className="text-xs text-[var(--text-muted)]">A unique name to identify this soul</p>
           </div>
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              System Prompt <span className="text-[var(--muted-subtle)] font-normal">(optional)</span>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted">
+              System Prompt <span className="text-[var(--text-muted)] font-normal">(optional)</span>
             </Label>
             <Textarea
               placeholder="Enter the system prompt that defines this soul's behavior..."
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              className="min-h-[100px] bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] resize-vertical focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="min-h-[100px] bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-md text-sm text-primary placeholder:text-[var(--text-muted)] resize-vertical focus:border-[var(--interactive-default)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
-            <p className="text-xs text-[var(--muted-subtle)]">Defines the personality and behavior of this soul</p>
+            <p className="text-xs text-[var(--text-muted)]">Defines the personality and behavior of this soul</p>
           </div>
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Models <span className="text-[var(--muted-subtle)] font-normal">(optional)</span>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted">
+              Models <span className="text-[var(--text-muted)] font-normal">(optional)</span>
             </Label>
             <div className="flex flex-wrap gap-2">
               {AVAILABLE_MODELS.map((model) => (
@@ -121,22 +121,22 @@ export function NewSoulModal({ open, onClose }: NewSoulModalProps) {
                   disabled={isSubmitting}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     selectedModels.includes(model.value)
-                      ? "bg-[var(--primary)] text-white"
-                      : "bg-[var(--background)] border border-[var(--border)] text-muted-foreground hover:border-[var(--primary)]"
+                      ? "bg-[var(--interactive-default)] text-white"
+                      : "bg-[var(--surface-primary)] border border-[var(--border-default)] text-muted hover:border-[var(--interactive-default)]"
                   } disabled:opacity-50`}
                 >
                   {model.label}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-[var(--muted-subtle)]">Select the models this soul can use</p>
+            <p className="text-xs text-[var(--text-muted)]">Select the models this soul can use</p>
           </div>
         </div>
-        <DialogFooter className="h-16 px-4 border-t border-[var(--border)] flex items-center justify-end gap-2 shrink-0">
-          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground">
+        <DialogFooter className="h-16 px-4 border-t border-[var(--border-default)] flex items-center justify-end gap-2 shrink-0">
+          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!isNameFilled || isSubmitting} className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white disabled:opacity-40">
+          <Button onClick={handleSubmit} disabled={!isNameFilled || isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white disabled:opacity-40">
             {isSubmitting ? (
               <>
                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
@@ -208,35 +208,35 @@ export function EditSoulModal({ item: soul, open, onClose }: EditSoulModalProps)
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
-      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[var(--card)] border-[var(--border)] rounded-xl overflow-hidden">
-        <DialogHeader className="h-14 px-4 border-b border-[var(--border)] flex flex-row items-center justify-between shrink-0">
-          <DialogTitle className="text-base font-medium text-foreground tracking-tight">
+      <DialogContent className="w-[560px] max-w-[560px] p-0 gap-0 bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-xl overflow-hidden">
+        <DialogHeader className="h-14 px-4 border-b border-[var(--border-default)] flex flex-row items-center justify-between shrink-0">
+          <DialogTitle className="text-base font-medium text-primary tracking-tight">
             Edit Soul
           </DialogTitle>
         </DialogHeader>
         <div className="p-4 space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</Label>
-            <Input type="text" placeholder="Enter soul name..." value={name} onChange={(e) => setName(e.target.value)} className="h-9 bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0" disabled={isSubmitting} />
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted">Name</Label>
+            <Input type="text" placeholder="Enter soul name..." value={name} onChange={(e) => setName(e.target.value)} className="h-9 bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-md text-sm text-primary placeholder:text-[var(--text-muted)] focus:border-[var(--interactive-default)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0" disabled={isSubmitting} />
           </div>
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">System Prompt</Label>
-            <Textarea placeholder="Enter the system prompt that defines this soul's behavior..." value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className="min-h-[100px] bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] resize-vertical focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0" disabled={isSubmitting} />
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted">System Prompt</Label>
+            <Textarea placeholder="Enter the system prompt that defines this soul's behavior..." value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className="min-h-[100px] bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-md text-sm text-primary placeholder:text-[var(--text-muted)] resize-vertical focus:border-[var(--interactive-default)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0" disabled={isSubmitting} />
           </div>
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Models</Label>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted">Models</Label>
             <div className="flex flex-wrap gap-2">
               {AVAILABLE_MODELS.map((model) => (
-                <button key={model.value} type="button" onClick={() => toggleModel(model.value)} disabled={isSubmitting} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedModels.includes(model.value) ? "bg-[var(--primary)] text-white" : "bg-[var(--background)] border border-[var(--border)] text-muted-foreground hover:border-[var(--primary)]"} disabled:opacity-50`}>
+                <button key={model.value} type="button" onClick={() => toggleModel(model.value)} disabled={isSubmitting} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedModels.includes(model.value) ? "bg-[var(--interactive-default)] text-white" : "bg-[var(--surface-primary)] border border-[var(--border-default)] text-muted hover:border-[var(--interactive-default)]"} disabled:opacity-50`}>
                   {model.label}
                 </button>
               ))}
             </div>
           </div>
         </div>
-        <DialogFooter className="h-16 px-4 border-t border-[var(--border)] flex items-center justify-end gap-2 shrink-0">
-          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground">Cancel</Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting} className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white disabled:opacity-40">
+        <DialogFooter className="h-16 px-4 border-t border-[var(--border-default)] flex items-center justify-end gap-2 shrink-0">
+          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary">Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white disabled:opacity-40">
             {isSubmitting ? (
               <>
                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />

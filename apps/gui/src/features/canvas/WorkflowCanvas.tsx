@@ -57,7 +57,7 @@ export function WorkflowCanvas() {
           fitView
           fitViewOptions={{ padding: 0.3 }}
           defaultEdgeOptions={{
-            style: { stroke: "var(--border)", strokeWidth: 1.5 },
+            style: { stroke: "var(--border-default)", strokeWidth: 1.5 },
             type: "straight",
             markerEnd: {
               type: "arrowclosed",
@@ -78,7 +78,7 @@ export function WorkflowCanvas() {
           />
           <Controls
             showInteractive={false}
-            className="!bg-panel !border-border !shadow-lg [&_button]:!bg-muted [&_button]:!border-border [&_button]:!text-foreground [&_button:hover]:!bg-muted/80"
+            className="!bg-panel !border-border-default !shadow-lg [&_button]:!bg-surface-tertiary [&_button]:!border-border-default [&_button]:!text-primary [&_button:hover]:!bg-surface-tertiary/80"
           />
           <MiniMap
             nodeColor={(node) => {
@@ -94,7 +94,7 @@ export function WorkflowCanvas() {
               }
             }}
             maskColor="rgba(15, 23, 42, 0.7)"
-            className="!bg-panel !border-border"
+            className="!bg-panel !border-border-default"
           />
         </ReactFlow>
       </div>

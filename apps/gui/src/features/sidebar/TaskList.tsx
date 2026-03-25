@@ -9,11 +9,11 @@ import { NewTaskModal, EditTaskModal } from "./TaskModals";
 
 function getTaskTypeColor(type: string): string {
   switch (type.toLowerCase()) {
-    case "python": return "bg-[var(--success-12)] text-[var(--success)]";
-    case "javascript": return "bg-[var(--warning-12)] text-[var(--warning)]";
-    case "shell": return "bg-[var(--surface-elevated)] text-[var(--muted-foreground)]";
-    case "http": return "bg-[var(--running-12)] text-[var(--running)]";
-    case "prompt": return "bg-[var(--primary-12)] text-[var(--primary)]";
+    case "python": return "bg-[var(--success-12)] text-[var(--success-9)]";
+    case "javascript": return "bg-[var(--warning-12)] text-[var(--warning-9)]";
+    case "shell": return "bg-[var(--surface-raised)] text-[var(--muted-foreground)]";
+    case "http": return "bg-[var(--running-12)] text-[var(--info-9)]";
+    case "prompt": return "bg-[var(--accent-3)] text-[var(--interactive-default)]";
     default: return "bg-[var(--muted-12)] text-[var(--muted-foreground)]";
   }
 }
@@ -27,11 +27,11 @@ const columns: Column[] = [
       const task = row as TaskResponse;
       return (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-[var(--primary-12)] text-[var(--primary)]">
+          <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-[var(--accent-3)] text-[var(--interactive-default)]">
             <CheckSquare className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-medium text-foreground truncate">{task.name}</div>
+            <div className="text-sm font-medium text-primary truncate">{task.name}</div>
           </div>
         </div>
       );
@@ -56,7 +56,7 @@ const columns: Column[] = [
     width: "1.5fr",
     render: (row) => {
       const task = row as TaskResponse;
-      return <div className="text-sm text-muted-foreground font-mono text-xs truncate">{task.path}</div>;
+      return <div className="text-sm text-muted font-mono text-xs truncate">{task.path}</div>;
     },
   },
   {
@@ -66,7 +66,7 @@ const columns: Column[] = [
     render: (row) => {
       const task = row as TaskResponse;
       return (
-        <div className="text-sm text-muted-foreground truncate max-w-[300px]">
+        <div className="text-sm text-muted truncate max-w-[300px]">
           {truncateText(task.description, 60)}
         </div>
       );

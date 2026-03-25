@@ -146,7 +146,7 @@ export function Component() {
               {getWorkflowIcon(name)}
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium text-foreground truncate">{name}</div>
+              <div className="text-sm font-medium text-primary truncate">{name}</div>
             </div>
           </div>
         );
@@ -159,7 +159,7 @@ export function Component() {
       render: (row) => {
         const workflow = row as WorkflowResponse;
         return (
-          <div className="text-sm text-muted-foreground truncate max-w-[300px]">
+          <div className="text-sm text-muted truncate max-w-[300px]">
             {workflow.description || "—"}
           </div>
         );
@@ -173,7 +173,7 @@ export function Component() {
         const workflow = row as WorkflowResponse;
         const count = workflow.step_count ?? workflow.block_count ?? 0;
         return (
-          <div className="text-center text-sm text-muted-foreground">{count || 0}</div>
+          <div className="text-center text-sm text-muted">{count || 0}</div>
         );
       },
     },
@@ -193,7 +193,7 @@ export function Component() {
               status={variant} 
               label={status.charAt(0).toUpperCase() + status.slice(1)} 
             />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-muted">
               {getTimeAgo(workflow.last_run_completed_at || workflow.updated_at)}
             </span>
           </div>
@@ -222,7 +222,7 @@ export function Component() {
       render: (row) => {
         const workflow = row as WorkflowResponse;
         return (
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted">
             {getTimeAgo(workflow.updated_at)}
           </div>
         );
@@ -254,7 +254,7 @@ export function Component() {
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={(e) => { e.stopPropagation(); setWorkflowToDelete(workflow); }}
-                  className="text-destructive focus:text-destructive"
+                  className="text-danger focus:text-danger"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
@@ -270,19 +270,19 @@ export function Component() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--background)]">
+      <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
         <PageHeader title="Workflows" subtitle="Loading..." />
         <div className="flex-1 p-6">
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden">
-            <div className="h-14 border-b border-[var(--border)] flex items-center px-4">
-              <div className="h-4 w-32 bg-[var(--border)] rounded animate-pulse" />
+          <div className="bg-[var(--surface-secondary)] border border-[var(--border-default)] rounded-lg overflow-hidden">
+            <div className="h-14 border-b border-[var(--border-default)] flex items-center px-4">
+              <div className="h-4 w-32 bg-[var(--border-default)] rounded animate-pulse" />
             </div>
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-16 border-b border-[var(--border)] flex items-center px-4 gap-4">
-                <div className="h-10 w-10 bg-[var(--border)] rounded-md animate-pulse" />
+              <div key={i} className="h-16 border-b border-[var(--border-default)] flex items-center px-4 gap-4">
+                <div className="h-10 w-10 bg-[var(--border-default)] rounded-md animate-pulse" />
                 <div className="flex-1">
-                  <div className="h-4 w-48 bg-[var(--border)] rounded animate-pulse mb-2" />
-                  <div className="h-3 w-32 bg-[var(--border)] rounded animate-pulse" />
+                  <div className="h-4 w-48 bg-[var(--border-default)] rounded animate-pulse mb-2" />
+                  <div className="h-3 w-32 bg-[var(--border-default)] rounded animate-pulse" />
                 </div>
               </div>
             ))}
@@ -295,13 +295,13 @@ export function Component() {
   // Error state
   if (error) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--background)]">
+      <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
         <PageHeader title="Workflows" />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md">
-            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
-            <h3 className="text-lg font-medium text-foreground mb-2">Failed to load workflows</h3>
-            <p className="text-sm text-muted-foreground mb-4">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-danger" />
+            <h3 className="text-lg font-medium text-primary mb-2">Failed to load workflows</h3>
+            <p className="text-sm text-muted mb-4">
               {error instanceof Error ? error.message : "An error occurred while fetching workflows."}
             </p>
             <Button onClick={() => refetch()} variant="outline">
@@ -317,13 +317,13 @@ export function Component() {
   // Empty state - no workflows at all
   if (workflows.length === 0) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--background)]">
+      <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
         <PageHeader
           title="Workflows"
           subtitle="0 workflows"
           actions={
             <Button
-              className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
+              className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white"
               onClick={() => setShowNewWorkflowModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -353,7 +353,7 @@ export function Component() {
   const hasSearchResults = filteredWorkflows.length > 0;
 
   return (
-    <div className="flex-1 flex flex-col bg-[var(--background)]">
+    <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
       {/* Page Header */}
       <PageHeader
         title="Workflows"
@@ -362,14 +362,14 @@ export function Component() {
           <>
             <Button
               variant="outline"
-              className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
+              className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary"
               disabled
             >
               <Upload className="w-4 h-4 mr-2" />
               Import
             </Button>
             <Button
-              className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
+              className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white"
               onClick={() => setShowNewWorkflowModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -380,36 +380,36 @@ export function Component() {
       />
 
       {/* Search and Filter Bar */}
-      <div className="h-14 border-b border-[var(--border)] flex items-center gap-3 px-4 bg-[var(--card)]">
+      <div className="h-14 border-b border-[var(--border-default)] flex items-center gap-3 px-4 bg-[var(--surface-secondary)]">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <Input
             type="text"
             placeholder="Search workflows..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search workflows"
-            className="h-9 pl-9 bg-[var(--background)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-9 pl-9 bg-[var(--surface-primary)] border-[var(--border-default)] rounded-md text-sm text-primary placeholder:text-[var(--text-muted)] focus:border-[var(--interactive-default)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         </div>
 
         {/* Status Filter */}
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <SelectTrigger aria-label="Filter by status" className="h-9 w-32 bg-[var(--background)] border-[var(--border)] rounded-md text-sm text-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0">
+          <SelectTrigger aria-label="Filter by status" className="h-9 w-32 bg-[var(--surface-primary)] border-[var(--border-default)] rounded-md text-sm text-primary focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
-          <SelectContent className="bg-[var(--surface-elevated)] border-[var(--border)] rounded-md">
-            <SelectItem value="all" className="text-sm text-foreground focus:bg-[var(--border)]">
+          <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-default)] rounded-md">
+            <SelectItem value="all" className="text-sm text-primary focus:bg-[var(--border-default)]">
               All
             </SelectItem>
-            <SelectItem value="active" className="text-sm text-foreground focus:bg-[var(--border)]">
+            <SelectItem value="active" className="text-sm text-primary focus:bg-[var(--border-default)]">
               Active
             </SelectItem>
-            <SelectItem value="draft" className="text-sm text-foreground focus:bg-[var(--border)]">
+            <SelectItem value="draft" className="text-sm text-primary focus:bg-[var(--border-default)]">
               Draft
             </SelectItem>
-            <SelectItem value="archived" className="text-sm text-foreground focus:bg-[var(--border)]">
+            <SelectItem value="archived" className="text-sm text-primary focus:bg-[var(--border-default)]">
               Archived
             </SelectItem>
           </SelectContent>
@@ -417,17 +417,17 @@ export function Component() {
 
         {/* Sort */}
         <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-          <SelectTrigger className="h-9 w-40 bg-[var(--background)] border-[var(--border)] rounded-md text-sm text-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0">
+          <SelectTrigger className="h-9 w-40 bg-[var(--surface-primary)] border-[var(--border-default)] rounded-md text-sm text-primary focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
-          <SelectContent className="bg-[var(--surface-elevated)] border-[var(--border)] rounded-md">
-            <SelectItem value="updated" className="text-sm text-foreground focus:bg-[var(--border)]">
+          <SelectContent className="bg-[var(--surface-raised)] border-[var(--border-default)] rounded-md">
+            <SelectItem value="updated" className="text-sm text-primary focus:bg-[var(--border-default)]">
               Last updated
             </SelectItem>
-            <SelectItem value="name" className="text-sm text-foreground focus:bg-[var(--border)]">
+            <SelectItem value="name" className="text-sm text-primary focus:bg-[var(--border-default)]">
               Name
             </SelectItem>
-            <SelectItem value="created" className="text-sm text-foreground focus:bg-[var(--border)]">
+            <SelectItem value="created" className="text-sm text-primary focus:bg-[var(--border-default)]">
               Created
             </SelectItem>
           </SelectContent>
@@ -436,11 +436,11 @@ export function Component() {
         <div className="flex-1" />
 
         {/* View Toggle */}
-        <div className="flex items-center bg-[var(--background)] border border-[var(--border)] rounded-md p-0.5" role="group" aria-label="View mode">
+        <div className="flex items-center bg-[var(--surface-primary)] border border-[var(--border-default)] rounded-md p-0.5" role="group" aria-label="View mode">
           <Button
             variant="ghost"
             size="icon-sm"
-            className={`h-7 w-7 ${viewMode === "list" ? "bg-[var(--border)]" : ""}`}
+            className={`h-7 w-7 ${viewMode === "list" ? "bg-[var(--border-default)]" : ""}`}
             onClick={() => setViewMode("list")}
             aria-label="List view"
             aria-pressed={viewMode === "list"}
@@ -450,7 +450,7 @@ export function Component() {
           <Button
             variant="ghost"
             size="icon-sm"
-            className={`h-7 w-7 ${viewMode === "grid" ? "bg-[var(--border)]" : ""}`}
+            className={`h-7 w-7 ${viewMode === "grid" ? "bg-[var(--border-default)]" : ""}`}
             onClick={() => setViewMode("grid")}
             aria-label="Grid view"
             aria-pressed={viewMode === "grid"}
@@ -481,7 +481,7 @@ export function Component() {
           <DataTable
             columns={columns}
             data={filteredWorkflows.map((w) => w as Record<string, unknown>)}
-            className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden"
+            className="bg-[var(--surface-secondary)] border border-[var(--border-default)] rounded-lg overflow-hidden"
             onRowClick={(row) => handleRowClick(row as WorkflowResponse)}
           />
         ) : (
@@ -499,7 +499,7 @@ export function Component() {
                 <div
                   key={workflow.id}
                   onClick={() => handleRowClick(workflow)}
-                  className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-4 hover:border-[var(--input)] hover:bg-[var(--surface-hover)] transition-all cursor-pointer group"
+                  className="bg-[var(--surface-secondary)] border border-[var(--border-default)] rounded-lg p-4 hover:border-[var(--border-default)] hover:bg-[var(--surface-hover)] transition-all cursor-pointer group"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -507,8 +507,8 @@ export function Component() {
                         {getWorkflowIcon(name)}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-foreground truncate">{name}</div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-sm font-medium text-primary truncate">{name}</div>
+                        <div className="text-xs text-muted">
                           {stepCount} {stepCount === 1 ? "step" : "steps"}
                         </div>
                       </div>
@@ -531,7 +531,7 @@ export function Component() {
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={(e) => { e.stopPropagation(); setWorkflowToDelete(workflow); }}
-                          className="text-destructive focus:text-destructive"
+                          className="text-danger focus:text-danger"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete
@@ -540,13 +540,13 @@ export function Component() {
                     </DropdownMenu>
                   </div>
                   {workflow.description && (
-                    <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
+                    <p className="text-xs text-muted mb-3 line-clamp-2">
                       {workflow.description}
                     </p>
                   )}
-                  <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">
+                  <div className="flex items-center justify-between pt-3 border-t border-[var(--border-default)]">
                     <StatusBadge status={variant} label={status.charAt(0).toUpperCase() + status.slice(1)} />
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted">
                       {getTimeAgo(workflow.updated_at)}
                     </span>
                   </div>
@@ -559,12 +559,12 @@ export function Component() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!workflowToDelete} onOpenChange={() => setWorkflowToDelete(null)}>
-        <DialogContent className="bg-[var(--card)] border-[var(--border)] rounded-xl">
+        <DialogContent className="bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-xl">
           <DialogHeader>
-            <DialogTitle className="text-base font-medium text-foreground">
+            <DialogTitle className="text-base font-medium text-primary">
               Delete Workflow
             </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
+            <DialogDescription className="text-sm text-muted">
               Are you sure you want to delete &quot;{workflowToDelete?.name || "Untitled"}&quot;? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
@@ -572,14 +572,14 @@ export function Component() {
             <Button
               variant="outline"
               onClick={() => setWorkflowToDelete(null)}
-              className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
+              className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary"
             >
               Cancel
             </Button>
             <Button
               onClick={handleDelete}
               disabled={deleteWorkflow.isPending}
-              className="h-9 px-4 bg-destructive hover:bg-destructive/90 text-white"
+              className="h-9 px-4 bg-danger hover:bg-danger/90 text-white"
             >
               {deleteWorkflow.isPending ? (
                 <>

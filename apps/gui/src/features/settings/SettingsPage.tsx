@@ -39,7 +39,7 @@ export function Component() {
       {/* Settings Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Settings Nav Sidebar (200px) */}
-        <aside className="w-[200px] flex-shrink-0 border-r border-border bg-card p-3">
+        <aside className="w-[200px] flex-shrink-0 border-r border-border-default bg-surface-secondary p-3">
           <nav className="space-y-0.5">
             {settingsNavItems.map((item) => {
               const Icon = item.icon;
@@ -57,13 +57,13 @@ export function Component() {
                   className={cn(
                     "flex h-9 w-full items-center gap-3 rounded-md px-3 text-sm transition-colors relative",
                     isActive
-                      ? "text-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                      ? "text-primary"
+                      : "text-muted hover:bg-surface-hover hover:text-primary",
                     !isImplemented && "opacity-50 cursor-not-allowed"
                   )}
                 >
                   {isActive && (
-                    <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-primary rounded-full" />
+                    <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-interactive rounded-full" />
                   )}
                   <Icon className="h-4 w-4" />
                   <span>{item.label}</span>
@@ -74,7 +74,7 @@ export function Component() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto bg-background p-6">
+        <main className="flex-1 overflow-auto bg-surface-primary p-6">
           <Tabs
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as TabValue)}

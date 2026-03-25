@@ -43,7 +43,7 @@ export function ShellLayout() {
   const location = useLocation();
 
   return (
-    <div className="h-screen flex overflow-hidden bg-background text-foreground">
+    <div className="h-screen flex overflow-hidden bg-surface-primary text-primary">
       {/* Sidebar */}
       <aside
         className={cn(
@@ -60,26 +60,26 @@ export function ShellLayout() {
             fill="none"
             className="shrink-0"
           >
-            <circle cx="12" cy="5" r="2.5" fill="var(--primary)" />
+            <circle cx="12" cy="5" r="2.5" fill="var(--interactive-default)" />
             <circle
               cx="5"
               cy="17"
               r="2.5"
-              fill="var(--primary)"
+              fill="var(--interactive-default)"
               opacity="0.7"
             />
             <circle
               cx="19"
               cy="17"
               r="2.5"
-              fill="var(--primary)"
+              fill="var(--interactive-default)"
               opacity="0.7"
             />
             <circle
               cx="12"
               cy="13"
               r="1.5"
-              fill="var(--primary)"
+              fill="var(--interactive-default)"
               opacity="0.5"
             />
             <line
@@ -87,7 +87,7 @@ export function ShellLayout() {
               y1="7.5"
               x2="12"
               y2="11.5"
-              stroke="var(--primary)"
+              stroke="var(--interactive-default)"
               strokeWidth="1.5"
               strokeLinecap="round"
             />
@@ -96,7 +96,7 @@ export function ShellLayout() {
               y1="14"
               x2="6.5"
               y2="15.5"
-              stroke="var(--primary)"
+              stroke="var(--interactive-default)"
               strokeWidth="1.5"
               strokeLinecap="round"
               opacity="0.6"
@@ -106,14 +106,14 @@ export function ShellLayout() {
               y1="14"
               x2="17.5"
               y2="15.5"
-              stroke="var(--primary)"
+              stroke="var(--interactive-default)"
               strokeWidth="1.5"
               strokeLinecap="round"
               opacity="0.6"
             />
           </svg>
           {sidebarOpen && (
-            <span className="text-[13px] font-semibold tracking-[0.08em] uppercase text-foreground">
+            <span className="text-[13px] font-semibold tracking-[0.08em] uppercase text-primary">
               Runsight
             </span>
           )}
@@ -130,8 +130,8 @@ export function ShellLayout() {
                 cn(
                   "flex items-center gap-3 h-9 px-3 rounded-md text-sm transition-colors",
                   isActive
-                    ? "bg-primary/12 text-primary"
-                    : "text-muted-foreground hover:bg-surface-elevated hover:text-foreground",
+                    ? "bg-interactive/12 text-primary"
+                    : "text-muted hover:bg-surface-elevated hover:text-primary",
                 )
               }
             >
@@ -151,8 +151,8 @@ export function ShellLayout() {
                 cn(
                   "flex items-center gap-3 h-9 px-3 rounded-md text-sm transition-colors",
                   isActive
-                    ? "bg-primary/12 text-primary"
-                    : "text-muted-foreground hover:bg-surface-elevated hover:text-foreground",
+                    ? "bg-interactive/12 text-primary"
+                    : "text-muted hover:bg-surface-elevated hover:text-primary",
                 )
               }
             >
@@ -166,11 +166,11 @@ export function ShellLayout() {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-12 bg-card border-b border-border flex items-center justify-between px-4 shrink-0">
+        <header className="h-12 bg-surface-secondary border-b border-border-default flex items-center justify-between px-4 shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={toggleSidebar}
-              className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted-foreground hover:text-foreground transition-colors"
+              className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted hover:text-primary transition-colors"
             >
               {sidebarOpen ? (
                 <PanelLeftClose className="size-[18px]" strokeWidth={1.5} />
@@ -184,10 +184,10 @@ export function ShellLayout() {
           </div>
 
           <div className="flex items-center gap-1">
-            <button className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted-foreground hover:text-foreground transition-colors">
+            <button className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted hover:text-primary transition-colors">
               <Search className="size-[18px]" strokeWidth={1.5} />
             </button>
-            <button className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted-foreground hover:text-foreground transition-colors">
+            <button className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted hover:text-primary transition-colors">
               <Bell className="size-[18px]" strokeWidth={1.5} />
             </button>
           </div>
@@ -201,7 +201,7 @@ export function ShellLayout() {
         </main>
 
         {/* Bottom bar */}
-        <footer className="h-7 bg-card border-t border-border flex items-center px-4 text-xs text-muted-foreground shrink-0">
+        <footer className="h-7 bg-surface-secondary border-t border-border-default flex items-center px-4 text-xs text-muted shrink-0">
           <span>Runsight v0.1.0</span>
           <span className="mx-2 text-border">|</span>
           <span className="flex items-center gap-1.5">

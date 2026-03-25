@@ -7,13 +7,13 @@ import { useUpdateAppSettings } from "@/queries/settings";
 
 const RUNSIGHT_LOGO = (
   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="5" r="2.5" fill="var(--primary)" />
-    <circle cx="5" cy="17" r="2.5" fill="var(--primary)" opacity="0.7" />
-    <circle cx="19" cy="17" r="2.5" fill="var(--primary)" opacity="0.7" />
-    <circle cx="12" cy="13" r="1.5" fill="var(--primary)" opacity="0.5" />
-    <line x1="12" y1="7.5" x2="12" y2="11.5" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" />
-    <line x1="10.8" y1="14" x2="6.5" y2="15.5" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
-    <line x1="13.2" y1="14" x2="17.5" y2="15.5" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+    <circle cx="12" cy="5" r="2.5" fill="var(--interactive-default)" />
+    <circle cx="5" cy="17" r="2.5" fill="var(--interactive-default)" opacity="0.7" />
+    <circle cx="19" cy="17" r="2.5" fill="var(--interactive-default)" opacity="0.7" />
+    <circle cx="12" cy="13" r="1.5" fill="var(--interactive-default)" opacity="0.5" />
+    <line x1="12" y1="7.5" x2="12" y2="11.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="10.8" y1="14" x2="6.5" y2="15.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+    <line x1="13.2" y1="14" x2="17.5" y2="15.5" stroke="var(--interactive-default)" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
   </svg>
 );
 
@@ -34,12 +34,12 @@ export function Component() {
   }, [updateAppSettings, navigate]);
 
   return (
-    <div className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <div className="relative min-h-screen bg-[var(--surface-primary)] text-[var(--text-primary)]">
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
           backgroundImage: `
-            radial-gradient(circle at 50% 50%, var(--primary-05) 0%, transparent 60%),
+            radial-gradient(circle at 50% 50%, var(--accent-1) 0%, transparent 60%),
             linear-gradient(var(--border-10) 1px, transparent 1px),
             linear-gradient(90deg, var(--border-10) 1px, transparent 1px)
           `,
@@ -48,7 +48,7 @@ export function Component() {
       />
 
       <main className="relative z-10 min-h-screen flex flex-col items-center px-8 py-8">
-        <div className="w-[560px] max-w-[90vw] bg-[var(--card)] border border-[var(--border)] rounded-lg p-8 mt-6">
+        <div className="w-[560px] max-w-[90vw] bg-[var(--surface-secondary)] border border-[var(--border-default)] rounded-lg p-8 mt-6">
           {/* Header */}
           <div className="text-center mb-6">
             <div className="flex items-center justify-center gap-2 mb-4">
@@ -70,10 +70,10 @@ export function Component() {
           />
 
           {/* Footer */}
-          <div className="pt-6 mt-6 border-t border-[var(--border)] flex items-center justify-between">
+          <div className="pt-6 mt-6 border-t border-[var(--border-default)] flex items-center justify-between">
             <Button
               variant="outline"
-              className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)]"
+              className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)]"
               onClick={() => setupRef.current?.stepBack()}
               disabled={!state?.canStepBack}
             >
@@ -81,7 +81,7 @@ export function Component() {
             </Button>
             <button
               type="button"
-              className="text-[14px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors bg-transparent border-none cursor-pointer"
+              className="text-[14px] text-[var(--muted-foreground)] hover:text-[var(--text-primary)] transition-colors bg-transparent border-none cursor-pointer"
               onClick={handleSkip}
             >
               Skip for now

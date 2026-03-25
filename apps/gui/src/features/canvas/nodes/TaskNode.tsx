@@ -27,12 +27,12 @@ function TaskNodeComponent({ id, data, selected }: NodeProps<TaskNodeType>) {
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-2 !h-2 !bg-muted-foreground !border-border"
+        className="!w-2 !h-2 !bg-muted-foreground !border-border-default"
       />
 
       <div className="flex items-center gap-2 mb-1.5">
         <div className="w-2 h-2 bg-success rounded-full" />
-        <span className="text-foreground font-medium">{data.label}</span>
+        <span className="text-primary font-medium">{data.label}</span>
         <span className="bg-task/30 text-task px-1.5 py-0.5 rounded text-[10px] ml-auto font-medium">
           TASK
         </span>
@@ -46,7 +46,7 @@ function TaskNodeComponent({ id, data, selected }: NodeProps<TaskNodeType>) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-2 !h-2 !bg-muted-foreground !border-border"
+        className="!w-2 !h-2 !bg-muted-foreground !border-border-default"
       />
     </div>
   );

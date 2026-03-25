@@ -36,18 +36,18 @@ function ProviderLogo({ name, status }: { name: string; status: string }) {
     switch (status) {
       case "connected":
       case "active":
-        return "text-foreground";
+        return "text-primary";
       case "rate-limited":
-        return "text-[var(--warning)]";
+        return "text-[var(--warning-9)]";
       case "error":
-        return "text-[var(--error)]";
+        return "text-[var(--danger-9)]";
       default:
-        return "text-muted-foreground";
+        return "text-muted";
     }
   };
 
   return (
-    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-card">
+    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-border-default bg-surface-secondary">
       <span className={cn("text-xs font-semibold", getStatusColor(status))}>
         {getInitials(name)}
       </span>
@@ -134,7 +134,7 @@ function ProviderCard({
     provider.status !== "offline" && provider.status !== "error";
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80">
+    <div className="rounded-lg border border-border-default bg-surface-secondary p-4 transition-colors hover:border-border-default/80">
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
           <ProviderLogo name={provider.name} status={provider.status} />
@@ -142,7 +142,7 @@ function ProviderCard({
           {/* Provider Info */}
           <div className="flex-1">
             <div className="mb-1 flex items-center gap-3">
-              <h3 className="text-base font-medium text-foreground">
+              <h3 className="text-base font-medium text-primary">
                 {provider.name}
               </h3>
               <StatusBadge
@@ -153,15 +153,15 @@ function ProviderCard({
 
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
-                <span className="w-20 text-xs uppercase tracking-wider text-muted-foreground">
+                <span className="w-20 text-xs uppercase tracking-wider text-muted">
                   API Key
                 </span>
                 {provider.api_key_env?.startsWith("$") ? (
-                  <span className="font-mono text-muted-foreground">
+                  <span className="font-mono text-muted">
                     Configured via {provider.api_key_env}
                   </span>
                 ) : (
-                  <span className="font-mono text-muted-foreground">
+                  <span className="font-mono text-muted">
                     {maskApiKey(provider.api_key_env)}
                   </span>
                 )}
@@ -169,10 +169,10 @@ function ProviderCard({
 
               {provider.base_url && (
                 <div className="flex items-center gap-2">
-                  <span className="w-20 text-xs uppercase tracking-wider text-muted-foreground">
+                  <span className="w-20 text-xs uppercase tracking-wider text-muted">
                     Base URL
                   </span>
-                  <span className="text-muted-foreground">
+                  <span className="text-muted">
                     {provider.base_url}
                   </span>
                 </div>
@@ -180,10 +180,10 @@ function ProviderCard({
 
               <div className="mt-3 flex items-center gap-6">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                  <span className="text-xs uppercase tracking-wider text-muted">
                     Models
                   </span>
-                  <span className="font-medium text-foreground">
+                  <span className="font-medium text-primary">
                     {provider.models?.length || 0} available
                   </span>
                 </div>
@@ -211,12 +211,12 @@ function ProviderCard({
                 "Testing..."
               ) : testStatus === "success" ? (
                 <>
-                  <CheckCircle2 className="mr-1 h-3 w-3 text-[var(--success)]" />
+                  <CheckCircle2 className="mr-1 h-3 w-3 text-[var(--success-9)]" />
                   Connected
                 </>
               ) : testStatus === "error" ? (
                 <>
-                  <XCircle className="mr-1 h-3 w-3 text-[var(--error)]" />
+                  <XCircle className="mr-1 h-3 w-3 text-[var(--danger-9)]" />
                   Failed
                 </>
               ) : (
@@ -235,7 +235,7 @@ function ProviderCard({
               variant="ghost"
               size="icon"
               onClick={() => onDelete(provider.id)}
-              className="text-[var(--error)] hover:text-[var(--error)]"
+              className="text-[var(--danger-9)] hover:text-[var(--danger-9)]"
               title="Remove provider"
             >
               <Trash2 className="h-4 w-4" />
@@ -250,15 +250,15 @@ function ProviderCard({
 // Empty State Component
 function EmptyProvidersState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border bg-card/50 p-12 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
-        <Server className="h-6 w-6 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border-default bg-surface-secondary/50 p-12 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-surface-tertiary">
+        <Server className="h-6 w-6 text-muted" />
       </div>
       <div className="flex flex-col gap-1">
-        <h3 className="text-sm font-medium text-foreground">
+        <h3 className="text-sm font-medium text-primary">
           No providers configured
         </h3>
-        <p className="max-w-xs text-xs text-muted-foreground">
+        <p className="max-w-xs text-xs text-muted">
           Add an AI provider to start using Runsight with models like GPT-4,
           Claude, or local Ollama instances.
         </p>
@@ -316,7 +316,7 @@ export function ProvidersTab() {
     <div className="mx-auto max-w-4xl">
       {/* Page Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="text-2xl font-semibold tracking-tight text-primary">
           Providers
         </h2>
         <Button onClick={handleAdd}>
@@ -331,7 +331,7 @@ export function ProvidersTab() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-32 animate-pulse rounded-lg border border-border bg-card"
+              className="h-32 animate-pulse rounded-lg border border-border-default bg-surface-secondary"
             />
           ))}
         </div>

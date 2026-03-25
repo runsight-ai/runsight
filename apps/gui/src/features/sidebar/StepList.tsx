@@ -17,11 +17,11 @@ const columns: Column[] = [
       const step = row as StepResponse;
       return (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-[var(--primary-12)] text-[var(--primary)]">
+          <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-[var(--accent-3)] text-[var(--interactive-default)]">
             <Footprints className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-medium text-foreground truncate">{step.name}</div>
+            <div className="text-sm font-medium text-primary truncate">{step.name}</div>
           </div>
         </div>
       );
@@ -46,7 +46,7 @@ const columns: Column[] = [
     width: "1.5fr",
     render: (row) => {
       const step = row as StepResponse;
-      return <div className="text-sm text-muted-foreground font-mono text-xs truncate">{step.path}</div>;
+      return <div className="text-sm text-muted font-mono text-xs truncate">{step.path}</div>;
     },
   },
   {
@@ -56,7 +56,7 @@ const columns: Column[] = [
     render: (row) => {
       const step = row as StepResponse;
       return (
-        <div className="text-sm text-muted-foreground truncate max-w-[300px]">
+        <div className="text-sm text-muted truncate max-w-[300px]">
           {truncateText(step.description, 60)}
         </div>
       );

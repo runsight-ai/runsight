@@ -20,26 +20,26 @@ const statusConfig: Record<
 > = {
   success: {
     bg: "bg-[var(--success-12)]",
-    text: "text-[var(--success)]",
-    dot: "bg-[var(--success)]",
+    text: "text-[var(--success-9)]",
+    dot: "bg-[var(--success-9)]",
     defaultLabel: "Completed",
   },
   error: {
     bg: "bg-[var(--error-12)]",
-    text: "text-[var(--error)]",
-    dot: "bg-[var(--error)]",
+    text: "text-[var(--danger-9)]",
+    dot: "bg-[var(--danger-9)]",
     defaultLabel: "Failed",
   },
   warning: {
     bg: "bg-[var(--warning-12)]",
-    text: "text-[var(--warning)]",
-    dot: "bg-[var(--warning)]",
+    text: "text-[var(--warning-9)]",
+    dot: "bg-[var(--warning-9)]",
     defaultLabel: "Warning",
   },
   running: {
     bg: "bg-[var(--running-12)]",
-    text: "text-[var(--running)]",
-    dot: "bg-[var(--running)]",
+    text: "text-[var(--info-9)]",
+    dot: "bg-[var(--info-9)]",
     defaultLabel: "Running",
   },
   pending: {
