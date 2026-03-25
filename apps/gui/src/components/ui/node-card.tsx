@@ -1,7 +1,11 @@
-// Design system tokens: block-agent, block-logic, block-control, block-utility, block-custom,
-// surface-secondary, surface-selected, border-subtle, border-accent, radius-lg,
-// text-heading, font-size-sm, font-mono, font-size-2xs,
-// accent-9, success-7, danger-7, neutral-6, interactive-default
+// Design system tokens used by this component:
+// Category stripes:  block-agent, block-logic, block-control, block-utility, block-custom
+// Card surface:      surface-secondary, border-subtle, radius-lg
+// Selected state:    border-accent, surface-selected
+// Header text:       text-heading, font-size-sm
+// Cost badge:        font-mono, font-size-2xs
+// Execution states:  accent-9 (running), success-7 (success), danger-7 (error), neutral-6 (skipped)
+// Port handles:      interactive-default
 
 import * as React from "react"
 
@@ -29,17 +33,35 @@ export type ExecutionState =
 // Token maps
 // ---------------------------------------------------------------------------
 
-/** Top 3px stripe — one colour per block category */
-const categoryStripeMap: Record<BlockCategory, string> = {
-  "block-agent":   "bg-block-agent",
-  "block-logic":   "bg-block-logic",
-  "block-control": "bg-block-control",
-  "block-utility": "bg-block-utility",
-  "block-custom":  "bg-block-custom",
+/**
+ * Maps BlockCategory prop values to the data-category attribute values
+ * expected by the .node-card BEM CSS (strips the "block-" prefix).
+ */
+const categoryDataAttrMap: Record<BlockCategory, string> = {
+  "block-agent":   "agent",
+  "block-logic":   "logic",
+  "block-control": "control",
+  "block-utility": "utility",
+  "block-custom":  "custom",
 }
 
-/** Left 2px execution-state indicator */
-const executionStateMap: Record<ExecutionState, string> = {
+/**
+ * Maps ExecutionState prop values to data-state attribute values used by BEM CSS.
+ * idle / skipped have no BEM state override — omit attribute.
+ */
+const executionStateDataAttrMap: Record<ExecutionState, string | undefined> = {
+  idle:    undefined,
+  running: "running",
+  success: "completed",
+  error:   "failed",
+  skipped: undefined,
+}
+
+/**
+ * Left 2px execution-state indicator.
+ * Maps to design system color tokens: accent-9, success-7, danger-7, neutral-6.
+ */
+const executionStateBarMap: Record<ExecutionState, string> = {
   idle:    "bg-transparent",
   running: "bg-accent-9",
   success: "bg-success-7",
@@ -89,76 +111,68 @@ export function NodeCard({
   className,
   ...props
 }: NodeCardProps) {
+  const dataCategory = categoryDataAttrMap[category]
+  const dataState = executionStateDataAttrMap[executionState]
+
   return (
+    // .node-card BEM root:
+    //   background: surface-secondary  border: border-subtle  radius: radius-lg
+    //   data-category drives border-top color (block-agent / block-logic / etc.)
+    //   aria-selected="true" drives border-accent + surface-selected selected state
+    //   data-state drives execution-state overrides
     <div
       data-slot="node-card"
-      data-category={category}
-      data-execution-state={executionState}
-      data-selected={selected || undefined}
-      className={cn(
-        // Base shape & surface
-        "relative flex flex-col overflow-hidden rounded-radius-lg",
-        "border bg-surface-secondary",
-        // Default border vs selected border
-        selected
-          ? "border-border-accent bg-surface-selected"
-          : "border-border-subtle",
-        className
-      )}
+      data-category={dataCategory}
+      data-state={dataState}
+      aria-selected={selected || undefined}
+      className={cn("node-card", className)}
       {...props}
     >
       {/* ---------------------------------------------------------------- */}
-      {/* Top 3px category stripe                                           */}
-      {/* ---------------------------------------------------------------- */}
-      <span
-        aria-hidden="true"
-        data-slot="node-card-stripe"
-        className={cn(
-          "absolute inset-x-0 top-0 h-[3px]",
-          categoryStripeMap[category]
-        )}
-      />
-
-      {/* ---------------------------------------------------------------- */}
       {/* Left 2px execution-state bar                                      */}
+      {/* accent-9 / success-7 / danger-7 / neutral-6                      */}
       {/* ---------------------------------------------------------------- */}
       <span
         aria-hidden="true"
         data-slot="node-card-state-bar"
         className={cn(
           "absolute inset-y-0 left-0 w-[2px]",
-          executionStateMap[executionState]
+          executionStateBarMap[executionState]
         )}
       />
 
       {/* ---------------------------------------------------------------- */}
-      {/* Header                                                            */}
+      {/* Header: .node-card__header                                        */}
+      {/* title: text-heading + font-size-sm via .node-card__name          */}
       {/* ---------------------------------------------------------------- */}
       <div
         data-slot="node-card-header"
-        className="flex items-center gap-space-2 px-space-3 pb-space-2 pt-space-4"
+        className="node-card__header"
       >
         {icon && (
+          // .node-card__icon — color driven by category / state via CSS
           <span
             aria-hidden="true"
             data-slot="node-card-icon"
-            className="shrink-0 text-muted"
+            className="node-card__icon"
           >
             {icon}
           </span>
         )}
 
+        {/* .node-card__name — text-heading + font-size-sm */}
         <span
           data-slot="node-card-title"
-          className="min-w-0 flex-1 truncate text-font-size-sm font-medium text-heading"
+          className="node-card__name"
         >
           {title}
         </span>
 
+        {/* .node-card__cost-badge — font-mono + font-size-2xs */}
         {cost && (
           <span
             data-slot="node-card-cost"
-            className="shrink-0 font-mono text-font-size-2xs text-muted"
+            className="node-card__cost-badge"
           >
             {cost}
           </span>
@@ -166,41 +180,36 @@ export function NodeCard({
       </div>
 
       {/* ---------------------------------------------------------------- */}
-      {/* Body (optional children)                                          */}
+      {/* Body (optional children) — .node-card__body                      */}
       {/* ---------------------------------------------------------------- */}
       {children && (
         <div
           data-slot="node-card-body"
-          className="px-space-3 pb-space-3"
+          className="node-card__body"
         >
           {children}
         </div>
       )}
 
       {/* ---------------------------------------------------------------- */}
-      {/* Port handles (decorative — not tied to ReactFlow internals)       */}
+      {/* Port handles — .node-card__port + .node-card__port--input/output  */}
+      {/* interactive-default applied on hover via BEM CSS                  */}
       {/* ---------------------------------------------------------------- */}
       {inputPort && (
-        <div
-          data-slot="node-card-input-port"
-          className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2"
-        >
+        <div data-slot="node-card-input-port">
           <span
             data-slot="node-card-port"
-            className="block size-2.5 rounded-full border-2 border-interactive-default bg-surface-secondary"
+            className="node-card__port node-card__port--input"
           />
           {inputPort}
         </div>
       )}
 
       {outputPort && (
-        <div
-          data-slot="node-card-output-port"
-          className="absolute right-0 top-1/2 -translate-x-1/2 -translate-y-1/2"
-        >
+        <div data-slot="node-card-output-port">
           <span
             data-slot="node-card-port"
-            className="block size-2.5 rounded-full border-2 border-interactive-default bg-surface-secondary"
+            className="node-card__port node-card__port--output"
           />
           {outputPort}
         </div>

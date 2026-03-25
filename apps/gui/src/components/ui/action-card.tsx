@@ -8,12 +8,13 @@ import { cn } from "@/utils/helpers"
 
 type ActionCardVariant = "default" | "accent" | "success" | "danger" | "warning"
 
-const stripeColorMap: Record<ActionCardVariant, string> = {
-  default: "bg-border-default",
-  accent:  "bg-interactive-default",
-  success: "bg-success-9",
-  danger:  "bg-danger-9",
-  warning: "bg-warning-9",
+/** Maps variant to CSS custom property value for the left stripe colour */
+const stripeVarMap: Record<ActionCardVariant, string> = {
+  default: "var(--border-default)",
+  accent:  "var(--interactive-default)",
+  success: "var(--success-9)",
+  danger:  "var(--danger-9)",
+  warning: "var(--warning-9)",
 }
 
 export interface ActionCardProps extends React.ComponentProps<"div"> {
@@ -36,28 +37,24 @@ export function ActionCard({
   ...props
 }: ActionCardProps) {
   return (
+    // .card base provides: surface-secondary bg, border-subtle border, radius-lg, overflow:hidden
     <div
       data-slot="action-card"
       data-variant={variant}
-      className={cn(
-        "group/action-card relative flex gap-4 overflow-hidden rounded-radius-lg border border-border-subtle bg-surface-secondary p-space-4",
-        className
-      )}
+      className={cn("card relative flex gap-4 p-space-4", className)}
       {...props}
     >
-      {/* Left 3px accent stripe — border-l used as decorative left border */}
+      {/* Left 3px accent stripe — inline var(--token) for variant colour */}
       <span
         aria-hidden="true"
         data-slot="action-card-stripe"
-        className={cn(
-          "stripe absolute inset-y-0 left-0 w-[3px] border-l-0",
-          stripeColorMap[variant]
-        )}
+        className="absolute inset-y-0 left-0 w-[3px]"
+        style={{ background: stripeVarMap[variant] }}
       />
 
       {/* Content area — offset to clear the stripe */}
       <div className="ml-1 flex flex-1 flex-col gap-1.5">
-        {/* Title */}
+        {/* Title — text-heading */}
         <div
           data-slot="action-card-title"
           className="text-heading font-medium leading-snug text-primary"
@@ -65,7 +62,7 @@ export function ActionCard({
           {title}
         </div>
 
-        {/* Description */}
+        {/* Description — text-secondary + font-size-sm */}
         {description !== undefined && description !== null && (
           <div
             data-slot="action-card-description"
