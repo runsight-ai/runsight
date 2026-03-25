@@ -3,55 +3,74 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
 
+// Design system tokens: font-size-md, font-weight-medium, radius-md, control-height-*
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-border-focus/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-radius-md border border-transparent bg-clip-padding whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-border-focus/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-interactive text-on-accent [a]:hover:bg-interactive/80",
-        outline:
-          "border-border-default bg-surface-primary hover:bg-surface-tertiary hover:text-primary aria-expanded:bg-surface-tertiary aria-expanded:text-primary dark:border-border-default dark:bg-input/30 dark:hover:bg-input/50",
+        primary:
+          "bg-interactive text-on-accent border-interactive hover:bg-interactive-hover hover:border-interactive-hover active:bg-interactive-active",
         secondary:
-          "bg-surface-tertiary text-primary hover:bg-surface-tertiary/80 aria-expanded:bg-surface-tertiary aria-expanded:text-primary",
+          "bg-surface-tertiary text-primary border-border-default hover:bg-surface-hover hover:border-border-hover active:bg-surface-active",
         ghost:
-          "hover:bg-surface-tertiary hover:text-primary aria-expanded:bg-surface-tertiary aria-expanded:text-primary dark:hover:bg-surface-tertiary/50",
-        destructive:
-          "bg-danger/10 text-danger hover:bg-danger/20 focus-visible:border-danger/40 focus-visible:ring-danger/20 dark:bg-danger/20 dark:hover:bg-danger/30 dark:focus-visible:ring-danger/40",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-transparent text-secondary border-transparent hover:bg-surface-hover hover:text-primary active:bg-surface-active",
+        danger:
+          "bg-danger-9 text-on-accent border-danger-9 hover:bg-danger-10 hover:border-danger-10 active:bg-danger-8",
+        "icon-only":
+          "bg-transparent text-secondary border-transparent hover:bg-surface-hover hover:text-primary active:bg-surface-active aspect-square p-0",
       },
       size: {
-        default:
-          "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
-        icon: "size-8",
-        "icon-xs":
-          "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":
-          "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
-        "icon-lg": "size-9",
+        xs: "h-control-height-xs px-2 text-font-size-2xs gap-1 rounded-radius-sm",
+        sm: "h-control-height-sm px-3 text-font-size-sm gap-1.5",
+        md: "h-control-height-md px-4 text-font-size-md gap-1.5 font-weight-medium",
+        lg: "h-control-height-lg px-6 text-font-size-md gap-2 font-weight-medium",
       },
     },
     defaultVariants: {
-      variant: "default",
-      size: "default",
+      variant: "primary",
+      size: "sm",
     },
   }
 )
 
+interface ButtonProps
+  extends ButtonPrimitive.Props,
+    VariantProps<typeof buttonVariants> {
+  loading?: boolean
+}
+
 function Button({
   className,
-  variant = "default",
-  size = "default",
+  variant = "primary",
+  size = "sm",
+  loading = false,
+  disabled,
+  children,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonProps) {
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      aria-busy={loading ? true : undefined}
+      disabled={disabled || loading}
+      className={cn(
+        buttonVariants({ variant, size }),
+        loading && "relative text-transparent pointer-events-none",
+        className
+      )}
       {...props}
-    />
+    >
+      {children}
+      {loading && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 flex items-center justify-center"
+        >
+          <span className="size-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+        </span>
+      )}
+    </ButtonPrimitive>
   )
 }
 

@@ -547,32 +547,38 @@ describe("No old var() refs — tooltip.tsx", () => {
 // 4. CVA variant names are unchanged (AC5) — spot-check key components
 // ===========================================================================
 
-describe("CVA variant names unchanged — badge.tsx", () => {
-  it("still exports badgeVariants with default, secondary, destructive, outline, ghost, link variants", () => {
+// Updated by RUN-298: badge variants migrated to design system spec
+// Old variants (default, secondary, destructive, ghost, link) replaced with
+// semantic variants (accent, success, warning, danger, info, neutral, outline)
+describe("CVA variant names updated — badge.tsx (RUN-298)", () => {
+  it("exports badgeVariants with new semantic variants: accent, success, warning, danger, info, neutral, outline", () => {
     const source = readComponent("badge.tsx");
     expect(source).toMatch(/export.*badgeVariants/);
-    // Variant names in the CVA config
+    // New variant names in the CVA config
     expect(source).toMatch(/variant:\s*\{/);
-    expect(source).toMatch(/\bdefault\b/);
-    expect(source).toMatch(/\bsecondary\b/);
-    expect(source).toMatch(/\bdestructive\b/);
+    expect(source).toMatch(/\baccent\b/);
+    expect(source).toMatch(/\bsuccess\b/);
+    expect(source).toMatch(/\bwarning\b/);
+    expect(source).toMatch(/\bdanger\b/);
+    expect(source).toMatch(/\binfo\b/);
+    expect(source).toMatch(/\bneutral\b/);
     expect(source).toMatch(/\boutline\b/);
-    expect(source).toMatch(/\bghost\b/);
-    expect(source).toMatch(/\blink\b/);
   });
 });
 
-describe("CVA variant names unchanged — button.tsx", () => {
-  it("still exports buttonVariants with default, outline, secondary, ghost, destructive, link variants", () => {
+// Updated by RUN-298: button variants migrated to design system spec
+// Old variants (default, outline, destructive, link) replaced with
+// new variants (primary, danger, icon-only) and updated secondary/ghost
+describe("CVA variant names updated — button.tsx (RUN-298)", () => {
+  it("exports buttonVariants with new design system variants: primary, secondary, ghost, danger, icon-only", () => {
     const source = readComponent("button.tsx");
     expect(source).toMatch(/export.*buttonVariants/);
     expect(source).toMatch(/variant:\s*\{/);
-    expect(source).toMatch(/\bdefault\b/);
-    expect(source).toMatch(/\boutline\b/);
+    expect(source).toMatch(/\bprimary\b/);
     expect(source).toMatch(/\bsecondary\b/);
     expect(source).toMatch(/\bghost\b/);
-    expect(source).toMatch(/\bdestructive\b/);
-    expect(source).toMatch(/\blink\b/);
+    expect(source).toMatch(/\bdanger\b/);
+    expect(source).toMatch(/["']icon-only["']/);
   });
 });
 
