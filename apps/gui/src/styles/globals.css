@@ -645,73 +645,67 @@
 
 /* ========================================
    GLOBAL STYLES
+   Wrapped in @layer base so Tailwind utilities can override.
+   The universal reset (box-sizing, margin, padding) is handled
+   by Tailwind's preflight — do NOT duplicate it here.
    ======================================== */
 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+@layer base {
+  body {
+    font-family: var(--font-body);
+    font-size: var(--font-size-md);
+    line-height: var(--line-height-normal);
+    background: var(--surface-primary);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-body {
-  font-family: var(--font-body);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-normal);
-  background: var(--surface-primary);
-  color: var(--text-primary);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  /* Skip link */
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 0;
+    z-index: var(--z-toast);
+    padding: var(--space-2) var(--space-4);
+    background: var(--interactive-default);
+    color: var(--text-on-accent);
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+  }
+  .skip-link:focus {
+    top: 0;
+  }
 
+  /* Focus ring */
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
 
-/* ========================================
-   ACCESSIBILITY
-   ======================================== */
+  /* Selection */
+  ::selection {
+    background-color: var(--selection-bg);
+    color: var(--selection-text);
+  }
 
-/* Skip link */
-.skip-link {
-  position: absolute;
-  top: -100%;
-  left: 0;
-  z-index: var(--z-toast);
-  padding: var(--space-2) var(--space-4);
-  background: var(--interactive-default);
-  color: var(--text-on-accent);
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  text-decoration: none;
+  /* Scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-default) transparent;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--neutral-7);
+    border-radius: var(--radius-full);
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
 }
-.skip-link:focus {
-  top: 0;
-}
-
-/* Focus ring */
-:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring-color);
-  outline-offset: var(--focus-ring-offset);
-}
-:focus:not(:focus-visible) {
-  outline: none;
-}
-
-/* Selection */
-::selection {
-  background-color: var(--selection-bg);
-  color: var(--selection-text);
-}
-
-/* Scrollbar */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-default) transparent;
-}
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-thumb {
-  background: var(--neutral-7);
-  border-radius: var(--radius-full);
-}
-::-webkit-scrollbar-track { background: transparent; }
 
 
 /* ========================================

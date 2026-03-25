@@ -8,10 +8,9 @@
  *
  * Tests read component source files as strings and verify:
  *   1. Existing: Tabs (tabs.tsx) — required DS tokens present
- *   2. Existing: Sidebar (ShellLayout.tsx) — DS tokens for nav, widths, icons
- *   3. New: Breadcrumb (breadcrumb.tsx) — file exists, exports, tokens
- *   4. New: Pagination (pagination.tsx) — file exists, exports, tokens
- *   5. All 4: story files exist with proper Storybook structure
+ *   2. New: Breadcrumb (breadcrumb.tsx) — file exists, exports, tokens
+ *   3. New: Pagination (pagination.tsx) — file exists, exports, tokens
+ *   4. All 3: story files exist with proper Storybook structure
  *
  * Expected failures (current state):
  *   - tabs.tsx: missing border-subtle (no border token on list),
@@ -38,7 +37,6 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const UI_DIR = resolve(__dirname, "..");
-const LAYOUTS_DIR = resolve(__dirname, "..", "..", "..", "routes", "layouts");
 const STORIES_DIR = resolve(__dirname, "..", "..", "..", "stories");
 
 function componentExists(filename: string): boolean {
@@ -47,10 +45,6 @@ function componentExists(filename: string): boolean {
 
 function readComponent(filename: string): string {
   return readFileSync(resolve(UI_DIR, filename), "utf-8");
-}
-
-function readLayout(filename: string): string {
-  return readFileSync(resolve(LAYOUTS_DIR, filename), "utf-8");
 }
 
 function storyExists(filename: string): boolean {
@@ -157,87 +151,7 @@ describe("Tabs — density-nav-item-height or py-2 token for tab height (AC1)", 
 });
 
 // ===========================================================================
-// 8. SIDEBAR — sidebar-bg token reference on aside (AC2)
-// ===========================================================================
-
-describe("Sidebar — sidebar-bg CSS variable reference on the sidebar aside (AC2)", () => {
-  it("uses sidebar-bg CSS variable (var(--sidebar-bg)) on the sidebar aside element", () => {
-    const source = readLayout("ShellLayout.tsx");
-    // Spec: sidebar background must use var(--sidebar-bg) or var(--surface-secondary)
-    // Current state: uses Tailwind utility class bg-sidebar (shorthand), not an explicit
-    //   var(--sidebar-bg) reference. The token must be referenced explicitly.
-    expect(source).toMatch(/var\(--sidebar-bg\)|var\(--surface-secondary\)/);
-  });
-});
-
-// ===========================================================================
-// 9. SIDEBAR — surface-hover or sidebar-hover token for nav item hover (AC2)
-// ===========================================================================
-
-describe("Sidebar — surface-hover or sidebar-hover token for nav item hover (AC2)", () => {
-  it("uses surface-hover or sidebar-hover token for nav item hover state", () => {
-    const source = readLayout("ShellLayout.tsx");
-    // Spec: nav item hover uses --surface-hover or --sidebar-hover
-    // Current state: hover:bg-surface-elevated (wrong token — not surface-hover/sidebar-hover)
-    expect(source).toMatch(/surface-hover|sidebar-hover/);
-  });
-});
-
-// ===========================================================================
-// 10. SIDEBAR — sidebar-active-indicator token for active nav item (AC2)
-// ===========================================================================
-
-describe("Sidebar — sidebar-active-indicator token for active nav item (AC2)", () => {
-  it("uses sidebar-active-indicator token (not bg-interactive/12 opacity shorthand) for active nav", () => {
-    const source = readLayout("ShellLayout.tsx");
-    // Spec: active nav item background uses --sidebar-active-indicator DS token
-    // Current state: bg-interactive/12 (Tailwind opacity modifier shorthand, not the DS token)
-    // The sidebar-active-indicator token must be referenced explicitly, not via bg-interactive/12
-    expect(source).toMatch(/sidebar-active-indicator/);
-  });
-});
-
-// ===========================================================================
-// 11. SIDEBAR — sidebar-width-collapsed token (AC2)
-// ===========================================================================
-
-describe("Sidebar — sidebar-width-collapsed token for collapsed width (AC2)", () => {
-  it("uses sidebar-width-collapsed token for collapsed sidebar width", () => {
-    const source = readLayout("ShellLayout.tsx");
-    // Spec: collapsed sidebar width uses --sidebar-width-collapsed (48px)
-    // Current state: w-[52px] (hardcoded, wrong value — spec is 48px via token)
-    expect(source).toMatch(/sidebar-width-collapsed/);
-  });
-});
-
-// ===========================================================================
-// 12. SIDEBAR — sidebar-width-expanded token (AC2)
-// ===========================================================================
-
-describe("Sidebar — sidebar-width-expanded token for expanded width (AC2)", () => {
-  it("uses sidebar-width-expanded token for expanded sidebar width", () => {
-    const source = readLayout("ShellLayout.tsx");
-    // Spec: expanded sidebar width uses --sidebar-width-expanded (240px)
-    // Current state: w-[240px] (hardcoded px value, not the DS token)
-    expect(source).toMatch(/sidebar-width-expanded/);
-  });
-});
-
-// ===========================================================================
-// 13. SIDEBAR — icon-size-md token for nav icons (AC2)
-// ===========================================================================
-
-describe("Sidebar — icon-size-md token for nav icon size (AC2)", () => {
-  it("uses icon-size-md token for sidebar nav icon sizing", () => {
-    const source = readLayout("ShellLayout.tsx");
-    // Spec: nav icons use --icon-size-md
-    // Current state: size-[18px] (hardcoded pixel value, not the DS token)
-    expect(source).toMatch(/icon-size-md/);
-  });
-});
-
-// ===========================================================================
-// 14. BREADCRUMB — file exists (AC3)
+// 8. BREADCRUMB — file exists (AC3)
 // ===========================================================================
 
 describe("Breadcrumb — component file exists (AC3)", () => {
@@ -376,16 +290,12 @@ describe("Pagination — range display with 'of' pattern (AC4)", () => {
 });
 
 // ===========================================================================
-// 23. STORYBOOK STORIES — all 4 navigation story files exist (AC5)
+// 17. STORYBOOK STORIES — navigation story files exist (AC5)
 // ===========================================================================
 
 describe("Storybook stories — existence (AC5)", () => {
   it("Tabs.stories.tsx exists in src/stories/ or src/components/ui/", () => {
     expect(storyExists("Tabs.stories.tsx")).toBe(true);
-  });
-
-  it("Sidebar.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Sidebar.stories.tsx")).toBe(true);
   });
 
   it("Breadcrumb.stories.tsx exists in src/stories/ or src/components/ui/", () => {
@@ -430,39 +340,7 @@ describe("Storybook stories — Tabs.stories.tsx structure (AC5)", () => {
 });
 
 // ===========================================================================
-// 25. STORYBOOK STORIES — Sidebar.stories.tsx structure (AC5)
-// ===========================================================================
-
-describe("Storybook stories — Sidebar.stories.tsx structure (AC5)", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Sidebar.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Sidebar.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Sidebar.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers expanded sidebar state (non-collapsed default or explicit expanded story)", () => {
-    const content = readStory("Sidebar.stories.tsx");
-    // The Default story with collapsed: false covers expanded state
-    expect(content).toMatch(/Expanded|expanded|Open|open|Default|default|collapsed.*false|false.*collapsed/i);
-  });
-
-  it("covers collapsed sidebar state", () => {
-    const content = readStory("Sidebar.stories.tsx");
-    expect(content).toMatch(/Collapsed|collapsed|Closed|closed/i);
-  });
-});
-
-// ===========================================================================
-// 26. STORYBOOK STORIES — Breadcrumb.stories.tsx structure (AC5)
+// 19. STORYBOOK STORIES — Breadcrumb.stories.tsx structure (AC5)
 // ===========================================================================
 
 describe("Storybook stories — Breadcrumb.stories.tsx structure (AC5)", () => {

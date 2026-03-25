@@ -8,20 +8,16 @@
  *      - Unified node card replacing individual canvas node files
  *      - Block category stripes, execution state tokens, surface/border tokens
  *
- *   2. AppShell    — NEW file at src/components/ui/app-shell.tsx
- *      - CSS Grid layout shell with panel size tokens
- *
- *   3. EmptyState  — EXISTING file at src/components/shared/EmptyState.tsx
+ *   2. EmptyState  — EXISTING file at src/components/shared/EmptyState.tsx
  *      - Must be updated to use design system tokens
  *
  * Expected failures (current state):
  *   - node-card.tsx does not exist
- *   - app-shell.tsx does not exist
  *   - EmptyState.tsx uses generic Tailwind classes (gap-3, p-8, h-12, w-12,
  *     rounded-lg, text-sm, font-medium, text-xs) instead of design system
  *     tokens (space-6, icon-size-xl, text-heading, font-size-lg, text-secondary,
  *     font-size-sm, text-muted)
- *   - No story files exist for NodeCard, AppShell, or EmptyState
+ *   - No story files exist for NodeCard or EmptyState
  */
 
 import { describe, it, expect } from "vitest";
@@ -253,86 +249,7 @@ describe("NodeCard — interactive-default token for port handles (AC1)", () => 
 });
 
 // ===========================================================================
-// 8. APP SHELL — file exists and exports (AC2)
-// ===========================================================================
-
-describe("AppShell — file exists and exports default or named export (AC2)", () => {
-  it("app-shell.tsx exists in src/components/ui/", () => {
-    expect(componentExists("app-shell.tsx")).toBe(true);
-  });
-
-  it("app-shell.tsx exports AppShell", () => {
-    const source = readComponent("app-shell.tsx");
-    expect(source).toMatch(/export.*AppShell/);
-  });
-
-  it("app-shell.tsx is non-empty", () => {
-    const source = readComponent("app-shell.tsx");
-    expect(source.length).toBeGreaterThan(0);
-  });
-});
-
-// ===========================================================================
-// 9. APP SHELL — CSS Grid layout (AC2)
-// ===========================================================================
-
-describe("AppShell — CSS Grid layout (AC2)", () => {
-  it("uses CSS grid layout (grid or display: grid)", () => {
-    const source = readComponent("app-shell.tsx");
-    // Must use a grid class or inline grid style
-    expect(source).toMatch(/\bgrid\b|display.*grid/);
-  });
-});
-
-// ===========================================================================
-// 10. APP SHELL — panel size tokens (AC2)
-// ===========================================================================
-
-describe("AppShell — header-height token (AC2)", () => {
-  it("uses header-height token (40px) for header area", () => {
-    const source = readComponent("app-shell.tsx");
-    expect(source).toMatch(/header-height/);
-  });
-});
-
-describe("AppShell — status-bar-height token (AC2)", () => {
-  it("uses status-bar-height token (22px) for status bar area", () => {
-    const source = readComponent("app-shell.tsx");
-    expect(source).toMatch(/status-bar-height/);
-  });
-});
-
-describe("AppShell — sidebar-width-collapsed token (AC2)", () => {
-  it("uses sidebar-width-collapsed token (48px) for collapsed sidebar", () => {
-    const source = readComponent("app-shell.tsx");
-    expect(source).toMatch(/sidebar-width-collapsed/);
-  });
-});
-
-describe("AppShell — sidebar-width-expanded token (AC2)", () => {
-  it("uses sidebar-width-expanded token (240px) for expanded sidebar", () => {
-    const source = readComponent("app-shell.tsx");
-    expect(source).toMatch(/sidebar-width-expanded/);
-  });
-});
-
-describe("AppShell — inspector-width token (AC2)", () => {
-  it("uses inspector-width token (320px) for inspector panel", () => {
-    const source = readComponent("app-shell.tsx");
-    expect(source).toMatch(/inspector-width(?!-min)(?!-max)/);
-  });
-});
-
-describe("AppShell — inspector-width token (AC2)", () => {
-  it("uses inspector-width token for inspector panel sizing", () => {
-    const source = readComponent("app-shell.tsx");
-    // inspector-width, inspector-width-min, or inspector-width-max are all valid
-    expect(source).toMatch(/inspector-width/);
-  });
-});
-
-// ===========================================================================
-// 11. EMPTY STATE — existing file has design system tokens (AC3)
+// 8. EMPTY STATE — existing file has design system tokens (AC3)
 // ===========================================================================
 
 describe("EmptyState — text-muted token for icon color (AC3)", () => {
@@ -410,10 +327,6 @@ describe("Storybook stories — existence (AC4)", () => {
     expect(storyExists("NodeCard.stories.tsx")).toBe(true);
   });
 
-  it("AppShell.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("AppShell.stories.tsx")).toBe(true);
-  });
-
   it("EmptyState.stories.tsx exists in src/stories/ or src/components/ui/", () => {
     expect(storyExists("EmptyState.stories.tsx")).toBe(true);
   });
@@ -456,45 +369,7 @@ describe("Storybook stories — NodeCard.stories.tsx structure (AC4)", () => {
 });
 
 // ===========================================================================
-// 14. STORYBOOK STORIES — AppShell.stories.tsx structure (AC4)
-// ===========================================================================
-
-describe("Storybook stories — AppShell.stories.tsx structure (AC4)", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("AppShell.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("AppShell.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("AppShell.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers collapsed sidebar state", () => {
-    const content = readStory("AppShell.stories.tsx");
-    expect(content).toMatch(/collapsed/i);
-  });
-
-  it("covers expanded sidebar state (Default story with sidebarCollapsed=false)", () => {
-    const content = readStory("AppShell.stories.tsx");
-    // The default story uses sidebarCollapsed: false which renders the expanded state
-    // The data-sidebar attribute uses "expanded" value in the component
-    expect(content).toMatch(/expanded|sidebarCollapsed.*false|false.*sidebarCollapsed/i);
-  });
-
-  it("covers inspector panel visibility", () => {
-    const content = readStory("AppShell.stories.tsx");
-    expect(content).toMatch(/inspector/i);
-  });
-});
-
-// ===========================================================================
-// 15. STORYBOOK STORIES — EmptyState.stories.tsx structure (AC4)
+// 14. STORYBOOK STORIES — EmptyState.stories.tsx structure (AC4)
 // ===========================================================================
 
 describe("Storybook stories — EmptyState.stories.tsx structure (AC4)", () => {

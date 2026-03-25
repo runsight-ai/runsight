@@ -8,7 +8,7 @@ const codeBlockVariants = cva(
   // base — surface-primary, border, left accent, radius, padding, mono font, relative
   [
     "bg-surface-primary",
-    "border border-border-subtle border-l-[3px] border-l-interactive-default",
+    "border border-border-subtle border-l-[4px] border-l-interactive-default",
     "rounded-md",
     "p-4 overflow-x-auto",
     "font-mono text-sm leading-relaxed text-primary",

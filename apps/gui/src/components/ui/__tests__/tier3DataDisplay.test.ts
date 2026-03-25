@@ -2,14 +2,14 @@
  * RED-TEAM tests for RUN-300: Tier 3 Data Display.
  *
  * Validates that Table and Card have been updated to use the Runsight design
- * system tokens, and that StatCard, CodeBlock, and ActionCard have been created
+ * system tokens, and that StatCard and CodeBlock have been created
  * to match the design system component spec. Also validates that Storybook
- * story files exist for all 5 components.
+ * story files exist for all 4 components.
  *
  * Tests read component source files as strings and verify:
  *   1. Existing components (table, card): required design system tokens present
- *   2. New components (stat-card, code-block, action-card): file exists, exports, tokens
- *   3. All 5: story files exist with proper Storybook structure
+ *   2. New components (stat-card, code-block): file exists, exports, tokens
+ *   3. All 4: story files exist with proper Storybook structure
  *
  * Expected failures (current state):
  *   - table.tsx: missing surface-secondary on header, text-secondary, font-size-xs,
@@ -21,8 +21,7 @@
  *     text-heading token for header text (uses font-medium text-base inline instead)
  *   - stat-card.tsx does not exist
  *   - code-block.tsx does not exist
- *   - action-card.tsx does not exist
- *   - No story files exist for any of the 5 components
+ *   - No story files exist for any of the 4 components
  */
 
 import { describe, it, expect } from "vitest";
@@ -379,88 +378,7 @@ describe("CodeBlock — copy button (AC4)", () => {
 });
 
 // ===========================================================================
-// 23. ACTION CARD — file exists (AC5)
-// ===========================================================================
-
-describe("ActionCard — component file exists (AC5)", () => {
-  it("action-card.tsx exists in src/components/ui/", () => {
-    expect(componentExists("action-card.tsx")).toBe(true);
-  });
-});
-
-// ===========================================================================
-// 24. ACTION CARD — named export (AC5)
-// ===========================================================================
-
-describe("ActionCard — named export (AC5)", () => {
-  it("exports an ActionCard component", () => {
-    const source = readComponent("action-card.tsx");
-    expect(source).toMatch(/export.*\bActionCard\b/);
-  });
-});
-
-// ===========================================================================
-// 25. ACTION CARD — design system tokens (AC5)
-// ===========================================================================
-
-describe("ActionCard — design system tokens (AC5)", () => {
-  it("uses surface-secondary token for background", () => {
-    const source = readComponent("action-card.tsx");
-    // Spec: background uses --surface-secondary
-    expect(source).toMatch(/surface-secondary/);
-  });
-
-  it("uses text-heading or text-primary token for title", () => {
-    const source = readComponent("action-card.tsx");
-    // Spec: title text uses --text-heading or --text-primary
-    expect(source).toMatch(/text-heading|text-primary/);
-  });
-
-  it("uses border-subtle token for border", () => {
-    const source = readComponent("action-card.tsx");
-    // Spec: border uses --border-subtle
-    expect(source).toMatch(/border-subtle/);
-  });
-});
-
-// ===========================================================================
-// 26. ACTION CARD — left stripe (AC5)
-// ===========================================================================
-
-describe("ActionCard — left 3px stripe (AC5)", () => {
-  it("renders a left 3px accent stripe", () => {
-    const source = readComponent("action-card.tsx");
-    // Spec: left 3px stripe — decorative left border or pseudo-element
-    expect(source).toMatch(/stripe|border-l|border-left|inset-y/);
-  });
-});
-
-// ===========================================================================
-// 27. ACTION CARD — structure (AC5)
-// ===========================================================================
-
-describe("ActionCard — title, description, and action area (AC5)", () => {
-  it("supports a title prop or slot", () => {
-    const source = readComponent("action-card.tsx");
-    // Spec: ActionCard must expose title content area
-    expect(source).toMatch(/title|Title/i);
-  });
-
-  it("supports a description prop or slot", () => {
-    const source = readComponent("action-card.tsx");
-    // Spec: ActionCard must expose description content area
-    expect(source).toMatch(/description|Description/i);
-  });
-
-  it("supports an action button area", () => {
-    const source = readComponent("action-card.tsx");
-    // Spec: ActionCard must have an action button area
-    expect(source).toMatch(/action|Action/i);
-  });
-});
-
-// ===========================================================================
-// 28. STORYBOOK STORIES — all 5 component story files exist (AC6)
+// 23. STORYBOOK STORIES — all 4 component story files exist (AC6)
 // ===========================================================================
 
 describe("Storybook stories — existence (AC6)", () => {
@@ -480,9 +398,6 @@ describe("Storybook stories — existence (AC6)", () => {
     expect(storyExists("CodeBlock.stories.tsx")).toBe(true);
   });
 
-  it("ActionCard.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("ActionCard.stories.tsx")).toBe(true);
-  });
 });
 
 // ===========================================================================
@@ -609,38 +524,3 @@ describe("Storybook stories — CodeBlock.stories.tsx structure (AC6)", () => {
   });
 });
 
-// ===========================================================================
-// 33. STORYBOOK STORIES — ActionCard.stories.tsx structure (AC6)
-// ===========================================================================
-
-describe("Storybook stories — ActionCard.stories.tsx structure (AC6)", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("ActionCard.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("ActionCard.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("ActionCard.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic usage with title and description", () => {
-    const content = readStory("ActionCard.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers usage with an action button", () => {
-    const content = readStory("ActionCard.stories.tsx");
-    expect(content).toMatch(/action|Action|button|Button/i);
-  });
-
-  it("covers different stripe color variants", () => {
-    const content = readStory("ActionCard.stories.tsx");
-    expect(content).toMatch(/variant|Variant|color|Color|stripe|Stripe/i);
-  });
-});

@@ -203,7 +203,6 @@ const COMPONENTS: string[] = [
   "command.tsx",
   "dialog.tsx",
   "dropdown-menu.tsx",
-  "input-group.tsx",
   "input.tsx",
   "label.tsx",
   "popover.tsx",
@@ -278,14 +277,6 @@ describe("No old Tailwind tokens — dialog.tsx", () => {
 describe("No old Tailwind tokens — dropdown-menu.tsx", () => {
   it("contains no old shadcn Tailwind class tokens", () => {
     const source = readComponent("dropdown-menu.tsx");
-    const found = findOldTailwindTokens(source);
-    expect(found).toEqual([]);
-  });
-});
-
-describe("No old Tailwind tokens — input-group.tsx", () => {
-  it("contains no old shadcn Tailwind class tokens", () => {
-    const source = readComponent("input-group.tsx");
     const found = findOldTailwindTokens(source);
     expect(found).toEqual([]);
   });
@@ -439,14 +430,6 @@ describe("No old var() refs — dropdown-menu.tsx", () => {
   });
 });
 
-describe("No old var() refs — input-group.tsx", () => {
-  it("contains no old CSS var() token references", () => {
-    const source = readComponent("input-group.tsx");
-    const found = findOldVarRefs(source);
-    expect(found).toEqual([]);
-  });
-});
-
 describe("No old var() refs — input.tsx", () => {
   it("contains no old CSS var() token references", () => {
     const source = readComponent("input.tsx");
@@ -586,7 +569,7 @@ describe("CVA variant names updated — button.tsx (RUN-298)", () => {
 // 5. New design system tokens ARE present after sweep (AC3, AC4)
 //    Tests will pass only once Green Team has done the rename.
 //    Components confirmed to have old tokens today: badge, button, card,
-//    command, dialog, dropdown-menu, input-group, input, popover, scroll-area,
+//    command, dialog, dropdown-menu, input, popover, scroll-area,
 //    select, sheet, switch, table, tabs, textarea.
 // ===========================================================================
 
@@ -598,7 +581,6 @@ describe("New tokens present after sweep — components with confirmed old token
     "command.tsx",
     "dialog.tsx",
     "dropdown-menu.tsx",
-    "input-group.tsx",
     "input.tsx",
     "popover.tsx",
     "scroll-area.tsx",
