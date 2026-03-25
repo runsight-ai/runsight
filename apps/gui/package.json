@@ -13,7 +13,9 @@
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test": "playwright test",
     "generate:types": "bash ../../scripts/generate-types.sh",
-    "check:types-fresh": "bash ../../scripts/check-types-fresh.sh"
+    "check:types-fresh": "bash ../../scripts/check-types-fresh.sh",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
@@ -39,6 +41,9 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "@storybook/addon-essentials": "^8.6.14",
+    "@storybook/blocks": "^8.6.14",
+    "@storybook/react-vite": "^8.6.18",
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/vite": "^4",
     "@types/js-yaml": "^4.0.9",
@@ -52,6 +57,7 @@
     "js-yaml": "^4.1.1",
     "openapi-typescript": "^7.13.0",
     "shadcn": "^4.0.2",
+    "storybook": "^8.6.18",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite": "^6.0.0",
