@@ -164,6 +164,7 @@
       <signature>Function RunRepository.update_node</signature>
       <signature>Function RunRepository.create_log</signature>
       <signature>Function RunRepository.list_logs_for_run</signature>
+      <signature>Function RunRepository.get_baseline</signature>
     </file>
     <file path="./apps/api/src/runsight_api/domain/__init__.py">
     </file>
@@ -176,6 +177,7 @@
       <signature>Class RunStatus</signature>
       <signature>Class Run</signature>
       <signature>Class RunNode</signature>
+      <signature>Class BaselineStats</signature>
     </file>
     <file path="./apps/api/src/runsight_api/domain/entities/settings.py">
       <signature>Class AppSettingsConfig</signature>
@@ -559,6 +561,33 @@
       <signature>Function TestScaffoldLogging.test_logs_created_message_for_new_project</signature>
       <signature>Function TestScaffoldLogging.test_logs_found_message_for_existing_project</signature>
     </file>
+    <file path="./apps/api/tests/data/test_baseline_query.py">
+      <signature>Function _import_baseline_stats</signature>
+      <signature>Function _import_run_repository</signature>
+      <signature>Function db_session</signature>
+      <signature>Class TestBaselineStatsModel</signature>
+      <signature>Function TestBaselineStatsModel.test_can_import</signature>
+      <signature>Function TestBaselineStatsModel.test_has_required_fields</signature>
+      <signature>Function TestBaselineStatsModel.test_avg_score_can_be_none</signature>
+      <signature>Class TestGetBaselineExists</signature>
+      <signature>Function TestGetBaselineExists.test_method_exists_on_run_repository</signature>
+      <signature>Class TestGetBaselineNoData</signature>
+      <signature>Function TestGetBaselineNoData.test_returns_none_when_no_matching_nodes</signature>
+      <signature>Class TestGetBaselineAverages</signature>
+      <signature>Function TestGetBaselineAverages._seed_nodes</signature>
+      <signature>Function TestGetBaselineAverages.test_returns_correct_avg_cost</signature>
+      <signature>Function TestGetBaselineAverages.test_returns_correct_avg_tokens</signature>
+      <signature>Function TestGetBaselineAverages.test_returns_correct_avg_score</signature>
+      <signature>Function TestGetBaselineAverages.test_avg_score_none_when_no_eval_scores</signature>
+      <signature>Function TestGetBaselineAverages.test_returns_correct_run_count</signature>
+      <signature>Class TestGetBaselineFiltering</signature>
+      <signature>Function TestGetBaselineFiltering._seed_mixed_nodes</signature>
+      <signature>Function TestGetBaselineFiltering.test_filters_by_soul_id_and_version</signature>
+      <signature>Function TestGetBaselineFiltering.test_different_version_returns_different_stats</signature>
+      <signature>Class TestGetBaselineLimit</signature>
+      <signature>Function TestGetBaselineLimit.test_limit_restricts_node_count</signature>
+      <signature>Function TestGetBaselineLimit.test_default_limit_is_100</signature>
+    </file>
     <file path="./apps/api/tests/data/test_filesystem.py">
       <signature>Function test_workflow_repository</signature>
       <signature>Function test_workflow_create_does_not_mutate_input</signature>
@@ -650,6 +679,32 @@
       <signature>Class TestCreateRunUsesWorkflowName</signature>
       <signature>Function TestCreateRunUsesWorkflowName.test_create_run_sets_workflow_name_from_entity</signature>
       <signature>Function TestCreateRunUsesWorkflowName.test_create_run_uses_name_not_id</signature>
+    </file>
+    <file path="./apps/api/tests/domain/test_run_node_eval_fields.py">
+      <signature>Function db_session</signature>
+      <signature>Class TestRunNodeFieldExistence</signature>
+      <signature>Function TestRunNodeFieldExistence.test_has_prompt_hash_field</signature>
+      <signature>Function TestRunNodeFieldExistence.test_has_soul_version_field</signature>
+      <signature>Function TestRunNodeFieldExistence.test_has_eval_score_field</signature>
+      <signature>Function TestRunNodeFieldExistence.test_has_eval_passed_field</signature>
+      <signature>Function TestRunNodeFieldExistence.test_has_eval_results_field</signature>
+      <signature>Class TestRunNodeFieldDefaults</signature>
+      <signature>Function TestRunNodeFieldDefaults.test_prompt_hash_defaults_to_none</signature>
+      <signature>Function TestRunNodeFieldDefaults.test_soul_version_defaults_to_none</signature>
+      <signature>Function TestRunNodeFieldDefaults.test_eval_score_defaults_to_none</signature>
+      <signature>Function TestRunNodeFieldDefaults.test_eval_passed_defaults_to_none</signature>
+      <signature>Function TestRunNodeFieldDefaults.test_eval_results_defaults_to_none</signature>
+      <signature>Class TestRunNodeFieldCreation</signature>
+      <signature>Function TestRunNodeFieldCreation.test_create_with_prompt_hash</signature>
+      <signature>Function TestRunNodeFieldCreation.test_create_with_soul_version</signature>
+      <signature>Function TestRunNodeFieldCreation.test_create_with_eval_score</signature>
+      <signature>Function TestRunNodeFieldCreation.test_create_with_eval_passed</signature>
+      <signature>Function TestRunNodeFieldCreation.test_create_with_eval_results_dict</signature>
+      <signature>Class TestRunNodeFieldPersistence</signature>
+      <signature>Function TestRunNodeFieldPersistence.test_prompt_hash_persists</signature>
+      <signature>Function TestRunNodeFieldPersistence.test_soul_version_persists</signature>
+      <signature>Function TestRunNodeFieldPersistence.test_eval_fields_persist</signature>
+      <signature>Function TestRunNodeFieldPersistence.test_none_fields_persist_as_null</signature>
     </file>
     <file path="./apps/api/tests/logic/test_artifact_cleanup_observer.py">
       <signature>Function _import_cleanup_observer</signature>
@@ -768,6 +823,25 @@
       <signature>Function TestCleanup.test_run_observer_module_deleted</signature>
       <signature>Function TestCleanup.test_compute_summaries_removed_from_run_service</signature>
       <signature>Function TestCleanup.test_get_node_summary_exists_on_run_service</signature>
+    </file>
+    <file path="./apps/api/tests/logic/test_execution_observer_soul.py">
+      <signature>Function _import_execution_observer</signature>
+      <signature>Function db_engine</signature>
+      <signature>Function seed_run</signature>
+      <signature>Function observer</signature>
+      <signature>Function sample_soul</signature>
+      <signature>Class TestOnBlockStartSoul</signature>
+      <signature>Function TestOnBlockStartSoul.test_on_block_start_with_soul_does_not_error</signature>
+      <signature>Function TestOnBlockStartSoul.test_on_block_start_with_none_soul_does_not_error</signature>
+      <signature>Function TestOnBlockStartSoul.test_on_block_start_without_soul_kwarg_backward_compat</signature>
+      <signature>Class TestOnBlockCompleteSoulHashes</signature>
+      <signature>Function TestOnBlockCompleteSoulHashes._start_and_complete_with_soul</signature>
+      <signature>Function TestOnBlockCompleteSoulHashes.test_populates_prompt_hash_from_soul</signature>
+      <signature>Function TestOnBlockCompleteSoulHashes.test_populates_soul_version_from_soul</signature>
+      <signature>Function TestOnBlockCompleteSoulHashes.test_none_soul_leaves_hashes_none</signature>
+      <signature>Function TestOnBlockCompleteSoulHashes.test_omitted_soul_leaves_hashes_none</signature>
+      <signature>Class TestHashVariation</signature>
+      <signature>Function TestHashVariation.test_different_soul_produces_different_hashes</signature>
     </file>
     <file path="./apps/api/tests/logic/test_execution_service.py">
       <signature>Function _import_execution_service</signature>
@@ -2052,6 +2126,10 @@
     </file>
     <file path="./apps/gui/screenshot.cjs">
     </file>
+    <file path="./apps/gui/scripts/audit-storybook.mjs">
+    </file>
+    <file path="./apps/gui/scripts/visual-compare.mjs">
+    </file>
     <file path="./apps/gui/skeleton.xml">
     </file>
     <file path="./apps/gui/src/api/client.ts">
@@ -2148,6 +2226,14 @@
       <signature>Function findOldVarRefs</signature>
       <signature>Function hasNewTokens</signature>
     </file>
+    <file path="./apps/gui/src/components/ui/__tests__/composites.test.ts">
+      <signature>Function componentExists</signature>
+      <signature>Function readComponent</signature>
+      <signature>Function sharedExists</signature>
+      <signature>Function readShared</signature>
+      <signature>Function storyExists</signature>
+      <signature>Function readStory</signature>
+    </file>
     <file path="./apps/gui/src/components/ui/__tests__/tier1NewPrimitives.test.ts">
       <signature>Function componentExists</signature>
       <signature>Function readComponent</signature>
@@ -2188,31 +2274,45 @@
       <signature>Interface ActionCardProps</signature>
       <signature>Method cn</signature>
     </file>
+    <file path="./apps/gui/src/components/ui/app-shell.tsx">
+      <signature>Interface AppShellProps</signature>
+      <signature>Method cn</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/avatar.tsx">
+      <signature>Interface AvatarProps</signature>
+      <signature>Method cn</signature>
+    </file>
     <file path="./apps/gui/src/components/ui/badge.tsx">
+      <signature>Interface BadgeProps</signature>
       <signature>Function BadgeDot</signature>
       <signature>Function Badge</signature>
     </file>
     <file path="./apps/gui/src/components/ui/breadcrumb.tsx">
       <signature>Interface BreadcrumbProps</signature>
       <signature>Function Breadcrumb</signature>
-      <signature>Function BreadcrumbList</signature>
-      <signature>Function BreadcrumbItem</signature>
-      <signature>Interface BreadcrumbLinkProps</signature>
-      <signature>Function BreadcrumbLink</signature>
-      <signature>Function BreadcrumbPage</signature>
-      <signature>Function BreadcrumbSeparator</signature>
-      <signature>Function BreadcrumbEllipsis</signature>
+      <signature>Method Breadcrumb.cn</signature>
+      <signature>Function Breadcrumb.BreadcrumbItem</signature>
+      <signature>Interface Breadcrumb.BreadcrumbLinkProps</signature>
+      <signature>Function Breadcrumb.BreadcrumbLink</signature>
+      <signature>Interface Breadcrumb.BreadcrumbPageProps</signature>
+      <signature>Function Breadcrumb.BreadcrumbPage</signature>
+      <signature>Function Breadcrumb.BreadcrumbSeparator</signature>
+      <signature>Function Breadcrumb.BreadcrumbEllipsis</signature>
     </file>
     <file path="./apps/gui/src/components/ui/button.tsx">
       <signature>Interface ButtonProps</signature>
-      <signature>Method cn</signature>
+      <signature>Function Button</signature>
+      <signature>Method Button.cn</signature>
     </file>
     <file path="./apps/gui/src/components/ui/card.tsx">
+      <signature>Interface CardProps</signature>
+      <signature>Function Card</signature>
       <signature>Method cn</signature>
+      <signature>Function CardDescription</signature>
       <signature>Function CardAction</signature>
-      <signature>Method CardAction.cn</signature>
-      <signature>Function CardAction.CardFooter</signature>
-      <signature>Method CardAction.CardFooter.cn</signature>
+      <signature>Function CardContent</signature>
+      <signature>Function CardFooter</signature>
+      <signature>Method CardFooter.cn</signature>
     </file>
     <file path="./apps/gui/src/components/ui/checkbox.tsx">
       <signature>Interface CheckboxProps</signature>
@@ -2220,12 +2320,15 @@
     <file path="./apps/gui/src/components/ui/code-block.tsx">
       <signature>Interface CodeBlockProps</signature>
       <signature>Function handleCopy</signature>
-      <signature>Method cn</signature>
     </file>
     <file path="./apps/gui/src/components/ui/command.tsx">
-      <signature>Function CommandGroup</signature>
-      <signature>Function CommandItem</signature>
       <signature>Method cn</signature>
+      <signature>Function CommandInput</signature>
+      <signature>Function CommandInput.CommandGroup</signature>
+      <signature>Function CommandInput.CommandSeparator</signature>
+      <signature>Function CommandInput.CommandItem</signature>
+      <signature>Function CommandInput.CommandShortcut</signature>
+      <signature>Method CommandInput.CommandShortcut.cn</signature>
     </file>
     <file path="./apps/gui/src/components/ui/dialog.tsx">
       <signature>Function Dialog</signature>
@@ -2234,27 +2337,52 @@
       <signature>Function DialogClose</signature>
       <signature>Method cn</signature>
     </file>
+    <file path="./apps/gui/src/components/ui/divider.tsx">
+      <signature>Interface DividerProps</signature>
+      <signature>Function Divider</signature>
+    </file>
     <file path="./apps/gui/src/components/ui/dropdown-menu.tsx">
       <signature>Function DropdownMenu</signature>
       <signature>Function DropdownMenuPortal</signature>
       <signature>Function DropdownMenuTrigger</signature>
-      <signature>Function DropdownMenuCheckboxItem</signature>
-      <signature>Method cn</signature>
+      <signature>Function DropdownMenuContent</signature>
+      <signature>Function DropdownMenuGroup</signature>
+      <signature>Function DropdownMenuLabel</signature>
+      <signature>Function DropdownMenuSub</signature>
+      <signature>Function DropdownMenuSubTrigger</signature>
+      <signature>Function DropdownMenuShortcut</signature>
+      <signature>Method DropdownMenuShortcut.cn</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/icon.tsx">
+      <signature>Interface IconProps</signature>
+      <signature>Function Icon</signature>
     </file>
     <file path="./apps/gui/src/components/ui/input-group.tsx">
       <signature>Method cn</signature>
     </file>
     <file path="./apps/gui/src/components/ui/input.tsx">
+      <signature>Interface InputProps</signature>
       <signature>Function Input</signature>
     </file>
+    <file path="./apps/gui/src/components/ui/key-value.tsx">
+      <signature>Interface KeyValueProps</signature>
+      <signature>Method cn</signature>
+    </file>
     <file path="./apps/gui/src/components/ui/label.tsx">
+      <signature>Interface LabelProps</signature>
+      <signature>Method cn</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/link.tsx">
+      <signature>Interface LinkProps</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/node-card.tsx">
+      <signature>Interface NodeCardPort</signature>
+      <signature>Interface NodeCardSoul</signature>
       <signature>Method cn</signature>
     </file>
     <file path="./apps/gui/src/components/ui/pagination.tsx">
       <signature>Interface PaginationProps</signature>
-      <signature>Method cn</signature>
       <signature>Function PaginationEllipsis</signature>
-      <signature>Method PaginationEllipsis.cn</signature>
       <signature>Function buildPageList</signature>
     </file>
     <file path="./apps/gui/src/components/ui/popover.tsx">
@@ -2300,8 +2428,16 @@
       <signature>Function SheetTitle</signature>
       <signature>Function SheetDescription</signature>
     </file>
+    <file path="./apps/gui/src/components/ui/sidebar.tsx">
+      <signature>Interface SidebarNavItem</signature>
+      <signature>Interface SidebarSection</signature>
+      <signature>Interface SidebarProps</signature>
+      <signature>Method cn</signature>
+      <signature>Method renderItem</signature>
+    </file>
     <file path="./apps/gui/src/components/ui/skeleton.tsx">
       <signature>Interface SkeletonProps</signature>
+      <signature>Function Skeleton</signature>
     </file>
     <file path="./apps/gui/src/components/ui/slider.tsx">
       <signature>Interface SliderProps</signature>
@@ -2317,26 +2453,35 @@
     </file>
     <file path="./apps/gui/src/components/ui/status-dot.tsx">
       <signature>Interface StatusDotProps</signature>
+      <signature>Function StatusDot</signature>
     </file>
     <file path="./apps/gui/src/components/ui/switch.tsx">
-      <signature>Function Switch</signature>
+      <signature>Interface SwitchProps</signature>
     </file>
     <file path="./apps/gui/src/components/ui/table.tsx">
       <signature>Function Table</signature>
+      <signature>Function TableHeader</signature>
+      <signature>Function TableBody</signature>
+      <signature>Function TableFooter</signature>
       <signature>Method cn</signature>
     </file>
     <file path="./apps/gui/src/components/ui/tabs.tsx">
-      <signature>Method cn</signature>
+      <signature>Function Tabs</signature>
+      <signature>Function TabsList</signature>
+      <signature>Function TabsTrigger</signature>
+      <signature>Function TabBadge</signature>
     </file>
     <file path="./apps/gui/src/components/ui/textarea.tsx">
-      <signature>Method cn</signature>
+      <signature>Interface TextareaProps</signature>
+      <signature>Function Textarea</signature>
+      <signature>Method Textarea.cn</signature>
     </file>
     <file path="./apps/gui/src/components/ui/toast.tsx">
       <signature>Interface ToastProps</signature>
     </file>
     <file path="./apps/gui/src/components/ui/tooltip.tsx">
       <signature>Function TooltipContent</signature>
-      <signature>Method TooltipContent.cn</signature>
+      <signature>Interface SoulTipProps</signature>
     </file>
     <file path="./apps/gui/src/features/__tests__/screenTokenSweep.test.ts">
       <signature>Function readFile</signature>
@@ -2642,6 +2787,11 @@
     </file>
     <file path="./apps/gui/src/stories/ActionCard.stories.tsx">
     </file>
+    <file path="./apps/gui/src/stories/AppShell.stories.tsx">
+      <signature>Function Placeholder</signature>
+    </file>
+    <file path="./apps/gui/src/stories/Avatar.stories.tsx">
+    </file>
     <file path="./apps/gui/src/stories/Badge.stories.tsx">
     </file>
     <file path="./apps/gui/src/stories/Breadcrumb.stories.tsx">
@@ -2660,13 +2810,25 @@
     </file>
     <file path="./apps/gui/src/stories/Dialog.stories.tsx">
     </file>
+    <file path="./apps/gui/src/stories/Divider.stories.tsx">
+    </file>
     <file path="./apps/gui/src/stories/DropdownMenu.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/EmptyState.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Icon.stories.tsx">
     </file>
     <file path="./apps/gui/src/stories/Input.stories.tsx">
     </file>
     <file path="./apps/gui/src/stories/InputGroup.stories.tsx">
     </file>
+    <file path="./apps/gui/src/stories/KeyValue.stories.tsx">
+    </file>
     <file path="./apps/gui/src/stories/Label.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Link.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/NodeCard.stories.tsx">
     </file>
     <file path="./apps/gui/src/stories/Pagination.stories.tsx">
     </file>
@@ -2685,7 +2847,6 @@
     <file path="./apps/gui/src/stories/Sheet.stories.tsx">
     </file>
     <file path="./apps/gui/src/stories/Sidebar.stories.tsx">
-      <signature>Interface SidebarDemoProps</signature>
     </file>
     <file path="./apps/gui/src/stories/Skeleton.stories.tsx">
     </file>
@@ -2708,17 +2869,29 @@
     <file path="./apps/gui/src/stories/Toast.stories.tsx">
     </file>
     <file path="./apps/gui/src/stories/Tooltip.stories.tsx">
+      <signature>Interface TooltipDemoProps</signature>
     </file>
     <file path="./apps/gui/src/stories/__tests__/storybookSetup.test.ts">
       <signature>Function readFile</signature>
       <signature>Function readPackageJson</signature>
+    </file>
+    <file path="./apps/gui/src/styles/__tests__/themeBridge.test.ts">
+      <signature>Function readGlobals</signature>
+      <signature>Function extractThemeInlineBlock</signature>
+      <signature>Function collectTsxFiles</signature>
+      <signature>Function allComponentFiles</signature>
+      <signature>Function readAllComponents</signature>
     </file>
     <file path="./apps/gui/src/styles/__tests__/tokenMigration.test.ts">
       <signature>Function readGlobals</signature>
       <signature>Function extractThemeInlineBlock</signature>
       <signature>Function extractRootBlock</signature>
     </file>
+    <file path="./apps/gui/src/styles/components.css">
+    </file>
     <file path="./apps/gui/src/styles/globals.css">
+    </file>
+    <file path="./apps/gui/src/styles/patterns.css">
     </file>
     <file path="./apps/gui/src/types/generated/__tests__/codegen.test.ts">
     </file>
@@ -2826,6 +2999,86 @@
       <signature>Function InMemoryArtifactStore.read</signature>
       <signature>Function InMemoryArtifactStore.list_artifacts</signature>
       <signature>Function InMemoryArtifactStore.cleanup</signature>
+    </file>
+    <file path="./libs/core/src/runsight_core/assertions/__init__.py">
+    </file>
+    <file path="./libs/core/src/runsight_core/assertions/base.py">
+      <signature>Class TokenUsage</signature>
+      <signature>Class GradingResult</signature>
+      <signature>Class AssertionContext</signature>
+      <signature>Class Assertion</signature>
+      <signature>Function Assertion.evaluate</signature>
+    </file>
+    <file path="./libs/core/src/runsight_core/assertions/deterministic/__init__.py">
+    </file>
+    <file path="./libs/core/src/runsight_core/assertions/deterministic/linguistic.py">
+      <signature>Class LevenshteinAssertion</signature>
+      <signature>Function LevenshteinAssertion.__init__</signature>
+      <signature>Function LevenshteinAssertion.evaluate</signature>
+      <signature>Class BleuAssertion</signature>
+      <signature>Function BleuAssertion.__init__</signature>
+      <signature>Function BleuAssertion.evaluate</signature>
+      <signature>Class RougeNAssertion</signature>
+      <signature>Function RougeNAssertion.__init__</signature>
+      <signature>Function RougeNAssertion.evaluate</signature>
+      <signature>Function _get_ngrams</signature>
+      <signature>Function _compute_bleu</signature>
+    </file>
+    <file path="./libs/core/src/runsight_core/assertions/deterministic/performance.py">
+      <signature>Class CostAssertion</signature>
+      <signature>Function CostAssertion.__init__</signature>
+      <signature>Function CostAssertion.evaluate</signature>
+      <signature>Class LatencyAssertion</signature>
+      <signature>Function LatencyAssertion.__init__</signature>
+      <signature>Function LatencyAssertion.evaluate</signature>
+    </file>
+    <file path="./libs/core/src/runsight_core/assertions/deterministic/string.py">
+      <signature>Class EqualsAssertion</signature>
+      <signature>Function EqualsAssertion.__init__</signature>
+      <signature>Function EqualsAssertion.evaluate</signature>
+      <signature>Class ContainsAssertion</signature>
+      <signature>Function ContainsAssertion.__init__</signature>
+      <signature>Function ContainsAssertion.evaluate</signature>
+      <signature>Class IContainsAssertion</signature>
+      <signature>Function IContainsAssertion.__init__</signature>
+      <signature>Function IContainsAssertion.evaluate</signature>
+      <signature>Class ContainsAllAssertion</signature>
+      <signature>Function ContainsAllAssertion.__init__</signature>
+      <signature>Function ContainsAllAssertion.evaluate</signature>
+      <signature>Class ContainsAnyAssertion</signature>
+      <signature>Function ContainsAnyAssertion.__init__</signature>
+      <signature>Function ContainsAnyAssertion.evaluate</signature>
+      <signature>Class StartsWithAssertion</signature>
+      <signature>Function StartsWithAssertion.__init__</signature>
+      <signature>Function StartsWithAssertion.evaluate</signature>
+      <signature>Class RegexAssertion</signature>
+      <signature>Function RegexAssertion.__init__</signature>
+      <signature>Function RegexAssertion.evaluate</signature>
+      <signature>Class WordCountAssertion</signature>
+      <signature>Function WordCountAssertion.__init__</signature>
+      <signature>Function WordCountAssertion.evaluate</signature>
+    </file>
+    <file path="./libs/core/src/runsight_core/assertions/deterministic/structural.py">
+      <signature>Class IsJsonAssertion</signature>
+      <signature>Function IsJsonAssertion.__init__</signature>
+      <signature>Function IsJsonAssertion.evaluate</signature>
+      <signature>Class ContainsJsonAssertion</signature>
+      <signature>Function ContainsJsonAssertion.__init__</signature>
+      <signature>Function ContainsJsonAssertion.evaluate</signature>
+      <signature>Function _extract_json</signature>
+    </file>
+    <file path="./libs/core/src/runsight_core/assertions/registry.py">
+      <signature>Function register_assertion</signature>
+      <signature>Function _get_handler</signature>
+      <signature>Function run_assertion</signature>
+      <signature>Function run_assertions</signature>
+      <signature>Function run_assertions._run_one</signature>
+    </file>
+    <file path="./libs/core/src/runsight_core/assertions/scoring.py">
+      <signature>Class AssertionsResult</signature>
+      <signature>Function AssertionsResult.add_result</signature>
+      <signature>Function AssertionsResult.aggregate_score</signature>
+      <signature>Function AssertionsResult.passed</signature>
     </file>
     <file path="./libs/core/src/runsight_core/blocks/__init__.py">
       <signature>Function _auto_discover_blocks</signature>
@@ -2978,6 +3231,8 @@
       <signature>Function prune_messages</signature>
     </file>
     <file path="./libs/core/src/runsight_core/observer.py">
+      <signature>Function compute_prompt_hash</signature>
+      <signature>Function compute_soul_version</signature>
       <signature>Class WorkflowObserver</signature>
       <signature>Function WorkflowObserver.on_workflow_start</signature>
       <signature>Function WorkflowObserver.on_block_start</signature>
@@ -3127,6 +3382,295 @@
       <signature>Class RunsightWorkflowFile</signature>
       <signature>Function build_block_def_union</signature>
       <signature>Function rebuild_block_def_union</signature>
+    </file>
+    <file path="./libs/core/tests/assertions/__init__.py">
+    </file>
+    <file path="./libs/core/tests/assertions/test_base.py">
+      <signature>Class TestTokenUsage</signature>
+      <signature>Function TestTokenUsage.test_defaults_to_zero</signature>
+      <signature>Function TestTokenUsage.test_custom_values</signature>
+      <signature>Function TestTokenUsage.test_json_serializable</signature>
+      <signature>Class TestGradingResult</signature>
+      <signature>Function TestGradingResult.test_required_fields</signature>
+      <signature>Function TestGradingResult.test_default_optional_fields</signature>
+      <signature>Function TestGradingResult.test_named_scores</signature>
+      <signature>Function TestGradingResult.test_tokens_used</signature>
+      <signature>Function TestGradingResult.test_component_results_nesting</signature>
+      <signature>Function TestGradingResult.test_assertion_type_field</signature>
+      <signature>Function TestGradingResult.test_metadata_field</signature>
+      <signature>Function TestGradingResult.test_json_serializable</signature>
+      <signature>Function TestGradingResult.test_score_boundary_zero</signature>
+      <signature>Function TestGradingResult.test_score_boundary_one</signature>
+      <signature>Class TestAssertionContext</signature>
+      <signature>Function TestAssertionContext.test_all_fields_present</signature>
+      <signature>Function TestAssertionContext.test_json_serializable</signature>
+      <signature>Function TestAssertionContext.test_variables_supports_nested_dicts</signature>
+      <signature>Class TestAssertionProtocol</signature>
+      <signature>Function TestAssertionProtocol.test_protocol_requires_type_and_evaluate</signature>
+      <signature>Class TestAssertionProtocol.test_protocol_requires_type_and_evaluate.MyAssertion</signature>
+      <signature>Function TestAssertionProtocol.test_protocol_requires_type_and_evaluate.MyAssertion.evaluate</signature>
+      <signature>Function TestAssertionProtocol.test_protocol_rejects_missing_evaluate</signature>
+      <signature>Class TestAssertionProtocol.test_protocol_rejects_missing_evaluate.NotAnAssertion</signature>
+      <signature>Function TestAssertionProtocol.test_protocol_rejects_missing_type</signature>
+      <signature>Class TestAssertionProtocol.test_protocol_rejects_missing_type.NoType</signature>
+      <signature>Function TestAssertionProtocol.test_protocol_rejects_missing_type.NoType.evaluate</signature>
+      <signature>Function TestAssertionProtocol.test_evaluate_returns_grading_result</signature>
+      <signature>Class TestAssertionProtocol.test_evaluate_returns_grading_result.CheckAssertion</signature>
+      <signature>Function TestAssertionProtocol.test_evaluate_returns_grading_result.CheckAssertion.evaluate</signature>
+    </file>
+    <file path="./libs/core/tests/assertions/test_linguistic_assertions.py">
+      <signature>Function make_context</signature>
+      <signature>Class TestLevenshteinAssertion</signature>
+      <signature>Function TestLevenshteinAssertion.test_type_attribute</signature>
+      <signature>Function TestLevenshteinAssertion.test_identical_strings_pass</signature>
+      <signature>Function TestLevenshteinAssertion.test_within_threshold_passes</signature>
+      <signature>Function TestLevenshteinAssertion.test_exactly_at_threshold_passes</signature>
+      <signature>Function TestLevenshteinAssertion.test_exceeds_threshold_fails</signature>
+      <signature>Function TestLevenshteinAssertion.test_large_distance_fails</signature>
+      <signature>Function TestLevenshteinAssertion.test_default_threshold_is_five</signature>
+      <signature>Function TestLevenshteinAssertion.test_default_threshold_exceeds</signature>
+      <signature>Function TestLevenshteinAssertion.test_empty_output_and_empty_value</signature>
+      <signature>Function TestLevenshteinAssertion.test_empty_output_nonempty_value</signature>
+      <signature>Function TestLevenshteinAssertion.test_nonempty_output_empty_value</signature>
+      <signature>Function TestLevenshteinAssertion.test_long_identical_strings</signature>
+      <signature>Function TestLevenshteinAssertion.test_returns_grading_result</signature>
+      <signature>Function TestLevenshteinAssertion.test_reason_is_meaningful</signature>
+      <signature>Class TestBleuAssertion</signature>
+      <signature>Function TestBleuAssertion.test_type_attribute</signature>
+      <signature>Function TestBleuAssertion.test_identical_sentences_high_score</signature>
+      <signature>Function TestBleuAssertion.test_completely_different_sentences_low_score</signature>
+      <signature>Function TestBleuAssertion.test_partial_match_moderate_score</signature>
+      <signature>Function TestBleuAssertion.test_custom_threshold_high</signature>
+      <signature>Function TestBleuAssertion.test_custom_threshold_low_passes</signature>
+      <signature>Function TestBleuAssertion.test_default_threshold_is_half</signature>
+      <signature>Function TestBleuAssertion.test_default_threshold_fails_different</signature>
+      <signature>Function TestBleuAssertion.test_score_is_between_zero_and_one</signature>
+      <signature>Function TestBleuAssertion.test_score_continuous_not_binary</signature>
+      <signature>Function TestBleuAssertion.test_empty_output</signature>
+      <signature>Function TestBleuAssertion.test_empty_reference</signature>
+      <signature>Function TestBleuAssertion.test_returns_grading_result</signature>
+      <signature>Function TestBleuAssertion.test_reason_is_meaningful</signature>
+      <signature>Class TestRougeNAssertion</signature>
+      <signature>Function TestRougeNAssertion.test_type_attribute</signature>
+      <signature>Function TestRougeNAssertion.test_identical_text_passes</signature>
+      <signature>Function TestRougeNAssertion.test_high_overlap_passes</signature>
+      <signature>Function TestRougeNAssertion.test_completely_different_fails</signature>
+      <signature>Function TestRougeNAssertion.test_low_overlap_below_threshold</signature>
+      <signature>Function TestRougeNAssertion.test_default_threshold_is_075</signature>
+      <signature>Function TestRougeNAssertion.test_default_threshold_fails_different</signature>
+      <signature>Function TestRougeNAssertion.test_custom_threshold_low_passes</signature>
+      <signature>Function TestRougeNAssertion.test_custom_threshold_high_fails</signature>
+      <signature>Function TestRougeNAssertion.test_score_is_between_zero_and_one</signature>
+      <signature>Function TestRougeNAssertion.test_score_continuous_not_binary</signature>
+      <signature>Function TestRougeNAssertion.test_empty_output</signature>
+      <signature>Function TestRougeNAssertion.test_empty_reference</signature>
+      <signature>Function TestRougeNAssertion.test_returns_grading_result</signature>
+      <signature>Function TestRougeNAssertion.test_reason_is_meaningful</signature>
+    </file>
+    <file path="./libs/core/tests/assertions/test_performance_assertions.py">
+      <signature>Function make_context</signature>
+      <signature>Class TestCostAssertion</signature>
+      <signature>Function TestCostAssertion.test_type_attribute</signature>
+      <signature>Function TestCostAssertion.test_cost_below_threshold_passes</signature>
+      <signature>Function TestCostAssertion.test_cost_equal_threshold_passes</signature>
+      <signature>Function TestCostAssertion.test_cost_above_threshold_fails</signature>
+      <signature>Function TestCostAssertion.test_ignores_output_text</signature>
+      <signature>Function TestCostAssertion.test_zero_cost_passes</signature>
+      <signature>Function TestCostAssertion.test_zero_threshold</signature>
+      <signature>Function TestCostAssertion.test_zero_threshold_any_cost_fails</signature>
+      <signature>Function TestCostAssertion.test_returns_grading_result</signature>
+      <signature>Function TestCostAssertion.test_reason_is_meaningful</signature>
+      <signature>Class TestLatencyAssertion</signature>
+      <signature>Function TestLatencyAssertion.test_type_attribute</signature>
+      <signature>Function TestLatencyAssertion.test_latency_below_threshold_passes</signature>
+      <signature>Function TestLatencyAssertion.test_latency_equal_threshold_passes</signature>
+      <signature>Function TestLatencyAssertion.test_latency_above_threshold_fails</signature>
+      <signature>Function TestLatencyAssertion.test_ignores_output_text</signature>
+      <signature>Function TestLatencyAssertion.test_zero_latency_passes</signature>
+      <signature>Function TestLatencyAssertion.test_zero_threshold</signature>
+      <signature>Function TestLatencyAssertion.test_zero_threshold_any_latency_fails</signature>
+      <signature>Function TestLatencyAssertion.test_returns_grading_result</signature>
+      <signature>Function TestLatencyAssertion.test_reason_is_meaningful</signature>
+    </file>
+    <file path="./libs/core/tests/assertions/test_registry.py">
+      <signature>Function _make_context</signature>
+      <signature>Class _ContainsAssertion</signature>
+      <signature>Function _ContainsAssertion.evaluate</signature>
+      <signature>Function _ContainsAssertion.__init__</signature>
+      <signature>Class _EqualsAssertion</signature>
+      <signature>Function _EqualsAssertion.evaluate</signature>
+      <signature>Function _EqualsAssertion.__init__</signature>
+      <signature>Class TestRegistryDispatch</signature>
+      <signature>Function TestRegistryDispatch.test_register_and_dispatch_by_type</signature>
+      <signature>Function TestRegistryDispatch.test_dispatch_unknown_type_raises</signature>
+      <signature>Function TestRegistryDispatch.test_register_overwrites_existing</signature>
+      <signature>Class TestRegistryDispatch.test_register_overwrites_existing.AlternateContains</signature>
+      <signature>Function TestRegistryDispatch.test_register_overwrites_existing.AlternateContains.evaluate</signature>
+      <signature>Class TestNotPrefixHandling</signature>
+      <signature>Function TestNotPrefixHandling.test_not_prefix_inverts_score</signature>
+      <signature>Function TestNotPrefixHandling.test_not_prefix_inverts_passing_to_failing</signature>
+      <signature>Function TestNotPrefixHandling.test_not_prefix_with_partial_score</signature>
+      <signature>Class TestNotPrefixHandling.test_not_prefix_with_partial_score.SimilarityAssertion</signature>
+      <signature>Function TestNotPrefixHandling.test_not_prefix_with_partial_score.SimilarityAssertion.evaluate</signature>
+      <signature>Function TestNotPrefixHandling.test_not_prefix_unknown_base_type_raises</signature>
+      <signature>Class TestRunAssertion</signature>
+      <signature>Function TestRunAssertion.test_run_assertion_passes_value</signature>
+      <signature>Function TestRunAssertion.test_run_assertion_returns_grading_result</signature>
+      <signature>Function TestRunAssertion.test_run_assertion_accepts_threshold_and_weight_and_metric</signature>
+      <signature>Class TestRunAssertions</signature>
+      <signature>Function TestRunAssertions.test_run_assertions_returns_assertions_result</signature>
+      <signature>Function TestRunAssertions.test_run_assertions_multiple_assertions</signature>
+      <signature>Function TestRunAssertions.test_run_assertions_respects_weights</signature>
+      <signature>Function TestRunAssertions.test_run_assertions_default_concurrency_limit</signature>
+      <signature>Function TestRunAssertions.test_run_assertions_custom_concurrency_limit</signature>
+      <signature>Function TestRunAssertions.test_run_assertions_empty_config</signature>
+      <signature>Function TestRunAssertions.test_run_assertions_handles_not_prefix</signature>
+      <signature>Function TestRunAssertions.test_run_assertions_weight_zero_in_config</signature>
+    </file>
+    <file path="./libs/core/tests/assertions/test_scoring.py">
+      <signature>Class TestAssertionsResultAddResult</signature>
+      <signature>Function TestAssertionsResultAddResult.test_add_single_result</signature>
+      <signature>Function TestAssertionsResultAddResult.test_add_multiple_results</signature>
+      <signature>Function TestAssertionsResultAddResult.test_add_result_accumulates_total_score</signature>
+      <signature>Function TestAssertionsResultAddResult.test_add_result_accumulates_total_weight</signature>
+      <signature>Function TestAssertionsResultAddResult.test_add_result_collects_named_scores</signature>
+      <signature>Class TestAssertionsResultAggregateScore</signature>
+      <signature>Function TestAssertionsResultAggregateScore.test_single_result_aggregate</signature>
+      <signature>Function TestAssertionsResultAggregateScore.test_weighted_average</signature>
+      <signature>Function TestAssertionsResultAggregateScore.test_equal_weights</signature>
+      <signature>Function TestAssertionsResultAggregateScore.test_zero_total_weight_returns_zero</signature>
+      <signature>Function TestAssertionsResultAggregateScore.test_weight_zero_excluded_from_aggregate</signature>
+      <signature>Function TestAssertionsResultAggregateScore.test_weight_zero_still_contributes_named_scores</signature>
+      <signature>Class TestAssertionsResultPassed</signature>
+      <signature>Function TestAssertionsResultPassed.test_passed_with_threshold_above</signature>
+      <signature>Function TestAssertionsResultPassed.test_passed_with_threshold_below</signature>
+      <signature>Function TestAssertionsResultPassed.test_passed_with_threshold_exact</signature>
+      <signature>Function TestAssertionsResultPassed.test_passed_no_threshold_all_passed</signature>
+      <signature>Function TestAssertionsResultPassed.test_passed_no_threshold_one_failed</signature>
+      <signature>Function TestAssertionsResultPassed.test_passed_default_threshold_is_none</signature>
+      <signature>Function TestAssertionsResultPassed.test_passed_no_results</signature>
+      <signature>Class TestAssertionsResultInitialState</signature>
+      <signature>Function TestAssertionsResultInitialState.test_initial_total_score_is_zero</signature>
+      <signature>Function TestAssertionsResultInitialState.test_initial_total_weight_is_zero</signature>
+      <signature>Function TestAssertionsResultInitialState.test_initial_results_is_empty</signature>
+      <signature>Function TestAssertionsResultInitialState.test_initial_named_scores_is_empty</signature>
+      <signature>Function TestAssertionsResultInitialState.test_instances_do_not_share_mutable_defaults</signature>
+    </file>
+    <file path="./libs/core/tests/assertions/test_string_assertions.py">
+      <signature>Function make_context</signature>
+      <signature>Class TestEqualsAssertion</signature>
+      <signature>Function TestEqualsAssertion.test_type_attribute</signature>
+      <signature>Function TestEqualsAssertion.test_exact_match_passes</signature>
+      <signature>Function TestEqualsAssertion.test_mismatch_fails</signature>
+      <signature>Function TestEqualsAssertion.test_case_sensitive</signature>
+      <signature>Function TestEqualsAssertion.test_empty_string_equals_empty</signature>
+      <signature>Function TestEqualsAssertion.test_empty_output_fails_nonempty_value</signature>
+      <signature>Function TestEqualsAssertion.test_json_deep_equal</signature>
+      <signature>Function TestEqualsAssertion.test_json_deep_equal_fails_different_values</signature>
+      <signature>Function TestEqualsAssertion.test_returns_grading_result</signature>
+      <signature>Function TestEqualsAssertion.test_reason_is_meaningful</signature>
+      <signature>Class TestContainsAssertion</signature>
+      <signature>Function TestContainsAssertion.test_type_attribute</signature>
+      <signature>Function TestContainsAssertion.test_substring_present_passes</signature>
+      <signature>Function TestContainsAssertion.test_substring_absent_fails</signature>
+      <signature>Function TestContainsAssertion.test_case_sensitive</signature>
+      <signature>Function TestContainsAssertion.test_empty_output</signature>
+      <signature>Function TestContainsAssertion.test_empty_value_always_passes</signature>
+      <signature>Function TestContainsAssertion.test_handles_numbers_as_value</signature>
+      <signature>Function TestContainsAssertion.test_returns_grading_result_with_reason</signature>
+      <signature>Class TestIContainsAssertion</signature>
+      <signature>Function TestIContainsAssertion.test_type_attribute</signature>
+      <signature>Function TestIContainsAssertion.test_case_insensitive_match</signature>
+      <signature>Function TestIContainsAssertion.test_case_insensitive_absent</signature>
+      <signature>Function TestIContainsAssertion.test_mixed_case_both_sides</signature>
+      <signature>Function TestIContainsAssertion.test_empty_output</signature>
+      <signature>Function TestIContainsAssertion.test_returns_grading_result</signature>
+      <signature>Class TestContainsAllAssertion</signature>
+      <signature>Function TestContainsAllAssertion.test_type_attribute</signature>
+      <signature>Function TestContainsAllAssertion.test_all_present_passes</signature>
+      <signature>Function TestContainsAllAssertion.test_one_missing_fails</signature>
+      <signature>Function TestContainsAllAssertion.test_all_missing_fails</signature>
+      <signature>Function TestContainsAllAssertion.test_empty_list_passes</signature>
+      <signature>Function TestContainsAllAssertion.test_empty_output</signature>
+      <signature>Function TestContainsAllAssertion.test_returns_grading_result_with_reason</signature>
+      <signature>Class TestContainsAnyAssertion</signature>
+      <signature>Function TestContainsAnyAssertion.test_type_attribute</signature>
+      <signature>Function TestContainsAnyAssertion.test_one_present_passes</signature>
+      <signature>Function TestContainsAnyAssertion.test_none_present_fails</signature>
+      <signature>Function TestContainsAnyAssertion.test_all_present_passes</signature>
+      <signature>Function TestContainsAnyAssertion.test_empty_list_fails</signature>
+      <signature>Function TestContainsAnyAssertion.test_empty_output</signature>
+      <signature>Function TestContainsAnyAssertion.test_returns_grading_result</signature>
+      <signature>Class TestStartsWithAssertion</signature>
+      <signature>Function TestStartsWithAssertion.test_type_attribute</signature>
+      <signature>Function TestStartsWithAssertion.test_prefix_present_passes</signature>
+      <signature>Function TestStartsWithAssertion.test_prefix_absent_fails</signature>
+      <signature>Function TestStartsWithAssertion.test_case_sensitive</signature>
+      <signature>Function TestStartsWithAssertion.test_empty_output</signature>
+      <signature>Function TestStartsWithAssertion.test_empty_prefix_always_passes</signature>
+      <signature>Function TestStartsWithAssertion.test_returns_grading_result</signature>
+      <signature>Class TestRegexAssertion</signature>
+      <signature>Function TestRegexAssertion.test_type_attribute</signature>
+      <signature>Function TestRegexAssertion.test_pattern_matches_passes</signature>
+      <signature>Function TestRegexAssertion.test_pattern_no_match_fails</signature>
+      <signature>Function TestRegexAssertion.test_full_regex_features</signature>
+      <signature>Function TestRegexAssertion.test_empty_output</signature>
+      <signature>Function TestRegexAssertion.test_case_sensitive_by_default</signature>
+      <signature>Function TestRegexAssertion.test_invalid_regex_raises_or_fails</signature>
+      <signature>Function TestRegexAssertion.test_returns_grading_result</signature>
+      <signature>Class TestWordCountAssertion</signature>
+      <signature>Function TestWordCountAssertion.test_type_attribute</signature>
+      <signature>Function TestWordCountAssertion.test_exact_count_passes</signature>
+      <signature>Function TestWordCountAssertion.test_exact_count_fails_too_many</signature>
+      <signature>Function TestWordCountAssertion.test_exact_count_fails_too_few</signature>
+      <signature>Function TestWordCountAssertion.test_range_within_passes</signature>
+      <signature>Function TestWordCountAssertion.test_range_below_min_fails</signature>
+      <signature>Function TestWordCountAssertion.test_range_above_max_fails</signature>
+      <signature>Function TestWordCountAssertion.test_min_only</signature>
+      <signature>Function TestWordCountAssertion.test_max_only</signature>
+      <signature>Function TestWordCountAssertion.test_max_only_fails</signature>
+      <signature>Function TestWordCountAssertion.test_multiple_spaces</signature>
+      <signature>Function TestWordCountAssertion.test_newlines_as_separators</signature>
+      <signature>Function TestWordCountAssertion.test_tabs_as_separators</signature>
+      <signature>Function TestWordCountAssertion.test_empty_string_zero_words</signature>
+      <signature>Function TestWordCountAssertion.test_empty_string_nonzero_fails</signature>
+      <signature>Function TestWordCountAssertion.test_invalid_value_type_raises</signature>
+      <signature>Function TestWordCountAssertion.test_min_greater_than_max_raises</signature>
+      <signature>Function TestWordCountAssertion.test_returns_grading_result_with_reason</signature>
+    </file>
+    <file path="./libs/core/tests/assertions/test_structural_assertions.py">
+      <signature>Function make_context</signature>
+      <signature>Class TestIsJsonAssertion</signature>
+      <signature>Function TestIsJsonAssertion.test_type_attribute</signature>
+      <signature>Function TestIsJsonAssertion.test_valid_json_object_passes</signature>
+      <signature>Function TestIsJsonAssertion.test_valid_json_array_passes</signature>
+      <signature>Function TestIsJsonAssertion.test_valid_json_string_passes</signature>
+      <signature>Function TestIsJsonAssertion.test_valid_json_number_passes</signature>
+      <signature>Function TestIsJsonAssertion.test_valid_json_boolean_passes</signature>
+      <signature>Function TestIsJsonAssertion.test_valid_json_null_passes</signature>
+      <signature>Function TestIsJsonAssertion.test_invalid_json_fails</signature>
+      <signature>Function TestIsJsonAssertion.test_empty_string_fails</signature>
+      <signature>Function TestIsJsonAssertion.test_malformed_json_fails</signature>
+      <signature>Function TestIsJsonAssertion.test_schema_validation_passes</signature>
+      <signature>Function TestIsJsonAssertion.test_schema_validation_fails_missing_required</signature>
+      <signature>Function TestIsJsonAssertion.test_schema_validation_fails_wrong_type</signature>
+      <signature>Function TestIsJsonAssertion.test_schema_validation_with_array</signature>
+      <signature>Function TestIsJsonAssertion.test_schema_validation_array_wrong_type_fails</signature>
+      <signature>Function TestIsJsonAssertion.test_no_schema_value_none</signature>
+      <signature>Function TestIsJsonAssertion.test_returns_grading_result</signature>
+      <signature>Function TestIsJsonAssertion.test_reason_is_meaningful</signature>
+      <signature>Class TestContainsJsonAssertion</signature>
+      <signature>Function TestContainsJsonAssertion.test_type_attribute</signature>
+      <signature>Function TestContainsJsonAssertion.test_json_embedded_in_text_passes</signature>
+      <signature>Function TestContainsJsonAssertion.test_json_array_embedded_passes</signature>
+      <signature>Function TestContainsJsonAssertion.test_no_json_in_text_fails</signature>
+      <signature>Function TestContainsJsonAssertion.test_empty_output_fails</signature>
+      <signature>Function TestContainsJsonAssertion.test_pure_json_output_passes</signature>
+      <signature>Function TestContainsJsonAssertion.test_schema_on_extracted_json_passes</signature>
+      <signature>Function TestContainsJsonAssertion.test_schema_on_extracted_json_fails</signature>
+      <signature>Function TestContainsJsonAssertion.test_no_schema_value_none</signature>
+      <signature>Function TestContainsJsonAssertion.test_returns_grading_result</signature>
+      <signature>Function TestContainsJsonAssertion.test_reason_is_meaningful</signature>
     </file>
     <file path="./libs/core/tests/conftest.py">
       <signature>Function _ensure_event_loop</signature>
@@ -4589,6 +5133,32 @@
       <signature>Function TestWorkflowObserverProtocol.test_file_observer_is_workflow_observer</signature>
       <signature>Function TestWorkflowObserverProtocol.test_composite_observer_is_workflow_observer</signature>
     </file>
+    <file path="./libs/core/tests/test_observer_soul_extension.py">
+      <signature>Function sample_soul</signature>
+      <signature>Function state</signature>
+      <signature>Class TestProtocolOnBlockStartSoul</signature>
+      <signature>Function TestProtocolOnBlockStartSoul.test_logging_observer_on_block_start_accepts_soul</signature>
+      <signature>Function TestProtocolOnBlockStartSoul.test_logging_observer_on_block_start_soul_default_none</signature>
+      <signature>Function TestProtocolOnBlockStartSoul.test_file_observer_on_block_start_accepts_soul</signature>
+      <signature>Function TestProtocolOnBlockStartSoul.test_composite_observer_on_block_start_forwards_soul</signature>
+      <signature>Class TestProtocolOnBlockCompleteSoul</signature>
+      <signature>Function TestProtocolOnBlockCompleteSoul.test_logging_observer_on_block_complete_accepts_soul</signature>
+      <signature>Function TestProtocolOnBlockCompleteSoul.test_logging_observer_on_block_complete_soul_default_none</signature>
+      <signature>Function TestProtocolOnBlockCompleteSoul.test_file_observer_on_block_complete_accepts_soul</signature>
+      <signature>Function TestProtocolOnBlockCompleteSoul.test_composite_observer_on_block_complete_forwards_soul</signature>
+      <signature>Class TestBackwardCompatibility</signature>
+      <signature>Function TestBackwardCompatibility.test_logging_observer_on_block_start_without_soul</signature>
+      <signature>Function TestBackwardCompatibility.test_logging_observer_on_block_complete_without_soul</signature>
+      <signature>Function TestBackwardCompatibility.test_file_observer_on_block_start_without_soul</signature>
+      <signature>Function TestBackwardCompatibility.test_file_observer_on_block_complete_without_soul</signature>
+      <signature>Function TestBackwardCompatibility.test_composite_observer_on_block_start_without_soul</signature>
+      <signature>Function TestBackwardCompatibility.test_composite_observer_on_block_complete_without_soul</signature>
+      <signature>Class TestProtocolSignature</signature>
+      <signature>Function TestProtocolSignature.test_protocol_on_block_start_has_soul_parameter</signature>
+      <signature>Function TestProtocolSignature.test_protocol_on_block_complete_has_soul_parameter</signature>
+      <signature>Function TestProtocolSignature.test_protocol_soul_parameter_is_keyword_only</signature>
+      <signature>Function TestProtocolSignature.test_protocol_soul_default_is_none</signature>
+    </file>
     <file path="./libs/core/tests/test_parser_inputs_outputs.py">
       <signature>Class MockBlock</signature>
       <signature>Function MockBlock.__init__</signature>
@@ -4659,6 +5229,26 @@
       <signature>Function test_step_state_flows_through_phases</signature>
       <signature>Function test_step_state_flows_through_phases.pre_hook</signature>
       <signature>Function test_step_state_flows_through_phases.post_hook</signature>
+    </file>
+    <file path="./libs/core/tests/test_prompt_hash.py">
+      <signature>Function _import_hash_functions</signature>
+      <signature>Class TestImportHashFunctions</signature>
+      <signature>Function TestImportHashFunctions.test_compute_prompt_hash_importable</signature>
+      <signature>Function TestImportHashFunctions.test_compute_soul_version_importable</signature>
+      <signature>Class TestPromptHash</signature>
+      <signature>Function TestPromptHash.test_sha256_of_system_prompt</signature>
+      <signature>Function TestPromptHash.test_different_system_prompt_different_hash</signature>
+      <signature>Function TestPromptHash.test_same_system_prompt_same_hash</signature>
+      <signature>Function TestPromptHash.test_deterministic_across_calls</signature>
+      <signature>Function TestPromptHash.test_none_soul_returns_none</signature>
+      <signature>Class TestSoulVersion</signature>
+      <signature>Function TestSoulVersion.test_sha256_of_full_soul_json</signature>
+      <signature>Function TestSoulVersion.test_changed_model_name_different_soul_version</signature>
+      <signature>Function TestSoulVersion.test_changed_model_name_same_prompt_hash</signature>
+      <signature>Function TestSoulVersion.test_same_soul_same_version</signature>
+      <signature>Function TestSoulVersion.test_deterministic_across_calls</signature>
+      <signature>Function TestSoulVersion.test_none_soul_returns_none</signature>
+      <signature>Function TestSoulVersion.test_changed_id_different_soul_version</signature>
     </file>
     <file path="./libs/core/tests/test_registry.py">
       <signature>Class SimpleBlock</signature>
