@@ -13,6 +13,9 @@ dependencies = [
     "litellm>=1.0.0",
     "openai>=1.0.0",
     "httpx>=0.27",
+    "jsonschema>=4.0",
+    "editdistance>=0.6",
+    "rouge-score>=0.1",
 ]
 
 [project.optional-dependencies]
