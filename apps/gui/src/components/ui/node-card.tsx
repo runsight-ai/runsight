@@ -342,9 +342,9 @@ export function NodeCard({
         <span
           data-slot="node-card-title"
           className={[
-            "text-[13px] font-medium text-(--text-heading)",
+            "text-sm font-medium text-(--text-heading)",
             "overflow-hidden text-ellipsis whitespace-nowrap",
-            "flex-1 min-w-0 tracking-[-0.02em]",
+            "flex-1 min-w-0 tracking-tight",
           ].join(" ")}
         >
           {title}
@@ -369,7 +369,7 @@ export function NodeCard({
             "flex items-center gap-1 flex-wrap",
             "px-3",
             ports && ports.length > 0 ? "pb-0" : "pb-[10px]",
-            "font-mono text-[10px] tracking-wider uppercase",
+            "font-mono text-2xs tracking-wider uppercase",
             "text-(--accent-9) opacity-80",
             "relative z-[2]",
           ].join(" ")}
@@ -406,7 +406,7 @@ export function NodeCard({
               key={idx}
               className="flex items-center justify-end relative px-3 py-1.5"
             >
-              <span className="font-mono text-[9px] text-(--text-muted) tracking-wider uppercase mr-2">
+              <span className="font-mono text-2xs text-(--text-muted) tracking-wider uppercase mr-2">
                 {port.name}
               </span>
               <div

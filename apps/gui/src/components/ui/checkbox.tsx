@@ -45,16 +45,16 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         />
         {/* Checkmark — visible when checked */}
         <svg
-          className="absolute top-[1px] left-[3px] w-[10px] h-[10px] pointer-events-none opacity-0 peer-checked:opacity-100 text-on-accent"
-          viewBox="0 0 10 10"
+          className="absolute inset-0 m-auto w-3 h-3 pointer-events-none opacity-0 peer-checked:opacity-100 text-on-accent"
+          viewBox="0 0 12 12"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2"
+          strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"
         >
-          <polyline points="1.5 5 4 7.5 8.5 2.5" />
+          <polyline points="2.5 6 5 8.5 9.5 3.5" />
         </svg>
         {/* Indeterminate dash — visible when indeterminate */}
         <span

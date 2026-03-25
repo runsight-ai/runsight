@@ -772,3 +772,13 @@
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-12px) rotate(2deg); }
 }
+
+@keyframes progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+@keyframes node-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 hsla(38, 92%, 55%, 0); }
+  50% { box-shadow: 0 0 12px 2px hsla(38, 92%, 55%, 0.15); }
+}

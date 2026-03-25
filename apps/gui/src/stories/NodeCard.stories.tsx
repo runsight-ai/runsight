@@ -45,6 +45,16 @@ export const Default: Story = {
     selected: false,
     cost: "$0.0024",
     icon: <SparklesIcon size={14} />,
+    inputPort: true,
+    outputPort: true,
+    meta: "Linear",
+    soul: {
+      initial: "R",
+      color: "hsl(38, 85%, 45%)",
+      name: "researcher",
+      model: "gpt-4o",
+      provider: "OpenAI",
+    },
   },
 };
 
@@ -52,11 +62,11 @@ export const AllCategories: Story = {
   name: "All Categories",
   render: () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", width: "260px" }}>
-      <NodeCard title="Research Agent" category="block-agent" icon={<SparklesIcon size={14} />} cost="$0.0024" />
-      <NodeCard title="Route Decision" category="block-logic" icon={<ArrowRightLeftIcon size={14} />} />
-      <NodeCard title="Loop Until" category="block-control" icon={<RepeatIcon size={14} />} />
-      <NodeCard title="Format Output" category="block-utility" icon={<WrenchIcon size={14} />} />
-      <NodeCard title="My Custom Block" category="block-custom" icon={<PuzzleIcon size={14} />} />
+      <NodeCard title="Research Agent" category="block-agent" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "R", color: "hsl(38, 85%, 45%)", name: "researcher", model: "gpt-4o", provider: "OpenAI" }} cost="$0.0024" />
+      <NodeCard title="Route Decision" category="block-logic" icon={<ArrowRightLeftIcon size={14} />} inputPort outputPort meta="Gate" />
+      <NodeCard title="Loop Until" category="block-control" icon={<RepeatIcon size={14} />} inputPort outputPort meta="Control" />
+      <NodeCard title="Format Output" category="block-utility" icon={<WrenchIcon size={14} />} inputPort outputPort meta="Utility" />
+      <NodeCard title="My Custom Block" category="block-custom" icon={<PuzzleIcon size={14} />} inputPort outputPort meta="Custom" />
     </div>
   ),
 };
@@ -65,11 +75,11 @@ export const AllStates: Story = {
   name: "All Execution States",
   render: () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", width: "260px" }}>
-      <NodeCard title="Idle" category="block-agent" executionState="idle" icon={<SparklesIcon size={14} />} />
-      <NodeCard title="Running" category="block-agent" executionState="running" icon={<SparklesIcon size={14} />} />
-      <NodeCard title="Success" category="block-agent" executionState="success" icon={<SparklesIcon size={14} />} />
-      <NodeCard title="Error" category="block-agent" executionState="error" icon={<SparklesIcon size={14} />} />
-      <NodeCard title="Skipped" category="block-agent" executionState="skipped" icon={<SparklesIcon size={14} />} />
+      <NodeCard title="Idle" category="block-agent" executionState="idle" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "A", color: "hsl(38, 85%, 45%)", name: "agent", model: "gpt-4o", provider: "OpenAI" }} />
+      <NodeCard title="Running" category="block-agent" executionState="running" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "A", color: "hsl(38, 85%, 45%)", name: "agent", model: "gpt-4o", provider: "OpenAI" }} />
+      <NodeCard title="Success" category="block-agent" executionState="success" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "A", color: "hsl(38, 85%, 45%)", name: "agent", model: "gpt-4o", provider: "OpenAI" }} />
+      <NodeCard title="Error" category="block-agent" executionState="error" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "A", color: "hsl(38, 85%, 45%)", name: "agent", model: "gpt-4o", provider: "OpenAI" }} />
+      <NodeCard title="Skipped" category="block-agent" executionState="skipped" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "A", color: "hsl(38, 85%, 45%)", name: "agent", model: "gpt-4o", provider: "OpenAI" }} />
     </div>
   ),
 };
@@ -84,6 +94,10 @@ export const Selected: Story = {
       selected
       cost="$0.0012"
       icon={<SparklesIcon size={14} />}
+      inputPort
+      outputPort
+      meta="Linear"
+      soul={{ initial: "R", color: "hsl(38, 85%, 45%)", name: "researcher", model: "gpt-4o", provider: "OpenAI" }}
     />
   ),
 };
