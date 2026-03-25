@@ -6,6 +6,11 @@
 // Cost badge:        font-mono, font-size-2xs
 // Execution states:  accent-9 (running), success-7 (success), danger-7 (error), neutral-6 (skipped)
 // Port handles:      interactive-default
+// Soul avatars:      .node-card__avatar-stack, .node-card__avatar, .soul-tip-wrap, .soul-tip
+// Meta row:          .node-card__meta, .node-card__meta-sep
+// Port rows:         .node-card__port-rows, .node-card__port-row, .node-card__port-row-name,
+//                    .node-card__port-row-dot, .node-card__port-row-dot--pass/fail
+// Status badge:      .node-card__status-badge (hidden by default, used for running/completed/failed)
 
 import * as React from "react"
 
@@ -28,6 +33,32 @@ export type ExecutionState =
   | "success"
   | "error"
   | "skipped"
+
+/** A named output port row rendered inside .node-card__port-rows */
+export interface NodeCardPort {
+  /** Port name shown in monospace uppercase (e.g. "pass", "fail", "market") */
+  name: string
+  /** Port type drives .node-card__port-row-dot BEM modifier colour */
+  type?: "pass" | "fail" | "default"
+}
+
+/** Soul assignment shown as a coloured avatar with tooltip in .node-card__avatar-stack */
+export interface NodeCardSoul {
+  /** Single uppercase letter(s) for the avatar (e.g. "W", "TL") */
+  initial: string
+  /** HSL or hex background for the avatar circle and tooltip dot */
+  color: string
+  /** Soul name (e.g. "writer_main") */
+  name: string
+  /** Model identifier (e.g. "gpt-4o") */
+  model?: string
+  /** Provider name (e.g. "OpenAI") */
+  provider?: string
+  /** Optional prompt preview (clamped to 2 lines in the tooltip) */
+  prompt?: string
+  /** Additional key/value rows to show in the tooltip */
+  rows?: Array<{ key: string; val: string }>
+}
 
 // ---------------------------------------------------------------------------
 // Token maps
@@ -84,14 +115,60 @@ export interface NodeCardProps extends Omit<React.ComponentProps<"div">, "title"
   selected?: boolean
   /** Optional cost display (e.g. "$0.0024") rendered in font-mono */
   cost?: string
-  /** Port slot rendered on the left side of the card (input handles) */
-  inputPort?: React.ReactNode
-  /** Port slot rendered on the right side of the card (output handles) */
-  outputPort?: React.ReactNode
+  /** Whether to render the .node-card__port--input handle on the left edge */
+  inputPort?: boolean
+  /** Whether to render the .node-card__port--output handle on the right edge */
+  outputPort?: boolean
+  /** Named output port rows — renders .node-card__port-rows */
+  ports?: NodeCardPort[]
+  /** Soul assignments — renders .node-card__avatar-stack with tooltip */
+  souls?: NodeCardSoul[]
+  /** Status badge text (e.g. "Running") — renders .node-card__status-badge */
+  statusBadge?: string
+  /** Meta label(s) shown below the header row in uppercase monospace */
+  meta?: string | string[]
   /** Optional icon shown in the header alongside the title */
   icon?: React.ReactNode
-  /** Body content */
+  /** Body content (only used when no souls/meta) */
   children?: React.ReactNode
+}
+
+// ---------------------------------------------------------------------------
+// SoulAvatar sub-component — .soul-tip-wrap > .node-card__avatar + .soul-tip
+// ---------------------------------------------------------------------------
+
+function SoulAvatar({ soul }: { soul: NodeCardSoul }) {
+  const rows: Array<{ key: string; val: string }> = [
+    ...(soul.model ? [{ key: "Model", val: soul.model }] : []),
+    ...(soul.provider ? [{ key: "Provider", val: soul.provider }] : []),
+    ...(soul.rows ?? []),
+  ]
+
+  return (
+    <span className="soul-tip-wrap">
+      <span
+        className="node-card__avatar"
+        style={{ background: soul.color }}
+      >
+        {soul.initial}
+      </span>
+      <span className="soul-tip">
+        <span className="soul-tip__name">
+          <span className="soul-tip__dot" style={{ background: soul.color }} />
+          {soul.name}
+        </span>
+        {rows.map(({ key, val }) => (
+          <span key={key} className="soul-tip__row">
+            <span className="soul-tip__key">{key}</span>
+            <span className="soul-tip__val">{val}</span>
+          </span>
+        ))}
+        {soul.prompt && (
+          <span className="soul-tip__prompt">{soul.prompt}</span>
+        )}
+      </span>
+    </span>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -104,8 +181,12 @@ export function NodeCard({
   executionState = "idle",
   selected = false,
   cost,
-  inputPort,
-  outputPort,
+  inputPort = false,
+  outputPort = false,
+  ports,
+  souls,
+  statusBadge,
+  meta,
   icon,
   children,
   className,
@@ -113,6 +194,18 @@ export function NodeCard({
 }: NodeCardProps) {
   const dataCategory = categoryDataAttrMap[category]
   const dataState = executionStateDataAttrMap[executionState]
+
+  // Normalise meta to array for rendering
+  const metaItems = meta
+    ? Array.isArray(meta) ? meta : [meta]
+    : undefined
+
+  // Status badge BEM modifier derives from executionState when statusBadge text is provided
+  const statusBadgeModifier =
+    executionState === "running" ? "running"
+    : executionState === "success" ? "completed"
+    : executionState === "error" ? "failed"
+    : undefined
 
   return (
     // .node-card BEM root:
@@ -142,8 +235,33 @@ export function NodeCard({
       />
 
       {/* ---------------------------------------------------------------- */}
+      {/* Input port handle — .node-card__port--input (left edge)          */}
+      {/* ---------------------------------------------------------------- */}
+      {inputPort && (
+        <div
+          data-slot="node-card-port"
+          className="node-card__port node-card__port--input"
+        />
+      )}
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Status badge — .node-card__status-badge (hidden by CSS default)  */}
+      {/* ---------------------------------------------------------------- */}
+      {statusBadge && (
+        <div
+          data-slot="node-card-status-badge"
+          className={cn(
+            "node-card__status-badge",
+            statusBadgeModifier && `node-card__status-badge--${statusBadgeModifier}`
+          )}
+        >
+          {statusBadge}
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------- */}
       {/* Header: .node-card__header                                        */}
-      {/* title: text-heading + font-size-sm via .node-card__name          */}
+      {/* icon + name + avatar-stack                                        */}
       {/* ---------------------------------------------------------------- */}
       <div
         data-slot="node-card-header"
@@ -168,19 +286,42 @@ export function NodeCard({
           {title}
         </span>
 
-        {/* .node-card__cost-badge — font-mono + font-size-2xs */}
-        {cost && (
-          <span
-            data-slot="node-card-cost"
-            className="node-card__cost-badge"
+        {/* .node-card__avatar-stack — soul avatar circles with tooltips */}
+        {souls && souls.length > 0 && (
+          <div
+            data-slot="node-card-avatar-stack"
+            className="node-card__avatar-stack"
           >
-            {cost}
-          </span>
+            {souls.map((soul, idx) => (
+              <SoulAvatar key={idx} soul={soul} />
+            ))}
+          </div>
         )}
       </div>
 
       {/* ---------------------------------------------------------------- */}
+      {/* Meta row — .node-card__meta                                       */}
+      {/* uppercase monospace accent label (e.g. "Linear · 2 ports")       */}
+      {/* ---------------------------------------------------------------- */}
+      {metaItems && (
+        <div
+          data-slot="node-card-meta"
+          className="node-card__meta"
+        >
+          {metaItems.map((item, idx) => (
+            <React.Fragment key={idx}>
+              {idx > 0 && (
+                <span className="node-card__meta-sep">&middot;</span>
+              )}
+              <span>{item}</span>
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------- */}
       {/* Body (optional children) — .node-card__body                      */}
+      {/* Only used when no souls/meta present                              */}
       {/* ---------------------------------------------------------------- */}
       {children && (
         <div
@@ -192,27 +333,49 @@ export function NodeCard({
       )}
 
       {/* ---------------------------------------------------------------- */}
-      {/* Port handles — .node-card__port + .node-card__port--input/output  */}
-      {/* interactive-default applied on hover via BEM CSS                  */}
+      {/* Named port rows — .node-card__port-rows                          */}
+      {/* Renders conditional output port dots (pass/fail/default)         */}
       {/* ---------------------------------------------------------------- */}
-      {inputPort && (
-        <div data-slot="node-card-input-port">
-          <span
-            data-slot="node-card-port"
-            className="node-card__port node-card__port--input"
-          />
-          {inputPort}
+      {ports && ports.length > 0 && (
+        <div
+          data-slot="node-card-port-rows"
+          className="node-card__port-rows"
+        >
+          {ports.map((port, idx) => (
+            <div key={idx} className="node-card__port-row">
+              <span className="node-card__port-row-name">{port.name}</span>
+              <div
+                className={cn(
+                  "node-card__port-row-dot",
+                  port.type === "pass" && "node-card__port-row-dot--pass",
+                  port.type === "fail" && "node-card__port-row-dot--fail"
+                )}
+              />
+            </div>
+          ))}
         </div>
       )}
 
-      {outputPort && (
-        <div data-slot="node-card-output-port">
-          <span
-            data-slot="node-card-port"
-            className="node-card__port node-card__port--output"
-          />
-          {outputPort}
+      {/* ---------------------------------------------------------------- */}
+      {/* Cost badge — .node-card__cost-badge (positioned bottom-right)    */}
+      {/* ---------------------------------------------------------------- */}
+      {cost && (
+        <div
+          data-slot="node-card-cost"
+          className="node-card__cost-badge"
+        >
+          {cost}
         </div>
+      )}
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Output port handle — .node-card__port--output (right edge)       */}
+      {/* ---------------------------------------------------------------- */}
+      {outputPort && (
+        <div
+          data-slot="node-card-port"
+          className="node-card__port node-card__port--output"
+        />
       )}
     </div>
   )

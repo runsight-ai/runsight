@@ -7,6 +7,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  SoulTip,
 } from "@/components/ui/tooltip";
 
 // Wrapper component to expose side/content as Storybook controls
@@ -78,6 +79,57 @@ export const Positions: Story = {
           <TooltipContent side="bottom">Tooltip on bottom</TooltipContent>
         </Tooltip>
       </TooltipProvider>
+    </div>
+  ),
+};
+
+export const RichSoulTip: Story = {
+  name: "Rich Soul Tip (soul-tip BEM)",
+  render: () => (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        gap: "var(--space-6)",
+        padding: "var(--space-24)",
+        paddingTop: "var(--space-32)",
+      }}
+    >
+      {/* Writer soul */}
+      <div className="node-card__avatar-stack">
+        <SoulTip
+          initial="W"
+          color="hsl(38, 85%, 45%)"
+          name="writer_main"
+          model="gpt-4o"
+          provider="OpenAI"
+          prompt="Generate a first draft from the structured brief, focusing on clarity and completeness."
+        />
+      </div>
+
+      {/* Evaluator soul */}
+      <div className="node-card__avatar-stack">
+        <SoulTip
+          initial="E"
+          color="hsl(142, 55%, 42%)"
+          name="evaluator_quality"
+          model="claude-sonnet-4"
+          provider="Anthropic"
+          prompt="Score the draft on coherence, accuracy, and style. Return pass/fail with reasoning."
+        />
+      </div>
+
+      {/* Analyst soul */}
+      <div className="node-card__avatar-stack">
+        <SoulTip
+          initial="A"
+          color="hsl(210, 60%, 50%)"
+          name="analyst_legal"
+          model="gemini-2.0-flash"
+          provider="Google"
+          prompt="Review for legal compliance, IP risks, and regulatory requirements."
+        />
+      </div>
     </div>
   ),
 };

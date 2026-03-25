@@ -4,6 +4,8 @@ import { cn } from "@/utils/helpers"
 
 // BEM classes: .tooltip-content, .tooltip-content--top, .tooltip-content--bottom
 // Tokens: surface-raised, text-primary, font-size-xs, z-popover, neutral-3, neutral-5
+// Soul-tip BEM: .soul-tip-wrap, .soul-tip, .soul-tip__name, .soul-tip__dot,
+//               .soul-tip__row, .soul-tip__key, .soul-tip__val, .soul-tip__prompt
 
 function TooltipProvider({
   delay = 0,
@@ -69,4 +71,72 @@ function TooltipContent({
   )
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+// ---------------------------------------------------------------------------
+// SoulTip — rich avatar tooltip showing soul/model details
+// Renders .soul-tip-wrap > .node-card__avatar + .soul-tip (BEM from patterns.css)
+// Usage: wrap around a .node-card__avatar element inside a .node-card__avatar-stack
+// ---------------------------------------------------------------------------
+
+export interface SoulTipProps {
+  /** Single uppercase letter shown in the avatar circle */
+  initial: string
+  /** HSL or hex background colour for the avatar and dot */
+  color: string
+  /** Soul name (e.g. "writer_main") */
+  name: string
+  /** Model identifier (e.g. "gpt-4o") */
+  model?: string
+  /** Provider name (e.g. "OpenAI") */
+  provider?: string
+  /** Optional prompt preview text (clamped to 2 lines) */
+  prompt?: string
+  /** Additional key/value rows to show in the tooltip */
+  rows?: Array<{ key: string; val: string }>
+}
+
+function SoulTip({
+  initial,
+  color,
+  name,
+  model,
+  provider,
+  prompt,
+  rows = [],
+}: SoulTipProps) {
+  const allRows = [
+    ...(model ? [{ key: "Model", val: model }] : []),
+    ...(provider ? [{ key: "Provider", val: provider }] : []),
+    ...rows,
+  ]
+
+  return (
+    <span className="soul-tip-wrap">
+      {/* Avatar circle */}
+      <span
+        className="node-card__avatar"
+        style={{ background: color }}
+      >
+        {initial}
+      </span>
+
+      {/* Tooltip panel — visible on .soul-tip-wrap:hover via CSS */}
+      <span className="soul-tip">
+        <span className="soul-tip__name">
+          <span className="soul-tip__dot" style={{ background: color }} />
+          {name}
+        </span>
+        {allRows.map(({ key, val }) => (
+          <span key={key} className="soul-tip__row">
+            <span className="soul-tip__key">{key}</span>
+            <span className="soul-tip__val">{val}</span>
+          </span>
+        ))}
+        {prompt && (
+          <span className="soul-tip__prompt">{prompt}</span>
+        )}
+      </span>
+    </span>
+  )
+}
+
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, SoulTip }

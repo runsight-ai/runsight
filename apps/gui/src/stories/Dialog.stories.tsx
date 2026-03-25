@@ -110,3 +110,43 @@ export const WithForm: Story = {
     </Dialog>
   ),
 };
+
+export const FullDialog: Story = {
+  name: "Full Dialog — header + body + footer",
+  render: () => (
+    <Dialog>
+      <DialogTrigger render={<Button variant="primary">Open Full Dialog</Button>} />
+      <DialogContent size="md">
+        {/* .modal__header — border-subtle bottom border, title + close button */}
+        <DialogHeader>
+          <DialogTitle>Create New Workflow</DialogTitle>
+        </DialogHeader>
+
+        {/* .modal__body — scrollable content area */}
+        <DialogBody>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+              <Label htmlFor="wf-name">Workflow Name</Label>
+              <Input id="wf-name" placeholder="e.g. Research & Summarise" />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+              <Label htmlFor="wf-desc">Description</Label>
+              <Input id="wf-desc" placeholder="Optional description" />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+              <Label htmlFor="wf-trigger">Trigger</Label>
+              <Input id="wf-trigger" defaultValue="webhook" />
+            </div>
+          </div>
+        </DialogBody>
+
+        {/* .modal__footer — border-subtle top border, action buttons */}
+        <DialogFooter>
+          <DialogClose render={<Button variant="ghost" size="sm">Cancel</Button>} />
+          <Button variant="secondary" size="sm">Save Draft</Button>
+          <Button variant="primary" size="sm">Create Workflow</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  ),
+};

@@ -57,13 +57,28 @@ export const ManyPages: Story = {
 };
 
 export const WithInfo: Story = {
-  name: "With Info",
+  name: "With Info (.pagination__info)",
   render: () => (
-    <Pagination
-      page={1}
-      totalPages={10}
-      pageSize={10}
-      total={100}
-    />
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", alignItems: "center" }}>
+      {/* .pagination__info renders "1-25 of 847" when total prop is supplied */}
+      <Pagination
+        page={1}
+        totalPages={34}
+        pageSize={25}
+        total={847}
+      />
+      <Pagination
+        page={2}
+        totalPages={34}
+        pageSize={25}
+        total={847}
+      />
+      <Pagination
+        page={10}
+        totalPages={34}
+        pageSize={25}
+        total={847}
+      />
+    </div>
   ),
 };

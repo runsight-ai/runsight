@@ -9,6 +9,9 @@ import {
   RepeatIcon,
   WrenchIcon,
   PuzzleIcon,
+  GitBranchIcon,
+  GlobeIcon,
+  FileTextIcon,
 } from "lucide-react";
 
 const meta: Meta<typeof NodeCard> = {
@@ -86,31 +89,235 @@ export const Selected: Story = {
 };
 
 export const WithPorts: Story = {
-  name: "With Ports",
+  name: "With Ports — 2-port gate (.node-card__port-rows)",
   render: () => (
-    <NodeCard
-      title="Quality Gate"
-      category="block-logic"
-      icon={<ArrowRightLeftIcon size={14} />}
-      inputPort={<span style={{ fontSize: "var(--font-size-2xs)", color: "var(--text-muted)" }}>in</span>}
-      outputPort={<span style={{ fontSize: "var(--font-size-2xs)", color: "var(--text-muted)" }}>out</span>}
-    />
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", width: "260px" }}>
+      {/* 2-port pass/fail gate — .node-card__port-row-dot--pass / --fail */}
+      <NodeCard
+        title="Quality Gate"
+        category="block-logic"
+        icon={<ArrowRightLeftIcon size={14} />}
+        inputPort
+        meta={["Gate", "2 ports"]}
+        ports={[
+          { name: "pass", type: "pass" },
+          { name: "fail", type: "fail" },
+        ]}
+      />
+
+      {/* 3-route router — default dot colour */}
+      <NodeCard
+        title="Intent Router"
+        category="block-logic"
+        icon={<GitBranchIcon size={14} />}
+        inputPort
+        meta={["Router", "3 routes"]}
+        ports={[
+          { name: "support", type: "default" },
+          { name: "sales", type: "default" },
+          { name: "billing", type: "default" },
+        ]}
+      />
+    </div>
   ),
 };
 
 export const WithSoul: Story = {
-  name: "With Soul / Body Content",
+  name: "With Soul — avatar + soul-tip (.node-card__avatar-stack)",
   render: () => (
-    <NodeCard
-      title="Draft & Evaluate"
-      category="block-agent"
-      executionState="running"
-      cost="$0.0008"
-      icon={<SparklesIcon size={14} />}
-    >
-      <span style={{ fontSize: "var(--font-size-2xs)", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-        writer_main · gpt-4o
-      </span>
-    </NodeCard>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", width: "260px" }}>
+      {/* Single soul */}
+      <NodeCard
+        title="Summarize Input"
+        category="block-agent"
+        icon={<SparklesIcon size={14} />}
+        inputPort
+        outputPort
+        meta="Linear"
+        souls={[
+          {
+            initial: "W",
+            color: "hsl(38, 85%, 45%)",
+            name: "writer_main",
+            model: "gpt-4o",
+            provider: "OpenAI",
+            prompt: "Summarize the user input into a structured brief for downstream agents.",
+          },
+        ]}
+      />
+
+      {/* Multiple souls */}
+      <NodeCard
+        title="Draft & Evaluate"
+        category="block-agent"
+        executionState="running"
+        icon={<SparklesIcon size={14} />}
+        inputPort
+        outputPort
+        meta="Fanout"
+        souls={[
+          {
+            initial: "W",
+            color: "hsl(38, 85%, 45%)",
+            name: "writer_main",
+            model: "gpt-4o",
+            provider: "OpenAI",
+            prompt: "Generate a first draft from the structured brief.",
+          },
+          {
+            initial: "E",
+            color: "hsl(142, 55%, 42%)",
+            name: "evaluator_quality",
+            model: "claude-sonnet-4",
+            provider: "Anthropic",
+            prompt: "Score the draft on coherence, accuracy, and style.",
+          },
+          {
+            initial: "A",
+            color: "hsl(210, 60%, 50%)",
+            name: "analyst_legal",
+            model: "gemini-2.0-flash",
+            provider: "Google",
+            prompt: "Review for legal compliance and IP risks.",
+          },
+        ]}
+      />
+    </div>
+  ),
+};
+
+export const WithStatusBadge: Story = {
+  name: "With Status Badge (.node-card__status-badge)",
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", width: "260px" }}>
+      <NodeCard
+        title="Quality Gate"
+        category="block-logic"
+        executionState="running"
+        icon={<ArrowRightLeftIcon size={14} />}
+        inputPort
+        outputPort
+        meta="Gate"
+        statusBadge="Running"
+        souls={[
+          {
+            initial: "E",
+            color: "hsl(142, 55%, 42%)",
+            name: "evaluator_quality",
+            model: "claude-sonnet-4",
+            provider: "Anthropic",
+          },
+        ]}
+        cost="$0.0014"
+      />
+
+      <NodeCard
+        title="Write Draft"
+        category="block-agent"
+        executionState="success"
+        icon={<SparklesIcon size={14} />}
+        inputPort
+        outputPort
+        meta="Linear"
+        statusBadge="Completed"
+        souls={[
+          {
+            initial: "W",
+            color: "hsl(38, 85%, 45%)",
+            name: "writer_main",
+            model: "gpt-4o",
+            provider: "OpenAI",
+          },
+        ]}
+        cost="$0.0031"
+      />
+
+      <NodeCard
+        title="HTTP Request"
+        category="block-control"
+        executionState="error"
+        icon={<GlobeIcon size={14} />}
+        inputPort
+        outputPort
+        meta="HTTP"
+        statusBadge="Failed"
+      />
+    </div>
+  ),
+};
+
+export const FullExample: Story = {
+  name: "Full Example — all BEM elements",
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)", width: "260px" }}>
+      {/* Agent node with soul, meta, input+output ports, cost */}
+      <NodeCard
+        title="Summarize Input"
+        category="block-agent"
+        icon={<SparklesIcon size={14} />}
+        inputPort
+        outputPort
+        meta="Linear"
+        souls={[
+          {
+            initial: "W",
+            color: "hsl(38, 85%, 45%)",
+            name: "writer_main",
+            model: "gpt-4o",
+            provider: "OpenAI",
+            rows: [{ key: "Cost/1K", val: "$0.005" }],
+            prompt: "Summarize the user input into a structured brief for downstream agents.",
+          },
+        ]}
+      />
+
+      {/* Logic gate with pass/fail port rows */}
+      <NodeCard
+        title="Quality Gate"
+        category="block-logic"
+        executionState="running"
+        icon={<ArrowRightLeftIcon size={14} />}
+        inputPort
+        statusBadge="Running"
+        meta={["Gate", "2 ports"]}
+        souls={[
+          {
+            initial: "E",
+            color: "hsl(142, 55%, 42%)",
+            name: "evaluator_quality",
+            model: "claude-sonnet-4",
+            provider: "Anthropic",
+          },
+        ]}
+        cost="$0.0014"
+        ports={[
+          { name: "pass", type: "pass" },
+          { name: "fail", type: "fail" },
+        ]}
+      />
+
+      {/* Fanout with multiple souls and port rows */}
+      <NodeCard
+        title="Multi-Analyst Fanout"
+        category="block-agent"
+        icon={<FileTextIcon size={14} />}
+        inputPort
+        meta={["Fanout", "3 ports"]}
+        souls={[
+          {
+            initial: "TL",
+            color: "hsl(38, 85%, 45%)",
+            name: "team_lead",
+            model: "claude-opus-4",
+            provider: "Anthropic",
+          },
+        ]}
+        ports={[
+          { name: "market", type: "default" },
+          { name: "tech", type: "default" },
+          { name: "legal", type: "default" },
+        ]}
+      />
+    </div>
   ),
 };

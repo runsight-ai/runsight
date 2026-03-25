@@ -82,15 +82,22 @@ export function BreadcrumbItem({
 export interface BreadcrumbLinkProps
   extends React.ComponentPropsWithoutRef<"a"> {
   asChild?: boolean
+  /** variant="id" applies .breadcrumb__item--id — monospace, xs font for IDs like "RUN-423" */
+  variant?: "default" | "id"
 }
 
 export function BreadcrumbLink({
   className,
+  variant = "default",
   ...props
 }: BreadcrumbLinkProps) {
   return (
     <a
-      className={cn("breadcrumb__item", className)}
+      className={cn(
+        "breadcrumb__item",
+        variant === "id" && "breadcrumb__item--id",
+        className
+      )}
       {...props}
     />
   )
@@ -100,16 +107,27 @@ export function BreadcrumbLink({
 // BreadcrumbPage — current (active) item; aria-current triggers text-heading color
 // ---------------------------------------------------------------------------
 
+export interface BreadcrumbPageProps
+  extends React.ComponentPropsWithoutRef<"span"> {
+  /** variant="id" applies .breadcrumb__item--id — monospace, xs font for IDs like "RUN-423" */
+  variant?: "default" | "id"
+}
+
 export function BreadcrumbPage({
   className,
+  variant = "default",
   ...props
-}: React.ComponentPropsWithoutRef<"span">) {
+}: BreadcrumbPageProps) {
   return (
     <span
       role="link"
       aria-current="page"
       aria-disabled="true"
-      className={cn("breadcrumb__item", className)}
+      className={cn(
+        "breadcrumb__item",
+        variant === "id" && "breadcrumb__item--id",
+        className
+      )}
       {...props}
     />
   )

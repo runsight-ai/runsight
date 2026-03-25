@@ -99,3 +99,29 @@ export const WithEllipsis: Story = {
     </Breadcrumb>
   ),
 };
+
+export const WithIdSegment: Story = {
+  name: "With ID Segment (.breadcrumb__item--id)",
+  render: () => (
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink href="#">Workflows</BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbLink href="#">Agent Pipeline</BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbLink href="#">Runs</BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        {/* .breadcrumb__item--id — monospace, font-size-xs for IDs like "run_8f3k2m" */}
+        <BreadcrumbItem>
+          <BreadcrumbPage variant="id">run_8f3k2m</BreadcrumbPage>
+        </BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+  ),
+};
