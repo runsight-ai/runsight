@@ -20,6 +20,10 @@ const meta = {
       control: "boolean",
       description: "Disables the switch",
     },
+    label: {
+      control: "text",
+      description: "Optional label text rendered as .switch__label",
+    },
     onCheckedChange: {
       action: "onCheckedChange",
       description: "Callback fired when the checked state changes",
@@ -36,33 +40,52 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
+  name: "Default",
   args: {
     defaultChecked: false,
   },
 }
 
+export const Checked: Story = {
+  name: "Checked",
+  args: {
+    defaultChecked: true,
+  },
+}
+
+export const WithLabel: Story = {
+  name: "With Label",
+  args: {
+    defaultChecked: true,
+    label: "Stream output",
+  },
+}
+
 export const Disabled: Story = {
+  name: "Disabled",
   args: {
     defaultChecked: false,
     disabled: true,
   },
 }
 
-export const WithLabel: Story = {
-  render: (args) => (
+export const DisabledChecked: Story = {
+  name: "Disabled Checked",
+  args: {
+    defaultChecked: true,
+    disabled: true,
+    label: "Auto-retry on failure",
+  },
+}
+
+export const Showcase: Story = {
+  name: "Showcase — all states",
+  render: () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-      <label style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer", userSelect: "none" }}>
-        <Switch {...args} defaultChecked={false} />
-        <span style={{ fontSize: "var(--font-size-md)", color: "var(--text-primary)" }}>Auto-retry on failure</span>
-      </label>
-      <label style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer", userSelect: "none" }}>
-        <Switch {...args} defaultChecked={true} />
-        <span style={{ fontSize: "var(--font-size-md)", color: "var(--text-primary)" }}>Stream output</span>
-      </label>
-      <label style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer", userSelect: "none" }}>
-        <Switch {...args} disabled />
-        <span style={{ fontSize: "var(--font-size-md)", color: "var(--text-primary)" }}>Disabled</span>
-      </label>
+      <Switch defaultChecked={false} label="Auto-retry on failure" />
+      <Switch defaultChecked={true} label="Stream output" />
+      <Switch defaultChecked={false} disabled label="Disabled (off)" />
+      <Switch defaultChecked={true} disabled label="Disabled (on)" />
     </div>
   ),
 }

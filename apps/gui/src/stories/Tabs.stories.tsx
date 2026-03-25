@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent, TabBadge } from "@/components/ui/tabs";
 
 // Tabs uses @base-ui/react/tabs under the hood.
 // TabsList `variant` prop maps to: "default" → .tabs, "contained" → .tabs--contained, "vertical" → .tabs--vertical
@@ -105,6 +105,46 @@ export const Vertical: Story = {
             <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>Settings content</p>
           </TabsContent>
         </div>
+      </Tabs>
+    </div>
+  ),
+};
+
+export const WithBadge: Story = {
+  name: "With Badge (.tab__badge)",
+  render: () => (
+    <div style={{ width: "480px" }}>
+      <Tabs defaultValue="runs">
+        <TabsList variant="default">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="runs">
+            Runs <TabBadge>48</TabBadge>
+          </TabsTrigger>
+          <TabsTrigger value="failed">
+            Failed <TabBadge>6</TabBadge>
+          </TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview">
+          <p style={{ paddingTop: "var(--space-4)", fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
+            Overview content
+          </p>
+        </TabsContent>
+        <TabsContent value="runs">
+          <p style={{ paddingTop: "var(--space-4)", fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
+            48 total runs
+          </p>
+        </TabsContent>
+        <TabsContent value="failed">
+          <p style={{ paddingTop: "var(--space-4)", fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
+            6 failed runs
+          </p>
+        </TabsContent>
+        <TabsContent value="settings">
+          <p style={{ paddingTop: "var(--space-4)", fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
+            Settings content
+          </p>
+        </TabsContent>
       </Tabs>
     </div>
   ),

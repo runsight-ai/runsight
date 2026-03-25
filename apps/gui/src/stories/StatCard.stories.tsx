@@ -83,3 +83,29 @@ export const WithDelta: Story = {
     </div>
   ),
 };
+
+export const TrendUp: Story = {
+  name: "Trend Up (.stat-card__trend--up)",
+  render: () => (
+    <StatCard
+      label="Completed Runs"
+      value="4,820"
+      variant="success"
+      delta="↑ +18% this week"
+      style={{ width: "220px" }}
+    />
+  ),
+};
+
+export const TrendDown: Story = {
+  name: "Trend Down (.stat-card__trend--down)",
+  render: () => (
+    <StatCard
+      label="Error Rate"
+      value="2.4%"
+      variant="danger"
+      delta="↓ -0.3% vs last week"
+      style={{ width: "220px" }}
+    />
+  ),
+};

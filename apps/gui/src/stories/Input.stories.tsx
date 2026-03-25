@@ -46,7 +46,28 @@ export const WithLabel: Story = {
     <div className="field">
       <Label htmlFor="soul-name">Soul Name</Label>
       <Input id="soul-name" type="text" placeholder="e.g. analyst-soul" />
+    </div>
+  ),
+};
+
+export const WithHelperText: Story = {
+  name: "With Helper Text",
+  render: () => (
+    <div className="field">
+      <Label htmlFor="soul-name-helper">Soul Name</Label>
+      <Input id="soul-name-helper" type="text" placeholder="e.g. analyst-soul" />
       <span className="field__helper">Used to identify this soul in YAML definitions.</span>
+    </div>
+  ),
+};
+
+export const WithError: Story = {
+  name: "With Error",
+  render: () => (
+    <div className="field">
+      <Label htmlFor="error-field">Webhook URL</Label>
+      <Input id="error-field" type="text" defaultValue="not-a-valid-url" error />
+      <span className="field__error">Must be a valid URL</span>
     </div>
   ),
 };
@@ -55,8 +76,8 @@ export const Error: Story = {
   name: "Error State",
   render: () => (
     <div className="field">
-      <Label htmlFor="error-field">Invalid Field</Label>
-      <Input id="error-field" type="text" defaultValue="not-a-valid-url" error />
+      <Label htmlFor="error-field-2">Invalid Field</Label>
+      <Input id="error-field-2" type="text" defaultValue="not-a-valid-url" error />
       <span className="field__error">Must be a valid URL</span>
     </div>
   ),

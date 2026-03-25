@@ -21,46 +21,35 @@ export function EmptyState({
   className,
 }: EmptyStateProps) {
   return (
-    <div
-      className={cn("empty-state", className)}
-      style={{ gap: "var(--space-6)" }}
-    >
-      {/* Icon container */}
-      <div
-        className="flex items-center justify-center rounded-lg bg-surface-tertiary"
-        style={{ padding: "var(--space-3)" }}
-      >
-        <Icon
-          className="text-muted"
-          style={{
-            width: "var(--icon-size-xl)",
-            height: "var(--icon-size-xl)",
-          }}
-          aria-hidden="true"
-        />
-      </div>
+    <div className={cn("empty-state", className)}>
+      {/* Icon — .empty-state__icon */}
+      <Icon
+        data-slot="empty-state-icon"
+        className="empty-state__icon"
+        aria-hidden="true"
+      />
 
-      {/* Text block */}
-      <div className="flex flex-col" style={{ gap: "var(--space-2)" }}>
-        <h3
-          className="text-heading font-medium"
-          style={{ fontSize: "var(--font-size-lg)" }}
+      {/* Title — .empty-state__title */}
+      <p
+        data-slot="empty-state-title"
+        className="empty-state__title"
+      >
+        {title}
+      </p>
+
+      {/* Description — .empty-state__description */}
+      {description && (
+        <p
+          data-slot="empty-state-description"
+          className="empty-state__description"
         >
-          {title}
-        </h3>
-        {description && (
-          <p
-            className="text-secondary max-w-xs"
-            style={{ fontSize: "var(--font-size-sm)" }}
-          >
-            {description}
-          </p>
-        )}
-      </div>
+          {description}
+        </p>
+      )}
 
       {/* Optional CTA */}
       {action && (
-        <Button variant="outline" size="sm" onClick={action.onClick}>
+        <Button variant="primary" size="sm" onClick={action.onClick}>
           {action.label}
         </Button>
       )}

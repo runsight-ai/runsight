@@ -66,11 +66,11 @@ export function CodeBlock({
               onClick={handleCopy}
               aria-label="Copy code"
               className={cn(
-                "code-block__copy ml-auto",
+                "btn btn--ghost btn--icon code-block__copy ml-auto",
                 copied && "text-success-11"
               )}
             >
-              {copied ? "Copied!" : "copy"}
+              {copied ? "✓" : "⧉"}
             </button>
           )}
         </div>
@@ -112,6 +112,22 @@ export function SyntaxString({ children, className }: { children: React.ReactNod
 export function SyntaxValue({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <span className={cn("token-value", className)}>
+      {children}
+    </span>
+  )
+}
+
+export function SyntaxComment({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={cn("token-comment", className)}>
+      {children}
+    </span>
+  )
+}
+
+export function SyntaxPunct({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={cn("token-punct", className)}>
       {children}
     </span>
   )

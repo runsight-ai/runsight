@@ -102,3 +102,38 @@ export const WithFooter: Story = {
     </Card>
   ),
 };
+
+export const Showcase: Story = {
+  name: "Showcase — all variants",
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", maxWidth: "360px" }}>
+      <Card>
+        <CardHeader>
+          <CardTitle>Default Card</CardTitle>
+          <CardDescription>Standard surface with subtle border.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p>Uses <code>.card</code> — flat, no shadow.</p>
+        </CardContent>
+      </Card>
+      <Card raised>
+        <CardHeader>
+          <CardTitle>Raised Card</CardTitle>
+          <CardDescription>Elevated surface with lifted appearance.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p>Uses <code>.card--raised</code> — elevated background + box-shadow.</p>
+        </CardContent>
+      </Card>
+      <Card interactive tabIndex={0}>
+        <CardHeader>
+          <CardTitle>Interactive Card</CardTitle>
+          <CardDescription>Hover or focus to see the interactive state.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p>Uses <code>.card--interactive</code> — pointer cursor + hover border highlight.</p>
+        </CardContent>
+      </Card>
+    </div>
+  ),
+};

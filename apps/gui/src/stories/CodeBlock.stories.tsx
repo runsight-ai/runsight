@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import { CodeBlock, SyntaxKey, SyntaxString, SyntaxValue } from "@/components/ui/code-block";
+import { CodeBlock, SyntaxKey, SyntaxString, SyntaxValue, SyntaxComment as SyntaxCommentEl, SyntaxPunct as SyntaxPunctEl } from "@/components/ui/code-block";
 
 const meta: Meta<typeof CodeBlock> = {
   title: "Data Display/CodeBlock",
@@ -104,6 +104,43 @@ export const WithCopy: Story = {
   "status": "running",
   "tokens": 4820
 }`}</CodeBlock>
+    </div>
+  ),
+};
+
+export const SyntaxComment: Story = {
+  name: "Syntax — Comment (.token-comment)",
+  render: () => (
+    <div style={{ maxWidth: "480px" }}>
+      <CodeBlock language="yaml">
+        <SyntaxCommentEl># Soul configuration for triage workflow</SyntaxCommentEl>{"\n"}
+        <SyntaxKey>name</SyntaxKey>{": "}
+        <SyntaxString>"customer-support-triage"</SyntaxString>{"\n"}
+        <SyntaxCommentEl># Model selection — claude-sonnet-4-6 for cost efficiency</SyntaxCommentEl>{"\n"}
+        <SyntaxKey>model</SyntaxKey>{": "}
+        <SyntaxValue>claude-sonnet-4-6</SyntaxValue>
+      </CodeBlock>
+    </div>
+  ),
+};
+
+export const SyntaxPunct: Story = {
+  name: "Syntax — Punct (.token-punct)",
+  render: () => (
+    <div style={{ maxWidth: "480px" }}>
+      <CodeBlock language="json">
+        <SyntaxPunctEl>{"{"}</SyntaxPunctEl>{"\n"}
+        {"  "}
+        <SyntaxKey>"run_id"</SyntaxKey>
+        <SyntaxPunctEl>:</SyntaxPunctEl>{" "}
+        <SyntaxString>"run_8f3k2m"</SyntaxString>
+        <SyntaxPunctEl>,</SyntaxPunctEl>{"\n"}
+        {"  "}
+        <SyntaxKey>"status"</SyntaxKey>
+        <SyntaxPunctEl>:</SyntaxPunctEl>{" "}
+        <SyntaxString>"running"</SyntaxString>{"\n"}
+        <SyntaxPunctEl>{"}"}</SyntaxPunctEl>
+      </CodeBlock>
     </div>
   ),
 };
