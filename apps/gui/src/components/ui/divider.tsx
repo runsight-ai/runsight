@@ -1,15 +1,27 @@
+import { cva, type VariantProps } from "class-variance-authority"
 import * as React from "react"
 
 import { cn } from "@/utils/helpers"
 
-// Design system tokens:
-// .divider: border: none, margin: 0
-// .divider--horizontal: height border-width-thin, background border-subtle, width 100%
-// .divider--vertical: width border-width-thin, background border-subtle, align-self stretch
+// .divider: border none, margin 0
+// .divider--horizontal: height 1px (border-width-thin), bg border-subtle, width 100%
+// .divider--vertical: width 1px (border-width-thin), bg border-subtle, align-self stretch
 //
 // Note: separator.tsx remains for backward compat; this is the canonical DS divider.
 
-type DividerOrientation = "horizontal" | "vertical"
+const dividerVariants = cva("border-none m-0 bg-border-subtle", {
+  variants: {
+    orientation: {
+      horizontal: "h-px w-full",
+      vertical:   "w-px self-stretch",
+    },
+  },
+  defaultVariants: {
+    orientation: "horizontal",
+  },
+})
+
+type DividerOrientation = NonNullable<VariantProps<typeof dividerVariants>["orientation"]>
 
 interface DividerProps extends React.HTMLAttributes<HTMLDivElement> {
   orientation?: DividerOrientation
@@ -25,15 +37,11 @@ function Divider({
       role="separator"
       aria-orientation={orientation}
       data-slot="divider"
-      className={cn(
-        "divider",
-        orientation === "horizontal" ? "divider--horizontal" : "divider--vertical",
-        className
-      )}
+      className={cn(dividerVariants({ orientation }), className)}
       {...props}
     />
   )
 }
 
-export { Divider }
+export { Divider, dividerVariants }
 export type { DividerOrientation, DividerProps }

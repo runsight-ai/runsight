@@ -4,28 +4,34 @@ import * as React from "react"
 
 import { cn } from "@/utils/helpers"
 
-// Design system tokens: font-size-sm, font-weight-medium, text-secondary
-// field__label BEM class handles all visual styling
-// field__label--required applies a red asterisk via CSS ::after
+// .field__label: font-size-sm, font-weight-medium, text-primary
+// .field__label--required::after: content ' *', color danger-9
+// Requirement asterisk is rendered as inline JSX to avoid needing CSS ::after
 
 interface LabelProps extends React.ComponentProps<"label"> {
-  /** Adds a visual asterisk (field__label--required BEM modifier) */
+  /** Adds a visual asterisk after the label text */
   required?: boolean
 }
 
-function Label({ className, required, ...props }: LabelProps) {
+function Label({ className, required, children, ...props }: LabelProps) {
   return (
     <label
       data-slot="label"
       className={cn(
-        "field__label",
-        required && "field__label--required",
+        "text-sm font-medium text-primary",
         "group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50",
         "peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
         className
       )}
       {...props}
-    />
+    >
+      {children}
+      {required && (
+        <span aria-hidden="true" className="ml-0.5 text-danger-9">
+          {" *"}
+        </span>
+      )}
+    </label>
   )
 }
 
