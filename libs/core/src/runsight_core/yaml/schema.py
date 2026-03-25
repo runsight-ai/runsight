@@ -28,6 +28,7 @@ class SoulDef(BaseModel):
     tools: Optional[List[str]] = None
     max_tool_iterations: int = 5
     model_name: Optional[str] = None
+    assertions: Optional[List[Dict[str, Any]]] = None
 
 
 class TaskDef(BaseModel):
@@ -133,6 +134,7 @@ class BaseBlockDef(BaseModel):
     outputs: Optional[Dict[str, str]] = None  # name -> type string
     retry_config: Optional[RetryConfig] = None
     exits: Optional[List[ExitDef]] = None
+    assertions: Optional[List[Dict[str, Any]]] = None
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
