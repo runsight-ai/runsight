@@ -152,6 +152,9 @@
   --color-muted:     var(--text-muted);
   --color-heading:   var(--text-heading);
   --color-on-accent: var(--text-on-accent);
+  --color-primary:   var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-accent:    var(--text-accent);
 
   /* Reference color scales — enables bg-accent-9, text-danger-11, bg-neutral-6, etc. */
   --color-accent-1:   var(--accent-1);
