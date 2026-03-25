@@ -253,9 +253,10 @@ describe("Checkbox — design system tokens (AC4)", () => {
     expect(source).toMatch(/surface-primary/);
   });
 
-  it("uses radius-xs or radius token for rounded corners", () => {
+  it("uses radius-xs or rounded-xs utility for rounded corners", () => {
     const source = readComponent("checkbox.tsx");
-    expect(source).toMatch(/radius-xs|radius(?!-full)(?!-lg)(?!-md)(?!-sm)/);
+    // CVA+Tailwind: rounded-xs maps to --radius-xs via @theme inline
+    expect(source).toMatch(/radius-xs|rounded-xs/);
   });
 });
 
