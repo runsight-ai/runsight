@@ -174,7 +174,7 @@ function hasNewTokens(source: string): boolean {
     /\bbg-danger\b/,
     /\bbg-surface-hover\b/,
     /\btext-on-accent\b/,
-    /\btext-muted\b/,
+    /\btext-muted(?!-foreground)(?![\w-])/,
     /\btext-danger\b/,
     /\btext-heading\b/,
     /\bborder-border-default\b/,
