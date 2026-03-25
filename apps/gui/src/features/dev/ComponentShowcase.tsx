@@ -28,7 +28,7 @@ export default function ComponentShowcase() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">Component Showcase</h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Component Showcase</h1>
         <p className="text-[var(--muted-foreground)]">Runsight UI Component Library</p>
       </div>
 
