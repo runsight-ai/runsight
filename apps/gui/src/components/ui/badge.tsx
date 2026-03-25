@@ -4,32 +4,46 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
 
+// Design system tokens: font-mono, font-size-2xs, tracking-wide, radius-full
+// Semantic color scales: accent-3/accent-11, success-3/success-11, warning-3/warning-11,
+//   danger-3/danger-11, info-3/info-11, neutral-3/neutral-10
 const badgeVariants = cva(
-  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-border-focus/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
+  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-radius-full border border-transparent px-2 py-0.5 font-mono text-font-size-2xs font-weight-medium tracking-wide uppercase whitespace-nowrap",
   {
     variants: {
       variant: {
-        default: "bg-interactive text-on-accent [a]:hover:bg-interactive/80",
-        secondary:
-          "bg-surface-tertiary text-primary [a]:hover:bg-surface-tertiary/80",
-        destructive:
-          "bg-danger/10 text-danger focus-visible:ring-danger/20 dark:bg-danger/20 dark:focus-visible:ring-danger/40 [a]:hover:bg-danger/20",
-        outline:
-          "border-border-default text-primary [a]:hover:bg-surface-tertiary [a]:hover:text-muted",
-        ghost:
-          "hover:bg-surface-tertiary hover:text-muted dark:hover:bg-surface-tertiary/50",
-        link: "text-primary underline-offset-4 hover:underline",
+        accent: "bg-accent-3 text-accent-11",
+        success: "bg-success-3 text-success-11",
+        warning: "bg-warning-3 text-warning-11",
+        danger: "bg-danger-3 text-danger-11",
+        info: "bg-info-3 text-info-11",
+        neutral: "bg-neutral-3 text-neutral-10",
+        outline: "border-border-default bg-transparent text-secondary",
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: "accent",
     },
   }
 )
 
+// BadgeDot: 6px circle dot indicator using currentColor (badge__dot pattern)
+function BadgeDot({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "inline-block size-1.5 rounded-full bg-current flex-shrink-0",
+        className
+      )}
+      data-slot="badge-dot"
+    />
+  )
+}
+
 function Badge({
   className,
-  variant = "default",
+  variant = "accent",
   render,
   ...props
 }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
@@ -49,4 +63,4 @@ function Badge({
   })
 }
 
-export { Badge, badgeVariants }
+export { Badge, BadgeDot, badgeVariants }
