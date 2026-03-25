@@ -1,172 +1,139 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-const meta = {
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableMonoCell,
+} from "@/components/ui/table";
+
+const meta: Meta<typeof Table> = {
   title: "Data Display/Table",
+  component: Table,
   parameters: { layout: "padded" },
 };
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof Table>;
 
 export const Default: Story = {
+  name: "Default",
   render: () => (
-    <table className="table">
-      <thead className="table__head">
-        <tr>
-          <th className="table__header">Workflow</th>
-          <th className="table__header">Status</th>
-          <th className="table__header">Started</th>
-          <th className="table__header">Duration</th>
-        </tr>
-      </thead>
-      <tbody className="table__body">
-        <tr className="table__row">
-          <td className="table__cell">customer-support-triage</td>
-          <td className="table__cell">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Workflow</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Started</TableHead>
+          <TableHead>Duration</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow>
+          <TableCell>customer-support-triage</TableCell>
+          <TableCell>
             <span className="badge badge--success"><span className="badge__dot" />Running</span>
-          </td>
-          <td className="table__cell">2 min ago</td>
-          <td className="table__cell table__cell--mono">34s</td>
-        </tr>
-        <tr className="table__row">
-          <td className="table__cell">email-classifier</td>
-          <td className="table__cell">
+          </TableCell>
+          <TableCell>2 min ago</TableCell>
+          <TableMonoCell>34s</TableMonoCell>
+        </TableRow>
+        <TableRow>
+          <TableCell>email-classifier</TableCell>
+          <TableCell>
             <span className="badge badge--neutral">Completed</span>
-          </td>
-          <td className="table__cell">5 min ago</td>
-          <td className="table__cell table__cell--mono">12s</td>
-        </tr>
-        <tr className="table__row">
-          <td className="table__cell">data-pipeline</td>
-          <td className="table__cell">
+          </TableCell>
+          <TableCell>5 min ago</TableCell>
+          <TableMonoCell>12s</TableMonoCell>
+        </TableRow>
+        <TableRow>
+          <TableCell>data-pipeline</TableCell>
+          <TableCell>
             <span className="badge badge--danger">Failed</span>
-          </td>
-          <td className="table__cell">10 min ago</td>
-          <td className="table__cell table__cell--mono">1m 22s</td>
-        </tr>
-      </tbody>
-    </table>
+          </TableCell>
+          <TableCell>10 min ago</TableCell>
+          <TableMonoCell>1m 22s</TableMonoCell>
+        </TableRow>
+      </TableBody>
+    </Table>
   ),
 };
 
-export const WithMonoCells: Story = {
-  name: "Mono Values",
+export const WithSelection: Story = {
+  name: "With Selection (aria-selected)",
   render: () => (
-    <table className="table">
-      <thead className="table__head">
-        <tr>
-          <th className="table__header">Workflow</th>
-          <th className="table__header">Run ID</th>
-          <th className="table__header">Started</th>
-          <th className="table__header">Tokens</th>
-        </tr>
-      </thead>
-      <tbody className="table__body">
-        <tr className="table__row">
-          <td className="table__cell">customer-support-triage</td>
-          <td className="table__cell table__cell--mono" data-type="id">run_8f3k2m</td>
-          <td className="table__cell table__cell--mono" data-type="timestamp">2026-03-25 09:14:00</td>
-          <td className="table__cell table__cell--mono" data-type="metric">4,820</td>
-        </tr>
-        <tr className="table__row">
-          <td className="table__cell">email-classifier</td>
-          <td className="table__cell table__cell--mono" data-type="id">run_9x1p4q</td>
-          <td className="table__cell table__cell--mono" data-type="timestamp">2026-03-25 09:09:00</td>
-          <td className="table__cell table__cell--mono" data-type="metric">1,204</td>
-        </tr>
-      </tbody>
-    </table>
-  ),
-};
-
-export const SortableHeader: Story = {
-  name: "Sortable Header",
-  render: () => (
-    <table className="table">
-      <thead className="table__head">
-        <tr>
-          <th className="table__header" aria-sort="none">Workflow ↕</th>
-          <th className="table__header" aria-sort="descending">Started ↓</th>
-          <th className="table__header" aria-sort="none">Duration ↕</th>
-          <th className="table__header">Status</th>
-        </tr>
-      </thead>
-      <tbody className="table__body">
-        <tr className="table__row">
-          <td className="table__cell">customer-support-triage</td>
-          <td className="table__cell table__cell--mono">2026-03-25 09:14:00</td>
-          <td className="table__cell table__cell--mono">34s</td>
-          <td className="table__cell"><span className="badge badge--success"><span className="badge__dot" />Running</span></td>
-        </tr>
-        <tr className="table__row">
-          <td className="table__cell">email-classifier</td>
-          <td className="table__cell table__cell--mono">2026-03-25 09:09:00</td>
-          <td className="table__cell table__cell--mono">12s</td>
-          <td className="table__cell"><span className="badge badge--neutral">Completed</span></td>
-        </tr>
-      </tbody>
-    </table>
-  ),
-};
-
-export const SelectedRow: Story = {
-  name: "Selected Row",
-  render: () => (
-    <table className="table">
-      <thead className="table__head">
-        <tr>
-          <th className="table__header">Workflow</th>
-          <th className="table__header">Status</th>
-          <th className="table__header">Started</th>
-          <th className="table__header">Duration</th>
-        </tr>
-      </thead>
-      <tbody className="table__body">
-        <tr className="table__row">
-          <td className="table__cell">customer-support-triage</td>
-          <td className="table__cell">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Workflow</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Started</TableHead>
+          <TableHead>Duration</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow>
+          <TableCell>customer-support-triage</TableCell>
+          <TableCell>
             <span className="badge badge--success"><span className="badge__dot" />Running</span>
-          </td>
-          <td className="table__cell">2 min ago</td>
-          <td className="table__cell table__cell--mono">34s</td>
-        </tr>
-        <tr className="table__row" aria-selected="true">
-          <td className="table__cell">email-classifier</td>
-          <td className="table__cell">
+          </TableCell>
+          <TableCell>2 min ago</TableCell>
+          <TableMonoCell>34s</TableMonoCell>
+        </TableRow>
+        <TableRow aria-selected="true">
+          <TableCell>email-classifier</TableCell>
+          <TableCell>
             <span className="badge badge--neutral">Completed</span>
-          </td>
-          <td className="table__cell">5 min ago</td>
-          <td className="table__cell table__cell--mono">12s</td>
-        </tr>
-        <tr className="table__row">
-          <td className="table__cell">data-pipeline</td>
-          <td className="table__cell">
+          </TableCell>
+          <TableCell>5 min ago</TableCell>
+          <TableMonoCell>12s</TableMonoCell>
+        </TableRow>
+        <TableRow>
+          <TableCell>data-pipeline</TableCell>
+          <TableCell>
             <span className="badge badge--danger">Failed</span>
-          </td>
-          <td className="table__cell">10 min ago</td>
-          <td className="table__cell table__cell--mono">1m 22s</td>
-        </tr>
-      </tbody>
-    </table>
+          </TableCell>
+          <TableCell>10 min ago</TableCell>
+          <TableMonoCell>1m 22s</TableMonoCell>
+        </TableRow>
+      </TableBody>
+    </Table>
   ),
 };
 
-export const Empty: Story = {
+export const SortableHeaders: Story = {
+  name: "Sortable Headers",
   render: () => (
-    <table className="table">
-      <thead className="table__head">
-        <tr>
-          <th className="table__header">Workflow</th>
-          <th className="table__header">Status</th>
-          <th className="table__header">Started</th>
-        </tr>
-      </thead>
-      <tbody className="table__body">
-        <tr>
-          <td className="table__empty" colSpan={3}>No workflows found.</td>
-        </tr>
-      </tbody>
-    </table>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead aria-sort="none">Workflow ↕</TableHead>
+          <TableHead aria-sort="descending">Started ↓</TableHead>
+          <TableHead aria-sort="none">Duration ↕</TableHead>
+          <TableHead>Status</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow>
+          <TableCell>customer-support-triage</TableCell>
+          <TableMonoCell>2026-03-25 09:14:00</TableMonoCell>
+          <TableMonoCell>34s</TableMonoCell>
+          <TableCell>
+            <span className="badge badge--success"><span className="badge__dot" />Running</span>
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell>email-classifier</TableCell>
+          <TableMonoCell>2026-03-25 09:09:00</TableMonoCell>
+          <TableMonoCell>12s</TableMonoCell>
+          <TableCell>
+            <span className="badge badge--neutral">Completed</span>
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
   ),
 };

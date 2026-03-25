@@ -1,88 +1,69 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-const meta = {
+import { Pagination } from "@/components/ui/pagination";
+
+const meta: Meta<typeof Pagination> = {
   title: "Navigation/Pagination",
+  component: Pagination,
   parameters: { layout: "centered" },
+  argTypes: {
+    page: {
+      control: { type: "number", min: 1 },
+      description: "Current page (1-based)",
+    },
+    totalPages: {
+      control: { type: "number", min: 1 },
+      description: "Total number of pages",
+    },
+    pageSize: {
+      control: { type: "number", min: 1 },
+      description: "Items per page — used for range display",
+    },
+    total: {
+      control: { type: "number", min: 0 },
+      description: "Total item count — used for range display like '1-10 of 100'",
+    },
+    onPageChange: {
+      action: "onPageChange",
+      description: "Callback fired when a page button is clicked",
+    },
+  },
 };
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof Pagination>;
 
 export const Default: Story = {
-  render: () => (
-    <nav className="pagination" aria-label="Pagination">
-      <button className="pagination__btn" aria-label="Previous page" disabled>‹</button>
-      <button className="pagination__btn" aria-current="page">1</button>
-      <button className="pagination__btn">2</button>
-      <button className="pagination__btn">3</button>
-      <span style={{ color: "var(--text-muted)", padding: "0 var(--space-1)" }}>…</span>
-      <button className="pagination__btn">10</button>
-      <button className="pagination__btn" aria-label="Next page">›</button>
-    </nav>
-  ),
+  name: "Default (controls)",
+  args: {
+    page: 1,
+    totalPages: 10,
+    pageSize: 10,
+    total: undefined,
+  },
 };
 
-export const MiddlePage: Story = {
-  name: "Middle Page",
+export const ManyPages: Story = {
+  name: "Many Pages",
   render: () => (
-    <nav className="pagination" aria-label="Pagination">
-      <button className="pagination__btn" aria-label="Previous page">‹</button>
-      <button className="pagination__btn">1</button>
-      <span style={{ color: "var(--text-muted)", padding: "0 var(--space-1)" }}>…</span>
-      <button className="pagination__btn">4</button>
-      <button className="pagination__btn" aria-current="page">5</button>
-      <button className="pagination__btn">6</button>
-      <span style={{ color: "var(--text-muted)", padding: "0 var(--space-1)" }}>…</span>
-      <button className="pagination__btn">10</button>
-      <button className="pagination__btn" aria-label="Next page">›</button>
-    </nav>
-  ),
-};
-
-export const FewPages: Story = {
-  name: "Few Pages (no ellipsis)",
-  render: () => (
-    <nav className="pagination" aria-label="Pagination">
-      <button className="pagination__btn" aria-label="Previous page">‹</button>
-      <button className="pagination__btn">1</button>
-      <button className="pagination__btn" aria-current="page">2</button>
-      <button className="pagination__btn">3</button>
-      <button className="pagination__btn">4</button>
-      <button className="pagination__btn">5</button>
-      <button className="pagination__btn" aria-label="Next page">›</button>
-    </nav>
-  ),
-};
-
-export const WithInfo: Story = {
-  name: "With Range Info",
-  render: () => (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
-      <span className="pagination__info">1–10 of 100</span>
-      <nav className="pagination" aria-label="Pagination">
-        <button className="pagination__btn" aria-label="Previous page" disabled>‹</button>
-        <button className="pagination__btn" aria-current="page">1</button>
-        <button className="pagination__btn">2</button>
-        <button className="pagination__btn">3</button>
-        <span style={{ color: "var(--text-muted)", padding: "0 var(--space-1)" }}>…</span>
-        <button className="pagination__btn">10</button>
-        <button className="pagination__btn" aria-label="Next page">›</button>
-      </nav>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", alignItems: "center" }}>
+      <Pagination page={1} totalPages={20} />
+      <Pagination page={5} totalPages={20} />
+      <Pagination page={10} totalPages={20} />
+      <Pagination page={20} totalPages={20} />
     </div>
   ),
 };
 
-export const LastPage: Story = {
-  name: "Last Page",
+export const WithInfo: Story = {
+  name: "With Info",
   render: () => (
-    <nav className="pagination" aria-label="Pagination">
-      <button className="pagination__btn" aria-label="Previous page">‹</button>
-      <button className="pagination__btn">1</button>
-      <span style={{ color: "var(--text-muted)", padding: "0 var(--space-1)" }}>…</span>
-      <button className="pagination__btn">9</button>
-      <button className="pagination__btn" aria-current="page">10</button>
-      <button className="pagination__btn" aria-label="Next page" disabled>›</button>
-    </nav>
+    <Pagination
+      page={1}
+      totalPages={10}
+      pageSize={10}
+      total={100}
+    />
   ),
 };
