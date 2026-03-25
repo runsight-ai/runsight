@@ -3,20 +3,29 @@ import { Input as InputPrimitive } from "@base-ui/react/input"
 
 import { cn } from "@/utils/helpers"
 
-// Design system tokens: control-height-sm, font-size-md, border-default, border-focus, surface-tertiary
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+// Design tokens: control-height-sm (height), font-size-md (text), surface-tertiary (bg),
+// border-default (border), border-focus (focus ring), text-heading (color), text-muted (placeholder),
+// border-border-default (base border)
+export interface InputProps extends React.ComponentProps<"input"> {
+  size?: "xs" | "md" | "lg"
+  error?: boolean
+}
+
+function Input({ className, type, size, error, readOnly, disabled, ...props }: InputProps) {
   return (
     <InputPrimitive
       type={type}
       data-slot="input"
+      readOnly={readOnly}
+      disabled={disabled}
       className={cn(
-        "h-control-height-sm w-full min-w-0 rounded-radius-md border border-border-default bg-surface-tertiary px-2.5 py-1 text-font-size-md text-heading transition-colors outline-none",
-        "placeholder:text-muted",
-        "hover:border-border-hover",
-        "focus-visible:border-border-focus focus-visible:ring-3 focus-visible:ring-border-focus/50",
-        "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-        "aria-invalid:border-danger-9 aria-invalid:ring-3 aria-invalid:ring-danger-9/20",
-        "file:inline-flex file:h-6 file:border-0 file:text-font-size-sm file:font-weight-medium file:text-primary",
+        "input",
+        error && "input--error",
+        disabled && "input--disabled",
+        readOnly && "input--readonly",
+        size === "xs" && "input--xs",
+        size === "md" && "input--md",
+        size === "lg" && "input--lg",
         className
       )}
       {...props}
