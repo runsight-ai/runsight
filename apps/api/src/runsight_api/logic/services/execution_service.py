@@ -10,6 +10,7 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 
 from ...core.secrets import SecretsEnvLoader
 from ...domain.entities.run import RunStatus
+from ..observers.eval_observer import EvalObserver
 from ..observers.execution_observer import ExecutionObserver
 from ..observers.streaming_observer import StreamingObserver
 
@@ -155,6 +156,14 @@ class ExecutionService:
             observers = [LoggingObserver(), streaming_obs]
             if self.engine:
                 observers.append(ExecutionObserver(engine=self.engine, run_id=run_id))
+                observers.append(
+                    EvalObserver(
+                        engine=self.engine,
+                        run_id=run_id,
+                        sse_queue=streaming_obs.queue,
+                        assertion_configs=None,
+                    )
+                )
             observer = CompositeObserver(*observers)
 
             from runsight_core.artifacts import InMemoryArtifactStore

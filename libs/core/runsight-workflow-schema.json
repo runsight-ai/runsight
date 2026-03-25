@@ -158,6 +158,22 @@
           "default": null,
           "title": "Exits"
         },
+        "assertions": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assertions"
+        },
         "code": {
           "title": "Code",
           "type": "string"
@@ -364,6 +380,22 @@
           },
           "title": "Exits",
           "type": "array"
+        },
+        "assertions": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assertions"
         }
       },
       "required": [
@@ -486,6 +518,22 @@
           ],
           "default": null,
           "title": "Exits"
+        },
+        "assertions": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assertions"
         },
         "soul_ref": {
           "title": "Soul Ref",
@@ -615,6 +663,22 @@
           "default": null,
           "title": "Exits"
         },
+        "assertions": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assertions"
+        },
         "soul_ref": {
           "title": "Soul Ref",
           "type": "string"
@@ -710,6 +774,22 @@
           ],
           "default": null,
           "title": "Exits"
+        },
+        "assertions": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assertions"
         },
         "inner_block_refs": {
           "items": {
@@ -874,6 +954,22 @@
           ],
           "default": null,
           "title": "Model Name"
+        },
+        "assertions": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assertions"
         }
       },
       "required": [
@@ -968,6 +1064,22 @@
           ],
           "default": null,
           "title": "Exits"
+        },
+        "assertions": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assertions"
         },
         "soul_ref": {
           "title": "Soul Ref",
@@ -1119,6 +1231,22 @@
           ],
           "default": null,
           "title": "Exits"
+        },
+        "assertions": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assertions"
         },
         "workflow_ref": {
           "title": "Workflow Ref",
