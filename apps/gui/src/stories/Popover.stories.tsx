@@ -9,20 +9,36 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
-const meta: Meta = {
+const meta: Meta<{ side: "top" | "bottom" | "left" | "right"; align: "start" | "center" | "end" }> = {
   title: "Overlays/Popover",
   parameters: { layout: "centered" },
+  argTypes: {
+    side: {
+      control: { type: "select" },
+      options: ["top", "bottom", "left", "right"],
+      description: "Which side of the trigger the popover appears on",
+    },
+    align: {
+      control: { type: "select" },
+      options: ["start", "center", "end"],
+      description: "Alignment of the popover relative to the trigger",
+    },
+  },
 };
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   name: "Default (with trigger)",
-  render: () => (
+  args: {
+    side: "bottom",
+    align: "center",
+  },
+  render: (args) => (
     <Popover>
       <PopoverTrigger render={<Button variant="secondary">Open Popover</Button>} />
-      <PopoverContent>
+      <PopoverContent side={args.side} align={args.align}>
         <div style={{ marginBottom: "var(--space-2)" }}>
           <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>
             Soul Configuration

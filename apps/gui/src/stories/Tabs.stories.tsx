@@ -22,11 +22,14 @@ export default meta;
 type Story = StoryObj<typeof TabsList>;
 
 export const Default: Story = {
-  name: "Default",
-  render: () => (
+  name: "Default (controls)",
+  args: {
+    variant: "default",
+  },
+  render: (args) => (
     <div style={{ width: "400px" }}>
       <Tabs defaultValue="overview">
-        <TabsList variant="default">
+        <TabsList variant={args.variant}>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="runs">Runs</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>

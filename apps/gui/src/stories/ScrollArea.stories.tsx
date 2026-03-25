@@ -3,20 +3,32 @@ import React from "react";
 
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
-const meta: Meta<typeof ScrollArea> = {
+type ScrollAreaStoryArgs = { orientation: "vertical" | "horizontal" }
+
+const meta: Meta<ScrollAreaStoryArgs> = {
   title: "Overlays/ScrollArea",
   component: ScrollArea,
   parameters: { layout: "centered" },
+  argTypes: {
+    orientation: {
+      control: { type: "select" },
+      options: ["vertical", "horizontal"],
+      description: "Scroll direction for the ScrollBar",
+    },
+  },
 };
 export default meta;
 
-type Story = StoryObj<typeof ScrollArea>;
+type Story = StoryObj<ScrollAreaStoryArgs>;
 
 const longContent = Array.from({ length: 40 }, (_, i) => `Item ${i + 1} — workflow step or log entry`);
 
 export const Default: Story = {
-  name: "Default (long content)",
-  render: () => (
+  name: "Default (controls)",
+  args: {
+    orientation: "vertical",
+  },
+  render: (args) => (
     <ScrollArea
       style={{
         height: "288px",
@@ -42,6 +54,7 @@ export const Default: Story = {
           </div>
         ))}
       </div>
+      <ScrollBar orientation={args.orientation} />
     </ScrollArea>
   ),
 };

@@ -14,22 +14,31 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronDownIcon, PlayIcon, CopyIcon, PencilIcon, TrashIcon } from "lucide-react";
 
-const meta: Meta = {
+const meta: Meta<{ triggerLabel: string }> = {
   title: "Overlays/DropdownMenu",
   parameters: { layout: "centered" },
+  argTypes: {
+    triggerLabel: {
+      control: { type: "text" },
+      description: "Label shown on the trigger button",
+    },
+  },
 };
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   name: "Default (with trigger)",
-  render: () => (
+  args: {
+    triggerLabel: "Actions",
+  },
+  render: (args) => (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <Button variant="secondary" size="sm">
-            Actions <ChevronDownIcon size={14} />
+            {args.triggerLabel} <ChevronDownIcon size={14} />
           </Button>
         }
       />

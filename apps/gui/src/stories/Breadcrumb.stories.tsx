@@ -15,15 +15,24 @@ const meta: Meta<typeof Breadcrumb> = {
   title: "Navigation/Breadcrumb",
   component: Breadcrumb,
   parameters: { layout: "centered" },
+  argTypes: {
+    separator: {
+      control: { type: "text" },
+      description: "Custom separator between breadcrumb items (defaults to ChevronRight icon)",
+    },
+  },
 };
 export default meta;
 
 type Story = StoryObj<typeof Breadcrumb>;
 
 export const Default: Story = {
-  name: "Default",
-  render: () => (
-    <Breadcrumb>
+  name: "Default (controls)",
+  args: {
+    separator: undefined,
+  },
+  render: (args) => (
+    <Breadcrumb separator={args.separator}>
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink href="#">Home</BreadcrumbLink>

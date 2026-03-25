@@ -30,6 +30,17 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
+export const Default: Story = {
+  name: "Default (prefix + input)",
+  args: {},
+  render: () => (
+    <InputGroup>
+      <InputGroupAddon align="inline-start">$</InputGroupAddon>
+      <InputGroupInput type="number" placeholder="0.00" />
+    </InputGroup>
+  ),
+}
+
 export const WithPrefix: Story = {
   name: "With Prefix",
   render: () => (

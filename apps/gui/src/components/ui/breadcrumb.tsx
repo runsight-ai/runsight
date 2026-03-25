@@ -14,6 +14,12 @@ import { ChevronRight } from "lucide-react"
 import { cn } from "@/utils/helpers"
 
 // ---------------------------------------------------------------------------
+// Breadcrumb context — carries separator down to BreadcrumbSeparator
+// ---------------------------------------------------------------------------
+
+const BreadcrumbContext = React.createContext<{ separator?: React.ReactNode }>({})
+
+// ---------------------------------------------------------------------------
 // Breadcrumb root
 // ---------------------------------------------------------------------------
 
@@ -27,11 +33,13 @@ export function Breadcrumb({
   ...props
 }: BreadcrumbProps) {
   return (
-    <nav
-      aria-label="breadcrumb"
-      className={cn("breadcrumb", className)}
-      {...props}
-    />
+    <BreadcrumbContext.Provider value={{ separator }}>
+      <nav
+        aria-label="breadcrumb"
+        className={cn("breadcrumb", className)}
+        {...props}
+      />
+    </BreadcrumbContext.Provider>
   )
 }
 
@@ -116,6 +124,7 @@ export function BreadcrumbSeparator({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"li">) {
+  const { separator } = React.useContext(BreadcrumbContext)
   return (
     <li
       role="presentation"
@@ -123,7 +132,7 @@ export function BreadcrumbSeparator({
       className={cn("breadcrumb__separator", className)}
       {...props}
     >
-      {children ?? <ChevronRight />}
+      {children ?? separator ?? <ChevronRight />}
     </li>
   )
 }

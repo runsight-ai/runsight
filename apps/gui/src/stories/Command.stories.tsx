@@ -12,21 +12,31 @@ import {
   CommandEmpty,
 } from "@/components/ui/command";
 
-const meta: Meta<typeof Command> = {
+type CommandStoryArgs = { placeholder: string }
+
+const meta: Meta<CommandStoryArgs> = {
   title: "Overlays/Command",
-  component: Command,
   parameters: { layout: "centered" },
+  argTypes: {
+    placeholder: {
+      control: { type: "text" },
+      description: "Placeholder text shown in the command input",
+    },
+  },
 };
 export default meta;
 
-type Story = StoryObj<typeof Command>;
+type Story = StoryObj<CommandStoryArgs>;
 
 export const Default: Story = {
-  name: "Default",
-  render: () => (
+  name: "Default (controls)",
+  args: {
+    placeholder: "Search commands...",
+  },
+  render: (args) => (
     <div style={{ width: "480px" }}>
       <Command>
-        <CommandInput placeholder="Search commands..." />
+        <CommandInput placeholder={args.placeholder} />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Workflows">
