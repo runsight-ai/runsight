@@ -54,7 +54,7 @@ export function CodeBlock({
     >
       {/* Header bar */}
       {(language || showCopy) && (
-        <div className="code-block__header flex items-center justify-between border-b border-border-subtle px-3 py-1.5">
+        <div className="code-block__header">
           {language && (
             <span className="code-block__lang">
               {language}
@@ -64,9 +64,9 @@ export function CodeBlock({
             <button
               type="button"
               onClick={handleCopy}
-              aria-label="Copy code"
+              aria-label="Copy"
               className={cn(
-                "btn btn--ghost btn--icon code-block__copy ml-auto",
+                "btn btn--ghost btn--xs btn--icon code-block__copy",
                 copied && "text-success-11"
               )}
             >

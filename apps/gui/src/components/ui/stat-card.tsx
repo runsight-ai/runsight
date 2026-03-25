@@ -58,20 +58,13 @@ export function StatCard({
         {label}
       </span>
 
-      {/* Value row */}
-      <div className="flex items-end gap-2">
-        <span
-          data-slot="stat-card-value"
-          className="stat-card__value"
-        >
-          {value}
-        </span>
-        {icon && (
-          <span aria-hidden="true" className="mb-0.5 text-secondary">
-            {icon}
-          </span>
-        )}
-      </div>
+      {/* Value */}
+      <span
+        data-slot="stat-card-value"
+        className="stat-card__value"
+      >
+        {value}
+      </span>
 
       {/* Delta / change / trend badge */}
       {delta !== undefined && delta !== null && (

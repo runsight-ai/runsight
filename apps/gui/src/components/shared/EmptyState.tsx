@@ -1,5 +1,4 @@
 import { cn } from "@/utils/helpers";
-import { Button } from "@/components/ui/button";
 import type { LucideIcon } from "lucide-react";
 
 interface EmptyStateProps {
@@ -22,36 +21,45 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className={cn("empty-state", className)}>
-      {/* Icon — .empty-state__icon */}
-      <Icon
+      {/* Icon — .empty-state__icon wraps a 48x48 SVG */}
+      <div
         data-slot="empty-state-icon"
         className="empty-state__icon"
-        aria-hidden="true"
-      />
+      >
+        <Icon
+          width={48}
+          height={48}
+          aria-hidden="true"
+        />
+      </div>
 
       {/* Title — .empty-state__title */}
-      <p
+      <div
         data-slot="empty-state-title"
         className="empty-state__title"
       >
         {title}
-      </p>
+      </div>
 
       {/* Description — .empty-state__description */}
       {description && (
-        <p
+        <div
           data-slot="empty-state-description"
           className="empty-state__description"
         >
           {description}
-        </p>
+        </div>
       )}
 
       {/* Optional CTA */}
       {action && (
-        <Button variant="primary" size="sm" onClick={action.onClick}>
+        <button
+          type="button"
+          className="btn btn--primary"
+          onClick={action.onClick}
+        >
           {action.label}
-        </Button>
+        </button>
       )}
     </div>
   );

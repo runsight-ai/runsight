@@ -88,18 +88,6 @@ const executionStateDataAttrMap: Record<ExecutionState, string | undefined> = {
   skipped: undefined,
 }
 
-/**
- * Left 2px execution-state indicator.
- * Maps to design system color tokens: accent-9, success-7, danger-7, neutral-6.
- */
-const executionStateBarMap: Record<ExecutionState, string> = {
-  idle:    "bg-transparent",
-  running: "bg-accent-9",
-  success: "bg-success-7",
-  error:   "bg-danger-7",
-  skipped: "bg-neutral-6",
-}
-
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -222,19 +210,6 @@ export function NodeCard({
       {...props}
     >
       {/* ---------------------------------------------------------------- */}
-      {/* Left 2px execution-state bar                                      */}
-      {/* accent-9 / success-7 / danger-7 / neutral-6                      */}
-      {/* ---------------------------------------------------------------- */}
-      <span
-        aria-hidden="true"
-        data-slot="node-card-state-bar"
-        className={cn(
-          "absolute inset-y-0 left-0 w-[2px]",
-          executionStateBarMap[executionState]
-        )}
-      />
-
-      {/* ---------------------------------------------------------------- */}
       {/* Input port handle — .node-card__port--input (left edge)          */}
       {/* ---------------------------------------------------------------- */}
       {inputPort && (
@@ -269,13 +244,13 @@ export function NodeCard({
       >
         {icon && (
           // .node-card__icon — color driven by category / state via CSS
-          <span
+          <div
             aria-hidden="true"
             data-slot="node-card-icon"
             className="node-card__icon"
           >
             {icon}
-          </span>
+          </div>
         )}
 
         {/* .node-card__name — text-heading + font-size-sm */}
