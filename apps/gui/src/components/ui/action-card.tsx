@@ -41,7 +41,7 @@ export function ActionCard({
     <div
       data-slot="action-card"
       data-variant={variant}
-      className={cn("card relative flex gap-4 p-space-4", className)}
+      className={cn("card relative flex gap-4 p-4", className)}
       {...props}
     >
       {/* Left 3px accent stripe — inline var(--token) for variant colour */}
@@ -66,7 +66,7 @@ export function ActionCard({
         {description !== undefined && description !== null && (
           <div
             data-slot="action-card-description"
-            className="text-font-size-sm text-secondary"
+            className="text-sm text-secondary"
           >
             {description}
           </div>

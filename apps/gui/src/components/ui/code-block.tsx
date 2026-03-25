@@ -79,7 +79,7 @@ export function CodeBlock({
       {/* Code area — font-mono, font-size-sm */}
       <pre
         data-slot="code-block-content"
-        className="overflow-x-auto p-space-4"
+        className="overflow-x-auto p-4"
       >
         <code>{children}</code>
       </pre>

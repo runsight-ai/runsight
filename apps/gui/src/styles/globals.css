@@ -92,8 +92,103 @@
   --color-block-utility: var(--block-utility);
   --color-block-custom:  var(--block-custom);
 
-  /* Radius — fixed values from design system */
-  --radius-md: 4px;
+  /* Radius */
+  --radius-none: 0px;
+  --radius-xs:   var(--radius-xs);
+  --radius-sm:   var(--radius-sm);
+  --radius-md:   4px;
+  --radius-lg:   var(--radius-lg);
+  --radius-xl:   var(--radius-xl);
+  --radius-2xl:  var(--radius-2xl);
+  --radius-full: 9999px;
+
+  /* Spacing — single multiplier: p-1=4px, p-4=16px, p-12=48px */
+  --spacing: 4px;
+
+  /* Font sizes */
+  --text-2xs: var(--font-size-2xs);
+  --text-xs:  var(--font-size-xs);
+  --text-sm:  var(--font-size-sm);
+  --text-md:  var(--font-size-md);
+  --text-lg:  var(--font-size-lg);
+  --text-xl:  var(--font-size-xl);
+  --text-2xl: var(--font-size-2xl);
+  --text-3xl: var(--font-size-3xl);
+
+  /* Font weights */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  /* Line heights */
+  --leading-tight:   var(--line-height-tight);
+  --leading-snug:    var(--line-height-snug);
+  --leading-normal:  var(--line-height-normal);
+  --leading-relaxed: var(--line-height-relaxed);
+  --leading-loose:   var(--line-height-loose);
+
+  /* Letter spacing */
+  --tracking-tighter: var(--tracking-tighter);
+  --tracking-tight:   var(--tracking-tight);
+  --tracking-normal:  0;
+  --tracking-slight:  var(--tracking-slight);
+  --tracking-wide:    var(--tracking-wide);
+  --tracking-wider:   var(--tracking-wider);
+  --tracking-widest:  var(--tracking-widest);
+
+  /* Shadows */
+  --shadow-raised:  var(--elevation-raised-shadow);
+  --shadow-overlay: var(--elevation-overlay-shadow);
+
+  /* Easing */
+  --ease-default: var(--ease-default);
+  --ease-out:     var(--ease-out);
+  --ease-in:      var(--ease-in);
+  --ease-in-out:  var(--ease-in-out);
+  --ease-spring:  var(--ease-spring);
+
+  /* Text color short aliases (text-muted, text-heading, text-on-accent) */
+  --color-muted:     var(--text-muted);
+  --color-heading:   var(--text-heading);
+  --color-on-accent: var(--text-on-accent);
+
+  /* Reference color scales — enables bg-accent-9, text-danger-11, bg-neutral-6, etc. */
+  --color-accent-1:   var(--accent-1);
+  --color-accent-2:   var(--accent-2);
+  --color-accent-3:   var(--accent-3);
+  --color-accent-7:   var(--accent-7);
+  --color-accent-9:   var(--accent-9);
+  --color-accent-10:  var(--accent-10);
+  --color-accent-11:  var(--accent-11);
+  --color-accent-12:  var(--accent-12);
+  --color-neutral-2:  var(--neutral-2);
+  --color-neutral-3:  var(--neutral-3);
+  --color-neutral-4:  var(--neutral-4);
+  --color-neutral-5:  var(--neutral-5);
+  --color-neutral-6:  var(--neutral-6);
+  --color-neutral-7:  var(--neutral-7);
+  --color-neutral-9:  var(--neutral-9);
+  --color-neutral-10: var(--neutral-10);
+  --color-neutral-12: var(--neutral-12);
+  --color-success-3:  var(--success-3);
+  --color-success-7:  var(--success-7);
+  --color-success-9:  var(--success-9);
+  --color-success-11: var(--success-11);
+  --color-warning-3:  var(--warning-3);
+  --color-warning-7:  var(--warning-7);
+  --color-warning-9:  var(--warning-9);
+  --color-warning-11: var(--warning-11);
+  --color-danger-3:   var(--danger-3);
+  --color-danger-7:   var(--danger-7);
+  --color-danger-8:   var(--danger-8);
+  --color-danger-9:   var(--danger-9);
+  --color-danger-10:  var(--danger-10);
+  --color-danger-11:  var(--danger-11);
+  --color-info-3:     var(--info-3);
+  --color-info-7:     var(--info-7);
+  --color-info-9:     var(--info-9);
+  --color-info-11:    var(--info-11);
 }
 
 
