@@ -1,24 +1,42 @@
-// BEM classes: .stat-card, .stat-card--accent, .stat-card--success, .stat-card--danger
-// .stat-card__label, .stat-card__value, .stat-card__trend, .stat-card__trend--up, .stat-card__trend--down
-// Tokens: surface-tertiary, border-subtle, border-top (3px stripe), radius-md, space-4
-// text-secondary, font-size-xs, font-mono, font-size-2xl (font-size-3xl in CSS), text-heading
-// success-11, danger-11
-
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
 
-type StatCardVariant = "default" | "accent" | "success" | "danger"
+const statCardVariants = cva(
+  // base — surface-tertiary, border, rounded bottom, padding, flex column
+  [
+    "bg-surface-tertiary border border-border-subtle",
+    "border-t-[3px]",
+    "rounded-none rounded-b-md",
+    "p-4 flex flex-col gap-1",
+    "transition-[border-top-color] duration-150 ease-[var(--ease-out)]",
+    "hover:border-t-accent-7",
+  ],
+  {
+    variants: {
+      variant: {
+        default: "border-t-border-default",
+        accent:  "border-t-interactive-default",
+        success: "border-t-success-9",
+        danger:  "border-t-danger-9",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
 
-export interface StatCardProps extends React.ComponentProps<"div"> {
+export interface StatCardProps
+  extends React.ComponentProps<"div">,
+    VariantProps<typeof statCardVariants> {
   /** Metric label — displayed uppercase in font-size-xs */
   label: string
-  /** Metric value — displayed in font-mono font-size-2xl */
+  /** Metric value — displayed in font-mono font-size-3xl */
   value: React.ReactNode
   /** Optional delta/change/trend indicator (positive or negative) */
   delta?: React.ReactNode
-  /** Visual variant controls the top category stripe color */
-  variant?: StatCardVariant
   /** Optional icon displayed alongside the value */
   icon?: React.ReactNode
 }
@@ -41,39 +59,33 @@ export function StatCard({
     <div
       data-slot="stat-card"
       data-variant={variant}
-      className={cn(
-        "stat-card",
-        variant === "accent"  && "stat-card--accent",
-        variant === "success" && "stat-card--success",
-        variant === "danger"  && "stat-card--danger",
-        className
-      )}
+      className={cn(statCardVariants({ variant }), className)}
       {...props}
     >
-      {/* Label — text-secondary, font-size-xs, uppercase */}
+      {/* Label — font-mono, 2xs, medium, wider tracking, uppercase, text-muted */}
       <span
         data-slot="stat-card-label"
-        className="stat-card__label"
+        className="font-mono text-2xs font-medium tracking-wider uppercase text-muted"
       >
         {label}
       </span>
 
-      {/* Value */}
+      {/* Value — font-mono, 3xl, bold, tighter tracking, tight leading, text-heading */}
       <span
         data-slot="stat-card-value"
-        className="stat-card__value"
+        className="font-mono text-3xl font-bold tracking-tighter leading-tight text-heading"
       >
         {value}
       </span>
 
-      {/* Delta / change / trend badge */}
+      {/* Delta / trend badge */}
       {delta !== undefined && delta !== null && (
         <span
           data-slot="stat-card-delta"
           className={cn(
-            "stat-card__trend",
-            isPositiveDelta  && "stat-card__trend--up",
-            isNegativeDelta  && "stat-card__trend--down",
+            "font-mono text-xs flex items-center gap-1",
+            isPositiveDelta && "text-success-11",
+            isNegativeDelta && "text-danger-11",
           )}
         >
           {delta}

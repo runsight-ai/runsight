@@ -1,16 +1,23 @@
-// Design system tokens used by BEM classes in components.css:
-//   .pagination         — font-size: var(--font-size-sm); gap: var(--space-1)
-//   .pagination__btn    — ghost style (transparent bg); color: var(--text-secondary)
-//   .pagination__btn:hover — background: var(--surface-hover); color: var(--text-primary)
-//   .pagination__btn[aria-current="page"] — background: var(--interactive-default) (surface-selected);
-//                                           color: var(--text-heading); Ghost inactive state
-//   .pagination__btn:disabled — opacity: 0.4
-//   .pagination__info   — font-family: var(--font-mono); color: var(--text-muted)
-
 import * as React from "react"
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
+import { cva } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
+
+// ---------------------------------------------------------------------------
+// Shared button style
+// ---------------------------------------------------------------------------
+
+const paginationBtnClass = [
+  "inline-flex items-center justify-center",
+  "min-w-[var(--control-height-sm,32px)] h-[var(--control-height-sm,32px)] px-2",
+  "bg-transparent border border-transparent rounded-md",
+  "text-secondary text-sm cursor-pointer",
+  "transition-[background,color] duration-100",
+  "hover:bg-surface-hover hover:text-primary",
+  "aria-[current=page]:bg-surface-selected aria-[current=page]:text-heading aria-[current=page]:font-medium",
+  "disabled:opacity-40 disabled:cursor-not-allowed",
+].join(" ")
 
 // ---------------------------------------------------------------------------
 // Pagination root
@@ -49,7 +56,7 @@ export function Pagination({
     <nav
       role="navigation"
       aria-label="pagination"
-      className={cn("pagination", className)}
+      className={cn("flex items-center gap-1 text-sm", className)}
       {...props}
     >
       {/* Previous button */}
@@ -58,7 +65,7 @@ export function Pagination({
         aria-label="Go to previous page"
         disabled={!canGoPrev}
         onClick={() => canGoPrev && onPageChange?.(page - 1)}
-        className="pagination__btn"
+        className={paginationBtnClass}
       >
         <ChevronLeft className="size-4" />
         <span className="sr-only">Previous</span>
@@ -76,7 +83,7 @@ export function Pagination({
                 aria-label={`Page ${entry}`}
                 aria-current={entry === page ? "page" : undefined}
                 onClick={() => onPageChange?.(entry as number)}
-                className="pagination__btn"
+                className={paginationBtnClass}
               >
                 {entry}
               </button>
@@ -91,7 +98,7 @@ export function Pagination({
         aria-label="Go to next page"
         disabled={!canGoNext}
         onClick={() => canGoNext && onPageChange?.(page + 1)}
-        className="pagination__btn"
+        className={paginationBtnClass}
       >
         <span className="sr-only">Next</span>
         <ChevronRight className="size-4" />
@@ -99,7 +106,7 @@ export function Pagination({
 
       {/* Range display — "1-10 of 100" */}
       {total !== undefined && (
-        <span className="pagination__info">
+        <span className="font-mono text-xs text-muted px-2">
           {rangeStart}–{rangeEnd} of {total}
         </span>
       )}
@@ -137,7 +144,7 @@ function PaginationEllipsis({
   return (
     <span
       aria-hidden="true"
-      className={cn("pagination__btn", className)}
+      className={cn(paginationBtnClass, className)}
       {...props}
     >
       <MoreHorizontal className="size-4" />
