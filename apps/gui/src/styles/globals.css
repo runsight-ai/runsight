@@ -1,8 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "./components.css";
-@import "./patterns.css";
 
 /* ========================================
    FONT LOADING

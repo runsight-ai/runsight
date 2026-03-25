@@ -268,6 +268,8 @@ export function NodeCard({
   return (
     <div
       data-slot="node-card"
+      data-category={category}
+      data-state={executionState}
       aria-selected={selected || undefined}
       className={cn(
         // base layout
