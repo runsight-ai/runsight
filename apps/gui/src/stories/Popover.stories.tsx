@@ -1,7 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-const meta = {
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+
+const meta: Meta = {
   title: "Overlays/Popover",
   parameters: { layout: "centered" },
 };
@@ -10,53 +18,57 @@ export default meta;
 type Story = StoryObj;
 
 export const Default: Story = {
+  name: "Default (with trigger)",
   render: () => (
-    // Minimal wrapper — popover sits directly below trigger, no extra padding
-    <div style={{ position: "relative", display: "inline-block" }}>
-      <button className="btn btn--secondary">Open Popover</button>
-      <div className="popover" style={{ position: "absolute", top: "calc(100% + var(--space-2))", left: 0, minWidth: "240px" }}>
+    <Popover>
+      <PopoverTrigger render={<Button variant="secondary">Open Popover</Button>} />
+      <PopoverContent>
         <div style={{ marginBottom: "var(--space-2)" }}>
-          <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>Soul Configuration</div>
-          <div style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", marginTop: "var(--space-0-5)" }}>Adjust the active soul for this step.</div>
+          <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>
+            Soul Configuration
+          </div>
+          <div style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", marginTop: "var(--space-0-5)" }}>
+            Adjust the active soul for this step.
+          </div>
         </div>
         <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-muted)", margin: 0 }}>
           Select a soul from the list or create a new one.
         </p>
-      </div>
-    </div>
+      </PopoverContent>
+    </Popover>
   ),
 };
 
-export const WithFormContent: Story = {
-  name: "With Form Content",
+export const WithForm: Story = {
+  name: "With Form",
   render: () => (
-    <div style={{ position: "relative", display: "inline-block" }}>
-      <button className="btn btn--secondary">Filter Results</button>
-      <div className="popover" style={{ position: "absolute", top: "calc(100% + var(--space-2))", left: 0, minWidth: "260px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-          <div className="field">
-            <label className="field__label">Status</label>
-            <select className="select">
+    <Popover>
+      <PopoverTrigger render={<Button variant="secondary">Filter Results</Button>} />
+      <PopoverContent>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", minWidth: "220px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+            <Label htmlFor="pop-status">Status</Label>
+            <select id="pop-status" className="input" style={{ height: "var(--control-height-sm)" }}>
               <option value="">All statuses</option>
               <option value="running">Running</option>
               <option value="completed">Completed</option>
               <option value="failed">Failed</option>
             </select>
           </div>
-          <div className="field">
-            <label className="field__label">Model</label>
-            <select className="select">
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+            <Label htmlFor="pop-model">Model</Label>
+            <select id="pop-model" className="input" style={{ height: "var(--control-height-sm)" }}>
               <option value="">All models</option>
               <option value="sonnet">Claude Sonnet</option>
               <option value="opus">Claude Opus</option>
             </select>
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)" }}>
-            <button className="btn btn--ghost btn--sm">Reset</button>
-            <button className="btn btn--primary btn--sm">Apply</button>
+            <Button variant="ghost" size="sm">Reset</Button>
+            <Button variant="primary" size="sm">Apply</Button>
           </div>
         </div>
-      </div>
-    </div>
+      </PopoverContent>
+    </Popover>
   ),
 };

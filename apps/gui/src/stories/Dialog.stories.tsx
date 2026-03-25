@@ -1,90 +1,112 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-const meta = {
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogBody,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+const meta: Meta<typeof DialogContent> = {
   title: "Overlays/Dialog",
+  component: DialogContent,
   parameters: { layout: "centered" },
+  argTypes: {
+    size: {
+      control: { type: "select" },
+      options: ["sm", "md", "lg"],
+      description: "Width size of the dialog",
+    },
+  },
 };
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof DialogContent>;
 
 export const Default: Story = {
-  render: () => (
-    <div style={{ position: "relative", width: "480px" }}>
-      <div className="modal modal--md" style={{ position: "static", transform: "none", background: "var(--elevation-overlay-surface)", border: "1px solid var(--elevation-border-raised)" }}>
-        <div className="modal__header">
-          <span className="modal__title">Workflow Settings</span>
-          <button className="btn btn--ghost btn--icon btn--xs" aria-label="Close">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="modal__body">
+  name: "Default (controls)",
+  args: {
+    size: "md",
+  },
+  render: (args) => (
+    <Dialog>
+      <DialogTrigger render={<Button variant="secondary">Open Dialog</Button>} />
+      <DialogContent {...args}>
+        <DialogHeader>
+          <DialogTitle>Workflow Settings</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
           <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
             Configure settings for this workflow. Changes are saved automatically.
           </p>
-        </div>
-      </div>
-    </div>
+        </DialogBody>
+        <DialogFooter showCloseButton>
+          <Button variant="primary" size="sm">Save Changes</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   ),
 };
 
-export const WithFormAndFooter: Story = {
-  name: "With Form and Footer",
+export const Confirmation: Story = {
   render: () => (
-    <div style={{ width: "480px" }}>
-      <div className="modal modal--md" style={{ position: "static", transform: "none", background: "var(--elevation-overlay-surface)", border: "1px solid var(--elevation-border-raised)" }}>
-        <div className="modal__header">
-          <span className="modal__title">Edit Soul</span>
-          <button className="btn btn--ghost btn--icon btn--xs" aria-label="Close">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="modal__body">
+    <Dialog>
+      <DialogTrigger render={<Button variant="danger">Delete Workflow</Button>} />
+      <DialogContent size="sm">
+        <DialogHeader>
+          <DialogTitle>Delete Workflow</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <p style={{ fontSize: "var(--font-size-md)", color: "var(--text-secondary)" }}>
+            This action cannot be undone. The workflow and all its run history will be permanently removed.
+          </p>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" size="sm">Cancel</Button>} />
+          <Button variant="danger" size="sm">Delete</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  ),
+};
+
+export const WithForm: Story = {
+  name: "With Form",
+  render: () => (
+    <Dialog>
+      <DialogTrigger render={<Button variant="secondary">Edit Soul</Button>} />
+      <DialogContent size="md">
+        <DialogHeader>
+          <DialogTitle>Edit Soul</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
           <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", marginBottom: "var(--space-4)" }}>
             Update the identity and prompt for this agent soul.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            <div className="field">
-              <label className="field__label">Name</label>
-              <input className="input" type="text" defaultValue="Planner Soul" />
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+              <Label htmlFor="soul-name">Name</Label>
+              <Input id="soul-name" defaultValue="Planner Soul" />
             </div>
-            <div className="field">
-              <label className="field__label">Model</label>
-              <input className="input" type="text" defaultValue="claude-3-5-sonnet" />
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+              <Label htmlFor="soul-model">Model</Label>
+              <Input id="soul-model" defaultValue="claude-3-5-sonnet" />
             </div>
           </div>
-        </div>
-        <div className="modal__footer">
-          <button className="btn btn--secondary btn--sm">Cancel</button>
-          <button className="btn btn--primary btn--sm">Save Changes</button>
-        </div>
-      </div>
-    </div>
-  ),
-};
-
-export const Destructive: Story = {
-  render: () => (
-    <div style={{ width: "480px" }}>
-      <div className="modal modal--sm" style={{ position: "static", transform: "none", background: "var(--elevation-overlay-surface)", border: "1px solid var(--elevation-border-raised)" }}>
-        <div className="modal__header">
-          <span className="modal__title">Delete Workflow</span>
-        </div>
-        <div className="modal__body">
-          <p style={{ fontSize: "var(--font-size-md)", color: "var(--text-secondary)" }}>
-            This action cannot be undone. The workflow and all its run history will be permanently removed.
-          </p>
-        </div>
-        <div className="modal__footer">
-          <button className="btn btn--secondary btn--sm">Cancel</button>
-          <button className="btn btn--danger btn--sm">Delete</button>
-        </div>
-      </div>
-    </div>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" size="sm">Cancel</Button>} />
+          <Button variant="primary" size="sm">Save Changes</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   ),
 };

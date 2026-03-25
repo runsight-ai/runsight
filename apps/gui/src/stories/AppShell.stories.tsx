@@ -1,46 +1,61 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-const meta = {
+import { AppShell } from "@/components/ui/app-shell";
+
+const meta: Meta<typeof AppShell> = {
   title: "Composites/AppShell",
+  component: AppShell,
   parameters: { layout: "fullscreen" },
+  argTypes: {
+    sidebarCollapsed: { control: "boolean" },
+    inspectorOpen: { control: "boolean" },
+  },
 };
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof AppShell>;
 
 function Placeholder({ label, muted = false }: { label: string; muted?: boolean }) {
   return (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "center",
-      width: "100%", height: "100%", padding: "8px",
-      opacity: muted ? 0.4 : 0.7, fontSize: 11,
-      fontFamily: "var(--font-mono)", color: "var(--text-muted)",
-      border: "1px dashed var(--border-subtle)", boxSizing: "border-box",
-    }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "100%",
+        height: "100%",
+        padding: "8px",
+        opacity: muted ? 0.4 : 0.7,
+        fontSize: 11,
+        fontFamily: "var(--font-mono)",
+        color: "var(--text-muted)",
+        border: "1px dashed var(--border-subtle)",
+        boxSizing: "border-box",
+      }}
+    >
       {label}
     </div>
   );
 }
 
 export const Default: Story = {
-  render: () => (
-    <div className="app-shell" data-sidebar="expanded" data-inspector="open" style={{ height: "100vh" }}>
-      <header className="app-shell__header" style={{ borderBottom: "1px solid var(--border-default)" }}>
-        <Placeholder label="header" />
-      </header>
-      <aside className="app-shell__sidebar" style={{ width: "var(--sidebar-width-expanded)", borderRight: "1px solid var(--border-default)", background: "var(--sidebar-bg)" }}>
-        <Placeholder label="sidebar" />
-      </aside>
-      <main className="app-shell__main">
-        <Placeholder label="main canvas" />
-      </main>
-      <aside className="app-shell__inspector" style={{ width: "var(--inspector-width)", borderLeft: "1px solid var(--border-default)", background: "var(--surface-secondary)" }}>
-        <Placeholder label="inspector" />
-      </aside>
-      <div className="app-shell__status" style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--surface-secondary)" }}>
-        <Placeholder label="status bar" muted />
-      </div>
+  name: "Default (controls)",
+  args: {
+    sidebarCollapsed: false,
+    inspectorOpen: true,
+  },
+  render: (args) => (
+    <div style={{ height: "100vh" }}>
+      <AppShell
+        {...args}
+        className="h-full"
+        header={<Placeholder label="header" />}
+        sidebar={<Placeholder label="sidebar" />}
+        main={<Placeholder label="main canvas" />}
+        inspector={<Placeholder label="inspector" />}
+        statusBar={<Placeholder label="status bar" muted />}
+      />
     </div>
   ),
 };
@@ -48,22 +63,17 @@ export const Default: Story = {
 export const SidebarCollapsed: Story = {
   name: "Sidebar — collapsed",
   render: () => (
-    <div className="app-shell" data-sidebar="collapsed" data-inspector="open" style={{ height: "100vh" }}>
-      <header className="app-shell__header" style={{ borderBottom: "1px solid var(--border-default)" }}>
-        <Placeholder label="header" />
-      </header>
-      <aside className="app-shell__sidebar" style={{ width: "var(--sidebar-width-collapsed)", borderRight: "1px solid var(--border-default)", background: "var(--sidebar-bg)" }}>
-        <Placeholder label="·" />
-      </aside>
-      <main className="app-shell__main">
-        <Placeholder label="main canvas" />
-      </main>
-      <aside className="app-shell__inspector" style={{ width: "var(--inspector-width)", borderLeft: "1px solid var(--border-default)", background: "var(--surface-secondary)" }}>
-        <Placeholder label="inspector" />
-      </aside>
-      <div className="app-shell__status" style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--surface-secondary)" }}>
-        <Placeholder label="status bar" muted />
-      </div>
+    <div style={{ height: "100vh" }}>
+      <AppShell
+        sidebarCollapsed
+        inspectorOpen
+        className="h-full"
+        header={<Placeholder label="header" />}
+        sidebar={<Placeholder label="·" />}
+        main={<Placeholder label="main canvas" />}
+        inspector={<Placeholder label="inspector" />}
+        statusBar={<Placeholder label="status bar" muted />}
+      />
     </div>
   ),
 };
@@ -71,127 +81,95 @@ export const SidebarCollapsed: Story = {
 export const InspectorClosed: Story = {
   name: "Inspector — hidden",
   render: () => (
-    <div className="app-shell" data-sidebar="expanded" data-inspector="closed" style={{ height: "100vh" }}>
-      <header className="app-shell__header" style={{ borderBottom: "1px solid var(--border-default)" }}>
-        <Placeholder label="header" />
-      </header>
-      <aside className="app-shell__sidebar" style={{ width: "var(--sidebar-width-expanded)", borderRight: "1px solid var(--border-default)", background: "var(--sidebar-bg)" }}>
-        <Placeholder label="sidebar" />
-      </aside>
-      <main className="app-shell__main">
-        <Placeholder label="main canvas (full width)" />
-      </main>
-      <div className="app-shell__status" style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--surface-secondary)" }}>
-        <Placeholder label="status bar" muted />
-      </div>
-    </div>
-  ),
-};
-
-export const FocusMode: Story = {
-  name: "Focus mode (sidebar collapsed + inspector closed)",
-  render: () => (
-    <div className="app-shell" data-sidebar="collapsed" data-inspector="closed" style={{ height: "100vh" }}>
-      <header className="app-shell__header" style={{ borderBottom: "1px solid var(--border-default)" }}>
-        <Placeholder label="header" />
-      </header>
-      <aside className="app-shell__sidebar" style={{ width: "var(--sidebar-width-collapsed)", borderRight: "1px solid var(--border-default)", background: "var(--sidebar-bg)" }}>
-        <Placeholder label="·" />
-      </aside>
-      <main className="app-shell__main">
-        <Placeholder label="main canvas (maximized)" />
-      </main>
-      <div className="app-shell__status" style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--surface-secondary)" }}>
-        <Placeholder label="status bar" muted />
-      </div>
+    <div style={{ height: "100vh" }}>
+      <AppShell
+        sidebarCollapsed={false}
+        inspectorOpen={false}
+        className="h-full"
+        header={<Placeholder label="header" />}
+        sidebar={<Placeholder label="sidebar" />}
+        main={<Placeholder label="main canvas (full width)" />}
+        statusBar={<Placeholder label="status bar" muted />}
+      />
     </div>
   ),
 };
 
 export const WithBottomPanel: Story = {
-  name: "Canvas editor — with bottom panel (collapsed)",
+  name: "With Bottom Panel",
   render: () => (
-    <div
-      className="app-shell"
-      data-sidebar="expanded"
-      data-inspector="open"
-      data-bottom="collapsed"
-      style={{ height: "100vh", display: "flex", flexDirection: "column" }}
-    >
-      <header className="app-shell__header" style={{ borderBottom: "1px solid var(--border-default)", height: "var(--header-height)", flexShrink: 0 }}>
-        <Placeholder label="header" />
-      </header>
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <aside className="app-shell__sidebar" style={{ width: "var(--sidebar-width-expanded)", borderRight: "1px solid var(--border-default)", background: "var(--sidebar-bg)", flexShrink: 0 }}>
-          <Placeholder label="sidebar" />
-        </aside>
-        <main className="app-shell__main" style={{ flex: 1, minWidth: 0 }}>
-          <Placeholder label="main canvas" />
-        </main>
-        <aside className="app-shell__inspector" style={{ width: "var(--inspector-width)", borderLeft: "1px solid var(--border-default)", background: "var(--surface-secondary)", flexShrink: 0 }}>
-          <Placeholder label="inspector" />
-        </aside>
-      </div>
-      {/* Bottom panel — 36px collapsed, full-width ABOVE sidebars */}
-      <div style={{ background: "var(--surface-secondary)", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", height: "36px", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", height: "36px", padding: "0 var(--space-3)", gap: "var(--space-4)", flexShrink: 0 }}>
-          <button style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-xs)", fontWeight: "var(--font-weight-medium)", color: "var(--text-heading)", background: "none", border: "none", cursor: "pointer", padding: "var(--space-2) 0", borderBottom: "2px solid var(--interactive-default)" }}>
-            Logs
-          </button>
-          <button style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-xs)", fontWeight: "var(--font-weight-medium)", color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: "var(--space-2) 0", borderBottom: "2px solid transparent" }}>
-            Artifacts
-          </button>
-          <button style={{ marginLeft: "auto", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", borderRadius: "var(--radius-sm)", fontSize: 12 }} aria-label="Expand panel">
-            ▲
-          </button>
-        </div>
-      </div>
-    </div>
-  ),
-};
-
-export const WithBottomPanelExpanded: Story = {
-  name: "Canvas editor — with bottom panel (expanded, 200px)",
-  render: () => (
-    <div
-      className="app-shell"
-      data-sidebar="expanded"
-      data-inspector="open"
-      data-bottom="expanded"
-      style={{ height: "100vh", display: "flex", flexDirection: "column" }}
-    >
-      <header className="app-shell__header" style={{ borderBottom: "1px solid var(--border-default)", height: "var(--header-height)", flexShrink: 0 }}>
-        <Placeholder label="header" />
-      </header>
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <aside className="app-shell__sidebar" style={{ width: "var(--sidebar-width-expanded)", borderRight: "1px solid var(--border-default)", background: "var(--sidebar-bg)", flexShrink: 0 }}>
-          <Placeholder label="sidebar" />
-        </aside>
-        <main className="app-shell__main" style={{ flex: 1, minWidth: 0 }}>
-          <Placeholder label="main canvas" />
-        </main>
-        <aside className="app-shell__inspector" style={{ width: "var(--inspector-width)", borderLeft: "1px solid var(--border-default)", background: "var(--surface-secondary)", flexShrink: 0 }}>
-          <Placeholder label="inspector" />
-        </aside>
-      </div>
-      {/* Bottom panel — 200px expanded, full-width ABOVE sidebars */}
-      <div style={{ background: "var(--surface-secondary)", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", height: "200px", flexShrink: 0, overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", height: "36px", padding: "0 var(--space-3)", gap: "var(--space-4)", flexShrink: 0 }}>
-          <button style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-xs)", fontWeight: "var(--font-weight-medium)", color: "var(--text-heading)", background: "none", border: "none", cursor: "pointer", padding: "var(--space-2) 0", borderBottom: "2px solid var(--interactive-default)" }}>
-            Logs
-          </button>
-          <button style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-xs)", fontWeight: "var(--font-weight-medium)", color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: "var(--space-2) 0", borderBottom: "2px solid transparent" }}>
-            Artifacts
-          </button>
-          <button style={{ marginLeft: "auto", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", borderRadius: "var(--radius-sm)", fontSize: 12 }} aria-label="Collapse panel">
-            ▼
-          </button>
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-2) var(--space-3)", fontFamily: "var(--font-mono)", fontSize: "var(--font-size-xs)", color: "var(--text-muted)", display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-          <div style={{ display: "flex", gap: "var(--space-2)" }}><span style={{ color: "var(--text-muted)", minWidth: 70, fontSize: "var(--font-size-2xs)" }}>09:14:03.221</span><span style={{ color: "var(--success-9)" }}>✓</span><span>research_agent — completed in 12.3s</span></div>
-          <div style={{ display: "flex", gap: "var(--space-2)" }}><span style={{ color: "var(--text-muted)", minWidth: 70, fontSize: "var(--font-size-2xs)" }}>09:14:04.558</span><span style={{ color: "var(--info-9)" }}>→</span><span>summarise_results — running</span></div>
-          <div style={{ display: "flex", gap: "var(--space-2)" }}><span style={{ color: "var(--text-muted)", minWidth: 70, fontSize: "var(--font-size-2xs)" }}>09:14:05.001</span><span style={{ color: "var(--text-muted)" }}>·</span><span style={{ color: "var(--text-muted)" }}>tokens: 1,842 / cost: $0.0023</span></div>
-        </div>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      <AppShell
+        sidebarCollapsed={false}
+        inspectorOpen
+        className="flex-1 min-h-0"
+        header={<Placeholder label="header" />}
+        sidebar={<Placeholder label="sidebar" />}
+        main={<Placeholder label="main canvas" />}
+        inspector={<Placeholder label="inspector" />}
+      />
+      {/* Bottom panel — collapsed (36px) */}
+      <div
+        style={{
+          background: "var(--surface-secondary)",
+          borderTop: "1px solid var(--border-subtle)",
+          height: "36px",
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 var(--space-3)",
+          gap: "var(--space-4)",
+        }}
+      >
+        <button
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: "var(--font-size-xs)",
+            fontWeight: "var(--font-weight-medium)",
+            color: "var(--text-heading)",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "var(--space-2) 0",
+            borderBottom: "2px solid var(--interactive-default)",
+          }}
+        >
+          Logs
+        </button>
+        <button
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: "var(--font-size-xs)",
+            fontWeight: "var(--font-weight-medium)",
+            color: "var(--text-muted)",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "var(--space-2) 0",
+            borderBottom: "2px solid transparent",
+          }}
+        >
+          Artifacts
+        </button>
+        <button
+          style={{
+            marginLeft: "auto",
+            width: 28,
+            height: 28,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "none",
+            border: "none",
+            color: "var(--text-muted)",
+            cursor: "pointer",
+            borderRadius: "var(--radius-sm)",
+            fontSize: 12,
+          }}
+          aria-label="Expand panel"
+        >
+          ▲
+        </button>
       </div>
     </div>
   ),
