@@ -1,20 +1,54 @@
 "use client"
 
-// Design tokens applied via BEM classes:
-// .drawer-backdrop — rgba overlay, z-overlay, duration-overlay (fade-in animation)
-// .drawer — bg-surface-overlay (elevation-overlay-surface), elevation-overlay-shadow,
-//            elevation-border-raised, ease-spring transition
-// .drawer--right — slide-in-right animation (duration-slow)
-// .drawer--bottom — slide-up animation (duration-slow)
-// .drawer__header — border-subtle bottom border
-// .drawer__body — bg-surface-overlay scrollable
-
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
+
+// ---------------------------------------------------------------------------
+// Variants
+// ---------------------------------------------------------------------------
+
+const sheetOverlayVariants = cva(
+  "fixed inset-0 bg-black/50 z-[var(--z-overlay)] animate-[fade-in_var(--duration-150)_var(--ease-out)]"
+)
+
+const sheetContentVariants = cva(
+  [
+    "fixed z-[calc(var(--z-overlay)+1)]",
+    "bg-(--elevation-overlay-surface)",
+    "border border-(--elevation-border-raised)",
+    "shadow-[var(--elevation-overlay-shadow)]",
+    "flex flex-col overflow-y-auto",
+  ].join(" "),
+  {
+    variants: {
+      side: {
+        right: [
+          "top-0 right-0 bottom-0",
+          "w-(--overlay-width-lg) max-w-[90vw]",
+          "animate-[slide-in-right_var(--duration-200)_var(--ease-out)]",
+        ].join(" "),
+        bottom: [
+          "left-0 right-0 bottom-0",
+          "h-(--overlay-height-lg) max-h-[80vh]",
+          "rounded-t-[var(--radius-xl)]",
+          "animate-[slide-up_var(--duration-200)_var(--ease-out)]",
+        ].join(" "),
+      },
+    },
+    defaultVariants: {
+      side: "right",
+    },
+  }
+)
+
+// ---------------------------------------------------------------------------
+// Primitives
+// ---------------------------------------------------------------------------
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -36,7 +70,7 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
   return (
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
-      className={cn("drawer-backdrop", className)}
+      className={cn(sheetOverlayVariants(), className)}
       {...props}
     />
   )
@@ -48,17 +82,17 @@ function SheetContent({
   side = "right",
   showCloseButton = true,
   ...props
-}: SheetPrimitive.Popup.Props & {
-  side?: "right" | "bottom"
-  showCloseButton?: boolean
-}) {
+}: SheetPrimitive.Popup.Props &
+  VariantProps<typeof sheetContentVariants> & {
+    showCloseButton?: boolean
+  }) {
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Popup
         data-slot="sheet-content"
         data-side={side}
-        className={cn("drawer", `drawer--${side}`, className)}
+        className={cn(sheetContentVariants({ side }), className)}
         {...props}
       >
         {children}
@@ -86,7 +120,12 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-header"
-      className={cn("drawer__header", className)}
+      className={cn(
+        "flex items-center justify-between flex-shrink-0",
+        "px-5 py-4",
+        "border-b border-(--border-subtle)",
+        className
+      )}
       {...props}
     />
   )
@@ -96,7 +135,7 @@ function SheetBody({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-body"
-      className={cn("drawer__body", className)}
+      className={cn("px-5 py-5 flex-1 overflow-y-auto", className)}
       {...props}
     />
   )
