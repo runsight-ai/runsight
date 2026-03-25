@@ -1,65 +1,44 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-const meta = {
+import { Spinner } from "@/components/ui/spinner";
+
+const meta: Meta<typeof Spinner> = {
   title: "Primitives/Spinner",
+  component: Spinner,
   parameters: { layout: "centered" },
+  argTypes: {
+    size: {
+      control: { type: "select" },
+      options: ["sm", "md", "lg"],
+      description: "Size of the spinner",
+    },
+    variant: {
+      control: { type: "select" },
+      options: ["default", "accent"],
+      description: "Visual variant of the spinner",
+    },
+  },
 };
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof Spinner>;
 
 export const Default: Story = {
-  render: () => (
-    <span className="spinner spinner--md">
-      <span className="spinner__circle" />
-    </span>
-  ),
-};
-
-export const Small: Story = {
-  name: "Size: sm",
-  render: () => (
-    <span className="spinner spinner--sm">
-      <span className="spinner__circle" />
-    </span>
-  ),
-};
-
-export const Medium: Story = {
-  name: "Size: md",
-  render: () => (
-    <span className="spinner spinner--md">
-      <span className="spinner__circle" />
-    </span>
-  ),
-};
-
-export const Large: Story = {
-  name: "Size: lg",
-  render: () => (
-    <span className="spinner spinner--lg">
-      <span className="spinner__circle" />
-    </span>
-  ),
-};
-
-export const Accent: Story = {
-  name: "Variant: accent",
-  render: () => (
-    <span className="spinner spinner--md spinner--accent">
-      <span className="spinner__circle" />
-    </span>
-  ),
+  name: "Default (controls)",
+  args: {
+    size: "md",
+    variant: "default",
+  },
 };
 
 export const AllSizes: Story = {
   name: "All Sizes",
   render: () => (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-6)" }}>
-      <span className="spinner spinner--sm"><span className="spinner__circle" /></span>
-      <span className="spinner spinner--md"><span className="spinner__circle" /></span>
-      <span className="spinner spinner--lg"><span className="spinner__circle" /></span>
+      <Spinner size="sm" />
+      <Spinner size="md" />
+      <Spinner size="lg" />
     </div>
   ),
 };
@@ -68,8 +47,8 @@ export const AllVariants: Story = {
   name: "All Variants",
   render: () => (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-6)" }}>
-      <span className="spinner spinner--md"><span className="spinner__circle" /></span>
-      <span className="spinner spinner--md spinner--accent"><span className="spinner__circle" /></span>
+      <Spinner size="md" variant="default" />
+      <Spinner size="md" variant="accent" />
     </div>
   ),
 };

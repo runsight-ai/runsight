@@ -1,71 +1,57 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-type StatusDotVariant = "neutral" | "active" | "success" | "warning" | "danger";
-type StatusDotAnimation = "none" | "pulse" | "spin";
+import { StatusDot } from "@/components/ui/status-dot";
 
-interface StatusDotProps {
-  variant: StatusDotVariant;
-  animation: StatusDotAnimation;
-}
-
-function StatusDotComponent({ variant, animation }: StatusDotProps) {
-  const classes = [
-    "status-dot",
-    `status-dot--${variant}`,
-    animation !== "none" ? `status-dot--${animation}` : "",
-  ].filter(Boolean).join(" ");
-  return <span className={classes} />;
-}
-
-const meta: Meta<StatusDotProps> = {
+const meta: Meta<typeof StatusDot> = {
   title: "Primitives/StatusDot",
-  component: StatusDotComponent,
+  component: StatusDot,
   parameters: { layout: "centered" },
   argTypes: {
     variant: {
       control: { type: "select" },
       options: ["neutral", "active", "success", "warning", "danger"],
+      description: "Semantic color variant of the status dot",
     },
-    animation: {
+    animate: {
       control: { type: "select" },
       options: ["none", "pulse", "spin"],
+      description: "Animation applied to the status dot",
     },
   },
 };
 export default meta;
 
-type Story = StoryObj<StatusDotProps>;
+type Story = StoryObj<typeof StatusDot>;
 
 export const Default: Story = {
   name: "Default (controls)",
   args: {
     variant: "active",
-    animation: "pulse",
+    animate: "pulse",
   },
-  render: (args) => <StatusDotComponent variant={args.variant} animation={args.animation} />,
 };
 
 export const AllVariants: Story = {
   name: "All Variants",
   render: () => (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", padding: "var(--space-4)" }}>
-      <span className="status-dot status-dot--neutral" />
-      <span className="status-dot status-dot--active" />
-      <span className="status-dot status-dot--success" />
-      <span className="status-dot status-dot--warning" />
-      <span className="status-dot status-dot--danger" />
+      <StatusDot variant="neutral" />
+      <StatusDot variant="active" />
+      <StatusDot variant="success" />
+      <StatusDot variant="warning" />
+      <StatusDot variant="danger" />
     </div>
   ),
 };
 
 export const AllAnimations: Story = {
-  name: "All Animations (pulse + spin)",
+  name: "All Animations",
   render: () => (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-6)", padding: "var(--space-4)" }}>
-      <span className="status-dot status-dot--active status-dot--pulse" />
-      <span className="status-dot status-dot--warning status-dot--spin" />
-      <span className="status-dot status-dot--success" />
+      <StatusDot variant="success" animate="none" />
+      <StatusDot variant="active" animate="pulse" />
+      <StatusDot variant="warning" animate="spin" />
     </div>
   ),
 };
