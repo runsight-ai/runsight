@@ -1,3 +1,7 @@
+// Design system tokens: surface-secondary (header bg), text-secondary (header text),
+// font-size-xs (header size), uppercase (header transform), surface-hover (row hover),
+// border-subtle (borders), density-row-height (row height), font-mono (mono values)
+
 import * as React from "react"
 
 import { cn } from "@/utils/helpers"
@@ -10,7 +14,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("w-full caption-bottom text-font-size-sm", className)}
         {...props}
       />
     </div>
@@ -21,7 +25,10 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
+      className={cn(
+        "bg-surface-secondary [&_tr]:border-b [&_tr]:border-border-subtle",
+        className
+      )}
       {...props}
     />
   )
@@ -42,7 +49,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
     <tfoot
       data-slot="table-footer"
       className={cn(
-        "border-t bg-surface-tertiary/50 font-medium [&>tr]:last:border-b-0",
+        "border-t border-border-subtle bg-surface-secondary font-medium [&>tr]:last:border-b-0",
         className
       )}
       {...props}
@@ -55,7 +62,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-surface-tertiary/50 data-[state=selected]:bg-surface-tertiary",
+        "border-b border-border-subtle transition-colors hover:bg-surface-hover data-[state=selected]:bg-surface-secondary h-[var(--density-row-height)]",
         className
       )}
       {...props}
@@ -68,7 +75,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-primary [&:has([role=checkbox])]:pr-0",
+        "px-2 text-left align-middle font-medium whitespace-nowrap text-secondary text-font-size-xs uppercase tracking-wider [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
@@ -89,6 +96,20 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   )
 }
 
+// TableMonoCell: for data/metric/id/timestamp values that should use font-mono
+function TableMonoCell({ className, ...props }: React.ComponentProps<"td">) {
+  return (
+    <td
+      data-slot="table-mono-cell"
+      className={cn(
+        "p-2 align-middle whitespace-nowrap font-mono text-font-size-sm [&:has([role=checkbox])]:pr-0",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
 function TableCaption({
   className,
   ...props
@@ -96,7 +117,7 @@ function TableCaption({
   return (
     <caption
       data-slot="table-caption"
-      className={cn("mt-4 text-sm text-muted", className)}
+      className={cn("mt-4 text-font-size-sm text-muted", className)}
       {...props}
     />
   )
@@ -110,5 +131,6 @@ export {
   TableHead,
   TableRow,
   TableCell,
+  TableMonoCell,
   TableCaption,
 }
