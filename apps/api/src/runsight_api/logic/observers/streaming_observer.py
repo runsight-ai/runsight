@@ -1,8 +1,9 @@
 """StreamingObserver: bridges core WorkflowObserver protocol to an asyncio.Queue for SSE streaming."""
 
 import asyncio
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
+from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 
 
@@ -20,7 +21,9 @@ class StreamingObserver:
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
         self.queue.put_nowait({"event": "run_started", "data": {"run_id": self.run_id}})
 
-    def on_block_start(self, workflow_name: str, block_id: str, block_type: str) -> None:
+    def on_block_start(
+        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+    ) -> None:
         self.queue.put_nowait(
             {"event": "node_started", "data": {"node_id": block_id, "block_type": block_type}}
         )
@@ -32,6 +35,8 @@ class StreamingObserver:
         block_type: str,
         duration_s: float,
         state: WorkflowState,
+        *,
+        soul: Optional[Soul] = None,
     ) -> None:
         self.queue.put_nowait(
             {

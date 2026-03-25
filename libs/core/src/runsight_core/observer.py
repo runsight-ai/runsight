@@ -13,13 +13,29 @@ Usage:
     await workflow.run(state, observer=observer)
 """
 
+import hashlib
 import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, Protocol, runtime_checkable
+from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
+from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
+
+
+def compute_prompt_hash(soul: Optional[Soul]) -> Optional[str]:
+    """Return SHA-256 hex digest of soul.system_prompt, or None if soul is None."""
+    if soul is None:
+        return None
+    return hashlib.sha256(soul.system_prompt.encode()).hexdigest()
+
+
+def compute_soul_version(soul: Optional[Soul]) -> Optional[str]:
+    """Return SHA-256 hex digest of soul.model_dump_json(), or None if soul is None."""
+    if soul is None:
+        return None
+    return hashlib.sha256(soul.model_dump_json().encode()).hexdigest()
 
 
 @runtime_checkable
@@ -28,7 +44,9 @@ class WorkflowObserver(Protocol):
 
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None: ...
 
-    def on_block_start(self, workflow_name: str, block_id: str, block_type: str) -> None: ...
+    def on_block_start(
+        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+    ) -> None: ...
 
     def on_block_complete(
         self,
@@ -37,6 +55,8 @@ class WorkflowObserver(Protocol):
         block_type: str,
         duration_s: float,
         state: WorkflowState,
+        *,
+        soul: Optional[Soul] = None,
     ) -> None: ...
 
     def on_block_error(
@@ -67,7 +87,9 @@ class LoggingObserver:
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
         self.logger.log(self.level, "[%s] Workflow started", workflow_name)
 
-    def on_block_start(self, workflow_name: str, block_id: str, block_type: str) -> None:
+    def on_block_start(
+        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+    ) -> None:
         self.logger.log(
             self.level, "[%s] Block started: %s (type: %s)", workflow_name, block_id, block_type
         )
@@ -79,6 +101,8 @@ class LoggingObserver:
         block_type: str,
         duration_s: float,
         state: WorkflowState,
+        *,
+        soul: Optional[Soul] = None,
     ) -> None:
         self.logger.log(
             self.level,
@@ -150,7 +174,9 @@ class FileObserver:
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
         self._write("workflow_start", {"workflow": workflow_name})
 
-    def on_block_start(self, workflow_name: str, block_id: str, block_type: str) -> None:
+    def on_block_start(
+        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+    ) -> None:
         self._write(
             "block_start",
             {"workflow": workflow_name, "block_id": block_id, "block_type": block_type},
@@ -163,6 +189,8 @@ class FileObserver:
         block_type: str,
         duration_s: float,
         state: WorkflowState,
+        *,
+        soul: Optional[Soul] = None,
     ) -> None:
         self._write(
             "block_complete",
@@ -229,9 +257,14 @@ class CompositeObserver:
         for obs in self.observers:
             obs.on_workflow_start(workflow_name, state)
 
-    def on_block_start(self, workflow_name: str, block_id: str, block_type: str) -> None:
+    def on_block_start(
+        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+    ) -> None:
+        kwargs: Dict[str, Any] = {}
+        if soul is not None:
+            kwargs["soul"] = soul
         for obs in self.observers:
-            obs.on_block_start(workflow_name, block_id, block_type)
+            obs.on_block_start(workflow_name, block_id, block_type, **kwargs)
 
     def on_block_complete(
         self,
@@ -240,9 +273,14 @@ class CompositeObserver:
         block_type: str,
         duration_s: float,
         state: WorkflowState,
+        *,
+        soul: Optional[Soul] = None,
     ) -> None:
+        kwargs: Dict[str, Any] = {}
+        if soul is not None:
+            kwargs["soul"] = soul
         for obs in self.observers:
-            obs.on_block_complete(workflow_name, block_id, block_type, duration_s, state)
+            obs.on_block_complete(workflow_name, block_id, block_type, duration_s, state, **kwargs)
 
     def on_block_error(
         self,

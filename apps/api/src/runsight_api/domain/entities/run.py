@@ -1,4 +1,5 @@
 from enum import Enum
+from pydantic import BaseModel
 from sqlmodel import SQLModel, Field, JSON, Column
 from typing import Optional, Dict, Any
 import time
@@ -49,5 +50,19 @@ class RunNode(SQLModel, table=True):
     error_traceback: Optional[str] = None
     soul_id: Optional[str] = None
     model_name: Optional[str] = None
+    prompt_hash: Optional[str] = None
+    soul_version: Optional[str] = None
+    eval_score: Optional[float] = None
+    eval_passed: Optional[bool] = None
+    eval_results: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
+
+
+class BaselineStats(BaseModel):
+    """Aggregated baseline statistics for a soul version."""
+
+    avg_cost: float
+    avg_tokens: float
+    avg_score: Optional[float]
+    run_count: int

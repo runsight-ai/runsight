@@ -1,6 +1,6 @@
 from sqlmodel import Session, select, func
 from typing import List, Optional
-from ...domain.entities.run import Run, RunNode
+from ...domain.entities.run import BaselineStats, Run, RunNode
 from ...domain.entities.log import LogEntry
 
 
@@ -67,3 +67,32 @@ class RunRepository:
     def list_logs_for_run(self, run_id: str) -> List[LogEntry]:
         statement = select(LogEntry).where(LogEntry.run_id == run_id).order_by(LogEntry.timestamp)
         return list(self.session.exec(statement).all())
+
+    # Baseline
+    def get_baseline(
+        self, soul_id: str, soul_version: str, limit: int = 100
+    ) -> Optional[BaselineStats]:
+        """Compute baseline statistics for a given soul_id + soul_version.
+
+        Returns None when no matching RunNode records exist.
+        """
+        statement = (
+            select(RunNode)
+            .where(RunNode.soul_id == soul_id, RunNode.soul_version == soul_version)
+            .order_by(RunNode.created_at.desc())
+            .limit(limit)
+        )
+        nodes = list(self.session.exec(statement).all())
+        if not nodes:
+            return None
+
+        total_cost = sum(n.cost_usd for n in nodes)
+        total_tokens = sum((n.tokens or {}).get("total", 0) for n in nodes)
+        scores = [n.eval_score for n in nodes if n.eval_score is not None]
+
+        return BaselineStats(
+            avg_cost=total_cost / len(nodes),
+            avg_tokens=total_tokens / len(nodes),
+            avg_score=sum(scores) / len(scores) if scores else None,
+            run_count=len(nodes),
+        )
