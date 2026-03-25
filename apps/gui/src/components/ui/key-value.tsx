@@ -2,16 +2,10 @@ import * as React from "react"
 
 import { cn } from "@/utils/helpers"
 
-// Design system tokens:
-// .kv: grid 2-col (minmax(100px, auto) 1fr), gap space-1 space-4, font-size-md
-// .kv__key: text-muted, font-size-sm, white-space nowrap
-// .kv__value: text-primary, font-mono, font-size-sm, word-break break-all
-//
-// Note: CSS spec names the class .kv__value. The task brief calls it .kv__val —
-// the actual CSS rule is .kv__value, which is what we apply here.
-// The `mono` prop is a component-level boolean; the value cell already uses
-// font-mono by default per the DS spec. When mono=false we override with font-body
-// via inline style (no .kv--mono class exists in the CSS).
+// Design spec:
+// Container: grid 2-col (minmax(100px, auto) 1fr), gap row=space-1(4px) col=space-4(16px), text-md
+// Key cell:  text-muted, text-sm, whitespace-nowrap
+// Value cell: text-primary, font-mono, text-sm, break-all
 
 interface KeyValueProps extends React.HTMLAttributes<HTMLDivElement> {
   /** The label (key column) */
@@ -35,13 +29,19 @@ function KeyValue({
   return (
     <div
       data-slot="key-value"
-      className={cn("kv", className)}
+      className={cn(
+        "grid gap-x-4 gap-y-1 text-md",
+        "[grid-template-columns:minmax(100px,auto)_1fr]",
+        className
+      )}
       {...props}
     >
-      <span className="kv__key">{label}</span>
+      <span className="text-muted text-sm whitespace-nowrap">{label}</span>
       <span
-        className="kv__value"
-        style={mono ? undefined : { fontFamily: "var(--font-body)" }}
+        className={cn(
+          "text-primary text-sm break-all",
+          mono ? "font-mono" : "font-[var(--font-body)]"
+        )}
       >
         {value}
       </span>
@@ -66,15 +66,21 @@ function KeyValueList({
   return (
     <div
       data-slot="key-value-list"
-      className={cn("kv", className)}
+      className={cn(
+        "grid gap-x-4 gap-y-1 text-md",
+        "[grid-template-columns:minmax(100px,auto)_1fr]",
+        className
+      )}
       {...props}
     >
       {items.map(({ label, value, mono = true }, i) => (
         <React.Fragment key={i}>
-          <span className="kv__key">{label}</span>
+          <span className="text-muted text-sm whitespace-nowrap">{label}</span>
           <span
-            className="kv__value"
-            style={mono ? undefined : { fontFamily: "var(--font-body)" }}
+            className={cn(
+              "text-primary text-sm break-all",
+              mono ? "font-mono" : "font-[var(--font-body)]"
+            )}
           >
             {value}
           </span>
