@@ -45,7 +45,7 @@ export class AppErrorBoundary extends React.Component<
               An unexpected error occurred. Please reload the page.
             </p>
             <button
-              className="px-4 py-2 rounded-md bg-interactive text-on-accent text-sm font-medium"
+              className="px-4 py-2 rounded-md bg-interactive-default text-on-accent text-sm font-medium"
               onClick={() => window.location.reload()}
             >
               Reload
@@ -103,7 +103,7 @@ export class RouteErrorBoundary extends React.Component<
                 Go to Dashboard
               </a>
               <button
-                className="px-4 py-2 rounded-md bg-interactive text-on-accent text-sm font-medium"
+                className="px-4 py-2 rounded-md bg-interactive-default text-on-accent text-sm font-medium"
                 onClick={() => this.resetError()}
               >
                 Retry
@@ -152,7 +152,7 @@ export class CanvasErrorBoundary extends React.Component<
               Canvas failed to render
             </p>
             <button
-              className="px-3 py-1.5 rounded-md bg-interactive text-on-accent text-xs font-medium"
+              className="px-3 py-1.5 rounded-md bg-interactive-default text-on-accent text-xs font-medium"
               onClick={() => this.resetError()}
             >
               Retry

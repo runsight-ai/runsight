@@ -8,21 +8,21 @@ interface NodeBadgeProps {
   className?: string;
 }
 
-const nodeConfig: Record<NodeType, { color: string; defaultLabel: string }> = {
+const nodeConfig: Record<NodeType, { dotColor: string; defaultLabel: string }> = {
   soul: {
-    color: "bg-[var(--node-soul)]",
+    dotColor: "bg-block-agent",
     defaultLabel: "Soul",
   },
   task: {
-    color: "bg-[var(--node-task)]",
+    dotColor: "bg-block-logic",
     defaultLabel: "Task",
   },
   team: {
-    color: "bg-[var(--node-team)]",
+    dotColor: "bg-block-control",
     defaultLabel: "Team",
   },
   branch: {
-    color: "bg-[var(--node-branch)]",
+    dotColor: "bg-block-utility",
     defaultLabel: "Branch",
   },
 };
@@ -32,13 +32,8 @@ export function NodeBadge({ type, label, className }: NodeBadgeProps) {
   const displayLabel = label ?? config.defaultLabel;
 
   return (
-    <div
-      className={cn(
-        "inline-flex h-6 items-center gap-1.5 rounded-full border border-border bg-muted px-2 text-xs font-medium text-secondary-foreground",
-        className
-      )}
-    >
-      <span className={cn("h-2 w-2 rounded-full", config.color)} />
+    <div className={cn("badge badge--outline", className)}>
+      <span className={cn("badge__dot", config.dotColor)} />
       <span>{displayLabel}</span>
     </div>
   );

@@ -91,19 +91,19 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
+      <div className="flex-1 flex flex-col bg-surface-primary">
         <PageHeader title={resourceNamePlural} subtitle="Loading..." />
         <div className="flex-1 p-6">
-          <div className="bg-[var(--surface-secondary)] border border-[var(--border-default)] rounded-lg overflow-hidden">
-            <div className="h-14 border-b border-[var(--border-default)] flex items-center px-4">
-              <div className="h-4 w-32 bg-[var(--border-default)] rounded animate-pulse" />
+          <div className="bg-surface-secondary border border-border-default rounded-lg overflow-hidden">
+            <div className="h-14 border-b border-border-default flex items-center px-4">
+              <div className="h-4 w-32 bg-border-default rounded animate-pulse" />
             </div>
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-16 border-b border-[var(--border-default)] flex items-center px-4 gap-4">
-                <div className="h-10 w-10 bg-[var(--border-default)] rounded-md animate-pulse" />
+              <div key={i} className="h-16 border-b border-border-default flex items-center px-4 gap-4">
+                <div className="h-10 w-10 bg-border-default rounded-md animate-pulse" />
                 <div className="flex-1">
-                  <div className="h-4 w-48 bg-[var(--border-default)] rounded animate-pulse mb-2" />
-                  <div className="h-3 w-32 bg-[var(--border-default)] rounded animate-pulse" />
+                  <div className="h-4 w-48 bg-border-default rounded animate-pulse mb-2" />
+                  <div className="h-3 w-32 bg-border-default rounded animate-pulse" />
                 </div>
               </div>
             ))}
@@ -116,7 +116,7 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
   // Error state
   if (error) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
+      <div className="flex-1 flex flex-col bg-surface-primary">
         <PageHeader title={resourceNamePlural} />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md">
@@ -142,13 +142,13 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
   // Empty state — no items at all
   if (items.length === 0) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
+      <div className="flex-1 flex flex-col bg-surface-primary">
         <PageHeader
           title={resourceNamePlural}
           subtitle={`0 ${resourceNamePlural.toLowerCase()}`}
           actions={
             <Button
-              className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white"
+              className="h-9 px-4 bg-interactive-default hover:bg-interactive-hover text-on-accent"
               onClick={() => setShowCreateModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -175,13 +175,13 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
   const hasSearchResults = filteredItems.length > 0;
 
   return (
-    <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
+    <div className="flex-1 flex flex-col bg-surface-primary">
       <PageHeader
         title={resourceNamePlural}
         subtitle={`${totalCount} ${resourceName.toLowerCase()}${totalCount !== 1 ? "s" : ""}`}
         actions={
           <Button
-            className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white"
+            className="h-9 px-4 bg-interactive-default hover:bg-interactive-hover text-on-accent"
             onClick={() => setShowCreateModal(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -191,7 +191,7 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
       />
 
       {/* Search bar */}
-      <div className="h-14 border-b border-[var(--border-default)] flex items-center gap-3 px-4 bg-[var(--surface-secondary)]">
+      <div className="h-14 border-b border-border-default flex items-center gap-3 px-4 bg-surface-secondary">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <Input
@@ -200,7 +200,7 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label={`Search ${resourceNamePlural.toLowerCase()}`}
-            className="h-9 pl-9 bg-[var(--surface-primary)] border-[var(--border-default)] rounded-md text-sm text-primary placeholder:text-[var(--text-muted)] focus:border-[var(--interactive-default)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-9 pl-9 bg-surface-primary border-border-default rounded-md text-sm text-primary placeholder:text-muted focus:border-interactive-default focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         </div>
       </div>
@@ -223,7 +223,7 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
           <DataTable
             columns={columns}
             data={filteredItems.map((item) => item as Record<string, unknown>)}
-            className="bg-[var(--surface-secondary)] border border-[var(--border-default)] rounded-lg overflow-hidden"
+            className="bg-surface-secondary border border-border-default rounded-lg overflow-hidden"
             onRowClick={(row) => setItemToEdit(row as T)}
           />
         )}

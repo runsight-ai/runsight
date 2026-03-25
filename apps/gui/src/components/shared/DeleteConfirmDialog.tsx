@@ -23,7 +23,7 @@ export function DeleteConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-xl">
+      <DialogContent className="bg-surface-secondary border-border-default rounded-xl">
         <DialogHeader>
           <DialogTitle className="text-base font-medium text-primary">
             Delete {resourceName}
@@ -36,7 +36,7 @@ export function DeleteConfirmDialog({
           <Button
             variant="outline"
             onClick={onClose}
-            className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary"
+            className="h-9 px-4 border-border-default bg-transparent hover:bg-surface-raised text-primary"
           >
             Cancel
           </Button>
