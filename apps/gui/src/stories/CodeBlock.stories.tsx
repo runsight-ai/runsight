@@ -1,103 +1,67 @@
-import type { Meta, StoryObj } from "@storybook/react"
-import React from "react"
+import type { Meta, StoryObj } from "@storybook/react";
+import React from "react";
 
-import {
-  CodeBlock,
-  SyntaxKey,
-  SyntaxString,
-  SyntaxValue,
-} from "@/components/ui/code-block"
-
-const meta: Meta<typeof CodeBlock> = {
+const meta = {
   title: "Data Display/CodeBlock",
-  component: CodeBlock,
-  parameters: {
-    layout: "padded",
-  },
-  argTypes: {
-    language: { control: "text" },
-    numbered: { control: "boolean" },
-    showCopy: { control: "boolean" },
-  },
-}
+  parameters: { layout: "padded" },
+};
+export default meta;
 
-export default meta
-
-type Story = StoryObj<typeof CodeBlock>
-
-// ---------------------------------------------------------------------------
-// Default — basic code block with plain text
-// ---------------------------------------------------------------------------
+type Story = StoryObj;
 
 export const Default: Story = {
-  args: {
-    language: "yaml",
-    showCopy: true,
-    children: `name: customer-support-triage\nmodel: claude-sonnet-4-6\nsteps:\n  - id: classify\n    soul: classifier`,
-  },
-}
-
-// ---------------------------------------------------------------------------
-// YAMLWithSyntax — YAML code block with syntax highlighting tokens
-// ---------------------------------------------------------------------------
+  render: () => (
+    <div className="code-block" style={{ maxWidth: "480px" }}>
+      <pre>{`name: customer-support-triage\nmodel: claude-sonnet-4-6\nsteps:\n  - id: classify\n    soul: classifier`}</pre>
+    </div>
+  ),
+};
 
 export const YAMLWithSyntax: Story = {
   name: "YAML with Syntax",
   render: () => (
-    <CodeBlock language="yaml" showCopy>
-      <SyntaxKey>name</SyntaxKey>:{" "}
-      <SyntaxString>"customer-support-triage"</SyntaxString>
-      {"\n"}
-      <SyntaxKey>model</SyntaxKey>:{" "}
-      <SyntaxValue>claude-sonnet-4-6</SyntaxValue>
-      {"\n"}
-      <SyntaxKey>steps</SyntaxKey>:{"\n"}
-      {"  - "}
-      <SyntaxKey>id</SyntaxKey>:{" "}
-      <SyntaxValue>classify</SyntaxValue>
-      {"\n"}
-      {"    "}
-      <SyntaxKey>soul</SyntaxKey>:{" "}
-      <SyntaxString>"classifier"</SyntaxString>
-    </CodeBlock>
+    <div className="code-block" style={{ maxWidth: "480px" }}>
+      <pre>
+        <span className="token-key">name</span>{": "}
+        <span className="token-string">"customer-support-triage"</span>{"\n"}
+        <span className="token-key">model</span>{": "}
+        <span className="token-value">claude-sonnet-4-6</span>{"\n"}
+        <span className="token-key">steps</span>:{"\n"}
+        {"  - "}
+        <span className="token-key">id</span>{": "}
+        <span className="token-value">classify</span>{"\n"}
+        {"    "}
+        <span className="token-key">soul</span>{": "}
+        <span className="token-string">"classifier"</span>
+      </pre>
+    </div>
   ),
-}
-
-// ---------------------------------------------------------------------------
-// WithCopyButton — demonstrates the copy button interaction
-// ---------------------------------------------------------------------------
+};
 
 export const WithCopyButton: Story = {
   name: "With Copy Button",
   render: () => (
-    <CodeBlock language="yaml" showCopy>
-      {`# Runsight workflow definition\nname: my-workflow\nversion: "1.0"\nsteps:\n  - id: step-1\n    soul: my-soul`}
-    </CodeBlock>
+    <div className="code-block" style={{ maxWidth: "480px", position: "relative" }}>
+      <button className="code-block__copy btn btn--ghost btn--xs" style={{ opacity: 1 }}>Copy</button>
+      <pre>{`# Runsight workflow definition\nname: my-workflow\nversion: "1.0"\nsteps:\n  - id: step-1\n    soul: my-soul`}</pre>
+    </div>
   ),
-}
+};
 
-// ---------------------------------------------------------------------------
-// Clipboard — alias for copy button story (alternate keyword match)
-// ---------------------------------------------------------------------------
-
-export const Clipboard: Story = {
-  name: "Clipboard Copy",
+export const JSON: Story = {
+  name: "JSON",
   render: () => (
-    <CodeBlock language="json" showCopy>
-      {`{\n  "run_id": "run_8f3k2m",\n  "status": "running",\n  "tokens": 4820\n}`}
-    </CodeBlock>
+    <div className="code-block" style={{ maxWidth: "480px" }}>
+      <pre>{`{\n  "run_id": "run_8f3k2m",\n  "status": "running",\n  "tokens": 4820\n}`}</pre>
+    </div>
   ),
-}
+};
 
-// ---------------------------------------------------------------------------
-// NoHeader — code block without language label or copy button
-// ---------------------------------------------------------------------------
-
-export const NoHeader: Story = {
-  name: "No Header",
-  args: {
-    language: undefined,
-    showCopy: false,
-    children: `const result = await workflow.run({ input: "Hello" });`,
-  },
-}
+export const InlineCode: Story = {
+  name: "Inline Code",
+  render: () => (
+    <p style={{ fontSize: "var(--font-size-md)", color: "var(--text-primary)" }}>
+      Use the <code className="code-inline">run()</code> method to execute a workflow. Pass <code className="code-inline">{"{ input: string }"}</code> as the argument.
+    </p>
+  ),
+};

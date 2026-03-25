@@ -1,140 +1,130 @@
-import type { Meta, StoryObj } from "@storybook/react"
-import React from "react"
+import type { Meta, StoryObj } from "@storybook/react";
+import React from "react";
 
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableMonoCell,
-  TableRow,
-} from "@/components/ui/table"
-
-const meta: Meta<typeof Table> = {
+const meta = {
   title: "Data Display/Table",
-  component: Table,
-  parameters: {
-    layout: "padded",
-  },
-}
+  parameters: { layout: "padded" },
+};
+export default meta;
 
-export default meta
-
-type Story = StoryObj<typeof Table>
-
-// ---------------------------------------------------------------------------
-// Default — basic data table
-// ---------------------------------------------------------------------------
+type Story = StoryObj;
 
 export const Default: Story = {
   render: () => (
-    <Table>
-      <TableCaption>Recent workflow runs</TableCaption>
-      <TableHeader>
-        <TableRow>
-          <TableHead scope="col">Workflow</TableHead>
-          <TableHead scope="col">Status</TableHead>
-          <TableHead scope="col">Started</TableHead>
-          <TableHead scope="col">Duration</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        <TableRow>
-          <TableCell>customer-support-triage</TableCell>
-          <TableCell>Running</TableCell>
-          <TableCell>2 min ago</TableCell>
-          <TableCell>34s</TableCell>
-        </TableRow>
-        <TableRow>
-          <TableCell>email-classifier</TableCell>
-          <TableCell>Completed</TableCell>
-          <TableCell>5 min ago</TableCell>
-          <TableCell>12s</TableCell>
-        </TableRow>
-        <TableRow>
-          <TableCell>data-pipeline</TableCell>
-          <TableCell>Failed</TableCell>
-          <TableCell>10 min ago</TableCell>
-          <TableCell>1m 22s</TableCell>
-        </TableRow>
-      </TableBody>
-    </Table>
+    <table className="table">
+      <thead className="table__head">
+        <tr>
+          <th className="table__header">Workflow</th>
+          <th className="table__header">Status</th>
+          <th className="table__header">Started</th>
+          <th className="table__header">Duration</th>
+        </tr>
+      </thead>
+      <tbody className="table__body">
+        <tr className="table__row">
+          <td className="table__cell">customer-support-triage</td>
+          <td className="table__cell">
+            <span className="badge badge--success"><span className="badge__dot" />Running</span>
+          </td>
+          <td className="table__cell">2 min ago</td>
+          <td className="table__cell table__cell--mono">34s</td>
+        </tr>
+        <tr className="table__row">
+          <td className="table__cell">email-classifier</td>
+          <td className="table__cell">
+            <span className="badge badge--neutral">Completed</span>
+          </td>
+          <td className="table__cell">5 min ago</td>
+          <td className="table__cell table__cell--mono">12s</td>
+        </tr>
+        <tr className="table__row">
+          <td className="table__cell">data-pipeline</td>
+          <td className="table__cell">
+            <span className="badge badge--danger">Failed</span>
+          </td>
+          <td className="table__cell">10 min ago</td>
+          <td className="table__cell table__cell--mono">1m 22s</td>
+        </tr>
+      </tbody>
+    </table>
   ),
-}
+};
 
-// ---------------------------------------------------------------------------
-// Mono — table with monospaced data cells (IDs, metrics, timestamps)
-// ---------------------------------------------------------------------------
-
-export const Mono: Story = {
+export const WithMonoCells: Story = {
   name: "Mono Values",
   render: () => (
-    <Table>
-      <TableCaption>Run IDs and metrics use monospaced font-mono cells</TableCaption>
-      <TableHeader>
-        <TableRow>
-          <TableHead scope="col">Workflow</TableHead>
-          <TableHead scope="col">Run ID</TableHead>
-          <TableHead scope="col">Started</TableHead>
-          <TableHead scope="col">Tokens</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        <TableRow>
-          <TableCell>customer-support-triage</TableCell>
-          <TableMonoCell data-type="id">run_8f3k2m</TableMonoCell>
-          <TableMonoCell data-type="timestamp">2026-03-25 09:14:00</TableMonoCell>
-          <TableMonoCell data-type="metric">4,820</TableMonoCell>
-        </TableRow>
-        <TableRow>
-          <TableCell>email-classifier</TableCell>
-          <TableMonoCell data-type="id">run_9x1p4q</TableMonoCell>
-          <TableMonoCell data-type="timestamp">2026-03-25 09:09:00</TableMonoCell>
-          <TableMonoCell data-type="metric">1,204</TableMonoCell>
-        </TableRow>
-      </TableBody>
-    </Table>
+    <table className="table">
+      <thead className="table__head">
+        <tr>
+          <th className="table__header">Workflow</th>
+          <th className="table__header">Run ID</th>
+          <th className="table__header">Started</th>
+          <th className="table__header">Tokens</th>
+        </tr>
+      </thead>
+      <tbody className="table__body">
+        <tr className="table__row">
+          <td className="table__cell">customer-support-triage</td>
+          <td className="table__cell table__cell--mono" data-type="id">run_8f3k2m</td>
+          <td className="table__cell table__cell--mono" data-type="timestamp">2026-03-25 09:14:00</td>
+          <td className="table__cell table__cell--mono" data-type="metric">4,820</td>
+        </tr>
+        <tr className="table__row">
+          <td className="table__cell">email-classifier</td>
+          <td className="table__cell table__cell--mono" data-type="id">run_9x1p4q</td>
+          <td className="table__cell table__cell--mono" data-type="timestamp">2026-03-25 09:09:00</td>
+          <td className="table__cell table__cell--mono" data-type="metric">1,204</td>
+        </tr>
+      </tbody>
+    </table>
   ),
-}
-
-// ---------------------------------------------------------------------------
-// Sortable Header — table with sortable column headers
-// ---------------------------------------------------------------------------
+};
 
 export const SortableHeader: Story = {
   name: "Sortable Header",
   render: () => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead scope="col" aria-sort="none">
-            Workflow ↕
-          </TableHead>
-          <TableHead scope="col" aria-sort="descending">
-            Started ↓
-          </TableHead>
-          <TableHead scope="col" aria-sort="none">
-            Duration ↕
-          </TableHead>
-          <TableHead scope="col">Status</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        <TableRow>
-          <TableCell>customer-support-triage</TableCell>
-          <TableMonoCell data-type="timestamp">2026-03-25 09:14:00</TableMonoCell>
-          <TableMonoCell data-type="metric">34s</TableMonoCell>
-          <TableCell>Running</TableCell>
-        </TableRow>
-        <TableRow>
-          <TableCell>email-classifier</TableCell>
-          <TableMonoCell data-type="timestamp">2026-03-25 09:09:00</TableMonoCell>
-          <TableMonoCell data-type="metric">12s</TableMonoCell>
-          <TableCell>Completed</TableCell>
-        </TableRow>
-      </TableBody>
-    </Table>
+    <table className="table">
+      <thead className="table__head">
+        <tr>
+          <th className="table__header" aria-sort="none">Workflow ↕</th>
+          <th className="table__header" aria-sort="descending">Started ↓</th>
+          <th className="table__header" aria-sort="none">Duration ↕</th>
+          <th className="table__header">Status</th>
+        </tr>
+      </thead>
+      <tbody className="table__body">
+        <tr className="table__row">
+          <td className="table__cell">customer-support-triage</td>
+          <td className="table__cell table__cell--mono">2026-03-25 09:14:00</td>
+          <td className="table__cell table__cell--mono">34s</td>
+          <td className="table__cell"><span className="badge badge--success"><span className="badge__dot" />Running</span></td>
+        </tr>
+        <tr className="table__row">
+          <td className="table__cell">email-classifier</td>
+          <td className="table__cell table__cell--mono">2026-03-25 09:09:00</td>
+          <td className="table__cell table__cell--mono">12s</td>
+          <td className="table__cell"><span className="badge badge--neutral">Completed</span></td>
+        </tr>
+      </tbody>
+    </table>
   ),
-}
+};
+
+export const Empty: Story = {
+  render: () => (
+    <table className="table">
+      <thead className="table__head">
+        <tr>
+          <th className="table__header">Workflow</th>
+          <th className="table__header">Status</th>
+          <th className="table__header">Started</th>
+        </tr>
+      </thead>
+      <tbody className="table__body">
+        <tr>
+          <td className="table__empty" colSpan={3}>No workflows found.</td>
+        </tr>
+      </tbody>
+    </table>
+  ),
+};

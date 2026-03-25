@@ -1,64 +1,88 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import { Input } from "@/components/ui/input";
-
-const meta: Meta<typeof Input> = {
-  title: "Primitives/Input",
-  component: Input,
-  parameters: {
-    layout: "centered",
-  },
-  argTypes: {
-    disabled: { control: "boolean" },
-    placeholder: { control: "text" },
-  },
+const meta = {
+  title: "Forms/Input",
+  parameters: { layout: "centered" },
 };
-
 export default meta;
 
-type Story = StoryObj<typeof Input>;
+type Story = StoryObj;
 
 export const Default: Story = {
-  args: {
-    placeholder: "Workflow name",
-    type: "text",
-  },
+  render: () => (
+    <div style={{ width: "280px" }}>
+      <input className="input" type="text" placeholder="Workflow name…" />
+    </div>
+  ),
 };
 
 export const WithValue: Story = {
-  args: {
-    defaultValue: "customer-support-triage",
-    type: "text",
-  },
-};
-
-export const Disabled: Story = {
-  args: {
-    placeholder: "Disabled input",
-    disabled: true,
-    type: "text",
-  },
+  render: () => (
+    <div style={{ width: "280px" }}>
+      <input className="input" type="text" defaultValue="research-pipeline-v2" />
+    </div>
+  ),
 };
 
 export const Error: Story = {
-  args: {
-    defaultValue: "bad-value",
-    "aria-invalid": true,
-    type: "text",
-  },
+  render: () => (
+    <div style={{ width: "280px", display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+      <input className="input input--error" type="text" defaultValue="invalid-name!" />
+      <span style={{ fontSize: "var(--font-size-xs)", color: "var(--danger-11)" }}>Name may only contain letters, numbers, and hyphens.</span>
+    </div>
+  ),
+};
+
+export const Disabled: Story = {
+  render: () => (
+    <div style={{ width: "280px" }}>
+      <input className="input input--disabled" type="text" placeholder="Disabled field" disabled />
+    </div>
+  ),
+};
+
+export const Readonly: Story = {
+  render: () => (
+    <div style={{ width: "280px" }}>
+      <input className="input input--readonly" type="text" defaultValue="readonly-value" readOnly />
+    </div>
+  ),
 };
 
 export const Password: Story = {
-  args: {
-    placeholder: "Enter password",
-    type: "password",
-  },
+  render: () => (
+    <div style={{ width: "280px" }}>
+      <input className="input" type="password" placeholder="Enter API key…" />
+    </div>
+  ),
 };
 
 export const Search: Story = {
-  args: {
-    placeholder: "Search workflows...",
-    type: "search",
-  },
+  render: () => (
+    <div style={{ width: "280px" }}>
+      <input className="input" type="search" placeholder="Search workflows…" />
+    </div>
+  ),
+};
+
+export const Sizes: Story = {
+  render: () => (
+    <div style={{ width: "280px", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+      <input className="input input--xs" type="text" placeholder="XS input" />
+      <input className="input" type="text" placeholder="SM (default)" />
+      <input className="input input--md" type="text" placeholder="MD input" />
+      <input className="input input--lg" type="text" placeholder="LG input" />
+    </div>
+  ),
+};
+
+export const WithLabel: Story = {
+  render: () => (
+    <div className="field" style={{ width: "280px" }}>
+      <label className="field__label">Soul Name</label>
+      <input className="input" type="text" placeholder="e.g. analyst-soul" />
+      <span className="field__helper">Used to identify this soul in YAML definitions.</span>
+    </div>
+  ),
 };

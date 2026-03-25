@@ -1,95 +1,90 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import React, { useState } from "react";
+import React from "react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
-const meta: Meta = {
+const meta = {
   title: "Overlays/Dialog",
-  parameters: {
-    layout: "centered",
-  },
+  parameters: { layout: "centered" },
 };
-
 export default meta;
 
 type Story = StoryObj;
 
 export const Default: Story = {
   render: () => (
-    <Dialog>
-      <DialogTrigger render={<Button variant="secondary">Open Dialog</Button>} />
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Workflow Settings</DialogTitle>
-          <DialogDescription>
+    <div style={{ position: "relative", width: "480px" }}>
+      <div className="modal modal--md" style={{ position: "static", transform: "none", background: "var(--elevation-overlay-surface)", border: "1px solid var(--elevation-border-raised)" }}>
+        <div className="modal__header">
+          <span className="modal__title">Workflow Settings</span>
+          <button className="btn btn--ghost btn--icon btn--xs" aria-label="Close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="modal__body">
+          <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
             Configure settings for this workflow. Changes are saved automatically.
-          </DialogDescription>
-        </DialogHeader>
-        <p className="text-sm text-muted">
-          This is the dialog body. Add any content here.
-        </p>
-      </DialogContent>
-    </Dialog>
+          </p>
+        </div>
+      </div>
+    </div>
   ),
 };
 
 export const WithFormAndFooter: Story = {
-  name: "With Form and Footer (Actions)",
+  name: "With Form and Footer",
   render: () => (
-    <Dialog>
-      <DialogTrigger render={<Button variant="secondary">Edit Soul</Button>} />
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Soul</DialogTitle>
-          <DialogDescription>
+    <div style={{ width: "480px" }}>
+      <div className="modal modal--md" style={{ position: "static", transform: "none", background: "var(--elevation-overlay-surface)", border: "1px solid var(--elevation-border-raised)" }}>
+        <div className="modal__header">
+          <span className="modal__title">Edit Soul</span>
+          <button className="btn btn--ghost btn--icon btn--xs" aria-label="Close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="modal__body">
+          <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", marginBottom: "var(--space-4)" }}>
             Update the identity and prompt for this agent soul.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="soul-name">Name</Label>
-            <Input id="soul-name" defaultValue="Planner Soul" />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="soul-model">Model</Label>
-            <Input id="soul-model" defaultValue="claude-3-5-sonnet" />
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+            <div className="field">
+              <label className="field__label">Name</label>
+              <input className="input" type="text" defaultValue="Planner Soul" />
+            </div>
+            <div className="field">
+              <label className="field__label">Model</label>
+              <input className="input" type="text" defaultValue="claude-3-5-sonnet" />
+            </div>
           </div>
         </div>
-        <DialogFooter showCloseButton>
-          <Button variant="primary" size="sm">Save Changes</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <div className="modal__footer">
+          <button className="btn btn--secondary btn--sm">Cancel</button>
+          <button className="btn btn--primary btn--sm">Save Changes</button>
+        </div>
+      </div>
+    </div>
   ),
 };
 
 export const Destructive: Story = {
   render: () => (
-    <Dialog>
-      <DialogTrigger render={<Button variant="danger">Delete Workflow</Button>} />
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete Workflow</DialogTitle>
-          <DialogDescription>
-            This action cannot be undone. The workflow and all its run history
-            will be permanently removed.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter showCloseButton>
-          <Button variant="danger" size="sm">Delete</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div style={{ width: "480px" }}>
+      <div className="modal modal--sm" style={{ position: "static", transform: "none", background: "var(--elevation-overlay-surface)", border: "1px solid var(--elevation-border-raised)" }}>
+        <div className="modal__header">
+          <span className="modal__title">Delete Workflow</span>
+        </div>
+        <div className="modal__body">
+          <p style={{ fontSize: "var(--font-size-md)", color: "var(--text-secondary)" }}>
+            This action cannot be undone. The workflow and all its run history will be permanently removed.
+          </p>
+        </div>
+        <div className="modal__footer">
+          <button className="btn btn--secondary btn--sm">Cancel</button>
+          <button className="btn btn--danger btn--sm">Delete</button>
+        </div>
+      </div>
+    </div>
   ),
 };

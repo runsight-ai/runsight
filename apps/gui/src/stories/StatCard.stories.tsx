@@ -1,108 +1,68 @@
-import type { Meta, StoryObj } from "@storybook/react"
-import React from "react"
+import type { Meta, StoryObj } from "@storybook/react";
+import React from "react";
 
-import { StatCard } from "@/components/ui/stat-card"
-
-const meta: Meta<typeof StatCard> = {
+const meta = {
   title: "Data Display/StatCard",
-  component: StatCard,
-  parameters: {
-    layout: "padded",
-  },
-  argTypes: {
-    variant: {
-      control: "select",
-      options: ["default", "accent", "success", "danger"],
-    },
-  },
-}
+  parameters: { layout: "padded" },
+};
+export default meta;
 
-export default meta
-
-type Story = StoryObj<typeof StatCard>
-
-// ---------------------------------------------------------------------------
-// Default — basic stat display
-// ---------------------------------------------------------------------------
+type Story = StoryObj;
 
 export const Default: Story = {
-  args: {
-    label: "Active Workflows",
-    value: "12",
-    variant: "default",
-  },
-}
+  render: () => (
+    <div className="stat-card" style={{ width: "200px" }}>
+      <div className="stat-card__label">Active Workflows</div>
+      <div className="stat-card__value">12</div>
+    </div>
+  ),
+};
 
-// ---------------------------------------------------------------------------
-// WithDelta — stat with a delta/trend badge showing positive change
-// ---------------------------------------------------------------------------
+export const WithTrendUp: Story = {
+  name: "With Trend Up",
+  render: () => (
+    <div className="stat-card stat-card--accent" style={{ width: "200px" }}>
+      <div className="stat-card__label">Completed Runs</div>
+      <div className="stat-card__value">4,820</div>
+      <div className="stat-card__trend stat-card__trend--up">↑ +18% this week</div>
+    </div>
+  ),
+};
 
-export const WithDelta: Story = {
-  name: "With Delta Badge",
-  args: {
-    label: "Completed Runs",
-    value: "4,820",
-    delta: "↑ +18% this week",
-    variant: "accent",
-  },
-}
-
-// ---------------------------------------------------------------------------
-// TrendDown — stat with negative delta/trend
-// ---------------------------------------------------------------------------
-
-export const TrendDown: Story = {
-  name: "Trend Down",
-  args: {
-    label: "Error Rate",
-    value: "2.4%",
-    delta: "↓ -0.3% vs last week",
-    variant: "danger",
-  },
-}
-
-// ---------------------------------------------------------------------------
-// AllVariants — all stripe color variants side by side
-// ---------------------------------------------------------------------------
+export const WithTrendDown: Story = {
+  name: "With Trend Down",
+  render: () => (
+    <div className="stat-card stat-card--danger" style={{ width: "200px" }}>
+      <div className="stat-card__label">Error Rate</div>
+      <div className="stat-card__value">2.4%</div>
+      <div className="stat-card__trend stat-card__trend--down">↓ -0.3% vs last week</div>
+    </div>
+  ),
+};
 
 export const AllVariants: Story = {
   name: "All Variants",
   render: () => (
-    <div className="flex flex-wrap gap-4">
-      <StatCard label="Default" value="42" variant="default" />
-      <StatCard label="Accent" value="128" variant="accent" delta="+12" />
-      <StatCard label="Success" value="99.8%" variant="success" delta="↑ +0.2%" />
-      <StatCard label="Danger" value="4" variant="danger" delta="↓ -2" />
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-4)" }}>
+      <div className="stat-card" style={{ width: "180px" }}>
+        <div className="stat-card__label">Default</div>
+        <div className="stat-card__value">42</div>
+      </div>
+      <div className="stat-card stat-card--accent" style={{ width: "180px" }}>
+        <div className="stat-card__label">Accent</div>
+        <div className="stat-card__value">128</div>
+        <div className="stat-card__trend stat-card__trend--up">+12</div>
+      </div>
+      <div className="stat-card stat-card--success" style={{ width: "180px" }}>
+        <div className="stat-card__label">Success</div>
+        <div className="stat-card__value">99.8%</div>
+        <div className="stat-card__trend stat-card__trend--up">↑ +0.2%</div>
+      </div>
+      <div className="stat-card stat-card--danger" style={{ width: "180px" }}>
+        <div className="stat-card__label">Danger</div>
+        <div className="stat-card__value">4</div>
+        <div className="stat-card__trend stat-card__trend--down">↓ -2</div>
+      </div>
     </div>
   ),
-}
-
-// ---------------------------------------------------------------------------
-// TrendVariants — demonstrates delta/change/trend prop patterns
-// ---------------------------------------------------------------------------
-
-export const TrendVariants: Story = {
-  name: "Trend Variants",
-  render: () => (
-    <div className="flex flex-wrap gap-4">
-      <StatCard
-        label="Total Runs"
-        value="1,204"
-        delta="↑ 204 this week"
-        variant="accent"
-      />
-      <StatCard
-        label="Avg Duration"
-        value="34s"
-        delta="↓ -8s improvement"
-        variant="success"
-      />
-      <StatCard
-        label="Failed Runs"
-        value="7"
-        delta="↑ +3 vs yesterday"
-        variant="danger"
-      />
-    </div>
-  ),
-}
+};

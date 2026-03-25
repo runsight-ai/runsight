@@ -1,102 +1,61 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-
-const meta: Meta = {
+const meta = {
   title: "Overlays/Popover",
-  parameters: {
-    layout: "centered",
-  },
+  parameters: { layout: "centered" },
 };
-
 export default meta;
 
 type Story = StoryObj;
 
 export const Default: Story = {
   render: () => (
-    <Popover>
-      <PopoverTrigger render={<Button variant="secondary">Open Popover</Button>} />
-      <PopoverContent>
-        <PopoverHeader>
-          <PopoverTitle>Soul Configuration</PopoverTitle>
-          <PopoverDescription>
-            Adjust the active soul for this step.
-          </PopoverDescription>
-        </PopoverHeader>
-        <p className="text-sm text-muted">
+    <div style={{ position: "relative", display: "inline-block", padding: "var(--space-8)" }}>
+      <button className="btn btn--secondary">Open Popover</button>
+      <div className="popover" style={{ position: "absolute", top: "calc(100% + var(--space-2))", left: 0, minWidth: "240px" }}>
+        <div style={{ marginBottom: "var(--space-2)" }}>
+          <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>Soul Configuration</div>
+          <div style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", marginTop: "var(--space-0-5)" }}>Adjust the active soul for this step.</div>
+        </div>
+        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-muted)" }}>
           Select a soul from the list or create a new one.
         </p>
-      </PopoverContent>
-    </Popover>
+      </div>
+    </div>
   ),
 };
 
-export const AlignStart: Story = {
-  name: "Alignment — Start",
+export const WithFormContent: Story = {
+  name: "With Form Content",
   render: () => (
-    <Popover>
-      <PopoverTrigger render={<Button variant="secondary">Align Start</Button>} />
-      <PopoverContent align="start" side="bottom">
-        <PopoverHeader>
-          <PopoverTitle>Start Aligned</PopoverTitle>
-        </PopoverHeader>
-        <p className="text-sm text-muted">Popover aligned to the start of the trigger.</p>
-      </PopoverContent>
-    </Popover>
-  ),
-};
-
-export const TopPlacement: Story = {
-  name: "Placement — Top",
-  render: () => (
-    <Popover>
-      <PopoverTrigger render={<Button variant="secondary">Top Popover</Button>} />
-      <PopoverContent side="top" align="center">
-        <PopoverHeader>
-          <PopoverTitle>Top Placement</PopoverTitle>
-        </PopoverHeader>
-        <p className="text-sm text-muted">Popover positioned above the trigger.</p>
-      </PopoverContent>
-    </Popover>
-  ),
-};
-
-export const RightPlacement: Story = {
-  name: "Placement — Right",
-  render: () => (
-    <Popover>
-      <PopoverTrigger render={<Button variant="secondary">Right Popover</Button>} />
-      <PopoverContent side="right" align="center">
-        <PopoverHeader>
-          <PopoverTitle>Right Placement</PopoverTitle>
-        </PopoverHeader>
-        <p className="text-sm text-muted">Popover positioned to the right of the trigger.</p>
-      </PopoverContent>
-    </Popover>
-  ),
-};
-
-export const LeftPlacement: Story = {
-  name: "Placement — Left",
-  render: () => (
-    <Popover>
-      <PopoverTrigger render={<Button variant="secondary">Left Popover</Button>} />
-      <PopoverContent side="left" align="center">
-        <PopoverHeader>
-          <PopoverTitle>Left Placement</PopoverTitle>
-        </PopoverHeader>
-        <p className="text-sm text-muted">Popover positioned to the left of the trigger.</p>
-      </PopoverContent>
-    </Popover>
+    <div style={{ position: "relative", display: "inline-block", padding: "var(--space-8)" }}>
+      <button className="btn btn--secondary">Filter Results</button>
+      <div className="popover" style={{ position: "absolute", top: "calc(100% + var(--space-2))", left: 0, minWidth: "260px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          <div className="field">
+            <label className="field__label">Status</label>
+            <select className="select">
+              <option value="">All statuses</option>
+              <option value="running">Running</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+          <div className="field">
+            <label className="field__label">Model</label>
+            <select className="select">
+              <option value="">All models</option>
+              <option value="sonnet">Claude Sonnet</option>
+              <option value="opus">Claude Opus</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)" }}>
+            <button className="btn btn--ghost btn--sm">Reset</button>
+            <button className="btn btn--primary btn--sm">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
   ),
 };

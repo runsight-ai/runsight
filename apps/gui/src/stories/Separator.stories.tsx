@@ -1,42 +1,30 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import { Separator } from "@/components/ui/separator";
-
-const meta: Meta<typeof Separator> = {
+const meta = {
   title: "Primitives/Separator",
-  component: Separator,
-  parameters: {
-    layout: "centered",
-  },
-  argTypes: {
-    orientation: {
-      control: "select",
-      options: ["horizontal", "vertical"],
-    },
-  },
+  parameters: { layout: "centered" },
 };
-
 export default meta;
 
-type Story = StoryObj<typeof Separator>;
+type Story = StoryObj;
 
 export const Horizontal: Story = {
   render: () => (
-    <div className="w-64">
-      <p className="text-sm text-secondary">Above the separator</p>
-      <Separator orientation="horizontal" className="my-3" />
-      <p className="text-sm text-secondary">Below the separator</p>
+    <div style={{ width: "256px" }}>
+      <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>Above the separator</p>
+      <hr className="divider divider--horizontal" style={{ margin: "var(--space-3) 0" }} />
+      <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>Below the separator</p>
     </div>
   ),
 };
 
 export const Vertical: Story = {
   render: () => (
-    <div className="flex items-center h-8 gap-3">
-      <span className="text-sm text-secondary">Left</span>
-      <Separator orientation="vertical" />
-      <span className="text-sm text-secondary">Right</span>
+    <div style={{ display: "flex", alignItems: "center", height: "32px", gap: "var(--space-3)" }}>
+      <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>Left</span>
+      <div className="divider divider--vertical" />
+      <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>Right</span>
     </div>
   ),
 };
@@ -44,13 +32,17 @@ export const Vertical: Story = {
 export const InToolbar: Story = {
   name: "In Toolbar",
   render: () => (
-    <div className="flex items-center gap-2 px-3 h-10 rounded-radius-md border border-border-default">
-      <button className="text-sm text-secondary hover:text-primary">File</button>
-      <button className="text-sm text-secondary hover:text-primary">Edit</button>
-      <Separator orientation="vertical" />
-      <button className="text-sm text-secondary hover:text-primary">View</button>
-      <Separator orientation="vertical" />
-      <button className="text-sm text-secondary hover:text-primary">Help</button>
+    <div style={{
+      display: "flex", alignItems: "center", gap: "var(--space-2)",
+      padding: "0 var(--space-3)", height: "40px",
+      borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)"
+    }}>
+      <button className="btn btn--ghost btn--sm">File</button>
+      <button className="btn btn--ghost btn--sm">Edit</button>
+      <div className="divider divider--vertical" />
+      <button className="btn btn--ghost btn--sm">View</button>
+      <div className="divider divider--vertical" />
+      <button className="btn btn--ghost btn--sm">Help</button>
     </div>
   ),
 };

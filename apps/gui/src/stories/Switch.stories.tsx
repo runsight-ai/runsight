@@ -1,104 +1,85 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import { Switch } from "@/components/ui/switch";
-
-const meta: Meta<typeof Switch> = {
-  title: "Form Controls/Switch",
-  component: Switch,
-  parameters: {
-    layout: "centered",
-  },
-  argTypes: {
-    disabled: { control: "boolean" },
-    size: {
-      control: "select",
-      options: ["default", "sm"],
-    },
-  },
+const meta = {
+  title: "Forms/Switch",
+  parameters: { layout: "centered" },
 };
-
 export default meta;
 
-type Story = StoryObj<typeof Switch>;
+type Story = StoryObj;
 
 export const Default: Story = {
-  args: {
-    "aria-label": "Enable feature",
-  },
-};
-
-export const Checked: Story = {
-  args: {
-    defaultChecked: true,
-    "aria-label": "Feature enabled",
-  },
-};
-
-export const Unchecked: Story = {
-  args: {
-    defaultChecked: false,
-    "aria-label": "Feature disabled",
-  },
+  render: () => (
+    <label className="switch">
+      <input className="switch__input" type="checkbox" />
+      <span className="switch__track">
+        <span className="switch__thumb" />
+      </span>
+      <span className="switch__label">Enable feature</span>
+    </label>
+  ),
 };
 
 export const On: Story = {
-  args: {
-    defaultChecked: true,
-    "aria-label": "On state",
-  },
+  render: () => (
+    <label className="switch">
+      <input className="switch__input" type="checkbox" defaultChecked />
+      <span className="switch__track">
+        <span className="switch__thumb" />
+      </span>
+      <span className="switch__label">Enabled</span>
+    </label>
+  ),
 };
 
 export const Off: Story = {
-  args: {
-    defaultChecked: false,
-    "aria-label": "Off state",
-  },
-};
-
-export const Small: Story = {
-  args: {
-    size: "sm",
-    defaultChecked: true,
-    "aria-label": "Small switch",
-  },
+  render: () => (
+    <label className="switch">
+      <input className="switch__input" type="checkbox" />
+      <span className="switch__track">
+        <span className="switch__thumb" />
+      </span>
+      <span className="switch__label">Disabled</span>
+    </label>
+  ),
 };
 
 export const Disabled: Story = {
-  args: {
-    disabled: true,
-    "aria-label": "Disabled switch",
-  },
-};
-
-export const DisabledChecked: Story = {
-  name: "Disabled (Checked)",
-  args: {
-    disabled: true,
-    defaultChecked: true,
-    "aria-label": "Disabled and checked switch",
-  },
+  render: () => (
+    <label className="switch">
+      <input className="switch__input" type="checkbox" disabled />
+      <span className="switch__track">
+        <span className="switch__thumb" />
+      </span>
+      <span className="switch__label">Unavailable</span>
+    </label>
+  ),
 };
 
 export const AllStates: Story = {
   render: () => (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <Switch aria-label="Off" />
-        <span className="text-sm text-muted">Off</span>
-      </div>
-      <div className="flex items-center gap-3">
-        <Switch defaultChecked aria-label="On" />
-        <span className="text-sm text-muted">On</span>
-      </div>
-      <div className="flex items-center gap-3">
-        <Switch disabled aria-label="Disabled off" />
-        <span className="text-sm text-muted">Disabled Off</span>
-      </div>
-      <div className="flex items-center gap-3">
-        <Switch disabled defaultChecked aria-label="Disabled on" />
-        <span className="text-sm text-muted">Disabled On</span>
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      <label className="switch">
+        <input className="switch__input" type="checkbox" />
+        <span className="switch__track"><span className="switch__thumb" /></span>
+        <span className="switch__label">Off</span>
+      </label>
+      <label className="switch">
+        <input className="switch__input" type="checkbox" defaultChecked />
+        <span className="switch__track"><span className="switch__thumb" /></span>
+        <span className="switch__label">On</span>
+      </label>
+      <label className="switch">
+        <input className="switch__input" type="checkbox" disabled />
+        <span className="switch__track"><span className="switch__thumb" /></span>
+        <span className="switch__label">Disabled Off</span>
+      </label>
+      <label className="switch">
+        <input className="switch__input" type="checkbox" disabled defaultChecked />
+        <span className="switch__track"><span className="switch__thumb" /></span>
+        <span className="switch__label">Disabled On</span>
+      </label>
     </div>
   ),
 };

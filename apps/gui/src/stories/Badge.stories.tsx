@@ -1,105 +1,72 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import { Badge, BadgeDot } from "@/components/ui/badge";
-
-const meta: Meta<typeof Badge> = {
+const meta = {
   title: "Primitives/Badge",
-  component: Badge,
-  parameters: {
-    layout: "centered",
-  },
-  argTypes: {
-    variant: {
-      control: "select",
-      options: ["accent", "success", "warning", "danger", "info", "neutral", "outline"],
-    },
-  },
+  parameters: { layout: "centered" },
 };
-
 export default meta;
 
-type Story = StoryObj<typeof Badge>;
+type Story = StoryObj;
 
 export const Accent: Story = {
-  args: {
-    variant: "accent",
-    children: "Accent",
-  },
+  render: () => <span className="badge badge--accent">Accent</span>,
 };
 
 export const Success: Story = {
-  args: {
-    variant: "success",
-    children: "Active",
-  },
+  render: () => <span className="badge badge--success">Active</span>,
 };
 
 export const Warning: Story = {
-  args: {
-    variant: "warning",
-    children: "Pending",
-  },
+  render: () => <span className="badge badge--warning">Pending</span>,
 };
 
 export const Danger: Story = {
-  args: {
-    variant: "danger",
-    children: "Failed",
-  },
+  render: () => <span className="badge badge--danger">Failed</span>,
 };
 
 export const Info: Story = {
-  args: {
-    variant: "info",
-    children: "Info",
-  },
+  render: () => <span className="badge badge--info">Info</span>,
 };
 
 export const Neutral: Story = {
-  args: {
-    variant: "neutral",
-    children: "Draft",
-  },
+  render: () => <span className="badge badge--neutral">Draft</span>,
 };
 
 export const Outline: Story = {
-  args: {
-    variant: "outline",
-    children: "v0.4.2",
-  },
+  render: () => <span className="badge badge--outline">v0.4.2</span>,
 };
 
 export const WithDot: Story = {
   name: "With Dot Indicator",
   render: () => (
-    <div className="flex items-center gap-3">
-      <Badge variant="success">
-        <BadgeDot />
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+      <span className="badge badge--success">
+        <span className="badge__dot" />
         Online
-      </Badge>
-      <Badge variant="warning">
-        <BadgeDot />
+      </span>
+      <span className="badge badge--warning">
+        <span className="badge__dot" />
         Pending
-      </Badge>
-      <Badge variant="danger">
-        <BadgeDot />
+      </span>
+      <span className="badge badge--danger">
+        <span className="badge__dot" />
         Failed
-      </Badge>
+      </span>
     </div>
   ),
 };
 
 export const AllVariants: Story = {
   render: () => (
-    <div className="flex flex-wrap items-center gap-2">
-      <Badge variant="accent">Accent</Badge>
-      <Badge variant="success">Success</Badge>
-      <Badge variant="warning">Warning</Badge>
-      <Badge variant="danger">Danger</Badge>
-      <Badge variant="info">Info</Badge>
-      <Badge variant="neutral">Neutral</Badge>
-      <Badge variant="outline">Outline</Badge>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)" }}>
+      <span className="badge badge--accent">Accent</span>
+      <span className="badge badge--success">Success</span>
+      <span className="badge badge--warning">Warning</span>
+      <span className="badge badge--danger">Danger</span>
+      <span className="badge badge--info">Info</span>
+      <span className="badge badge--neutral">Neutral</span>
+      <span className="badge badge--outline">Outline</span>
     </div>
   ),
 };

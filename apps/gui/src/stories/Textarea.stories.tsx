@@ -1,60 +1,53 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import { Textarea } from "@/components/ui/textarea";
-
-const meta: Meta<typeof Textarea> = {
-  title: "Primitives/Textarea",
-  component: Textarea,
-  parameters: {
-    layout: "centered",
-  },
-  argTypes: {
-    disabled: { control: "boolean" },
-    placeholder: { control: "text" },
-    rows: { control: "number" },
-  },
+const meta = {
+  title: "Forms/Textarea",
+  parameters: { layout: "centered" },
 };
-
 export default meta;
 
-type Story = StoryObj<typeof Textarea>;
+type Story = StoryObj;
 
 export const Default: Story = {
-  args: {
-    placeholder: "Enter a description...",
-    rows: 4,
-  },
+  render: () => (
+    <div style={{ width: "320px" }}>
+      <textarea className="textarea" rows={4} placeholder="Enter a description…" />
+    </div>
+  ),
 };
 
 export const WithValue: Story = {
-  args: {
-    defaultValue: "You are a helpful AI assistant that routes customer support tickets based on their content and urgency.",
-    rows: 4,
-  },
+  render: () => (
+    <div style={{ width: "320px" }}>
+      <textarea className="textarea" rows={4} defaultValue="You are a helpful AI assistant that routes customer support tickets based on their content and urgency." />
+    </div>
+  ),
 };
 
 export const Disabled: Story = {
-  args: {
-    placeholder: "Disabled textarea",
-    disabled: true,
-    rows: 3,
-  },
-};
-
-export const Error: Story = {
-  args: {
-    defaultValue: "Invalid prompt content",
-    "aria-invalid": true,
-    rows: 3,
-  },
+  render: () => (
+    <div style={{ width: "320px" }}>
+      <textarea className="textarea" rows={3} placeholder="Disabled textarea" disabled />
+    </div>
+  ),
 };
 
 export const CodeVariant: Story = {
   name: "Code Variant",
-  args: {
-    placeholder: "// Enter your code here",
-    rows: 6,
-    className: "font-mono",
-  },
+  render: () => (
+    <div style={{ width: "320px" }}>
+      <textarea className="textarea textarea--code" rows={6} placeholder="# Enter YAML here…" />
+    </div>
+  ),
+};
+
+export const WithLabel: Story = {
+  render: () => (
+    <div className="field" style={{ width: "320px" }}>
+      <label className="field__label">System Prompt</label>
+      <textarea className="textarea" rows={4} placeholder="You are a helpful assistant…" />
+      <span className="field__helper">This prompt is injected at the start of every conversation.</span>
+    </div>
+  ),
 };

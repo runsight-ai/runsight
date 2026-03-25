@@ -1,107 +1,108 @@
-import type { Meta, StoryObj } from "@storybook/react"
-import React from "react"
+import type { Meta, StoryObj } from "@storybook/react";
+import React from "react";
 
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-
-const meta: Meta<typeof Card> = {
+const meta = {
   title: "Data Display/Card",
-  component: Card,
-  parameters: {
-    layout: "padded",
-  },
-}
+  parameters: { layout: "padded" },
+};
+export default meta;
 
-export default meta
-
-type Story = StoryObj<typeof Card>
-
-// ---------------------------------------------------------------------------
-// Default — basic card
-// ---------------------------------------------------------------------------
+type Story = StoryObj;
 
 export const Default: Story = {
   render: () => (
-    <Card className="max-w-sm">
-      <CardContent>
-        <p>A simple card with content and no header.</p>
-      </CardContent>
-    </Card>
+    <div className="card" style={{ maxWidth: "360px" }}>
+      <div className="card__body">
+        <p style={{ fontSize: "var(--font-size-md)", color: "var(--text-primary)" }}>
+          A simple card with content and no header.
+        </p>
+      </div>
+    </div>
   ),
-}
-
-// ---------------------------------------------------------------------------
-// WithHeader — card with CardHeader and CardTitle
-// ---------------------------------------------------------------------------
+};
 
 export const WithHeader: Story = {
   name: "With Header",
   render: () => (
-    <Card className="max-w-sm">
-      <CardHeader>
-        <CardTitle>Active Workflows</CardTitle>
-        <CardDescription>Workflows currently running in your workspace.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p className="text-font-size-sm text-secondary">12 workflows are currently active.</p>
-      </CardContent>
-    </Card>
+    <div className="card" style={{ maxWidth: "360px" }}>
+      <div className="card__header">
+        <div>
+          <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>
+            Active Workflows
+          </div>
+          <div style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", marginTop: "var(--space-0-5)" }}>
+            Workflows currently running in your workspace.
+          </div>
+        </div>
+      </div>
+      <div className="card__body">
+        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
+          12 workflows are currently active.
+        </p>
+      </div>
+    </div>
   ),
-}
-
-// ---------------------------------------------------------------------------
-// WithHeaderAndAction — card with header, action button, and footer
-// ---------------------------------------------------------------------------
+};
 
 export const WithHeaderAndAction: Story = {
   name: "With Header and Action",
   render: () => (
-    <Card className="max-w-sm">
-      <CardHeader>
-        <CardTitle>Workflow Overview</CardTitle>
-        <CardDescription>Summary of your most recent runs.</CardDescription>
-        <CardAction>
-          <button
-            type="button"
-            className="text-font-size-xs text-secondary hover:text-primary"
-          >
-            View all
-          </button>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        <p className="text-font-size-sm text-secondary">
+    <div className="card" style={{ maxWidth: "360px" }}>
+      <div className="card__header">
+        <div>
+          <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>
+            Workflow Overview
+          </div>
+          <div style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", marginTop: "var(--space-0-5)" }}>
+            Summary of your most recent runs.
+          </div>
+        </div>
+        <button className="btn btn--ghost btn--xs">View all</button>
+      </div>
+      <div className="card__body">
+        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
           3 completed, 1 running, 0 failed.
         </p>
-      </CardContent>
-      <CardFooter>
-        <span className="text-font-size-xs text-secondary">Updated 2 min ago</span>
-      </CardFooter>
-    </Card>
+      </div>
+      <div className="card__footer">
+        <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}>Updated 2 min ago</span>
+      </div>
+    </div>
   ),
-}
+};
 
-// ---------------------------------------------------------------------------
-// SmallSize — compact card variant
-// ---------------------------------------------------------------------------
-
-export const SmallSize: Story = {
-  name: "Small Size",
+export const Raised: Story = {
+  name: "Raised",
   render: () => (
-    <Card size="sm" className="max-w-xs">
-      <CardHeader>
-        <CardTitle>Run Count</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-font-size-sm">42 runs today</p>
-      </CardContent>
-    </Card>
+    <div className="card card--raised" style={{ maxWidth: "360px" }}>
+      <div className="card__header">
+        <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>
+          Raised Card
+        </div>
+      </div>
+      <div className="card__body">
+        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
+          Elevated surface with subtle shadow lift.
+        </p>
+      </div>
+    </div>
   ),
-}
+};
+
+export const Interactive: Story = {
+  name: "Interactive",
+  render: () => (
+    <div className="card card--interactive" style={{ maxWidth: "360px" }} tabIndex={0}>
+      <div className="card__header">
+        <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>
+          Clickable Card
+        </div>
+      </div>
+      <div className="card__body">
+        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
+          Hover to see the interactive state.
+        </p>
+      </div>
+    </div>
+  ),
+};

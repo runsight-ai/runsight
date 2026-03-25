@@ -1,96 +1,72 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import { Radio, RadioGroup } from "@/components/ui/radio";
-
-const meta: Meta = {
-  title: "Form Controls/Radio",
-  parameters: {
-    layout: "centered",
-  },
+const meta = {
+  title: "Forms/Radio",
+  parameters: { layout: "centered" },
 };
-
 export default meta;
 
 type Story = StoryObj;
 
 export const Default: Story = {
   render: () => (
-    <RadioGroup>
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <Radio name="model" value="sonnet" defaultChecked aria-label="Sonnet" />
-        <span>Claude Sonnet</span>
+    <div className="radio-group">
+      <label className="radio">
+        <input className="radio__input" type="radio" name="model-default" value="sonnet" defaultChecked />
+        <span className="radio__label">Claude Sonnet</span>
       </label>
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <Radio name="model" value="opus" aria-label="Opus" />
-        <span>Claude Opus</span>
+      <label className="radio">
+        <input className="radio__input" type="radio" name="model-default" value="opus" />
+        <span className="radio__label">Claude Opus</span>
       </label>
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <Radio name="model" value="haiku" aria-label="Haiku" />
-        <span>Claude Haiku</span>
+      <label className="radio">
+        <input className="radio__input" type="radio" name="model-default" value="haiku" />
+        <span className="radio__label">Claude Haiku</span>
       </label>
-    </RadioGroup>
-  ),
-};
-
-export const Vertical: Story = {
-  render: () => (
-    <RadioGroup orientation="vertical">
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <Radio name="size-v" value="sm" aria-label="Small" />
-        <span>Small</span>
-      </label>
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <Radio name="size-v" value="md" defaultChecked aria-label="Medium" />
-        <span>Medium</span>
-      </label>
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <Radio name="size-v" value="lg" aria-label="Large" />
-        <span>Large</span>
-      </label>
-    </RadioGroup>
+    </div>
   ),
 };
 
 export const Horizontal: Story = {
   render: () => (
-    <RadioGroup orientation="horizontal">
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <Radio name="size-h" value="sm" aria-label="Small" />
-        <span>Small</span>
+    <div className="radio-group radio-group--horizontal">
+      <label className="radio">
+        <input className="radio__input" type="radio" name="size-h" value="sm" />
+        <span className="radio__label">Small</span>
       </label>
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <Radio name="size-h" value="md" defaultChecked aria-label="Medium" />
-        <span>Medium</span>
+      <label className="radio">
+        <input className="radio__input" type="radio" name="size-h" value="md" defaultChecked />
+        <span className="radio__label">Medium</span>
       </label>
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <Radio name="size-h" value="lg" aria-label="Large" />
-        <span>Large</span>
+      <label className="radio">
+        <input className="radio__input" type="radio" name="size-h" value="lg" />
+        <span className="radio__label">Large</span>
       </label>
-    </RadioGroup>
+    </div>
   ),
 };
 
 export const Disabled: Story = {
   render: () => (
-    <RadioGroup>
-      <label className="flex items-center gap-2 text-sm cursor-not-allowed opacity-60">
-        <Radio name="disabled-group" value="a" disabled aria-label="Option A disabled" />
-        <span>Option A (disabled)</span>
+    <div className="radio-group">
+      <label className="radio">
+        <input className="radio__input" type="radio" name="disabled-group" value="a" disabled />
+        <span className="radio__label">Option A (disabled)</span>
       </label>
-      <label className="flex items-center gap-2 text-sm cursor-not-allowed opacity-60">
-        <Radio name="disabled-group" value="b" disabled defaultChecked aria-label="Option B disabled checked" />
-        <span>Option B (disabled, checked)</span>
+      <label className="radio">
+        <input className="radio__input" type="radio" name="disabled-group" value="b" disabled defaultChecked />
+        <span className="radio__label">Option B (disabled, checked)</span>
       </label>
-    </RadioGroup>
+    </div>
   ),
 };
 
-export const SingleRadio: Story = {
+export const Single: Story = {
   render: () => (
-    <label className="flex items-center gap-2 text-sm cursor-pointer">
-      <Radio name="single" value="agree" aria-label="Agree to terms" />
-      <span>I agree to the terms and conditions</span>
+    <label className="radio">
+      <input className="radio__input" type="radio" name="single" value="agree" />
+      <span className="radio__label">I agree to the terms and conditions</span>
     </label>
   ),
 };

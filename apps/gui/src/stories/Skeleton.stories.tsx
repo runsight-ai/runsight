@@ -1,76 +1,54 @@
-import type { Meta, StoryObj } from "@storybook/react"
-import React from "react"
+import type { Meta, StoryObj } from "@storybook/react";
+import React from "react";
 
-import { Skeleton } from "@/components/ui/skeleton"
-
-const meta: Meta<typeof Skeleton> = {
+const meta = {
   title: "Primitives/Skeleton",
-  component: Skeleton,
-  parameters: {
-    layout: "centered",
-  },
-  argTypes: {
-    variant: {
-      control: "select",
-      options: ["text", "text-sm", "heading", "avatar", "button"],
-    },
-  },
-}
+  parameters: { layout: "centered" },
+};
+export default meta;
 
-export default meta
-
-type Story = StoryObj<typeof Skeleton>
+type Story = StoryObj;
 
 export const Text: Story = {
   name: "Variant: text",
-  args: {
-    variant: "text",
-  },
-}
+  render: () => <div className="skeleton skeleton--text" />,
+};
 
 export const TextSm: Story = {
   name: "Variant: text-sm",
-  args: {
-    variant: "text-sm",
-  },
-}
+  render: () => <div className="skeleton skeleton--text-sm" />,
+};
 
 export const Heading: Story = {
   name: "Variant: heading",
-  args: {
-    variant: "heading",
-  },
-}
+  render: () => <div className="skeleton skeleton--heading" />,
+};
 
 export const Avatar: Story = {
   name: "Variant: avatar",
-  args: {
-    variant: "avatar",
-  },
-}
+  render: () => <div className="skeleton skeleton--avatar" />,
+};
 
 export const Button: Story = {
   name: "Variant: button",
-  args: {
-    variant: "button",
-  },
-}
+  render: () => <div className="skeleton skeleton--button" />,
+};
 
 export const AllVariants: Story = {
   name: "All Variants",
   render: () => (
-    <div className="flex w-72 flex-col gap-4 p-4">
-      <Skeleton variant="heading" />
-      <Skeleton variant="text" />
-      <Skeleton variant="text-sm" />
-      <div className="flex items-center gap-3">
-        <Skeleton variant="avatar" />
-        <div className="flex flex-1 flex-col gap-2">
-          <Skeleton variant="text" />
-          <Skeleton variant="text-sm" />
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", padding: "var(--space-4)", width: "288px" }}>
+      <div className="skeleton skeleton--heading" />
+      <div className="skeleton skeleton--text" />
+      <div className="skeleton skeleton--text-sm" />
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+        <div className="skeleton skeleton--avatar" />
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          <div className="skeleton skeleton--text" />
+          <div className="skeleton skeleton--text-sm" />
         </div>
       </div>
-      <Skeleton variant="button" />
+      <div className="skeleton skeleton--button" />
     </div>
   ),
-}
+};

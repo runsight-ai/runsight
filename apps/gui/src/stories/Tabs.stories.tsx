@@ -1,102 +1,89 @@
-import type { Meta, StoryObj } from "@storybook/react"
-import React from "react"
+import type { Meta, StoryObj } from "@storybook/react";
+import React from "react";
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-
-const meta: Meta<typeof Tabs> = {
+const meta = {
   title: "Navigation/Tabs",
-  component: Tabs,
-  parameters: {
-    layout: "centered",
-  },
-}
+  parameters: { layout: "padded" },
+};
+export default meta;
 
-export default meta
-
-type Story = StoryObj<typeof Tabs>
+type Story = StoryObj;
 
 export const Default: Story = {
   render: () => (
-    <Tabs defaultValue="overview">
-      <TabsList>
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="runs">Runs</TabsTrigger>
-        <TabsTrigger value="settings">Settings</TabsTrigger>
-      </TabsList>
-      <TabsContent value="overview">
-        <p className="text-sm text-text-secondary pt-4">Overview content</p>
-      </TabsContent>
-      <TabsContent value="runs">
-        <p className="text-sm text-text-secondary pt-4">Runs content</p>
-      </TabsContent>
-      <TabsContent value="settings">
-        <p className="text-sm text-text-secondary pt-4">Settings content</p>
-      </TabsContent>
-    </Tabs>
+    <div style={{ width: "400px" }}>
+      <div className="tabs">
+        <button className="tab" aria-selected="true" role="tab">Overview</button>
+        <button className="tab" aria-selected="false" role="tab">Runs</button>
+        <button className="tab" aria-selected="false" role="tab">Settings</button>
+      </div>
+      <div style={{ paddingTop: "var(--space-4)", fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
+        Overview content
+      </div>
+    </div>
   ),
-}
+};
 
 export const LineUnderline: Story = {
   name: "Line (Underline Indicator)",
   render: () => (
-    <Tabs defaultValue="workflows">
-      <TabsList variant="line">
-        <TabsTrigger value="workflows">Workflows</TabsTrigger>
-        <TabsTrigger value="souls">Souls</TabsTrigger>
-        <TabsTrigger value="steps">Steps</TabsTrigger>
-        <TabsTrigger value="runs">Runs</TabsTrigger>
-      </TabsList>
-      <TabsContent value="workflows">
-        <p className="text-sm text-text-secondary pt-4">Workflows list</p>
-      </TabsContent>
-      <TabsContent value="souls">
-        <p className="text-sm text-text-secondary pt-4">Souls list</p>
-      </TabsContent>
-      <TabsContent value="steps">
-        <p className="text-sm text-text-secondary pt-4">Steps list</p>
-      </TabsContent>
-      <TabsContent value="runs">
-        <p className="text-sm text-text-secondary pt-4">Runs list</p>
-      </TabsContent>
-    </Tabs>
-  ),
-}
-
-export const Overflow: Story = {
-  name: "Overflow (Many Tabs)",
-  render: () => (
-    <div style={{ width: 320, overflow: "hidden" }}>
-      <Tabs defaultValue="tab1">
-        <TabsList variant="line">
-          {Array.from({ length: 10 }, (_, i) => (
-            <TabsTrigger key={i} value={`tab${i + 1}`}>
-              Tab {i + 1}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        {Array.from({ length: 10 }, (_, i) => (
-          <TabsContent key={i} value={`tab${i + 1}`}>
-            <p className="text-sm text-text-secondary pt-4">Tab {i + 1} content</p>
-          </TabsContent>
-        ))}
-      </Tabs>
+    <div style={{ width: "400px" }}>
+      <div className="tabs">
+        <button className="tab" aria-selected="true" role="tab">Workflows</button>
+        <button className="tab" aria-selected="false" role="tab">Souls</button>
+        <button className="tab" aria-selected="false" role="tab">Steps</button>
+        <button className="tab" aria-selected="false" role="tab">Runs</button>
+      </div>
+      <div style={{ paddingTop: "var(--space-4)", fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
+        Workflows list
+      </div>
     </div>
   ),
-}
+};
+
+export const Contained: Story = {
+  name: "Contained (Pill Style)",
+  render: () => (
+    <div style={{ width: "400px" }}>
+      <div className="tabs tabs--contained">
+        <button className="tab" aria-selected="true" role="tab">Overview</button>
+        <button className="tab" aria-selected="false" role="tab">Runs</button>
+        <button className="tab" aria-selected="false" role="tab">Settings</button>
+      </div>
+    </div>
+  ),
+};
+
+export const WithBadge: Story = {
+  name: "With Badge Count",
+  render: () => (
+    <div style={{ width: "400px" }}>
+      <div className="tabs">
+        <button className="tab" aria-selected="true" role="tab">
+          Runs
+          <span className="tab__badge">24</span>
+        </button>
+        <button className="tab" aria-selected="false" role="tab">
+          Errors
+          <span className="tab__badge">3</span>
+        </button>
+        <button className="tab" aria-selected="false" role="tab">Settings</button>
+      </div>
+    </div>
+  ),
+};
 
 export const Disabled: Story = {
   render: () => (
-    <Tabs defaultValue="active">
-      <TabsList>
-        <TabsTrigger value="active">Active</TabsTrigger>
-        <TabsTrigger value="disabled" disabled>
-          Disabled
-        </TabsTrigger>
-        <TabsTrigger value="another">Another</TabsTrigger>
-      </TabsList>
-      <TabsContent value="active">
-        <p className="text-sm text-text-secondary pt-4">Active tab content</p>
-      </TabsContent>
-    </Tabs>
+    <div style={{ width: "400px" }}>
+      <div className="tabs">
+        <button className="tab" aria-selected="true" role="tab">Active</button>
+        <button className="tab" aria-selected="false" role="tab" disabled style={{ opacity: 0.4, cursor: "not-allowed" }}>Disabled</button>
+        <button className="tab" aria-selected="false" role="tab">Another</button>
+      </div>
+      <div style={{ paddingTop: "var(--space-4)", fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
+        Active tab content
+      </div>
+    </div>
   ),
-}
+};

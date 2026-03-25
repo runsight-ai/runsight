@@ -1,15 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-
-const meta: Meta = {
+const meta = {
   title: "Overlays/ScrollArea",
-  parameters: {
-    layout: "centered",
-  },
+  parameters: { layout: "centered" },
 };
-
 export default meta;
 
 type Story = StoryObj;
@@ -18,62 +13,69 @@ const longContent = Array.from({ length: 40 }, (_, i) => `Item ${i + 1} — work
 
 export const Default: Story = {
   render: () => (
-    <ScrollArea className="h-72 w-64 rounded-lg border border-border-default bg-surface-primary p-2">
-      <div className="flex flex-col gap-1">
+    <div style={{
+      height: "288px", width: "256px", overflowY: "auto",
+      borderRadius: "var(--radius-lg)", border: "1px solid var(--border-default)",
+      background: "var(--surface-primary)", padding: "var(--space-2)"
+    }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
         {longContent.map((item, i) => (
-          <div key={i} className="px-2 py-1 text-sm text-primary rounded hover:bg-surface-hover">
+          <div key={i} style={{
+            padding: "var(--space-1) var(--space-2)",
+            fontSize: "var(--font-size-sm)", color: "var(--text-primary)",
+            borderRadius: "var(--radius-sm)", cursor: "default"
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+          >
             {item}
           </div>
         ))}
       </div>
-    </ScrollArea>
+    </div>
   ),
 };
 
 export const Basic: Story = {
   render: () => (
-    <ScrollArea className="h-48 w-56 rounded-lg border border-border-default">
-      <div className="p-3 flex flex-col gap-1">
+    <div style={{
+      height: "192px", width: "224px", overflowY: "auto",
+      borderRadius: "var(--radius-lg)", border: "1px solid var(--border-default)"
+    }}>
+      <div style={{ padding: "var(--space-3)", display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
         {Array.from({ length: 20 }, (_, i) => (
-          <p key={i} className="text-sm text-muted">Log line {i + 1}: execution output here</p>
+          <p key={i} style={{ fontSize: "var(--font-size-sm)", color: "var(--text-muted)", margin: 0 }}>
+            Log line {i + 1}: execution output here
+          </p>
         ))}
       </div>
-    </ScrollArea>
+    </div>
   ),
 };
 
 export const HorizontalScroll: Story = {
   name: "Horizontal Overflow",
   render: () => (
-    <ScrollArea className="w-64 rounded-lg border border-border-default">
-      <div className="flex gap-3 p-3" style={{ width: "max-content" }}>
-        {Array.from({ length: 12 }, (_, i) => (
-          <div
-            key={i}
-            className="w-32 shrink-0 rounded-md border border-border-default bg-surface-secondary p-3 text-sm text-primary"
-          >
-            <p className="font-medium">Step {i + 1}</p>
-            <p className="text-xs text-muted mt-1">agent-soul-{i + 1}</p>
+    <div style={{
+      width: "256px", overflowX: "auto",
+      borderRadius: "var(--radius-lg)", border: "1px solid var(--border-default)"
+    }}>
+      <div style={{ display: "flex", gap: "var(--space-3)", padding: "var(--space-3)", width: "max-content" }}>
+        {Array.from({ length: 8 }, (_, i) => (
+          <div key={i} style={{
+            width: "128px", flexShrink: 0, borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border-default)", background: "var(--surface-secondary)",
+            padding: "var(--space-3)"
+          }}>
+            <p style={{ fontWeight: "var(--font-weight-medium)", fontSize: "var(--font-size-sm)", color: "var(--text-primary)", margin: 0 }}>
+              Step {i + 1}
+            </p>
+            <p style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
+              agent-soul-{i + 1}
+            </p>
           </div>
         ))}
       </div>
-      <ScrollBar orientation="horizontal" />
-    </ScrollArea>
-  ),
-};
-
-export const BothAxes: Story = {
-  name: "Both Axes Scrollable",
-  render: () => (
-    <ScrollArea className="h-48 w-64 rounded-lg border border-border-default">
-      <div className="p-3" style={{ width: "600px" }}>
-        {Array.from({ length: 20 }, (_, i) => (
-          <p key={i} className="text-sm text-muted whitespace-nowrap py-0.5">
-            {"→ ".repeat(3)}Execution log entry {i + 1}: step completed with status OK
-          </p>
-        ))}
-      </div>
-      <ScrollBar orientation="horizontal" />
-    </ScrollArea>
+    </div>
   ),
 };
