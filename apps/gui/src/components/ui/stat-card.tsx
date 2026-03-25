@@ -1,19 +1,14 @@
-// Design system tokens: surface-secondary, border-subtle, radius-md,
-// font-mono, font-size-xs, font-size-2xl, text-secondary, text-heading,
-// space-4, uppercase, border-t (top stripe)
+// BEM classes: .stat-card, .stat-card--accent, .stat-card--success, .stat-card--danger
+// .stat-card__label, .stat-card__value, .stat-card__trend, .stat-card__trend--up, .stat-card__trend--down
+// Tokens: surface-tertiary, border-subtle, border-top (3px stripe), radius-md, space-4
+// text-secondary, font-size-xs, font-mono, font-size-2xl (font-size-3xl in CSS), text-heading
+// success-11, danger-11
 
 import * as React from "react"
 
 import { cn } from "@/utils/helpers"
 
 type StatCardVariant = "default" | "accent" | "success" | "danger"
-
-const stripeColorMap: Record<StatCardVariant, string> = {
-  default: "bg-border-default",
-  accent:  "bg-interactive-default",
-  success: "bg-success-9",
-  danger:  "bg-danger-9",
-}
 
 export interface StatCardProps extends React.ComponentProps<"div"> {
   /** Metric label — displayed uppercase in font-size-xs */
@@ -47,25 +42,18 @@ export function StatCard({
       data-slot="stat-card"
       data-variant={variant}
       className={cn(
-        "group/stat-card relative flex flex-col gap-2 overflow-hidden rounded-radius-md border border-border-subtle bg-surface-secondary p-space-4",
+        "stat-card",
+        variant === "accent"  && "stat-card--accent",
+        variant === "success" && "stat-card--success",
+        variant === "danger"  && "stat-card--danger",
         className
       )}
       {...props}
     >
-      {/* Top 3px category stripe — border-t used as decorative accent bar */}
-      <span
-        aria-hidden="true"
-        data-slot="stat-card-stripe"
-        className={cn(
-          "stripe absolute inset-x-0 top-0 h-[3px] border-t-0",
-          stripeColorMap[variant]
-        )}
-      />
-
       {/* Label — text-secondary, font-size-xs, uppercase */}
       <span
         data-slot="stat-card-label"
-        className="text-secondary text-font-size-xs uppercase tracking-wider font-mono"
+        className="stat-card__label"
       >
         {label}
       </span>
@@ -74,7 +62,7 @@ export function StatCard({
       <div className="flex items-end gap-2">
         <span
           data-slot="stat-card-value"
-          className="font-mono text-font-size-2xl font-bold text-heading leading-none tracking-tighter"
+          className="stat-card__value"
         >
           {value}
         </span>
@@ -90,10 +78,9 @@ export function StatCard({
         <span
           data-slot="stat-card-delta"
           className={cn(
-            "inline-flex items-center gap-0.5 text-font-size-xs font-mono",
-            isPositiveDelta && "text-success-11",
-            isNegativeDelta && "text-danger-11",
-            !isPositiveDelta && !isNegativeDelta && "text-secondary"
+            "stat-card__trend",
+            isPositiveDelta  && "stat-card__trend--up",
+            isNegativeDelta  && "stat-card__trend--down",
           )}
         >
           {delta}

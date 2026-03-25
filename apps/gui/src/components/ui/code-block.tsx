@@ -1,6 +1,8 @@
-// Design system tokens: neutral-2 (background), font-mono (font family),
-// font-size-sm (font size), syntax-key (keyword color), syntax-string (string color),
-// syntax-value (value color), border-subtle (border), radius-md (border radius)
+// BEM classes: .code-block, .code-block__copy, .code-block--numbered
+// .code-block__header, .code-block__lang, .code-inline
+// Tokens: neutral-2 (background via surface-primary), font-mono, font-size-sm
+// border-subtle, border-left accent (interactive-default), radius-md, space-4
+// Syntax tokens: syntax-key, syntax-string, syntax-value, syntax-comment, syntax-punct
 
 import * as React from "react"
 import { useState } from "react"
@@ -44,7 +46,7 @@ export function CodeBlock({
       data-slot="code-block"
       data-numbered={numbered ? true : undefined}
       className={cn(
-        "group/code-block relative overflow-hidden rounded-radius-md border border-border-subtle bg-neutral-2",
+        "code-block",
         numbered && "code-block--numbered",
         className
       )}
@@ -52,9 +54,9 @@ export function CodeBlock({
     >
       {/* Header bar */}
       {(language || showCopy) && (
-        <div className="flex items-center justify-between border-b border-border-subtle px-3 py-1.5">
+        <div className="code-block__header flex items-center justify-between border-b border-border-subtle px-3 py-1.5">
           {language && (
-            <span className="text-font-size-xs text-secondary uppercase tracking-wider font-mono">
+            <span className="code-block__lang">
               {language}
             </span>
           )}
@@ -64,8 +66,7 @@ export function CodeBlock({
               onClick={handleCopy}
               aria-label="Copy code"
               className={cn(
-                "code-block__copy ml-auto inline-flex items-center gap-1 rounded-radius-xs px-2 py-0.5 text-font-size-xs transition-colors",
-                "text-secondary hover:text-primary hover:bg-surface-hover",
+                "code-block__copy ml-auto",
                 copied && "text-success-11"
               )}
             >
@@ -75,10 +76,10 @@ export function CodeBlock({
         </div>
       )}
 
-      {/* Code area — neutral-2 bg, font-mono, font-size-sm */}
+      {/* Code area — font-mono, font-size-sm */}
       <pre
         data-slot="code-block-content"
-        className="overflow-x-auto bg-neutral-2 p-space-4 font-mono text-font-size-sm leading-relaxed text-primary"
+        className="overflow-x-auto p-space-4"
       >
         <code>{children}</code>
       </pre>
@@ -89,12 +90,12 @@ export function CodeBlock({
 // ---------------------------------------------------------------------------
 // Syntax highlight helper components
 // These use the design-system syntax token colors:
-//   --syntax-key, --syntax-string, --syntax-value
+//   syntax-key (.token-key), syntax-string (.token-string), syntax-value (.token-value)
 // ---------------------------------------------------------------------------
 
 export function SyntaxKey({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn("token-key text-[color:var(--syntax-key)]", className)}>
+    <span className={cn("token-key", className)}>
       {children}
     </span>
   )
@@ -102,7 +103,7 @@ export function SyntaxKey({ children, className }: { children: React.ReactNode; 
 
 export function SyntaxString({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn("token-string text-[color:var(--syntax-string)]", className)}>
+    <span className={cn("token-string", className)}>
       {children}
     </span>
   )
@@ -110,7 +111,7 @@ export function SyntaxString({ children, className }: { children: React.ReactNod
 
 export function SyntaxValue({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn("token-value text-[color:var(--syntax-value)]", className)}>
+    <span className={cn("token-value", className)}>
       {children}
     </span>
   )

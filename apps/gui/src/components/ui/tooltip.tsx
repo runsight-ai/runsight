@@ -2,7 +2,9 @@ import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 
 import { cn } from "@/utils/helpers"
 
-// Design system tokens: surface-raised, text-primary, font-size-xs
+// BEM classes: .tooltip-content, .tooltip-content--top, .tooltip-content--bottom
+// Tokens: surface-raised, text-primary, font-size-xs, z-popover, neutral-3, neutral-5
+
 function TooltipProvider({
   delay = 0,
   ...props
@@ -49,9 +51,9 @@ function TooltipContent({
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
-            "z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 rounded-radius-md bg-surface-raised px-3 py-1.5 text-font-size-xs text-primary",
-            "has-data-[slot=kbd]:pr-1.5",
-            "data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+            "tooltip-content",
+            side === "top" && "tooltip-content--top",
+            side === "bottom" && "tooltip-content--bottom",
             "data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95",
             "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
             "data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
