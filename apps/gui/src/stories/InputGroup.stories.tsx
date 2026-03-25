@@ -29,12 +29,19 @@ export const Default: Story = {
   ),
 };
 
+// Hide browser-native number input spinners (Firefox + WebKit)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const noSpinnerStyle: any = {
+  MozAppearance: "textfield",
+  appearance: "textfield",
+};
+
 export const WithPrefix: Story = {
   name: "With Prefix (inline-start addon)",
   render: () => (
     <div style={{ display: "flex", width: "288px" }}>
       <span style={{ ...addonStyle, borderRight: "none", borderRadius: "var(--radius-md) 0 0 var(--radius-md)" }}>$</span>
-      <input className="input" type="number" placeholder="0.00" style={{ borderRadius: "0 var(--radius-md) var(--radius-md) 0" }} />
+      <input className="input" type="number" placeholder="0.00" style={{ borderRadius: "0 var(--radius-md) var(--radius-md) 0", ...noSpinnerStyle }} />
     </div>
   ),
 };
@@ -43,7 +50,7 @@ export const WithSuffix: Story = {
   name: "With Suffix (inline-end addon)",
   render: () => (
     <div style={{ display: "flex", width: "288px" }}>
-      <input className="input" type="number" placeholder="Tokens per second" style={{ borderRadius: "var(--radius-md) 0 0 var(--radius-md)" }} />
+      <input className="input" type="number" placeholder="Tokens per second" style={{ borderRadius: "var(--radius-md) 0 0 var(--radius-md)", ...noSpinnerStyle }} />
       <span style={{ ...addonStyle, borderLeft: "none", borderRadius: "0 var(--radius-md) var(--radius-md) 0" }}>tok/s</span>
     </div>
   ),
@@ -79,7 +86,7 @@ export const NumberSpinner: Story = {
         defaultValue={4}
         min={1}
         max={32}
-        style={{ borderRadius: "var(--radius-md) 0 0 var(--radius-md)", borderRight: "none", flex: 1 }}
+        style={{ borderRadius: "var(--radius-md) 0 0 var(--radius-md)", borderRight: "none", flex: 1, ...noSpinnerStyle }}
       />
       <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--border-default)", borderRight: "1px solid var(--border-default)", borderBottom: "1px solid var(--border-default)", borderRadius: "0 var(--radius-md) var(--radius-md) 0", overflow: "hidden" }}>
         <button

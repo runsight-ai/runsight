@@ -130,8 +130,8 @@ export const WithBottomPanel: Story = {
       <aside className="app-shell__inspector" style={{ gridArea: "inspector", width: "var(--inspector-width)", borderLeft: "1px solid var(--border-default)", background: "var(--surface-secondary)" }}>
         <Placeholder label="inspector" />
       </aside>
-      {/* Bottom panel — 36px collapsed, tabs visible */}
-      <div style={{ gridArea: "bottom", background: "var(--surface-secondary)", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", minHeight: "36px" }}>
+      {/* Bottom panel — 36px collapsed, tabs visible, full-width above sidebars */}
+      <div style={{ gridArea: "bottom", background: "var(--surface-secondary)", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", minHeight: "36px", zIndex: 10, position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", height: "36px", padding: "0 var(--space-3)", gap: "var(--space-4)", flexShrink: 0 }}>
           <button style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-xs)", fontWeight: "var(--font-weight-medium)", color: "var(--text-heading)", background: "none", border: "none", cursor: "pointer", padding: "var(--space-2) 0", borderBottom: "2px solid var(--interactive-default)" }}>
             Logs
@@ -170,8 +170,8 @@ export const WithBottomPanelExpanded: Story = {
       <aside className="app-shell__inspector" style={{ gridArea: "inspector", width: "var(--inspector-width)", borderLeft: "1px solid var(--border-default)", background: "var(--surface-secondary)" }}>
         <Placeholder label="inspector" />
       </aside>
-      {/* Bottom panel — 200px expanded, content visible */}
-      <div style={{ gridArea: "bottom", background: "var(--surface-secondary)", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Bottom panel — 200px expanded, content visible, full-width above sidebars */}
+      <div style={{ gridArea: "bottom", background: "var(--surface-secondary)", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 10, position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", height: "36px", padding: "0 var(--space-3)", gap: "var(--space-4)", flexShrink: 0 }}>
           <button style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-xs)", fontWeight: "var(--font-weight-medium)", color: "var(--text-heading)", background: "none", border: "none", cursor: "pointer", padding: "var(--space-2) 0", borderBottom: "2px solid var(--interactive-default)" }}>
             Logs

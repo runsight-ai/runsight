@@ -43,41 +43,7 @@ export const Default: Story = {
     variant: "active",
     animation: "pulse",
   },
-};
-
-export const Neutral: Story = {
-  name: "Variant: neutral",
-  render: () => <span className="status-dot status-dot--neutral" />,
-};
-
-export const Active: Story = {
-  name: "Variant: active",
-  render: () => <span className="status-dot status-dot--active" />,
-};
-
-export const Success: Story = {
-  name: "Variant: success",
-  render: () => <span className="status-dot status-dot--success" />,
-};
-
-export const Warning: Story = {
-  name: "Variant: warning",
-  render: () => <span className="status-dot status-dot--warning" />,
-};
-
-export const Danger: Story = {
-  name: "Variant: danger",
-  render: () => <span className="status-dot status-dot--danger" />,
-};
-
-export const Pulse: Story = {
-  name: "Animation: pulse",
-  render: () => <span className="status-dot status-dot--active status-dot--pulse" />,
-};
-
-export const Spin: Story = {
-  name: "Animation: spin",
-  render: () => <span className="status-dot status-dot--warning status-dot--spin" />,
+  render: (args) => <StatusDotComponent variant={args.variant} animation={args.animation} />,
 };
 
 export const AllVariants: Story = {

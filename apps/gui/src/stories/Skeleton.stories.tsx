@@ -29,7 +29,11 @@ export const TextSm: Story = {
 
 export const Heading: Story = {
   name: "Variant: heading",
-  render: () => <div className="skeleton skeleton--heading" />,
+  render: () => (
+    <div style={{ width: "300px" }}>
+      <div className="skeleton skeleton--heading" />
+    </div>
+  ),
 };
 
 export const Avatar: Story = {

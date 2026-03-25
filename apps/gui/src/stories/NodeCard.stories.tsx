@@ -33,6 +33,9 @@ export const Default: Story = {
       <div className="node-card__header">
         <div className="node-card__icon"><AgentIcon /></div>
         <div className="node-card__name">Research Agent</div>
+        <div className="node-card__avatar-stack">
+          <span className="node-card__avatar" style={{ background: "hsl(38, 85%, 45%)" }}>W</span>
+        </div>
       </div>
       <div className="node-card__meta">
         <span>AGENT</span>
@@ -261,6 +264,36 @@ export const FivePortBranch: Story = {
   ),
 };
 
+export const EmptySoul: Story = {
+  name: "Souls — empty soul placeholder (CTA)",
+  render: () => (
+    <div className="node-card" data-category="agent">
+      <div className="node-card__port node-card__port--input" />
+      <div className="node-card__header">
+        <div className="node-card__icon"><AgentIcon /></div>
+        <div className="node-card__name">Research Agent</div>
+        <div className="node-card__avatar-stack">
+          {/* Empty soul placeholder — dashed circle with + CTA */}
+          <span
+            style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 22, height: 22, borderRadius: "50%",
+              border: "1.5px dashed var(--border-default)",
+              color: "var(--text-muted)", fontSize: 14, lineHeight: 1,
+              cursor: "pointer", flexShrink: 0,
+            }}
+            title="Add a soul"
+          >
+            +
+          </span>
+        </div>
+      </div>
+      <div className="node-card__meta"><span>AGENT</span><span className="node-card__meta-sep">·</span><span>No soul</span></div>
+      <div className="node-card__port node-card__port--output" />
+    </div>
+  ),
+};
+
 export const WithSouls: Story = {
   name: "Souls — avatar stack in header",
   render: () => (
@@ -271,11 +304,9 @@ export const WithSouls: Story = {
         <div className="node-card__name">Draft &amp; Evaluate</div>
         <div className="node-card__avatar-stack">
           <span className="node-card__avatar" style={{ background: "hsl(38, 85%, 45%)" }}>W</span>
-          <span className="node-card__avatar" style={{ background: "hsl(142, 55%, 42%)" }}>E</span>
-          <span className="node-card__avatar" style={{ background: "hsl(210, 60%, 50%)" }}>A</span>
         </div>
       </div>
-      <div className="node-card__meta"><span>AGENT</span><span className="node-card__meta-sep">·</span><span>3 souls</span></div>
+      <div className="node-card__meta"><span>AGENT</span><span className="node-card__meta-sep">·</span><span>GPT-4o</span></div>
       <div className="node-card__port node-card__port--output" />
     </div>
   ),
@@ -310,7 +341,6 @@ export const WithSoulTooltip: Story = {
                 <span className="soul-tip__prompt">Generate a first draft from the structured brief, focusing on clarity and completeness.</span>
               </span>
             </div>
-            <span className="node-card__avatar" style={{ background: "hsl(142, 55%, 42%)" }}>E</span>
           </div>
         </div>
         <div className="node-card__meta"><span>AGENT</span><span className="node-card__meta-sep">·</span><span>GPT-4o</span></div>
