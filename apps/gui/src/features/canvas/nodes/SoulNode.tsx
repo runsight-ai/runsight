@@ -27,12 +27,12 @@ function SoulNodeComponent({ id, data, selected }: NodeProps<SoulNodeType>) {
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-2 !h-2 !bg-muted-foreground !border-border"
+        className="!w-2 !h-2 !bg-muted-foreground !border-border-default"
       />
 
       <div className="flex items-center gap-2 mb-1">
         <div className="w-2 h-2 bg-success rounded-full" />
-        <span className="text-foreground font-medium">{data.label}</span>
+        <span className="text-primary font-medium">{data.label}</span>
         <span className="bg-soul/30 text-soul px-1.5 py-0.5 rounded text-[10px] ml-auto font-medium">
           SOUL
         </span>
@@ -44,7 +44,7 @@ function SoulNodeComponent({ id, data, selected }: NodeProps<SoulNodeType>) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-2 !h-2 !bg-muted-foreground !border-border"
+        className="!w-2 !h-2 !bg-muted-foreground !border-border-default"
       />
     </div>
   );

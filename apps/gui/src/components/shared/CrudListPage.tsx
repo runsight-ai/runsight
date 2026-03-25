@@ -91,19 +91,19 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--background)]">
+      <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
         <PageHeader title={resourceNamePlural} subtitle="Loading..." />
         <div className="flex-1 p-6">
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden">
-            <div className="h-14 border-b border-[var(--border)] flex items-center px-4">
-              <div className="h-4 w-32 bg-[var(--border)] rounded animate-pulse" />
+          <div className="bg-[var(--surface-secondary)] border border-[var(--border-default)] rounded-lg overflow-hidden">
+            <div className="h-14 border-b border-[var(--border-default)] flex items-center px-4">
+              <div className="h-4 w-32 bg-[var(--border-default)] rounded animate-pulse" />
             </div>
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-16 border-b border-[var(--border)] flex items-center px-4 gap-4">
-                <div className="h-10 w-10 bg-[var(--border)] rounded-md animate-pulse" />
+              <div key={i} className="h-16 border-b border-[var(--border-default)] flex items-center px-4 gap-4">
+                <div className="h-10 w-10 bg-[var(--border-default)] rounded-md animate-pulse" />
                 <div className="flex-1">
-                  <div className="h-4 w-48 bg-[var(--border)] rounded animate-pulse mb-2" />
-                  <div className="h-3 w-32 bg-[var(--border)] rounded animate-pulse" />
+                  <div className="h-4 w-48 bg-[var(--border-default)] rounded animate-pulse mb-2" />
+                  <div className="h-3 w-32 bg-[var(--border-default)] rounded animate-pulse" />
                 </div>
               </div>
             ))}
@@ -116,15 +116,15 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
   // Error state
   if (error) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--background)]">
+      <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
         <PageHeader title={resourceNamePlural} />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md">
-            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
-            <h3 className="text-lg font-medium text-foreground mb-2">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-danger" />
+            <h3 className="text-lg font-medium text-primary mb-2">
               Failed to load {resourceNamePlural.toLowerCase()}
             </h3>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="text-sm text-muted mb-4">
               {error instanceof Error
                 ? error.message
                 : `An error occurred while fetching ${resourceNamePlural.toLowerCase()}.`}
@@ -142,13 +142,13 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
   // Empty state — no items at all
   if (items.length === 0) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--background)]">
+      <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
         <PageHeader
           title={resourceNamePlural}
           subtitle={`0 ${resourceNamePlural.toLowerCase()}`}
           actions={
             <Button
-              className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
+              className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white"
               onClick={() => setShowCreateModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -175,13 +175,13 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
   const hasSearchResults = filteredItems.length > 0;
 
   return (
-    <div className="flex-1 flex flex-col bg-[var(--background)]">
+    <div className="flex-1 flex flex-col bg-[var(--surface-primary)]">
       <PageHeader
         title={resourceNamePlural}
         subtitle={`${totalCount} ${resourceName.toLowerCase()}${totalCount !== 1 ? "s" : ""}`}
         actions={
           <Button
-            className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
+            className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white"
             onClick={() => setShowCreateModal(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -191,16 +191,16 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
       />
 
       {/* Search bar */}
-      <div className="h-14 border-b border-[var(--border)] flex items-center gap-3 px-4 bg-[var(--card)]">
+      <div className="h-14 border-b border-[var(--border-default)] flex items-center gap-3 px-4 bg-[var(--surface-secondary)]">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <Input
             type="text"
             placeholder={`Search ${resourceNamePlural.toLowerCase()}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label={`Search ${resourceNamePlural.toLowerCase()}`}
-            className="h-9 pl-9 bg-[var(--background)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-9 pl-9 bg-[var(--surface-primary)] border-[var(--border-default)] rounded-md text-sm text-primary placeholder:text-[var(--text-muted)] focus:border-[var(--interactive-default)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         </div>
       </div>
@@ -223,7 +223,7 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
           <DataTable
             columns={columns}
             data={filteredItems.map((item) => item as Record<string, unknown>)}
-            className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden"
+            className="bg-[var(--surface-secondary)] border border-[var(--border-default)] rounded-lg overflow-hidden"
             onRowClick={(row) => setItemToEdit(row as T)}
           />
         )}

@@ -80,17 +80,17 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
-      <DialogContent className="w-[480px] max-w-[480px] p-0 gap-0 bg-[var(--card)] border-[var(--border)] rounded-xl overflow-hidden">
-        <DialogHeader className="h-14 px-4 border-b border-[var(--border)] flex flex-row items-center justify-between shrink-0">
-          <DialogTitle className="text-base font-medium text-foreground tracking-tight">
+      <DialogContent className="w-[480px] max-w-[480px] p-0 gap-0 bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-xl overflow-hidden">
+        <DialogHeader className="h-14 px-4 border-b border-[var(--border-default)] flex flex-row items-center justify-between shrink-0">
+          <DialogTitle className="text-base font-medium text-primary tracking-tight">
             Create New Workflow
           </DialogTitle>
         </DialogHeader>
 
         <div className="p-4 space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Name <span className="text-[var(--error)]">*</span>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted">
+              Name <span className="text-[var(--danger-9)]">*</span>
             </Label>
             <Input
               type="text"
@@ -98,45 +98,45 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-              className="h-9 bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-9 bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-md text-sm text-primary placeholder:text-[var(--text-muted)] focus:border-[var(--interactive-default)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
               autoFocus
             />
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Description <span className="text-[var(--muted-subtle)] font-normal">(optional)</span>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted">
+              Description <span className="text-[var(--text-muted)] font-normal">(optional)</span>
             </Label>
             <Textarea
               placeholder="Describe what this workflow does..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[80px] bg-[var(--card)] border-[var(--border)] rounded-md text-sm text-foreground placeholder:text-[var(--muted-subtle)] resize-vertical focus:border-[var(--primary)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="min-h-[80px] bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-md text-sm text-primary placeholder:text-[var(--text-muted)] resize-vertical focus:border-[var(--interactive-default)] focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={isSubmitting}
             />
           </div>
 
           {error && (
             <div className="p-3 bg-[var(--error-08)] border border-[var(--error-20)] rounded-md">
-              <p className="text-xs text-[var(--error)]">{error}</p>
+              <p className="text-xs text-[var(--danger-9)]">{error}</p>
             </div>
           )}
         </div>
 
-        <DialogFooter className="h-16 px-4 border-t border-[var(--border)] flex items-center justify-end gap-2 shrink-0">
+        <DialogFooter className="h-16 px-4 border-t border-[var(--border-default)] flex items-center justify-end gap-2 shrink-0">
           <Button
             variant="outline"
             onClick={handleCancel}
             disabled={isSubmitting}
-            className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
+            className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!isNameFilled || isSubmitting}
-            className="h-9 px-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white disabled:opacity-40"
+            className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white disabled:opacity-40"
           >
             {isSubmitting ? (
               <>

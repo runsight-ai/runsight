@@ -74,7 +74,7 @@ function StatusBadge({ status }: { status: string }) {
     },
     pending: {
       bg: "bg-muted-foreground/12",
-      text: "text-muted-foreground",
+      text: "text-muted",
       dot: "bg-muted-foreground",
     },
   };
@@ -131,8 +131,8 @@ function TabButton({
       className={cn(
         "h-10 px-4 text-sm font-medium transition-all border-b-2 -mb-px",
         active
-          ? "text-foreground border-primary"
-          : "text-muted-foreground border-transparent hover:text-foreground"
+          ? "text-primary border-primary"
+          : "text-muted border-transparent hover:text-primary"
       )}
     >
       {children}
@@ -144,11 +144,11 @@ function TabButton({
 function EmptyState({ heading, message }: { heading: string; message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-        <Workflow className="w-8 h-8 text-muted-foreground" strokeWidth={1.5} />
+      <div className="w-16 h-16 rounded-full bg-surface-tertiary flex items-center justify-center mb-4">
+        <Workflow className="w-8 h-8 text-muted" strokeWidth={1.5} />
       </div>
-      <h3 className="text-base font-medium text-foreground mb-1">{heading}</h3>
-      <p className="text-sm text-muted-foreground max-w-xs">{message}</p>
+      <h3 className="text-base font-medium text-primary mb-1">{heading}</h3>
+      <p className="text-sm text-muted max-w-xs">{message}</p>
     </div>
   );
 }
@@ -164,7 +164,7 @@ function RunTableRow({
   return (
     <TableRow
       onClick={onClick}
-      className="cursor-pointer hover:bg-muted/80 border-b border-border"
+      className="cursor-pointer hover:bg-surface-tertiary/80 border-b border-border-default"
     >
       <TableCell className="py-4">
         <div className="flex items-center gap-3">
@@ -173,10 +173,10 @@ function RunTableRow({
             strokeWidth={1.5}
           />
           <div>
-            <div className="text-sm font-medium text-foreground">
+            <div className="text-sm font-medium text-primary">
               {run.workflow_name}
             </div>
-            <div className="text-xs text-muted-foreground font-mono">
+            <div className="text-xs text-muted font-mono">
               {run.id}
             </div>
           </div>
@@ -185,13 +185,13 @@ function RunTableRow({
       <TableCell>
         <StatusBadge status={run.status} />
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground">
+      <TableCell className="text-sm text-muted">
         {formatDuration(run.duration_seconds)}
       </TableCell>
-      <TableCell className="text-sm font-mono text-muted-foreground">
+      <TableCell className="text-sm font-mono text-muted">
         {formatCost(run.total_cost_usd)}
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground">
+      <TableCell className="text-sm text-muted">
         {countAgents(run.node_summary)}
       </TableCell>
     </TableRow>
@@ -209,7 +209,7 @@ function HistoryTableRow({
   return (
     <TableRow
       onClick={onClick}
-      className="cursor-pointer hover:bg-muted/80 border-b border-border"
+      className="cursor-pointer hover:bg-surface-tertiary/80 border-b border-border-default"
     >
       <TableCell className="py-4">
         <div className="flex items-center gap-3">
@@ -218,10 +218,10 @@ function HistoryTableRow({
             strokeWidth={1.5}
           />
           <div>
-            <div className="text-sm font-medium text-foreground">
+            <div className="text-sm font-medium text-primary">
               {run.workflow_name}
             </div>
-            <div className="text-xs text-muted-foreground font-mono">
+            <div className="text-xs text-muted font-mono">
               {run.id}
             </div>
           </div>
@@ -230,13 +230,13 @@ function HistoryTableRow({
       <TableCell>
         <StatusBadge status={run.status} />
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground">
+      <TableCell className="text-sm text-muted">
         {formatDuration(run.duration_seconds)}
       </TableCell>
-      <TableCell className="text-sm font-mono text-muted-foreground">
+      <TableCell className="text-sm font-mono text-muted">
         {formatCost(run.total_cost_usd)}
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground">
+      <TableCell className="text-sm text-muted">
         {formatTimestamp(run.completed_at)}
       </TableCell>
     </TableRow>
@@ -299,7 +299,7 @@ function HistoryFilterBar({
     filters.dateTo;
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border min-h-[48px] flex-wrap">
+    <div className="flex items-center gap-3 px-4 py-3 bg-surface-secondary border-b border-border-default min-h-[48px] flex-wrap">
       {/* Status filter */}
       <Select value={filters.status} onValueChange={handleStatusChange}>
         <SelectTrigger className="w-[140px] h-8 text-sm">
@@ -331,7 +331,7 @@ function HistoryFilterBar({
       {/* Date range filter */}
       <div className="flex items-center gap-2">
         <div className="relative">
-          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
           <Input
             type="date"
             placeholder="From"
@@ -340,9 +340,9 @@ function HistoryFilterBar({
             className="h-8 w-[140px] pl-7 text-sm"
           />
         </div>
-        <span className="text-muted-foreground text-sm">to</span>
+        <span className="text-muted text-sm">to</span>
         <div className="relative">
-          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
           <Input
             type="date"
             placeholder="To"
@@ -355,7 +355,7 @@ function HistoryFilterBar({
 
       {/* Search input */}
       <div className="relative flex-1 min-w-[200px] max-w-xs">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
         <Input
           type="text"
           placeholder="Search runs..."
@@ -367,7 +367,7 @@ function HistoryFilterBar({
           <button
             type="button"
             onClick={() => onFiltersChange({ ...filters, search: "" })}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
             aria-label="Clear search"
           >
             <X className="w-3.5 h-3.5" />
@@ -443,13 +443,13 @@ function Pagination({
   };
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
+    <div className="flex items-center justify-between px-4 py-3 border-t border-border-default bg-surface-secondary">
       <div className="flex items-center gap-4">
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-muted">
           Showing {startItem}–{endItem} of {totalItems} runs
         </span>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Show:</span>
+          <span className="text-sm text-muted">Show:</span>
           <Select
             value={String(pageSize)}
             onValueChange={(v) => onPageSizeChange(Number(v))}
@@ -483,7 +483,7 @@ function Pagination({
           {getPageNumbers().map((page, idx) => (
             <React.Fragment key={idx}>
               {page === "..." ? (
-                <span className="px-2 text-muted-foreground">...</span>
+                <span className="px-2 text-muted">...</span>
               ) : (
                 <Button
                   variant={currentPage === page ? "default" : "outline"}
@@ -642,9 +642,9 @@ export function Component() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-surface-primary">
       {/* Tab bar */}
-      <div className="flex items-center px-4 border-b border-border bg-card" role="tablist">
+      <div className="flex items-center px-4 border-b border-border-default bg-surface-secondary" role="tablist">
         <TabButton
           active={tab === "active"}
           onClick={() => handleTabChange("active")}
@@ -652,7 +652,7 @@ export function Component() {
         >
           Active
           {activeCount > 0 && (
-            <span className="ml-2 text-xs text-muted-foreground">
+            <span className="ml-2 text-xs text-muted">
               ({activeCount})
             </span>
           )}
@@ -664,7 +664,7 @@ export function Component() {
         >
           History
           {historyCount > 0 && (
-            <span className="ml-2 text-xs text-muted-foreground">
+            <span className="ml-2 text-xs text-muted">
               ({historyCount})
             </span>
           )}
@@ -684,7 +684,7 @@ export function Component() {
       <div className="flex-1 overflow-auto p-6">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-sm text-muted-foreground">Loading runs...</div>
+            <div className="text-sm text-muted">Loading runs...</div>
           </div>
         ) : error ? (
           <div className="flex items-center justify-center h-64">
@@ -700,23 +700,23 @@ export function Component() {
               message="There are no workflows currently running. Start a workflow to see it here."
             />
           ) : (
-            <div className="rounded-lg border border-border overflow-hidden bg-card">
+            <div className="rounded-lg border border-border-default overflow-hidden bg-surface-secondary">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-border bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground py-3">
+                  <TableRow className="border-b border-border-default bg-surface-tertiary/50 hover:bg-surface-tertiary/50">
+                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
                       Workflow
                     </TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground py-3">
+                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
                       Status
                     </TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground py-3">
+                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
                       Duration
                     </TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground py-3">
+                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
                       Cost
                     </TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground py-3">
+                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
                       Agents
                     </TableHead>
                   </TableRow>
@@ -746,24 +746,24 @@ export function Component() {
               );
             }
             return (
-              <div className="flex flex-col rounded-lg border border-border overflow-hidden bg-card">
+              <div className="flex flex-col rounded-lg border border-border-default overflow-hidden bg-surface-secondary">
                 <div className="flex-1 overflow-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-b border-border bg-muted/50 hover:bg-muted/50">
-                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground py-3">
+                      <TableRow className="border-b border-border-default bg-surface-tertiary/50 hover:bg-surface-tertiary/50">
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
                           Workflow Name
                         </TableHead>
-                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground py-3">
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
                           Status
                         </TableHead>
-                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground py-3">
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
                           Duration
                         </TableHead>
-                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground py-3">
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
                           Total Cost
                         </TableHead>
-                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground py-3">
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
                           Completed At
                         </TableHead>
                       </TableRow>
@@ -797,7 +797,7 @@ export function Component() {
 
         {/* Footer info - only for active tab (history has pagination footer) */}
         {!isLoading && !error && tab === "active" && (
-          <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+          <div className="mt-4 flex items-center justify-between text-xs text-muted">
             <span>
               {`Showing ${runs.length} active run${runs.length !== 1 ? "s" : ""}`}
             </span>

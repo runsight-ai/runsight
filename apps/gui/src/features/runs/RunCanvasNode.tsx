@@ -59,14 +59,14 @@ function getNodeIcon(icon: string | undefined, iconColor: string | undefined) {
 function getBorderStyles(status: string, selected?: boolean) {
   switch (status) {
     case "completed":
-      return { borderColor: "var(--success)", borderWidth: "2px", boxShadow: "none" };
+      return { borderColor: "var(--success-9)", borderWidth: "2px", boxShadow: "none" };
     case "failed":
-      return { borderColor: "var(--error)", borderWidth: "2px", boxShadow: "0 0 0 2px var(--error-40)" };
+      return { borderColor: "var(--danger-9)", borderWidth: "2px", boxShadow: "0 0 0 2px var(--error-40)" };
     case "pending":
       return { borderColor: "var(--muted-foreground)", borderWidth: "1px", boxShadow: "none", opacity: 0.7 };
     default:
       return {
-        borderColor: selected ? "var(--primary)" : "var(--border)",
+        borderColor: selected ? "var(--interactive-default)" : "var(--border-default)",
         borderWidth: selected ? "2px" : "1px",
         boxShadow: selected ? "0 0 0 2px var(--primary-40)" : "none",
       };
@@ -99,13 +99,13 @@ export function CanvasNodeComponent(props: { data: RunNodeData; selected?: boole
   return (
     <div
       data-testid={`node-${data.name}`}
-      className={cn("w-[240px] bg-[var(--card)] rounded-md transition-all duration-150", status === "pending" && "opacity-70")}
+      className={cn("w-[240px] bg-[var(--surface-secondary)] rounded-md transition-all duration-150", status === "pending" && "opacity-70")}
       style={{ border: `${borderStyles.borderWidth} solid ${borderStyles.borderColor}`, boxShadow: borderStyles.boxShadow }}
     >
-      <div className={cn("h-9 px-3 flex items-center justify-between border-b", status === "completed" ? "border-[var(--success)]/30" : status === "failed" ? "border-[var(--error)]/30" : "border-[var(--border)]")}>
+      <div className={cn("h-9 px-3 flex items-center justify-between border-b", status === "completed" ? "border-[var(--success-9)]/30" : status === "failed" ? "border-[var(--danger-9)]/30" : "border-[var(--border-default)]")}>
         <div className="flex items-center gap-2">
           {getNodeIcon(data.icon, data.iconColor)}
-          <span className={cn("text-sm font-medium truncate max-w-[120px]", status === "pending" ? "text-[var(--muted-subtle)]" : "text-[var(--foreground)]")}>{data.name}</span>
+          <span className={cn("text-sm font-medium truncate max-w-[120px]", status === "pending" ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]")}>{data.name}</span>
         </div>
         {displayCost !== undefined && (
           <span className="font-mono text-xs text-[var(--muted-foreground)]">{isEstimate ? "~" : ""}${displayCost.toFixed(3)}</span>
@@ -114,25 +114,25 @@ export function CanvasNodeComponent(props: { data: RunNodeData; selected?: boole
       <div className="p-3 space-y-2">
         {data.soulRef && (
           <div className="flex items-center justify-between">
-            <span className="text-xs text-[var(--muted-subtle)]">Soul</span>
+            <span className="text-xs text-[var(--text-muted)]">Soul</span>
             <span className="text-xs text-[var(--muted-foreground)]">{data.soulRef}</span>
           </div>
         )}
         <div className="flex items-center justify-between">
-          <span className="text-xs text-[var(--muted-subtle)]">Status</span>
+          <span className="text-xs text-[var(--text-muted)]">Status</span>
           <StatusBadge status={variant} label={label} />
         </div>
       </div>
       {(data.duration || data.tokens) && (
-        <div className="px-3 py-1.5 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)]">
+        <div className="px-3 py-1.5 border-t border-[var(--border-default)] text-xs text-[var(--muted-foreground)]">
           {data.duration ? `${data.duration.toFixed(1)}s` : ""}
           {data.duration && data.tokens ? " • " : ""}
           {data.tokens?.total ? `${data.tokens.total.toLocaleString()} tokens` : ""}
         </div>
       )}
       {status === "failed" && data.error && (
-        <div className="px-3 py-2 border-t border-[var(--border)] bg-[var(--error-08)]">
-          <span className="text-xs text-[var(--error)]">{data.error}</span>
+        <div className="px-3 py-2 border-t border-[var(--border-default)] bg-[var(--error-08)]">
+          <span className="text-xs text-[var(--danger-9)]">{data.error}</span>
         </div>
       )}
     </div>

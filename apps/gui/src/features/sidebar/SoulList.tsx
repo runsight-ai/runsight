@@ -16,11 +16,11 @@ const columns: Column[] = [
       const soul = row as SoulResponse;
       return (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-[var(--primary-12)] text-[var(--primary)]">
+          <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-[var(--accent-3)] text-[var(--interactive-default)]">
             <Sparkles className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-medium text-foreground truncate">{soul.name || "Unnamed Soul"}</div>
+            <div className="text-sm font-medium text-primary truncate">{soul.name || "Unnamed Soul"}</div>
           </div>
         </div>
       );
@@ -33,7 +33,7 @@ const columns: Column[] = [
     render: (row) => {
       const soul = row as SoulResponse;
       return (
-        <div className="text-sm text-muted-foreground truncate max-w-[400px]">
+        <div className="text-sm text-muted truncate max-w-[400px]">
           {truncateText(soul.system_prompt, 80)}
         </div>
       );
@@ -49,10 +49,10 @@ const columns: Column[] = [
       return (
         <div className="flex flex-wrap gap-1">
           {models.length === 0 ? (
-            <span className="text-sm text-muted-foreground">—</span>
+            <span className="text-sm text-muted">—</span>
           ) : (
             models.map((model) => (
-              <Badge key={model} variant="secondary" className="bg-[var(--primary-12)] text-[var(--primary)] border-none text-xs">
+              <Badge key={model} variant="secondary" className="bg-[var(--accent-3)] text-[var(--interactive-default)] border-none text-xs">
                 {model}
               </Badge>
             ))

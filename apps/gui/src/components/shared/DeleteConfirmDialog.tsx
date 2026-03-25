@@ -23,12 +23,12 @@ export function DeleteConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="bg-[var(--card)] border-[var(--border)] rounded-xl">
+      <DialogContent className="bg-[var(--surface-secondary)] border-[var(--border-default)] rounded-xl">
         <DialogHeader>
-          <DialogTitle className="text-base font-medium text-foreground">
+          <DialogTitle className="text-base font-medium text-primary">
             Delete {resourceName}
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogDescription className="text-sm text-muted">
             Are you sure you want to delete &quot;{displayName}&quot;? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
@@ -36,14 +36,14 @@ export function DeleteConfirmDialog({
           <Button
             variant="outline"
             onClick={onClose}
-            className="h-9 px-4 border-[var(--input)] bg-transparent hover:bg-[var(--surface-elevated)] text-foreground"
+            className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary"
           >
             Cancel
           </Button>
           <Button
             onClick={onConfirm}
             disabled={isPending}
-            className="h-9 px-4 bg-destructive hover:bg-destructive/90 text-white"
+            className="h-9 px-4 bg-danger hover:bg-danger/90 text-white"
           >
             {isPending ? (
               <>

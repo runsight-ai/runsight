@@ -8,37 +8,37 @@ import type { StatusVariant } from "@/components/shared";
 describe("getStepTypeColor", () => {
   it("returns success colors for python", () => {
     expect(getStepTypeColor("python")).toBe(
-      "bg-[var(--success-12)] text-[var(--success)]"
+      "bg-[var(--success-12)] text-[var(--success-9)]"
     );
   });
 
   it("returns warning colors for javascript", () => {
     expect(getStepTypeColor("javascript")).toBe(
-      "bg-[var(--warning-12)] text-[var(--warning)]"
+      "bg-[var(--warning-12)] text-[var(--warning-9)]"
     );
   });
 
   it("returns elevated surface colors for shell", () => {
     expect(getStepTypeColor("shell")).toBe(
-      "bg-[var(--surface-elevated)] text-[var(--muted-foreground)]"
+      "bg-[var(--surface-raised)] text-[var(--muted-foreground)]"
     );
   });
 
   it("returns running colors for http", () => {
     expect(getStepTypeColor("http")).toBe(
-      "bg-[var(--running-12)] text-[var(--running)]"
+      "bg-[var(--running-12)] text-[var(--info-9)]"
     );
   });
 
   it("returns primary colors for prompt", () => {
     expect(getStepTypeColor("prompt")).toBe(
-      "bg-[var(--primary-12)] text-[var(--primary)]"
+      "bg-[var(--accent-3)] text-[var(--interactive-default)]"
     );
   });
 
   it("returns error colors for condition", () => {
     expect(getStepTypeColor("condition")).toBe(
-      "bg-[var(--error-12)] text-[var(--error)]"
+      "bg-[var(--error-12)] text-[var(--danger-9)]"
     );
   });
 

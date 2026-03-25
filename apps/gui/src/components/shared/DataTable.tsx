@@ -92,7 +92,7 @@ export function DataTable({
     <div className={cn("flex flex-col gap-3", className)}>
       {searchable && (
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <Input
             type="text"
             placeholder={searchPlaceholder}
@@ -103,15 +103,15 @@ export function DataTable({
         </div>
       )}
 
-      <div className="rounded-lg border border-border">
+      <div className="rounded-lg border border-border-default">
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border hover:bg-transparent">
+            <TableRow className="border-b border-border-default hover:bg-transparent">
               {columns.map((column) => (
                 <TableHead
                   key={column.key}
                   className={cn(
-                    "h-11 px-3 text-xs font-medium uppercase tracking-wide text-muted-foreground",
+                    "h-11 px-3 text-xs font-medium uppercase tracking-wide text-muted",
                     column.width && `w-[${column.width}]`,
                     sortable && column.sortable && "cursor-pointer select-none"
                   )}
@@ -120,7 +120,7 @@ export function DataTable({
                   <div className="flex items-center gap-1">
                     {column.header}
                     {sortable && column.sortable && sortKey === column.key && (
-                      <span className="text-foreground">
+                      <span className="text-primary">
                         {sortDirection === "asc" ? (
                           <ChevronUp className="h-3 w-3" />
                         ) : (
@@ -138,7 +138,7 @@ export function DataTable({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center text-sm text-muted-foreground"
+                  className="h-24 text-center text-sm text-muted"
                 >
                   No results found
                 </TableCell>
@@ -148,7 +148,7 @@ export function DataTable({
                 <TableRow
                   key={rowIndex}
                   className={cn(
-                    "border-b border-border transition-colors hover:bg-muted/50",
+                    "border-b border-border-default transition-colors hover:bg-surface-tertiary/50",
                     onRowClick && "cursor-pointer"
                   )}
                   onClick={() => onRowClick?.(row)}

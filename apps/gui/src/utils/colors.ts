@@ -11,17 +11,17 @@ import type { StatusVariant } from "@/components/shared";
 export function getStepTypeColor(type: string): string {
   switch (type.toLowerCase()) {
     case "python":
-      return "bg-[var(--success-12)] text-[var(--success)]";
+      return "bg-[var(--success-12)] text-[var(--success-9)]";
     case "javascript":
-      return "bg-[var(--warning-12)] text-[var(--warning)]";
+      return "bg-[var(--warning-12)] text-[var(--warning-9)]";
     case "shell":
-      return "bg-[var(--surface-elevated)] text-[var(--muted-foreground)]";
+      return "bg-[var(--surface-raised)] text-[var(--muted-foreground)]";
     case "http":
-      return "bg-[var(--running-12)] text-[var(--running)]";
+      return "bg-[var(--running-12)] text-[var(--info-9)]";
     case "prompt":
-      return "bg-[var(--primary-12)] text-[var(--primary)]";
+      return "bg-[var(--accent-3)] text-[var(--interactive-default)]";
     case "condition":
-      return "bg-[var(--error-12)] text-[var(--error)]";
+      return "bg-[var(--error-12)] text-[var(--danger-9)]";
     case "loop":
       return "bg-[var(--accent-alt-12)] text-[var(--accent-alt)]";
     default:
@@ -35,12 +35,12 @@ export function getStatusColor(status: string): string {
   switch (status.toLowerCase()) {
     case "completed":
     case "success":
-      return "bg-[var(--success-12)] text-[var(--success)]";
+      return "bg-[var(--success-12)] text-[var(--success-9)]";
     case "failed":
     case "error":
-      return "bg-[var(--error-12)] text-[var(--error)]";
+      return "bg-[var(--error-12)] text-[var(--danger-9)]";
     case "running":
-      return "bg-[var(--running-12)] text-[var(--running)]";
+      return "bg-[var(--running-12)] text-[var(--info-9)]";
     case "pending":
     case "idle":
     default:

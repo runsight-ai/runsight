@@ -84,7 +84,7 @@ function RunDetailInner() {
           id: `e${i}`,
           source: cur.id,
           target: nxt.id,
-          style: { stroke: "var(--border)", strokeWidth: 2 } as React.CSSProperties,
+          style: { stroke: "var(--border-default)", strokeWidth: 2 } as React.CSSProperties,
         });
       }
     }
@@ -100,7 +100,7 @@ function RunDetailInner() {
 
   if (isLoadingRun || isLoadingNodes) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[var(--background)]">
+      <div className="flex-1 flex items-center justify-center bg-[var(--surface-primary)]">
         <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
           Loading run details...
@@ -111,7 +111,7 @@ function RunDetailInner() {
 
   if (!run) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[var(--background)]">
+      <div className="flex-1 flex items-center justify-center bg-[var(--surface-primary)]">
         <div className="text-[var(--muted-foreground)]">Run not found</div>
       </div>
     );
@@ -120,7 +120,7 @@ function RunDetailInner() {
   const isFailed = run.status === "failed" || run.status === "error";
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-[var(--background)]">
+    <div className="flex-1 flex overflow-hidden bg-[var(--surface-primary)]">
       <main className="flex-1 flex flex-col min-w-0">
         <RunDetailHeader
           run={run}
@@ -137,18 +137,18 @@ function RunDetailInner() {
                 onNodeClick={onNodeClick} onPaneClick={onPaneClick}
                 nodeTypes={nodeTypes} nodesDraggable={false} nodesConnectable={false}
                 elementsSelectable fitView fitViewOptions={{ padding: 0.2 }}
-                minZoom={0.1} maxZoom={4} className="bg-[var(--background)]"
+                minZoom={0.1} maxZoom={4} className="bg-[var(--surface-primary)]"
               >
-                <Background color="var(--border)" gap={20} size={1} style={{ opacity: 0.3 }} />
-                <Controls className="!bg-[var(--card)] !border-[var(--border)]" />
+                <Background color="var(--border-default)" gap={20} size={1} style={{ opacity: 0.3 }} />
+                <Controls className="!bg-[var(--surface-secondary)] !border-[var(--border-default)]" />
                 <MiniMap
-                  className="!bg-[var(--card)]/90 !border-[var(--border)]"
+                  className="!bg-[var(--surface-secondary)]/90 !border-[var(--border-default)]"
                   nodeColor={(node) => {
                     const s = (node.data as RunNodeData)?.status;
-                    if (s === "completed") return "var(--success)";
-                    if (s === "failed") return "var(--error)";
+                    if (s === "completed") return "var(--success-9)";
+                    if (s === "failed") return "var(--danger-9)";
                     if (s === "pending") return "var(--muted-foreground)";
-                    return "var(--primary)";
+                    return "var(--interactive-default)";
                   }}
                   maskColor="var(--background-70)"
                 />

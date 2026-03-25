@@ -22,8 +22,8 @@ interface RunInspectorPanelProps {
 // ---------------------------------------------------------------------------
 
 function statusIcon(status: string) {
-  if (status === "completed") return <CheckCircle className="w-4 h-4 text-[var(--success)]" />;
-  if (status === "failed") return <XCircle className="w-4 h-4 text-[var(--error)]" />;
+  if (status === "completed") return <CheckCircle className="w-4 h-4 text-[var(--success-9)]" />;
+  if (status === "failed") return <XCircle className="w-4 h-4 text-[var(--danger-9)]" />;
   return <Clock className="w-4 h-4 text-[var(--muted-foreground)]" />;
 }
 
@@ -35,15 +35,15 @@ function statusLabel(status: string) {
 }
 
 function statusColorClass(status: string) {
-  if (status === "completed") return "text-[var(--success)]";
-  if (status === "failed") return "text-[var(--error)]";
+  if (status === "completed") return "text-[var(--success-9)]";
+  if (status === "failed") return "text-[var(--danger-9)]";
   return "text-[var(--muted-foreground)]";
 }
 
 function bannerClass(status: string) {
-  if (status === "completed") return "bg-[var(--success-08)] border-[var(--success)]/30";
-  if (status === "failed") return "bg-[var(--error-08)] border-[var(--error)]/30";
-  return "bg-[var(--background)] border-[var(--border)]";
+  if (status === "completed") return "bg-[var(--success-08)] border-[var(--success-9)]/30";
+  if (status === "failed") return "bg-[var(--error-08)] border-[var(--danger-9)]/30";
+  return "bg-[var(--surface-primary)] border-[var(--border-default)]";
 }
 
 function badgeVariant(status: string): "success" | "error" | "pending" {
@@ -65,19 +65,19 @@ export function RunInspectorPanel({ selectedNode, onClose }: RunInspectorPanelPr
   const status = d.status || "idle";
 
   return (
-    <aside data-testid="right-inspector" className="w-[320px] min-w-[280px] max-w-[480px] bg-[var(--card)] border-l border-[var(--border)] flex flex-col z-50 animate-in slide-in-from-right duration-200">
+    <aside data-testid="right-inspector" className="w-[320px] min-w-[280px] max-w-[480px] bg-[var(--surface-secondary)] border-l border-[var(--border-default)] flex flex-col z-50 animate-in slide-in-from-right duration-200">
       {/* Header */}
-      <div className="h-12 px-3 border-b border-[var(--border)] flex items-center justify-between shrink-0">
-        <h2 className="text-base font-medium text-[var(--foreground)] truncate">{d.name}</h2>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close inspector" className="w-8 h-8 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--surface-elevated)]">
+      <div className="h-12 px-3 border-b border-[var(--border-default)] flex items-center justify-between shrink-0">
+        <h2 className="text-base font-medium text-[var(--text-primary)] truncate">{d.name}</h2>
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close inspector" className="w-8 h-8 text-[var(--muted-foreground)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]">
           <X className="w-4 h-4" />
         </Button>
       </div>
 
       {/* Tab Bar */}
-      <div role="tablist" aria-label="Inspector tabs" className="h-9 flex items-center px-2 border-b border-[var(--border)] gap-1 shrink-0 overflow-x-auto">
+      <div role="tablist" aria-label="Inspector tabs" className="h-9 flex items-center px-2 border-b border-[var(--border-default)] gap-1 shrink-0 overflow-x-auto">
         {(["execution", "overview"] as const).map((tab) => (
-          <button key={tab} role="tab" aria-selected={activeTab === tab} aria-controls={`inspector-${tab}-panel`} id={`inspector-${tab}-tab`} onClick={() => setActiveTab(tab)} className={cn("h-full px-3 text-[12px] font-medium whitespace-nowrap transition-colors border-b-2", activeTab === tab ? "text-[var(--foreground)] border-[var(--primary)]" : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-transparent")}>
+          <button key={tab} role="tab" aria-selected={activeTab === tab} aria-controls={`inspector-${tab}-panel`} id={`inspector-${tab}-tab`} onClick={() => setActiveTab(tab)} className={cn("h-full px-3 text-[12px] font-medium whitespace-nowrap transition-colors border-b-2", activeTab === tab ? "text-[var(--text-primary)] border-[var(--interactive-default)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-primary)] border-transparent")}>
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
@@ -95,55 +95,55 @@ export function RunInspectorPanel({ selectedNode, onClose }: RunInspectorPanelPr
               {d.duration && <div className="font-mono text-xs text-[var(--muted-foreground)]">Duration: {formatDuration(d.duration)}</div>}
             </div>
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">Cost</label>
-              <div className="flex items-center justify-between p-2 rounded-md bg-[var(--background)] border border-[var(--border)]">
-                <span className="font-mono text-sm text-[var(--foreground)]">${(d.executionCost || 0).toFixed(3)}</span>
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2">Cost</label>
+              <div className="flex items-center justify-between p-2 rounded-md bg-[var(--surface-primary)] border border-[var(--border-default)]">
+                <span className="font-mono text-sm text-[var(--text-primary)]">${(d.executionCost || 0).toFixed(3)}</span>
               </div>
             </div>
             {d.tokens && (
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">Token Usage</label>
-                <div className="p-3 rounded-md bg-[var(--background)] border border-[var(--border)] space-y-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2">Token Usage</label>
+                <div className="p-3 rounded-md bg-[var(--surface-primary)] border border-[var(--border-default)] space-y-2">
                   {d.tokens.input !== undefined && (
                     <div>
-                      <div className="flex justify-between text-xs mb-1"><span className="text-[var(--muted-foreground)]">Prompt</span><span className="font-mono text-[var(--foreground)]">{d.tokens.input.toLocaleString()}</span></div>
-                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden"><div className="h-full bg-[var(--primary)] rounded-full" style={{ width: `${((d.tokens.input || 0) / (d.tokens.total || 1)) * 100}%` }} /></div>
+                      <div className="flex justify-between text-xs mb-1"><span className="text-[var(--muted-foreground)]">Prompt</span><span className="font-mono text-[var(--text-primary)]">{d.tokens.input.toLocaleString()}</span></div>
+                      <div className="h-1.5 bg-[var(--border-default)] rounded-full overflow-hidden"><div className="h-full bg-[var(--interactive-default)] rounded-full" style={{ width: `${((d.tokens.input || 0) / (d.tokens.total || 1)) * 100}%` }} /></div>
                     </div>
                   )}
                   {d.tokens.output !== undefined && (
                     <div>
-                      <div className="flex justify-between text-xs mb-1"><span className="text-[var(--muted-foreground)]">Completion</span><span className="font-mono text-[var(--foreground)]">{d.tokens.output.toLocaleString()}</span></div>
-                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden"><div className="h-full bg-[var(--primary)] rounded-full" style={{ width: `${((d.tokens.output || 0) / (d.tokens.total || 1)) * 100}%` }} /></div>
+                      <div className="flex justify-between text-xs mb-1"><span className="text-[var(--muted-foreground)]">Completion</span><span className="font-mono text-[var(--text-primary)]">{d.tokens.output.toLocaleString()}</span></div>
+                      <div className="h-1.5 bg-[var(--border-default)] rounded-full overflow-hidden"><div className="h-full bg-[var(--interactive-default)] rounded-full" style={{ width: `${((d.tokens.output || 0) / (d.tokens.total || 1)) * 100}%` }} /></div>
                     </div>
                   )}
-                  <div className="flex justify-between text-xs pt-1 border-t border-[var(--border)]"><span className="text-[var(--muted-subtle)]">Total</span><span className="font-mono text-[var(--foreground)]">{d.tokens.total?.toLocaleString()} tokens</span></div>
+                  <div className="flex justify-between text-xs pt-1 border-t border-[var(--border-default)]"><span className="text-[var(--text-muted)]">Total</span><span className="font-mono text-[var(--text-primary)]">{d.tokens.total?.toLocaleString()} tokens</span></div>
                 </div>
               </div>
             )}
             {status === "failed" && d.error && (
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">Error</label>
-                <div className="p-3 rounded-md bg-[var(--error-08)] border border-[var(--error)]/30 font-mono text-xs text-[var(--error)] leading-relaxed">{d.error}</div>
+                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2">Error</label>
+                <div className="p-3 rounded-md bg-[var(--error-08)] border border-[var(--danger-9)]/30 font-mono text-xs text-[var(--danger-9)] leading-relaxed">{d.error}</div>
               </div>
             )}
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">Configuration</label>
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2">Configuration</label>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-[var(--muted-foreground)]">Soul</span><span className="text-[var(--foreground)]">{d.soulRef || "\u2014"}</span></div>
-                <div className="flex justify-between"><span className="text-[var(--muted-foreground)]">Model</span><span className="text-[var(--foreground)]">{d.model || "\u2014"}</span></div>
+                <div className="flex justify-between"><span className="text-[var(--muted-foreground)]">Soul</span><span className="text-[var(--text-primary)]">{d.soulRef || "\u2014"}</span></div>
+                <div className="flex justify-between"><span className="text-[var(--muted-foreground)]">Model</span><span className="text-[var(--text-primary)]">{d.model || "\u2014"}</span></div>
               </div>
             </div>
           </div>
         )}
         {activeTab === "overview" && (
           <div role="tabpanel" id="inspector-overview-panel" aria-labelledby="inspector-overview-tab" className="space-y-4">
-            <div><label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">Name</label><div className="p-2 rounded-md bg-[var(--background)] border border-[var(--border)] text-sm text-[var(--foreground)]">{d.name}</div></div>
-            <div><label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">Status</label><StatusBadge status={badgeVariant(status)} label={statusLabel(status)} /></div>
+            <div><label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2">Name</label><div className="p-2 rounded-md bg-[var(--surface-primary)] border border-[var(--border-default)] text-sm text-[var(--text-primary)]">{d.name}</div></div>
+            <div><label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2">Status</label><StatusBadge status={badgeVariant(status)} label={statusLabel(status)} /></div>
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-subtle)] mb-2">Configuration</label>
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2">Configuration</label>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-[var(--muted-foreground)]">Soul</span><span className="text-[var(--foreground)]">{d.soulRef || "\u2014"}</span></div>
-                <div className="flex justify-between"><span className="text-[var(--muted-foreground)]">Model</span><span className="text-[var(--foreground)]">{d.model || "\u2014"}</span></div>
+                <div className="flex justify-between"><span className="text-[var(--muted-foreground)]">Soul</span><span className="text-[var(--text-primary)]">{d.soulRef || "\u2014"}</span></div>
+                <div className="flex justify-between"><span className="text-[var(--muted-foreground)]">Model</span><span className="text-[var(--text-primary)]">{d.model || "\u2014"}</span></div>
               </div>
             </div>
           </div>
