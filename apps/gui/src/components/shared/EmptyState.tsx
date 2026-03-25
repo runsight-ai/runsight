@@ -23,19 +23,28 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-3 p-8 text-center",
+        "flex flex-col items-center justify-center gap-space-6 text-center",
         className
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-surface-tertiary">
-        <Icon className="h-6 w-6 text-muted" />
+      {/* Icon container — icon-size-xl controls dimensions */}
+      <div className="flex items-center justify-center rounded-radius-lg bg-surface-tertiary p-space-3">
+        <Icon
+          className="text-muted"
+          style={{ width: "var(--icon-size-xl)", height: "var(--icon-size-xl)" }}
+          aria-hidden="true"
+        />
       </div>
-      <div className="flex flex-col gap-1">
-        <h3 className="text-sm font-medium text-primary">{title}</h3>
+
+      {/* Text block */}
+      <div className="flex flex-col gap-space-2">
+        <h3 className="text-heading text-font-size-lg font-medium">{title}</h3>
         {description && (
-          <p className="max-w-xs text-xs text-muted">{description}</p>
+          <p className="max-w-xs text-secondary text-font-size-sm">{description}</p>
         )}
       </div>
+
+      {/* Optional CTA */}
       {action && (
         <Button variant="outline" size="sm" onClick={action.onClick}>
           {action.label}
