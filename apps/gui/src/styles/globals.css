@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./components.css";
+@import "./patterns.css";
 
 /* ========================================
    FONT LOADING
@@ -23,9 +25,6 @@
   font-weight: 400 700;
   src: url(https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono:vf@latest/latin-wght-normal.woff2) format('woff2');
 }
-
-/* Satoshi — rare display usage (Fontshare) */
-@import url('https://api.fontshare.com/v2/css?f[]=satoshi@700,900&display=swap');
 
 
 /* ========================================

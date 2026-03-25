@@ -1,0 +1,678 @@
+<repository>
+  <skeleton_map>
+    <file path="./components.json">
+    </file>
+    <file path="./components.json.bak">
+    </file>
+    <file path="./e2e-integration/canvas-execution.spec.ts">
+    </file>
+    <file path="./e2e-integration/canvas-inspector.spec.ts">
+      <signature>Function apiDelete</signature>
+    </file>
+    <file path="./e2e-integration/canvas-mutations.spec.ts">
+      <signature>Function apiGet</signature>
+      <signature>Function apiPut</signature>
+    </file>
+    <file path="./e2e-integration/canvas-stateful-roundtrip.spec.ts">
+      <signature>Function setYamlAndApply</signature>
+      <signature>Function triggerRecompileAndReadYaml</signature>
+    </file>
+    <file path="./e2e-integration/canvas-sync.spec.ts">
+    </file>
+    <file path="./e2e-integration/canvas-workflow.spec.ts">
+      <signature>Function apiGet</signature>
+      <signature>Function apiDelete</signature>
+    </file>
+    <file path="./e2e-integration/canvas-yaml.spec.ts">
+    </file>
+    <file path="./e2e-integration/dashboard.spec.ts">
+      <signature>Function apiGet</signature>
+      <signature>Function apiDelete</signature>
+    </file>
+    <file path="./e2e-integration/error-states.spec.ts">
+      <signature>Function apiGet</signature>
+      <signature>Function apiDelete</signature>
+    </file>
+    <file path="./e2e-integration/health-page.spec.ts">
+    </file>
+    <file path="./e2e-integration/landing-page.spec.ts">
+    </file>
+    <file path="./e2e-integration/navigation.spec.ts">
+    </file>
+    <file path="./e2e-integration/onboarding.spec.ts">
+      <signature>Function apiGet</signature>
+    </file>
+    <file path="./e2e-integration/primitives-search.spec.ts">
+      <signature>Function apiGet</signature>
+    </file>
+    <file path="./e2e-integration/runs-detail.spec.ts">
+      <signature>Function apiGet</signature>
+    </file>
+    <file path="./e2e-integration/runs.spec.ts">
+      <signature>Function apiGet</signature>
+    </file>
+    <file path="./e2e-integration/settings-providers.spec.ts">
+      <signature>Function apiGet</signature>
+      <signature>Function apiDelete</signature>
+    </file>
+    <file path="./e2e-integration/smoke.spec.ts">
+      <signature>Function apiGet</signature>
+      <signature>Function apiDelete</signature>
+    </file>
+    <file path="./e2e-integration/souls-crud.spec.ts">
+      <signature>Function apiGet</signature>
+      <signature>Function apiDelete</signature>
+    </file>
+    <file path="./e2e-integration/steps-crud.spec.ts">
+      <signature>Function apiGet</signature>
+      <signature>Function apiDelete</signature>
+    </file>
+    <file path="./e2e-integration/tasks-crud.spec.ts">
+      <signature>Function apiGet</signature>
+      <signature>Function apiDelete</signature>
+    </file>
+    <file path="./e2e-integration/templates-page.spec.ts">
+    </file>
+    <file path="./e2e-integration/workflows-crud.spec.ts">
+      <signature>Function apiGet</signature>
+      <signature>Function apiDelete</signature>
+    </file>
+    <file path="./e2e/global-setup.ts">
+      <signature>Function findFreePort</signature>
+      <signature>Function waitForServer</signature>
+      <signature>Function globalSetup</signature>
+    </file>
+    <file path="./e2e/global-teardown.ts">
+      <signature>Function globalTeardown</signature>
+    </file>
+    <file path="./eslint.config.mjs">
+    </file>
+    <file path="./index.html">
+    </file>
+    <file path="./package-lock.json">
+    </file>
+    <file path="./package.json">
+    </file>
+    <file path="./playwright.config.ts">
+    </file>
+    <file path="./public/runsight.svg">
+    </file>
+    <file path="./screenshot-impl.cjs">
+    </file>
+    <file path="./screenshot.cjs">
+    </file>
+    <file path="./skeleton.xml">
+    </file>
+    <file path="./src/api/client.ts">
+      <signature>Class ApiError</signature>
+      <signature>Method ApiError.constructor</signature>
+      <signature>Function request</signature>
+    </file>
+    <file path="./src/api/dashboard.ts">
+    </file>
+    <file path="./src/api/git.ts">
+    </file>
+    <file path="./src/api/runs.ts">
+    </file>
+    <file path="./src/api/settings.ts">
+    </file>
+    <file path="./src/api/souls.ts">
+    </file>
+    <file path="./src/api/steps.ts">
+    </file>
+    <file path="./src/api/tasks.ts">
+    </file>
+    <file path="./src/api/workflows.ts">
+    </file>
+    <file path="./src/components/provider/ProviderSetup.tsx">
+      <signature>Interface ProviderDef</signature>
+      <signature>Interface ProviderSetupState</signature>
+      <signature>Interface ProviderSetupRef</signature>
+      <signature>Interface EditingProvider</signature>
+      <signature>Interface ProviderSetupProps</signature>
+    </file>
+    <file path="./src/components/shared/CostDisplay.tsx">
+      <signature>Interface CostDisplayProps</signature>
+      <signature>Function CostDisplay</signature>
+    </file>
+    <file path="./src/components/shared/CrudListPage.tsx">
+      <signature>Interface CrudListPageConfig</signature>
+      <signature>Interface CrudListPageProps</signature>
+      <signature>Function filterItems</signature>
+      <signature>Method itemToDelete</signature>
+    </file>
+    <file path="./src/components/shared/DataTable.tsx">
+      <signature>Interface Column</signature>
+      <signature>Interface DataTableProps</signature>
+    </file>
+    <file path="./src/components/shared/DeleteConfirmDialog.tsx">
+      <signature>Interface DeleteConfirmDialogProps</signature>
+    </file>
+    <file path="./src/components/shared/EmptyState.tsx">
+      <signature>Interface EmptyStateProps</signature>
+    </file>
+    <file path="./src/components/shared/ErrorBoundary.tsx">
+      <signature>Interface ErrorBoundaryState</signature>
+      <signature>Class AppErrorBoundary</signature>
+      <signature>Method AppErrorBoundary.constructor</signature>
+      <signature>Method AppErrorBoundary.getDerivedStateFromError</signature>
+      <signature>Method AppErrorBoundary.componentDidCatch</signature>
+      <signature>Method AppErrorBoundary.resetError</signature>
+      <signature>Method AppErrorBoundary.render</signature>
+      <signature>Class RouteErrorBoundary</signature>
+      <signature>Method RouteErrorBoundary.constructor</signature>
+      <signature>Method RouteErrorBoundary.getDerivedStateFromError</signature>
+      <signature>Method RouteErrorBoundary.componentDidCatch</signature>
+      <signature>Method RouteErrorBoundary.resetError</signature>
+      <signature>Method RouteErrorBoundary.render</signature>
+      <signature>Class CanvasErrorBoundary</signature>
+      <signature>Method CanvasErrorBoundary.constructor</signature>
+      <signature>Method CanvasErrorBoundary.getDerivedStateFromError</signature>
+      <signature>Method CanvasErrorBoundary.componentDidCatch</signature>
+      <signature>Method CanvasErrorBoundary.resetError</signature>
+      <signature>Method CanvasErrorBoundary.render</signature>
+    </file>
+    <file path="./src/components/shared/NodeBadge.tsx">
+      <signature>Interface NodeBadgeProps</signature>
+      <signature>Function NodeBadge</signature>
+    </file>
+    <file path="./src/components/shared/PageHeader.tsx">
+      <signature>Interface PageHeaderProps</signature>
+    </file>
+    <file path="./src/components/shared/StatusBadge.tsx">
+      <signature>Interface StatusBadgeProps</signature>
+      <signature>Function StatusBadge</signature>
+    </file>
+    <file path="./src/components/shared/__tests__/CrudListPage.test.ts">
+      <signature>Function readSource</signature>
+      <signature>Function countLines</signature>
+    </file>
+    <file path="./src/components/shared/__tests__/ErrorBoundary.test.ts">
+    </file>
+    <file path="./src/components/shared/index.ts">
+    </file>
+    <file path="./src/components/ui/__tests__/componentTokenSweep.test.ts">
+      <signature>Function readComponent</signature>
+      <signature>Function findOldTailwindTokens</signature>
+      <signature>Function findOldVarRefs</signature>
+      <signature>Function hasNewTokens</signature>
+    </file>
+    <file path="./src/components/ui/badge.tsx">
+      <signature>Function Badge</signature>
+    </file>
+    <file path="./src/components/ui/button.tsx">
+      <signature>Method cn</signature>
+    </file>
+    <file path="./src/components/ui/card.tsx">
+      <signature>Method cn</signature>
+      <signature>Function CardAction</signature>
+      <signature>Method CardAction.cn</signature>
+      <signature>Function CardAction.CardFooter</signature>
+      <signature>Method CardAction.CardFooter.cn</signature>
+    </file>
+    <file path="./src/components/ui/command.tsx">
+      <signature>Function CommandGroup</signature>
+      <signature>Function CommandItem</signature>
+      <signature>Method cn</signature>
+    </file>
+    <file path="./src/components/ui/dialog.tsx">
+      <signature>Function Dialog</signature>
+      <signature>Function DialogTrigger</signature>
+      <signature>Function DialogPortal</signature>
+      <signature>Function DialogClose</signature>
+      <signature>Method cn</signature>
+    </file>
+    <file path="./src/components/ui/dropdown-menu.tsx">
+      <signature>Function DropdownMenu</signature>
+      <signature>Function DropdownMenuPortal</signature>
+      <signature>Function DropdownMenuTrigger</signature>
+      <signature>Function DropdownMenuCheckboxItem</signature>
+      <signature>Method cn</signature>
+    </file>
+    <file path="./src/components/ui/input-group.tsx">
+      <signature>Method cn</signature>
+    </file>
+    <file path="./src/components/ui/input.tsx">
+      <signature>Function Input</signature>
+    </file>
+    <file path="./src/components/ui/label.tsx">
+      <signature>Method cn</signature>
+    </file>
+    <file path="./src/components/ui/popover.tsx">
+      <signature>Function Popover</signature>
+      <signature>Function PopoverTrigger</signature>
+      <signature>Method cn</signature>
+      <signature>Function PopoverTitle</signature>
+      <signature>Function PopoverDescription</signature>
+    </file>
+    <file path="./src/components/ui/scroll-area.tsx">
+      <signature>Function ScrollArea</signature>
+      <signature>Function ScrollBar</signature>
+    </file>
+    <file path="./src/components/ui/select.tsx">
+      <signature>Function SelectGroup</signature>
+      <signature>Function SelectValue</signature>
+      <signature>Function SelectTrigger</signature>
+      <signature>Function SelectContent</signature>
+      <signature>Method SelectContent.cn</signature>
+      <signature>Function SelectLabel</signature>
+      <signature>Function SelectItem</signature>
+      <signature>Function SelectSeparator</signature>
+      <signature>Function SelectScrollUpButton</signature>
+      <signature>Function SelectScrollDownButton</signature>
+    </file>
+    <file path="./src/components/ui/separator.tsx">
+      <signature>Method cn</signature>
+    </file>
+    <file path="./src/components/ui/sheet.tsx">
+      <signature>Function Sheet</signature>
+      <signature>Function SheetTrigger</signature>
+      <signature>Function SheetClose</signature>
+      <signature>Function SheetPortal</signature>
+      <signature>Method cn</signature>
+      <signature>Function SheetTitle</signature>
+      <signature>Function SheetDescription</signature>
+    </file>
+    <file path="./src/components/ui/switch.tsx">
+      <signature>Function Switch</signature>
+    </file>
+    <file path="./src/components/ui/table.tsx">
+      <signature>Function Table</signature>
+      <signature>Function TableHeader</signature>
+      <signature>Function TableBody</signature>
+      <signature>Method cn</signature>
+    </file>
+    <file path="./src/components/ui/tabs.tsx">
+      <signature>Method cn</signature>
+    </file>
+    <file path="./src/components/ui/textarea.tsx">
+      <signature>Method cn</signature>
+    </file>
+    <file path="./src/components/ui/tooltip.tsx">
+      <signature>Function TooltipContent</signature>
+      <signature>Method TooltipContent.cn</signature>
+    </file>
+    <file path="./src/features/canvas/LazyMonacoEditor.tsx">
+      <signature>Function LazyMonacoEditor</signature>
+    </file>
+    <file path="./src/features/canvas/WorkflowCanvas.tsx">
+      <signature>Function WorkflowCanvas</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/genericBlockRoundTrip.test.ts">
+      <signature>Function makeYaml</signature>
+      <signature>Function parseFirst</signature>
+      <signature>Function mockNode</signature>
+      <signature>Function mockEdge</signature>
+      <signature>Interface CompileInput</signature>
+      <signature>Function getBlock</signature>
+      <signature>Function compileOne</signature>
+      <signature>Function roundTrip</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/legacyCleanup.test.ts">
+      <signature>Function readSourceFile</signature>
+      <signature>Function makeYaml</signature>
+      <signature>Function mockNode</signature>
+      <signature>Function mockEdge</signature>
+      <signature>Function getBlock</signature>
+      <signature>Interface CompileInput</signature>
+      <signature>Function roundTrip</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/liveCanvasStatus.test.ts">
+      <signature>Function makeNode</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/memoAndLazy.test.ts">
+      <signature>Function readSource</signature>
+      <signature>Function fileExists</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/removePlaceholder.test.ts">
+      <signature>Function readSourceFile</signature>
+      <signature>Function readTypesFile</signature>
+      <signature>Function mockNode</signature>
+      <signature>Function makeYaml</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/runButton.test.ts">
+    </file>
+    <file path="./src/features/canvas/__tests__/test_debate_messagebus_removal.test.ts">
+      <signature>Function readSourceFile</signature>
+      <signature>Function readTypesFile</signature>
+      <signature>Function mockNode</signature>
+      <signature>Function makeYaml</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/yamlCompiler.test.ts">
+      <signature>Function mockNode</signature>
+      <signature>Function compileOne</signature>
+      <signature>Function mockNodeWithConditions</signature>
+      <signature>Function mockEdge</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/yamlHttpRequestSync.test.ts">
+      <signature>Function mockNode</signature>
+      <signature>Function mockEdge</signature>
+      <signature>Interface CompileInput</signature>
+      <signature>Function roundTrip</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/yamlLibrarySwap.test.ts">
+      <signature>Function mockNode</signature>
+      <signature>Function mockEdge</signature>
+      <signature>Function readSourceFile</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/yamlParser.test.ts">
+      <signature>Function makeYaml</signature>
+      <signature>Function parseFirst</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/yamlRoundTrip.test.ts">
+      <signature>Function mockNode</signature>
+      <signature>Function mockEdge</signature>
+      <signature>Interface CompileInput</signature>
+      <signature>Function roundTrip</signature>
+    </file>
+    <file path="./src/features/canvas/__tests__/yamlStatefulField.test.ts">
+      <signature>Function mockNode</signature>
+      <signature>Function mockEdge</signature>
+      <signature>Interface CompileInput</signature>
+      <signature>Function roundTrip</signature>
+    </file>
+    <file path="./src/features/canvas/nodes/SoulNode.tsx">
+      <signature>Function SoulNodeComponent</signature>
+    </file>
+    <file path="./src/features/canvas/nodes/StartNode.tsx">
+      <signature>Function StartNodeComponent</signature>
+    </file>
+    <file path="./src/features/canvas/nodes/TaskNode.tsx">
+      <signature>Function TaskNodeComponent</signature>
+    </file>
+    <file path="./src/features/canvas/nodes/index.ts">
+    </file>
+    <file path="./src/features/canvas/runWorkflow.ts">
+      <signature>Interface RunWorkflowOptions</signature>
+      <signature>Interface RunWorkflowResult</signature>
+      <signature>Function runWorkflow</signature>
+    </file>
+    <file path="./src/features/canvas/useRunStream.ts">
+      <signature>Function mapSSEEventToStoreAction</signature>
+      <signature>Function getStatusBorderColor</signature>
+    </file>
+    <file path="./src/features/canvas/yamlCompiler.ts">
+      <signature>Interface CompileInput</signature>
+      <signature>Interface CompiledWorkflow</signature>
+      <signature>Function camelToSnake</signature>
+      <signature>Function isCamelCase</signature>
+      <signature>Function convertKeysToSnake</signature>
+      <signature>Function toCompiledBlock</signature>
+      <signature>Function getConditionedNodeIds</signature>
+      <signature>Function toTransitions</signature>
+      <signature>Function toConditionalTransitions</signature>
+      <signature>Function toPersistedCanvasState</signature>
+      <signature>Function compileGraphToWorkflowYaml</signature>
+    </file>
+    <file path="./src/features/canvas/yamlParser.ts">
+      <signature>Interface ParseWorkflowResult</signature>
+      <signature>Function toStepType</signature>
+      <signature>Function snakeToCamel</signature>
+      <signature>Function convertKeysToCamel</signature>
+      <signature>Function buildNodeData</signature>
+      <signature>Function findPersistedPosition</signature>
+      <signature>Function parseWorkflowYamlToGraph</signature>
+    </file>
+    <file path="./src/features/canvas/yamlSync.test.ts">
+    </file>
+    <file path="./src/features/dashboard/DashboardOrOnboarding.tsx">
+    </file>
+    <file path="./src/features/dev/ComponentShowcase.tsx">
+    </file>
+    <file path="./src/features/git/__tests__/gitDataLayer.test.ts">
+    </file>
+    <file path="./src/features/health/HealthPage.tsx">
+      <signature>Function Component</signature>
+    </file>
+    <file path="./src/features/landing/LandingPage.tsx">
+    </file>
+    <file path="./src/features/onboarding/OnboardingWizard.tsx">
+      <signature>Function Component</signature>
+    </file>
+    <file path="./src/features/runs/RunBottomPanel.tsx">
+      <signature>Interface RunBottomPanelProps</signature>
+      <signature>Method cn</signature>
+    </file>
+    <file path="./src/features/runs/RunCanvasNode.tsx">
+      <signature>Interface RunNodeData</signature>
+      <signature>Function getNodeIcon</signature>
+      <signature>Function getBorderStyles</signature>
+      <signature>Function mapNodeStatus</signature>
+    </file>
+    <file path="./src/features/runs/RunDetail.tsx">
+    </file>
+    <file path="./src/features/runs/RunDetailHeader.tsx">
+      <signature>Interface RunDetailHeaderProps</signature>
+    </file>
+    <file path="./src/features/runs/RunInspectorPanel.tsx">
+      <signature>Interface RunInspectorPanelProps</signature>
+      <signature>Function statusIcon</signature>
+      <signature>Function statusLabel</signature>
+      <signature>Function statusColorClass</signature>
+      <signature>Function bannerClass</signature>
+      <signature>Function badgeVariant</signature>
+    </file>
+    <file path="./src/features/runs/RunList.tsx">
+    </file>
+    <file path="./src/features/runs/__tests__/runDetailDecomposition.test.ts">
+    </file>
+    <file path="./src/features/runs/__tests__/runDetailPolling.test.ts">
+    </file>
+    <file path="./src/features/settings/AddProviderDialog.tsx">
+      <signature>Interface AddProviderDialogProps</signature>
+    </file>
+    <file path="./src/features/settings/ModelsTab.tsx">
+    </file>
+    <file path="./src/features/settings/ProvidersTab.tsx">
+      <signature>Function ProviderLogo</signature>
+      <signature>Function getStatusVariant</signature>
+      <signature>Function getStatusLabel</signature>
+      <signature>Function ProviderCard</signature>
+    </file>
+    <file path="./src/features/settings/SettingsPage.tsx">
+    </file>
+    <file path="./src/features/sidebar/SoulList.tsx">
+    </file>
+    <file path="./src/features/sidebar/SoulModals.tsx">
+      <signature>Interface NewSoulModalProps</signature>
+    </file>
+    <file path="./src/features/sidebar/StepList.tsx">
+    </file>
+    <file path="./src/features/sidebar/StepModals.tsx">
+      <signature>Interface NewStepModalProps</signature>
+    </file>
+    <file path="./src/features/sidebar/TaskList.tsx">
+      <signature>Function getTaskTypeColor</signature>
+    </file>
+    <file path="./src/features/sidebar/TaskModals.tsx">
+      <signature>Interface NewTaskModalProps</signature>
+    </file>
+    <file path="./src/features/templates/TemplatesPage.tsx">
+      <signature>Function Component</signature>
+    </file>
+    <file path="./src/features/workflows/NewWorkflowModal.tsx">
+      <signature>Interface NewWorkflowModalProps</signature>
+    </file>
+    <file path="./src/features/workflows/WorkflowList.tsx">
+    </file>
+    <file path="./src/lib/utils.ts">
+      <signature>Function cn</signature>
+    </file>
+    <file path="./src/main.tsx">
+    </file>
+    <file path="./src/queries/__tests__/toastNotifications.test.ts">
+      <signature>Function extractFunction</signature>
+      <signature>Function expectToastImport</signature>
+      <signature>Function expectSuccessToast</signature>
+      <signature>Function expectErrorToast</signature>
+      <signature>Function expectOnErrorCallback</signature>
+    </file>
+    <file path="./src/queries/dashboard.ts">
+      <signature>Interface DashboardSummary</signature>
+      <signature>Function useDashboardSummary</signature>
+      <signature>Function useRecentRuns</signature>
+    </file>
+    <file path="./src/queries/git.ts">
+      <signature>Function useGitStatus</signature>
+      <signature>Function useGitLog</signature>
+      <signature>Function useGitDiff</signature>
+      <signature>Function useCommit</signature>
+    </file>
+    <file path="./src/queries/keys.ts">
+    </file>
+    <file path="./src/queries/runs.ts">
+      <signature>Function useRuns</signature>
+      <signature>Function useRun</signature>
+      <signature>Function useCreateRun</signature>
+      <signature>Function useCancelRun</signature>
+      <signature>Function useDeleteRun</signature>
+      <signature>Function useRunNodes</signature>
+      <signature>Function useRunLogs</signature>
+    </file>
+    <file path="./src/queries/settings.ts">
+      <signature>Function useProviders</signature>
+      <signature>Function useProvider</signature>
+      <signature>Function useCreateProvider</signature>
+      <signature>Function useUpdateProvider</signature>
+      <signature>Function useDeleteProvider</signature>
+      <signature>Function useTestProviderConnection</signature>
+      <signature>Function useModelDefaults</signature>
+      <signature>Function useUpdateModelDefault</signature>
+      <signature>Function useBudgets</signature>
+      <signature>Function useCreateBudget</signature>
+      <signature>Function useUpdateBudget</signature>
+      <signature>Function useDeleteBudget</signature>
+      <signature>Function useAppSettings</signature>
+      <signature>Function useUpdateAppSettings</signature>
+    </file>
+    <file path="./src/queries/souls.ts">
+      <signature>Function useSouls</signature>
+      <signature>Function useSoul</signature>
+      <signature>Function useCreateSoul</signature>
+      <signature>Function useUpdateSoul</signature>
+      <signature>Function useDeleteSoul</signature>
+    </file>
+    <file path="./src/queries/steps.ts">
+      <signature>Function useSteps</signature>
+      <signature>Function useStep</signature>
+      <signature>Function useCreateStep</signature>
+      <signature>Function useUpdateStep</signature>
+      <signature>Function useDeleteStep</signature>
+    </file>
+    <file path="./src/queries/tasks.ts">
+      <signature>Function useTasks</signature>
+      <signature>Function useTask</signature>
+      <signature>Function useCreateTask</signature>
+      <signature>Function useUpdateTask</signature>
+      <signature>Function useDeleteTask</signature>
+    </file>
+    <file path="./src/queries/workflows.ts">
+      <signature>Function useWorkflows</signature>
+      <signature>Function useWorkflow</signature>
+      <signature>Function useCreateWorkflow</signature>
+      <signature>Function useUpdateWorkflow</signature>
+      <signature>Function useDeleteWorkflow</signature>
+    </file>
+    <file path="./src/routes/index.tsx">
+    </file>
+    <file path="./src/routes/layouts/ShellLayout.tsx">
+      <signature>Function pageTitleFromPath</signature>
+    </file>
+    <file path="./src/store/canvas.test.ts">
+      <signature>Function makeNode</signature>
+      <signature>Function makeEdge</signature>
+    </file>
+    <file path="./src/store/canvas.ts">
+      <signature>Interface PersistedCanvasState</signature>
+      <signature>Interface CanvasState</signature>
+    </file>
+    <file path="./src/store/ui.ts">
+      <signature>Interface UiState</signature>
+    </file>
+    <file path="./src/styles/__tests__/tokenMigration.test.ts">
+      <signature>Function readGlobals</signature>
+      <signature>Function extractThemeInlineBlock</signature>
+      <signature>Function extractRootBlock</signature>
+    </file>
+    <file path="./src/styles/globals.css">
+    </file>
+    <file path="./src/types/generated/__tests__/codegen.test.ts">
+    </file>
+    <file path="./src/types/generated/api.ts">
+      <signature>Interface paths</signature>
+      <signature>Interface components</signature>
+      <signature>Interface operations</signature>
+    </file>
+    <file path="./src/types/generated/index.ts">
+    </file>
+    <file path="./src/types/generated/zod.ts">
+    </file>
+    <file path="./src/types/schemas/canvas.ts">
+      <signature>Interface ConditionDef</signature>
+      <signature>Interface ConditionGroupDef</signature>
+      <signature>Interface CaseDef</signature>
+      <signature>Interface InputRef</signature>
+      <signature>Interface StepNodeData</signature>
+      <signature>Interface SoulDef</signature>
+      <signature>Interface BlockDef</signature>
+      <signature>Interface TransitionDef</signature>
+      <signature>Interface ConditionalTransitionDef</signature>
+      <signature>Interface WorkflowDef</signature>
+      <signature>Interface RunsightWorkflowFile</signature>
+    </file>
+    <file path="./src/types/schemas/dashboard.ts">
+    </file>
+    <file path="./src/types/schemas/git.ts">
+    </file>
+    <file path="./src/types/schemas/runs.ts">
+    </file>
+    <file path="./src/types/schemas/settings.ts">
+    </file>
+    <file path="./src/types/schemas/souls.ts">
+    </file>
+    <file path="./src/types/schemas/steps.ts">
+    </file>
+    <file path="./src/types/schemas/tasks.ts">
+    </file>
+    <file path="./src/types/schemas/workflows.ts">
+    </file>
+    <file path="./src/utils/__tests__/colors.test.ts">
+    </file>
+    <file path="./src/utils/__tests__/formatting.test.ts">
+    </file>
+    <file path="./src/utils/colors.ts">
+      <signature>Function getStepTypeColor</signature>
+      <signature>Function getStatusColor</signature>
+      <signature>Function mapRunStatus</signature>
+      <signature>Function getIconForBlockType</signature>
+      <signature>Function mapRunStatusToVariant</signature>
+    </file>
+    <file path="./src/utils/constants.ts">
+    </file>
+    <file path="./src/utils/formatting.ts">
+      <signature>Function formatDuration</signature>
+      <signature>Function truncateText</signature>
+      <signature>Function formatTimestamp</signature>
+      <signature>Function formatCost</signature>
+      <signature>Function getTimeAgo</signature>
+    </file>
+    <file path="./src/utils/helpers.ts">
+      <signature>Function cn</signature>
+    </file>
+    <file path="./src/utils/icons.tsx">
+      <signature>Function getWorkflowIcon</signature>
+      <signature>Function getWorkflowIconBg</signature>
+    </file>
+    <file path="./src/vite-env.d.ts">
+      <signature>Interface ImportMetaEnv</signature>
+      <signature>Interface ImportMeta</signature>
+    </file>
+    <file path="./tsconfig.json">
+    </file>
+    <file path="./vite.config.ts">
+    </file>
+    <file path="./vitest.unit.config.ts">
+    </file>
+  </skeleton_map>
+</repository>
+

@@ -4,6 +4,8 @@
     </file>
     <file path="./apps/api/pyproject.toml">
     </file>
+    <file path="./apps/api/skeleton.xml">
+    </file>
     <file path="./apps/api/src/__init__.py">
     </file>
     <file path="./apps/api/src/runsight_api/__init__.py">
@@ -182,6 +184,8 @@
     </file>
     <file path="./apps/api/src/runsight_api/domain/errors.py">
       <signature>Class RunsightError</signature>
+      <signature>Function RunsightError.__init__</signature>
+      <signature>Function RunsightError.to_dict</signature>
       <signature>Class WorkflowNotFound</signature>
       <signature>Class RunNotFound</signature>
       <signature>Class RunFailed</signature>
@@ -234,6 +238,7 @@
       <signature>Function ExecutionObserver.on_block_error</signature>
       <signature>Function ExecutionObserver.on_workflow_complete</signature>
       <signature>Function ExecutionObserver.on_workflow_error</signature>
+      <signature>Function ExecutionObserver._persist_execution_log</signature>
       <signature>Function ExecutionObserver._insert_log</signature>
     </file>
     <file path="./apps/api/src/runsight_api/logic/observers/streaming_observer.py">
@@ -348,8 +353,17 @@
     </file>
     <file path="./apps/api/src/runsight_api/transport/middleware/__init__.py">
     </file>
+    <file path="./apps/api/src/runsight_api/transport/middleware/access_log.py">
+      <signature>Class AccessLogMiddleware</signature>
+      <signature>Function AccessLogMiddleware.dispatch</signature>
+    </file>
     <file path="./apps/api/src/runsight_api/transport/middleware/error_handler.py">
+      <signature>Function _legacy_code</signature>
       <signature>Function global_exception_handler</signature>
+    </file>
+    <file path="./apps/api/src/runsight_api/transport/middleware/request_id.py">
+      <signature>Class RequestIdMiddleware</signature>
+      <signature>Function RequestIdMiddleware.dispatch</signature>
     </file>
     <file path="./apps/api/src/runsight_api/transport/routers/__init__.py">
     </file>
@@ -493,6 +507,7 @@
     <file path="./apps/api/tests/__init__.py">
     </file>
     <file path="./apps/api/tests/conftest.py">
+      <signature>Function _clear_context_vars</signature>
     </file>
     <file path="./apps/api/tests/core/__init__.py">
     </file>
@@ -1113,6 +1128,34 @@
       <signature>Function TestCreateAppUsesSettingsForCors.test_cors_middleware_does_not_use_wildcard_by_default</signature>
       <signature>Function TestCreateAppUsesSettingsForCors.test_cors_middleware_uses_default_localhost_origin</signature>
     </file>
+    <file path="./apps/api/tests/test_execution_log_persistence.py">
+      <signature>Function _make_run</signature>
+      <signature>Function _state_with_log</signature>
+      <signature>Function db_engine</signature>
+      <signature>Function run_id</signature>
+      <signature>Function observer</signature>
+      <signature>Class TestHighWaterMarkSetup</signature>
+      <signature>Function TestHighWaterMarkSetup.test_log_hwm_initialized_to_zero</signature>
+      <signature>Function TestHighWaterMarkSetup.test_persist_execution_log_method_exists</signature>
+      <signature>Class TestOnBlockCompletePersistsLog</signature>
+      <signature>Function TestOnBlockCompletePersistsLog.test_new_entries_persisted_on_block_complete</signature>
+      <signature>Function TestOnBlockCompletePersistsLog.test_persisted_entries_have_correct_run_id</signature>
+      <signature>Function TestOnBlockCompletePersistsLog.test_persisted_entries_have_correct_node_id</signature>
+      <signature>Function TestOnBlockCompletePersistsLog.test_persisted_entries_have_level_trace</signature>
+      <signature>Function TestOnBlockCompletePersistsLog.test_persisted_entry_message_contains_log_content</signature>
+      <signature>Class TestHighWaterMarkAdvances</signature>
+      <signature>Function TestHighWaterMarkAdvances.test_no_duplicate_entries_across_two_block_completes</signature>
+      <signature>Function TestHighWaterMarkAdvances.test_hwm_advances_after_block_complete</signature>
+      <signature>Class TestWorkflowCompleteFinalFlush</signature>
+      <signature>Function TestWorkflowCompleteFinalFlush.test_final_flush_persists_remaining_entries</signature>
+      <signature>Class TestDbFailureSwallowed</signature>
+      <signature>Function TestDbFailureSwallowed.test_persist_execution_log_does_not_raise_on_db_error</signature>
+      <signature>Class TestContextVarBinding</signature>
+      <signature>Function TestContextVarBinding.test_on_workflow_start_binds_execution_context</signature>
+      <signature>Function TestContextVarBinding.test_on_block_start_binds_block_context</signature>
+      <signature>Function TestContextVarBinding.test_on_block_complete_clears_block_context</signature>
+      <signature>Function TestContextVarBinding.test_on_workflow_complete_clears_execution_context</signature>
+    </file>
     <file path="./apps/api/tests/test_execution_service_return_type.py">
       <signature>Class TestGetExecutionServiceReturnType</signature>
       <signature>Function TestGetExecutionServiceReturnType.test_return_type_annotation_includes_none</signature>
@@ -1130,6 +1173,36 @@
     </file>
     <file path="./apps/api/tests/test_main.py">
       <signature>Function test_health_check</signature>
+    </file>
+    <file path="./apps/api/tests/test_request_id_access_log.py">
+      <signature>Function _make_app</signature>
+      <signature>Function _make_app.ping</signature>
+      <signature>Function _make_app.sse_endpoint</signature>
+      <signature>Function _make_app.sse_endpoint.generate</signature>
+      <signature>Class TestRequestIdMiddlewareImportable</signature>
+      <signature>Function TestRequestIdMiddlewareImportable.test_class_importable</signature>
+      <signature>Class TestAccessLogMiddlewareImportable</signature>
+      <signature>Function TestAccessLogMiddlewareImportable.test_class_importable</signature>
+      <signature>Class TestRequestIdResponseHeader</signature>
+      <signature>Function TestRequestIdResponseHeader.test_response_has_x_request_id_header</signature>
+      <signature>Function TestRequestIdResponseHeader.test_generated_request_id_is_valid_uuid</signature>
+      <signature>Function TestRequestIdResponseHeader.test_multiple_requests_get_different_ids</signature>
+      <signature>Class TestIncomingRequestIdPreserved</signature>
+      <signature>Function TestIncomingRequestIdPreserved.test_incoming_id_echoed_in_response</signature>
+      <signature>Function TestIncomingRequestIdPreserved.test_incoming_uuid_preserved</signature>
+      <signature>Class TestAccessLogOutput</signature>
+      <signature>Function TestAccessLogOutput.test_access_log_contains_required_keys</signature>
+      <signature>Function TestAccessLogOutput.test_access_log_contains_required_keys.capture_processor</signature>
+      <signature>Function TestAccessLogOutput.test_access_log_contains_request_id</signature>
+      <signature>Function TestAccessLogOutput.test_access_log_contains_request_id.capture_processor</signature>
+      <signature>Class TestSseStreamingThroughMiddleware</signature>
+      <signature>Function TestSseStreamingThroughMiddleware.test_sse_response_has_request_id</signature>
+      <signature>Function TestSseStreamingThroughMiddleware.test_sse_response_body_intact</signature>
+      <signature>Class TestMainRegistersMiddleware</signature>
+      <signature>Function TestMainRegistersMiddleware.test_main_imports_request_id_middleware</signature>
+      <signature>Function TestMainRegistersMiddleware.test_main_imports_access_log_middleware</signature>
+      <signature>Function TestMainRegistersMiddleware.test_main_registers_request_id_middleware</signature>
+      <signature>Function TestMainRegistersMiddleware.test_main_registers_access_log_middleware</signature>
     </file>
     <file path="./apps/api/tests/test_run134_openapi_codegen.py">
       <signature>Class TestOpenAPISpecExtraction</signature>
@@ -1249,6 +1322,49 @@
       <signature>Function TestMainCallsConfigureLogging.test_main_imports_configure_logging</signature>
       <signature>Function TestMainCallsConfigureLogging.test_main_invokes_configure_logging</signature>
     </file>
+    <file path="./apps/api/tests/test_structured_errors.py">
+      <signature>Class TestRunsightErrorClassDefaults</signature>
+      <signature>Function TestRunsightErrorClassDefaults.test_error_code_class_attr</signature>
+      <signature>Function TestRunsightErrorClassDefaults.test_status_code_class_attr</signature>
+      <signature>Function TestRunsightErrorClassDefaults.test_instance_inherits_error_code</signature>
+      <signature>Function TestRunsightErrorClassDefaults.test_instance_inherits_status_code</signature>
+      <signature>Class TestRunsightErrorToDict</signature>
+      <signature>Function TestRunsightErrorToDict.test_to_dict_exists</signature>
+      <signature>Function TestRunsightErrorToDict.test_to_dict_has_error_key</signature>
+      <signature>Function TestRunsightErrorToDict.test_to_dict_has_error_code_key</signature>
+      <signature>Function TestRunsightErrorToDict.test_to_dict_has_status_code_key</signature>
+      <signature>Function TestRunsightErrorToDict.test_to_dict_includes_run_id_when_set</signature>
+      <signature>Function TestRunsightErrorToDict.test_to_dict_includes_block_id_when_set</signature>
+      <signature>Function TestRunsightErrorToDict.test_to_dict_includes_workflow_name_when_set</signature>
+      <signature>Function TestRunsightErrorToDict.test_to_dict_includes_details_when_set</signature>
+      <signature>Function TestRunsightErrorToDict.test_to_dict_omits_empty_optional_fields</signature>
+      <signature>Class TestAutoReadContextVars</signature>
+      <signature>Function TestAutoReadContextVars.test_auto_reads_run_id_from_contextvar</signature>
+      <signature>Function TestAutoReadContextVars.test_auto_reads_workflow_name_from_contextvar</signature>
+      <signature>Function TestAutoReadContextVars.test_auto_reads_block_id_from_contextvar</signature>
+      <signature>Function TestAutoReadContextVars.test_explicit_run_id_overrides_contextvar</signature>
+      <signature>Class TestSubclassErrorCodes</signature>
+      <signature>Function TestSubclassErrorCodes.test_error_code</signature>
+      <signature>Function TestSubclassErrorCodes.test_status_code</signature>
+      <signature>Function TestSubclassErrorCodes.test_to_dict_reflects_subclass_defaults</signature>
+      <signature>Class TestProviderNotFoundBugFix</signature>
+      <signature>Function TestProviderNotFoundBugFix.test_provider_not_found_status_is_404</signature>
+      <signature>Function TestProviderNotFoundBugFix.test_provider_not_found_error_code</signature>
+      <signature>Class TestBackwardCompatibility</signature>
+      <signature>Function TestBackwardCompatibility.test_run_not_found_str</signature>
+      <signature>Function TestBackwardCompatibility.test_run_not_found_is_runsight_error</signature>
+      <signature>Function TestBackwardCompatibility.test_run_not_found_is_exception</signature>
+      <signature>Function TestBackwardCompatibility.test_can_catch_subclass_as_runsight_error</signature>
+      <signature>Class TestErrorHandlerStructuredResponse</signature>
+      <signature>Function TestErrorHandlerStructuredResponse.test_handler_returns_status_from_exc</signature>
+      <signature>Function TestErrorHandlerStructuredResponse.test_handler_body_contains_error_code</signature>
+      <signature>Function TestErrorHandlerStructuredResponse.test_handler_injects_request_id</signature>
+      <signature>Function TestErrorHandlerStructuredResponse.test_handler_uses_exc_status_code_not_isinstance</signature>
+      <signature>Class TestUnhandledExceptionResponse</signature>
+      <signature>Function TestUnhandledExceptionResponse.test_unhandled_returns_500</signature>
+      <signature>Function TestUnhandledExceptionResponse.test_unhandled_does_not_leak_details</signature>
+      <signature>Function TestUnhandledExceptionResponse.test_unhandled_includes_request_id</signature>
+    </file>
     <file path="./apps/api/tests/test_swallowed_exception_logging.py">
       <signature>Function _parse_create_run_function</signature>
       <signature>Function _find_except_handlers</signature>
@@ -1286,7 +1402,7 @@
       <signature>Class TestKnownExceptionsPreserved</signature>
       <signature>Function TestKnownExceptionsPreserved.test_workflow_not_found_returns_404_with_message</signature>
       <signature>Function TestKnownExceptionsPreserved.test_soul_not_found_returns_404_with_message</signature>
-      <signature>Function TestKnownExceptionsPreserved.test_run_failed_returns_400_with_message</signature>
+      <signature>Function TestKnownExceptionsPreserved.test_run_failed_returns_500_with_message</signature>
       <signature>Function TestKnownExceptionsPreserved.test_provider_not_configured_returns_400_with_message</signature>
     </file>
     <file path="./apps/api/tests/transport/test_git_router.py">
@@ -1936,6 +2052,8 @@
     </file>
     <file path="./apps/gui/screenshot.cjs">
     </file>
+    <file path="./apps/gui/skeleton.xml">
+    </file>
     <file path="./apps/gui/src/api/client.ts">
       <signature>Class ApiError</signature>
       <signature>Method ApiError.constructor</signature>
@@ -2024,10 +2142,69 @@
     </file>
     <file path="./apps/gui/src/components/shared/index.ts">
     </file>
+    <file path="./apps/gui/src/components/ui/__tests__/componentTokenSweep.test.ts">
+      <signature>Function readComponent</signature>
+      <signature>Function findOldTailwindTokens</signature>
+      <signature>Function findOldVarRefs</signature>
+      <signature>Function hasNewTokens</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/__tests__/tier1NewPrimitives.test.ts">
+      <signature>Function componentExists</signature>
+      <signature>Function readComponent</signature>
+      <signature>Function storyExists</signature>
+      <signature>Function readStory</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/__tests__/tier1Primitives.test.ts">
+      <signature>Function readComponent</signature>
+      <signature>Function readStory</signature>
+      <signature>Function storyExists</signature>
+      <signature>Function hasVariantKey</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/__tests__/tier2FormControls.test.ts">
+      <signature>Function componentExists</signature>
+      <signature>Function readComponent</signature>
+      <signature>Function storyExists</signature>
+      <signature>Function readStory</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/__tests__/tier3DataDisplay.test.ts">
+      <signature>Function componentExists</signature>
+      <signature>Function readComponent</signature>
+      <signature>Function storyExists</signature>
+      <signature>Function readStory</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/__tests__/tier4Navigation.test.ts">
+      <signature>Function componentExists</signature>
+      <signature>Function readComponent</signature>
+      <signature>Function readLayout</signature>
+      <signature>Function storyExists</signature>
+      <signature>Function readStory</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/__tests__/tier5Overlays.test.ts">
+      <signature>Function readComponent</signature>
+      <signature>Function storyExists</signature>
+      <signature>Function readStory</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/action-card.tsx">
+      <signature>Interface ActionCardProps</signature>
+      <signature>Method cn</signature>
+    </file>
     <file path="./apps/gui/src/components/ui/badge.tsx">
+      <signature>Function BadgeDot</signature>
       <signature>Function Badge</signature>
     </file>
+    <file path="./apps/gui/src/components/ui/breadcrumb.tsx">
+      <signature>Interface BreadcrumbProps</signature>
+      <signature>Function Breadcrumb</signature>
+      <signature>Function BreadcrumbList</signature>
+      <signature>Function BreadcrumbItem</signature>
+      <signature>Interface BreadcrumbLinkProps</signature>
+      <signature>Function BreadcrumbLink</signature>
+      <signature>Function BreadcrumbPage</signature>
+      <signature>Function BreadcrumbSeparator</signature>
+      <signature>Function BreadcrumbEllipsis</signature>
+    </file>
     <file path="./apps/gui/src/components/ui/button.tsx">
+      <signature>Interface ButtonProps</signature>
       <signature>Method cn</signature>
     </file>
     <file path="./apps/gui/src/components/ui/card.tsx">
@@ -2036,6 +2213,14 @@
       <signature>Method CardAction.cn</signature>
       <signature>Function CardAction.CardFooter</signature>
       <signature>Method CardAction.CardFooter.cn</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/checkbox.tsx">
+      <signature>Interface CheckboxProps</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/code-block.tsx">
+      <signature>Interface CodeBlockProps</signature>
+      <signature>Function handleCopy</signature>
+      <signature>Method cn</signature>
     </file>
     <file path="./apps/gui/src/components/ui/command.tsx">
       <signature>Function CommandGroup</signature>
@@ -2065,12 +2250,27 @@
     <file path="./apps/gui/src/components/ui/label.tsx">
       <signature>Method cn</signature>
     </file>
+    <file path="./apps/gui/src/components/ui/pagination.tsx">
+      <signature>Interface PaginationProps</signature>
+      <signature>Method cn</signature>
+      <signature>Function PaginationEllipsis</signature>
+      <signature>Method PaginationEllipsis.cn</signature>
+      <signature>Function buildPageList</signature>
+    </file>
     <file path="./apps/gui/src/components/ui/popover.tsx">
       <signature>Function Popover</signature>
       <signature>Function PopoverTrigger</signature>
       <signature>Method cn</signature>
       <signature>Function PopoverTitle</signature>
       <signature>Function PopoverDescription</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/progress.tsx">
+      <signature>Interface ProgressProps</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/radio.tsx">
+      <signature>Interface RadioProps</signature>
+      <signature>Interface RadioGroupProps</signature>
+      <signature>Function RadioGroup</signature>
     </file>
     <file path="./apps/gui/src/components/ui/scroll-area.tsx">
       <signature>Function ScrollArea</signature>
@@ -2100,13 +2300,29 @@
       <signature>Function SheetTitle</signature>
       <signature>Function SheetDescription</signature>
     </file>
+    <file path="./apps/gui/src/components/ui/skeleton.tsx">
+      <signature>Interface SkeletonProps</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/slider.tsx">
+      <signature>Interface SliderProps</signature>
+      <signature>Method cn</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/spinner.tsx">
+      <signature>Interface SpinnerProps</signature>
+      <signature>Function Spinner</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/stat-card.tsx">
+      <signature>Interface StatCardProps</signature>
+      <signature>Method cn</signature>
+    </file>
+    <file path="./apps/gui/src/components/ui/status-dot.tsx">
+      <signature>Interface StatusDotProps</signature>
+    </file>
     <file path="./apps/gui/src/components/ui/switch.tsx">
       <signature>Function Switch</signature>
     </file>
     <file path="./apps/gui/src/components/ui/table.tsx">
       <signature>Function Table</signature>
-      <signature>Function TableHeader</signature>
-      <signature>Function TableBody</signature>
       <signature>Method cn</signature>
     </file>
     <file path="./apps/gui/src/components/ui/tabs.tsx">
@@ -2115,9 +2331,17 @@
     <file path="./apps/gui/src/components/ui/textarea.tsx">
       <signature>Method cn</signature>
     </file>
+    <file path="./apps/gui/src/components/ui/toast.tsx">
+      <signature>Interface ToastProps</signature>
+    </file>
     <file path="./apps/gui/src/components/ui/tooltip.tsx">
       <signature>Function TooltipContent</signature>
       <signature>Method TooltipContent.cn</signature>
+    </file>
+    <file path="./apps/gui/src/features/__tests__/screenTokenSweep.test.ts">
+      <signature>Function readFile</signature>
+      <signature>Function findOldTailwindTokens</signature>
+      <signature>Function findOldVarRefs</signature>
     </file>
     <file path="./apps/gui/src/features/canvas/LazyMonacoEditor.tsx">
       <signature>Function LazyMonacoEditor</signature>
@@ -2415,6 +2639,84 @@
     </file>
     <file path="./apps/gui/src/store/ui.ts">
       <signature>Interface UiState</signature>
+    </file>
+    <file path="./apps/gui/src/stories/ActionCard.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Badge.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Breadcrumb.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Button.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Card.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Checkbox.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/CodeBlock.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Command.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/DesignTokens.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Dialog.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/DropdownMenu.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Input.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/InputGroup.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Label.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Pagination.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Popover.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Progress.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Radio.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/ScrollArea.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Select.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Separator.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Sheet.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Sidebar.stories.tsx">
+      <signature>Interface SidebarDemoProps</signature>
+    </file>
+    <file path="./apps/gui/src/stories/Skeleton.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Slider.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Spinner.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/StatCard.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/StatusDot.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Switch.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Table.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Tabs.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Textarea.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Toast.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/Tooltip.stories.tsx">
+    </file>
+    <file path="./apps/gui/src/stories/__tests__/storybookSetup.test.ts">
+      <signature>Function readFile</signature>
+      <signature>Function readPackageJson</signature>
+    </file>
+    <file path="./apps/gui/src/styles/__tests__/tokenMigration.test.ts">
+      <signature>Function readGlobals</signature>
+      <signature>Function extractThemeInlineBlock</signature>
+      <signature>Function extractRootBlock</signature>
     </file>
     <file path="./apps/gui/src/styles/globals.css">
     </file>
