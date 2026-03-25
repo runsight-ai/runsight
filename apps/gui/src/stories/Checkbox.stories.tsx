@@ -1,99 +1,76 @@
-import type { Meta, StoryObj } from "@storybook/react";
-import React, { useRef, useEffect } from "react";
+import type { Meta, StoryObj } from "@storybook/react"
+import React from "react"
+
+import { Checkbox } from "@/components/ui/checkbox"
 
 const meta = {
   title: "Forms/Checkbox",
+  component: Checkbox,
   parameters: { layout: "centered" },
-};
-export default meta;
+  argTypes: {
+    label: {
+      control: "text",
+      description: "Label text rendered next to the checkbox",
+    },
+    indeterminate: {
+      control: "boolean",
+      description: "Sets the indeterminate state on the underlying input",
+    },
+    disabled: {
+      control: "boolean",
+      description: "Disables the checkbox",
+    },
+    defaultChecked: {
+      control: "boolean",
+      description: "Initial checked state (uncontrolled)",
+    },
+  },
+  args: {
+    label: "Accept terms",
+    indeterminate: false,
+    disabled: false,
+    defaultChecked: false,
+  },
+} satisfies Meta<typeof Checkbox>
 
-type Story = StoryObj;
+export default meta
+
+type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
-  render: () => (
-    <label className="checkbox">
-      <input className="checkbox__input" type="checkbox" />
-      <span className="checkbox__label">Accept terms</span>
-    </label>
-  ),
-};
+  args: {
+    label: "Accept terms",
+  },
+}
 
 export const Checked: Story = {
-  render: () => (
-    <label className="checkbox">
-      <input className="checkbox__input" type="checkbox" defaultChecked />
-      <span className="checkbox__label">Checked</span>
-    </label>
-  ),
-};
+  args: {
+    label: "Checked",
+    defaultChecked: true,
+  },
+}
 
 export const Indeterminate: Story = {
-  render: () => {
-    const IndeterminateBox = () => {
-      const ref = useRef<HTMLInputElement>(null);
-      useEffect(() => {
-        if (ref.current) ref.current.indeterminate = true;
-      }, []);
-      return (
-        <label className="checkbox">
-          <input className="checkbox__input" type="checkbox" ref={ref} />
-          <span className="checkbox__label">Indeterminate</span>
-        </label>
-      );
-    };
-    return <IndeterminateBox />;
+  args: {
+    label: "Indeterminate",
+    indeterminate: true,
   },
-};
+}
 
 export const Disabled: Story = {
-  render: () => (
-    <label className="checkbox">
-      <input className="checkbox__input" type="checkbox" disabled />
-      <span className="checkbox__label">Disabled</span>
-    </label>
-  ),
-};
-
-export const DisabledChecked: Story = {
-  name: "Disabled (Checked)",
-  render: () => (
-    <label className="checkbox">
-      <input className="checkbox__input" type="checkbox" disabled defaultChecked />
-      <span className="checkbox__label">Disabled (checked)</span>
-    </label>
-  ),
-};
-
-export const AllStates: Story = {
-  render: () => {
-    const IndeterminateBox = () => {
-      const ref = useRef<HTMLInputElement>(null);
-      useEffect(() => {
-        if (ref.current) ref.current.indeterminate = true;
-      }, []);
-      return (
-        <label className="checkbox">
-          <input className="checkbox__input" type="checkbox" ref={ref} />
-          <span className="checkbox__label">Indeterminate</span>
-        </label>
-      );
-    };
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-        <label className="checkbox">
-          <input className="checkbox__input" type="checkbox" />
-          <span className="checkbox__label">Unchecked</span>
-        </label>
-        <label className="checkbox">
-          <input className="checkbox__input" type="checkbox" defaultChecked />
-          <span className="checkbox__label">Checked</span>
-        </label>
-        <IndeterminateBox />
-        <label className="checkbox">
-          <input className="checkbox__input" type="checkbox" disabled />
-          <span className="checkbox__label">Disabled</span>
-        </label>
-      </div>
-    );
+  args: {
+    label: "Disabled",
+    disabled: true,
   },
-};
+}
+
+export const Group: Story = {
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+      <Checkbox label="Unchecked" />
+      <Checkbox label="Checked" defaultChecked />
+      <Checkbox label="Indeterminate" indeterminate />
+      <Checkbox label="Disabled" disabled />
+    </div>
+  ),
+}

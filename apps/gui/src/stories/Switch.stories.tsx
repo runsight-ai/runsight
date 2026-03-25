@@ -1,85 +1,68 @@
-import type { Meta, StoryObj } from "@storybook/react";
-import React from "react";
+import type { Meta, StoryObj } from "@storybook/react"
+import React from "react"
+
+import { Switch } from "@/components/ui/switch"
 
 const meta = {
   title: "Forms/Switch",
+  component: Switch,
   parameters: { layout: "centered" },
-};
-export default meta;
+  argTypes: {
+    checked: {
+      control: "boolean",
+      description: "Controlled checked state",
+    },
+    defaultChecked: {
+      control: "boolean",
+      description: "Initial checked state (uncontrolled)",
+    },
+    disabled: {
+      control: "boolean",
+      description: "Disables the switch",
+    },
+    onCheckedChange: {
+      action: "onCheckedChange",
+      description: "Callback fired when the checked state changes",
+    },
+  },
+  args: {
+    defaultChecked: false,
+    disabled: false,
+  },
+} satisfies Meta<typeof Switch>
 
-type Story = StoryObj;
+export default meta
+
+type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
-  render: () => (
-    <label className="switch">
-      <input className="switch__input" type="checkbox" />
-      <span className="switch__track">
-        <span className="switch__thumb" />
-      </span>
-      <span className="switch__label">Enable feature</span>
-    </label>
-  ),
-};
-
-export const On: Story = {
-  render: () => (
-    <label className="switch">
-      <input className="switch__input" type="checkbox" defaultChecked />
-      <span className="switch__track">
-        <span className="switch__thumb" />
-      </span>
-      <span className="switch__label">Enabled</span>
-    </label>
-  ),
-};
-
-export const Off: Story = {
-  render: () => (
-    <label className="switch">
-      <input className="switch__input" type="checkbox" />
-      <span className="switch__track">
-        <span className="switch__thumb" />
-      </span>
-      <span className="switch__label">Disabled</span>
-    </label>
-  ),
-};
+  args: {
+    defaultChecked: false,
+  },
+}
 
 export const Disabled: Story = {
-  render: () => (
-    <label className="switch">
-      <input className="switch__input" type="checkbox" disabled />
-      <span className="switch__track">
-        <span className="switch__thumb" />
-      </span>
-      <span className="switch__label">Unavailable</span>
-    </label>
-  ),
-};
+  args: {
+    defaultChecked: false,
+    disabled: true,
+  },
+}
 
-export const AllStates: Story = {
-  render: () => (
+export const WithLabel: Story = {
+  render: (args) => (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-      <label className="switch">
-        <input className="switch__input" type="checkbox" />
-        <span className="switch__track"><span className="switch__thumb" /></span>
-        <span className="switch__label">Off</span>
+      <label style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer", userSelect: "none" }}>
+        <Switch {...args} defaultChecked={false} />
+        <span style={{ fontSize: "var(--font-size-md)", color: "var(--text-primary)" }}>Auto-retry on failure</span>
       </label>
-      <label className="switch">
-        <input className="switch__input" type="checkbox" defaultChecked />
-        <span className="switch__track"><span className="switch__thumb" /></span>
-        <span className="switch__label">On</span>
+      <label style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer", userSelect: "none" }}>
+        <Switch {...args} defaultChecked={true} />
+        <span style={{ fontSize: "var(--font-size-md)", color: "var(--text-primary)" }}>Stream output</span>
       </label>
-      <label className="switch">
-        <input className="switch__input" type="checkbox" disabled />
-        <span className="switch__track"><span className="switch__thumb" /></span>
-        <span className="switch__label">Disabled Off</span>
-      </label>
-      <label className="switch">
-        <input className="switch__input" type="checkbox" disabled defaultChecked />
-        <span className="switch__track"><span className="switch__thumb" /></span>
-        <span className="switch__label">Disabled On</span>
+      <label style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer", userSelect: "none" }}>
+        <Switch {...args} disabled />
+        <span style={{ fontSize: "var(--font-size-md)", color: "var(--text-primary)" }}>Disabled</span>
       </label>
     </div>
   ),
-};
+}

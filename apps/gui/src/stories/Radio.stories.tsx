@@ -1,72 +1,62 @@
-import type { Meta, StoryObj } from "@storybook/react";
-import React from "react";
+import type { Meta, StoryObj } from "@storybook/react"
+import React from "react"
+
+import { Radio, RadioGroup } from "@/components/ui/radio"
 
 const meta = {
   title: "Forms/Radio",
+  component: RadioGroup,
   parameters: { layout: "centered" },
-};
-export default meta;
+  argTypes: {
+    orientation: {
+      control: "select",
+      options: ["vertical", "horizontal"],
+      description: "Layout direction of the radio group",
+    },
+  },
+  args: {
+    orientation: "vertical",
+  },
+} satisfies Meta<typeof RadioGroup>
 
-type Story = StoryObj;
+export default meta
+
+type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
-  render: () => (
-    <div className="radio-group">
-      <label className="radio">
-        <input className="radio__input" type="radio" name="model-default" value="sonnet" defaultChecked />
-        <span className="radio__label">Claude Sonnet</span>
-      </label>
-      <label className="radio">
-        <input className="radio__input" type="radio" name="model-default" value="opus" />
-        <span className="radio__label">Claude Opus</span>
-      </label>
-      <label className="radio">
-        <input className="radio__input" type="radio" name="model-default" value="haiku" />
-        <span className="radio__label">Claude Haiku</span>
-      </label>
-    </div>
+  args: {
+    orientation: "vertical",
+  },
+  render: (args) => (
+    <RadioGroup {...args}>
+      <Radio label="claude-sonnet-4-6" name="model-default" value="sonnet" defaultChecked />
+      <Radio label="gpt-4o" name="model-default" value="gpt4o" />
+      <Radio label="gemini-2.0" name="model-default" value="gemini" />
+    </RadioGroup>
   ),
-};
+}
 
 export const Horizontal: Story = {
-  render: () => (
-    <div className="radio-group radio-group--horizontal">
-      <label className="radio">
-        <input className="radio__input" type="radio" name="size-h" value="sm" />
-        <span className="radio__label">Small</span>
-      </label>
-      <label className="radio">
-        <input className="radio__input" type="radio" name="size-h" value="md" defaultChecked />
-        <span className="radio__label">Medium</span>
-      </label>
-      <label className="radio">
-        <input className="radio__input" type="radio" name="size-h" value="lg" />
-        <span className="radio__label">Large</span>
-      </label>
-    </div>
+  args: {
+    orientation: "horizontal",
+  },
+  render: (args) => (
+    <RadioGroup {...args}>
+      <Radio label="Small" name="size-h" value="sm" />
+      <Radio label="Medium" name="size-h" value="md" defaultChecked />
+      <Radio label="Large" name="size-h" value="lg" />
+    </RadioGroup>
   ),
-};
+}
 
 export const Disabled: Story = {
-  render: () => (
-    <div className="radio-group">
-      <label className="radio">
-        <input className="radio__input" type="radio" name="disabled-group" value="a" disabled />
-        <span className="radio__label">Option A (disabled)</span>
-      </label>
-      <label className="radio">
-        <input className="radio__input" type="radio" name="disabled-group" value="b" disabled defaultChecked />
-        <span className="radio__label">Option B (disabled, checked)</span>
-      </label>
-    </div>
+  args: {
+    orientation: "vertical",
+  },
+  render: (args) => (
+    <RadioGroup {...args}>
+      <Radio label="Option A (disabled)" name="disabled-group" value="a" disabled />
+      <Radio label="Option B (disabled, checked)" name="disabled-group" value="b" disabled defaultChecked />
+    </RadioGroup>
   ),
-};
-
-export const Single: Story = {
-  render: () => (
-    <label className="radio">
-      <input className="radio__input" type="radio" name="single" value="agree" />
-      <span className="radio__label">I agree to the terms and conditions</span>
-    </label>
-  ),
-};
+}
