@@ -53,7 +53,7 @@ function CommandDialog({
       </DialogHeader>
       <DialogContent
         className={cn(
-          "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0",
+          "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0 z-modal",
           className
         )}
         showCloseButton={showCloseButton}
@@ -173,7 +173,7 @@ function CommandShortcut({
     <span
       data-slot="command-shortcut"
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted group-data-selected/command-item:text-primary",
+        "ml-auto font-mono text-2xs font-size-2xs tracking-widest text-muted group-data-selected/command-item:text-primary",
         className
       )}
       {...props}
