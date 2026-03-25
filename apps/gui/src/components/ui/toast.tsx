@@ -1,37 +1,31 @@
+// Design system tokens used by BEM classes in components.css:
+//   .toast        — background: var(--elevation-overlay-surface); (surface-raised equivalent)
+//                   border: var(--elevation-border-raised); border-radius: var(--radius-lg)
+//                   box-shadow: var(--elevation-overlay-shadow)
+//   .toast--success / .toast--danger / .toast--warning / .toast--info
+//                 — variant modifier classes for semantic color variants
+//   .toast__icon  — flex-shrink: 0; color set per variant
+//   .toast__content — flex: 1
+//   .toast__title  — font-weight: medium; color: var(--text-heading)
+//   .toast__description — color: var(--text-secondary)
+//   .toast__dismiss — color: var(--text-muted)
+// ARIA: role="status" for info/success; role="alert" for danger/warning
+
 import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
 
-// Design system tokens: surface-raised (elevation-overlay-surface), semantic colors
-// success-9, danger-9, warning-9, info-9
-const toastVariants = cva(
-  "relative flex w-full items-start gap-3 rounded-radius-lg border p-4 shadow-sm",
-  {
-    variants: {
-      variant: {
-        success: "bg-surface-raised border-border-success text-success-11",
-        danger: "bg-surface-raised border-border-danger text-danger-11",
-        warning: "bg-surface-raised border-border-warning text-warning-11",
-        info: "bg-surface-raised border-border-info text-info-11",
-      },
-    },
-    defaultVariants: {
-      variant: "info",
-    },
-  }
-)
+type ToastVariant = "success" | "danger" | "warning" | "info"
 
-const toastIconColors: Record<string, string> = {
+const toastAccentColors: Record<ToastVariant, string> = {
   success: "var(--success-9)",
   danger: "var(--danger-9)",
   warning: "var(--warning-9)",
   info: "var(--info-9)",
 }
 
-interface ToastProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof toastVariants> {
+interface ToastProps extends React.HTMLAttributes<HTMLDivElement> {
+  variant?: ToastVariant
   title?: React.ReactNode
   description?: React.ReactNode
   onDismiss?: () => void
@@ -50,26 +44,23 @@ function Toast({
 
   return (
     <div
-      // ARIA: role="alert" for danger/warning, role="status" for success/info
       role={isAlert ? "alert" : "status"}
       data-slot="toast"
       data-variant={variant}
-      // Uses elevation-overlay-surface (same as surface-raised) for background
       style={{
-        background: "var(--elevation-overlay-surface)",
-        borderLeft: `3px solid ${toastIconColors[variant ?? "info"]}`,
+        borderLeft: `3px solid ${toastAccentColors[variant]}`,
       }}
-      className={cn(toastVariants({ variant }), className)}
+      className={cn("toast", `toast--${variant}`, className)}
       {...props}
     >
-      <div className="flex flex-1 flex-col gap-1">
+      <div className="toast__content">
         {title && (
-          <p data-slot="toast-title" className="text-font-size-sm font-weight-medium text-heading">
+          <p data-slot="toast-title" className="toast__title">
             {title}
           </p>
         )}
         {description && (
-          <p data-slot="toast-description" className="text-font-size-sm text-secondary">
+          <p data-slot="toast-description" className="toast__description">
             {description}
           </p>
         )}
@@ -81,7 +72,7 @@ function Toast({
           data-slot="toast-dismiss"
           aria-label="Dismiss"
           onClick={onDismiss}
-          className="shrink-0 rounded-radius-sm p-0.5 text-muted hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          className="toast__dismiss"
         >
           <svg
             aria-hidden="true"
@@ -104,4 +95,5 @@ function Toast({
   )
 }
 
-export { Toast, toastVariants }
+export { Toast }
+export type { ToastVariant, ToastProps }

@@ -1,6 +1,12 @@
-// Design system tokens: surface-secondary (header bg), text-secondary (header text),
-// font-size-xs (header size), uppercase (header transform), surface-hover (row hover),
-// border-subtle (borders), density-row-height (row height), font-mono (mono values)
+// Design system tokens used by BEM classes in components.css:
+//   .table th  — background: var(--surface-secondary); color: var(--text-secondary) (text-muted);
+//                font-size: var(--font-size-xs); text-transform: uppercase;
+//                font-family: var(--font-mono); border-bottom: var(--border-subtle)
+//   .table td  — border-bottom: var(--border-subtle); padding density: var(--density-cell-padding-block)
+//   .table tbody tr:hover — background: var(--surface-hover)
+//   .table tbody tr[aria-selected="true"] — background: var(--surface-selected)
+//   .table td[data-type="data|metric|id|timestamp"] — font-family: var(--font-mono)
+//   .table__empty — text-align: center; color: var(--text-muted)
 
 import * as React from "react"
 
@@ -14,7 +20,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-font-size-sm", className)}
+        className={cn("table", className)}
         {...props}
       />
     </div>
@@ -25,10 +31,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn(
-        "bg-surface-secondary [&_tr]:border-b [&_tr]:border-border-subtle",
-        className
-      )}
+      className={cn("table__head", className)}
       {...props}
     />
   )
@@ -38,7 +41,7 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return (
     <tbody
       data-slot="table-body"
-      className={cn("[&_tr:last-child]:border-0", className)}
+      className={cn("table__body", className)}
       {...props}
     />
   )
@@ -48,10 +51,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   return (
     <tfoot
       data-slot="table-footer"
-      className={cn(
-        "border-t border-border-subtle bg-surface-secondary font-medium [&>tr]:last:border-b-0",
-        className
-      )}
+      className={cn(className)}
       {...props}
     />
   )
@@ -61,10 +61,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       data-slot="table-row"
-      className={cn(
-        "border-b border-border-subtle transition-colors hover:bg-surface-hover data-[state=selected]:bg-surface-secondary h-[var(--density-row-height)]",
-        className
-      )}
+      className={cn("table__row", className)}
       {...props}
     />
   )
@@ -74,10 +71,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
-      className={cn(
-        "px-2 text-left align-middle font-medium whitespace-nowrap text-secondary text-font-size-xs uppercase tracking-wider [&:has([role=checkbox])]:pr-0",
-        className
-      )}
+      className={cn("table__header", className)}
       {...props}
     />
   )
@@ -87,24 +81,19 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
       data-slot="table-cell"
-      className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
-        className
-      )}
+      className={cn("table__cell", className)}
       {...props}
     />
   )
 }
 
-// TableMonoCell: for data/metric/id/timestamp values that should use font-mono
+// TableMonoCell: for data/metric/id/timestamp values — uses data-type="data" for mono styling
 function TableMonoCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
       data-slot="table-mono-cell"
-      className={cn(
-        "p-2 align-middle whitespace-nowrap font-mono text-font-size-sm [&:has([role=checkbox])]:pr-0",
-        className
-      )}
+      data-type="data"
+      className={cn("table__cell table__cell--mono", className)}
       {...props}
     />
   )

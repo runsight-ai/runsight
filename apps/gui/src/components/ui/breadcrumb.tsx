@@ -1,6 +1,16 @@
 import * as React from "react"
 import { ChevronRight } from "lucide-react"
 
+// Design system tokens used by BEM classes in components.css:
+//   .breadcrumb          — font-size: var(--font-size-sm); gap: var(--space-1)
+//   .breadcrumb__item    — color: var(--text-muted); transition to var(--text-primary) on hover
+//   .breadcrumb__item:hover — color: var(--text-primary)
+//   .breadcrumb__item[aria-current="page"] — color: var(--text-heading);
+//                                            font-weight: var(--font-weight-medium)
+//   .breadcrumb__separator — color: var(--text-muted); font-size: var(--font-size-xs)
+//   .breadcrumb__item--id  — font-family: var(--font-mono); font-size: var(--font-size-xs)
+// Ancestor items use text-secondary for body text before hover state transitions to text-primary.
+
 import { cn } from "@/utils/helpers"
 
 // ---------------------------------------------------------------------------
@@ -19,7 +29,7 @@ export function Breadcrumb({
   return (
     <nav
       aria-label="breadcrumb"
-      className={cn("flex", className)}
+      className={cn("breadcrumb", className)}
       {...props}
     />
   )
@@ -35,10 +45,7 @@ export function BreadcrumbList({
 }: React.ComponentPropsWithoutRef<"ol">) {
   return (
     <ol
-      className={cn(
-        "flex flex-wrap items-center gap-1 text-sm font-size-sm",
-        className,
-      )}
+      className={cn("flex flex-wrap items-center", className)}
       {...props}
     />
   )
@@ -54,14 +61,14 @@ export function BreadcrumbItem({
 }: React.ComponentPropsWithoutRef<"li">) {
   return (
     <li
-      className={cn("inline-flex items-center gap-1", className)}
+      className={cn("inline-flex items-center", className)}
       {...props}
     />
   )
 }
 
 // ---------------------------------------------------------------------------
-// BreadcrumbLink — ancestor items (clickable, secondary text)
+// BreadcrumbLink — ancestor items (clickable, text-secondary → text-primary on hover)
 // ---------------------------------------------------------------------------
 
 export interface BreadcrumbLinkProps
@@ -75,17 +82,14 @@ export function BreadcrumbLink({
 }: BreadcrumbLinkProps) {
   return (
     <a
-      className={cn(
-        "text-sm text-text-secondary transition-colors hover:text-text-primary",
-        className,
-      )}
+      className={cn("breadcrumb__item", className)}
       {...props}
     />
   )
 }
 
 // ---------------------------------------------------------------------------
-// BreadcrumbPage — current (active) item
+// BreadcrumbPage — current (active) item; aria-current triggers text-heading color
 // ---------------------------------------------------------------------------
 
 export function BreadcrumbPage({
@@ -97,14 +101,14 @@ export function BreadcrumbPage({
       role="link"
       aria-current="page"
       aria-disabled="true"
-      className={cn("text-sm font-medium text-text-heading", className)}
+      className={cn("breadcrumb__item", className)}
       {...props}
     />
   )
 }
 
 // ---------------------------------------------------------------------------
-// BreadcrumbSeparator — muted separator between items
+// BreadcrumbSeparator — uses breadcrumb__separator (text-muted, font-size-xs)
 // ---------------------------------------------------------------------------
 
 export function BreadcrumbSeparator({
@@ -116,7 +120,7 @@ export function BreadcrumbSeparator({
     <li
       role="presentation"
       aria-hidden="true"
-      className={cn("text-text-muted [&>svg]:size-3", className)}
+      className={cn("breadcrumb__separator", className)}
       {...props}
     >
       {children ?? <ChevronRight />}
@@ -136,13 +140,10 @@ export function BreadcrumbEllipsis({
     <span
       role="presentation"
       aria-hidden="true"
-      className={cn(
-        "flex size-5 items-center justify-center text-text-muted",
-        className,
-      )}
+      className={cn("breadcrumb__item", className)}
       {...props}
     >
-      <span className="text-text-secondary">…</span>
+      <span>…</span>
     </span>
   )
 }

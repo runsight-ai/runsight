@@ -1,8 +1,16 @@
+// Design system tokens used by BEM classes in components.css:
+//   .pagination         — font-size: var(--font-size-sm); gap: var(--space-1)
+//   .pagination__btn    — ghost style (transparent bg); color: var(--text-secondary)
+//   .pagination__btn:hover — background: var(--surface-hover); color: var(--text-primary)
+//   .pagination__btn[aria-current="page"] — background: var(--interactive-default) (surface-selected);
+//                                           color: var(--text-heading); Ghost inactive state
+//   .pagination__btn:disabled — opacity: 0.4
+//   .pagination__info   — font-family: var(--font-mono); color: var(--text-muted)
+
 import * as React from "react"
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
 
 import { cn } from "@/utils/helpers"
-import { Button } from "@/components/ui/button"
 
 // ---------------------------------------------------------------------------
 // Pagination root
@@ -41,20 +49,20 @@ export function Pagination({
     <nav
       role="navigation"
       aria-label="pagination"
-      className={cn("flex items-center gap-2 select-none", className)}
+      className={cn("pagination", className)}
       {...props}
     >
       {/* Previous button */}
-      <Button
-        variant="ghost"
-        size="xs"
+      <button
+        type="button"
         aria-label="Go to previous page"
         disabled={!canGoPrev}
         onClick={() => canGoPrev && onPageChange?.(page - 1)}
+        className="pagination__btn"
       >
         <ChevronLeft className="size-4" />
         <span className="sr-only">Previous</span>
-      </Button>
+      </button>
 
       {/* Page number buttons */}
       <PaginationContent>
@@ -64,15 +72,11 @@ export function Pagination({
           ) : (
             <PaginationItem key={entry}>
               <button
+                type="button"
                 aria-label={`Page ${entry}`}
                 aria-current={entry === page ? "page" : undefined}
                 onClick={() => onPageChange?.(entry as number)}
-                className={cn(
-                  "inline-flex size-7 items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2",
-                  entry === page
-                    ? "text-white [background:var(--interactive-default)]"
-                    : "ghost text-text-secondary hover:text-text-primary hover:bg-surface-hover",
-                )}
+                className="pagination__btn"
               >
                 {entry}
               </button>
@@ -82,20 +86,20 @@ export function Pagination({
       </PaginationContent>
 
       {/* Next button */}
-      <Button
-        variant="ghost"
-        size="xs"
+      <button
+        type="button"
         aria-label="Go to next page"
         disabled={!canGoNext}
         onClick={() => canGoNext && onPageChange?.(page + 1)}
+        className="pagination__btn"
       >
         <span className="sr-only">Next</span>
         <ChevronRight className="size-4" />
-      </Button>
+      </button>
 
       {/* Range display — "1-10 of 100" */}
       {total !== undefined && (
-        <span className="text-sm text-text-muted whitespace-nowrap ml-2">
+        <span className="pagination__info">
           {rangeStart}–{rangeEnd} of {total}
         </span>
       )}
@@ -133,10 +137,7 @@ function PaginationEllipsis({
   return (
     <span
       aria-hidden="true"
-      className={cn(
-        "inline-flex size-7 items-center justify-center text-text-muted",
-        className,
-      )}
+      className={cn("pagination__btn", className)}
       {...props}
     >
       <MoreHorizontal className="size-4" />

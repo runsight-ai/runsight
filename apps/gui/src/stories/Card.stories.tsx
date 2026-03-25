@@ -1,5 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+  CardDescription,
+  CardAction,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const meta = {
   title: "Data Display/Card",
@@ -11,98 +21,80 @@ type Story = StoryObj;
 
 export const Default: Story = {
   render: () => (
-    <div className="card" style={{ maxWidth: "360px" }}>
-      <div className="card__body">
-        <p style={{ fontSize: "var(--font-size-md)", color: "var(--text-primary)" }}>
-          A simple card with content and no header.
-        </p>
-      </div>
-    </div>
+    <Card style={{ maxWidth: "360px" }}>
+      <CardContent>
+        <p>A simple card with content and no header.</p>
+      </CardContent>
+    </Card>
   ),
 };
 
 export const WithHeader: Story = {
   name: "With Header",
   render: () => (
-    <div className="card" style={{ maxWidth: "360px" }}>
-      <div className="card__header">
-        <div>
-          <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>
-            Active Workflows
-          </div>
-          <div style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", marginTop: "var(--space-0-5)" }}>
-            Workflows currently running in your workspace.
-          </div>
-        </div>
-      </div>
-      <div className="card__body">
-        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
-          12 workflows are currently active.
-        </p>
-      </div>
-    </div>
+    <Card style={{ maxWidth: "360px" }}>
+      <CardHeader>
+        <CardTitle>Active Workflows</CardTitle>
+        <CardDescription>
+          Workflows currently running in your workspace.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p>12 workflows are currently active.</p>
+      </CardContent>
+    </Card>
   ),
 };
 
 export const WithHeaderAndAction: Story = {
   name: "With Header and Action",
   render: () => (
-    <div className="card" style={{ maxWidth: "360px" }}>
-      <div className="card__header">
-        <div>
-          <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>
-            Workflow Overview
-          </div>
-          <div style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", marginTop: "var(--space-0-5)" }}>
-            Summary of your most recent runs.
-          </div>
-        </div>
-        <button className="btn btn--ghost btn--xs">View all</button>
-      </div>
-      <div className="card__body">
-        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
-          3 completed, 1 running, 0 failed.
-        </p>
-      </div>
-      <div className="card__footer">
-        <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}>Updated 2 min ago</span>
-      </div>
-    </div>
+    <Card style={{ maxWidth: "360px" }}>
+      <CardHeader>
+        <CardTitle>Workflow Overview</CardTitle>
+        <CardDescription>Summary of your most recent runs.</CardDescription>
+        <CardAction>
+          <Button variant="ghost" size="xs">
+            View all
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <p>3 completed, 1 running, 0 failed.</p>
+      </CardContent>
+      <CardFooter>
+        <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}>
+          Updated 2 min ago
+        </span>
+      </CardFooter>
+    </Card>
   ),
 };
 
 export const Raised: Story = {
   name: "Raised",
   render: () => (
-    <div className="card card--raised" style={{ maxWidth: "360px" }}>
-      <div className="card__header">
-        <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>
-          Raised Card
-        </div>
-      </div>
-      <div className="card__body">
-        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
-          Elevated surface with subtle shadow lift.
-        </p>
-      </div>
-    </div>
+    <Card raised style={{ maxWidth: "360px" }}>
+      <CardHeader>
+        <CardTitle>Raised Card</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>Elevated surface with subtle shadow lift.</p>
+      </CardContent>
+    </Card>
   ),
 };
 
 export const Interactive: Story = {
   name: "Interactive",
   render: () => (
-    <div className="card card--interactive" style={{ maxWidth: "360px" }} tabIndex={0}>
-      <div className="card__header">
-        <div style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", color: "var(--text-heading)" }}>
-          Clickable Card
-        </div>
-      </div>
-      <div className="card__body">
-        <p style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
-          Hover to see the interactive state.
-        </p>
-      </div>
-    </div>
+    <Card interactive style={{ maxWidth: "360px" }} tabIndex={0}>
+      <CardHeader>
+        <CardTitle>Clickable Card</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>Hover to see the interactive state.</p>
+      </CardContent>
+    </Card>
   ),
 };

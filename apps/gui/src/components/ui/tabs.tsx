@@ -1,7 +1,16 @@
 "use client"
 
+// Design system tokens used by BEM classes in components.css:
+//   .tabs         — border-bottom: var(--border-subtle)
+//   .tab          — color: var(--text-secondary); font-size: var(--font-size-sm);
+//                   font-weight: var(--font-weight-medium) (font-medium)
+//   .tab[aria-selected="true"] — color: var(--text-heading);
+//                                border-bottom-color: var(--interactive-default)
+//   .tabs--contained .tab height uses --density-nav-item-height equivalent (--control-height-sm)
+//   .tab__badge   — font-family: var(--font-mono); background: var(--surface-tertiary)
+
+import * as React from "react"
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
-import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/utils/helpers"
 
@@ -14,40 +23,26 @@ function Tabs({
     <TabsPrimitive.Root
       data-slot="tabs"
       data-orientation={orientation}
-      className={cn(
-        "group/tabs flex gap-2 data-horizontal:flex-col",
-        className
-      )}
+      className={cn(className)}
       {...props}
     />
   )
 }
 
-const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted group-data-horizontal/tabs:[height:var(--density-nav-item-height)] group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none",
-  {
-    variants: {
-      variant: {
-        default: "bg-surface-tertiary",
-        line: "gap-1 bg-transparent border-b border-border-subtle",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-    },
-  }
-)
-
 function TabsList({
   className,
   variant = "default",
   ...props
-}: TabsPrimitive.List.Props & VariantProps<typeof tabsListVariants>) {
+}: TabsPrimitive.List.Props & { variant?: "default" | "contained" | "vertical" }) {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
-      data-variant={variant}
-      className={cn(tabsListVariants({ variant }), className)}
+      className={cn(
+        "tabs",
+        variant === "contained" && "tabs--contained",
+        variant === "vertical" && "tabs--vertical",
+        className
+      )}
       {...props}
     />
   )
@@ -57,13 +52,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
   return (
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
-      className={cn(
-        "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium whitespace-nowrap text-text-secondary transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-text-primary focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-border-focus/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[variant=default]/tabs-list:data-active:shadow-sm group-data-[variant=line]/tabs-list:data-active:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent",
-        "data-active:bg-surface-primary data-active:text-text-heading",
-        "after:absolute after:[background:var(--interactive-default)] after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-5px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
-        className
-      )}
+      className={cn("tab", className)}
       {...props}
     />
   )
@@ -73,10 +62,19 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel
       data-slot="tabs-content"
-      className={cn("flex-1 text-sm outline-none", className)}
+      className={cn("flex-1 outline-none", className)}
       {...props}
     />
   )
 }
 
-export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }
+function TabBadge({ className, ...props }: React.ComponentPropsWithoutRef<"span">) {
+  return (
+    <span
+      className={cn("tab__badge", className)}
+      {...props}
+    />
+  )
+}
+
+export { Tabs, TabsList, TabsTrigger, TabsContent, TabBadge }

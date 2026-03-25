@@ -1,21 +1,35 @@
-// Design system tokens: border-subtle (border), radius-lg (border radius),
-// space-4 (padding), text-heading (header text color)
+// Design system tokens used by BEM classes in components.css:
+//   .card          — border: var(--border-subtle); border-radius: var(--radius-lg);
+//                    background: var(--surface-secondary); overflow: hidden
+//   .card__header  — padding: var(--space-3) var(--space-4); border-bottom: var(--border-subtle)
+//   .card__body    — padding: var(--space-4)
+//   .card__footer  — padding: var(--space-3) var(--space-4); border-top: var(--border-subtle)
+//   .card--raised  — background: var(--elevation-raised-surface); box-shadow: raised
+//   .card--interactive — cursor pointer, hover border-color: var(--border-hover)
+// CardTitle uses text-heading for header text color.
 
 import * as React from "react"
 
 import { cn } from "@/utils/helpers"
 
+interface CardProps extends React.ComponentProps<"div"> {
+  raised?: boolean
+  interactive?: boolean
+}
+
 function Card({
   className,
-  size = "default",
+  raised,
+  interactive,
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: CardProps) {
   return (
     <div
       data-slot="card"
-      data-size={size}
       className={cn(
-        "group/card flex flex-col gap-4 overflow-hidden rounded-radius-lg bg-surface-secondary border border-border-subtle p-space-4 text-font-size-sm text-primary has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:p-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-radius-lg *:[img:last-child]:rounded-b-radius-lg",
+        "card",
+        raised && "card--raised",
+        interactive && "card--interactive",
         className
       )}
       {...props}
@@ -27,10 +41,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-header"
-      className={cn(
-        "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-radius-lg px-space-4 group-data-[size=sm]/card:px-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-space-4 group-data-[size=sm]/card:[.border-b]:pb-3",
-        className
-      )}
+      className={cn("card__header", className)}
       {...props}
     />
   )
@@ -40,10 +51,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-title"
-      className={cn(
-        "text-heading leading-snug font-medium group-data-[size=sm]/card:text-font-size-sm",
-        className
-      )}
+      className={cn("font-medium text-heading", className)}
       {...props}
     />
   )
@@ -63,10 +71,7 @@ function CardAction({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-action"
-      className={cn(
-        "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
-        className
-      )}
+      className={cn("ml-auto", className)}
       {...props}
     />
   )
@@ -76,7 +81,7 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-content"
-      className={cn("px-space-4 group-data-[size=sm]/card:px-3", className)}
+      className={cn("card__body", className)}
       {...props}
     />
   )
@@ -86,10 +91,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-footer"
-      className={cn(
-        "flex items-center rounded-b-radius-lg border-t border-border-subtle bg-surface-secondary p-space-4 group-data-[size=sm]/card:p-3",
-        className
-      )}
+      className={cn("card__footer", className)}
       {...props}
     />
   )
