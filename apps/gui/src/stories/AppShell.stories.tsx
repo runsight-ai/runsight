@@ -116,22 +116,24 @@ export const WithBottomPanel: Story = {
       data-sidebar="expanded"
       data-inspector="open"
       data-bottom="collapsed"
-      style={{ height: "100vh", display: "grid", gridTemplateRows: "var(--header-height) 1fr 36px", gridTemplateColumns: "auto 1fr auto", gridTemplateAreas: '"header header header" "sidebar main inspector" "bottom bottom bottom"' }}
+      style={{ height: "100vh", display: "flex", flexDirection: "column" }}
     >
-      <header className="app-shell__header" style={{ borderBottom: "1px solid var(--border-default)", gridArea: "header" }}>
+      <header className="app-shell__header" style={{ borderBottom: "1px solid var(--border-default)", height: "var(--header-height)", flexShrink: 0 }}>
         <Placeholder label="header" />
       </header>
-      <aside className="app-shell__sidebar" style={{ gridArea: "sidebar", width: "var(--sidebar-width-expanded)", borderRight: "1px solid var(--border-default)", background: "var(--sidebar-bg)" }}>
-        <Placeholder label="sidebar" />
-      </aside>
-      <main className="app-shell__main" style={{ gridArea: "main" }}>
-        <Placeholder label="main canvas" />
-      </main>
-      <aside className="app-shell__inspector" style={{ gridArea: "inspector", width: "var(--inspector-width)", borderLeft: "1px solid var(--border-default)", background: "var(--surface-secondary)" }}>
-        <Placeholder label="inspector" />
-      </aside>
-      {/* Bottom panel — 36px collapsed, tabs visible, full-width above sidebars */}
-      <div style={{ gridArea: "bottom", background: "var(--surface-secondary)", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", minHeight: "36px", zIndex: 10, position: "relative" }}>
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+        <aside className="app-shell__sidebar" style={{ width: "var(--sidebar-width-expanded)", borderRight: "1px solid var(--border-default)", background: "var(--sidebar-bg)", flexShrink: 0 }}>
+          <Placeholder label="sidebar" />
+        </aside>
+        <main className="app-shell__main" style={{ flex: 1, minWidth: 0 }}>
+          <Placeholder label="main canvas" />
+        </main>
+        <aside className="app-shell__inspector" style={{ width: "var(--inspector-width)", borderLeft: "1px solid var(--border-default)", background: "var(--surface-secondary)", flexShrink: 0 }}>
+          <Placeholder label="inspector" />
+        </aside>
+      </div>
+      {/* Bottom panel — 36px collapsed, full-width ABOVE sidebars */}
+      <div style={{ background: "var(--surface-secondary)", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", height: "36px", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", height: "36px", padding: "0 var(--space-3)", gap: "var(--space-4)", flexShrink: 0 }}>
           <button style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-xs)", fontWeight: "var(--font-weight-medium)", color: "var(--text-heading)", background: "none", border: "none", cursor: "pointer", padding: "var(--space-2) 0", borderBottom: "2px solid var(--interactive-default)" }}>
             Logs
@@ -156,22 +158,24 @@ export const WithBottomPanelExpanded: Story = {
       data-sidebar="expanded"
       data-inspector="open"
       data-bottom="expanded"
-      style={{ height: "100vh", display: "grid", gridTemplateRows: "var(--header-height) 1fr 200px", gridTemplateColumns: "auto 1fr auto", gridTemplateAreas: '"header header header" "sidebar main inspector" "bottom bottom bottom"' }}
+      style={{ height: "100vh", display: "flex", flexDirection: "column" }}
     >
-      <header className="app-shell__header" style={{ borderBottom: "1px solid var(--border-default)", gridArea: "header" }}>
+      <header className="app-shell__header" style={{ borderBottom: "1px solid var(--border-default)", height: "var(--header-height)", flexShrink: 0 }}>
         <Placeholder label="header" />
       </header>
-      <aside className="app-shell__sidebar" style={{ gridArea: "sidebar", width: "var(--sidebar-width-expanded)", borderRight: "1px solid var(--border-default)", background: "var(--sidebar-bg)" }}>
-        <Placeholder label="sidebar" />
-      </aside>
-      <main className="app-shell__main" style={{ gridArea: "main" }}>
-        <Placeholder label="main canvas" />
-      </main>
-      <aside className="app-shell__inspector" style={{ gridArea: "inspector", width: "var(--inspector-width)", borderLeft: "1px solid var(--border-default)", background: "var(--surface-secondary)" }}>
-        <Placeholder label="inspector" />
-      </aside>
-      {/* Bottom panel — 200px expanded, content visible, full-width above sidebars */}
-      <div style={{ gridArea: "bottom", background: "var(--surface-secondary)", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 10, position: "relative" }}>
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+        <aside className="app-shell__sidebar" style={{ width: "var(--sidebar-width-expanded)", borderRight: "1px solid var(--border-default)", background: "var(--sidebar-bg)", flexShrink: 0 }}>
+          <Placeholder label="sidebar" />
+        </aside>
+        <main className="app-shell__main" style={{ flex: 1, minWidth: 0 }}>
+          <Placeholder label="main canvas" />
+        </main>
+        <aside className="app-shell__inspector" style={{ width: "var(--inspector-width)", borderLeft: "1px solid var(--border-default)", background: "var(--surface-secondary)", flexShrink: 0 }}>
+          <Placeholder label="inspector" />
+        </aside>
+      </div>
+      {/* Bottom panel — 200px expanded, full-width ABOVE sidebars */}
+      <div style={{ background: "var(--surface-secondary)", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", height: "200px", flexShrink: 0, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", height: "36px", padding: "0 var(--space-3)", gap: "var(--space-4)", flexShrink: 0 }}>
           <button style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-xs)", fontWeight: "var(--font-weight-medium)", color: "var(--text-heading)", background: "none", border: "none", cursor: "pointer", padding: "var(--space-2) 0", borderBottom: "2px solid var(--interactive-default)" }}>
             Logs

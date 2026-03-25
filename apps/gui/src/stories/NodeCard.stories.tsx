@@ -306,7 +306,7 @@ export const WithSouls: Story = {
           <span className="node-card__avatar" style={{ background: "hsl(38, 85%, 45%)" }}>W</span>
         </div>
       </div>
-      <div className="node-card__meta"><span>AGENT</span><span className="node-card__meta-sep">·</span><span>GPT-4o</span></div>
+      <div className="node-card__meta"><span>AGENT</span></div>
       <div className="node-card__port node-card__port--output" />
     </div>
   ),
@@ -343,7 +343,7 @@ export const WithSoulTooltip: Story = {
             </div>
           </div>
         </div>
-        <div className="node-card__meta"><span>AGENT</span><span className="node-card__meta-sep">·</span><span>GPT-4o</span></div>
+        <div className="node-card__meta"><span>AGENT</span></div>
         <div className="node-card__port node-card__port--output" />
       </div>
     </div>

@@ -9,51 +9,15 @@ export default meta;
 
 type Story = StoryObj;
 
-export const Text: Story = {
-  name: "Variant: text",
+export const Default: Story = {
+  name: "Default — all variants",
   render: () => (
-    <div style={{ width: "300px" }}>
-      <div className="skeleton skeleton--text" />
-    </div>
-  ),
-};
-
-export const TextSm: Story = {
-  name: "Variant: text-sm",
-  render: () => (
-    <div style={{ width: "300px" }}>
-      <div className="skeleton skeleton--text-sm" />
-    </div>
-  ),
-};
-
-export const Heading: Story = {
-  name: "Variant: heading",
-  render: () => (
-    <div style={{ width: "300px" }}>
-      <div className="skeleton skeleton--heading" />
-    </div>
-  ),
-};
-
-export const Avatar: Story = {
-  name: "Variant: avatar",
-  render: () => <div className="skeleton skeleton--avatar" />,
-};
-
-export const Button: Story = {
-  name: "Variant: button",
-  render: () => <div className="skeleton skeleton--button" />,
-};
-
-export const AllVariants: Story = {
-  name: "All Variants",
-  render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", padding: "var(--space-4)", width: "288px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", padding: "var(--space-6)", width: "320px", background: "var(--surface-primary)", borderRadius: "var(--radius-lg)" }}>
       <div className="skeleton skeleton--heading" />
       <div className="skeleton skeleton--text" />
+      <div className="skeleton skeleton--text" />
       <div className="skeleton skeleton--text-sm" />
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
         <div className="skeleton skeleton--avatar" />
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
           <div className="skeleton skeleton--text" />
@@ -61,6 +25,34 @@ export const AllVariants: Story = {
         </div>
       </div>
       <div className="skeleton skeleton--button" />
+    </div>
+  ),
+};
+
+export const Individual: Story = {
+  name: "Individual variants",
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)", padding: "var(--space-6)", width: "320px" }}>
+      <div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--font-size-2xs)", color: "var(--text-muted)", marginBottom: "var(--space-2)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)" }}>heading (18px × 40%)</div>
+        <div className="skeleton skeleton--heading" />
+      </div>
+      <div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--font-size-2xs)", color: "var(--text-muted)", marginBottom: "var(--space-2)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)" }}>text (14px × 80%)</div>
+        <div className="skeleton skeleton--text" />
+      </div>
+      <div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--font-size-2xs)", color: "var(--text-muted)", marginBottom: "var(--space-2)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)" }}>text-sm (13px × 60%)</div>
+        <div className="skeleton skeleton--text-sm" />
+      </div>
+      <div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--font-size-2xs)", color: "var(--text-muted)", marginBottom: "var(--space-2)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)" }}>avatar (32×32)</div>
+        <div className="skeleton skeleton--avatar" />
+      </div>
+      <div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--font-size-2xs)", color: "var(--text-muted)", marginBottom: "var(--space-2)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)" }}>button (32×100)</div>
+        <div className="skeleton skeleton--button" />
+      </div>
     </div>
   ),
 };
