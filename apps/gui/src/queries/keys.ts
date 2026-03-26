@@ -39,5 +39,6 @@ export const queryKeys = {
     summary: ["dashboard", "summary"] as const,
     recentRuns: ["dashboard", "recentRuns"] as const,
     kpis: ["dashboard", "kpis"] as const,
+    attention: ["dashboard", "attention"] as const,
   },
 } as const;

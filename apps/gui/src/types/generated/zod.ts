@@ -379,3 +379,22 @@ export type UpdateBudget = z.infer<typeof UpdateBudgetSchema>;
 /** Alias — settings API uses AppSettingsSchema (maps to codegen AppSettingsOutSchema) */
 export const AppSettingsSchema = AppSettingsOutSchema;
 export type AppSettings = AppSettingsOut;
+
+// ---------------------------------------------------------------------------
+// RUN-341: Attention section schemas
+// ---------------------------------------------------------------------------
+
+export const AttentionItemSchema = z.object({
+  type: z.enum(["assertion_regression", "cost_spike", "quality_drop", "new_baseline"]),
+  title: z.string(),
+  description: z.string(),
+  run_id: z.string(),
+  workflow_id: z.string(),
+  severity: z.enum(["warning", "info"]),
+});
+export type AttentionItem = z.infer<typeof AttentionItemSchema>;
+
+export const AttentionItemsResponseSchema = z.object({
+  items: z.array(AttentionItemSchema),
+});
+export type AttentionItemsResponse = z.infer<typeof AttentionItemsResponseSchema>;

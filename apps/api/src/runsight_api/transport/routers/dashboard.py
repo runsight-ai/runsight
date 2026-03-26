@@ -2,8 +2,9 @@ import time
 
 from fastapi import APIRouter, Depends
 
-from ..schemas.dashboard import DashboardKPIsResponse
-from ..deps import get_run_service
+from ..schemas.dashboard import AttentionItemsResponse, DashboardKPIsResponse
+from ..deps import get_eval_service, get_run_service
+from ...logic.services.eval_service import EvalService
 from ...logic.services.run_service import RunService
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
@@ -28,3 +29,12 @@ async def get_dashboard(run_service: RunService = Depends(get_run_service)):
         regressions=None,
         period_hours=PERIOD_HOURS,
     )
+
+
+@router.get("/attention", response_model=AttentionItemsResponse)
+async def get_attention_items(
+    limit: int = 5,
+    eval_service: EvalService = Depends(get_eval_service),
+) -> AttentionItemsResponse:
+    items = eval_service.get_attention_items()
+    return AttentionItemsResponse(items=items[:limit])
