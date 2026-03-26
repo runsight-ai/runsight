@@ -4,6 +4,7 @@ from collections import defaultdict
 from statistics import mean
 
 from ...data.repositories.run_repo import RunRepository
+from ...transport.schemas.dashboard import AttentionItem
 from ...transport.schemas.eval import (
     EvalDelta,
     NodeEvalResult,
@@ -88,6 +89,74 @@ class EvalService:
         versions.sort(key=lambda v: v.first_seen)
 
         return SoulEvalHistoryResponse(soul_id=soul_id, versions=versions)
+
+    def get_attention_items(self) -> list[AttentionItem]:
+        """Scan recent run nodes for attention-worthy conditions."""
+        items: list[AttentionItem] = []
+        runs = self.run_repo.list_runs()
+
+        for run in runs:
+            nodes = self.run_repo.list_nodes_for_run(run.id)
+            for node in nodes:
+                if node.eval_score is None:
+                    continue
+
+                delta = self._compute_delta(node)
+
+                if delta is None:
+                    # New baseline — no previous data to compare against
+                    items.append(
+                        AttentionItem(
+                            type="new_baseline",
+                            title="New prompt version detected",
+                            description=f"Soul '{node.soul_id}' — first run of version {node.soul_version}",
+                            run_id=run.id,
+                            workflow_id=run.workflow_id,
+                            severity="info",
+                        )
+                    )
+                    continue
+
+                # Assertion regression
+                if node.eval_passed is False:
+                    items.append(
+                        AttentionItem(
+                            type="assertion_regression",
+                            title="Assertion failed",
+                            description=f"Workflow '{run.workflow_id}' — run {run.id}",
+                            run_id=run.id,
+                            workflow_id=run.workflow_id,
+                            severity="warning",
+                        )
+                    )
+
+                # Cost spike
+                if delta.cost_pct > 20:
+                    items.append(
+                        AttentionItem(
+                            type="cost_spike",
+                            title=f"Cost +{delta.cost_pct:.0f}% after prompt change",
+                            description=f"Soul '{node.soul_id}' — workflow '{run.workflow_id}'",
+                            run_id=run.id,
+                            workflow_id=run.workflow_id,
+                            severity="warning",
+                        )
+                    )
+
+                # Quality drop
+                if delta.score_delta is not None and delta.score_delta < -0.1:
+                    items.append(
+                        AttentionItem(
+                            type="quality_drop",
+                            title=f"Quality score dropped {abs(delta.score_delta):.2f}",
+                            description=f"Soul '{node.soul_id}' — workflow '{run.workflow_id}'",
+                            run_id=run.id,
+                            workflow_id=run.workflow_id,
+                            severity="warning",
+                        )
+                    )
+
+        return items
 
     def _compute_delta(self, node) -> EvalDelta | None:
         if node.soul_id is None or node.soul_version is None:

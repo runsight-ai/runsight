@@ -1,14 +1,16 @@
 import { useNavigate } from "react-router";
 import { useEffect, useRef } from "react";
-import { Plus, Workflow, Play } from "lucide-react";
+import { Plus, Workflow, Play, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { StatusDot } from "@/components/ui/status-dot";
 import { StatCard } from "@/components/ui/stat-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkflows, useCreateWorkflow } from "@/queries/workflows";
-import { useDashboardKPIs } from "@/queries/dashboard";
+import { useDashboardKPIs, useAttentionItems } from "@/queries/dashboard";
 import { useActiveRuns } from "@/queries/runs";
 
 function formatElapsed(started_at: number | null | undefined): string {
@@ -34,6 +36,8 @@ export function Component() {
   const workflows = useWorkflows();
   const { activeRuns, subscribeToRunStream, isLoading, isError: isRunsError } = useActiveRuns();
   const { data, isPending, isError, error, refetch } = useDashboardKPIs();
+  const { data: attentionData } = useAttentionItems();
+  const attentionItems = attentionData?.items ?? [];
   const eventSourcesRef = useRef<Map<string, EventSource>>(new Map());
 
   // SSE: subscribe to each active run's EventSource stream
@@ -151,6 +155,51 @@ export function Component() {
       <PageHeader title="Home" actions={headerActions} />
       {errorBanner}
       {kpiGrid}
+      {attentionItems.length > 0 && (<div className="px-6 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-mono text-xs text-muted uppercase tracking-wider">ATTENTION</h2>
+            {attentionItems.length > 3 && (
+              <button
+                className="text-xs text-muted hover:text-primary"
+                onClick={() => navigate("/runs")}
+              >
+                see all →
+              </button>
+            )}
+          </div>
+          <div className="space-y-2">
+            {attentionItems.slice(0, 3).map((item) => (
+              <Card
+                key={`${item.run_id}-${item.type}`}
+                interactive
+                className="px-4 py-3"
+                onClick={() =>
+                  navigate(`/workflows/${item.workflow_id}/edit`, {
+                    state: { run_id: item.run_id },
+                  })
+                }
+              >
+                <div className="flex items-center gap-3">
+                  {item.type !== "new_baseline" && (
+                    <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                  )}
+                  <Badge
+                    variant={item.type === "new_baseline" ? "info" : "warning"}
+                  >
+                    {item.type}
+                  </Badge>
+                  <span className="text-sm font-medium flex-1 truncate">
+                    {item.title}
+                  </span>
+                  <span className="text-xs text-muted truncate">
+                    {item.description}
+                  </span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
       {(isLoading || activeRuns.length > 0) && (
         <div className="px-6 py-4">
           <h2 className="font-mono text-xs text-muted uppercase tracking-wider mb-3">

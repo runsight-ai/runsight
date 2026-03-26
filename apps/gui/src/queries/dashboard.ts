@@ -3,7 +3,11 @@ import { queryKeys } from "./keys";
 import { api } from "../api/client";
 import type { DashboardKPIsResponse } from "../types/generated/zod";
 import type { RunResponse } from "../types/generated/zod";
-import { DashboardKPIsResponseSchema } from "../types/generated/zod";
+import {
+  DashboardKPIsResponseSchema,
+  AttentionItemsResponseSchema,
+} from "../types/generated/zod";
+import type { AttentionItemsResponse } from "../types/generated/zod";
 
 export function useDashboardKPIs() {
   return useQuery({
@@ -26,5 +30,17 @@ export function useRecentRuns(limit: number = 10) {
       );
       return res;
     },
+  });
+}
+
+export function useAttentionItems() {
+  return useQuery({
+    queryKey: queryKeys.dashboard.attention,
+    queryFn: async (): Promise<AttentionItemsResponse> => {
+      const res = await api.get("/dashboard/attention");
+      return AttentionItemsResponseSchema.parse(res);
+    },
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
