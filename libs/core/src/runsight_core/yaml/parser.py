@@ -29,9 +29,9 @@ from runsight_core.yaml.schema import (
 )
 
 
-# Supported schema versions. When a future version bump is needed:
+# Supported schema versions.  When a future version bump is needed:
 # 1. Add the new version string here.
-# 2. Gate migration logic on file_def.version before the block-building loop.
+# 2. Gate migration logic on ``file_def.version`` before the block-building loop.
 SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
 
 
@@ -157,7 +157,8 @@ def parse_workflow_yaml(
 
     Raises:
         ValidationError: If YAML doesn't match RunsightWorkflowFile schema.
-        ValueError: If soul_ref/block_ref unresolvable, or validate() returns errors.
+        ValueError: If schema version is unsupported, soul_ref/block_ref
+            unresolvable, or validate() returns errors.
         FileNotFoundError: If file path provided but file does not exist.
         yaml.YAMLError: If YAML content is syntactically invalid.
     """

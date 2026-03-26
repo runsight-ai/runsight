@@ -13,39 +13,11 @@ class RunStatus(str, Enum):
     cancelled = "cancelled"
 
 
-# ---------------------------------------------------------------------------
-# State transition guards
-# ---------------------------------------------------------------------------
-
-VALID_TRANSITIONS: Dict[str, set] = {
-    RunStatus.pending: {RunStatus.running, RunStatus.cancelled, RunStatus.failed},
-    RunStatus.running: {RunStatus.completed, RunStatus.failed, RunStatus.cancelled},
-    RunStatus.completed: set(),  # terminal
-    RunStatus.failed: set(),  # terminal
-    RunStatus.cancelled: set(),  # terminal
-}
-
-
-class InvalidStateTransition(ValueError):
-    """Raised when a run status transition is not allowed."""
-
-    def __init__(self, current: RunStatus, target: RunStatus):
-        self.current = current
-        self.target = target
-        super().__init__(f"Invalid state transition: {current.value} -> {target.value}")
-
-
-def validate_transition(current: RunStatus, target: RunStatus) -> None:
-    """Raise InvalidStateTransition if *current* -> *target* is not allowed.
-
-    Same-status transitions are treated as idempotent no-ops and are always
-    allowed.
-    """
-    if current == target:
-        return
-    allowed = VALID_TRANSITIONS.get(current, set())
-    if target not in allowed:
-        raise InvalidStateTransition(current, target)
+class NodeStatus(str, Enum):
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
 
 
 class Run(SQLModel, table=True):
@@ -72,7 +44,7 @@ class RunNode(SQLModel, table=True):
     run_id: str = Field(index=True)
     node_id: str
     block_type: str
-    status: str = Field(default="pending")
+    status: NodeStatus = Field(default=NodeStatus.pending)
     started_at: Optional[float] = None
     completed_at: Optional[float] = None
     duration_s: Optional[float] = None
