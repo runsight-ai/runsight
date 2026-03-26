@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
 import { StatCard } from "@/components/ui/stat-card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkflows, useCreateWorkflow } from "@/queries/workflows";
 import { useDashboardKPIs } from "@/queries/dashboard";
 import { useActiveRuns } from "@/queries/runs";
@@ -31,8 +32,8 @@ export function Component() {
   const navigate = useNavigate();
   const createWorkflow = useCreateWorkflow();
   const workflows = useWorkflows();
-  const { activeRuns, subscribeToRunStream } = useActiveRuns();
-  const { data } = useDashboardKPIs();
+  const { activeRuns, subscribeToRunStream, isLoading, isError: isRunsError } = useActiveRuns();
+  const { data, isPending, isError, error, refetch } = useDashboardKPIs();
   const eventSourcesRef = useRef<Map<string, EventSource>>(new Map());
 
   // SSE: subscribe to each active run's EventSource stream
@@ -64,13 +65,13 @@ export function Component() {
     navigate(`/workflows/${result.id}/edit`);
   }
 
-  const runsToday = data?.runs_today ?? 0;
-  const costTodayUsd = data?.cost_today_usd ?? 0;
+  const runsToday = isError ? "—" : (data?.runs_today ?? 0);
+  const costTodayUsd = isError ? "—" : (data?.cost_today_usd ?? 0);
   const eval_pass_rate = data?.eval_pass_rate;
   const regressions = data?.regressions;
 
-  const evalPassDisplay = eval_pass_rate != null ? `${(eval_pass_rate * 100).toFixed(0)}%` : "—";
-  const regressionsDisplay = regressions ?? "—";
+  const evalPassDisplay = isError ? "—" : (eval_pass_rate != null ? `${(eval_pass_rate * 100).toFixed(0)}%` : "—");
+  const regressionsDisplay = isError ? "—" : (regressions ?? "—");
 
   const hasNoWorkflows = workflows.data?.items?.length === 0;
 
@@ -100,12 +101,30 @@ export function Component() {
     </Button>
   );
 
+  const errorBanner = (isError || isRunsError) && (
+    <div className="mx-4 mt-4 p-4 rounded-md border border-destructive bg-destructive/10 text-destructive">
+      <p>Couldn't load dashboard data. Check that the Runsight server is running.</p>
+      <button className="mt-2 text-sm underline" onClick={() => refetch()}>Retry</button>
+    </div>
+  );
+
   const kpiGrid = (
     <div className="grid grid-cols-4 gap-4 p-4">
-      <StatCard label="Runs Today" value={runsToday} />
-      <StatCard label="Eval Pass" value={evalPassDisplay} />
-      <StatCard label="Spent Today" value={formatCurrency(costTodayUsd)} />
-      <StatCard label="Regressions" value={regressionsDisplay} variant={regressions != null && regressions > 0 ? "warning" : "default"} />
+      {isPending ? (
+        <>
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </>
+      ) : (
+        <>
+          <StatCard label="Runs Today" value={runsToday} />
+          <StatCard label="Eval Pass" value={evalPassDisplay} />
+          <StatCard label="Spent Today" value={typeof costTodayUsd === "string" ? costTodayUsd : formatCurrency(costTodayUsd)} />
+          <StatCard label="Regressions" value={regressionsDisplay} variant={regressions != null && regressions > 0 ? "warning" : "default"} />
+        </>
+      )}
     </div>
   );
 
@@ -114,6 +133,7 @@ export function Component() {
     return (
       <div className="flex-1 flex flex-col">
         <PageHeader title="Home" actions={headerActions} />
+        {errorBanner}
         {kpiGrid}
         <EmptyState
           icon={Play}
@@ -129,21 +149,29 @@ export function Component() {
   return (
     <div className="flex-1 flex flex-col">
       <PageHeader title="Home" actions={headerActions} />
+      {errorBanner}
       {kpiGrid}
-      {activeRuns.length > 0 && (
+      {(isLoading || activeRuns.length > 0) && (
         <div className="px-6 py-4">
           <h2 className="font-mono text-xs text-muted uppercase tracking-wider mb-3">
             ACTIVE RUNS
           </h2>
           <div className="space-y-2">
-            {activeRuns.map((run) => (
-              <div key={run.id} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-tertiary/50 cursor-pointer" onClick={() => navigate(`/workflows/${run.workflow_id}/edit`)}>
-                <StatusDot variant={run.status === "running" ? "active" : "neutral"} animate={run.status === "running" ? "pulse" : "none"} />
-                <span className="text-sm font-medium flex-1 truncate">{run.workflow_name}</span>
-                <span className="text-xs text-muted">{formatElapsed(run.started_at)}</span>
-                <span className="text-xs text-muted font-mono">{formatCost(run.total_cost_usd)}</span>
-              </div>
-            ))}
+            {isLoading ? (
+              <>
+                <Skeleton className="w-full h-10" />
+                <Skeleton className="w-full h-10" />
+              </>
+            ) : (
+              activeRuns.map((run) => (
+                <div key={run.id} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-tertiary/50 cursor-pointer" onClick={() => navigate(`/workflows/${run.workflow_id}/edit`)}>
+                  <StatusDot variant={run.status === "running" ? "active" : "neutral"} animate={run.status === "running" ? "pulse" : "none"} />
+                  <span className="text-sm font-medium flex-1 truncate">{run.workflow_name}</span>
+                  <span className="text-xs text-muted">{formatElapsed(run.started_at)}</span>
+                  <span className="text-xs text-muted font-mono">{formatCost(run.total_cost_usd)}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
