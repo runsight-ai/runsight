@@ -16,7 +16,13 @@ from runsight_api.core.context import (
     clear_execution_context,
 )
 from runsight_api.domain.entities.log import LogEntry
-from runsight_api.domain.entities.run import Run, RunNode, RunStatus, NodeStatus
+from runsight_api.domain.entities.run import (
+    InvalidStateTransition,
+    Run,
+    RunNode,
+    RunStatus,
+    validate_transition,
+)
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
@@ -47,6 +53,15 @@ class ExecutionObserver:
             with Session(self.engine) as session:
                 run = session.get(Run, self.run_id)
                 if run:
+                    try:
+                        validate_transition(run.status, RunStatus.running)
+                    except InvalidStateTransition:
+                        logger.warning(
+                            "Skipping invalid state transition: %s -> running for run %s",
+                            run.status.value,
+                            self.run_id,
+                        )
+                        return
                     run.status = RunStatus.running
                     run.started_at = time.time()
                     run.updated_at = time.time()
@@ -79,7 +94,7 @@ class ExecutionObserver:
                 run_id=self.run_id,
                 node_id=block_id,
                 block_type=block_type,
-                status=NodeStatus.running,
+                status="running",
                 started_at=time.time(),
             )
             with Session(self.engine) as session:
@@ -120,7 +135,7 @@ class ExecutionObserver:
             with Session(self.engine) as session:
                 node = session.get(RunNode, f"{self.run_id}:{block_id}")
                 if node:
-                    node.status = NodeStatus.completed
+                    node.status = "completed"
                     node.duration_s = duration_s
                     node.completed_at = time.time()
                     node.cost_usd = cost_delta
@@ -170,7 +185,7 @@ class ExecutionObserver:
             with Session(self.engine) as session:
                 node = session.get(RunNode, f"{self.run_id}:{block_id}")
                 if node:
-                    node.status = NodeStatus.failed
+                    node.status = "failed"
                     node.duration_s = duration_s
                     node.completed_at = time.time()
                     node.error = str(error)
@@ -208,6 +223,15 @@ class ExecutionObserver:
             with Session(self.engine) as session:
                 run = session.get(Run, self.run_id)
                 if run:
+                    try:
+                        validate_transition(run.status, RunStatus.completed)
+                    except InvalidStateTransition:
+                        logger.warning(
+                            "Skipping invalid state transition: %s -> completed for run %s",
+                            run.status.value,
+                            self.run_id,
+                        )
+                        return
                     run.status = RunStatus.completed
                     run.completed_at = time.time()
                     run.duration_s = duration_s
@@ -251,6 +275,16 @@ class ExecutionObserver:
             with Session(self.engine) as session:
                 run = session.get(Run, self.run_id)
                 if run:
+                    try:
+                        validate_transition(run.status, status)
+                    except InvalidStateTransition:
+                        logger.warning(
+                            "Skipping invalid state transition: %s -> %s for run %s",
+                            run.status.value,
+                            status.value,
+                            self.run_id,
+                        )
+                        return
                     run.status = status
                     run.completed_at = time.time()
                     run.duration_s = duration_s

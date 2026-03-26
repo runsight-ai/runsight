@@ -3,7 +3,7 @@ import time
 import json
 from typing import List, Optional, Dict, Any, Tuple
 
-from ...domain.entities.run import Run, RunNode, RunStatus, NodeStatus
+from ...domain.entities.run import Run, RunNode, RunStatus, NodeStatus, validate_transition
 from ...domain.entities.log import LogEntry
 from ...data.repositories.run_repo import RunRepository
 from ...data.filesystem.workflow_repo import WorkflowRepository
@@ -55,6 +55,8 @@ class RunService:
         run = self.get_run(run_id)
         if not run:
             raise RunNotFound(f"Run {run_id} not found")
+
+        validate_transition(run.status, RunStatus.cancelled)
 
         run.status = RunStatus.cancelled
         run.cancelled_reason = "Cancelled by user"

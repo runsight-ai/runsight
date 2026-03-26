@@ -399,20 +399,20 @@ class TestRunServiceCancelGuard:
         with pytest.raises(InvalidStateTransition):
             svc.cancel_run(run.id)
 
-    def test_cancel_already_cancelled_run_raises(self):
-        """Cancelling an already-cancelled run must raise InvalidStateTransition."""
+    def test_cancel_already_cancelled_run_is_idempotent(self):
+        """Cancelling an already-cancelled run is idempotent (same-status no-op)."""
         from unittest.mock import Mock
 
-        from runsight_api.domain.entities.run import InvalidStateTransition
         from runsight_api.logic.services.run_service import RunService
 
         run = _make_run(status=RunStatus.cancelled)
         run_repo = Mock()
         run_repo.get_run.return_value = run
+        run_repo.update_run.return_value = run
 
         svc = RunService(run_repo, Mock())
-        with pytest.raises(InvalidStateTransition):
-            svc.cancel_run(run.id)
+        result = svc.cancel_run(run.id)
+        assert result.status == RunStatus.cancelled
 
     def test_cancel_pending_run_succeeds(self):
         """Cancelling a pending run succeeds."""

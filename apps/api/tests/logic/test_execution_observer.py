@@ -74,7 +74,7 @@ def seed_run(db_engine):
             id=run_id,
             workflow_id="wf_1",
             workflow_name="test_workflow",
-            status=RunStatus.pending,
+            status=RunStatus.running,
             task_json="{}",
         )
         session.add(run)

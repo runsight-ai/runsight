@@ -36,7 +36,7 @@ def _make_run(engine, run_id: str) -> Run:
         id=run_id,
         workflow_id="wf_test",
         workflow_name="test-workflow",
-        status=RunStatus.pending,
+        status=RunStatus.running,
         task_json="{}",
         created_at=time.time(),
         updated_at=time.time(),
