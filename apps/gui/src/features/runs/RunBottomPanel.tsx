@@ -29,7 +29,7 @@ interface RunBottomPanelProps {
 // ---------------------------------------------------------------------------
 
 const levelConfig = {
-  INFO: { bg: "bg-transparent", text: "text-[var(--muted-foreground)]" },
+  INFO: { bg: "bg-transparent", text: "text-[var(--text-muted)]" },
   WARN: { bg: "bg-[var(--warning-12)]", text: "text-[var(--warning-9)]" },
   ERROR: { bg: "bg-[var(--error-12)]", text: "text-[var(--danger-9)]" },
   DEBUG: { bg: "bg-transparent", text: "text-[var(--text-muted)]" },
@@ -57,13 +57,13 @@ export function RunBottomPanel({ logs, executionComplete, executionFailed, final
       <div role="tablist" aria-label="Bottom panel tabs" className="h-9 flex items-center px-4 border-b border-[var(--border-default)] justify-between shrink-0">
         <div className="flex items-center gap-1">
           {tabs.map((tab) => (
-            <button key={tab.id} role="tab" aria-selected={activeTab === tab.id} aria-controls={`bottom-panel-${tab.id}`} onClick={() => setActiveTab(tab.id)} className={cn("h-7 px-3 text-[12px] font-medium flex items-center gap-1.5 border-b-2 transition-colors", activeTab === tab.id ? "text-[var(--text-primary)] border-[var(--interactive-default)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-primary)] border-transparent")}>
+            <button key={tab.id} role="tab" aria-selected={activeTab === tab.id} aria-controls={`bottom-panel-${tab.id}`} onClick={() => setActiveTab(tab.id)} className={cn("h-7 px-3 text-[12px] font-medium flex items-center gap-1.5 border-b-2 transition-colors", activeTab === tab.id ? "text-[var(--text-primary)] border-[var(--interactive-default)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] border-transparent")}>
               <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
             </button>
           ))}
         </div>
-        <button onClick={() => setIsExpanded(!isExpanded)} aria-label={isExpanded ? "Collapse panel" : "Expand panel"} className="w-6 h-6 flex items-center justify-center rounded hover:bg-[var(--surface-raised)] text-[var(--muted-foreground)]">
+        <button onClick={() => setIsExpanded(!isExpanded)} aria-label={isExpanded ? "Collapse panel" : "Expand panel"} className="w-6 h-6 flex items-center justify-center rounded hover:bg-[var(--surface-raised)] text-[var(--text-muted)]">
           {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
         </button>
       </div>

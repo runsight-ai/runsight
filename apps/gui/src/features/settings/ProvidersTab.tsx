@@ -201,7 +201,7 @@ function ProviderCard({
           />
           <div className="flex items-center gap-1">
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={handleTest}
               disabled={testStatus === "testing"}
@@ -224,16 +224,16 @@ function ProviderCard({
               )}
             </Button>
             <Button
-              variant="ghost"
-              size="icon"
+              variant="icon-only"
+              size="sm"
               onClick={() => onEdit(provider)}
               title="Edit provider"
             >
               <Pencil className="h-4 w-4" />
             </Button>
             <Button
-              variant="ghost"
-              size="icon"
+              variant="icon-only"
+              size="sm"
               onClick={() => onDelete(provider.id)}
               className="text-[var(--danger-9)] hover:text-[var(--danger-9)]"
               title="Remove provider"

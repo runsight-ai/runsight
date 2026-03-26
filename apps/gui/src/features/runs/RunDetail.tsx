@@ -101,7 +101,7 @@ function RunDetailInner() {
   if (isLoadingRun || isLoadingNodes) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[var(--surface-primary)]">
-        <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
+        <div className="flex items-center gap-2 text-[var(--text-muted)]">
           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
           Loading run details...
         </div>
@@ -112,7 +112,7 @@ function RunDetailInner() {
   if (!run) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[var(--surface-primary)]">
-        <div className="text-[var(--muted-foreground)]">Run not found</div>
+        <div className="text-[var(--text-muted)]">Run not found</div>
       </div>
     );
   }
@@ -147,7 +147,7 @@ function RunDetailInner() {
                     const s = (node.data as RunNodeData)?.status;
                     if (s === "completed") return "var(--success-9)";
                     if (s === "failed") return "var(--danger-9)";
-                    if (s === "pending") return "var(--muted-foreground)";
+                    if (s === "pending") return "var(--text-muted)";
                     return "var(--interactive-default)";
                   }}
                   maskColor="var(--background-70)"

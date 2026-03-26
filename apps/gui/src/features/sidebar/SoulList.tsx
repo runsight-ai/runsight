@@ -52,7 +52,7 @@ const columns: Column[] = [
             <span className="text-sm text-muted">—</span>
           ) : (
             models.map((model) => (
-              <Badge key={model} variant="secondary" className="bg-[var(--accent-3)] text-[var(--interactive-default)] border-none text-xs">
+              <Badge key={model} variant="neutral" className="bg-[var(--accent-3)] text-[var(--interactive-default)] border-none text-xs">
                 {model}
               </Badge>
             ))

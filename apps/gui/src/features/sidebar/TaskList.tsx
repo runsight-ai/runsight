@@ -11,10 +11,10 @@ function getTaskTypeColor(type: string): string {
   switch (type.toLowerCase()) {
     case "python": return "bg-[var(--success-12)] text-[var(--success-9)]";
     case "javascript": return "bg-[var(--warning-12)] text-[var(--warning-9)]";
-    case "shell": return "bg-[var(--surface-raised)] text-[var(--muted-foreground)]";
-    case "http": return "bg-[var(--running-12)] text-[var(--info-9)]";
+    case "shell": return "bg-[var(--surface-raised)] text-[var(--text-muted)]";
+    case "http": return "bg-[var(--info-3)] text-[var(--info-9)]";
     case "prompt": return "bg-[var(--accent-3)] text-[var(--interactive-default)]";
-    default: return "bg-[var(--muted-12)] text-[var(--muted-foreground)]";
+    default: return "bg-[var(--neutral-3)] text-[var(--text-muted)]";
   }
 }
 
@@ -44,7 +44,7 @@ const columns: Column[] = [
     render: (row) => {
       const task = row as TaskResponse;
       return (
-        <Badge variant="secondary" className={`${getTaskTypeColor(task.type)} border-none text-xs`}>
+        <Badge variant="neutral" className={`${getTaskTypeColor(task.type)} border-none text-xs`}>
           {task.type}
         </Badge>
       );

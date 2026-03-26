@@ -56,16 +56,16 @@ function ModelRow({
         {hasChanges && (
           <div className="flex items-center gap-1">
             <Button
-              variant="ghost"
-              size="icon"
+              variant="icon-only"
+              size="sm"
               className="h-8 w-8 text-[var(--success-9)] hover:text-[var(--success-9)]"
               onClick={() => onSave(model.id, selectedModel)}
             >
               <Check className="h-4 w-4" />
             </Button>
             <Button
-              variant="ghost"
-              size="icon"
+              variant="icon-only"
+              size="sm"
               className="h-8 w-8 text-muted"
               onClick={onCancel}
             >
@@ -136,7 +136,7 @@ function FallbackChainSection({
         {hasChanges && (
           <div className="flex items-center gap-1">
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="h-7 text-xs"
               onClick={handleSave}
@@ -162,8 +162,8 @@ function FallbackChainSection({
           >
             <div className="flex shrink-0 gap-0.5">
               <Button
-                variant="ghost"
-                size="icon"
+                variant="icon-only"
+                size="sm"
                 className="h-6 w-6"
                 onClick={() => move(i, -1)}
                 disabled={i === 0}
@@ -171,8 +171,8 @@ function FallbackChainSection({
                 <ChevronUp className="h-3.5 w-3.5" />
               </Button>
               <Button
-                variant="ghost"
-                size="icon"
+                variant="icon-only"
+                size="sm"
                 className="h-6 w-6"
                 onClick={() => move(i, 1)}
                 disabled={i === localChain.length - 1}

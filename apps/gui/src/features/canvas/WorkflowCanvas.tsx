@@ -63,7 +63,7 @@ export function WorkflowCanvas() {
               type: "arrowclosed",
               width: 10,
               height: 10,
-              color: "var(--muted-foreground)",
+              color: "var(--text-muted)",
             },
           }}
           proOptions={{ hideAttribution: true }}
@@ -73,7 +73,7 @@ export function WorkflowCanvas() {
             variant={BackgroundVariant.Dots}
             gap={28}
             size={0.8}
-            color="var(--muted-foreground)"
+            color="var(--text-muted)"
             className="opacity-20"
           />
           <Controls
@@ -88,9 +88,9 @@ export function WorkflowCanvas() {
                 case "task":
                   return "var(--task)";
                 case "start":
-                  return "var(--muted-foreground)";
+                  return "var(--text-muted)";
                 default:
-                  return "var(--muted-foreground)";
+                  return "var(--text-muted)";
               }
             }}
             maskColor="rgba(15, 23, 42, 0.7)"

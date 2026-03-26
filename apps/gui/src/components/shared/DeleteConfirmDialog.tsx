@@ -34,7 +34,7 @@ export function DeleteConfirmDialog({
         </DialogHeader>
         <DialogFooter className="flex justify-end gap-2 mt-4">
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={onClose}
             className="h-9 px-4 border-border-default bg-transparent hover:bg-surface-raised text-primary"
           >

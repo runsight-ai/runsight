@@ -147,7 +147,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
       {/* Quick Actions Row */}
       <div className="flex items-center gap-3 mb-8">
         <Button
-          variant="outline"
+          variant="secondary"
           className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary"
           disabled
         >
@@ -155,7 +155,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
           Generate with AI
         </Button>
         <Button
-          variant="outline"
+          variant="secondary"
           className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary"
           onClick={onNewWorkflow}
         >
@@ -163,7 +163,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
           New Workflow
         </Button>
         <Button
-          variant="outline"
+          variant="secondary"
           className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary"
           disabled
         >
@@ -233,7 +233,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
           <h2 className="text-base font-medium text-primary tracking-tight">Active Workflows</h2>
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="h-9 px-3 border-[var(--border-default)] text-muted hover:text-primary hover:border-[var(--border-default)]"
             >
@@ -279,7 +279,7 @@ function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <span className={`w-1.5 h-1.5 rounded-full ${variant === "success" ? "bg-[var(--success-9)]" : variant === "error" ? "bg-[var(--danger-9)]" : variant === "running" ? "bg-[var(--info-9)]" : "bg-[var(--muted-foreground)]"}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full ${variant === "success" ? "bg-[var(--success-9)]" : variant === "error" ? "bg-[var(--danger-9)]" : variant === "running" ? "bg-[var(--info-9)]" : "bg-[var(--neutral-9)]"}`} />
                       <span className={`text-xs font-medium ${variant === "success" ? "text-[var(--success-9)]" : variant === "error" ? "text-[var(--danger-9)]" : variant === "running" ? "text-[var(--info-9)]" : "text-muted"}`}>
                         {statusLabel}
                       </span>
@@ -399,7 +399,7 @@ export function Component() {
         <h2 className="text-2xl font-semibold tracking-[-0.02em] mb-3">
           Create your first workflow
         </h2>
-        <p className="text-[14px] text-[var(--muted-foreground)] leading-[1.6] mb-8">
+        <p className="text-[14px] text-[var(--text-muted)] leading-[1.6] mb-8">
           Workflows are visual orchestrations of AI agents. Start from scratch with AI assistance,
           use a template, or import an existing YAML file.
         </p>
@@ -445,7 +445,7 @@ export function Component() {
           </div>
         </div>
 
-        <p className="text-[13px] text-[var(--muted-foreground)]">
+        <p className="text-[13px] text-[var(--text-muted)]">
           Need help?{" "}
           <a href="#" className="text-primary no-underline hover:underline">
             View documentation

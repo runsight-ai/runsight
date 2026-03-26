@@ -15,9 +15,9 @@ export function getStepTypeColor(type: string): string {
     case "javascript":
       return "bg-[var(--warning-12)] text-[var(--warning-9)]";
     case "shell":
-      return "bg-[var(--surface-raised)] text-[var(--muted-foreground)]";
+      return "bg-[var(--surface-raised)] text-[var(--text-muted)]";
     case "http":
-      return "bg-[var(--running-12)] text-[var(--info-9)]";
+      return "bg-[var(--info-3)] text-[var(--info-9)]";
     case "prompt":
       return "bg-[var(--accent-3)] text-[var(--interactive-default)]";
     case "condition":
@@ -25,7 +25,7 @@ export function getStepTypeColor(type: string): string {
     case "loop":
       return "bg-[var(--accent-alt-12)] text-[var(--accent-alt)]";
     default:
-      return "bg-[var(--muted-12)] text-[var(--muted-foreground)]";
+      return "bg-[var(--neutral-3)] text-[var(--text-muted)]";
   }
 }
 
@@ -40,11 +40,11 @@ export function getStatusColor(status: string): string {
     case "error":
       return "bg-[var(--error-12)] text-[var(--danger-9)]";
     case "running":
-      return "bg-[var(--running-12)] text-[var(--info-9)]";
+      return "bg-[var(--info-3)] text-[var(--info-9)]";
     case "pending":
     case "idle":
     default:
-      return "bg-[var(--muted-12)] text-[var(--muted-foreground)]";
+      return "bg-[var(--neutral-3)] text-[var(--text-muted)]";
   }
 }
 

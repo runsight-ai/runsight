@@ -29,7 +29,7 @@ export default function ComponentShowcase() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[var(--text-primary)]">Component Showcase</h1>
-        <p className="text-[var(--muted-foreground)]">Runsight UI Component Library</p>
+        <p className="text-[var(--text-muted)]">Runsight UI Component Library</p>
       </div>
 
       {/* Status Badges */}
@@ -111,9 +111,9 @@ export default function ComponentShowcase() {
           <div className="flex flex-wrap gap-3">
             <Button>Primary</Button>
             <Button variant="secondary">Secondary</Button>
-            <Button variant="outline">Outline</Button>
+            <Button variant="secondary">Outline</Button>
             <Button variant="ghost">Ghost</Button>
-            <Button variant="destructive">Destructive</Button>
+            <Button variant="danger">Destructive</Button>
           </div>
         </CardContent>
       </Card>

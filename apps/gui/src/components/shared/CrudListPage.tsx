@@ -129,7 +129,7 @@ export function CrudListPage<T>({ config }: CrudListPageProps<T>) {
                 ? error.message
                 : `An error occurred while fetching ${resourceNamePlural.toLowerCase()}.`}
             </p>
-            <Button onClick={() => refetch()} variant="outline">
+            <Button onClick={() => refetch()} variant="secondary">
               <RotateCcw className="h-4 w-4 mr-2" />
               Retry
             </Button>

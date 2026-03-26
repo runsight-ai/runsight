@@ -32,9 +32,9 @@ function StatusBadge({ status }: { status: string }) {
 
   const variants: Record<string, VariantDef> = {
     running: {
-      bg: "bg-running/12",
-      text: "text-running",
-      dot: "bg-running",
+      bg: "bg-info-3",
+      text: "text-info-11",
+      dot: "bg-info-9",
       animate: true,
     },
     paused: {
@@ -53,14 +53,14 @@ function StatusBadge({ status }: { status: string }) {
       dot: "bg-success",
     },
     failed: {
-      bg: "bg-error/12",
-      text: "text-error",
-      dot: "bg-error",
+      bg: "bg-danger/12",
+      text: "text-danger-11",
+      dot: "bg-danger",
     },
     killed: {
-      bg: "bg-error/12",
-      text: "text-error",
-      dot: "bg-error",
+      bg: "bg-danger/12",
+      text: "text-danger-11",
+      dot: "bg-danger",
     },
     stalled: {
       bg: "bg-warning/12",
@@ -73,9 +73,9 @@ function StatusBadge({ status }: { status: string }) {
       dot: "bg-warning",
     },
     pending: {
-      bg: "bg-muted-foreground/12",
+      bg: "bg-neutral-9/12",
       text: "text-muted",
-      dot: "bg-muted-foreground",
+      dot: "bg-neutral-9",
     },
   };
 
@@ -469,8 +469,8 @@ function Pagination({
 
       <div className="flex items-center gap-2">
         <Button
-          variant="outline"
-          size="icon"
+          variant="icon-only"
+          size="sm"
           className="h-8 w-8"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}
@@ -486,7 +486,7 @@ function Pagination({
                 <span className="px-2 text-muted">...</span>
               ) : (
                 <Button
-                  variant={currentPage === page ? "default" : "outline"}
+                  variant={currentPage === page ? "primary" : "secondary"}
                   size="sm"
                   className="h-8 w-8 px-0 text-sm"
                   onClick={() => onPageChange(Number(page))}
@@ -499,8 +499,8 @@ function Pagination({
         </div>
 
         <Button
-          variant="outline"
-          size="icon"
+          variant="icon-only"
+          size="sm"
           className="h-8 w-8"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}
@@ -688,7 +688,7 @@ export function Component() {
           </div>
         ) : error ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-sm text-error">
+            <div className="text-sm text-danger-11">
               Error loading runs: {error.message}
             </div>
           </div>

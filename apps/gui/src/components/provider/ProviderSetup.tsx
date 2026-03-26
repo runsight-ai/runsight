@@ -250,7 +250,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
             }`}>
               {step1Done ? <Check className="size-4" strokeWidth={2} /> : "1"}
             </div>
-            <span className={`text-[16px] font-medium ${step1Done ? "text-[var(--muted-foreground)] line-through opacity-70" : "text-[var(--text-primary)]"}`}>
+            <span className={`text-[16px] font-medium ${step1Done ? "text-[var(--text-muted)] line-through opacity-70" : "text-[var(--text-primary)]"}`}>
               Step 1: Select Provider
             </span>
           </div>
@@ -279,7 +279,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                   <div className="w-10 h-10 flex items-center justify-center bg-[var(--surface-raised)] rounded-md text-xl shrink-0">{p.emoji}</div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[14px] font-medium text-[var(--text-primary)] mb-0.5">{p.name}</div>
-                    <div className="text-[12px] text-[var(--muted-foreground)]">{p.desc}</div>
+                    <div className="text-[12px] text-[var(--text-muted)]">{p.desc}</div>
                   </div>
                   {selectedProviderId === p.id && <Check className="size-5 text-[var(--success-9)] shrink-0" strokeWidth={2} />}
                 </button>
@@ -290,7 +290,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                   <div className="w-10 h-10 flex items-center justify-center bg-[var(--surface-raised)] rounded-md text-xl shrink-0">{provider.emoji}</div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[14px] font-medium text-[var(--text-primary)] mb-0.5">{provider.name}</div>
-                    <div className="text-[12px] text-[var(--muted-foreground)]">{provider.desc}</div>
+                    <div className="text-[12px] text-[var(--text-muted)]">{provider.desc}</div>
                   </div>
                   <Check className="size-5 text-[var(--success-9)] shrink-0" strokeWidth={2} />
                 </div>
@@ -298,7 +298,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
 
               {!step1Done && (
                 <div>
-                  <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--muted-foreground)] mb-2 mt-2">
+                  <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--text-muted)] mb-2 mt-2">
                     Other Provider
                   </Label>
                   <Select value={dropdownValue} onValueChange={(v) => { if (v) selectProvider(v); }}>
@@ -311,7 +311,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                           <span className="inline-flex items-center gap-2">
                             <span>{p.emoji}</span>
                             <span>{p.name}</span>
-                            <span className="text-[var(--muted-foreground)]">— {p.desc}</span>
+                            <span className="text-[var(--text-muted)]">— {p.desc}</span>
                           </span>
                         </SelectItem>
                       ))}
@@ -334,7 +334,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
               {step2Done ? <Check className="size-4" strokeWidth={2} /> : "2"}
             </div>
             <span className={`text-[16px] font-medium ${
-              step2Done ? "text-[var(--muted-foreground)] line-through opacity-70" : step1Done ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"
+              step2Done ? "text-[var(--text-muted)] line-through opacity-70" : step1Done ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"
             }`}>
               Step 2: Configure
             </span>
@@ -345,7 +345,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
               {/* Display Name */}
               {!step2Done && (
                 <div className="mb-4">
-                  <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--muted-foreground)] mb-2">
+                  <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--text-muted)] mb-2">
                     Display Name
                   </Label>
                   <Input
@@ -362,11 +362,11 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
               {!step2Done && !isOllama && (
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-2">
-                    <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--muted-foreground)]">
+                    <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--text-muted)]">
                       {useEnvVar ? "Environment Variable Name" : "API Key"}
                     </Label>
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-[var(--muted-foreground)]">Use environment variable</span>
+                      <span className="text-[11px] text-[var(--text-muted)]">Use environment variable</span>
                       <Switch
                         checked={useEnvVar}
                         onCheckedChange={setUseEnvVar}
@@ -396,7 +396,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                       <button
                         type="button"
                         onClick={() => setShowApiKey(!showApiKey)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--text-primary)]"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                       >
                         {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                       </button>
@@ -408,7 +408,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
               {/* Base URL — always shown */}
               {!step2Done && (
                 <div className="mb-4">
-                  <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--muted-foreground)] mb-2">
+                  <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--text-muted)] mb-2">
                     Base URL <span className="normal-case font-normal">(optional)</span>
                   </Label>
                   <Input
@@ -426,7 +426,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
 
               <div className="flex items-center gap-3">
                 {testStatus === "testing" && (
-                  <div className="flex items-center gap-2 text-[13px] text-[var(--muted-foreground)]">
+                  <div className="flex items-center gap-2 text-[13px] text-[var(--text-muted)]">
                     <Loader2 className="size-4 animate-spin" strokeWidth={2} />
                     <span>Testing connection…</span>
                   </div>
@@ -480,7 +480,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                   </span>
                 </div>
                 <div className="flex justify-between text-[13px]">
-                  <span className="text-[var(--muted-foreground)]">Model families</span>
+                  <span className="text-[var(--text-muted)]">Model families</span>
                   <span className="text-[var(--text-primary)] font-mono">{provider.families}</span>
                 </div>
               </div>

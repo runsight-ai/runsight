@@ -133,7 +133,7 @@ export function NewSoulModal({ open, onClose }: NewSoulModalProps) {
           </div>
         </div>
         <DialogFooter className="h-16 px-4 border-t border-[var(--border-default)] flex items-center justify-end gap-2 shrink-0">
-          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary">
+          <Button variant="secondary" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary">
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={!isNameFilled || isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white disabled:opacity-40">
@@ -235,7 +235,7 @@ export function EditSoulModal({ item: soul, open, onClose }: EditSoulModalProps)
           </div>
         </div>
         <DialogFooter className="h-16 px-4 border-t border-[var(--border-default)] flex items-center justify-end gap-2 shrink-0">
-          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary">Cancel</Button>
+          <Button variant="secondary" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary">Cancel</Button>
           <Button onClick={handleSubmit} disabled={isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white disabled:opacity-40">
             {isSubmitting ? (
               <>

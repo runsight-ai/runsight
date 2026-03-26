@@ -55,7 +55,7 @@ const FLOATING_NODE_SVGS = [
   <svg key="4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--interactive-default)" strokeWidth="1.5">
     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
   </svg>,
-  <svg key="5" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" strokeWidth="1.5">
+  <svg key="5" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5">
     <circle cx="12" cy="12" r="3" />
     <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
   </svg>,
@@ -86,7 +86,7 @@ export function Component() {
         style={{
           backgroundImage: `
             radial-gradient(circle at 20% 80%, var(--accent-2) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, var(--running-05) 0%, transparent 40%),
+            radial-gradient(circle at 80% 20%, var(--info-3) 0%, transparent 40%),
             linear-gradient(var(--border-15) 1px, transparent 1px),
             linear-gradient(90deg, var(--border-15) 1px, transparent 1px)
           `,
@@ -137,7 +137,7 @@ export function Component() {
             <br />
             Visually.
           </h1>
-          <p className="text-lg leading-[1.6] text-[var(--muted-foreground)] mb-10 max-w-[560px] mx-auto">
+          <p className="text-lg leading-[1.6] text-[var(--text-muted)] mb-10 max-w-[560px] mx-auto">
             A visual workflow builder for composing, monitoring, and managing multi-agent systems.
             Git-native, multi-provider, and designed for the way modern teams work.
           </p>

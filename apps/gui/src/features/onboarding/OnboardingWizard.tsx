@@ -56,7 +56,7 @@ export function Component() {
               <span className="text-[13px] font-semibold tracking-[0.08em] uppercase">RUNSIGHT</span>
             </div>
             <h1 className="text-[22px] font-semibold tracking-[-0.02em] mb-1">Welcome to Runsight</h1>
-            <p className="text-[14px] text-[var(--muted-foreground)]">Let&apos;s get you set up with your first AI provider</p>
+            <p className="text-[14px] text-[var(--text-muted)]">Let&apos;s get you set up with your first AI provider</p>
           </div>
 
           <ProviderSetup
@@ -72,7 +72,7 @@ export function Component() {
           {/* Footer */}
           <div className="pt-6 mt-6 border-t border-[var(--border-default)] flex items-center justify-between">
             <Button
-              variant="outline"
+              variant="secondary"
               className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)]"
               onClick={() => setupRef.current?.stepBack()}
               disabled={!state?.canStepBack}
@@ -81,7 +81,7 @@ export function Component() {
             </Button>
             <button
               type="button"
-              className="text-[14px] text-[var(--muted-foreground)] hover:text-[var(--text-primary)] transition-colors bg-transparent border-none cursor-pointer"
+              className="text-[14px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors bg-transparent border-none cursor-pointer"
               onClick={handleSkip}
             >
               Skip for now

@@ -15,7 +15,7 @@ function StartNodeComponent({ data }: NodeProps<StartNodeType>) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-1.5 !h-1.5 !bg-muted-foreground !border-border-default"
+        className="!w-1.5 !h-1.5 !bg-neutral-9 !border-border-default"
       />
     </div>
   );

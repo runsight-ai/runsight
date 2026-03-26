@@ -304,7 +304,7 @@ export function Component() {
             <p className="text-sm text-muted mb-4">
               {error instanceof Error ? error.message : "An error occurred while fetching workflows."}
             </p>
-            <Button onClick={() => refetch()} variant="outline">
+            <Button onClick={() => refetch()} variant="secondary">
               <RotateCcw className="h-4 w-4 mr-2" />
               Retry
             </Button>
@@ -361,7 +361,7 @@ export function Component() {
         actions={
           <>
             <Button
-              variant="outline"
+              variant="secondary"
               className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary"
               disabled
             >
@@ -570,7 +570,7 @@ export function Component() {
           </DialogHeader>
           <DialogFooter className="flex justify-end gap-2 mt-4">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setWorkflowToDelete(null)}
               className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary"
             >

@@ -35,7 +35,7 @@ export interface RunNodeData extends Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 function getNodeIcon(icon: string | undefined, iconColor: string | undefined) {
-  const color = iconColor || "var(--muted-foreground)";
+  const color = iconColor || "var(--text-muted)";
   const className = "w-4 h-4";
   switch (icon) {
     case "server":
@@ -63,7 +63,7 @@ function getBorderStyles(status: string, selected?: boolean) {
     case "failed":
       return { borderColor: "var(--danger-9)", borderWidth: "2px", boxShadow: "0 0 0 2px var(--error-40)" };
     case "pending":
-      return { borderColor: "var(--muted-foreground)", borderWidth: "1px", boxShadow: "none", opacity: 0.7 };
+      return { borderColor: "var(--text-muted)", borderWidth: "1px", boxShadow: "none", opacity: 0.7 };
     default:
       return {
         borderColor: selected ? "var(--interactive-default)" : "var(--border-default)",
@@ -108,14 +108,14 @@ export function CanvasNodeComponent(props: { data: RunNodeData; selected?: boole
           <span className={cn("text-sm font-medium truncate max-w-[120px]", status === "pending" ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]")}>{data.name}</span>
         </div>
         {displayCost !== undefined && (
-          <span className="font-mono text-xs text-[var(--muted-foreground)]">{isEstimate ? "~" : ""}${displayCost.toFixed(3)}</span>
+          <span className="font-mono text-xs text-[var(--text-muted)]">{isEstimate ? "~" : ""}${displayCost.toFixed(3)}</span>
         )}
       </div>
       <div className="p-3 space-y-2">
         {data.soulRef && (
           <div className="flex items-center justify-between">
             <span className="text-xs text-[var(--text-muted)]">Soul</span>
-            <span className="text-xs text-[var(--muted-foreground)]">{data.soulRef}</span>
+            <span className="text-xs text-[var(--text-muted)]">{data.soulRef}</span>
           </div>
         )}
         <div className="flex items-center justify-between">
@@ -124,7 +124,7 @@ export function CanvasNodeComponent(props: { data: RunNodeData; selected?: boole
         </div>
       </div>
       {(data.duration || data.tokens) && (
-        <div className="px-3 py-1.5 border-t border-[var(--border-default)] text-xs text-[var(--muted-foreground)]">
+        <div className="px-3 py-1.5 border-t border-[var(--border-default)] text-xs text-[var(--text-muted)]">
           {data.duration ? `${data.duration.toFixed(1)}s` : ""}
           {data.duration && data.tokens ? " • " : ""}
           {data.tokens?.total ? `${data.tokens.total.toLocaleString()} tokens` : ""}

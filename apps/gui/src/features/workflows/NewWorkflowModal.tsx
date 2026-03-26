@@ -126,7 +126,7 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
 
         <DialogFooter className="h-16 px-4 border-t border-[var(--border-default)] flex items-center justify-end gap-2 shrink-0">
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={handleCancel}
             disabled={isSubmitting}
             className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary"

@@ -29,6 +29,12 @@ from runsight_core.yaml.schema import (
 )
 
 
+# Supported schema versions. When a future version bump is needed:
+# 1. Add the new version string here.
+# 2. Gate migration logic on file_def.version before the block-building loop.
+SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
+
+
 BUILT_IN_SOULS: Dict[str, Soul] = {
     "researcher": Soul(
         id="researcher_1",
@@ -171,6 +177,15 @@ def parse_workflow_yaml(
 
     # Step 2: Validate against Pydantic schema (raises ValidationError on failure)
     file_def = RunsightWorkflowFile.model_validate(raw)
+
+    # Step 2.1: Validate schema version
+    if file_def.version not in SUPPORTED_VERSIONS:
+        raise ValueError(
+            f"Unsupported schema version '{file_def.version}'. "
+            f"Supported versions: {sorted(SUPPORTED_VERSIONS)}. "
+            f"If you are using a newer version of Runsight YAML, "
+            f"please upgrade runsight-core to a compatible release."
+        )
 
     # Step 3: Merge souls — YAML-defined souls override built-ins by key
     souls_map: Dict[str, Soul] = dict(BUILT_IN_SOULS)  # start with built-ins

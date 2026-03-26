@@ -240,7 +240,7 @@ export function ShellLayout() {
           <span>Runsight v0.1.0</span>
           <span className="mx-2 text-border">|</span>
           <span className="flex items-center gap-1.5">
-            <span className={`size-1.5 rounded-full ${providerCount > 0 ? "bg-success" : "bg-muted-foreground"}`} />
+            <span className={`size-1.5 rounded-full ${providerCount > 0 ? "bg-success" : "bg-neutral-9"}`} />
             {providerCount > 0
               ? `${providerCount} provider${providerCount > 1 ? "s" : ""} connected`
               : "No providers configured"}

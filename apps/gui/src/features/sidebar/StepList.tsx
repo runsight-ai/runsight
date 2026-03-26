@@ -34,7 +34,7 @@ const columns: Column[] = [
     render: (row) => {
       const step = row as StepResponse;
       return (
-        <Badge variant="secondary" className={`${getStepTypeColor(step.type)} border-none text-xs`}>
+        <Badge variant="neutral" className={`${getStepTypeColor(step.type)} border-none text-xs`}>
           {step.type}
         </Badge>
       );

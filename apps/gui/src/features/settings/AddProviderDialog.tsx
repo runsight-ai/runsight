@@ -64,7 +64,7 @@ export function AddProviderDialog({
         <DialogFooter>
           {state?.canStepBack && (
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setupRef.current?.stepBack()}
               type="button"
               className="mr-auto"
@@ -72,7 +72,7 @@ export function AddProviderDialog({
               Back
             </Button>
           )}
-          <Button variant="outline" onClick={handleClose} type="button">
+          <Button variant="secondary" onClick={handleClose} type="button">
             Cancel
           </Button>
           <Button

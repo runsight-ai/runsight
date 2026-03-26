@@ -27,7 +27,7 @@ function SoulNodeComponent({ id, data, selected }: NodeProps<SoulNodeType>) {
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-2 !h-2 !bg-muted-foreground !border-border-default"
+        className="!w-2 !h-2 !bg-neutral-9 !border-border-default"
       />
 
       <div className="flex items-center gap-2 mb-1">
@@ -44,7 +44,7 @@ function SoulNodeComponent({ id, data, selected }: NodeProps<SoulNodeType>) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-2 !h-2 !bg-muted-foreground !border-border-default"
+        className="!w-2 !h-2 !bg-neutral-9 !border-border-default"
       />
     </div>
   );
