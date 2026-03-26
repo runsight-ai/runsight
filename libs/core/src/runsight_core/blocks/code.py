@@ -122,19 +122,25 @@ def _validate_code_ast(code: str, allowed_imports: List[str]) -> None:
         raise ValueError("Code must define a 'def main(data)' function")
 
 
-_HARNESS_TEMPLATE = textwrap.dedent(
+_HARNESS_PREFIX = textwrap.dedent(
     """\
-import sys, json
+import json
 
-# --- user code ---
-{user_code}
-# --- end user code ---
-
-_input = json.loads(sys.stdin.read())
-_result = main(_input)
-sys.stdout.write(json.dumps(_result))
 """
 )
+
+_HARNESS_SUFFIX = textwrap.dedent(
+    """
+
+# --- harness ---
+_input = json.loads(open(0).read())
+_result = main(_input)
+print(json.dumps(_result), end="")
+"""
+)
+
+# Keep a combined constant for introspection / tests.
+_HARNESS_TEMPLATE = _HARNESS_PREFIX + "# (user code)" + _HARNESS_SUFFIX
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +187,7 @@ class CodeBlock(BaseBlock):
 
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
         """Run user code in a subprocess and return updated state."""
-        harness = _HARNESS_TEMPLATE.format(user_code=self.code)
+        harness = _HARNESS_PREFIX + self.code + _HARNESS_SUFFIX
 
         stdin_data = json.dumps(
             {
