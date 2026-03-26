@@ -11,6 +11,7 @@
  * AC5: Click navigates to /workflows/:id/edit
  * AC6: Section hidden when no active runs (conditional rendering)
  * AC7: useNavigate used for run click navigation
+ * AC9: Run removed from active list when completed/failed via SSE
  *
  * Expected failures (current state):
  *   - DashboardOrOnboarding.tsx is a minimal 30-line shell with no active runs section
@@ -227,5 +228,74 @@ describe("Dashboard wiring (useActiveRuns integration)", () => {
     source = readSource(DASHBOARD_PATH);
     // Should reference total_cost_usd or cost
     expect(source).toMatch(/total_cost_usd|cost/);
+  });
+});
+
+// ===========================================================================
+// 8. SSE subscription removes runs on completion/failure (AC9)
+// ===========================================================================
+
+describe("SSE removes completed/failed runs from active list (AC9)", () => {
+  let dashSource: string;
+  let queriesSource: string;
+
+  it("references EventSource or SSE stream in dashboard or queries layer", () => {
+    dashSource = readSource(DASHBOARD_PATH);
+    queriesSource = readSource(RUNS_QUERIES_PATH);
+    const combined = dashSource + queriesSource;
+    // There must be an EventSource instantiation or a /stream endpoint reference
+    const hasSSE = /EventSource|\/stream|event-source|useSSE|useSse/.test(
+      combined
+    );
+    expect(
+      hasSSE,
+      "Expected EventSource or /stream reference for SSE subscription"
+    ).toBe(true);
+  });
+
+  it("connects SSE per active run (uses run id in stream URL)", () => {
+    dashSource = readSource(DASHBOARD_PATH);
+    queriesSource = readSource(RUNS_QUERIES_PATH);
+    const combined = dashSource + queriesSource;
+    // The SSE connection should be per-run, referencing the run's id in the URL
+    // e.g. /api/v1/runs/${run.id}/stream or similar pattern
+    const hasPerRunStream =
+      /runs\/\$\{.*\.id\}\/stream|runs\/\$\{.*id\}\/stream|run\.id.*stream|runId.*stream/.test(
+        combined
+      );
+    expect(
+      hasPerRunStream,
+      "Expected per-run SSE connection using run id in the stream URL"
+    ).toBe(true);
+  });
+
+  it("handles run_completed or completed event to remove run from list", () => {
+    dashSource = readSource(DASHBOARD_PATH);
+    queriesSource = readSource(RUNS_QUERIES_PATH);
+    const combined = dashSource + queriesSource;
+    // Should listen for a completed event and remove/filter the run
+    const handlesCompleted =
+      /run_completed|["']completed["'].*remove|completed.*filter|onmessage.*completed|addEventListener.*completed/.test(
+        combined
+      );
+    expect(
+      handlesCompleted,
+      "Expected handler for run_completed/completed SSE event that removes run"
+    ).toBe(true);
+  });
+
+  it("handles run_failed or failed event to remove run from list", () => {
+    dashSource = readSource(DASHBOARD_PATH);
+    queriesSource = readSource(RUNS_QUERIES_PATH);
+    const combined = dashSource + queriesSource;
+    // Should listen for a failed event and remove/filter the run
+    const handlesFailed =
+      /run_failed|["']failed["'].*remove|failed.*filter|onmessage.*failed|addEventListener.*failed/.test(
+        combined
+      );
+    expect(
+      handlesFailed,
+      "Expected handler for run_failed/failed SSE event that removes run"
+    ).toBe(true);
   });
 });
