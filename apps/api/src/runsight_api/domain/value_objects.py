@@ -39,19 +39,19 @@ class WorkflowEntity(BaseModel):
 class SoulEntity(BaseModel):
     id: str
     name: Optional[str] = None
-    model_config = {"extra": "allow"}
+    model_config = {"extra": "ignore"}
 
 
 class TaskEntity(BaseModel):
     id: str
     name: Optional[str] = None
-    model_config = {"extra": "allow"}
+    model_config = {"extra": "ignore"}
 
 
 class StepEntity(BaseModel):
     id: str
     name: Optional[str] = None
-    model_config = {"extra": "allow"}
+    model_config = {"extra": "ignore"}
 
 
 class ProviderEntity(BaseModel):
