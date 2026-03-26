@@ -31,8 +31,8 @@ export function Component() {
   const navigate = useNavigate();
   const createWorkflow = useCreateWorkflow();
   const workflows = useWorkflows();
-  const { activeRuns, subscribeToRunStream } = useActiveRuns();
-  const { data } = useDashboardKPIs();
+  const { activeRuns, subscribeToRunStream, isError: isRunsError } = useActiveRuns();
+  const { data, isError, error, refetch } = useDashboardKPIs();
   const eventSourcesRef = useRef<Map<string, EventSource>>(new Map());
 
   // SSE: subscribe to each active run's EventSource stream
@@ -64,13 +64,13 @@ export function Component() {
     navigate(`/workflows/${result.id}/edit`);
   }
 
-  const runsToday = data?.runs_today ?? 0;
-  const costTodayUsd = data?.cost_today_usd ?? 0;
+  const runsToday = isError ? "—" : (data?.runs_today ?? 0);
+  const costTodayUsd = isError ? "—" : (data?.cost_today_usd ?? 0);
   const eval_pass_rate = data?.eval_pass_rate;
   const regressions = data?.regressions;
 
-  const evalPassDisplay = eval_pass_rate != null ? `${(eval_pass_rate * 100).toFixed(0)}%` : "—";
-  const regressionsDisplay = regressions ?? "—";
+  const evalPassDisplay = isError ? "—" : (eval_pass_rate != null ? `${(eval_pass_rate * 100).toFixed(0)}%` : "—");
+  const regressionsDisplay = isError ? "—" : (regressions ?? "—");
 
   const hasNoWorkflows = workflows.data?.items?.length === 0;
 
@@ -100,11 +100,18 @@ export function Component() {
     </Button>
   );
 
+  const errorBanner = (isError || isRunsError) && (
+    <div className="mx-4 mt-4 p-4 rounded-md border border-destructive bg-destructive/10 text-destructive">
+      <p>Couldn't load dashboard data. Check that the Runsight server is running.</p>
+      <button className="mt-2 text-sm underline" onClick={() => refetch()}>Retry</button>
+    </div>
+  );
+
   const kpiGrid = (
     <div className="grid grid-cols-4 gap-4 p-4">
       <StatCard label="Runs Today" value={runsToday} />
       <StatCard label="Eval Pass" value={evalPassDisplay} />
-      <StatCard label="Spent Today" value={formatCurrency(costTodayUsd)} />
+      <StatCard label="Spent Today" value={typeof costTodayUsd === "string" ? costTodayUsd : formatCurrency(costTodayUsd)} />
       <StatCard label="Regressions" value={regressionsDisplay} variant={regressions != null && regressions > 0 ? "warning" : "default"} />
     </div>
   );
@@ -114,6 +121,7 @@ export function Component() {
     return (
       <div className="flex-1 flex flex-col">
         <PageHeader title="Home" actions={headerActions} />
+        {errorBanner}
         {kpiGrid}
         <EmptyState
           icon={Play}
@@ -129,6 +137,7 @@ export function Component() {
   return (
     <div className="flex-1 flex flex-col">
       <PageHeader title="Home" actions={headerActions} />
+      {errorBanner}
       {kpiGrid}
       {activeRuns.length > 0 && (
         <div className="px-6 py-4">
