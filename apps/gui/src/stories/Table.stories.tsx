@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
+import { Badge, BadgeDot } from "@/components/ui/badge";
 import {
   Table,
   TableHeader,
@@ -36,7 +37,7 @@ export const Default: Story = {
         <TableRow>
           <TableCell>customer-support-triage</TableCell>
           <TableCell>
-            <span className="badge badge--success"><span className="badge__dot" />Running</span>
+            <Badge variant="success"><BadgeDot />Running</Badge>
           </TableCell>
           <TableCell>2 min ago</TableCell>
           <TableMonoCell>34s</TableMonoCell>
@@ -44,7 +45,7 @@ export const Default: Story = {
         <TableRow>
           <TableCell>email-classifier</TableCell>
           <TableCell>
-            <span className="badge badge--neutral">Completed</span>
+            <Badge variant="neutral">Completed</Badge>
           </TableCell>
           <TableCell>5 min ago</TableCell>
           <TableMonoCell>12s</TableMonoCell>
@@ -52,7 +53,7 @@ export const Default: Story = {
         <TableRow>
           <TableCell>data-pipeline</TableCell>
           <TableCell>
-            <span className="badge badge--danger">Failed</span>
+            <Badge variant="danger">Failed</Badge>
           </TableCell>
           <TableCell>10 min ago</TableCell>
           <TableMonoCell>1m 22s</TableMonoCell>
@@ -78,7 +79,7 @@ export const WithSelection: Story = {
         <TableRow>
           <TableCell>customer-support-triage</TableCell>
           <TableCell>
-            <span className="badge badge--success"><span className="badge__dot" />Running</span>
+            <Badge variant="success"><BadgeDot />Running</Badge>
           </TableCell>
           <TableCell>2 min ago</TableCell>
           <TableMonoCell>34s</TableMonoCell>
@@ -86,7 +87,7 @@ export const WithSelection: Story = {
         <TableRow aria-selected="true">
           <TableCell>email-classifier</TableCell>
           <TableCell>
-            <span className="badge badge--neutral">Completed</span>
+            <Badge variant="neutral">Completed</Badge>
           </TableCell>
           <TableCell>5 min ago</TableCell>
           <TableMonoCell>12s</TableMonoCell>
@@ -94,7 +95,7 @@ export const WithSelection: Story = {
         <TableRow>
           <TableCell>data-pipeline</TableCell>
           <TableCell>
-            <span className="badge badge--danger">Failed</span>
+            <Badge variant="danger">Failed</Badge>
           </TableCell>
           <TableCell>10 min ago</TableCell>
           <TableMonoCell>1m 22s</TableMonoCell>
@@ -110,9 +111,9 @@ export const SortableHeaders: Story = {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead aria-sort="none">Workflow ↕</TableHead>
-          <TableHead aria-sort="descending">Started ↓</TableHead>
-          <TableHead aria-sort="none">Duration ↕</TableHead>
+          <TableHead aria-sort="none">Workflow</TableHead>
+          <TableHead aria-sort="descending">Started</TableHead>
+          <TableHead aria-sort="none">Duration</TableHead>
           <TableHead>Status</TableHead>
         </TableRow>
       </TableHeader>
@@ -122,7 +123,7 @@ export const SortableHeaders: Story = {
           <TableMonoCell>2026-03-25 09:14:00</TableMonoCell>
           <TableMonoCell>34s</TableMonoCell>
           <TableCell>
-            <span className="badge badge--success"><span className="badge__dot" />Running</span>
+            <Badge variant="success"><BadgeDot />Running</Badge>
           </TableCell>
         </TableRow>
         <TableRow>
@@ -130,7 +131,7 @@ export const SortableHeaders: Story = {
           <TableMonoCell>2026-03-25 09:09:00</TableMonoCell>
           <TableMonoCell>12s</TableMonoCell>
           <TableCell>
-            <span className="badge badge--neutral">Completed</span>
+            <Badge variant="neutral">Completed</Badge>
           </TableCell>
         </TableRow>
       </TableBody>

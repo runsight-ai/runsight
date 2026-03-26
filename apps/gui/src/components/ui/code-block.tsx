@@ -8,7 +8,7 @@ const codeBlockVariants = cva(
   // base — surface-primary, border, left accent, radius, padding, mono font, relative
   [
     "bg-surface-primary",
-    "border border-border-subtle border-l-[3px] border-l-interactive-default",
+    "border border-border-subtle border-l-[4px] border-l-interactive-default",
     "rounded-md",
     "p-4 overflow-x-auto",
     "font-mono text-sm leading-relaxed text-primary",
@@ -111,7 +111,18 @@ export function CodeBlock({
         data-slot="code-block-content"
         className="overflow-x-auto"
       >
-        <code>{children}</code>
+        <code>
+          {numbered && typeof children === "string"
+            ? children.split("\n").map((line, i) => (
+                <span
+                  key={i}
+                  className="[counter-increment:line] block before:content-[counter(line)] before:inline-block before:w-[2.5em] before:mr-3 before:text-right before:text-muted before:select-none"
+                >
+                  {line}
+                </span>
+              ))
+            : children}
+        </code>
       </pre>
     </div>
   )

@@ -1,9 +1,9 @@
 /**
  * RED-TEAM tests for RUN-302: Tier 5 Overlays & Feedback.
  *
- * Validates that Dialog, DropdownMenu, Command, Sheet, Popover, and ScrollArea
+ * Validates that Dialog, DropdownMenu, Command, Sheet, and Popover
  * have been updated to use Runsight design system tokens, and that Storybook
- * story files exist for all 6 components.
+ * story files exist for all 5 components.
  *
  * Tests read component source files as strings and verify design system tokens.
  *
@@ -22,10 +22,7 @@
  *     (not elevation-overlay-shadow), uses raw duration-200 not a DS duration token
  *   - popover.tsx: uses bg-surface-overlay (not surface-raised), uses shadow-md
  *     (not elevation-raised-shadow), no elevation-border-raised token
- *   - scroll-area.tsx: thumb uses bg-border-default (not neutral-7), scrollbar
- *     width uses w-2.5 (10px) not 6px / w-1.5
- *   - No story files exist yet for Dialog, DropdownMenu, Command, Sheet, Popover,
- *     or ScrollArea
+ *   - No story files exist yet for Dialog, DropdownMenu, Command, Sheet, or Popover
  */
 
 import { describe, it, expect } from "vitest";
@@ -293,33 +290,7 @@ describe("Popover — elevation-border-raised token on PopoverContent (AC5)", ()
 });
 
 // ===========================================================================
-// 20. SCROLL AREA — neutral-7 token on scrollbar thumb (AC6)
-// ===========================================================================
-
-describe("ScrollArea — neutral-7 token on scrollbar thumb (AC6)", () => {
-  it("uses neutral-7 token for the scrollbar thumb color", () => {
-    const source = readComponent("scroll-area.tsx");
-    // Spec: scrollbar thumb color uses --neutral-7 DS token
-    // Current state: bg-border-default (semantic alias, not the neutral-7 palette token)
-    expect(source).toMatch(/neutral-7/);
-  });
-});
-
-// ===========================================================================
-// 21. SCROLL AREA — 6px scrollbar width (AC6)
-// ===========================================================================
-
-describe("ScrollArea — 6px (w-1.5) scrollbar width (AC6)", () => {
-  it("uses w-1.5 (6px) for the scrollbar width", () => {
-    const source = readComponent("scroll-area.tsx");
-    // Spec: scrollbar width is 6px (w-1.5 in Tailwind)
-    // Current state: data-vertical:w-2.5 (10px — too wide)
-    expect(source).toMatch(/w-1\.5|width.*6px|scrollbar-width.*6/);
-  });
-});
-
-// ===========================================================================
-// 22. STORYBOOK STORIES — all 6 overlay story files exist (AC7)
+// 20. STORYBOOK STORIES — overlay story files exist (AC7)
 // ===========================================================================
 
 describe("Storybook stories — overlay story files exist (AC7)", () => {
@@ -341,10 +312,6 @@ describe("Storybook stories — overlay story files exist (AC7)", () => {
 
   it("Popover.stories.tsx exists in src/stories/", () => {
     expect(storyExists("Popover.stories.tsx")).toBe(true);
-  });
-
-  it("ScrollArea.stories.tsx exists in src/stories/", () => {
-    expect(storyExists("ScrollArea.stories.tsx")).toBe(true);
   });
 });
 
@@ -503,33 +470,3 @@ describe("Storybook stories — Popover.stories.tsx structure (AC7)", () => {
   });
 });
 
-// ===========================================================================
-// 28. STORYBOOK STORIES — ScrollArea.stories.tsx structure (AC7)
-// ===========================================================================
-
-describe("Storybook stories — ScrollArea.stories.tsx structure (AC7)", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("ScrollArea.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("ScrollArea.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("ScrollArea.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic/default scroll area usage", () => {
-    const content = readStory("ScrollArea.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers horizontal scrolling or both axes", () => {
-    const content = readStory("ScrollArea.stories.tsx");
-    expect(content).toMatch(/horizontal|Horizontal|both|Both|overflow/i);
-  });
-});

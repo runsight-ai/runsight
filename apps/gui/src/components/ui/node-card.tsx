@@ -104,9 +104,9 @@ function SoulAvatar({ soul }: { soul: NodeCardSoul }) {
       <span
         className={[
           "inline-flex items-center justify-center",
-          "w-5 h-5 rounded-full flex-shrink-0",
-          "text-[9px] font-semibold text-white leading-none",
-          "shadow-[0_0_0_1px_hsla(40,6%,24%,0.5)]",
+          "size-5 rounded-full flex-shrink-0", // icon-size-lg = 20px
+          "text-3xs font-semibold text-white leading-none",
+          "shadow-[0_0_0_1px_color-mix(in_srgb,var(--neutral-6)_50%,transparent)]",
           "cursor-default select-none",
         ].join(" ")}
         style={{ background: soul.color }}
@@ -118,12 +118,12 @@ function SoulAvatar({ soul }: { soul: NodeCardSoul }) {
       <span
         className={[
           "absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2",
-          "w-[160px]",
+          "w-[200px]", // soul-tip spec: 200px
           "bg-(--neutral-2) border border-(--neutral-4)",
           "rounded-[var(--radius-md)]",
           "px-3 py-2",
           "shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
-          "font-mono text-[10px]",
+          "font-mono text-3xs",
           "opacity-0 pointer-events-none",
           "transition-opacity duration-[var(--duration-100)]",
           "group-hover/soul-tip:opacity-100",
@@ -148,20 +148,20 @@ function SoulAvatar({ soul }: { soul: NodeCardSoul }) {
             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
             style={{ background: soul.color }}
           />
-          <span className="text-[10px] text-(--text-primary) font-medium">{soul.name}</span>
+          <span className="text-3xs text-(--text-primary) font-medium">{soul.name}</span>
         </span>
 
         {/* Key/value rows */}
         {rows.map(({ key, val }) => (
           <span key={key} className="flex justify-between items-baseline mb-[3px]">
-            <span className="text-(--text-muted) uppercase tracking-wider text-[9px]">{key}</span>
-            <span className="text-(--accent-11) font-mono text-[10px]">{val}</span>
+            <span className="text-(--text-muted) uppercase tracking-wider text-3xs">{key}</span>
+            <span className="text-(--accent-11) font-mono text-3xs">{val}</span>
           </span>
         ))}
 
         {/* Prompt preview */}
         {soul.prompt && (
-          <span className="block text-[10px] text-(--text-muted) mt-1.5 leading-tight line-clamp-2">
+          <span className="block text-3xs text-(--text-muted) mt-1.5 leading-tight line-clamp-2">
             {soul.prompt}
           </span>
         )}
@@ -191,8 +191,8 @@ export interface NodeCardProps extends Omit<React.ComponentProps<"div">, "title"
   outputPort?: boolean
   /** Named output port rows */
   ports?: NodeCardPort[]
-  /** Soul assignments — renders overlapping avatar stack with tooltips */
-  souls?: NodeCardSoul[]
+  /** Soul assignment — renders an avatar with tooltip */
+  soul?: NodeCardSoul
   /** Status badge text (hidden by CSS per spec; kept for a11y/data layer) */
   statusBadge?: string
   /** Meta label(s) shown below the header row in uppercase monospace */
@@ -216,7 +216,7 @@ export function NodeCard({
   inputPort = false,
   outputPort = false,
   ports,
-  souls,
+  soul,
   statusBadge,
   meta,
   icon,
@@ -238,17 +238,17 @@ export function NodeCard({
 
   // Execution-state background tint
   const stateBg: Partial<Record<ExecutionState, string>> = {
-    success: "bg-[hsla(142,40%,40%,0.03)]",
-    error:   "bg-[hsla(0,50%,50%,0.04)]",
+    success: "bg-[color-mix(in_srgb,var(--success-9)_3%,transparent)]",
+    error:   "bg-[color-mix(in_srgb,var(--danger-9)_4%,transparent)]",
   }
 
   // Selection border (amber sides + glow, preserves top stripe)
   const selectedClasses = selected
     ? [
-        "border-l-[hsla(38,92%,55%,0.5)]",
-        "border-r-[hsla(38,92%,55%,0.5)]",
-        "border-b-[hsla(38,92%,55%,0.5)]",
-        "shadow-[0_0_16px_hsla(38,92%,55%,0.15)]",
+        "border-l-accent-9/50",
+        "border-r-accent-9/50",
+        "border-b-accent-9/50",
+        "shadow-[0_0_16px_color-mix(in_srgb,var(--accent-9)_15%,transparent)]",
       ].join(" ")
     : ""
 
@@ -273,7 +273,7 @@ export function NodeCard({
       aria-selected={selected || undefined}
       className={cn(
         // base layout
-        "relative w-[260px] cursor-pointer",
+        "relative w-[var(--node-card-width,260px)] cursor-pointer",
         // surface
         "bg-(--surface-tertiary)",
         // border: thin neutral on sides/bottom, 3px top stripe
@@ -281,10 +281,10 @@ export function NodeCard({
         // radius: flat top (stripe acts as top), rounded bottom
         "rounded-b-[var(--radius-lg)] rounded-t-none",
         // shadow + transition
-        "shadow-[0_1px_2px_hsla(40,12%,4%,0.3)]",
+        "shadow-card",
         "transition-[border-color,box-shadow] duration-150 ease-out",
         // hover
-        "hover:border-(--border-hover) hover:shadow-[0_4px_8px_hsla(40,12%,4%,0.4)]",
+        "hover:border-(--border-hover) hover:shadow-card-hover",
         // top stripe colour (state > category)
         topStripeClass,
         // execution bg tint
@@ -303,7 +303,7 @@ export function NodeCard({
           data-slot="node-card-port"
           className={[
             "absolute left-[-5px] top-1/2 -translate-y-1/2",
-            "w-[10px] h-[10px] rounded-full",
+            "size-2.5 rounded-full",
             "bg-(--surface-primary) border-2 border-(--border-default)",
             "transition-[border-color,background,box-shadow] duration-150 ease-out",
             "hover:border-(--interactive-default) hover:bg-(--interactive-default)",
@@ -324,7 +324,7 @@ export function NodeCard({
       {/* Header: icon + name + avatar stack */}
       <div
         data-slot="node-card-header"
-        className="flex items-center gap-2 px-3 pt-[10px] pb-[6px] relative z-[2]"
+        className="flex items-center gap-2 px-3 pt-2.5 pb-1.5 relative z-[2]"
       >
         {icon && (
           <div
@@ -342,28 +342,21 @@ export function NodeCard({
         <span
           data-slot="node-card-title"
           className={[
-            "text-[13px] font-medium text-(--text-heading)",
+            "text-sm font-medium text-(--text-heading)",
             "overflow-hidden text-ellipsis whitespace-nowrap",
-            "flex-1 min-w-0 tracking-[-0.02em]",
+            "flex-1 min-w-0 tracking-tight",
           ].join(" ")}
         >
           {title}
         </span>
 
-        {/* Soul avatar stack — overlapping circles */}
-        {souls && souls.length > 0 && (
+        {/* Soul avatar */}
+        {soul && (
           <div
             data-slot="node-card-avatar-stack"
             className="flex flex-shrink-0"
           >
-            {souls.map((soul, idx) => (
-              <span
-                key={idx}
-                className={idx > 0 ? "-ml-1.5" : ""}
-              >
-                <SoulAvatar soul={soul} />
-              </span>
-            ))}
+            <SoulAvatar soul={soul} />
           </div>
         )}
       </div>
@@ -374,8 +367,9 @@ export function NodeCard({
           data-slot="node-card-meta"
           className={[
             "flex items-center gap-1 flex-wrap",
-            "px-3 pb-[10px]",
-            "font-mono text-[10px] tracking-wider uppercase",
+            "px-3",
+            ports && ports.length > 0 ? "pb-0" : "pb-2.5",
+            "font-mono text-2xs tracking-wider uppercase",
             "text-(--accent-9) opacity-80",
             "relative z-[2]",
           ].join(" ")}
@@ -395,7 +389,7 @@ export function NodeCard({
       {children && (
         <div
           data-slot="node-card-body"
-          className="px-3 pb-[10px] font-mono text-[10px] text-(--text-muted) leading-relaxed"
+          className="px-3 pb-2.5 font-mono text-3xs text-(--text-muted) leading-relaxed"
         >
           {children}
         </div>
@@ -405,23 +399,24 @@ export function NodeCard({
       {ports && ports.length > 0 && (
         <div
           data-slot="node-card-port-rows"
-          className="flex flex-col gap-[6px] px-3 pb-[10px] relative z-[2]"
+          className="flex flex-col gap-1.5 pb-4 relative z-[2]"
         >
           {ports.map((port, idx) => (
             <div
               key={idx}
-              className="flex items-center justify-between relative"
+              className="flex items-center justify-end relative px-3 py-1.5"
             >
-              <span className="font-mono text-[9px] text-(--text-muted) tracking-wider uppercase">
+              <span className="font-mono text-2xs text-(--text-muted) tracking-wider uppercase mr-2">
                 {port.name}
               </span>
               <div
                 className={cn(
-                  "w-[10px] h-[10px] rounded-full",
+                  "absolute right-[-5px] top-1/2 -translate-y-1/2",
+                  "size-2.5 rounded-full",
                   "transition-[box-shadow,transform] duration-150 ease-out",
                   "hover:scale-[1.3]",
                   port.type === "pass"
-                    ? "bg-(--success-9) hover:shadow-[0_0_8px_hsla(38,92%,55%,0.4)]"
+                    ? "bg-(--success-9) hover:shadow-[0_0_8px_color-mix(in_srgb,var(--accent-9)_40%,transparent)]"
                     : port.type === "fail"
                       ? "bg-(--danger-9)"
                       : "bg-(--border-default)"
@@ -438,10 +433,10 @@ export function NodeCard({
           data-slot="node-card-cost"
           className={[
             "absolute bottom-[-9px] right-3",
-            "px-2 py-[2px]",
+            "px-2 py-0.5",
             "bg-(--accent-3) border border-(--accent-6)",
             "rounded-full",
-            "font-mono text-[10px] text-(--accent-11)",
+            "font-mono text-3xs text-(--accent-11)",
             "tracking-wider",
             "pointer-events-none",
             "z-[3]",
@@ -457,7 +452,7 @@ export function NodeCard({
           data-slot="node-card-port"
           className={[
             "absolute right-[-5px] top-1/2 -translate-y-1/2",
-            "w-[10px] h-[10px] rounded-full",
+            "size-2.5 rounded-full",
             "bg-(--surface-primary) border-2 border-(--border-default)",
             "transition-[border-color,background,box-shadow] duration-150 ease-out",
             "hover:border-(--interactive-default) hover:bg-(--interactive-default)",

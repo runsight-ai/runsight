@@ -96,6 +96,7 @@
   --spacing: 4px;
 
   /* Font sizes */
+  --text-3xs: 10px; /* tooltip/compact context — below font-size-2xs (11px) */
   --text-2xs: var(--font-size-2xs);
   --text-xs:  var(--font-size-xs);
   --text-sm:  var(--font-size-sm);
@@ -127,9 +128,16 @@
   --tracking-wider:   var(--tracking-wider);
   --tracking-widest:  var(--tracking-widest);
 
+  /* Font families — Tailwind v4 uses --font-family-* for font-* utilities */
+  --font-family-sans:    var(--font-body);
+  --font-family-mono:    var(--font-mono);
+  --font-family-display: var(--font-display);
+
   /* Shadows */
-  --shadow-raised:  var(--elevation-raised-shadow);
-  --shadow-overlay: var(--elevation-overlay-shadow);
+  --shadow-raised:       var(--elevation-raised-shadow);
+  --shadow-overlay:      var(--elevation-overlay-shadow);
+  --shadow-card:         0 1px 2px rgba(0,0,0,0.30);
+  --shadow-card-hover:   0 4px 8px rgba(0,0,0,0.40);
 
   /* Easing */
   --ease-default: var(--ease-default);
@@ -645,73 +653,67 @@
 
 /* ========================================
    GLOBAL STYLES
+   Wrapped in @layer base so Tailwind utilities can override.
+   The universal reset (box-sizing, margin, padding) is handled
+   by Tailwind's preflight — do NOT duplicate it here.
    ======================================== */
 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+@layer base {
+  body {
+    font-family: var(--font-body);
+    font-size: var(--font-size-md);
+    line-height: var(--line-height-normal);
+    background: var(--surface-primary);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-body {
-  font-family: var(--font-body);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-normal);
-  background: var(--surface-primary);
-  color: var(--text-primary);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  /* Skip link */
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 0;
+    z-index: var(--z-toast);
+    padding: var(--space-2) var(--space-4);
+    background: var(--interactive-default);
+    color: var(--text-on-accent);
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+  }
+  .skip-link:focus {
+    top: 0;
+  }
 
+  /* Focus ring */
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
 
-/* ========================================
-   ACCESSIBILITY
-   ======================================== */
+  /* Selection */
+  ::selection {
+    background-color: var(--selection-bg);
+    color: var(--selection-text);
+  }
 
-/* Skip link */
-.skip-link {
-  position: absolute;
-  top: -100%;
-  left: 0;
-  z-index: var(--z-toast);
-  padding: var(--space-2) var(--space-4);
-  background: var(--interactive-default);
-  color: var(--text-on-accent);
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  text-decoration: none;
+  /* Scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-default) transparent;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--neutral-7);
+    border-radius: var(--radius-full);
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
 }
-.skip-link:focus {
-  top: 0;
-}
-
-/* Focus ring */
-:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring-color);
-  outline-offset: var(--focus-ring-offset);
-}
-:focus:not(:focus-visible) {
-  outline: none;
-}
-
-/* Selection */
-::selection {
-  background-color: var(--selection-bg);
-  color: var(--selection-text);
-}
-
-/* Scrollbar */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-default) transparent;
-}
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-thumb {
-  background: var(--neutral-7);
-  border-radius: var(--radius-full);
-}
-::-webkit-scrollbar-track { background: transparent; }
 
 
 /* ========================================
@@ -772,4 +774,14 @@ body {
 @keyframes float {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-12px) rotate(2deg); }
+}
+
+@keyframes progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+@keyframes node-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 hsla(38, 92%, 55%, 0); }
+  50% { box-shadow: 0 0 12px 2px hsla(38, 92%, 55%, 0.15); }
 }

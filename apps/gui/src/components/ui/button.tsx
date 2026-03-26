@@ -51,13 +51,15 @@ const buttonVariants = cva(
       },
       size: {
         // .btn--xs: height 24px, px-2, text-2xs, gap-1, radius-sm
-        xs: "h-6 px-2 text-2xs gap-1 rounded-sm",
+        // leading-tight repeated per size to survive tailwind-merge (tw-merge v3
+        // treats text-* as setting line-height, stripping leading-* from base)
+        xs: "h-6 px-2 text-2xs leading-tight gap-1 rounded-sm",
         // .btn--sm: height 32px, px-3, text-sm
-        sm: "h-8 px-3 text-sm",
+        sm: "h-8 px-3 text-sm leading-tight",
         // .btn--md: height 40px, px-4, text-md
-        md: "h-10 px-4 text-md",
+        md: "h-10 px-4 text-md leading-tight",
         // .btn--lg: height 48px, px-6, text-md, gap-2
-        lg: "h-12 px-6 text-md gap-2",
+        lg: "h-12 px-6 text-md leading-tight gap-2",
       },
     },
     compoundVariants: [

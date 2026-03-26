@@ -129,9 +129,9 @@ function SoulTip({
       <span
         className={[
           "inline-flex items-center justify-center",
-          "w-5 h-5 rounded-full",
-          "text-[9px] font-semibold text-white",
-          "border border-[hsla(40,6%,24%,0.5)]",
+          "size-5 rounded-full", // icon-size-lg = 20px
+          "text-3xs font-semibold text-white",
+          "border border-[color-mix(in_srgb,var(--neutral-6)_50%,transparent)]",
           "cursor-default select-none",
         ].join(" ")}
         style={{ background: color }}
@@ -145,14 +145,14 @@ function SoulTip({
           // position — float above avatar
           "absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2",
           // sizing
-          "w-[160px]",
+          "w-[200px]", // soul-tip spec: 200px
           // surface
           "bg-(--neutral-2) border border-(--neutral-4)",
           "rounded-[var(--radius-md)]",
           "px-3 py-2",
           "shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
           // typography base
-          "font-mono text-[10px]",
+          "font-mono text-3xs",
           // visibility — opacity transition, shown on group hover
           "opacity-0 pointer-events-none",
           "transition-opacity duration-[var(--duration-100)]",
@@ -176,23 +176,23 @@ function SoulTip({
         {/* Name row */}
         <span className="flex items-center gap-1.5 mb-1.5">
           <span
-            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+            className="size-1.5 rounded-full flex-shrink-0"
             style={{ background: color }}
           />
-          <span className="text-[10px] text-(--text-primary) font-medium">{name}</span>
+          <span className="text-3xs text-(--text-primary) font-medium">{name}</span>
         </span>
 
         {/* Key/value rows */}
         {allRows.map(({ key, val }) => (
           <span key={key} className="flex justify-between items-baseline mb-[3px]">
-            <span className="text-(--text-muted) uppercase tracking-wider text-[9px]">{key}</span>
-            <span className="text-(--accent-11) font-mono text-[10px]">{val}</span>
+            <span className="text-(--text-muted) uppercase tracking-wider text-3xs">{key}</span>
+            <span className="text-(--accent-11) font-mono text-3xs">{val}</span>
           </span>
         ))}
 
         {/* Prompt preview */}
         {prompt && (
-          <span className="block text-[10px] text-(--text-muted) mt-1.5 leading-tight line-clamp-2">
+          <span className="block text-3xs text-(--text-muted) mt-1.5 leading-tight line-clamp-2">
             {prompt}
           </span>
         )}

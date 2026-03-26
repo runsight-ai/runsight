@@ -45,6 +45,16 @@ export const Default: Story = {
     selected: false,
     cost: "$0.0024",
     icon: <SparklesIcon size={14} />,
+    inputPort: true,
+    outputPort: true,
+    meta: "Linear",
+    soul: {
+      initial: "R",
+      color: "hsl(38, 85%, 45%)",
+      name: "researcher",
+      model: "gpt-4o",
+      provider: "OpenAI",
+    },
   },
 };
 
@@ -52,11 +62,11 @@ export const AllCategories: Story = {
   name: "All Categories",
   render: () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", width: "260px" }}>
-      <NodeCard title="Research Agent" category="block-agent" icon={<SparklesIcon size={14} />} cost="$0.0024" />
-      <NodeCard title="Route Decision" category="block-logic" icon={<ArrowRightLeftIcon size={14} />} />
-      <NodeCard title="Loop Until" category="block-control" icon={<RepeatIcon size={14} />} />
-      <NodeCard title="Format Output" category="block-utility" icon={<WrenchIcon size={14} />} />
-      <NodeCard title="My Custom Block" category="block-custom" icon={<PuzzleIcon size={14} />} />
+      <NodeCard title="Research Agent" category="block-agent" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "R", color: "hsl(38, 85%, 45%)", name: "researcher", model: "gpt-4o", provider: "OpenAI" }} cost="$0.0024" />
+      <NodeCard title="Route Decision" category="block-logic" icon={<ArrowRightLeftIcon size={14} />} inputPort outputPort meta="Gate" />
+      <NodeCard title="Loop Until" category="block-control" icon={<RepeatIcon size={14} />} inputPort outputPort meta="Control" />
+      <NodeCard title="Format Output" category="block-utility" icon={<WrenchIcon size={14} />} inputPort outputPort meta="Utility" />
+      <NodeCard title="My Custom Block" category="block-custom" icon={<PuzzleIcon size={14} />} inputPort outputPort meta="Custom" />
     </div>
   ),
 };
@@ -65,11 +75,11 @@ export const AllStates: Story = {
   name: "All Execution States",
   render: () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", width: "260px" }}>
-      <NodeCard title="Idle" category="block-agent" executionState="idle" icon={<SparklesIcon size={14} />} />
-      <NodeCard title="Running" category="block-agent" executionState="running" icon={<SparklesIcon size={14} />} />
-      <NodeCard title="Success" category="block-agent" executionState="success" icon={<SparklesIcon size={14} />} />
-      <NodeCard title="Error" category="block-agent" executionState="error" icon={<SparklesIcon size={14} />} />
-      <NodeCard title="Skipped" category="block-agent" executionState="skipped" icon={<SparklesIcon size={14} />} />
+      <NodeCard title="Idle" category="block-agent" executionState="idle" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "A", color: "hsl(38, 85%, 45%)", name: "agent", model: "gpt-4o", provider: "OpenAI" }} />
+      <NodeCard title="Running" category="block-agent" executionState="running" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "A", color: "hsl(38, 85%, 45%)", name: "agent", model: "gpt-4o", provider: "OpenAI" }} />
+      <NodeCard title="Success" category="block-agent" executionState="success" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "A", color: "hsl(38, 85%, 45%)", name: "agent", model: "gpt-4o", provider: "OpenAI" }} />
+      <NodeCard title="Error" category="block-agent" executionState="error" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "A", color: "hsl(38, 85%, 45%)", name: "agent", model: "gpt-4o", provider: "OpenAI" }} />
+      <NodeCard title="Skipped" category="block-agent" executionState="skipped" icon={<SparklesIcon size={14} />} inputPort outputPort meta="Linear" soul={{ initial: "A", color: "hsl(38, 85%, 45%)", name: "agent", model: "gpt-4o", provider: "OpenAI" }} />
     </div>
   ),
 };
@@ -84,6 +94,10 @@ export const Selected: Story = {
       selected
       cost="$0.0012"
       icon={<SparklesIcon size={14} />}
+      inputPort
+      outputPort
+      meta="Linear"
+      soul={{ initial: "R", color: "hsl(38, 85%, 45%)", name: "researcher", model: "gpt-4o", provider: "OpenAI" }}
     />
   ),
 };
@@ -126,7 +140,7 @@ export const WithSoul: Story = {
   name: "With Soul — avatar + soul-tip (.node-card__avatar-stack)",
   render: () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", width: "260px" }}>
-      {/* Single soul */}
+      {/* Writer soul */}
       <NodeCard
         title="Summarize Input"
         category="block-agent"
@@ -134,19 +148,17 @@ export const WithSoul: Story = {
         inputPort
         outputPort
         meta="Linear"
-        souls={[
-          {
-            initial: "W",
-            color: "hsl(38, 85%, 45%)",
-            name: "writer_main",
-            model: "gpt-4o",
-            provider: "OpenAI",
-            prompt: "Summarize the user input into a structured brief for downstream agents.",
-          },
-        ]}
+        soul={{
+          initial: "W",
+          color: "hsl(38, 85%, 45%)",
+          name: "writer_main",
+          model: "gpt-4o",
+          provider: "OpenAI",
+          prompt: "Summarize the user input into a structured brief for downstream agents.",
+        }}
       />
 
-      {/* Multiple souls */}
+      {/* Evaluator soul */}
       <NodeCard
         title="Draft & Evaluate"
         category="block-agent"
@@ -155,32 +167,14 @@ export const WithSoul: Story = {
         inputPort
         outputPort
         meta="Fanout"
-        souls={[
-          {
-            initial: "W",
-            color: "hsl(38, 85%, 45%)",
-            name: "writer_main",
-            model: "gpt-4o",
-            provider: "OpenAI",
-            prompt: "Generate a first draft from the structured brief.",
-          },
-          {
-            initial: "E",
-            color: "hsl(142, 55%, 42%)",
-            name: "evaluator_quality",
-            model: "claude-sonnet-4",
-            provider: "Anthropic",
-            prompt: "Score the draft on coherence, accuracy, and style.",
-          },
-          {
-            initial: "A",
-            color: "hsl(210, 60%, 50%)",
-            name: "analyst_legal",
-            model: "gemini-2.0-flash",
-            provider: "Google",
-            prompt: "Review for legal compliance and IP risks.",
-          },
-        ]}
+        soul={{
+          initial: "E",
+          color: "hsl(142, 55%, 42%)",
+          name: "evaluator_quality",
+          model: "claude-sonnet-4",
+          provider: "Anthropic",
+          prompt: "Score the draft on coherence, accuracy, and style.",
+        }}
       />
     </div>
   ),
@@ -199,15 +193,13 @@ export const WithStatusBadge: Story = {
         outputPort
         meta="Gate"
         statusBadge="Running"
-        souls={[
-          {
-            initial: "E",
-            color: "hsl(142, 55%, 42%)",
-            name: "evaluator_quality",
-            model: "claude-sonnet-4",
-            provider: "Anthropic",
-          },
-        ]}
+        soul={{
+          initial: "E",
+          color: "hsl(142, 55%, 42%)",
+          name: "evaluator_quality",
+          model: "claude-sonnet-4",
+          provider: "Anthropic",
+        }}
         cost="$0.0014"
       />
 
@@ -220,15 +212,13 @@ export const WithStatusBadge: Story = {
         outputPort
         meta="Linear"
         statusBadge="Completed"
-        souls={[
-          {
-            initial: "W",
-            color: "hsl(38, 85%, 45%)",
-            name: "writer_main",
-            model: "gpt-4o",
-            provider: "OpenAI",
-          },
-        ]}
+        soul={{
+          initial: "W",
+          color: "hsl(38, 85%, 45%)",
+          name: "writer_main",
+          model: "gpt-4o",
+          provider: "OpenAI",
+        }}
         cost="$0.0031"
       />
 
@@ -258,17 +248,15 @@ export const FullExample: Story = {
         inputPort
         outputPort
         meta="Linear"
-        souls={[
-          {
-            initial: "W",
-            color: "hsl(38, 85%, 45%)",
-            name: "writer_main",
-            model: "gpt-4o",
-            provider: "OpenAI",
-            rows: [{ key: "Cost/1K", val: "$0.005" }],
-            prompt: "Summarize the user input into a structured brief for downstream agents.",
-          },
-        ]}
+        soul={{
+          initial: "W",
+          color: "hsl(38, 85%, 45%)",
+          name: "writer_main",
+          model: "gpt-4o",
+          provider: "OpenAI",
+          rows: [{ key: "Cost/1K", val: "$0.005" }],
+          prompt: "Summarize the user input into a structured brief for downstream agents.",
+        }}
       />
 
       {/* Logic gate with pass/fail port rows */}
@@ -280,15 +268,13 @@ export const FullExample: Story = {
         inputPort
         statusBadge="Running"
         meta={["Gate", "2 ports"]}
-        souls={[
-          {
-            initial: "E",
-            color: "hsl(142, 55%, 42%)",
-            name: "evaluator_quality",
-            model: "claude-sonnet-4",
-            provider: "Anthropic",
-          },
-        ]}
+        soul={{
+          initial: "E",
+          color: "hsl(142, 55%, 42%)",
+          name: "evaluator_quality",
+          model: "claude-sonnet-4",
+          provider: "Anthropic",
+        }}
         cost="$0.0014"
         ports={[
           { name: "pass", type: "pass" },
@@ -296,22 +282,20 @@ export const FullExample: Story = {
         ]}
       />
 
-      {/* Fanout with multiple souls and port rows */}
+      {/* Fanout with soul and port rows */}
       <NodeCard
         title="Multi-Analyst Fanout"
         category="block-agent"
         icon={<FileTextIcon size={14} />}
         inputPort
         meta={["Fanout", "3 ports"]}
-        souls={[
-          {
-            initial: "TL",
-            color: "hsl(38, 85%, 45%)",
-            name: "team_lead",
-            model: "claude-opus-4",
-            provider: "Anthropic",
-          },
-        ]}
+        soul={{
+          initial: "TL",
+          color: "hsl(38, 85%, 45%)",
+          name: "team_lead",
+          model: "claude-opus-4",
+          provider: "Anthropic",
+        }}
         ports={[
           { name: "market", type: "default" },
           { name: "tech", type: "default" },

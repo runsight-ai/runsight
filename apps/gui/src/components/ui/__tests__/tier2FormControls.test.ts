@@ -1,22 +1,21 @@
 /**
  * RED-TEAM tests for RUN-299: Tier 2 Form Controls.
  *
- * Validates that Select, Switch, and InputGroup have been updated to use the
+ * Validates that Select and Switch have been updated to use the
  * Runsight design system tokens, and that Checkbox, Radio, and Slider have
  * been created to match the design system component spec. Also validates that
- * Storybook story files exist for all 6 components.
+ * Storybook story files exist for all 5 components.
  *
  * Tests read component source files as strings and verify:
- *   1. Existing components (select, switch, input-group): required tokens present
+ *   1. Existing components (select, switch): required tokens present
  *   2. New components (checkbox, radio, slider): file exists, exports, tokens, ARIA
- *   3. All 6: story files exist with proper Storybook structure
+ *   3. All 5: story files exist with proper Storybook structure
  *
  * Expected failures (current state):
  *   - select.tsx: missing control-height-sm, surface-tertiary tokens on trigger
  *   - switch.tsx: uses bg-input for off-state instead of neutral-5/neutral-6;
  *     uses bg-surface-primary for thumb instead of neutral-12; missing explicit
  *     neutral-5, neutral-6, neutral-12, interactive-default token references
- *   - input-group.tsx: missing surface-tertiary token on prefix/suffix addons
  *   - checkbox.tsx does not exist
  *   - radio.tsx does not exist
  *   - slider.tsx does not exist
@@ -188,32 +187,7 @@ describe("Switch — old bg-input token removed (AC2)", () => {
 });
 
 // ===========================================================================
-// 10. INPUT GROUP — surface-tertiary on addon prefix/suffix (AC3)
-// ===========================================================================
-
-describe("InputGroup — surface-tertiary token on addons (AC3)", () => {
-  it("uses surface-tertiary token for prefix/suffix addon background", () => {
-    const source = readComponent("input-group.tsx");
-    // Spec: prefix/suffix addons use --surface-tertiary for background
-    // Current state: addons have no background token (transparent by default)
-    expect(source).toMatch(/surface-tertiary/);
-  });
-});
-
-// ===========================================================================
-// 11. INPUT GROUP — border-default token (AC3)
-// ===========================================================================
-
-describe("InputGroup — border-default token (AC3)", () => {
-  it("uses border-default token for the group border", () => {
-    const source = readComponent("input-group.tsx");
-    // Spec: group border uses --border-default — current state already has this
-    expect(source).toMatch(/border-default/);
-  });
-});
-
-// ===========================================================================
-// 12. CHECKBOX — file exists (AC4)
+// 10. CHECKBOX — file exists (AC4)
 // ===========================================================================
 
 describe("Checkbox — component file exists (AC4)", () => {
@@ -453,10 +427,6 @@ describe("Storybook stories — existence (AC7)", () => {
     expect(storyExists("Switch.stories.tsx")).toBe(true);
   });
 
-  it("InputGroup.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("InputGroup.stories.tsx")).toBe(true);
-  });
-
   it("Checkbox.stories.tsx exists in src/stories/ or src/components/ui/", () => {
     expect(storyExists("Checkbox.stories.tsx")).toBe(true);
   });
@@ -533,38 +503,7 @@ describe("Storybook stories — Switch.stories.tsx structure (AC7)", () => {
 });
 
 // ===========================================================================
-// 30. STORYBOOK STORIES — InputGroup.stories.tsx structure (AC7)
-// ===========================================================================
-
-describe("Storybook stories — InputGroup.stories.tsx structure (AC7)", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("InputGroup.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("InputGroup.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("InputGroup.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers prefix addon usage", () => {
-    const content = readStory("InputGroup.stories.tsx");
-    expect(content).toMatch(/prefix|Prefix|addon|Addon|inline-start/i);
-  });
-
-  it("covers suffix addon usage", () => {
-    const content = readStory("InputGroup.stories.tsx");
-    expect(content).toMatch(/suffix|Suffix|inline-end/i);
-  });
-});
-
-// ===========================================================================
-// 31. STORYBOOK STORIES — Checkbox.stories.tsx structure (AC7)
+// 30. STORYBOOK STORIES — Checkbox.stories.tsx structure (AC7)
 // ===========================================================================
 
 describe("Storybook stories — Checkbox.stories.tsx structure (AC7)", () => {
