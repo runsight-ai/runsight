@@ -9,7 +9,7 @@ These tests verify that:
 
 from unittest.mock import Mock, patch
 
-from runsight_api.domain.entities.provider import Provider
+from runsight_api.domain.value_objects import ProviderEntity as Provider
 from runsight_api.logic.services.provider_service import ProviderService
 
 
