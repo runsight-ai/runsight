@@ -1,6 +1,23 @@
 from dataclasses import dataclass
 from typing import Optional
 
+# ---------------------------------------------------------------------------
+# SSE event type constants
+# ---------------------------------------------------------------------------
+# Used by StreamingObserver (producer) and ExecutionService.subscribe_stream
+# (consumer) so that event names are defined in exactly one place.
+
+SSE_RUN_STARTED: str = "run_started"
+SSE_RUN_COMPLETED: str = "run_completed"
+SSE_RUN_FAILED: str = "run_failed"
+
+SSE_NODE_STARTED: str = "node_started"
+SSE_NODE_COMPLETED: str = "node_completed"
+SSE_NODE_FAILED: str = "node_failed"
+
+# Terminal events that signal the end of an SSE stream.
+SSE_TERMINAL_EVENTS: tuple[str, ...] = (SSE_RUN_COMPLETED, SSE_RUN_FAILED)
+
 
 @dataclass
 class RunStarted:
