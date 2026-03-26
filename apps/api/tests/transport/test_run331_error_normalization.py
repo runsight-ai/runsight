@@ -17,14 +17,14 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from runsight_api.main import app
 from runsight_api.core.config import settings
+from runsight_api.main import app
 from runsight_api.transport.deps import (
     get_eval_service,
+    get_execution_service,
     get_provider_service,
     get_registry_service,
     get_run_service,
-    get_execution_service,
     get_step_repo,
     get_task_repo,
 )
@@ -87,7 +87,7 @@ class TestNewErrorSubclasses:
         assert ServiceUnavailable.error_code == "SERVICE_UNAVAILABLE"
 
     def test_service_unavailable_is_runsight_error(self):
-        from runsight_api.domain.errors import ServiceUnavailable, RunsightError
+        from runsight_api.domain.errors import RunsightError, ServiceUnavailable
 
         assert issubclass(ServiceUnavailable, RunsightError)
 
