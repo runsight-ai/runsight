@@ -94,7 +94,11 @@ class TestPathTraversal:
             },
         )
         assert resp.status_code == 400
-        detail = resp.json()["detail"].lower()
+        detail = (
+            resp.json()
+            .get("error", resp.json().get("error", resp.json().get("detail", "")))
+            .lower()
+        )
         assert _PATH_REJECTION_KEYWORD in detail, (
             f"Router must explicitly reject path traversal; got: {detail!r}"
         )
@@ -109,7 +113,11 @@ class TestPathTraversal:
             },
         )
         assert resp.status_code == 400
-        detail = resp.json()["detail"].lower()
+        detail = (
+            resp.json()
+            .get("error", resp.json().get("error", resp.json().get("detail", "")))
+            .lower()
+        )
         assert _PATH_REJECTION_KEYWORD in detail, (
             f"Router must explicitly reject absolute paths outside base; got: {detail!r}"
         )
@@ -124,7 +132,11 @@ class TestPathTraversal:
             },
         )
         assert resp.status_code == 400
-        detail = resp.json()["detail"].lower()
+        detail = (
+            resp.json()
+            .get("error", resp.json().get("error", resp.json().get("detail", "")))
+            .lower()
+        )
         assert _PATH_REJECTION_KEYWORD in detail
 
     def test_encoded_traversal_rejected(self, git_repo):
@@ -176,7 +188,11 @@ class TestSymlinkEscape:
             },
         )
         assert resp.status_code == 400
-        detail = resp.json()["detail"].lower()
+        detail = (
+            resp.json()
+            .get("error", resp.json().get("error", resp.json().get("detail", "")))
+            .lower()
+        )
         assert "symlink" in detail or _PATH_REJECTION_KEYWORD in detail
 
 
@@ -309,7 +325,11 @@ class TestFlagInjection:
             },
         )
         assert resp.status_code == 400
-        detail = resp.json()["detail"].lower()
+        detail = (
+            resp.json()
+            .get("error", resp.json().get("error", resp.json().get("detail", "")))
+            .lower()
+        )
         assert _PATH_REJECTION_KEYWORD in detail or "invalid" in detail, (
             f"Router must explicitly reject flag-like paths; got: {detail!r}"
         )
@@ -324,7 +344,11 @@ class TestFlagInjection:
             },
         )
         assert resp.status_code == 400
-        detail = resp.json()["detail"].lower()
+        detail = (
+            resp.json()
+            .get("error", resp.json().get("error", resp.json().get("detail", "")))
+            .lower()
+        )
         assert _PATH_REJECTION_KEYWORD in detail or "invalid" in detail
 
 
@@ -347,7 +371,7 @@ class TestErrorResponseScrubbing:
         )
         if resp.status_code >= 400:
             body = resp.json()
-            detail = body.get("detail", "")
+            detail = body.get("error", body.get("detail", ""))
             assert base not in detail, f"Error response leaked base_path: {detail!r}"
 
     def test_commit_error_with_bad_file_does_not_leak_path(self, git_repo):
@@ -363,7 +387,7 @@ class TestErrorResponseScrubbing:
         )
         if resp.status_code >= 400:
             body = resp.json()
-            detail = body.get("detail", "")
+            detail = body.get("error", body.get("detail", ""))
             assert base not in detail, f"Error response leaked base_path: {detail!r}"
 
     def test_git_stderr_not_forwarded_raw(self, git_repo):
@@ -375,7 +399,7 @@ class TestErrorResponseScrubbing:
             json={"message": "force fail"},
         )
         if resp.status_code >= 400:
-            detail = resp.json().get("detail", "")
+            detail = resp.json().get("error", resp.json().get("detail", ""))
             # stderr from git often says "On branch X\nnothing to commit"
             # but should not contain the cwd
             base = settings.base_path

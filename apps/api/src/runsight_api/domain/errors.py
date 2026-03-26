@@ -111,3 +111,31 @@ class ProviderNotFound(RunsightError):
 
     error_code: str = "PROVIDER_NOT_FOUND"
     status_code: int = 404
+
+
+class GitError(RunsightError):
+    """Raised when a git operation fails."""
+
+    error_code: str = "GIT_ERROR"
+    status_code: int = 400
+
+
+class EvalNotFound(RunsightError):
+    """Raised when eval data for a run cannot be found."""
+
+    error_code: str = "EVAL_NOT_FOUND"
+    status_code: int = 404
+
+
+class ServiceUnavailable(RunsightError):
+    """Raised when a required service is not available."""
+
+    error_code: str = "SERVICE_UNAVAILABLE"
+    status_code: int = 503
+
+
+class InputValidationError(RunsightError):
+    """Raised when input validation fails."""
+
+    error_code: str = "VALIDATION_ERROR"
+    status_code: int = 400

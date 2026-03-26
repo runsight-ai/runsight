@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import List, Optional
 from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, field_validator
 
 from ...core.config import settings
+from ...domain.errors import GitError, InputValidationError
 
 router = APIRouter(prefix="/git", tags=["Git"])
 
@@ -90,10 +91,10 @@ def _run_git(*args: str) -> subprocess.CompletedProcess:
 
 
 def _ensure_git_repo() -> None:
-    """Raise 400 if base_path is not inside a git repo."""
+    """Raise GitError if base_path is not inside a git repo."""
     result = _run_git("rev-parse", "--is-inside-work-tree")
     if result.returncode != 0:
-        raise HTTPException(status_code=400, detail="Not a git repository")
+        raise GitError("Not a git repository")
 
 
 def _scrub_base_path(text: str) -> str:
@@ -110,67 +111,41 @@ def _scrub_base_path(text: str) -> str:
 
 
 def _validate_file_path(file_path: str) -> None:
-    """Validate a file path is safe to pass to git commands.
-
-    Rejects:
-    - Empty paths
-    - Paths starting with ``-`` (flag injection)
-    - Paths containing ``..`` after URL-decoding (traversal)
-    - Absolute paths outside base_path
-    - Symlinks that resolve outside base_path
-    """
+    """Validate a file path is safe to pass to git commands."""
     if not file_path:
-        raise HTTPException(status_code=400, detail="Invalid path: empty file path")
+        raise InputValidationError("Invalid path: empty file path")
 
-    # Flag injection: paths starting with -
     if file_path.startswith("-"):
-        raise HTTPException(status_code=400, detail="Invalid path: path must not start with '-'")
+        raise InputValidationError("Invalid path: path must not start with '-'")
 
-    # URL-decode then check for traversal
     decoded = unquote(file_path)
 
-    # Reject .. components
     if ".." in decoded:
-        raise HTTPException(status_code=400, detail="Invalid path: path traversal not allowed")
+        raise InputValidationError("Invalid path: path traversal not allowed")
 
-    # Reject absolute paths outside base_path
     base = Path(settings.base_path).resolve()
     if decoded.startswith("/"):
         resolved = Path(decoded).resolve()
         if not str(resolved).startswith(str(base)):
-            raise HTTPException(
-                status_code=400, detail="Invalid path: absolute path outside project root"
-            )
+            raise InputValidationError("Invalid path: absolute path outside project root")
 
-    # Check resolved path stays within base_path
     resolved = (base / decoded).resolve()
     if not str(resolved).startswith(str(base)):
-        raise HTTPException(status_code=400, detail="Invalid path: path escapes project root")
+        raise InputValidationError("Invalid path: path escapes project root")
 
-    # Symlink check: if the path exists and is a symlink, verify target
     candidate = base / decoded
     if candidate.is_symlink():
         real = candidate.resolve()
         if not str(real).startswith(str(base)):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid path: symlink target outside project root",
+            raise InputValidationError(
+                "Invalid path: symlink target outside project root",
             )
 
 
 def _sanitize_commit_message(message: str) -> str:
-    """Sanitize a commit message for safe use with git.
-
-    Strips:
-    - Control characters (except space)
-    - Shell substitution syntax: $(...) and backticks
-    - Newlines (collapse to single line)
-    """
-    # Strip control characters (ASCII 0x00-0x1F except 0x20 space, plus 0x7F)
+    """Sanitize a commit message for safe use with git."""
     message = re.sub(r"[\x00-\x1f\x7f]", "", message)
-    # Strip $(...) sequences
     message = re.sub(r"\$\([^)]*\)", "", message)
-    # Strip backticks
     message = message.replace("`", "")
     return message.strip()
 
@@ -184,11 +159,9 @@ def _sanitize_commit_message(message: str) -> str:
 async def git_status():
     _ensure_git_repo()
 
-    # Branch name
     branch_result = _run_git("rev-parse", "--abbrev-ref", "HEAD")
     branch = branch_result.stdout.strip() or "HEAD"
 
-    # Uncommitted files (porcelain v1 format: XY <path>)
     porcelain = _run_git("status", "--porcelain", "-u")
     files: List[UncommittedFile] = []
     for line in porcelain.stdout.splitlines():
@@ -210,27 +183,22 @@ async def git_status():
 async def git_commit(body: CommitRequest):
     _ensure_git_repo()
 
-    # Validate file paths
     if body.files:
         for f in body.files:
             _validate_file_path(f)
-        # Stage only specified files
         _run_git("add", "--", *body.files)
     else:
-        # Stage all changes
         _run_git("add", ".")
 
-    # Sanitize commit message
     safe_message = _sanitize_commit_message(body.message)
     if not safe_message:
-        raise HTTPException(status_code=400, detail="Commit message is empty after sanitization")
+        raise GitError("Commit message is empty after sanitization")
 
     result = _run_git("commit", "-m", safe_message)
     if result.returncode != 0:
         detail = _scrub_base_path(result.stderr.strip()) or "Commit failed"
-        raise HTTPException(status_code=400, detail=detail)
+        raise GitError(detail)
 
-    # Get the hash of the new commit
     hash_result = _run_git("rev-parse", "HEAD")
     commit_hash = hash_result.stdout.strip()
 
@@ -241,7 +209,6 @@ async def git_commit(body: CommitRequest):
 async def git_diff():
     _ensure_git_repo()
 
-    # Show staged + unstaged diff against HEAD
     result = _run_git("diff", "HEAD")
     return DiffResponse(diff=result.stdout)
 
@@ -250,13 +217,12 @@ async def git_diff():
 async def git_log():
     _ensure_git_repo()
 
-    # Format: hash<SEP>message<SEP>date<SEP>author
     sep = "<SEP>"
     fmt = f"%H{sep}%s{sep}%ai{sep}%an"
     result = _run_git("log", "--max-count=50", f"--format={fmt}")
 
     if result.returncode != 0:
-        raise HTTPException(status_code=400, detail=result.stderr.strip() or "Git log failed")
+        raise GitError(result.stderr.strip() or "Git log failed")
 
     commits: List[CommitEntry] = []
     for line in result.stdout.strip().splitlines():

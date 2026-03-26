@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
 
 from ..deps import get_provider_service, get_settings_repo
 from ...logic.services.provider_service import ProviderService
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
+from ...domain.errors import ProviderNotFound
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -86,7 +87,7 @@ async def get_provider(
 ):
     provider = service.get_provider(provider_id)
     if not provider:
-        raise HTTPException(status_code=404, detail="Provider not found")
+        raise ProviderNotFound(f"Provider {provider_id} not found")
     return _provider_to_out(provider)
 
 
@@ -116,7 +117,7 @@ async def update_provider(
         base_url=data.base_url,
     )
     if not provider:
-        raise HTTPException(status_code=404, detail="Provider not found")
+        raise ProviderNotFound(f"Provider {provider_id} not found")
     return _provider_to_out(provider)
 
 
@@ -127,7 +128,7 @@ async def delete_provider(
 ):
     deleted = service.delete_provider(provider_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Provider not found")
+        raise ProviderNotFound(f"Provider {provider_id} not found")
     return {"id": provider_id, "deleted": True}
 
 

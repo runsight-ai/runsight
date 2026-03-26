@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from ..deps import get_eval_service
 from ..schemas.eval import RunEvalResponse, SoulEvalHistoryResponse
 from ...logic.services.eval_service import EvalService
+from ...domain.errors import EvalNotFound
 
 router = APIRouter(tags=["eval"])
 
@@ -11,7 +12,7 @@ router = APIRouter(tags=["eval"])
 def get_run_eval(run_id: str, eval_service: EvalService = Depends(get_eval_service)):
     result = eval_service.get_run_eval(run_id)
     if result is None:
-        raise HTTPException(status_code=404, detail="Run not found")
+        raise EvalNotFound(f"Run {run_id} not found")
     return result
 
 

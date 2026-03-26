@@ -17,14 +17,14 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from runsight_api.main import app
 from runsight_api.core.config import settings
+from runsight_api.main import app
 from runsight_api.transport.deps import (
     get_eval_service,
+    get_execution_service,
     get_provider_service,
     get_registry_service,
     get_run_service,
-    get_execution_service,
     get_step_repo,
     get_task_repo,
 )
@@ -87,7 +87,7 @@ class TestNewErrorSubclasses:
         assert ServiceUnavailable.error_code == "SERVICE_UNAVAILABLE"
 
     def test_service_unavailable_is_runsight_error(self):
-        from runsight_api.domain.errors import ServiceUnavailable, RunsightError
+        from runsight_api.domain.errors import RunsightError, ServiceUnavailable
 
         assert issubclass(ServiceUnavailable, RunsightError)
 
@@ -284,8 +284,6 @@ class TestGitErrorShape:
         """Commit message empty after sanitization -> RunsightError shape."""
         (git_repo / "test.txt").write_text("x")
         response = client.post("/api/git/commit", json={"message": "   "})
-        # Note: pydantic validator may catch first (422) or sanitizer (400)
-        # If it gets to sanitizer:
         if response.status_code == 400:
             body = assert_runsight_error_shape(response, 400)
             assert body["error_code"] == "GIT_ERROR"
@@ -302,7 +300,6 @@ class TestGitErrorShape:
         assert body["error_code"] == "GIT_ERROR"
 
     def test_path_validation_empty_has_runsight_shape(self, git_repo):
-        """Invalid path in commit files -> RunsightError shape."""
         response = client.post(
             "/api/git/commit",
             json={"message": "test", "files": [""]},
@@ -311,7 +308,6 @@ class TestGitErrorShape:
         assert "error_code" in body
 
     def test_path_traversal_has_runsight_shape(self, git_repo):
-        """Path traversal attempt -> RunsightError shape."""
         response = client.post(
             "/api/git/commit",
             json={"message": "test", "files": ["../../etc/passwd"]},
@@ -320,7 +316,6 @@ class TestGitErrorShape:
         assert "error_code" in body
 
     def test_flag_injection_has_runsight_shape(self, git_repo):
-        """Flag injection attempt -> RunsightError shape."""
         response = client.post(
             "/api/git/commit",
             json={"message": "test", "files": ["-rf"]},
@@ -386,7 +381,7 @@ class TestEvalErrorShape:
 
 
 # ===========================================================================
-# 8. Zero HTTPException imports in router files (static check)
+# 8. Zero HTTPException raises in router files (static check)
 # ===========================================================================
 
 

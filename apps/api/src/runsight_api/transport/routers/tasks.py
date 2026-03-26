@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from typing import Optional
+
 from ..schemas.tasks import TaskListResponse, TaskResponse, TaskCreate, TaskUpdate
 from ..deps import get_registry_service, get_task_repo
 from ...logic.services.registry_service import RegistryService
@@ -69,7 +70,7 @@ async def get_task(
         if t["id"] == id:
             return TaskResponse(**t)
 
-    raise HTTPException(status_code=404, detail="Task not found")
+    raise TaskNotFound(f"Task {id} not found")
 
 
 @router.post("", response_model=TaskResponse, status_code=201)
@@ -99,23 +100,20 @@ async def update_task(
     data: TaskUpdate,
     repo: TaskRepository = Depends(get_task_repo),
 ):
-    try:
-        entity = repo.get_by_id(id)
-        if not entity:
-            raise TaskNotFound(f"Task {id} not found")
-        d = entity.model_dump()
-        if data.name is not None:
-            d["name"] = data.name
-        if data.type is not None:
-            d["type"] = data.type
-        if data.description is not None:
-            d["description"] = data.description
-        updated = repo.update(id, d)
-        d2 = updated.model_dump()
-        d2["path"] = d2.get("path") or str(repo._get_path(id))
-        return _entity_to_response(d2)
-    except TaskNotFound:
-        raise HTTPException(status_code=404, detail="Task not found")
+    entity = repo.get_by_id(id)
+    if not entity:
+        raise TaskNotFound(f"Task {id} not found")
+    d = entity.model_dump()
+    if data.name is not None:
+        d["name"] = data.name
+    if data.type is not None:
+        d["type"] = data.type
+    if data.description is not None:
+        d["description"] = data.description
+    updated = repo.update(id, d)
+    d2 = updated.model_dump()
+    d2["path"] = d2.get("path") or str(repo._get_path(id))
+    return _entity_to_response(d2)
 
 
 @router.delete("/{id}")
