@@ -124,9 +124,9 @@ export function Component() {
       ) : (
         <>
           <StatCard label="Runs Today" value={runsToday} />
-          <StatCard label="Eval Pass" value={evalPassDisplay} />
+          <StatCard label="Eval Pass" value={evalPassDisplay} variant={eval_pass_rate != null && eval_pass_rate >= 0.8 ? "success" : "default"} />
           <StatCard label="Spent Today" value={typeof costTodayUsd === "string" ? costTodayUsd : formatCurrency(costTodayUsd)} />
-          <StatCard label="Regressions" value={regressionsDisplay} variant={regressions != null && regressions > 0 ? "warning" : "default"} />
+          <StatCard label="Regressions" value={regressionsDisplay} variant={regressions != null ? (regressions > 0 ? "warning" : "success") : "default"} />
         </>
       )}
     </div>
