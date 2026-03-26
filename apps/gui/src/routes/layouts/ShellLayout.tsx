@@ -5,9 +5,6 @@ import {
   LayoutDashboard,
   Workflow,
   Bot,
-  ListTodo,
-  CheckSquare,
-  Play,
   Settings,
   Search,
   Bell,
@@ -18,12 +15,9 @@ import { useUiStore } from "@/store/ui";
 import { cn } from "@/utils/helpers";
 
 const NAV_ITEMS = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true },
-  { to: "/workflows", icon: Workflow, label: "Workflows" },
+  { to: "/", icon: LayoutDashboard, label: "Home", end: true },
+  { to: "/workflows", icon: Workflow, label: "Flows" },
   { to: "/souls", icon: Bot, label: "Souls" },
-  { to: "/tasks", icon: ListTodo, label: "Tasks" },
-  { to: "/steps", icon: CheckSquare, label: "Steps" },
-  { to: "/runs", icon: Play, label: "Runs" },
 ] as const;
 
 const BOTTOM_NAV = [
@@ -55,7 +49,7 @@ export function ShellLayout() {
         )}
       >
         {/* Logo */}
-        <div className="h-12 px-3 border-b border-sidebar-border flex items-center gap-2 shrink-0">
+        <div className="h-[var(--header-height)] px-3 border-b border-sidebar-border flex items-center gap-2 shrink-0">
           <svg
             width="24"
             height="24"
@@ -134,25 +128,13 @@ export function ShellLayout() {
                   "flex items-center gap-3 h-9 px-3 rounded-md text-sm transition-colors",
                   isActive
                     ? "text-primary"
-                    : "text-muted hover:text-primary",
+                    : "text-muted hover:text-primary hover:bg-[var(--sidebar-hover)]",
                 )
               }
               style={({ isActive }) => isActive
                 ? { backgroundColor: "var(--sidebar-active-indicator)" }
-                : { ["--nav-hover" as string]: "var(--sidebar-hover)" }
+                : {}
               }
-              onMouseEnter={(e) => {
-                const el = e.currentTarget;
-                if (!el.getAttribute("aria-current")) {
-                  el.style.backgroundColor = "var(--sidebar-hover)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget;
-                if (!el.getAttribute("aria-current")) {
-                  el.style.backgroundColor = "";
-                }
-              }}
             >
               <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
               {sidebarOpen && <span>{label}</span>}
@@ -171,25 +153,13 @@ export function ShellLayout() {
                   "flex items-center gap-3 h-9 px-3 rounded-md text-sm transition-colors",
                   isActive
                     ? "text-primary"
-                    : "text-muted hover:text-primary",
+                    : "text-muted hover:text-primary hover:bg-[var(--sidebar-hover)]",
                 )
               }
               style={({ isActive }) => isActive
                 ? { backgroundColor: "var(--sidebar-active-indicator)" }
                 : {}
               }
-              onMouseEnter={(e) => {
-                const el = e.currentTarget;
-                if (!el.getAttribute("aria-current")) {
-                  el.style.backgroundColor = "var(--sidebar-hover)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget;
-                if (!el.getAttribute("aria-current")) {
-                  el.style.backgroundColor = "";
-                }
-              }}
             >
               <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
               {sidebarOpen && <span>{label}</span>}
@@ -201,7 +171,7 @@ export function ShellLayout() {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-12 bg-surface-secondary border-b border-border-default flex items-center justify-between px-4 shrink-0">
+        <header className="h-[var(--header-height)] bg-surface-secondary border-b border-border-default flex items-center justify-between px-4 shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={toggleSidebar}
@@ -236,7 +206,7 @@ export function ShellLayout() {
         </main>
 
         {/* Bottom bar */}
-        <footer className="h-7 bg-surface-secondary border-t border-border-default flex items-center px-4 text-xs text-muted shrink-0">
+        <footer className="h-[var(--status-bar-height)] bg-surface-secondary border-t border-border-default flex items-center px-4 text-xs text-muted shrink-0">
           <span>Runsight v0.1.0</span>
           <span className="mx-2 text-border">|</span>
           <span className="flex items-center gap-1.5">
