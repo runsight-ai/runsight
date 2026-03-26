@@ -52,10 +52,10 @@ const API_DASHBOARD_PATH = "api/dashboard.ts";
 describe("Dashboard page shell (AC1: PageHeader + empty content)", () => {
   let source: string;
 
-  it("DashboardOrOnboarding.tsx is under 80 lines (gutted from 465)", () => {
+  it("DashboardOrOnboarding.tsx is under 200 lines (gutted from 465, populated by A2-A3)", () => {
     source = readSource(DASHBOARD_PATH);
     const lines = countLines(source);
-    expect(lines).toBeLessThanOrEqual(80);
+    expect(lines).toBeLessThanOrEqual(200);
   });
 
   it("imports PageHeader component", () => {
