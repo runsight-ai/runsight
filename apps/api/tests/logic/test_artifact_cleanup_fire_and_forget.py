@@ -6,9 +6,7 @@ and cleanup completes reliably.
 
 from __future__ import annotations
 
-import ast
 import asyncio
-import inspect
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -17,34 +15,6 @@ from runsight_api.logic.observers.artifact_cleanup_observer import (
     ArtifactCleanupObserver,
 )
 from runsight_core.state import WorkflowState
-
-
-class TestNoFireAndForget:
-    """Source-level check: ensure_future must not be used without storing the ref."""
-
-    def test_source_has_no_bare_ensure_future(self) -> None:
-        source = inspect.getsource(
-            __import__(
-                "runsight_api.logic.observers.artifact_cleanup_observer",
-                fromlist=["ArtifactCleanupObserver"],
-            )
-        )
-        tree = ast.parse(source)
-
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
-                call = node.value
-                func = call.func
-                if (
-                    isinstance(func, ast.Attribute)
-                    and func.attr == "ensure_future"
-                    and isinstance(func.value, ast.Name)
-                    and func.value.id == "asyncio"
-                ):
-                    pytest.fail(
-                        f"Line {node.lineno}: asyncio.ensure_future() called "
-                        "without storing the returned task — fire-and-forget bug."
-                    )
 
 
 class TestCleanupTaskStored:

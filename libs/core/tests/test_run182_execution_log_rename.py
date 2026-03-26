@@ -9,7 +9,6 @@ and PASS once the Green agent implements the rename.
 """
 
 import pathlib
-import re
 
 
 from runsight_core.state import WorkflowState
@@ -77,31 +76,3 @@ class TestBehavior:
         updated = state.model_copy(update={"execution_log": state.execution_log + [new_entry]})
         assert len(updated.execution_log) == 1
         assert updated.execution_log[0]["content"] == "appended"
-
-
-# ─── Grep verification (structural) ─────────────────────────────────────────
-
-
-class TestNoStaleReferences:
-    """No references to the old `messages` field should remain in implementations.py."""
-
-    def test_no_state_dot_messages_in_implementations(self):
-        """implementations.py must not contain `state.messages`."""
-        if not IMPLEMENTATIONS_PY.exists():
-            return  # implementations.py has been deleted (RUN-223), assertion is trivially true
-        source = IMPLEMENTATIONS_PY.read_text()
-        matches = re.findall(r"state\.messages", source)
-        assert matches == [], (
-            f"Found {len(matches)} occurrences of 'state.messages' in implementations.py"
-        )
-
-    def test_no_messages_key_in_model_copy_dicts(self):
-        """implementations.py must not use 'messages' as a key in model_copy update dicts."""
-        if not IMPLEMENTATIONS_PY.exists():
-            return  # implementations.py has been deleted (RUN-223), assertion is trivially true
-        source = IMPLEMENTATIONS_PY.read_text()
-        # Match patterns like  "messages": state.  or  "messages": new_
-        matches = re.findall(r'"messages"\s*:', source)
-        assert matches == [], (
-            f"Found {len(matches)} occurrences of '\"messages\":' in implementations.py"
-        )

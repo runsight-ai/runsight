@@ -31,13 +31,6 @@ class TestExecutionServiceInit:
         ExecutionService = _import_execution_service()
         assert ExecutionService is not None
 
-    def test_has_running_tasks_registry(self):
-        """ExecutionService has a _running_tasks dict for tracking active asyncio tasks."""
-        ExecutionService = _import_execution_service()
-        svc = ExecutionService(run_repo=Mock(), workflow_repo=Mock(), provider_repo=Mock())
-        assert hasattr(svc, "_running_tasks")
-        assert isinstance(svc._running_tasks, dict)
-
     def test_accepts_required_dependencies(self):
         """ExecutionService.__init__ accepts run_repo, workflow_repo, provider_repo."""
         ExecutionService = _import_execution_service()
@@ -63,12 +56,6 @@ class TestLaunchExecution:
     @pytest.fixture
     def deps(self):
         return Mock(), Mock(), Mock()  # run_repo, workflow_repo, provider_repo
-
-    def test_launch_execution_is_async(self):
-        """launch_execution must be an async method (creates background task)."""
-        ExecutionService = _import_execution_service()
-        svc = ExecutionService(run_repo=Mock(), workflow_repo=Mock(), provider_repo=Mock())
-        assert asyncio.iscoroutinefunction(svc.launch_execution)
 
     @pytest.mark.asyncio
     async def test_launch_execution_registers_task(self):

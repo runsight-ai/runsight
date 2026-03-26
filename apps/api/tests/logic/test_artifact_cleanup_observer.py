@@ -64,11 +64,6 @@ def state():
 
 
 class TestArtifactCleanupObserverExists:
-    def test_can_import(self):
-        """ArtifactCleanupObserver can be imported from logic.observers.artifact_cleanup_observer."""
-        cls = _import_cleanup_observer()
-        assert cls is not None
-
     def test_implements_workflow_observer_protocol(self):
         """ArtifactCleanupObserver satisfies the WorkflowObserver runtime_checkable protocol."""
         ArtifactCleanupObserver = _import_cleanup_observer()
@@ -84,23 +79,6 @@ class TestArtifactCleanupObserverExists:
         store.cleanup = AsyncMock()
         obs = ArtifactCleanupObserver(artifact_store=store, root_workflow_name="my_wf")
         assert obs is not None
-
-    def test_has_all_six_observer_methods(self):
-        """ArtifactCleanupObserver has all 6 WorkflowObserver methods."""
-        ArtifactCleanupObserver = _import_cleanup_observer()
-        store = MagicMock()
-        store.cleanup = AsyncMock()
-        obs = ArtifactCleanupObserver(artifact_store=store, root_workflow_name="wf")
-        for method_name in [
-            "on_workflow_start",
-            "on_block_start",
-            "on_block_complete",
-            "on_block_error",
-            "on_workflow_complete",
-            "on_workflow_error",
-        ]:
-            assert hasattr(obs, method_name), f"Missing method: {method_name}"
-            assert callable(getattr(obs, method_name))
 
 
 # ---------------------------------------------------------------------------

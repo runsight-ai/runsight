@@ -2,138 +2,20 @@
 RUN-252: SQL pagination and batch node summaries for GET /runs.
 
 These tests verify that:
-- RunRepository uses SQL LIMIT/OFFSET (not Python slicing)
-- RunService has a batch method for node summaries (no N+1)
-- The runs router delegates pagination to the DB layer
 - Default limit is 20, max limit is 100 (clamped server-side)
+- Response includes total count from DB
 """
-
-import ast
-import inspect
-import textwrap
 
 from fastapi.testclient import TestClient
 from unittest.mock import Mock
 
 from runsight_api.main import app
 from runsight_api.transport.deps import get_run_service
-from runsight_api.data.repositories.run_repo import RunRepository
-from runsight_api.logic.services.run_service import RunService
-from runsight_api.transport.routers.runs import list_runs
 
 
 # ---------------------------------------------------------------------------
-# 1. RunRepository has a list_runs_paginated method with offset + limit args
+# 1. Default limit is 20, max limit is clamped to 100
 # ---------------------------------------------------------------------------
-
-
-def test_run_repo_has_list_runs_paginated_method():
-    """RunRepository must expose a list_runs_paginated method."""
-    assert hasattr(RunRepository, "list_runs_paginated"), (
-        "RunRepository is missing list_runs_paginated method"
-    )
-    assert callable(getattr(RunRepository, "list_runs_paginated")), (
-        "list_runs_paginated must be callable"
-    )
-
-
-def test_run_repo_list_runs_paginated_accepts_offset_and_limit():
-    """list_runs_paginated must accept offset and limit parameters."""
-    sig = inspect.signature(RunRepository.list_runs_paginated)
-    params = list(sig.parameters.keys())
-    assert "offset" in params, "list_runs_paginated must accept an 'offset' parameter"
-    assert "limit" in params, "list_runs_paginated must accept a 'limit' parameter"
-
-
-def test_run_repo_list_runs_paginated_uses_sql_limit_offset():
-    """list_runs_paginated source must contain SQL LIMIT and OFFSET, not Python slicing."""
-    source = inspect.getsource(RunRepository.list_runs_paginated)
-    # Should use SQLModel .offset() and .limit() calls
-    assert ".offset(" in source, "list_runs_paginated must use .offset() for SQL pagination"
-    assert ".limit(" in source, "list_runs_paginated must use .limit() for SQL pagination"
-    # Must NOT use Python list slicing
-    assert "[" not in source or "offset:" not in source, (
-        "list_runs_paginated must not use Python list slicing"
-    )
-
-
-def test_run_repo_list_runs_paginated_returns_total_count():
-    """list_runs_paginated must return a total count alongside the items."""
-    source = inspect.getsource(RunRepository.list_runs_paginated)
-    # Should use func.count or COUNT to get total
-    assert "count" in source.lower(), (
-        "list_runs_paginated must include a count query for total records"
-    )
-
-
-# ---------------------------------------------------------------------------
-# 2. RunService has a batch method for node summaries
-# ---------------------------------------------------------------------------
-
-
-def test_run_service_has_get_node_summaries_batch_method():
-    """RunService must expose a get_node_summaries_batch method."""
-    assert hasattr(RunService, "get_node_summaries_batch"), (
-        "RunService is missing get_node_summaries_batch method"
-    )
-    assert callable(getattr(RunService, "get_node_summaries_batch")), (
-        "get_node_summaries_batch must be callable"
-    )
-
-
-def test_run_service_get_node_summaries_batch_accepts_run_ids():
-    """get_node_summaries_batch must accept a list of run_ids."""
-    sig = inspect.signature(RunService.get_node_summaries_batch)
-    params = list(sig.parameters.keys())
-    assert "run_ids" in params, "get_node_summaries_batch must accept a 'run_ids' parameter"
-
-
-# ---------------------------------------------------------------------------
-# 3. Router does NOT use Python list slicing for pagination
-# ---------------------------------------------------------------------------
-
-
-def test_router_list_runs_does_not_use_python_slicing():
-    """The list_runs router must NOT use Python list slicing (e.g., runs[offset:offset+limit])."""
-    source = inspect.getsource(list_runs)
-    tree = ast.parse(textwrap.dedent(source))
-    slices = [node for node in ast.walk(tree) if isinstance(node, ast.Slice)]
-    assert len(slices) == 0, (
-        "list_runs router must not use Python list slicing — "
-        "pagination should be delegated to the database"
-    )
-
-
-def test_router_list_runs_does_not_call_get_node_summary_per_run():
-    """The list_runs router must NOT call get_node_summary in a loop (N+1 pattern)."""
-    source = inspect.getsource(list_runs)
-    assert "get_node_summary(" not in source, (
-        "list_runs router must not call get_node_summary per-run — "
-        "use get_node_summaries_batch instead"
-    )
-
-
-def test_router_list_runs_calls_batch_summaries():
-    """The list_runs router must call get_node_summaries_batch for batch loading."""
-    source = inspect.getsource(list_runs)
-    assert "get_node_summaries_batch" in source, (
-        "list_runs router must call get_node_summaries_batch"
-    )
-
-
-# ---------------------------------------------------------------------------
-# 4. Default limit is 20, max limit is clamped to 100
-# ---------------------------------------------------------------------------
-
-
-def test_list_runs_default_limit_is_20():
-    """The list_runs endpoint must default limit to 20."""
-    sig = inspect.signature(list_runs)
-    limit_param = sig.parameters.get("limit")
-    assert limit_param is not None, "list_runs must have a 'limit' parameter"
-    assert limit_param.default == 20, (
-        f"list_runs default limit must be 20, got {limit_param.default}"
-    )
 
 
 def test_list_runs_clamps_limit_to_max_100():

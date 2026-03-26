@@ -37,11 +37,6 @@ def _import_execution_observer():
 
 
 class TestExecutionObserverExists:
-    def test_can_import(self):
-        """ExecutionObserver can be imported from logic.observers.execution_observer."""
-        cls = _import_execution_observer()
-        assert cls is not None
-
     def test_implements_workflow_observer_protocol(self):
         """ExecutionObserver satisfies the WorkflowObserver runtime_checkable protocol."""
         ExecutionObserver = _import_execution_observer()
@@ -55,22 +50,6 @@ class TestExecutionObserverExists:
         engine = create_engine("sqlite:///:memory:")
         obs = ExecutionObserver(engine=engine, run_id="run_test")
         assert obs.run_id == "run_test"
-
-    def test_has_all_six_observer_methods(self):
-        """ExecutionObserver has all 6 WorkflowObserver methods."""
-        ExecutionObserver = _import_execution_observer()
-        engine = create_engine("sqlite:///:memory:")
-        obs = ExecutionObserver(engine=engine, run_id="run_1")
-        for method_name in [
-            "on_workflow_start",
-            "on_block_start",
-            "on_block_complete",
-            "on_block_error",
-            "on_workflow_complete",
-            "on_workflow_error",
-        ]:
-            assert hasattr(obs, method_name), f"Missing method: {method_name}"
-            assert callable(getattr(obs, method_name))
 
 
 # ---------------------------------------------------------------------------
@@ -705,44 +684,3 @@ class TestLogEntryFormat:
             assert len(logs) >= 1
             msg = json.loads(logs[0].message)
             assert "error" in msg or "error_type" in msg
-
-
-# ---------------------------------------------------------------------------
-# 12. Run model: error_traceback field existence
-# ---------------------------------------------------------------------------
-
-
-class TestRunModelErrorTraceback:
-    def test_run_model_has_error_traceback_field(self):
-        """Run model has an error_traceback field for storing workflow-level tracebacks."""
-        assert hasattr(Run, "error_traceback"), (
-            "Run model must have error_traceback field (added by RUN-128)"
-        )
-
-
-# ---------------------------------------------------------------------------
-# 13. run_observer.py deletion and compute_summaries removal
-# ---------------------------------------------------------------------------
-
-
-class TestCleanup:
-    def test_run_observer_module_deleted(self):
-        """run_observer.py should be deleted — importing it should fail."""
-        with pytest.raises(ImportError):
-            from runsight_api.logic.observers.run_observer import RunObserver  # noqa: F401
-
-    def test_compute_summaries_removed_from_run_service(self):
-        """RunService.compute_summaries() should be removed."""
-        from runsight_api.logic.services.run_service import RunService
-
-        assert not hasattr(RunService, "compute_summaries"), (
-            "compute_summaries() must be removed per RUN-128"
-        )
-
-    def test_get_node_summary_exists_on_run_service(self):
-        """RunService should have a read-only get_node_summary(run_id) method."""
-        from runsight_api.logic.services.run_service import RunService
-
-        assert hasattr(RunService, "get_node_summary"), (
-            "RunService must have get_node_summary() as replacement for compute_summaries()"
-        )

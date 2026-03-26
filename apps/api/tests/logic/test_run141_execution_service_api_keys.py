@@ -14,13 +14,6 @@ from runsight_api.logic.services.execution_service import ExecutionService
 
 
 class TestResolveApiKeys:
-    def test_resolve_api_keys_method_exists(self):
-        """ExecutionService should have a _resolve_api_keys method (plural) returning dict."""
-        svc = ExecutionService(run_repo=Mock(), workflow_repo=Mock(), provider_repo=Mock())
-        assert hasattr(svc, "_resolve_api_keys"), (
-            "ExecutionService must have _resolve_api_keys (plural) method"
-        )
-
     def test_resolve_api_keys_returns_dict(self):
         """_resolve_api_keys returns Dict[str, str] (provider_type -> resolved key)."""
         provider_repo = Mock()

@@ -49,13 +49,6 @@ def _make_mock_task(*, done: bool = False) -> Mock:
 
 
 class TestCancelExecutionExists:
-    def test_cancel_execution_method_exists(self):
-        """ExecutionService must have a cancel_execution method."""
-        svc = _make_service()
-        assert hasattr(svc, "cancel_execution"), (
-            "ExecutionService is missing cancel_execution method"
-        )
-
     def test_cancel_execution_is_not_coroutine(self):
         """cancel_execution should be a regular (sync) method since
         asyncio.Task.cancel() is synchronous."""
