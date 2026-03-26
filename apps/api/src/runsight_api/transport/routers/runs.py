@@ -71,9 +71,10 @@ def _resolve_summaries(run_service: RunService, run_ids: list, raw_batch):
 async def list_runs(
     status: Optional[List[str]] = Query(None),
     offset: int = 0,
-    limit: int = Query(default=20, le=100),
+    limit: int = 20,
     run_service: RunService = Depends(get_run_service),
 ):
+    limit = min(limit, 100)
     runs, total = _fetch_paginated_runs(run_service, offset, limit, status=status)
 
     run_ids = [run.id for run in runs]
