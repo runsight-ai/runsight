@@ -19,6 +19,7 @@ const statCardVariants = cva(
         default: "border-t-border-default",
         accent:  "border-t-interactive-default",
         success: "border-t-success-9",
+        warning: "border-t-warning-9",
         danger:  "border-t-danger-9",
       },
     },
