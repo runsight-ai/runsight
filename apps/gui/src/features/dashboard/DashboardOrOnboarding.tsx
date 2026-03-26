@@ -76,7 +76,7 @@ export function Component() {
             {activeRuns.map((run) => (
               <div
                 key={run.id}
-                className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted/50 cursor-pointer"
+                className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-tertiary/50 cursor-pointer"
                 onClick={() => navigate(`/workflows/${run.workflow_id}/edit`)}
               >
                 <StatusDot
@@ -86,10 +86,10 @@ export function Component() {
                 <span className="text-sm font-medium flex-1 truncate">
                   {run.workflow_name}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted">
                   {formatElapsed(run.started_at)}
                 </span>
-                <span className="text-xs text-muted-foreground font-mono">
+                <span className="text-xs text-muted font-mono">
                   {formatCost(run.total_cost_usd)}
                 </span>
               </div>

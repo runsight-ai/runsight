@@ -14,8 +14,10 @@ import {
 } from "../types/generated/zod";
 
 export const runsApi = {
-  listRuns: async (params?: Record<string, string>): Promise<RunListResponse> => {
-    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+  listRuns: async (params?: Record<string, string> | URLSearchParams): Promise<RunListResponse> => {
+    const qs = params
+      ? `?${params instanceof URLSearchParams ? params.toString() : new URLSearchParams(params).toString()}`
+      : "";
     const res = await api.get(`/runs${qs}`);
     return RunListResponseSchema.parse(res);
   },
