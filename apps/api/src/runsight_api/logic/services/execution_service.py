@@ -187,12 +187,13 @@ class ExecutionService:
             observers = [LoggingObserver(), streaming_obs]
             if self.engine:
                 observers.append(ExecutionObserver(engine=self.engine, run_id=run_id))
+                assertion_configs = self._build_assertion_configs(wf)
                 observers.append(
                     EvalObserver(
                         engine=self.engine,
                         run_id=run_id,
                         sse_queue=streaming_obs.queue,
-                        assertion_configs=None,
+                        assertion_configs=assertion_configs,
                     )
                 )
             observer = CompositeObserver(*observers)
@@ -215,6 +216,23 @@ class ExecutionService:
         # Eagerly remove from running tasks after semaphore is released.
         # The done_callback is a safety net for cancellation paths.
         self._running_tasks.pop(run_id, None)
+
+    @staticmethod
+    def _build_assertion_configs(wf: Any) -> Optional[Dict[str, list]]:
+        """Extract assertion configs from the workflow's blocks and their souls.
+
+        Returns a dict keyed by block_id mapping to a list of assertion dicts,
+        or None if no assertions are defined anywhere in the workflow.
+        """
+        blocks = getattr(wf, "_blocks", None)
+        if not blocks or not isinstance(blocks, dict):
+            return None
+        configs: Dict[str, list] = {}
+        for block_id, block in blocks.items():
+            soul = getattr(block, "soul", None)
+            if soul is not None and getattr(soul, "assertions", None):
+                configs[block_id] = list(soul.assertions)
+        return configs if configs else None
 
     def _fail_run_on_prepare_error(self, run_id: str, error: Exception) -> None:
         """Mark a run as failed when preparation fails (before task creation).
