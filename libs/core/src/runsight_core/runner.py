@@ -71,7 +71,21 @@ class RunsightTeamRunner:
         return self.api_keys[provider]
 
     def _get_client(self, soul: Soul) -> LiteLLMClient:
-        """Return LLM client for soul, using soul's model override if set."""
+        """Return LLM client for soul, using soul's model override if set.
+
+        Thread-safety invariant:
+            The check-then-set on ``self._clients`` has no lock, but is safe
+            because there is no ``await`` between the ``if cache_key not in``
+            check and the ``self._clients[cache_key] = ...`` assignment.
+            Under Python's GIL + cooperative async scheduling, only an
+            ``await`` can yield control to another coroutine.
+
+            If ``_resolve_key_for_model`` (or any helper called here) ever
+            becomes async, this turns into a race condition under
+            ``asyncio.gather`` (e.g. FanOutBlock launching parallel souls).
+            In that case, replace with an ``asyncio.Lock`` guarding the
+            check-then-set block.
+        """
         # When api_keys dict is provided, always resolve per-model
         if self.api_keys is not None:
             effective_model = soul.model_name or self.model_name
