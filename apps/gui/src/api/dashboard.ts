@@ -1,9 +1,9 @@
 import { api } from "./client";
-import { DashboardResponse, DashboardResponseSchema } from "../types/generated/zod";
+import { DashboardKPIsResponse, DashboardKPIsResponseSchema } from "../types/generated/zod";
 
 export const dashboardApi = {
-  getOverview: async (): Promise<DashboardResponse> => {
+  getKPIs: async (): Promise<DashboardKPIsResponse> => {
     const res = await api.get(`/dashboard`);
-    return DashboardResponseSchema.parse(res);
+    return DashboardKPIsResponseSchema.parse(res);
   },
 };

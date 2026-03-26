@@ -1,9 +1,9 @@
 from pydantic import BaseModel
 
 
-class DashboardResponse(BaseModel):
-    active_runs: int
-    completed_runs: int
-    total_cost_usd: float
-    recent_errors: int
-    system_status: str
+class DashboardKPIsResponse(BaseModel):
+    runs_today: int
+    cost_today_usd: float
+    eval_pass_rate: float | None
+    regressions: int | None
+    period_hours: int = 24
