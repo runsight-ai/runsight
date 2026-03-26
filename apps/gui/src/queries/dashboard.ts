@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "./keys";
 import { api } from "../api/client";
-import type { RunResponse } from "../types/schemas/runs";
+import type { RunResponse } from "../types/generated/zod";
 
 export interface DashboardSummary {
   total_runs: number;

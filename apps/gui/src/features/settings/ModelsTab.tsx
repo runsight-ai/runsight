@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Bot, Check, X, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import type { ModelDefault } from "@/types/schemas/settings";
+import type { ModelDefault } from "@/types/generated/zod";
 
 function ModelRow({
   model,

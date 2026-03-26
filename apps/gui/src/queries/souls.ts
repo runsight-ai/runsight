@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { soulsApi } from "../api/souls";
 import { queryKeys } from "./keys";
-import { SoulCreate, SoulUpdate } from "../types/schemas/souls";
+import { SoulCreate, SoulUpdate } from "../types/generated/zod";
 
 export function useSouls() {
   return useQuery({

@@ -3,7 +3,7 @@ import { CrudListPage, type CrudListPageConfig } from "@/components/shared/CrudL
 import { type Column } from "@/components/shared/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles } from "lucide-react";
-import type { SoulResponse } from "@/types/schemas/souls";
+import type { SoulResponse } from "@/types/generated/zod";
 import { truncateText } from "@/utils/formatting";
 import { NewSoulModal, EditSoulModal } from "./SoulModals";
 

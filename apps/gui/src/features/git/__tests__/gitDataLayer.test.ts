@@ -7,7 +7,7 @@
  * 3. React Query hooks — query keys, polling, cache invalidation
  *
  * All tests must FAIL until Green-team implements:
- * - apps/gui/src/types/schemas/git.ts
+ * - apps/gui/src/types/generated/zod.ts (Git schemas)
  * - apps/gui/src/api/git.ts
  * - apps/gui/src/queries/git.ts
  */
@@ -20,7 +20,7 @@ import { resolve } from "path";
 // Helpers: path constants
 // ---------------------------------------------------------------------------
 
-const SCHEMAS_PATH = resolve(__dirname, "../../../types/schemas/git.ts");
+const SCHEMAS_PATH = resolve(__dirname, "../../../types/generated/zod.ts");
 const API_CLIENT_PATH = resolve(__dirname, "../../../api/git.ts");
 const HOOKS_PATH = resolve(__dirname, "../../../queries/git.ts");
 const KEYS_PATH = resolve(__dirname, "../../../queries/keys.ts");
@@ -32,7 +32,7 @@ const CONSTANTS_PATH = resolve(__dirname, "../../../utils/constants.ts");
 
 describe("Git Zod schemas (RUN-154)", () => {
   // Guard: file must exist before any schema test runs
-  it("schema file exists at types/schemas/git.ts", () => {
+  it("schema file exists at types/generated/zod.ts", () => {
     expect(existsSync(SCHEMAS_PATH)).toBe(true);
   });
 
@@ -41,7 +41,7 @@ describe("Git Zod schemas (RUN-154)", () => {
 
   describe("GitFileStatusSchema", () => {
     it("parses a valid file status object", async () => {
-      const { GitFileStatusSchema } = await import("../../../types/schemas/git");
+      const { GitFileStatusSchema } = await import("../../../types/generated/zod");
       const result = GitFileStatusSchema.safeParse({
         path: "src/app.ts",
         status: "modified",
@@ -54,25 +54,25 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when path is missing", async () => {
-      const { GitFileStatusSchema } = await import("../../../types/schemas/git");
+      const { GitFileStatusSchema } = await import("../../../types/generated/zod");
       const result = GitFileStatusSchema.safeParse({ status: "modified" });
       expect(result.success).toBe(false);
     });
 
     it("rejects when status is missing", async () => {
-      const { GitFileStatusSchema } = await import("../../../types/schemas/git");
+      const { GitFileStatusSchema } = await import("../../../types/generated/zod");
       const result = GitFileStatusSchema.safeParse({ path: "foo.ts" });
       expect(result.success).toBe(false);
     });
 
     it("rejects non-string path", async () => {
-      const { GitFileStatusSchema } = await import("../../../types/schemas/git");
+      const { GitFileStatusSchema } = await import("../../../types/generated/zod");
       const result = GitFileStatusSchema.safeParse({ path: 123, status: "modified" });
       expect(result.success).toBe(false);
     });
 
     it("rejects non-string status", async () => {
-      const { GitFileStatusSchema } = await import("../../../types/schemas/git");
+      const { GitFileStatusSchema } = await import("../../../types/generated/zod");
       const result = GitFileStatusSchema.safeParse({ path: "foo.ts", status: true });
       expect(result.success).toBe(false);
     });
@@ -80,7 +80,7 @@ describe("Git Zod schemas (RUN-154)", () => {
 
   describe("GitStatusResponseSchema", () => {
     it("parses a valid status response", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/schemas/git");
+      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
       const data = {
         branch: "main",
         uncommitted_files: [
@@ -99,7 +99,7 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("parses a clean repo response", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/schemas/git");
+      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
       const result = GitStatusResponseSchema.safeParse({
         branch: "feat/foo",
         uncommitted_files: [],
@@ -109,7 +109,7 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when branch is missing", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/schemas/git");
+      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
       const result = GitStatusResponseSchema.safeParse({
         uncommitted_files: [],
         is_clean: true,
@@ -118,7 +118,7 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when uncommitted_files is not an array", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/schemas/git");
+      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
       const result = GitStatusResponseSchema.safeParse({
         branch: "main",
         uncommitted_files: "not-an-array",
@@ -128,7 +128,7 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when is_clean is missing", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/schemas/git");
+      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
       const result = GitStatusResponseSchema.safeParse({
         branch: "main",
         uncommitted_files: [],
@@ -137,7 +137,7 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("has exactly the fields: branch, uncommitted_files, is_clean", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/schemas/git");
+      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
       const keys = Object.keys(GitStatusResponseSchema.shape).sort();
       expect(keys).toEqual(["branch", "is_clean", "uncommitted_files"]);
     });
@@ -145,7 +145,7 @@ describe("Git Zod schemas (RUN-154)", () => {
 
   describe("GitCommitResponseSchema", () => {
     it("parses a valid commit response", async () => {
-      const { GitCommitResponseSchema } = await import("../../../types/schemas/git");
+      const { GitCommitResponseSchema } = await import("../../../types/generated/zod");
       const result = GitCommitResponseSchema.safeParse({
         hash: "abc123def456",
         message: "feat: add git integration",
@@ -158,19 +158,19 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when hash is missing", async () => {
-      const { GitCommitResponseSchema } = await import("../../../types/schemas/git");
+      const { GitCommitResponseSchema } = await import("../../../types/generated/zod");
       const result = GitCommitResponseSchema.safeParse({ message: "hi" });
       expect(result.success).toBe(false);
     });
 
     it("rejects when message is missing", async () => {
-      const { GitCommitResponseSchema } = await import("../../../types/schemas/git");
+      const { GitCommitResponseSchema } = await import("../../../types/generated/zod");
       const result = GitCommitResponseSchema.safeParse({ hash: "abc123" });
       expect(result.success).toBe(false);
     });
 
     it("has exactly the fields: hash, message", async () => {
-      const { GitCommitResponseSchema } = await import("../../../types/schemas/git");
+      const { GitCommitResponseSchema } = await import("../../../types/generated/zod");
       const keys = Object.keys(GitCommitResponseSchema.shape).sort();
       expect(keys).toEqual(["hash", "message"]);
     });
@@ -178,7 +178,7 @@ describe("Git Zod schemas (RUN-154)", () => {
 
   describe("GitLogEntrySchema", () => {
     it("parses a valid log entry", async () => {
-      const { GitLogEntrySchema } = await import("../../../types/schemas/git");
+      const { GitLogEntrySchema } = await import("../../../types/generated/zod");
       const result = GitLogEntrySchema.safeParse({
         hash: "abc123",
         message: "initial commit",
@@ -193,7 +193,7 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when any required field is missing", async () => {
-      const { GitLogEntrySchema } = await import("../../../types/schemas/git");
+      const { GitLogEntrySchema } = await import("../../../types/generated/zod");
       // Missing author
       const result = GitLogEntrySchema.safeParse({
         hash: "abc",
@@ -204,7 +204,7 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("has exactly the fields: hash, message, date, author", async () => {
-      const { GitLogEntrySchema } = await import("../../../types/schemas/git");
+      const { GitLogEntrySchema } = await import("../../../types/generated/zod");
       const keys = Object.keys(GitLogEntrySchema.shape).sort();
       expect(keys).toEqual(["author", "date", "hash", "message"]);
     });
@@ -212,7 +212,7 @@ describe("Git Zod schemas (RUN-154)", () => {
 
   describe("GitDiffResponseSchema", () => {
     it("parses a valid diff response", async () => {
-      const { GitDiffResponseSchema } = await import("../../../types/schemas/git");
+      const { GitDiffResponseSchema } = await import("../../../types/generated/zod");
       const result = GitDiffResponseSchema.safeParse({
         diff: "--- a/foo.ts\n+++ b/foo.ts\n@@ -1 +1 @@\n-old\n+new",
       });
@@ -223,19 +223,19 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("parses an empty diff string", async () => {
-      const { GitDiffResponseSchema } = await import("../../../types/schemas/git");
+      const { GitDiffResponseSchema } = await import("../../../types/generated/zod");
       const result = GitDiffResponseSchema.safeParse({ diff: "" });
       expect(result.success).toBe(true);
     });
 
     it("rejects when diff is missing", async () => {
-      const { GitDiffResponseSchema } = await import("../../../types/schemas/git");
+      const { GitDiffResponseSchema } = await import("../../../types/generated/zod");
       const result = GitDiffResponseSchema.safeParse({});
       expect(result.success).toBe(false);
     });
 
     it("has exactly the field: diff", async () => {
-      const { GitDiffResponseSchema } = await import("../../../types/schemas/git");
+      const { GitDiffResponseSchema } = await import("../../../types/generated/zod");
       const keys = Object.keys(GitDiffResponseSchema.shape).sort();
       expect(keys).toEqual(["diff"]);
     });
@@ -400,9 +400,9 @@ describe("Git API client (RUN-154)", () => {
       expect(source).toMatch(/import\s*\{[^}]*api[^}]*\}\s*from\s*["']\.\/client["']/);
     });
 
-    it("imports Zod schemas from types/schemas/git", () => {
+    it("imports Zod schemas from types/generated/zod", () => {
       const source = readFileSync(API_CLIENT_PATH, "utf-8");
-      expect(source).toMatch(/from\s*["']\.\.\/types\/schemas\/git["']/);
+      expect(source).toMatch(/from\s*["']\.\.\/types\/generated\/zod["']/);
     });
 
     it("calls .parse() on responses for type safety", () => {

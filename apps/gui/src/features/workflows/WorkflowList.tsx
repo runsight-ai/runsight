@@ -45,7 +45,7 @@ import {
 } from "lucide-react";
 import { getWorkflowIcon, getWorkflowIconBg } from "@/utils/icons";
 import { getTimeAgo } from "@/utils/formatting";
-import type { WorkflowResponse } from "@/types/schemas/workflows";
+import type { WorkflowResponse } from "@/types/generated/zod";
 
 type SortOption = "updated" | "name" | "created";
 type ViewMode = "list" | "grid";

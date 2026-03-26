@@ -11,7 +11,7 @@ import {
   PaginatedLogsResponse,
   CancelRunResponseSchema,
   CancelRunResponse,
-} from "../types/schemas/runs";
+} from "../types/generated/zod";
 
 export const runsApi = {
   listRuns: async (params?: Record<string, string>): Promise<RunListResponse> => {

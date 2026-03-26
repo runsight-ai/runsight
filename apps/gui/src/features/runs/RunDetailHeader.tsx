@@ -13,7 +13,7 @@ import {
   Maximize,
   Activity,
 } from "lucide-react";
-import type { RunResponse } from "@/types/schemas/runs";
+import type { RunResponse } from "@/types/generated/zod";
 
 // ---------------------------------------------------------------------------
 // Props

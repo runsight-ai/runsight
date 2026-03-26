@@ -15,7 +15,7 @@ import {
   UpdateBudget,
   AppSettingsSchema,
   AppSettings,
-} from "../types/schemas/settings";
+} from "../types/generated/zod";
 
 export const settingsApi = {
   listProviders: async (params?: Record<string, string>): Promise<{ items: Provider[]; total: number }> => {

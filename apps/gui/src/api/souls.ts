@@ -6,7 +6,7 @@ import {
   SoulListResponseSchema,
   SoulCreate,
   SoulUpdate,
-} from "../types/schemas/souls";
+} from "../types/generated/zod";
 
 export const soulsApi = {
   listSouls: async (): Promise<SoulListResponse> => {

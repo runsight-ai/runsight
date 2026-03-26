@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Pencil } from "lucide-react";
-import type { TaskResponse } from "@/types/schemas/tasks";
+import type { TaskResponse } from "@/types/generated/zod";
 
 const TASK_TYPES = [
   { value: "task", label: "Task" },

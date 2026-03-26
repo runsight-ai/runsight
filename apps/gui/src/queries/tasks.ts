@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { tasksApi } from "../api/tasks";
 import { queryKeys } from "./keys";
-import type { TaskCreate, TaskUpdate } from "../types/schemas/tasks";
+import type { TaskCreate, TaskUpdate } from "../types/generated/zod";
 
 export function useTasks(params?: Record<string, string>) {
   return useQuery({

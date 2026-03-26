@@ -1,4 +1,4 @@
-import type { RunCreate } from "../../types/schemas/runs";
+import type { RunCreate } from "../../types/generated/zod";
 
 export interface RunWorkflowOptions {
   workflowId: string;

@@ -16,7 +16,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { NodeSummarySchema, RunResponseSchema } from "../../../types/schemas/runs";
+import { NodeSummarySchema, RunResponseSchema } from "../../../types/generated/zod";
 
 // Read RunDetail source once for behavioral source-level assertions.
 // This verifies what the component *does*, not what it *exports*.

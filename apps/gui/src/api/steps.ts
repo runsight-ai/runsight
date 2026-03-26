@@ -6,7 +6,7 @@ import {
   StepListResponseSchema,
   StepCreate,
   StepUpdate,
-} from "../types/schemas/steps";
+} from "../types/generated/zod";
 
 export const stepsApi = {
   listSteps: async (params?: Record<string, string>): Promise<StepListResponse> => {

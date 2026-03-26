@@ -6,7 +6,7 @@ import {
   TaskListResponseSchema,
   TaskCreate,
   TaskUpdate,
-} from "../types/schemas/tasks";
+} from "../types/generated/zod";
 
 export const tasksApi = {
   listTasks: async (params?: Record<string, string>): Promise<TaskListResponse> => {
