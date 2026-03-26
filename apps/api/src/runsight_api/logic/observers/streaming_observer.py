@@ -6,6 +6,15 @@ from typing import Any, Dict, Optional
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 
+from ...domain.events import (
+    SSE_NODE_COMPLETED,
+    SSE_NODE_FAILED,
+    SSE_NODE_STARTED,
+    SSE_RUN_COMPLETED,
+    SSE_RUN_FAILED,
+    SSE_RUN_STARTED,
+)
+
 
 class StreamingObserver:
     """Implements WorkflowObserver protocol, pushing events to an asyncio.Queue.
@@ -19,13 +28,13 @@ class StreamingObserver:
         self.is_done: bool = False
 
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
-        self.queue.put_nowait({"event": "run_started", "data": {"run_id": self.run_id}})
+        self.queue.put_nowait({"event": SSE_RUN_STARTED, "data": {"run_id": self.run_id}})
 
     def on_block_start(
         self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
     ) -> None:
         self.queue.put_nowait(
-            {"event": "node_started", "data": {"node_id": block_id, "block_type": block_type}}
+            {"event": SSE_NODE_STARTED, "data": {"node_id": block_id, "block_type": block_type}}
         )
 
     def on_block_complete(
@@ -40,7 +49,7 @@ class StreamingObserver:
     ) -> None:
         self.queue.put_nowait(
             {
-                "event": "node_completed",
+                "event": SSE_NODE_COMPLETED,
                 "data": {
                     "node_id": block_id,
                     "block_type": block_type,
@@ -61,7 +70,7 @@ class StreamingObserver:
     ) -> None:
         self.queue.put_nowait(
             {
-                "event": "node_failed",
+                "event": SSE_NODE_FAILED,
                 "data": {
                     "node_id": block_id,
                     "block_type": block_type,
@@ -76,7 +85,7 @@ class StreamingObserver:
     ) -> None:
         self.queue.put_nowait(
             {
-                "event": "run_completed",
+                "event": SSE_RUN_COMPLETED,
                 "data": {
                     "run_id": self.run_id,
                     "duration_s": duration_s,
@@ -90,7 +99,7 @@ class StreamingObserver:
     def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
         self.queue.put_nowait(
             {
-                "event": "run_failed",
+                "event": SSE_RUN_FAILED,
                 "data": {
                     "run_id": self.run_id,
                     "error": str(error),

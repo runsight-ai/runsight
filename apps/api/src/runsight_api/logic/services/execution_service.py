@@ -10,6 +10,7 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 
 from ...core.secrets import SecretsEnvLoader
 from ...domain.entities.run import RunStatus
+from ...domain.events import SSE_TERMINAL_EVENTS
 from ..observers.eval_observer import EvalObserver
 from ..observers.execution_observer import ExecutionObserver
 from ..observers.streaming_observer import StreamingObserver
@@ -89,7 +90,7 @@ class ExecutionService:
             yield event
 
             # Terminal events end the stream
-            if event["event"] in ("run_completed", "run_failed"):
+            if event["event"] in SSE_TERMINAL_EVENTS:
                 break
 
     async def launch_execution(
