@@ -18,14 +18,14 @@ export const CanvasViewportSchema = z.object({
 });
 export type CanvasViewport = z.infer<typeof CanvasViewportSchema>;
 
-export const DashboardResponseSchema = z.object({
-  active_runs: z.number(),
-  completed_runs: z.number(),
-  total_cost_usd: z.number(),
-  recent_errors: z.number(),
-  system_status: z.string(),
+export const DashboardKPIsResponseSchema = z.object({
+  runs_today: z.number(),
+  cost_today_usd: z.number(),
+  eval_pass_rate: z.number().nullable(),
+  regressions: z.number().nullable(),
+  period_hours: z.number().default(24),
 });
-export type DashboardResponse = z.infer<typeof DashboardResponseSchema>;
+export type DashboardKPIsResponse = z.infer<typeof DashboardKPIsResponseSchema>;
 
 export const ValidationErrorSchema = z.object({
   loc: z.array(z.union([z.string(), z.number()])),

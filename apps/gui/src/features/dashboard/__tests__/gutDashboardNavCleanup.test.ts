@@ -372,18 +372,13 @@ describe("Sidebar hover uses CSS, not imperative JS (AC5)", () => {
 // ===========================================================================
 
 describe("API dashboard cleanup", () => {
-  it("api/dashboard.ts is either removed or properly wired", () => {
-    // After gutting the dashboard, the dashboard API fetcher should either:
-    // - Be deleted (file doesn't exist)
-    // - Or be simplified/kept only if still referenced
-    //
-    // The dashboard no longer needs useDashboardSummary or useRecentRuns,
-    // so the query hooks file should not reference them or they should be removed.
+  it("api/dashboard.ts is properly wired to new KPIs hook", () => {
+    // RUN-338: Dashboard now uses useDashboardKPIs from queries/dashboard
     const dashSource = readSource(DASHBOARD_PATH);
 
-    // Dashboard should NOT import from queries/dashboard anymore
-    expect(dashSource).not.toMatch(/from\s*["']@\/queries\/dashboard["']/);
-    expect(dashSource).not.toMatch(/from\s*["'].*queries\/dashboard["']/);
+    // Dashboard should import useDashboardKPIs (not old useDashboardSummary)
+    expect(dashSource).toMatch(/useDashboardKPIs/);
+    expect(dashSource).not.toMatch(/useDashboardSummary/);
   });
 });
 
