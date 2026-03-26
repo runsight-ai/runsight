@@ -537,8 +537,16 @@ class TestRunStatusTransitions:
         ):
             from runsight_core.state import WorkflowState
 
+            result_state = WorkflowState()
+
+            # Mock wf.run to behave like real Workflow.run(): call observer callbacks
+            async def _mock_run(state, observer=None):
+                if observer:
+                    observer.on_workflow_complete("test", state, 0.1)
+                return result_state
+
             mock_wf = Mock()
-            mock_wf.run = AsyncMock(return_value=WorkflowState())
+            mock_wf.run = _mock_run
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
@@ -594,8 +602,16 @@ class TestRunStatusTransitions:
                 return_value="sk-x",
             ),
         ):
+            error = RuntimeError("LLM exploded")
+
+            # Mock wf.run to behave like real Workflow.run(): call observer on error, then raise
+            async def _mock_run(state, observer=None):
+                if observer:
+                    observer.on_workflow_error("test", error, 0.1)
+                raise error
+
             mock_wf = Mock()
-            mock_wf.run = AsyncMock(side_effect=RuntimeError("LLM exploded"))
+            mock_wf.run = _mock_run
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})

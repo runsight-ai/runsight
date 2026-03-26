@@ -120,12 +120,7 @@ class ExecutionService:
 
         except Exception as e:
             logger.exception("Failed to prepare workflow for run %s", run_id)
-            run = self.run_repo.get_run(run_id)
-            if run:
-                run.status = RunStatus.failed
-                run.error = str(e)
-                run.completed_at = time.time()
-                self.run_repo.update_run(run)
+            self._fail_run_on_prepare_error(run_id, e)
             return
 
         # Schedule background execution (task starts on next event-loop iteration)
@@ -138,8 +133,8 @@ class ExecutionService:
 
         Acquires the concurrency semaphore before running. Status stays
         'pending' until the semaphore is acquired, then transitions to
-        'running'. Workflow.run() is the single source of observer events;
-        this method does not call observer methods directly.
+        'running'. Terminal status (completed/failed) is written exclusively
+        by ExecutionObserver via Workflow.run()'s observer callbacks.
         """
         from runsight_core.primitives import Task
         from runsight_core.state import WorkflowState
@@ -176,9 +171,7 @@ class ExecutionService:
 
             try:
                 state = await wf.run(state, observer=observer)
-                self._set_run_status(run_id, RunStatus.completed)
-            except Exception as e:
-                self._set_run_status(run_id, RunStatus.failed, error=e)
+            except Exception:
                 logger.exception("Workflow execution failed for run %s", run_id)
             finally:
                 self.unregister_observer(run_id)
@@ -186,6 +179,40 @@ class ExecutionService:
         # Eagerly remove from running tasks after semaphore is released.
         # The done_callback is a safety net for cancellation paths.
         self._running_tasks.pop(run_id, None)
+
+    def _fail_run_on_prepare_error(self, run_id: str, error: Exception) -> None:
+        """Mark a run as failed when preparation fails (before task creation).
+
+        Uses a fresh Session via self.engine when available (preferred path).
+        Falls back to self.run_repo for backward compatibility when no engine
+        is configured (e.g. in unit tests without a DB).
+        """
+        if self.engine is not None:
+            try:
+                from sqlmodel import Session
+
+                from ...domain.entities.run import Run
+
+                with Session(self.engine) as session:
+                    run = session.get(Run, run_id)
+                    if run:
+                        run.status = RunStatus.failed
+                        run.error = str(error)
+                        run.completed_at = time.time()
+                        session.add(run)
+                        session.commit()
+            except Exception:
+                logger.exception("Failed to mark run %s as failed via engine session", run_id)
+        else:
+            try:
+                run = self.run_repo.get_run(run_id)
+                if run:
+                    run.status = RunStatus.failed
+                    run.error = str(error)
+                    run.completed_at = time.time()
+                    self.run_repo.update_run(run)
+            except Exception:
+                logger.exception("Failed to mark run %s as failed via run_repo", run_id)
 
     def _set_run_status(
         self, run_id: str, status: RunStatus, *, error: Optional[Exception] = None
@@ -243,5 +270,3 @@ class ExecutionService:
                     result[provider_type] = val
 
         return result
-
-        return None
