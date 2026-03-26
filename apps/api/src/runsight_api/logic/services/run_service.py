@@ -3,7 +3,7 @@ import time
 import json
 from typing import List, Optional, Dict, Any, Tuple
 
-from ...domain.entities.run import Run, RunNode, RunStatus
+from ...domain.entities.run import Run, RunNode, RunStatus, NodeStatus
 from ...domain.entities.log import LogEntry
 from ...data.repositories.run_repo import RunRepository
 from ...data.filesystem.workflow_repo import WorkflowRepository
@@ -71,10 +71,10 @@ class RunService:
         total_cost = sum(n.cost_usd for n in nodes)
         total_tokens = sum((n.tokens or {}).get("total", 0) for n in nodes)
 
-        completed = sum(1 for n in nodes if n.status == "completed")
-        running = sum(1 for n in nodes if n.status == "running")
-        pending = sum(1 for n in nodes if n.status == "pending")
-        failed = sum(1 for n in nodes if n.status == "failed")
+        completed = sum(1 for n in nodes if n.status == NodeStatus.completed)
+        running = sum(1 for n in nodes if n.status == NodeStatus.running)
+        pending = sum(1 for n in nodes if n.status == NodeStatus.pending)
+        failed = sum(1 for n in nodes if n.status == NodeStatus.failed)
 
         return {
             "total_cost_usd": total_cost,
