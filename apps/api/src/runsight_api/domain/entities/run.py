@@ -13,6 +13,41 @@ class RunStatus(str, Enum):
     cancelled = "cancelled"
 
 
+# ---------------------------------------------------------------------------
+# State transition guards
+# ---------------------------------------------------------------------------
+
+VALID_TRANSITIONS: Dict[str, set] = {
+    RunStatus.pending: {RunStatus.running, RunStatus.cancelled, RunStatus.failed},
+    RunStatus.running: {RunStatus.completed, RunStatus.failed, RunStatus.cancelled},
+    RunStatus.completed: set(),  # terminal
+    RunStatus.failed: set(),  # terminal
+    RunStatus.cancelled: set(),  # terminal
+}
+
+
+class InvalidStateTransition(ValueError):
+    """Raised when a run status transition is not allowed."""
+
+    def __init__(self, current: RunStatus, target: RunStatus):
+        self.current = current
+        self.target = target
+        super().__init__(f"Invalid state transition: {current.value} -> {target.value}")
+
+
+def validate_transition(current: RunStatus, target: RunStatus) -> None:
+    """Raise InvalidStateTransition if *current* -> *target* is not allowed.
+
+    Same-status transitions are treated as idempotent no-ops and are always
+    allowed.
+    """
+    if current == target:
+        return
+    allowed = VALID_TRANSITIONS.get(current, set())
+    if target not in allowed:
+        raise InvalidStateTransition(current, target)
+
+
 class Run(SQLModel, table=True):
     id: str = Field(primary_key=True)
     workflow_id: str
