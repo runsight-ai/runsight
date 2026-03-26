@@ -13,6 +13,13 @@ class RunStatus(str, Enum):
     cancelled = "cancelled"
 
 
+class NodeStatus(str, Enum):
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+
+
 class Run(SQLModel, table=True):
     id: str = Field(primary_key=True)
     workflow_id: str
@@ -37,7 +44,7 @@ class RunNode(SQLModel, table=True):
     run_id: str = Field(index=True)
     node_id: str
     block_type: str
-    status: str = Field(default="pending")
+    status: NodeStatus = Field(default=NodeStatus.pending)
     started_at: Optional[float] = None
     completed_at: Optional[float] = None
     duration_s: Optional[float] = None
