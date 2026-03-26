@@ -244,23 +244,4 @@ class ExecutionService:
 
         return result
 
-    def _resolve_api_key(self) -> str | None:
-        """Resolve API key from provider repo or environment."""
-        import os
-
-        # Try provider repo first
-        for provider_type in ("openai", "anthropic"):
-            providers = self.provider_repo.get_by_type(provider_type)
-            provider = providers[0] if isinstance(providers, list) and providers else providers
-            if provider and provider.api_key and self.secrets:
-                resolved = self.secrets.resolve(provider.api_key)
-                if resolved:
-                    return resolved
-
-        # Fallback to env vars
-        for env_var in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY"):
-            val = os.environ.get(env_var)
-            if val:
-                return val
-
         return None
