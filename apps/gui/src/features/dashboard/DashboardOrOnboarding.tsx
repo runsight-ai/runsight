@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router";
 import { useEffect, useRef } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Workflow, Play } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
 import { StatCard } from "@/components/ui/stat-card";
-import { useCreateWorkflow } from "@/queries/workflows";
+import { useWorkflows, useCreateWorkflow } from "@/queries/workflows";
 import { useDashboardKPIs } from "@/queries/dashboard";
 import { useActiveRuns } from "@/queries/runs";
 
@@ -29,6 +30,7 @@ function formatCurrency(value: number): string {
 export function Component() {
   const navigate = useNavigate();
   const createWorkflow = useCreateWorkflow();
+  const workflows = useWorkflows();
   const { activeRuns, subscribeToRunStream } = useActiveRuns();
   const { data } = useDashboardKPIs();
   const eventSourcesRef = useRef<Map<string, EventSource>>(new Map());
@@ -70,37 +72,64 @@ export function Component() {
   const evalPassDisplay = eval_pass_rate != null ? `${(eval_pass_rate * 100).toFixed(0)}%` : "—";
   const regressionsDisplay = regressions ?? "—";
 
-  return (
-    <div className="flex-1 flex flex-col">
-      <PageHeader
-        title="Home"
-        actions={
+  const hasNoWorkflows = workflows.data?.items?.length === 0;
+
+  // Priority 1: No workflows — full-page empty state
+  if (hasNoWorkflows) {
+    return (
+      <div className="flex-1 flex flex-col">
+        <PageHeader title="Home" actions={
           <Button onClick={handleNewWorkflow} disabled={createWorkflow.isPending}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Workflow
+            <Plus className="w-4 h-4 mr-2" />New Workflow
           </Button>
-        }
-      />
-      <div className="grid grid-cols-4 gap-4 p-4">
-        <StatCard
-          label="Runs Today"
-          value={runsToday}
-        />
-        <StatCard
-          label="Eval Pass"
-          value={evalPassDisplay}
-        />
-        <StatCard
-          label="Spent Today"
-          value={formatCurrency(costTodayUsd)}
-        />
-        <StatCard
-          label="Regressions"
-          value={regressionsDisplay}
-          variant={regressions != null && regressions > 0 ? "warning" : "default"}
+        } />
+        <EmptyState
+          icon={Workflow}
+          title="Welcome to Runsight"
+          description="Create your first workflow to start orchestrating AI agents."
+          action={{ label: "Create Workflow", onClick: handleNewWorkflow }}
+          className="flex-1"
         />
       </div>
+    );
+  }
 
+  const headerActions = (
+    <Button onClick={handleNewWorkflow} disabled={createWorkflow.isPending}>
+      <Plus className="w-4 h-4 mr-2" />New Workflow
+    </Button>
+  );
+
+  const kpiGrid = (
+    <div className="grid grid-cols-4 gap-4 p-4">
+      <StatCard label="Runs Today" value={runsToday} />
+      <StatCard label="Eval Pass" value={evalPassDisplay} />
+      <StatCard label="Spent Today" value={formatCurrency(costTodayUsd)} />
+      <StatCard label="Regressions" value={regressionsDisplay} variant={regressions != null && regressions > 0 ? "warning" : "default"} />
+    </div>
+  );
+
+  // Priority 2: No runs today — KPIs with zeros + empty state
+  if (runsToday === 0) {
+    return (
+      <div className="flex-1 flex flex-col">
+        <PageHeader title="Home" actions={headerActions} />
+        {kpiGrid}
+        <EmptyState
+          icon={Play}
+          title="No runs yet"
+          description="Run a workflow to see eval results, cost tracking, and regression detection here."
+          action={{ label: "Open Flows", onClick: () => navigate("/workflows") }}
+        />
+        <div className="flex-1" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col">
+      <PageHeader title="Home" actions={headerActions} />
+      {kpiGrid}
       {activeRuns.length > 0 && (
         <div className="px-6 py-4">
           <h2 className="font-mono text-xs text-muted uppercase tracking-wider mb-3">
@@ -108,30 +137,16 @@ export function Component() {
           </h2>
           <div className="space-y-2">
             {activeRuns.map((run) => (
-              <div
-                key={run.id}
-                className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-tertiary/50 cursor-pointer"
-                onClick={() => navigate(`/workflows/${run.workflow_id}/edit`)}
-              >
-                <StatusDot
-                  variant={run.status === "running" ? "active" : "neutral"}
-                  animate={run.status === "running" ? "pulse" : "none"}
-                />
-                <span className="text-sm font-medium flex-1 truncate">
-                  {run.workflow_name}
-                </span>
-                <span className="text-xs text-muted">
-                  {formatElapsed(run.started_at)}
-                </span>
-                <span className="text-xs text-muted font-mono">
-                  {formatCost(run.total_cost_usd)}
-                </span>
+              <div key={run.id} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-tertiary/50 cursor-pointer" onClick={() => navigate(`/workflows/${run.workflow_id}/edit`)}>
+                <StatusDot variant={run.status === "running" ? "active" : "neutral"} animate={run.status === "running" ? "pulse" : "none"} />
+                <span className="text-sm font-medium flex-1 truncate">{run.workflow_name}</span>
+                <span className="text-xs text-muted">{formatElapsed(run.started_at)}</span>
+                <span className="text-xs text-muted font-mono">{formatCost(run.total_cost_usd)}</span>
               </div>
             ))}
           </div>
         </div>
       )}
-
       <div className="flex-1" />
     </div>
   );
