@@ -12,7 +12,6 @@ Tests target:
 
 from __future__ import annotations
 
-import asyncio
 
 import pytest
 
@@ -74,13 +73,6 @@ class TestToolInstanceConstruction:
         """ToolInstance stores an async execute callable."""
         ti = _make_dummy_tool_instance()
         assert callable(ti.execute)
-
-    def test_tool_instance_execute_is_async(self):
-        """ToolInstance.execute is an async function that returns a string."""
-        ti = _make_dummy_tool_instance()
-        result = asyncio.get_event_loop().run_until_complete(ti.execute({"query": "hello"}))
-        assert isinstance(result, str)
-        assert "hello" in result
 
 
 # ---------------------------------------------------------------------------

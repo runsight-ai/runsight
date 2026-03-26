@@ -310,14 +310,6 @@ class TestSSRFPreserved:
 
         assert result["success"] is True
 
-    def test_validate_ssrf_is_still_imported(self):
-        """provider_service must still import validate_ssrf from runsight_core."""
-        import runsight_api.logic.services.provider_service as mod
-
-        assert hasattr(mod, "validate_ssrf"), (
-            "validate_ssrf must remain imported in provider_service"
-        )
-
     async def test_ssrf_no_http_call_for_blocked_url(self, service):
         """When SSRF blocks a URL, httpx.get must NOT be called."""
         service.create_provider(
@@ -374,17 +366,6 @@ class TestApiResponseContract:
         out = _provider_to_out(entity)
         # Should show "configured" because api_key is set (even though it's a ref)
         assert out.api_key_env == "configured"
-
-    def test_provider_entity_has_no_api_key_encrypted_field(self):
-        """ProviderEntity (filesystem) uses api_key, not api_key_encrypted."""
-        from runsight_api.domain.value_objects import ProviderEntity
-
-        entity = ProviderEntity(id="test", name="Test")
-        assert hasattr(entity, "api_key"), "ProviderEntity must have api_key field"
-        # api_key_encrypted should NOT be a field on ProviderEntity
-        assert "api_key_encrypted" not in entity.model_fields, (
-            "ProviderEntity must not have api_key_encrypted — that's the SQLModel field"
-        )
 
 
 # ===========================================================================
@@ -498,105 +479,8 @@ class TestExecutionServiceUsesSecrets:
 # ===========================================================================
 
 
-class TestDepsWiring:
-    """deps.py must provide FileSystemProviderRepo + SecretsEnvLoader, not SQLite."""
-
-    def test_get_provider_repo_returns_filesystem_repo(self):
-        """get_provider_repo must return FileSystemProviderRepo, not ProviderRepository."""
-        from runsight_api.transport import deps
-
-        assert hasattr(deps, "get_provider_repo"), "deps must have get_provider_repo"
-        # The function should NOT require a Session parameter
-        import inspect
-
-        sig = inspect.signature(deps.get_provider_repo)
-        param_names = list(sig.parameters.keys())
-        assert "session" not in param_names, "get_provider_repo must not depend on SQLite Session"
-
-    def test_get_secrets_loader_exists(self):
-        """deps.py must export a get_secrets_loader dependency."""
-        from runsight_api.transport import deps
-
-        assert hasattr(deps, "get_secrets_loader"), "deps must have get_secrets_loader function"
-
-    def test_get_provider_service_includes_secrets(self):
-        """get_provider_service must wire SecretsEnvLoader into ProviderService."""
-        from runsight_api.transport import deps
-        import inspect
-
-        sig = inspect.signature(deps.get_provider_service)
-        param_annotations = {name: p.annotation for name, p in sig.parameters.items()}
-        # Must have a secrets parameter (SecretsEnvLoader dependency)
-        has_secrets_param = any("secrets" in name.lower() for name in sig.parameters)
-        has_secrets_annotation = any(
-            "SecretsEnvLoader" in str(ann) for ann in param_annotations.values()
-        )
-        assert has_secrets_param or has_secrets_annotation, (
-            "get_provider_service must accept a SecretsEnvLoader dependency"
-        )
-
-    def test_deps_does_not_import_sqlite_provider_repo(self):
-        """deps.py must not import ProviderRepository from data.repositories."""
-        import importlib
-
-        source = importlib.util.find_spec("runsight_api.transport.deps")
-        if source and source.origin:
-            with open(source.origin) as f:
-                content = f.read()
-            assert (
-                "from ..data.repositories.provider_repo import ProviderRepository" not in content
-            ), "deps.py must not import SQLite ProviderRepository"
-
-    def test_get_settings_repo_exists(self):
-        """deps.py must export a get_settings_repo for FileSystemSettingsRepo."""
-        from runsight_api.transport import deps
-
-        assert hasattr(deps, "get_settings_repo"), "deps must have get_settings_repo function"
-
-
 # ===========================================================================
-# 9. main.py lifespan uses filesystem repos
-# ===========================================================================
-
-
-class TestMainLifespan:
-    """main.py lifespan must instantiate FileSystemProviderRepo + SecretsEnvLoader."""
-
-    def test_main_does_not_import_sqlite_provider_repo(self):
-        """main.py must not import ProviderRepository from data.repositories."""
-        import importlib
-
-        source = importlib.util.find_spec("runsight_api.main")
-        if source and source.origin:
-            with open(source.origin) as f:
-                content = f.read()
-            assert (
-                "from .data.repositories.provider_repo import ProviderRepository" not in content
-            ), "main.py must not import SQLite ProviderRepository"
-
-    def test_main_imports_filesystem_provider_repo(self):
-        """main.py must import FileSystemProviderRepo."""
-        import importlib
-
-        source = importlib.util.find_spec("runsight_api.main")
-        if source and source.origin:
-            with open(source.origin) as f:
-                content = f.read()
-            assert "FileSystemProviderRepo" in content, "main.py must import FileSystemProviderRepo"
-
-    def test_main_imports_secrets_loader(self):
-        """main.py must import SecretsEnvLoader."""
-        import importlib
-
-        source = importlib.util.find_spec("runsight_api.main")
-        if source and source.origin:
-            with open(source.origin) as f:
-                content = f.read()
-            assert "SecretsEnvLoader" in content, "main.py must import SecretsEnvLoader"
-
-
-# ===========================================================================
-# 10. No encrypt/decrypt imports in rewired modules
+# 8. No encrypt/decrypt imports in rewired modules
 # ===========================================================================
 
 

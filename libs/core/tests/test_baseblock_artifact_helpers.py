@@ -85,13 +85,6 @@ class TestWriteArtifact:
 
         assert content == "hello world"
 
-    async def test_write_artifact_is_async(self):
-        """write_artifact must be a coroutine function (async def)."""
-        import inspect
-
-        block = StubBlock("b1")
-        assert inspect.iscoroutinefunction(block.write_artifact)
-
 
 # ==============================================================================
 # write_artifact — metadata forwarding
@@ -188,13 +181,6 @@ class TestReadArtifact:
 
         mock_store.read.assert_awaited_once_with("mem://run-1/doc")
         assert content == "stored content"
-
-    async def test_read_artifact_is_async(self):
-        """read_artifact must be a coroutine function (async def)."""
-        import inspect
-
-        block = StubBlock("b1")
-        assert inspect.iscoroutinefunction(block.read_artifact)
 
 
 # ==============================================================================

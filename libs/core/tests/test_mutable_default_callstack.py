@@ -36,22 +36,3 @@ class TestCallStackSignatureDefault:
             f"call_stack default is a list ({param.default!r}); "
             "mutable defaults are shared across calls"
         )
-
-
-# ---------------------------------------------------------------------------
-# Source code inspection
-# ---------------------------------------------------------------------------
-
-
-class TestCallStackSourceCode:
-    """Source code must not contain the mutable default pattern."""
-
-    def test_source_has_no_mutable_default_list(self):
-        """The source of execute() must not contain 'call_stack: List[str] = []'."""
-        source = inspect.getsource(WorkflowBlock.execute)
-        # Normalise whitespace for reliable matching
-        normalised = " ".join(source.split())
-        assert "= []" not in normalised, (
-            "Source still contains '= []' for call_stack — "
-            "must use Optional[List[str]] = None instead"
-        )

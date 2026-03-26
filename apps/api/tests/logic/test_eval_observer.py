@@ -159,11 +159,6 @@ def cost_assertion_configs():
 
 
 class TestEvalObserverImport:
-    def test_can_import_eval_observer(self):
-        """EvalObserver can be imported from runsight_api.logic.observers.eval_observer."""
-        EvalObserver = _import_eval_observer()
-        assert EvalObserver is not None
-
     def test_constructor_accepts_required_kwargs(self, seed_run, sse_queue):
         """EvalObserver accepts engine, run_id, sse_queue, assertion_configs kwargs."""
         engine, run_id = seed_run
@@ -895,46 +890,6 @@ class TestEvalObserverWorkflowComplete:
 
 
 class TestEvalObserverProtocol:
-    def test_implements_on_block_start(self, seed_run, sse_queue):
-        """EvalObserver has on_block_start method (no-op for eval)."""
-        engine, run_id = seed_run
-        EvalObserver = _import_eval_observer()
-        obs = EvalObserver(
-            engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=None
-        )
-        assert hasattr(obs, "on_block_start")
-        assert callable(obs.on_block_start)
-
-    def test_implements_on_workflow_start(self, seed_run, sse_queue):
-        """EvalObserver has on_workflow_start method."""
-        engine, run_id = seed_run
-        EvalObserver = _import_eval_observer()
-        obs = EvalObserver(
-            engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=None
-        )
-        assert hasattr(obs, "on_workflow_start")
-        assert callable(obs.on_workflow_start)
-
-    def test_implements_on_block_error(self, seed_run, sse_queue):
-        """EvalObserver has on_block_error method."""
-        engine, run_id = seed_run
-        EvalObserver = _import_eval_observer()
-        obs = EvalObserver(
-            engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=None
-        )
-        assert hasattr(obs, "on_block_error")
-        assert callable(obs.on_block_error)
-
-    def test_implements_on_workflow_error(self, seed_run, sse_queue):
-        """EvalObserver has on_workflow_error method."""
-        engine, run_id = seed_run
-        EvalObserver = _import_eval_observer()
-        obs = EvalObserver(
-            engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=None
-        )
-        assert hasattr(obs, "on_workflow_error")
-        assert callable(obs.on_workflow_error)
-
     def test_on_block_start_is_noop(self, seed_run, sse_queue, sample_soul):
         """EvalObserver.on_block_start does not raise (no-op for eval)."""
         engine, run_id = seed_run

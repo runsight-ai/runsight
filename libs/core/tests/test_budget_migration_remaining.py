@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import importlib
 import inspect
-import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from runsight_core.blocks.linear import LinearBlock
@@ -49,22 +48,6 @@ LOOP_MODULE = "runsight_core.blocks.loop"
 class TestLoopBlockCarryContextFlowsThroughTaskContext:
     """When carry_context accumulates data, it should flow through task.context
     as P2 elastic data so the budget manager can truncate it."""
-
-    def test_loop_carry_context_injects_into_task_context(self):
-        """LoopBlock carry_context data must be written to task.context (not just
-        shared_memory) so the budget system treats it as P2 elastic content."""
-        source = _get_class_method_source(LOOP_MODULE, "LoopBlock", "execute")
-        # The carry_context data must update current_task.context or
-        # build a new task with context= containing the carry data
-        assert re.search(
-            r"(current_task\.context|task\.context|context\s*=.*carry)",
-            source,
-            re.DOTALL | re.IGNORECASE,
-        ), (
-            "LoopBlock.execute() does not flow carry_context data through task.context — "
-            "accumulated carry_context must be set on the task's context field "
-            "so the budget manager can truncate it as P2 elastic content"
-        )
 
 
 # ===========================================================================

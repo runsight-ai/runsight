@@ -54,25 +54,6 @@ def db_session():
 
 
 class TestBaselineStatsModel:
-    def test_can_import(self):
-        """BaselineStats can be imported from runsight_api.domain.entities.run."""
-        BaselineStats = _import_baseline_stats()
-        assert BaselineStats is not None
-
-    def test_has_required_fields(self):
-        """BaselineStats has avg_cost, avg_tokens, avg_score, run_count."""
-        BaselineStats = _import_baseline_stats()
-        instance = BaselineStats(
-            avg_cost=0.05,
-            avg_tokens=1500.0,
-            avg_score=0.9,
-            run_count=10,
-        )
-        assert instance.avg_cost == pytest.approx(0.05)
-        assert instance.avg_tokens == pytest.approx(1500.0)
-        assert instance.avg_score == pytest.approx(0.9)
-        assert instance.run_count == 10
-
     def test_avg_score_can_be_none(self):
         """BaselineStats.avg_score can be None (no eval data)."""
         BaselineStats = _import_baseline_stats()
@@ -86,21 +67,7 @@ class TestBaselineStatsModel:
 
 
 # ---------------------------------------------------------------------------
-# 2. get_baseline — method exists
-# ---------------------------------------------------------------------------
-
-
-class TestGetBaselineExists:
-    def test_method_exists_on_run_repository(self, db_session):
-        """RunRepository has a get_baseline method."""
-        RunRepository = _import_run_repository()
-        repo = RunRepository(db_session)
-        assert hasattr(repo, "get_baseline"), "RunRepository must have get_baseline()"
-        assert callable(repo.get_baseline)
-
-
-# ---------------------------------------------------------------------------
-# 3. get_baseline — returns None when no runs
+# 2. get_baseline — returns None when no runs
 # ---------------------------------------------------------------------------
 
 

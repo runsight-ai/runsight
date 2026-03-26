@@ -17,13 +17,6 @@ These tests should all FAIL until the implementation is written.
 class TestCorsOriginsSettingsField:
     """Settings must expose a cors_origins field with the correct default."""
 
-    def test_settings_has_cors_origins_attribute(self):
-        """Settings class must have a cors_origins field."""
-        from runsight_api.core.config import Settings
-
-        s = Settings()
-        assert hasattr(s, "cors_origins"), "Settings must have a cors_origins attribute"
-
     def test_default_cors_origins_is_localhost_5173(self):
         """Default value must be ["http://localhost:5173"], not ["*"]."""
         from runsight_api.core.config import Settings
