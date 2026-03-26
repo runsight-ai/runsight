@@ -21,7 +21,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useCanvasStore } from "../../../store/canvas";
-import type { RunCreate } from "../../../types/schemas/runs";
+import type { RunCreate } from "../../../types/generated/zod";
 
 // ---------------------------------------------------------------------------
 // 1. Canvas store: validationErrors support

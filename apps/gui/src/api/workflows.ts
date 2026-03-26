@@ -6,7 +6,7 @@ import {
   WorkflowListResponseSchema,
   WorkflowCreate,
   WorkflowUpdate,
-} from "../types/schemas/workflows";
+} from "../types/generated/zod";
 
 export const workflowsApi = {
   listWorkflows: async (): Promise<WorkflowListResponse> => {

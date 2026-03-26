@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Plus, Pencil } from "lucide-react";
-import type { SoulResponse } from "@/types/schemas/souls";
+import type { SoulResponse } from "@/types/generated/zod";
 
 const AVAILABLE_MODELS = [
   { value: "gpt-4o", label: "GPT-4o" },

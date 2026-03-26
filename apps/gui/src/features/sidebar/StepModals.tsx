@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Pencil } from "lucide-react";
-import type { StepResponse } from "@/types/schemas/steps";
+import type { StepResponse } from "@/types/generated/zod";
 
 const STEP_TYPES = [
   { value: "step", label: "Step" },

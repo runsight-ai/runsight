@@ -3,7 +3,7 @@ import { CrudListPage, type CrudListPageConfig } from "@/components/shared/CrudL
 import { type Column } from "@/components/shared/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Footprints } from "lucide-react";
-import type { StepResponse } from "@/types/schemas/steps";
+import type { StepResponse } from "@/types/generated/zod";
 import { truncateText } from "@/utils/formatting";
 import { getStepTypeColor } from "@/utils/colors";
 import { NewStepModal, EditStepModal } from "./StepModals";

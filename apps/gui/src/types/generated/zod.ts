@@ -258,3 +258,124 @@ export const WorkflowUpdateSchema = z.object({
 });
 export type WorkflowUpdate = z.infer<typeof WorkflowUpdateSchema>;
 
+
+// ---------------------------------------------------------------------------
+// RUN-335 supplementary: CancelRun
+// ---------------------------------------------------------------------------
+
+export const CancelRunResponseSchema = z.object({
+  id: z.string(),
+  status: z.string(),
+});
+export type CancelRunResponse = z.infer<typeof CancelRunResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// RUN-335 supplementary: Git schemas (not yet emitted by codegen)
+// ---------------------------------------------------------------------------
+
+export const GitFileStatusSchema = z.object({
+  path: z.string(),
+  status: z.string(),
+});
+export type GitFileStatus = z.infer<typeof GitFileStatusSchema>;
+
+export const GitStatusResponseSchema = z.object({
+  branch: z.string(),
+  uncommitted_files: z.array(GitFileStatusSchema),
+  is_clean: z.boolean(),
+});
+export type GitStatusResponse = z.infer<typeof GitStatusResponseSchema>;
+
+export const GitCommitResponseSchema = z.object({
+  hash: z.string(),
+  message: z.string(),
+});
+export type GitCommitResponse = z.infer<typeof GitCommitResponseSchema>;
+
+export const GitLogEntrySchema = z.object({
+  hash: z.string(),
+  message: z.string(),
+  date: z.string(),
+  author: z.string(),
+});
+export type GitLogEntry = z.infer<typeof GitLogEntrySchema>;
+
+export const GitDiffResponseSchema = z.object({
+  diff: z.string(),
+});
+export type GitDiffResponse = z.infer<typeof GitDiffResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// RUN-335 supplementary: Settings-domain schemas (not yet emitted by codegen)
+// ---------------------------------------------------------------------------
+
+export const ProviderSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.enum(["connected", "disconnected", "active", "rate-limited", "error", "unknown", "offline"]),
+  api_key_env: z.string().nullish(),
+  base_url: z.string().nullish(),
+  models: z.array(z.string()),
+  created_at: z.string().nullish(),
+  updated_at: z.string().nullish(),
+});
+export type Provider = z.infer<typeof ProviderSchema>;
+
+export const ProviderListSchema = z.object({
+  items: z.array(ProviderSchema),
+  total: z.number(),
+});
+
+/** Alias — settings API uses CreateProvider (maps to codegen ProviderCreate) */
+export const CreateProviderSchema = ProviderCreateSchema;
+export type CreateProvider = ProviderCreate;
+
+/** Alias — settings API uses UpdateProvider (maps to codegen ProviderUpdate) */
+export const UpdateProviderSchema = ProviderUpdateSchema.extend({
+  is_active: z.boolean().optional(),
+});
+export type UpdateProvider = z.infer<typeof UpdateProviderSchema>;
+
+export const ModelDefaultSchema = z.object({
+  id: z.string(),
+  model_name: z.string(),
+  provider_id: z.string(),
+  provider_name: z.string(),
+  fallback_chain: z.array(z.string()),
+  is_default: z.boolean(),
+});
+export type ModelDefault = z.infer<typeof ModelDefaultSchema>;
+
+export const ModelDefaultListSchema = z.object({
+  items: z.array(ModelDefaultSchema),
+  total: z.number(),
+});
+
+export const BudgetSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  limit_usd: z.number(),
+  spent_usd: z.number(),
+  period: z.enum(["daily", "weekly", "monthly"]),
+  reset_at: z.string().optional(),
+});
+export type Budget = z.infer<typeof BudgetSchema>;
+
+export const BudgetListSchema = z.object({
+  items: z.array(BudgetSchema),
+  total: z.number(),
+});
+
+export const CreateBudgetSchema = z.object({
+  name: z.string(),
+  limit_usd: z.number(),
+  period: z.enum(["daily", "weekly", "monthly"]),
+});
+export type CreateBudget = z.infer<typeof CreateBudgetSchema>;
+
+export const UpdateBudgetSchema = CreateBudgetSchema.partial();
+export type UpdateBudget = z.infer<typeof UpdateBudgetSchema>;
+
+/** Alias — settings API uses AppSettingsSchema (maps to codegen AppSettingsOutSchema) */
+export const AppSettingsSchema = AppSettingsOutSchema;
+export type AppSettings = AppSettingsOut;

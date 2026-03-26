@@ -8,7 +8,7 @@ import {
   type GitCommitResponse,
   type GitDiffResponse,
   type GitLogEntry,
-} from "../types/schemas/git";
+} from "../types/generated/zod";
 import { z } from "zod";
 
 /** Re-export api client type for consumers that need it. */

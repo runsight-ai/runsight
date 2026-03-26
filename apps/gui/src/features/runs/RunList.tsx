@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from "react-router";
 import { useRuns } from "@/queries/runs";
-import { RunResponse } from "@/types/schemas/runs";
+import { RunResponse } from "@/types/generated/zod";
 import {
   Table,
   TableBody,

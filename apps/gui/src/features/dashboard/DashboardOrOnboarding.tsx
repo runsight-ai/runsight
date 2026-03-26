@@ -10,8 +10,7 @@ import { Button } from "@/components/ui/button";
 import { NewWorkflowModal } from "@/features/workflows/NewWorkflowModal";
 import { getWorkflowIcon, getWorkflowIconBg } from "@/utils/icons";
 import { getTimeAgo, formatDuration } from "@/utils/formatting";
-import type { WorkflowResponse } from "@/types/schemas/workflows";
-import type { RunResponse } from "@/types/schemas/runs";
+import type { WorkflowResponse, RunResponse } from "@/types/generated/zod";
 
 function PopulatedDashboard({ onNewWorkflow }: { onNewWorkflow: () => void }) {
   const { data: dashboardData, isLoading: dashboardLoading } = useDashboardSummary();
