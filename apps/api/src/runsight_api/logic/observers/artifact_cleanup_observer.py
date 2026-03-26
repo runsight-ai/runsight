@@ -18,13 +18,14 @@ class ArtifactCleanupObserver:
     def __init__(self, artifact_store: ArtifactStore, root_workflow_name: str) -> None:
         self.artifact_store = artifact_store
         self.root_workflow_name = root_workflow_name
+        self._cleanup_task: asyncio.Task | None = None
 
     # ------------------------------------------------------------------
     # Cleanup helper
     # ------------------------------------------------------------------
 
     def _schedule_cleanup(self) -> None:
-        """Fire-and-forget async cleanup, swallowing any errors."""
+        """Schedule async cleanup, storing task reference to prevent GC."""
 
         async def _do_cleanup() -> None:
             try:
@@ -32,7 +33,7 @@ class ArtifactCleanupObserver:
             except Exception:
                 logger.warning("ArtifactCleanupObserver: cleanup failed", exc_info=True)
 
-        asyncio.ensure_future(_do_cleanup())
+        self._cleanup_task = asyncio.create_task(_do_cleanup())
 
     # ------------------------------------------------------------------
     # WorkflowObserver protocol methods
