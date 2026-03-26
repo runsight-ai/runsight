@@ -105,6 +105,7 @@ export function useActiveRuns() {
       return runsApi.listRuns(params);
     },
     refetchInterval: 5000,
+    refetchIntervalInBackground: false,
   });
 
   const activeRuns = useMemo(() => query.data?.items ?? [], [query.data?.items]);
