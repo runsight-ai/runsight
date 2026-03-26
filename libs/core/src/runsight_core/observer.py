@@ -247,15 +247,33 @@ class FileObserver:
         )
 
 
+_composite_logger = logging.getLogger("runsight.observer.composite")
+
+
 class CompositeObserver:
-    """Fan-out observer that delegates to multiple observers."""
+    """Fan-out observer that delegates to multiple observers.
+
+    Each observer call is isolated with try/except so that one failing
+    observer never prevents the remaining observers from firing.
+    """
 
     def __init__(self, *observers: WorkflowObserver):
         self.observers = list(observers)
 
+    def _safe_call(
+        self, obs: WorkflowObserver, method_name: str, *args: Any, **kwargs: Any
+    ) -> None:
+        """Call a method on an observer, catching and logging any exception."""
+        try:
+            getattr(obs, method_name)(*args, **kwargs)
+        except Exception:
+            _composite_logger.warning(
+                "Observer %s.%s failed", type(obs).__name__, method_name, exc_info=True
+            )
+
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
         for obs in self.observers:
-            obs.on_workflow_start(workflow_name, state)
+            self._safe_call(obs, "on_workflow_start", workflow_name, state)
 
     def on_block_start(
         self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
@@ -264,7 +282,7 @@ class CompositeObserver:
         if soul is not None:
             kwargs["soul"] = soul
         for obs in self.observers:
-            obs.on_block_start(workflow_name, block_id, block_type, **kwargs)
+            self._safe_call(obs, "on_block_start", workflow_name, block_id, block_type, **kwargs)
 
     def on_block_complete(
         self,
@@ -280,7 +298,16 @@ class CompositeObserver:
         if soul is not None:
             kwargs["soul"] = soul
         for obs in self.observers:
-            obs.on_block_complete(workflow_name, block_id, block_type, duration_s, state, **kwargs)
+            self._safe_call(
+                obs,
+                "on_block_complete",
+                workflow_name,
+                block_id,
+                block_type,
+                duration_s,
+                state,
+                **kwargs,
+            )
 
     def on_block_error(
         self,
@@ -291,14 +318,16 @@ class CompositeObserver:
         error: Exception,
     ) -> None:
         for obs in self.observers:
-            obs.on_block_error(workflow_name, block_id, block_type, duration_s, error)
+            self._safe_call(
+                obs, "on_block_error", workflow_name, block_id, block_type, duration_s, error
+            )
 
     def on_workflow_complete(
         self, workflow_name: str, state: WorkflowState, duration_s: float
     ) -> None:
         for obs in self.observers:
-            obs.on_workflow_complete(workflow_name, state, duration_s)
+            self._safe_call(obs, "on_workflow_complete", workflow_name, state, duration_s)
 
     def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
         for obs in self.observers:
-            obs.on_workflow_error(workflow_name, error, duration_s)
+            self._safe_call(obs, "on_workflow_error", workflow_name, error, duration_s)
