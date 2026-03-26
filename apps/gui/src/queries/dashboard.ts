@@ -12,6 +12,8 @@ export function useDashboardKPIs() {
       const res = await api.get("/dashboard");
       return DashboardKPIsResponseSchema.parse(res);
     },
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 
