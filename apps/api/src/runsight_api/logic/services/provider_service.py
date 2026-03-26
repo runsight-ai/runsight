@@ -151,9 +151,13 @@ class ProviderService:
                     timeout=10,
                 )
             elif provider.type == "google":
-                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+                url = "https://generativelanguage.googleapis.com/v1beta/models"
                 await validate_ssrf(url, allow_private=allow_private)
-                resp = httpx.get(url, timeout=10)
+                resp = httpx.get(
+                    url,
+                    headers={"x-goog-api-key": api_key},
+                    timeout=10,
+                )
             elif provider.type == "ollama":
                 base = provider.base_url or "http://localhost:11434"
                 url = f"{base}/api/tags"
