@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import subprocess
 import time
 from typing import Any, AsyncGenerator, Dict, Optional
 
@@ -93,6 +94,35 @@ class ExecutionService:
             if event["event"] in SSE_TERMINAL_EVENTS:
                 break
 
+    # ------------------------------------------------------------------
+    # Git SHA capture
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _get_workflow_commit_sha(workflow_path: str) -> Optional[str]:
+        """Return the latest git commit SHA that touched *workflow_path*.
+
+        Runs ``git log -1 --format=%H -- <path>`` and returns the 40-char
+        hex SHA.  Returns ``None`` gracefully when:
+        - the file is not inside a git repository
+        - git is not installed
+        - the file has never been committed (untracked)
+        - any other unexpected error occurs
+        """
+        try:
+            result = subprocess.run(
+                ["git", "log", "-1", "--format=%H", "--", workflow_path],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                return None
+            sha = result.stdout.strip()
+            return sha if sha else None
+        except Exception:
+            return None
+
     async def launch_execution(
         self, run_id: str, workflow_id: str, task_data: Dict[str, Any]
     ) -> None:
@@ -118,6 +148,11 @@ class ExecutionService:
 
             # Parse workflow YAML into runnable Workflow
             wf = parse_workflow_yaml(yaml_content, api_keys=api_keys)
+
+            # Capture the latest git commit SHA for this workflow file
+            workflow_path = str(self.workflow_repo._get_path(workflow_id))
+            commit_sha = self._get_workflow_commit_sha(workflow_path)
+            self._store_workflow_commit_sha(run_id, commit_sha)
 
         except Exception as e:
             logger.exception("Failed to prepare workflow for run %s", run_id)
@@ -237,6 +272,25 @@ class ExecutionService:
                     session.commit()
         except Exception:
             logger.exception("Failed to update run %s status to %s", run_id, status)
+
+    def _store_workflow_commit_sha(self, run_id: str, commit_sha: Optional[str]) -> None:
+        """Persist the workflow commit SHA on the Run record."""
+        if self.engine is None:
+            return
+        try:
+            from sqlmodel import Session
+
+            from ...domain.entities.run import Run
+
+            with Session(self.engine) as session:
+                run = session.get(Run, run_id)
+                if run:
+                    run.workflow_commit_sha = commit_sha
+                    run.updated_at = time.time()
+                    session.add(run)
+                    session.commit()
+        except Exception:
+            logger.exception("Failed to store workflow_commit_sha for run %s", run_id)
 
     def _resolve_api_keys(self) -> Dict[str, str]:
         """Resolve API keys from all providers, with env var fallback.

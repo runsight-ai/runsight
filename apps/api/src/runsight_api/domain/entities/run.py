@@ -35,6 +35,7 @@ class Run(SQLModel, table=True):
     error: Optional[str] = None
     error_traceback: Optional[str] = None
     cancelled_reason: Optional[str] = None
+    workflow_commit_sha: Optional[str] = None
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 
