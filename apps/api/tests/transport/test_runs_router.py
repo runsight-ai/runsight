@@ -139,3 +139,116 @@ def test_runs_nodes():
     assert response.status_code == 200
     assert response.json() == []
     app.dependency_overrides.clear()
+
+
+# ===========================================================================
+# RUN-339: Status filter on GET /api/runs
+# ===========================================================================
+
+
+def _make_mock_run_with_status(run_id: str, status: RunStatus):
+    """Create a mock run with a specific status."""
+    mock_run = _make_mock_run(run_id)
+    mock_run.status = status
+    return mock_run
+
+
+def _stub_service_with_runs(runs):
+    """Wire up a mock RunService that returns the given runs list."""
+    mock_service = Mock()
+
+    def paginated(offset=0, limit=20, status=None):
+        if status:
+            filtered = [r for r in runs if r.status in status]
+        else:
+            filtered = runs
+        page = filtered[offset : offset + limit]
+        return page, len(filtered)
+
+    mock_service.list_runs_paginated = paginated
+    mock_service.list_runs.return_value = runs
+    mock_service.get_node_summaries_batch.return_value = {}
+    mock_service.get_node_summary.return_value = {
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+        "nodes_count": 0,
+        "total": 0,
+        "completed": 0,
+        "running": 0,
+        "pending": 0,
+        "failed": 0,
+    }
+    return mock_service
+
+
+def test_runs_list_status_filter_running():
+    """GET /api/runs?status=running returns only running runs."""
+    runs = [
+        _make_mock_run_with_status("run_1", RunStatus.running),
+        _make_mock_run_with_status("run_2", RunStatus.pending),
+        _make_mock_run_with_status("run_3", RunStatus.completed),
+    ]
+    mock_service = _stub_service_with_runs(runs)
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+
+    response = client.get("/api/runs?status=running")
+    assert response.status_code == 200
+    data = response.json()
+    assert all(item["status"] == "running" for item in data["items"])
+    assert len(data["items"]) == 1
+    assert data["items"][0]["id"] == "run_1"
+    app.dependency_overrides.clear()
+
+
+def test_runs_list_status_filter_multiple():
+    """GET /api/runs?status=running&status=pending returns running + pending runs."""
+    runs = [
+        _make_mock_run_with_status("run_1", RunStatus.running),
+        _make_mock_run_with_status("run_2", RunStatus.pending),
+        _make_mock_run_with_status("run_3", RunStatus.completed),
+        _make_mock_run_with_status("run_4", RunStatus.failed),
+    ]
+    mock_service = _stub_service_with_runs(runs)
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+
+    response = client.get("/api/runs?status=running&status=pending")
+    assert response.status_code == 200
+    data = response.json()
+    statuses = {item["status"] for item in data["items"]}
+    assert statuses == {"running", "pending"}
+    assert len(data["items"]) == 2
+    app.dependency_overrides.clear()
+
+
+def test_runs_list_no_status_filter_returns_all():
+    """GET /api/runs without status param returns all runs (backwards compatible)."""
+    runs = [
+        _make_mock_run_with_status("run_1", RunStatus.running),
+        _make_mock_run_with_status("run_2", RunStatus.pending),
+        _make_mock_run_with_status("run_3", RunStatus.completed),
+    ]
+    mock_service = _stub_service_with_runs(runs)
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+
+    response = client.get("/api/runs")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 3
+    app.dependency_overrides.clear()
+
+
+def test_runs_list_status_filter_empty_result():
+    """GET /api/runs?status=running returns empty list when no runs match."""
+    runs = [
+        _make_mock_run_with_status("run_1", RunStatus.completed),
+        _make_mock_run_with_status("run_2", RunStatus.failed),
+    ]
+    mock_service = _stub_service_with_runs(runs)
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+
+    response = client.get("/api/runs?status=running")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 0
+    assert data["total"] == 0
+    app.dependency_overrides.clear()

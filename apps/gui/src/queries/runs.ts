@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { runsApi } from "../api/runs";
 import { queryKeys } from "./keys";
@@ -90,4 +91,52 @@ export function useRunLogs(id: string, params?: Record<string, string>, options?
     enabled: !!id,
     refetchInterval: options?.refetchInterval,
   });
+}
+
+export function useActiveRuns() {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: [...queryKeys.runs.all, { status: ["running", "pending"] }],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("status", "running");
+      params.append("status", "pending");
+      return runsApi.listRuns(params);
+    },
+    refetchInterval: 5000,
+  });
+
+  const activeRuns = useMemo(() => query.data?.items ?? [], [query.data?.items]);
+
+  // SSE: subscribe to each active run's stream for real-time updates
+  // Connect EventSource to /api/runs/${run.id}/stream for each active run
+  // Handle run_completed and run_failed events to remove run from active list
+  // Update cost from SSE node_completed events
+  const subscribeToRunStream = useCallback(
+    function subscribeToRunStream(runId: string) {
+      const url = `/api/runs/${runId}/stream`;
+      const eventSource = new EventSource(url);
+
+      eventSource.addEventListener("run_completed", () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.runs.all });
+      });
+
+      eventSource.addEventListener("run_failed", () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.runs.all });
+      });
+
+      eventSource.addEventListener("node_completed", (event) => {
+        const data = JSON.parse(event.data);
+        if (data.cost_usd != null) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.runs.all });
+        }
+      });
+
+      return eventSource;
+    },
+    [queryClient],
+  );
+
+  return { ...query, activeRuns, subscribeToRunStream };
 }

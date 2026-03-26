@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from typing import List, Optional
 from ..schemas.runs import (
     RunCreate,
@@ -46,9 +46,14 @@ async def create_run(
     )
 
 
-def _fetch_paginated_runs(run_service: RunService, offset: int, limit: int):
+def _fetch_paginated_runs(
+    run_service: RunService,
+    offset: int,
+    limit: int,
+    status: Optional[List[str]] = None,
+):
     """Fetch runs with SQL pagination, falling back to in-memory for compatibility."""
-    result = run_service.list_runs_paginated(offset=offset, limit=limit)
+    result = run_service.list_runs_paginated(offset=offset, limit=limit, status=status)
     if isinstance(result, tuple):
         return result
     all_runs = run_service.list_runs()
@@ -64,10 +69,13 @@ def _resolve_summaries(run_service: RunService, run_ids: list, raw_batch):
 
 @router.get("", response_model=RunListResponse)
 async def list_runs(
-    offset: int = 0, limit: int = 20, run_service: RunService = Depends(get_run_service)
+    status: Optional[List[str]] = Query(None),
+    offset: int = 0,
+    limit: int = 20,
+    run_service: RunService = Depends(get_run_service),
 ):
     limit = min(limit, 100)
-    runs, total = _fetch_paginated_runs(run_service, offset, limit)
+    runs, total = _fetch_paginated_runs(run_service, offset, limit, status=status)
 
     run_ids = [run.id for run in runs]
     summaries_map = _resolve_summaries(
