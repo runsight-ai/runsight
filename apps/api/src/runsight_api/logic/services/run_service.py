@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import uuid
 import time
 import json
-from typing import List, Optional, Dict, Any, Tuple
+from typing import TYPE_CHECKING, List, Optional, Dict, Any, Tuple
 
 from ...domain.entities.run import Run, RunNode, RunStatus, NodeStatus, validate_transition
 from ...domain.entities.log import LogEntry
 from ...data.repositories.run_repo import RunRepository
-from ...data.filesystem.workflow_repo import WorkflowRepository
 from ...domain.errors import WorkflowNotFound, RunNotFound
+
+if TYPE_CHECKING:
+    from ...data.filesystem.workflow_repo import WorkflowRepository
 
 
 class RunService:
@@ -33,7 +37,9 @@ class RunService:
     def get_run_logs(self, run_id: str) -> List[LogEntry]:
         return self.run_repo.list_logs_for_run(run_id)
 
-    def create_run(self, workflow_id: str, task_data: Dict[str, Any]) -> Run:
+    def create_run(
+        self, workflow_id: str, task_data: Dict[str, Any], source: str = "manual"
+    ) -> Run:
         workflow = self.workflow_repo.get_by_id(workflow_id)
         if not workflow:
             raise WorkflowNotFound(f"Workflow {workflow_id} not found")
@@ -46,6 +52,8 @@ class RunService:
             workflow_name=workflow.name if isinstance(workflow.name, str) else workflow.id,
             status=RunStatus.pending,
             task_json=json.dumps(task_data),
+            branch="main",
+            source=source,
         )
         self.run_repo.create_run(run)
 
