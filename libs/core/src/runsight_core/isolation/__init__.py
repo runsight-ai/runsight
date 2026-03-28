@@ -11,6 +11,7 @@ from runsight_core.isolation.envelope import (
 )
 from runsight_core.isolation.harness import SubprocessHarness
 from runsight_core.isolation.ipc import IPCClient, IPCServer
+from runsight_core.isolation.wrapper import IsolatedBlockWrapper
 
 __all__ = [
     "ContextEnvelope",
@@ -18,6 +19,7 @@ __all__ = [
     "HeartbeatMessage",
     "IPCClient",
     "IPCServer",
+    "IsolatedBlockWrapper",
     "ResultEnvelope",
     "SoulEnvelope",
     "SubprocessHarness",
