@@ -30,8 +30,8 @@ interface RunBottomPanelProps {
 
 const levelConfig = {
   INFO: { bg: "bg-transparent", text: "text-[var(--text-muted)]" },
-  WARN: { bg: "bg-[var(--warning-12)]", text: "text-[var(--warning-9)]" },
-  ERROR: { bg: "bg-[var(--error-12)]", text: "text-[var(--danger-9)]" },
+  WARN: { bg: "bg-warning-3", text: "text-[var(--warning-9)]" },
+  ERROR: { bg: "bg-danger-3", text: "text-[var(--danger-9)]" },
   DEBUG: { bg: "bg-transparent", text: "text-[var(--text-muted)]" },
 } as const;
 
@@ -74,7 +74,7 @@ export function RunBottomPanel({ logs, executionComplete, executionFailed, final
           {activeTab === "logs" && (
             <>
               {executionComplete && (
-                <div className={cn("flex items-center gap-2 px-4 py-2 border-b shrink-0", executionFailed ? "bg-[var(--error-08)] border-l-[3px] border-l-[var(--danger-9)] border-[var(--border-default)]" : "bg-[var(--success-08)] border-l-[3px] border-l-[var(--success-9)] border-[var(--border-default)]")}>
+                <div className={cn("flex items-center gap-2 px-4 py-2 border-b shrink-0", executionFailed ? "bg-danger-3 border-l-[3px] border-l-[var(--danger-9)] border-[var(--border-default)]" : "bg-success-3 border-l-[3px] border-l-[var(--success-9)] border-[var(--border-default)]")}>
                   {executionFailed ? (
                     <><XCircle className="w-4 h-4 text-[var(--danger-9)] shrink-0" /><span className="text-sm text-[var(--text-primary)]">Run failed</span></>
                   ) : (
@@ -91,7 +91,7 @@ export function RunBottomPanel({ logs, executionComplete, executionFailed, final
                     const logLevel = logLevelKey in levelConfig ? logLevelKey : "INFO";
                     const levelStyle = levelConfig[logLevel];
                     return (
-                      <div key={log.id} className={cn("flex items-center gap-3 px-3 font-mono text-xs min-h-[24px]", index % 2 === 1 && "bg-[var(--overlay-02)]")}>
+                      <div key={log.id} className={cn("flex items-center gap-3 px-3 font-mono text-xs min-h-[24px]", index % 2 === 1 && "bg-surface-secondary")}>
                         <span className="text-[var(--text-muted)] w-[80px] shrink-0">{formatTimestamp(log.timestamp)}</span>
                         <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium w-12 text-center shrink-0", levelStyle.bg, levelStyle.text)}>{log.level}</span>
                         {log.node_id && <span className="text-[var(--text-muted)] w-[100px] shrink-0 truncate">[{log.node_id}]</span>}

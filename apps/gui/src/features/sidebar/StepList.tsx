@@ -5,8 +5,20 @@ import { Badge } from "@/components/ui/badge";
 import { Footprints } from "lucide-react";
 import type { StepResponse } from "@/types/generated/zod";
 import { truncateText } from "@/utils/formatting";
-import { getStepTypeColor } from "@/utils/colors";
 import { NewStepModal, EditStepModal } from "./StepModals";
+
+function getStepTypeColor(type: string): string {
+  switch (type.toLowerCase()) {
+    case "python":   return "bg-success-3 text-success-9";
+    case "javascript": return "bg-warning-3 text-warning-9";
+    case "shell":    return "bg-[var(--surface-raised)] text-muted";
+    case "http":     return "bg-info-3 text-info-9";
+    case "prompt":   return "bg-accent-3 text-[var(--interactive-default)]";
+    case "condition": return "bg-danger-3 text-danger-9";
+    case "loop":     return "bg-accent-3 text-accent";
+    default:         return "bg-neutral-3 text-muted";
+  }
+}
 
 const columns: Column[] = [
   {

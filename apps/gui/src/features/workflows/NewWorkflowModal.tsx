@@ -118,7 +118,7 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
           </div>
 
           {error && (
-            <div className="p-3 bg-[var(--error-08)] border border-[var(--error-20)] rounded-md">
+            <div className="p-3 bg-danger-3 border border-danger-7 rounded-md">
               <p className="text-xs text-[var(--danger-9)]">{error}</p>
             </div>
           )}
@@ -136,7 +136,7 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
           <Button
             onClick={handleSubmit}
             disabled={!isNameFilled || isSubmitting}
-            className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white disabled:opacity-40"
+            className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent disabled:opacity-40"
           >
             {isSubmitting ? (
               <>

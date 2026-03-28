@@ -105,7 +105,7 @@ function SoulAvatar({ soul }: { soul: NodeCardSoul }) {
         className={[
           "inline-flex items-center justify-center",
           "size-5 rounded-full flex-shrink-0", // icon-size-lg = 20px
-          "text-3xs font-semibold text-white leading-none",
+          "text-3xs font-semibold text-on-accent leading-none",
           "shadow-[0_0_0_1px_color-mix(in_srgb,var(--neutral-6)_50%,transparent)]",
           "cursor-default select-none",
         ].join(" ")}
@@ -122,7 +122,7 @@ function SoulAvatar({ soul }: { soul: NodeCardSoul }) {
           "bg-(--neutral-2) border border-(--neutral-4)",
           "rounded-[var(--radius-md)]",
           "px-3 py-2",
-          "shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
+          "shadow-[0_8px_24px_var(--elevation-overlay-shadow)]",
           "font-mono text-3xs",
           "opacity-0 pointer-events-none",
           "transition-opacity duration-[var(--duration-100)]",

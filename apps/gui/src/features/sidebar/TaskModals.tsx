@@ -99,7 +99,7 @@ export function NewTaskModal({ open, onClose }: NewTaskModalProps) {
         </div>
         <DialogFooter className="h-16 px-4 border-t border-[var(--border-default)] flex items-center justify-end gap-2 shrink-0">
           <Button variant="secondary" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary">Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!isNameFilled || isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white disabled:opacity-40">
+          <Button onClick={handleSubmit} disabled={!isNameFilled || isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent disabled:opacity-40">
             {isSubmitting ? (<><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />Creating...</>) : (<><Plus className="w-4 h-4 mr-2" />Create Task</>)}
           </Button>
         </DialogFooter>
@@ -170,7 +170,7 @@ export function EditTaskModal({ item: task, open, onClose }: EditTaskModalProps)
         </div>
         <DialogFooter className="h-16 px-4 border-t border-[var(--border-default)] flex items-center justify-end gap-2 shrink-0">
           <Button variant="secondary" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary">Cancel</Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white disabled:opacity-40">
+          <Button onClick={handleSubmit} disabled={isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent disabled:opacity-40">
             {isSubmitting ? (<><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />Saving...</>) : (<><Pencil className="w-4 h-4 mr-2" />Save Changes</>)}
           </Button>
         </DialogFooter>

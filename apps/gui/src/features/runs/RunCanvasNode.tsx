@@ -61,7 +61,7 @@ function getBorderStyles(status: string, selected?: boolean) {
     case "completed":
       return { borderColor: "var(--success-9)", borderWidth: "2px", boxShadow: "none" };
     case "failed":
-      return { borderColor: "var(--danger-9)", borderWidth: "2px", boxShadow: "0 0 0 2px var(--error-40)" };
+      return { borderColor: "var(--danger-9)", borderWidth: "2px", boxShadow: "0 0 0 2px var(--danger-7)" };
     case "pending":
       return { borderColor: "var(--text-muted)", borderWidth: "1px", boxShadow: "none", opacity: 0.7 };
     default:
@@ -131,7 +131,7 @@ export function CanvasNodeComponent(props: { data: RunNodeData; selected?: boole
         </div>
       )}
       {status === "failed" && data.error && (
-        <div className="px-3 py-2 border-t border-[var(--border-default)] bg-[var(--error-08)]">
+        <div className="px-3 py-2 border-t border-[var(--border-default)] bg-danger-3">
           <span className="text-xs text-[var(--danger-9)]">{data.error}</span>
         </div>
       )}

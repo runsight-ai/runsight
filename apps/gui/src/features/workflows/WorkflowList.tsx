@@ -323,7 +323,7 @@ export function Component() {
           subtitle="0 workflows"
           actions={
             <Button
-              className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white"
+              className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent"
               onClick={() => setShowNewWorkflowModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -369,7 +369,7 @@ export function Component() {
               Import
             </Button>
             <Button
-              className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white"
+              className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent"
               onClick={() => setShowNewWorkflowModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -579,7 +579,7 @@ export function Component() {
             <Button
               onClick={handleDelete}
               disabled={deleteWorkflow.isPending}
-              className="h-9 px-4 bg-danger hover:bg-danger/90 text-white"
+              className="h-9 px-4 bg-danger hover:bg-danger/90 text-on-accent"
             >
               {deleteWorkflow.isPending ? (
                 <>

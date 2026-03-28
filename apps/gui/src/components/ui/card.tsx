@@ -11,7 +11,7 @@ const cardVariants = cva(
       raised: {
         true: [
           "bg-surface-raised shadow-raised",
-          "border-[rgba(255,255,255,0.1)] border-t-[rgba(255,255,255,0.06)]",
+          "border-[var(--elevation-border-raised)] border-t-[var(--elevation-border-subtle)]",
         ],
         false: null,
       },

@@ -121,7 +121,7 @@ export function NewSoulModal({ open, onClose }: NewSoulModalProps) {
                   disabled={isSubmitting}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     selectedModels.includes(model.value)
-                      ? "bg-[var(--interactive-default)] text-white"
+                      ? "bg-[var(--interactive-default)] text-on-accent"
                       : "bg-[var(--surface-primary)] border border-[var(--border-default)] text-muted hover:border-[var(--interactive-default)]"
                   } disabled:opacity-50`}
                 >
@@ -136,7 +136,7 @@ export function NewSoulModal({ open, onClose }: NewSoulModalProps) {
           <Button variant="secondary" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!isNameFilled || isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white disabled:opacity-40">
+          <Button onClick={handleSubmit} disabled={!isNameFilled || isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent disabled:opacity-40">
             {isSubmitting ? (
               <>
                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
@@ -227,7 +227,7 @@ export function EditSoulModal({ item: soul, open, onClose }: EditSoulModalProps)
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted">Models</Label>
             <div className="flex flex-wrap gap-2">
               {AVAILABLE_MODELS.map((model) => (
-                <button key={model.value} type="button" onClick={() => toggleModel(model.value)} disabled={isSubmitting} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedModels.includes(model.value) ? "bg-[var(--interactive-default)] text-white" : "bg-[var(--surface-primary)] border border-[var(--border-default)] text-muted hover:border-[var(--interactive-default)]"} disabled:opacity-50`}>
+                <button key={model.value} type="button" onClick={() => toggleModel(model.value)} disabled={isSubmitting} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${selectedModels.includes(model.value) ? "bg-[var(--interactive-default)] text-on-accent" : "bg-[var(--surface-primary)] border border-[var(--border-default)] text-muted hover:border-[var(--interactive-default)]"} disabled:opacity-50`}>
                   {model.label}
                 </button>
               ))}
@@ -236,7 +236,7 @@ export function EditSoulModal({ item: soul, open, onClose }: EditSoulModalProps)
         </div>
         <DialogFooter className="h-16 px-4 border-t border-[var(--border-default)] flex items-center justify-end gap-2 shrink-0">
           <Button variant="secondary" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary">Cancel</Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white disabled:opacity-40">
+          <Button onClick={handleSubmit} disabled={isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent disabled:opacity-40">
             {isSubmitting ? (
               <>
                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />

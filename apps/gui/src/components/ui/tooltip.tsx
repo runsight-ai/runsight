@@ -18,7 +18,7 @@ const tooltipContentVariants = cva(
     "rounded-[var(--radius-sm)]",
     "whitespace-nowrap max-w-[240px]",
     "pointer-events-none",
-    "shadow-[0_4px_12px_rgba(0,0,0,0.3)]",
+    "shadow-[0_4px_12px_var(--elevation-raised-shadow)]",
     // open/close animations
     "data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95",
     "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
@@ -130,7 +130,7 @@ function SoulTip({
         className={[
           "inline-flex items-center justify-center",
           "size-5 rounded-full", // icon-size-lg = 20px
-          "text-3xs font-semibold text-white",
+          "text-3xs font-semibold text-on-accent",
           "border border-[color-mix(in_srgb,var(--neutral-6)_50%,transparent)]",
           "cursor-default select-none",
         ].join(" ")}
@@ -150,7 +150,7 @@ function SoulTip({
           "bg-(--neutral-2) border border-(--neutral-4)",
           "rounded-[var(--radius-md)]",
           "px-3 py-2",
-          "shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
+          "shadow-[0_8px_24px_var(--elevation-overlay-shadow)]",
           // typography base
           "font-mono text-3xs",
           // visibility — opacity transition, shown on group hover

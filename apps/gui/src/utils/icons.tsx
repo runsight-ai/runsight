@@ -73,10 +73,10 @@ export function getWorkflowIcon(name: string): ReactNode {
 export function getWorkflowIconBg(name: string): string {
   const lower = name.toLowerCase();
   if (lower.includes("code") || lower.includes("review")) return "bg-[var(--accent-3)] text-[var(--interactive-default)]";
-  if (lower.includes("moderation") || lower.includes("content")) return "bg-[var(--warning-12)] text-[var(--warning-9)]";
-  if (lower.includes("report") || lower.includes("daily")) return "bg-[var(--success-12)] text-[var(--success-9)]";
+  if (lower.includes("moderation") || lower.includes("content")) return "bg-warning-3 text-warning-9";
+  if (lower.includes("report") || lower.includes("daily")) return "bg-success-3 text-success-9";
   if (lower.includes("email") || lower.includes("classifier")) return "bg-[var(--accent-3)] text-[var(--interactive-default)]";
   if (lower.includes("support") || lower.includes("ticket")) return "bg-[var(--surface-raised)] text-[var(--text-muted)]";
-  if (lower.includes("sync") || lower.includes("data")) return "bg-[var(--error-12)] text-[var(--danger-9)]";
+  if (lower.includes("sync") || lower.includes("data")) return "bg-danger-3 text-danger-9";
   return "bg-[var(--accent-3)] text-[var(--interactive-default)]";
 }

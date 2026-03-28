@@ -43,7 +43,7 @@ export function DeleteConfirmDialog({
           <Button
             onClick={onConfirm}
             disabled={isPending}
-            className="h-9 px-4 bg-danger hover:bg-danger/90 text-white"
+            className="h-9 px-4 bg-danger hover:bg-danger/90 text-on-accent"
           >
             {isPending ? (
               <>

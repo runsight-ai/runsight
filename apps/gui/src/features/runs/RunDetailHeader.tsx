@@ -56,7 +56,7 @@ export function RunDetailHeader({ run }: RunDetailHeaderProps) {
         <span className="text-[var(--text-primary)] text-sm font-medium truncate max-w-[200px]">
           {run.workflow_name} — Run #{run.id.slice(-6)}
         </span>
-        <span className={cn("ml-2 px-2 py-0.5 rounded text-xs font-medium", isCompleted ? "bg-[var(--success-15)] text-[var(--success-9)]" : isFailed ? "bg-[var(--error-15)] text-[var(--danger-9)]" : "bg-[var(--muted-15)] text-[var(--text-muted)]")}>
+        <span className={cn("ml-2 px-2 py-0.5 rounded text-xs font-medium", isCompleted ? "bg-success-3 text-[var(--success-9)]" : isFailed ? "bg-danger-3 text-[var(--danger-9)]" : "bg-neutral-3 text-muted")}>
           {isCompleted ? "Completed" : isFailed ? "Failed" : run.status}
         </span>
       </div>
@@ -86,7 +86,7 @@ export function RunDetailHeader({ run }: RunDetailHeaderProps) {
           <span className="text-xs text-[var(--text-muted)]">Tokens</span>
           <span className="font-mono text-sm text-[var(--text-primary)]">{run.total_tokens.toLocaleString()}</span>
         </div>
-        <Button className={cn("h-9 px-4", isFailed ? "bg-[var(--danger-9)] hover:bg-[var(--danger-10)] text-white" : "bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-white")} onClick={handleRunAgain}>
+        <Button className={cn("h-9 px-4", isFailed ? "bg-[var(--danger-9)] hover:bg-[var(--danger-10)] text-on-accent" : "bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent")} onClick={handleRunAgain}>
           {isFailed ? (<><AlertTriangle className="w-4 h-4 mr-2" />Retry</>) : (<><RefreshCw className="w-4 h-4 mr-2" />Run Again</>)}
         </Button>
       </div>

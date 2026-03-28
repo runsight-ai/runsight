@@ -93,7 +93,7 @@ export function WorkflowCanvas() {
                   return "var(--text-muted)";
               }
             }}
-            maskColor="rgba(15, 23, 42, 0.7)"
+            maskColor="var(--surface-primary)"
             className="!bg-panel !border-border-default"
           />
         </ReactFlow>

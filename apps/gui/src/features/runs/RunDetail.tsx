@@ -15,7 +15,21 @@ import "@xyflow/react/dist/style.css";
 
 import { useRun, useRunNodes, useRunLogs } from "@/queries/runs";
 import { CanvasErrorBoundary } from "@/components/shared/ErrorBoundary";
-import { mapRunStatus, getIconForBlockType } from "@/utils/colors";
+function mapRunStatus(status: string): "idle" | "pending" | "running" | "completed" | "failed" | "paused" {
+  switch (status) {
+    case "completed": case "success": return "completed";
+    case "failed": case "error": return "failed";
+    case "running": return "running";
+    case "pending": default: return "pending";
+  }
+}
+
+function getIconForBlockType(blockType: string): string {
+  if (blockType.includes("agent") || blockType.includes("llm")) return "user";
+  if (blockType.includes("condition") || blockType.includes("if")) return "layers";
+  if (blockType.includes("input") || blockType.includes("output")) return "mail";
+  return "server";
+}
 
 import { RunCanvasNode, CanvasNodeComponent, nodeTypes } from "./RunCanvasNode";
 import type { RunNodeData } from "./RunCanvasNode";

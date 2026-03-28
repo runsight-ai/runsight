@@ -53,9 +53,9 @@ function Swatch({
       />
       <span
         style={{
-          fontFamily: "var(--font-mono, monospace)",
+          fontFamily: "var(--font-mono)",
           fontSize: 10,
-          color: "var(--neutral-10, #999)",
+          color: "var(--neutral-10)",
           whiteSpace: "nowrap",
         }}
       >
@@ -70,13 +70,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <section style={{ marginBottom: 48 }}>
       <h2
         style={{
-          fontFamily: "var(--font-display, sans-serif)",
-          fontSize: "var(--font-size-xl, 18px)",
+          fontFamily: "var(--font-display)",
+          fontSize: "var(--font-size-xl)",
           fontWeight: 600,
-          color: "var(--neutral-12, #eee)",
+          color: "var(--neutral-12)",
           marginBottom: 20,
           paddingBottom: 8,
-          borderBottom: "1px solid var(--neutral-6, #333)",
+          borderBottom: "1px solid var(--neutral-6)",
         }}
       >
         {title}
@@ -107,13 +107,13 @@ function SwatchRow({ children }: { children: React.ReactNode }) {
 
 function ColorPaletteDoc() {
   return (
-    <div style={{ padding: 32, background: "var(--neutral-1, #111)", minHeight: "100vh" }}>
+    <div style={{ padding: 32, background: "var(--neutral-1)", minHeight: "100vh" }}>
       <h1
         style={{
-          fontFamily: "var(--font-display, sans-serif)",
-          fontSize: "var(--font-size-3xl, 24px)",
+          fontFamily: "var(--font-display)",
+          fontSize: "var(--font-size-3xl)",
           fontWeight: 700,
-          color: "var(--neutral-12, #eee)",
+          color: "var(--neutral-12)",
           marginBottom: 32,
         }}
       >
@@ -149,9 +149,9 @@ function ColorPaletteDoc() {
           <div key={name} style={{ marginBottom: 16 }}>
             <p
               style={{
-                fontFamily: "var(--font-mono, monospace)",
+                fontFamily: "var(--font-mono)",
                 fontSize: 11,
-                color: "var(--neutral-10, #999)",
+                color: "var(--neutral-10)",
                 marginBottom: 8,
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
@@ -208,13 +208,13 @@ const fontSizeScale = [
 
 function TypographyDoc() {
   return (
-    <div style={{ padding: 32, background: "var(--neutral-1, #111)", minHeight: "100vh" }}>
+    <div style={{ padding: 32, background: "var(--neutral-1)", minHeight: "100vh" }}>
       <h1
         style={{
-          fontFamily: "var(--font-display, sans-serif)",
-          fontSize: "var(--font-size-3xl, 24px)",
+          fontFamily: "var(--font-display)",
+          fontSize: "var(--font-size-3xl)",
           fontWeight: 700,
-          color: "var(--neutral-12, #eee)",
+          color: "var(--neutral-12)",
           marginBottom: 32,
         }}
       >
@@ -234,9 +234,9 @@ function TypographyDoc() {
             >
               <span
                 style={{
-                  fontFamily: "var(--font-mono, monospace)",
+                  fontFamily: "var(--font-mono)",
                   fontSize: 11,
-                  color: "var(--neutral-9, #888)",
+                  color: "var(--neutral-9)",
                   width: 160,
                   flexShrink: 0,
                 }}
@@ -245,9 +245,9 @@ function TypographyDoc() {
               </span>
               <span
                 style={{
-                  fontFamily: "var(--font-body, sans-serif)",
+                  fontFamily: "var(--font-body)",
                   fontSize: `var(${token})`,
-                  color: "var(--neutral-12, #eee)",
+                  color: "var(--neutral-12)",
                 }}
               >
                 The quick brown fox jumps over the lazy dog
@@ -262,9 +262,9 @@ function TypographyDoc() {
           <div>
             <p
               style={{
-                fontFamily: "var(--font-mono, monospace)",
+                fontFamily: "var(--font-mono)",
                 fontSize: 11,
-                color: "var(--accent-9, #f5a623)",
+                color: "var(--accent-9)",
                 marginBottom: 4,
               }}
             >
@@ -272,9 +272,9 @@ function TypographyDoc() {
             </p>
             <p
               style={{
-                fontFamily: "var(--font-mono, monospace)",
+                fontFamily: "var(--font-mono)",
                 fontSize: 10,
-                color: "var(--neutral-8, #777)",
+                color: "var(--neutral-8)",
                 marginBottom: 8,
               }}
             >
@@ -282,10 +282,10 @@ function TypographyDoc() {
             </p>
             <p
               style={{
-                fontFamily: "var(--font-display, 'Satoshi', sans-serif)",
-                fontSize: "var(--font-size-2xl, 20px)",
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--font-size-2xl)",
                 fontWeight: 700,
-                color: "var(--neutral-12, #eee)",
+                color: "var(--neutral-12)",
               }}
             >
               Build AI agents that think, act, and adapt.
@@ -294,9 +294,9 @@ function TypographyDoc() {
           <div>
             <p
               style={{
-                fontFamily: "var(--font-mono, monospace)",
+                fontFamily: "var(--font-mono)",
                 fontSize: 11,
-                color: "var(--accent-9, #f5a623)",
+                color: "var(--accent-9)",
                 marginBottom: 8,
               }}
             >
@@ -304,9 +304,9 @@ function TypographyDoc() {
             </p>
             <p
               style={{
-                fontFamily: "var(--font-body, 'Geist', sans-serif)",
-                fontSize: "var(--font-size-md, 14px)",
-                color: "var(--neutral-11, #ccc)",
+                fontFamily: "var(--font-body)",
+                fontSize: "var(--font-size-md)",
+                color: "var(--neutral-11)",
               }}
             >
               Runsight is a meta-framework for AI agent orchestration. Design,
@@ -316,9 +316,9 @@ function TypographyDoc() {
           <div>
             <p
               style={{
-                fontFamily: "var(--font-mono, monospace)",
+                fontFamily: "var(--font-mono)",
                 fontSize: 11,
-                color: "var(--accent-9, #f5a623)",
+                color: "var(--accent-9)",
                 marginBottom: 8,
               }}
             >
@@ -326,9 +326,9 @@ function TypographyDoc() {
             </p>
             <p
               style={{
-                fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
-                fontSize: "var(--font-size-sm, 13px)",
-                color: "var(--neutral-11, #ccc)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--font-size-sm)",
+                color: "var(--neutral-11)",
               }}
             >
               {`steps:\n  - id: run_agent\n    soul: gpt-4o-researcher`}
@@ -358,13 +358,13 @@ const spacingScale = [
 
 function SpacingDoc() {
   return (
-    <div style={{ padding: 32, background: "var(--neutral-1, #111)", minHeight: "100vh" }}>
+    <div style={{ padding: 32, background: "var(--neutral-1)", minHeight: "100vh" }}>
       <h1
         style={{
-          fontFamily: "var(--font-display, sans-serif)",
-          fontSize: "var(--font-size-3xl, 24px)",
+          fontFamily: "var(--font-display)",
+          fontSize: "var(--font-size-3xl)",
           fontWeight: 700,
-          color: "var(--neutral-12, #eee)",
+          color: "var(--neutral-12)",
           marginBottom: 32,
         }}
       >
@@ -380,9 +380,9 @@ function SpacingDoc() {
             >
               <span
                 style={{
-                  fontFamily: "var(--font-mono, monospace)",
+                  fontFamily: "var(--font-mono)",
                   fontSize: 11,
-                  color: "var(--neutral-9, #888)",
+                  color: "var(--neutral-9)",
                   width: 160,
                   flexShrink: 0,
                 }}
@@ -393,7 +393,7 @@ function SpacingDoc() {
                 style={{
                   height: 20,
                   width: `var(${token})`,
-                  background: "var(--accent-9, #f5a623)",
+                  background: "var(--accent-9)",
                   borderRadius: 2,
                   minWidth: 2,
                 }}
@@ -419,9 +419,9 @@ function SpacingDoc() {
             >
               <span
                 style={{
-                  fontFamily: "var(--font-mono, monospace)",
+                  fontFamily: "var(--font-mono)",
                   fontSize: 11,
-                  color: "var(--neutral-9, #888)",
+                  color: "var(--neutral-9)",
                   width: 260,
                   flexShrink: 0,
                 }}
@@ -432,7 +432,7 @@ function SpacingDoc() {
                 style={{
                   height: 20,
                   width: `var(${token})`,
-                  background: "var(--accent-7, #b47e20)",
+                  background: "var(--accent-7)",
                   borderRadius: 2,
                   minWidth: 2,
                 }}

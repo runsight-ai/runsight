@@ -782,6 +782,7 @@
 }
 
 @keyframes node-pulse-glow {
+  /* Matches --accent-9: hsl(38, 92%, 55%) — update if accent changes */
   0%, 100% { box-shadow: 0 0 0 0 hsla(38, 92%, 55%, 0); }
   50% { box-shadow: 0 0 12px 2px hsla(38, 92%, 55%, 0.15); }
 }

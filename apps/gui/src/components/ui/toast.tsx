@@ -1,6 +1,6 @@
 // Design system tokens:
 //   Toast container — elevation-overlay-surface (surface-overlay = neutral-2) bg,
-//                     elevation-border-raised (rgba(255,255,255,0.1)) border,
+//                     elevation-border-raised (var(--elevation-border-raised)) border,
 //                     radius-lg (6px), elevation-overlay-shadow box-shadow
 //   Padding: space-3 (12px) / space-4 (16px), gap: space-3 (12px)
 //   Min-width: 300px, max-width: 420px
@@ -58,7 +58,7 @@ function Toast({
         // Surface: elevation-overlay-surface (surface-overlay = neutral-2)
         "bg-surface-overlay",
         // Border: border-width-thin (1px), elevation-border-raised
-        "border border-[rgba(255,255,255,0.1)]",
+        "border border-[var(--elevation-border-raised)]",
         // Radius: radius-lg = 6px
         "rounded-lg",
         // Shadow: elevation-overlay-shadow

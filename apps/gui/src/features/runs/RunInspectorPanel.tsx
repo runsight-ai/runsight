@@ -41,8 +41,8 @@ function statusColorClass(status: string) {
 }
 
 function bannerClass(status: string) {
-  if (status === "completed") return "bg-[var(--success-08)] border-[var(--success-9)]/30";
-  if (status === "failed") return "bg-[var(--error-08)] border-[var(--danger-9)]/30";
+  if (status === "completed") return "bg-success-3 border-[var(--success-9)]/30";
+  if (status === "failed") return "bg-danger-3 border-[var(--danger-9)]/30";
   return "bg-[var(--surface-primary)] border-[var(--border-default)]";
 }
 
@@ -123,7 +123,7 @@ export function RunInspectorPanel({ selectedNode, onClose }: RunInspectorPanelPr
             {status === "failed" && d.error && (
               <div>
                 <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] mb-2">Error</label>
-                <div className="p-3 rounded-md bg-[var(--error-08)] border border-[var(--danger-9)]/30 font-mono text-xs text-[var(--danger-9)] leading-relaxed">{d.error}</div>
+                <div className="p-3 rounded-md bg-danger-3 border border-[var(--danger-9)]/30 font-mono text-xs text-[var(--danger-9)] leading-relaxed">{d.error}</div>
               </div>
             )}
             <div>

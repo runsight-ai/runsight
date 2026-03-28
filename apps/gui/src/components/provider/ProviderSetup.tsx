@@ -246,7 +246,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
         <div className="mb-1">
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-semibold shrink-0 ${
-              step1Done ? "bg-[var(--success-9)] text-white" : "bg-[var(--interactive-default)] text-white"
+              step1Done ? "bg-[var(--success-9)] text-on-accent" : "bg-[var(--interactive-default)] text-on-accent"
             }`}>
               {step1Done ? <Check className="size-4" strokeWidth={2} /> : "1"}
             </div>
@@ -256,7 +256,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
           </div>
 
           {step1Done && provider && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-[var(--success-10)] border border-[var(--success-9)] rounded-md text-[var(--success-9)] text-[13px] font-medium mb-4">
+            <div className="flex items-center gap-2 px-3 py-2 bg-success-3 border border-[var(--success-9)] rounded-md text-[var(--success-9)] text-[13px] font-medium mb-4">
               <Check className="size-4" strokeWidth={2} />
               <span>{provider.name} selected</span>
             </div>
@@ -272,7 +272,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                   disabled={step1Done && selectedProviderId !== p.id}
                   className={`flex items-center gap-4 px-4 py-3 rounded-md transition-all text-left ${
                     selectedProviderId === p.id
-                      ? "border border-[var(--success-9)] bg-[var(--success-08)]"
+                      ? "border border-[var(--success-9)] bg-success-3"
                       : "bg-[var(--surface-primary)] border border-[var(--border-default)] hover:border-[var(--border-default)]"
                   } ${step1Done && selectedProviderId !== p.id ? "hidden" : ""}`}
                 >
@@ -286,7 +286,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
               ))}
 
               {step1Done && provider && DROPDOWN_PROVIDERS.some((p) => p.id === selectedProviderId) && (
-                <div className="flex items-center gap-4 px-4 py-3 rounded-md border border-[var(--success-9)] bg-[var(--success-08)] text-left">
+                <div className="flex items-center gap-4 px-4 py-3 rounded-md border border-[var(--success-9)] bg-success-3 text-left">
                   <div className="w-10 h-10 flex items-center justify-center bg-[var(--surface-raised)] rounded-md text-xl shrink-0">{provider.emoji}</div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[14px] font-medium text-[var(--text-primary)] mb-0.5">{provider.name}</div>
@@ -329,7 +329,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
         <div className="mb-1">
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-semibold shrink-0 ${
-              step2Done ? "bg-[var(--success-9)] text-white" : step1Done ? "bg-[var(--interactive-default)] text-white" : "bg-[var(--surface-primary)] border border-[var(--border-default)] text-[var(--text-muted)]"
+              step2Done ? "bg-[var(--success-9)] text-on-accent" : step1Done ? "bg-[var(--interactive-default)] text-on-accent" : "bg-[var(--surface-primary)] border border-[var(--border-default)] text-[var(--text-muted)]"
             }`}>
               {step2Done ? <Check className="size-4" strokeWidth={2} /> : "2"}
             </div>
@@ -432,7 +432,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
                   </div>
                 )}
                 {testStatus === "success" && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-[var(--success-10)] border border-[var(--success-9)] rounded-md text-[var(--success-9)] text-[13px]">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-success-3 border border-[var(--success-9)] rounded-md text-[var(--success-9)] text-[13px]">
                     <Check className="size-4" strokeWidth={2} />
                     <span>{testMessage}</span>
                   </div>
@@ -460,7 +460,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
         <div className={`mb-1 ${!step2Done ? "opacity-50" : ""}`}>
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-semibold shrink-0 ${
-              step2Done ? "bg-[var(--interactive-default)] text-white" : "bg-[var(--surface-primary)] border border-[var(--border-default)] text-[var(--text-muted)]"
+              step2Done ? "bg-[var(--interactive-default)] text-on-accent" : "bg-[var(--surface-primary)] border border-[var(--border-default)] text-[var(--text-muted)]"
             }`}>
               3
             </div>

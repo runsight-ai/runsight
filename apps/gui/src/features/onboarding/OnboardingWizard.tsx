@@ -40,8 +40,8 @@ export function Component() {
         style={{
           backgroundImage: `
             radial-gradient(circle at 50% 50%, var(--accent-1) 0%, transparent 60%),
-            linear-gradient(var(--border-10) 1px, transparent 1px),
-            linear-gradient(90deg, var(--border-10) 1px, transparent 1px)
+            linear-gradient(var(--border-subtle) 1px, transparent 1px),
+            linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px)
           `,
           backgroundSize: "100% 100%, 40px 40px, 40px 40px",
         }}
