@@ -9,6 +9,7 @@ from runsight_core.isolation.envelope import (
     TaskEnvelope,
     ToolDefEnvelope,
 )
+from runsight_core.isolation.harness import SubprocessHarness
 from runsight_core.isolation.ipc import IPCClient, IPCServer
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "IPCServer",
     "ResultEnvelope",
     "SoulEnvelope",
+    "SubprocessHarness",
     "TaskEnvelope",
     "ToolDefEnvelope",
 ]
