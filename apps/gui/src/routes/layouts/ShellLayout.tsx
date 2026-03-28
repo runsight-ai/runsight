@@ -91,7 +91,7 @@ export function ShellLayout() {
             />
           </svg>
           <span
-            className="text-sm font-bold tracking-tight text-primary"
+            className="text-lg font-bold tracking-tight text-primary"
             style={{ fontFamily: "'Geist', sans-serif" }}
           >
             Runsight
