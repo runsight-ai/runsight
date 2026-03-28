@@ -3,8 +3,19 @@
 from __future__ import annotations
 
 import subprocess
+import uuid
+from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Optional
+
+
+@dataclass
+class SimBranchResult:
+    """Result of creating a simulation branch."""
+
+    branch: str
+    sha: str
 
 
 class GitService:
@@ -44,6 +55,37 @@ class GitService:
         result = self._run("log", "-1", "--format=%H", branch, "--", path, check=False)
         sha = result.stdout.strip()
         return sha if sha else None
+
+    def create_sim_branch(
+        self, workflow_slug: str, yaml_content: str, yaml_path: str
+    ) -> SimBranchResult:
+        """Create a simulation branch with YAML content committed to it."""
+        short_id = uuid.uuid4().hex[:5]
+        today = date.today().strftime("%Y%m%d")
+        branch_name = f"sim/{workflow_slug}/{today}/{short_id}"
+
+        original = self.current_branch()
+        self._run("branch", branch_name)
+        try:
+            self._run("checkout", branch_name)
+            full_path = self.repo_path / yaml_path
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_text(yaml_content)
+            self._run("add", "--", yaml_path)
+            self._run("commit", "-m", f"Simulation snapshot: {workflow_slug}")
+            sha = self._run("rev-parse", "HEAD").stdout.strip()
+        finally:
+            self._run("checkout", original)
+            # Clean up the yaml file from working tree if it exists
+            if full_path.exists():
+                full_path.unlink()
+                # Remove parent dir if empty
+                try:
+                    full_path.parent.rmdir()
+                except OSError:
+                    pass
+
+        return SimBranchResult(branch=branch_name, sha=sha)
 
     def commit_to_branch(self, branch: str, files: list[str], message: str) -> str:
         if not message.strip():
