@@ -45,11 +45,11 @@ export function ShellLayout() {
           width: sidebarOpen ? "var(--sidebar-width-expanded)" : "var(--sidebar-width-collapsed)",
         }}
         className={cn(
-          "flex flex-col border-r border-sidebar-border transition-[width] duration-200",
+          "flex flex-col border-r border-border-subtle transition-[width] duration-200",
         )}
       >
         {/* Logo */}
-        <div className="h-[var(--header-height)] px-3 border-b border-sidebar-border flex items-center gap-2 shrink-0">
+        <div className="h-[var(--header-height)] px-3 border-b border-border-subtle flex items-center gap-2 shrink-0">
           <svg
             width="24"
             height="24"
@@ -143,7 +143,7 @@ export function ShellLayout() {
         </nav>
 
         {/* Bottom nav */}
-        <div className="p-2 border-t border-sidebar-border">
+        <div className="p-2 border-t border-border-subtle">
           {BOTTOM_NAV.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}

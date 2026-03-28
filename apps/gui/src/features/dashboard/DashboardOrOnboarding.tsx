@@ -106,7 +106,7 @@ export function Component() {
   );
 
   const errorBanner = (isError || isRunsError) && (
-    <div className="mx-4 mt-4 p-4 rounded-md border border-destructive bg-destructive/10 text-destructive">
+    <div className="mx-4 mt-4 p-4 rounded-md border border-border-danger bg-danger-3 text-danger-11">
       <p>Couldn't load dashboard data. Check that the Runsight server is running.</p>
       <button className="mt-2 text-sm underline" onClick={() => refetch()}>Retry</button>
     </div>

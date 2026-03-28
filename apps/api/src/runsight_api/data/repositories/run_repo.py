@@ -22,13 +22,19 @@ class RunRepository:
         statement = select(Run).order_by(Run.created_at.desc())
         return list(self.session.exec(statement).all())
 
-    def list_runs_paginated(self, offset: int, limit: int) -> tuple:
+    def list_runs_paginated(
+        self, offset: int, limit: int, status: list[str] | None = None
+    ) -> tuple:
         """Return a page of runs and the total count using SQL LIMIT/OFFSET."""
         count_statement = select(func.count()).select_from(Run)
-        total = self.session.exec(count_statement).one()
+        statement = select(Run).order_by(Run.created_at.desc())
 
-        statement = select(Run).order_by(Run.created_at.desc()).offset(offset).limit(limit)
-        items = list(self.session.exec(statement).all())
+        if status:
+            count_statement = count_statement.where(Run.status.in_(status))
+            statement = statement.where(Run.status.in_(status))
+
+        total = self.session.exec(count_statement).one()
+        items = list(self.session.exec(statement.offset(offset).limit(limit)).all())
         return items, total
 
     def update_run(self, run: Run) -> Run:

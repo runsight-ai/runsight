@@ -83,3 +83,6 @@ page.html
 
 # Agent workspace screenshots (flow5 etc)
 apps/.agora/workspace/
+
+#Tmp files
+*.xml
