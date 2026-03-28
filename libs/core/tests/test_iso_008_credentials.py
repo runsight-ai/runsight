@@ -531,10 +531,7 @@ class TestFileIOPathTraversal:
             }
         )
 
-        # Should either reject the encoded traversal or resolve safely within base_dir
-        if "error" not in result:
-            # If no error, the resolved path must still be inside base_dir
-            assert result.get("content") is not None or "error" in result
+        assert "error" in result
 
     async def test_write_with_traversal_rejected(self, tmp_path: Path):
         """Write operations with path traversal are blocked."""
