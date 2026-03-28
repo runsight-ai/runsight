@@ -1,4 +1,4 @@
-"""Process isolation envelope models."""
+"""Process isolation envelope models and IPC protocol."""
 
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
@@ -9,11 +9,14 @@ from runsight_core.isolation.envelope import (
     TaskEnvelope,
     ToolDefEnvelope,
 )
+from runsight_core.isolation.ipc import IPCClient, IPCServer
 
 __all__ = [
     "ContextEnvelope",
     "DelegateArtifact",
     "HeartbeatMessage",
+    "IPCClient",
+    "IPCServer",
     "ResultEnvelope",
     "SoulEnvelope",
     "TaskEnvelope",
