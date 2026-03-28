@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import traceback
+from datetime import datetime
 from typing import Optional
 
 from sqlmodel import Session
@@ -113,6 +114,29 @@ class ExecutionObserver:
             )
         except Exception:
             logger.warning("ExecutionObserver.on_block_start failed", exc_info=True)
+
+    # ------------------------------------------------------------------
+    # on_block_heartbeat
+    # ------------------------------------------------------------------
+
+    def on_block_heartbeat(
+        self,
+        workflow_name: str,
+        block_id: str,
+        phase: str,
+        detail: str,
+        timestamp: datetime,
+    ) -> None:
+        try:
+            with Session(self.engine) as session:
+                node = session.get(RunNode, f"{self.run_id}:{block_id}")
+                if node:
+                    node.last_phase = phase
+                    node.updated_at = time.time()
+                    session.add(node)
+                session.commit()
+        except Exception:
+            logger.warning("ExecutionObserver.on_block_heartbeat failed", exc_info=True)
 
     # ------------------------------------------------------------------
     # on_block_complete

@@ -44,6 +44,22 @@ class ExecutionService:
         self._observers: Dict[str, StreamingObserver] = {}
 
     # ------------------------------------------------------------------
+    # Ghost run detection
+    # ------------------------------------------------------------------
+
+    def fail_ghost_runs(self) -> None:
+        """Mark all runs stuck in 'running' status as failed.
+
+        Called at server startup to clean up runs that were interrupted
+        by a server restart.
+        """
+        ghost_runs = self.run_repo.get_by_status(RunStatus.running)
+        for run in ghost_runs:
+            run.status = RunStatus.failed
+            run.error = "Ghost run: server restarted while running"
+            self.run_repo.update(run)
+
+    # ------------------------------------------------------------------
     # Cancellation
     # ------------------------------------------------------------------
 
