@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 class RunCreate(BaseModel):
     workflow_id: str
     task_data: Dict[str, Any] = Field(default_factory=dict)
+    source: Optional[str] = "manual"
 
 
 class NodeSummary(BaseModel):
@@ -26,6 +27,9 @@ class RunResponse(BaseModel):
     total_cost_usd: float
     total_tokens: int
     created_at: float
+    branch: str = "main"
+    source: str = "manual"
+    commit_sha: Optional[str] = None
     node_summary: Optional[NodeSummary] = None
 
 
