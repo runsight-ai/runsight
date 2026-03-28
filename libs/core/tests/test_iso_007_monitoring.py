@@ -534,39 +534,62 @@ class TestGhostRunDetection:
         mock_run.id = "run-ghost-1"
         mock_run.status = RunStatus.running
 
-        mock_session = MagicMock()
-        mock_session.exec.return_value.all.return_value = [mock_run]
+        mock_repo = MagicMock()
+        mock_repo.get_by_status.return_value = [mock_run]
 
         service = ExecutionService(
-            run_repo=MagicMock(),
+            run_repo=mock_repo,
             workflow_repo=MagicMock(),
             provider_repo=MagicMock(),
             engine=MagicMock(),
         )
 
-        # The method should exist and mark ghost runs as failed
+        # Actually invoke the method to mark ghost runs as failed
         method = getattr(service, "fail_ghost_runs", None) or getattr(
             service, "detect_ghost_runs", None
         )
         assert method is not None, (
             "ExecutionService must have fail_ghost_runs or detect_ghost_runs method"
         )
+        method()
+
+        # Ghost run must be transitioned to failed status
+        assert mock_run.status == RunStatus.failed, (
+            f"Ghost run status should be 'failed' but got '{mock_run.status}'"
+        )
 
     def test_ghost_run_error_message_is_descriptive(self):
         """Ghost runs should have an error like 'Ghost run: server restarted while running'."""
+        from runsight_api.domain.entities.run import Run, RunStatus
         from runsight_api.logic.services.execution_service import ExecutionService
 
+        mock_run = MagicMock(spec=Run)
+        mock_run.id = "run-ghost-2"
+        mock_run.status = RunStatus.running
+        mock_run.error = None
+
+        mock_repo = MagicMock()
+        mock_repo.get_by_status.return_value = [mock_run]
+
         service = ExecutionService(
-            run_repo=MagicMock(),
+            run_repo=mock_repo,
             workflow_repo=MagicMock(),
             provider_repo=MagicMock(),
             engine=MagicMock(),
         )
 
+        # Actually invoke the method
         method = getattr(service, "fail_ghost_runs", None) or getattr(
             service, "detect_ghost_runs", None
         )
         assert method is not None
+        method()
+
+        # Error message must be descriptive — mention server restart
+        assert mock_run.error is not None, "Ghost run must have an error message set"
+        assert "server restarted" in mock_run.error.lower(), (
+            f"Ghost run error should mention 'server restarted' but got: '{mock_run.error}'"
+        )
 
 
 # ===========================================================================
