@@ -28,7 +28,7 @@ from runsight_api.domain.value_objects import WorkflowEntity, SoulEntity
 def git_service():
     svc = Mock()
     svc.current_branch.return_value = "main"
-    svc.is_clean.return_value = True
+    svc.is_clean.return_value = False
     return svc
 
 
