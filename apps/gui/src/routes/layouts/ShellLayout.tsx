@@ -1,5 +1,4 @@
 import { NavLink, Outlet } from "react-router";
-import { useProviders } from "@/queries/settings";
 import { RouteErrorBoundary } from "@/components/shared/ErrorBoundary";
 import {
   LayoutDashboard,
@@ -25,8 +24,6 @@ const BOTTOM_NAV = [
 export function ShellLayout() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
-  const { data: providersData } = useProviders();
-  const providerCount = providersData?.total ?? 0;
 
   return (
     <div className="h-screen flex overflow-hidden bg-surface-primary text-primary">
@@ -108,7 +105,7 @@ export function ShellLayout() {
               </span>
               <button
                 onClick={toggleSidebar}
-                className="size-7 flex items-center justify-center rounded-md text-muted hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                className="size-7 flex items-center justify-center rounded-md text-muted hover:text-primary transition-colors"
               >
                 <ChevronsLeft className="size-4" strokeWidth={1.5} />
               </button>
@@ -116,7 +113,7 @@ export function ShellLayout() {
           ) : (
             <button
               onClick={toggleSidebar}
-              className="size-7 flex items-center justify-center rounded-md text-muted hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              className="size-7 flex items-center justify-center rounded-md text-muted hover:text-primary transition-colors"
             >
               <ChevronsRight className="size-4" strokeWidth={1.5} />
             </button>
@@ -184,17 +181,6 @@ export function ShellLayout() {
           </RouteErrorBoundary>
         </main>
 
-        {/* Bottom bar */}
-        <footer className="h-[var(--status-bar-height)] bg-surface-secondary border-t border-border-default flex items-center px-4 text-xs text-muted shrink-0">
-          <span>Runsight v0.1.0</span>
-          <span className="mx-2 text-border">|</span>
-          <span className="flex items-center gap-1.5">
-            <span className={`size-1.5 rounded-full ${providerCount > 0 ? "bg-success" : "bg-neutral-9"}`} />
-            {providerCount > 0
-              ? `${providerCount} provider${providerCount > 1 ? "s" : ""} connected`
-              : "No providers configured"}
-          </span>
-        </footer>
       </div>
     </div>
   );

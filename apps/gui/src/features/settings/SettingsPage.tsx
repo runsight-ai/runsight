@@ -33,7 +33,6 @@ export function Component() {
       {/* Header Bar (48px) */}
       <PageHeader
         title="Global Settings"
-        backHref="/"
       />
 
       {/* Settings Layout */}
