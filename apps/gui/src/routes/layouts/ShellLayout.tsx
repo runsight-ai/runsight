@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from "react-router";
+import { NavLink, Outlet } from "react-router";
 import { useProviders } from "@/queries/settings";
 import { RouteErrorBoundary } from "@/components/shared/ErrorBoundary";
 import {
@@ -6,10 +6,8 @@ import {
   Workflow,
   Bot,
   Settings,
-  Search,
-  Bell,
-  PanelLeftClose,
-  PanelLeft,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { useUiStore } from "@/store/ui";
 import { cn } from "@/utils/helpers";
@@ -24,17 +22,11 @@ const BOTTOM_NAV = [
   { to: "/settings", icon: Settings, label: "Settings" },
 ] as const;
 
-function pageTitleFromPath(pathname: string): string {
-  const segment = pathname.split("/").filter(Boolean)[0] ?? "dashboard";
-  return segment.charAt(0).toUpperCase() + segment.slice(1);
-}
-
 export function ShellLayout() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const { data: providersData } = useProviders();
   const providerCount = providersData?.total ?? 0;
-  const location = useLocation();
 
   return (
     <div className="h-screen flex overflow-hidden bg-surface-primary text-primary">
@@ -48,8 +40,8 @@ export function ShellLayout() {
           "flex flex-col border-r border-border-subtle transition-[width] duration-200",
         )}
       >
-        {/* Logo */}
-        <div className="h-[var(--header-height)] px-3 border-b border-border-subtle flex items-center gap-2 shrink-0">
+        {/* Logo + collapse toggle */}
+        <div className="group h-[var(--header-height)] px-3 border-b border-border-subtle flex items-center gap-2 shrink-0">
           <svg
             width="24"
             height="24"
@@ -109,10 +101,25 @@ export function ShellLayout() {
               opacity="0.6"
             />
           </svg>
-          {sidebarOpen && (
-            <span className="text-[13px] font-semibold tracking-[0.08em] uppercase text-primary">
-              Runsight
-            </span>
+          {sidebarOpen ? (
+            <>
+              <span className="text-[13px] font-semibold tracking-[0.08em] uppercase text-primary flex-1">
+                Runsight
+              </span>
+              <button
+                onClick={toggleSidebar}
+                className="size-7 flex items-center justify-center rounded-md text-muted hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              >
+                <ChevronsLeft className="size-4" strokeWidth={1.5} />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={toggleSidebar}
+              className="size-7 flex items-center justify-center rounded-md text-muted hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            >
+              <ChevronsRight className="size-4" strokeWidth={1.5} />
+            </button>
           )}
         </div>
 
@@ -170,34 +177,6 @@ export function ShellLayout() {
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        <header className="h-[var(--header-height)] bg-surface-secondary border-b border-border-default flex items-center justify-between px-4 shrink-0">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleSidebar}
-              className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted hover:text-primary transition-colors"
-            >
-              {sidebarOpen ? (
-                <PanelLeftClose className="size-[18px]" strokeWidth={1.5} />
-              ) : (
-                <PanelLeft className="size-[18px]" strokeWidth={1.5} />
-              )}
-            </button>
-            <h1 className="text-base font-medium tracking-tight">
-              {pageTitleFromPath(location.pathname)}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted hover:text-primary transition-colors">
-              <Search className="size-[18px]" strokeWidth={1.5} />
-            </button>
-            <button className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted hover:text-primary transition-colors">
-              <Bell className="size-[18px]" strokeWidth={1.5} />
-            </button>
-          </div>
-        </header>
-
         {/* Page content */}
         <main className="flex-1 flex flex-col overflow-y-auto">
           <RouteErrorBoundary>

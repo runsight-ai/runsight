@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
+  breadcrumbs?: React.ReactNode;
   backHref?: string;
   onBack?: () => void;
   actions?: React.ReactNode;
@@ -14,6 +15,7 @@ interface PageHeaderProps {
 export function PageHeader({
   title,
   subtitle,
+  breadcrumbs,
   backHref,
   onBack,
   actions,
@@ -45,6 +47,9 @@ export function PageHeader({
           </>
         )}
         <div className="flex flex-col">
+          {breadcrumbs && (
+            <div className="text-xs text-muted">{breadcrumbs}</div>
+          )}
           <h1 className="text-base font-medium leading-tight text-primary">
             {title}
           </h1>
