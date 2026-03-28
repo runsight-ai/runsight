@@ -42,8 +42,13 @@ from runsight_core.isolation.ipc import IPCServer
 class HeartbeatTracker:
     """Tracks heartbeat phase changes and detects phase stalls."""
 
-    def __init__(self, phase_timeout: float = 60.0) -> None:
+    def __init__(
+        self,
+        phase_timeout: float = 60.0,
+        stall_thresholds: dict[str, int | float] | None = None,
+    ) -> None:
         self._phase_timeout = phase_timeout
+        self.stall_thresholds: dict[str, int | float] = stall_thresholds or {}
         self.current_phase: str = ""
         self._phase_started_at: float = time.monotonic()
 
@@ -55,8 +60,9 @@ class HeartbeatTracker:
 
     @property
     def is_stalled(self) -> bool:
-        """Return True if the current phase has exceeded the phase timeout."""
-        return (time.monotonic() - self._phase_started_at) > self._phase_timeout
+        """Return True if the current phase has exceeded its timeout threshold."""
+        threshold = self.stall_thresholds.get(self.current_phase, self._phase_timeout)
+        return (time.monotonic() - self._phase_started_at) > threshold
 
 
 # ---------------------------------------------------------------------------
@@ -73,14 +79,33 @@ class SubprocessHarness:
         self,
         *,
         api_key: str,
-        timeout_seconds: int = 30,
+        timeout_seconds: int = 300,
         heartbeat_timeout: float = 30.0,
         phase_timeout: float = 60.0,
+        stall_thresholds: dict[str, int | float] | None = None,
+        tool_credentials: dict[str, dict[str, str]] | None = None,
     ) -> None:
         self._api_key = api_key
         self._timeout_seconds = timeout_seconds
         self._heartbeat_timeout = heartbeat_timeout
         self._phase_timeout = phase_timeout
+        self._stall_thresholds = stall_thresholds or {}
+        self._tool_credentials = tool_credentials or {}
+
+    # -- ISO-008: IPC handlers with baked-in credentials --------------------
+
+    def _build_ipc_handlers(self) -> dict[str, Any]:
+        """Build IPC handlers with tool credentials injected engine-side."""
+        from runsight_core.isolation.handlers import make_file_io_handler, make_http_handler
+
+        merged_headers: dict[str, str] = {}
+        for creds in self._tool_credentials.values():
+            merged_headers.update(creds)
+
+        return {
+            "http": make_http_handler(credentials=merged_headers, url_allowlist=["*"]),
+            "file_io": make_file_io_handler(base_dir=tempfile.mkdtemp(prefix="rs-fio-")),
+        }
 
     # -- AC1: Minimal subprocess environment --------------------------------
 
@@ -184,8 +209,11 @@ class SubprocessHarness:
     # -- AC5/AC6/AC7: Heartbeat monitoring -----------------------------------
 
     def _create_heartbeat_tracker(self) -> HeartbeatTracker:
-        """Create a HeartbeatTracker with the configured phase timeout."""
-        return HeartbeatTracker(phase_timeout=self._phase_timeout)
+        """Create a HeartbeatTracker with the configured phase timeout and stall thresholds."""
+        return HeartbeatTracker(
+            phase_timeout=self._phase_timeout,
+            stall_thresholds=self._stall_thresholds,
+        )
 
     async def _monitor_heartbeats(
         self,
@@ -193,8 +221,9 @@ class SubprocessHarness:
         *,
         timeout: float | None = None,
     ) -> bool:
-        """Monitor stderr for heartbeats. Returns True if the subprocess was killed due to stall."""
+        """Monitor stderr for heartbeats. Returns True if the subprocess was killed or exited."""
         hb_timeout = timeout if timeout is not None else self._heartbeat_timeout
+        tracker = self._create_heartbeat_tracker()
 
         while proc.returncode is None:
             try:
@@ -205,6 +234,22 @@ class SubprocessHarness:
                 if not line:
                     # EOF on stderr — subprocess exited or closed stderr
                     return True
+
+                # Parse heartbeat and update tracker
+                try:
+                    hb = HeartbeatMessage.model_validate_json(line.strip())
+                    tracker.update(hb)
+                except Exception:
+                    pass
+
+                # Check for phase stall after updating
+                if tracker.is_stalled:
+                    try:
+                        proc.terminate()
+                    except ProcessLookupError:
+                        pass
+                    return True
+
             except asyncio.TimeoutError:
                 # No heartbeat within timeout — kill
                 try:
