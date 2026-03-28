@@ -26,21 +26,21 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "flex h-14 items-center justify-between border-b border-border-default px-4",
+        "flex items-start justify-between px-6 py-6",
         className
       )}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         {showBack && (
           <>
             {backHref ? (
-              <a href={backHref}>
+              <a href={backHref} className="mt-1">
                 <Button variant="ghost" size="icon-sm">
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
               </a>
             ) : (
-              <Button variant="ghost" size="icon-sm" onClick={onBack}>
+              <Button variant="ghost" size="icon-sm" onClick={onBack} className="mt-1">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
             )}
@@ -48,13 +48,13 @@ export function PageHeader({
         )}
         <div className="flex flex-col">
           {breadcrumbs && (
-            <div className="text-xs text-muted">{breadcrumbs}</div>
+            <div className="text-xs text-muted mb-1">{breadcrumbs}</div>
           )}
-          <h1 className="text-base font-medium leading-tight text-primary">
+          <h1 className="text-2xl font-bold leading-tight text-primary">
             {title}
           </h1>
           {subtitle && (
-            <span className="text-xs text-muted">{subtitle}</span>
+            <p className="text-[length:var(--font-size-md)] text-muted mt-1">{subtitle}</p>
           )}
         </div>
       </div>

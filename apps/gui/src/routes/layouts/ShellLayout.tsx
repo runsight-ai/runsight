@@ -5,10 +5,7 @@ import {
   Workflow,
   Bot,
   Settings,
-  ChevronsLeft,
-  ChevronsRight,
 } from "lucide-react";
-import { useUiStore } from "@/store/ui";
 import { cn } from "@/utils/helpers";
 
 const NAV_ITEMS = [
@@ -22,26 +19,18 @@ const BOTTOM_NAV = [
 ] as const;
 
 export function ShellLayout() {
-  const sidebarOpen = useUiStore((s) => s.sidebarOpen);
-  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
-
   return (
     <div className="h-screen flex overflow-hidden bg-surface-primary text-primary">
       {/* Sidebar */}
       <aside
         style={{
           backgroundColor: "var(--sidebar-bg)",
-          width: sidebarOpen ? "var(--sidebar-width-expanded)" : "var(--sidebar-width-collapsed)",
+          width: "var(--sidebar-width-expanded)",
         }}
-        className={cn(
-          "flex flex-col border-r border-border-subtle transition-[width] duration-200",
-        )}
+        className="flex flex-col border-r border-border-subtle"
       >
-        {/* Logo + collapse toggle */}
-        <div className={cn(
-          "group h-14 px-3 flex items-center shrink-0",
-          sidebarOpen ? "gap-2" : "justify-center",
-        )}>
+        {/* Logo */}
+        <div className="h-14 px-3 flex items-center gap-2 shrink-0">
           <svg
             width="24"
             height="24"
@@ -101,28 +90,12 @@ export function ShellLayout() {
               opacity="0.6"
             />
           </svg>
-          {sidebarOpen ? (
-            <>
-              <span className="text-sm font-bold tracking-tight text-primary flex-1"
-                style={{ fontFamily: "'Geist', sans-serif" }}
-              >
-                Runsight
-              </span>
-              <button
-                onClick={toggleSidebar}
-                className="size-7 flex items-center justify-center rounded-md text-muted hover:text-primary transition-colors"
-              >
-                <ChevronsLeft className="size-4" strokeWidth={1.5} />
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={toggleSidebar}
-              className="size-7 flex items-center justify-center rounded-md text-muted hover:text-primary transition-colors"
-            >
-              <ChevronsRight className="size-4" strokeWidth={1.5} />
-            </button>
-          )}
+          <span
+            className="text-sm font-bold tracking-tight text-primary"
+            style={{ fontFamily: "'Geist', sans-serif" }}
+          >
+            Runsight
+          </span>
         </div>
 
         {/* Main nav */}
@@ -134,11 +107,12 @@ export function ShellLayout() {
               end={"end" in rest}
               className={({ isActive }) =>
                 cn(
-                  "relative flex items-center h-8 rounded-md text-sm transition-colors",
-                  sidebarOpen ? "gap-2 px-2" : "justify-center px-0",
+                  "relative flex items-center gap-2 px-2 rounded-md transition-colors",
+                  "text-[length:var(--font-size-md)] font-normal",
+                  "h-[var(--control-height-sm)]",
                   isActive
-                    ? "bg-[var(--surface-selected)] text-primary"
-                    : "text-muted hover:text-primary hover:bg-[var(--sidebar-hover)]",
+                    ? "bg-[var(--surface-selected)] text-[var(--text-heading)]"
+                    : "text-[var(--sidebar-fg)] hover:bg-[var(--sidebar-hover)]",
                 )
               }
             >
@@ -151,7 +125,7 @@ export function ShellLayout() {
                     />
                   )}
                   <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
-                  {sidebarOpen && <span>{label}</span>}
+                  <span>{label}</span>
                 </>
               )}
             </NavLink>
@@ -166,11 +140,12 @@ export function ShellLayout() {
               to={to}
               className={({ isActive }) =>
                 cn(
-                  "relative flex items-center h-8 rounded-md text-sm transition-colors",
-                  sidebarOpen ? "gap-2 px-2" : "justify-center px-0",
+                  "relative flex items-center gap-2 px-2 rounded-md transition-colors",
+                  "text-[length:var(--font-size-md)] font-normal",
+                  "h-[var(--control-height-sm)]",
                   isActive
-                    ? "bg-[var(--surface-selected)] text-primary"
-                    : "text-muted hover:text-primary hover:bg-[var(--sidebar-hover)]",
+                    ? "bg-[var(--surface-selected)] text-[var(--text-heading)]"
+                    : "text-[var(--sidebar-fg)] hover:bg-[var(--sidebar-hover)]",
                 )
               }
             >
@@ -183,7 +158,7 @@ export function ShellLayout() {
                     />
                   )}
                   <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
-                  {sidebarOpen && <span>{label}</span>}
+                  <span>{label}</span>
                 </>
               )}
             </NavLink>
