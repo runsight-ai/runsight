@@ -33,12 +33,14 @@ class ExecutionService:
         engine=None,
         max_concurrent_runs: int = 5,
         secrets: SecretsEnvLoader | None = None,
+        git_service=None,
     ):
         self.run_repo = run_repo
         self.workflow_repo = workflow_repo
         self.provider_repo = provider_repo
         self.engine = engine
         self.secrets = secrets
+        self.git_service = git_service
         self._running_tasks: Dict[str, asyncio.Task] = {}
         self._semaphore = asyncio.Semaphore(max_concurrent_runs)
         self._observers: Dict[str, StreamingObserver] = {}
@@ -140,7 +142,7 @@ class ExecutionService:
             return None
 
     async def launch_execution(
-        self, run_id: str, workflow_id: str, task_data: Dict[str, Any]
+        self, run_id: str, workflow_id: str, task_data: Dict[str, Any], branch: str = "main"
     ) -> None:
         """Launch workflow execution as a background asyncio task.
 
@@ -157,7 +159,18 @@ class ExecutionService:
             if wf_entity is None:
                 raise ValueError(f"Workflow {workflow_id} not found")
 
-            yaml_content = wf_entity.yaml
+            workflow_path = str(self.workflow_repo._get_path(workflow_id))
+
+            # Branch-aware YAML reading
+            if branch != "main" and self.git_service:
+                yaml_content = self.git_service.read_file(workflow_path, branch)
+                commit_sha = self.git_service.get_sha(branch, workflow_path)
+            else:
+                yaml_content = wf_entity.yaml
+                if self.git_service:
+                    commit_sha = self.git_service.get_sha("main", workflow_path)
+                else:
+                    commit_sha = self._get_workflow_commit_sha(workflow_path)
 
             # Resolve API keys: provider repo -> env var fallback
             api_keys = self._resolve_api_keys()
@@ -165,10 +178,8 @@ class ExecutionService:
             # Parse workflow YAML into runnable Workflow
             wf = parse_workflow_yaml(yaml_content, api_keys=api_keys)
 
-            # Capture the latest git commit SHA for this workflow file
-            workflow_path = str(self.workflow_repo._get_path(workflow_id))
-            commit_sha = self._get_workflow_commit_sha(workflow_path)
-            self._store_workflow_commit_sha(run_id, commit_sha)
+            # Store branch + commit_sha on Run record
+            self._store_branch_and_sha(run_id, branch, commit_sha)
 
         except Exception as e:
             logger.exception("Failed to prepare workflow for run %s", run_id)
@@ -325,6 +336,26 @@ class ExecutionService:
                     session.commit()
         except Exception:
             logger.exception("Failed to store workflow_commit_sha for run %s", run_id)
+
+    def _store_branch_and_sha(self, run_id: str, branch: str, commit_sha: Optional[str]) -> None:
+        """Persist branch and commit_sha on the Run record."""
+        if self.engine is None:
+            return
+        try:
+            from sqlmodel import Session
+
+            from ...domain.entities.run import Run
+
+            with Session(self.engine) as session:
+                run = session.get(Run, run_id)
+                if run:
+                    run.branch = branch
+                    run.commit_sha = commit_sha
+                    run.updated_at = time.time()
+                    session.add(run)
+                    session.commit()
+        except Exception:
+            logger.exception("Failed to store branch/commit_sha for run %s", run_id)
 
     def _resolve_api_keys(self) -> Dict[str, str]:
         """Resolve API keys from all providers, with env var fallback.
