@@ -106,10 +106,23 @@ class IsolatedBlockWrapper(BaseBlock):
             state.conversation_histories.get(history_key, []) if self.inner_block.stateful else []
         )
 
+        # Populate block_config with branch metadata for FanOut blocks
+        block_config: dict[str, Any] = {}
+        if hasattr(self.inner_block, "branches"):
+            block_config["branches"] = [
+                {
+                    "exit_id": b.exit_id,
+                    "label": b.label,
+                    "soul_ref": b.soul.id if b.soul else "",
+                    "task_instruction": b.task_instruction,
+                }
+                for b in self.inner_block.branches
+            ]
+
         envelope = ContextEnvelope(
             block_id=self.block_id,
             block_type=type(self.inner_block).__name__,
-            block_config={},
+            block_config=block_config,
             soul=soul_envelope,
             tools=[],
             task=task_envelope,
@@ -143,6 +156,13 @@ class IsolatedBlockWrapper(BaseBlock):
                 exit_handle=result.exit_handle,
             ),
         }
+
+        # Route delegate artifacts to per-port state results for FanOut blocks
+        for port, artifact in result.delegate_artifacts.items():
+            updated_results[f"{self.block_id}.{port}"] = BlockResult(
+                output=artifact.task,
+                exit_handle=port,
+            )
 
         # Update conversation history if stateful
         conversation_update = dict(state.conversation_histories)

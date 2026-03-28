@@ -23,16 +23,21 @@ def create_delegate_tool(exits: List[ExitDef] | None = None) -> ToolInstance:
         "type": "object",
         "properties": {
             "port": port_schema,
+            "task": {
+                "type": "string",
+                "description": "The task instruction to delegate to this port.",
+            },
         },
-        "required": ["port"],
+        "required": ["port", "task"],
     }
 
     async def _execute(args: dict) -> str:
         port = args["port"]
+        task = args.get("task", "")
         if exit_ids and port not in exit_ids:
             valid = ", ".join(exit_ids)
             return f"Error: invalid port '{port}'. Valid ports: {valid}"
-        return port
+        return f"Delegated to port '{port}' with task: {task}"
 
     return ToolInstance(
         name="delegate",
