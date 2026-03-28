@@ -71,7 +71,7 @@ class TestScaffoldIdempotent:
         (base / "custom" / "workflows").mkdir(parents=True)
         (base / "custom" / "souls").mkdir(parents=True)
         gitignore = base / ".gitignore"
-        gitignore.write_text("# existing gitignore\n.canvas/\n", encoding="utf-8")
+        gitignore.write_text("# existing gitignore\n.canvas/\n.runsight/\n", encoding="utf-8")
 
     def test_marker_not_overwritten(self, tmp_path: Path):
         self._setup_full_project(tmp_path)
@@ -158,7 +158,7 @@ class TestScaffoldPartialStructure:
 
     def test_existing_gitignore_not_overwritten_in_partial(self, tmp_path: Path):
         """Has custom .gitignore with user content; scaffold must not touch it."""
-        user_gitignore_content = "# My custom ignores\nnode_modules/\n.env\n"
+        user_gitignore_content = "# My custom ignores\nnode_modules/\n.env\n.runsight/\n"
         (tmp_path / ".gitignore").write_text(user_gitignore_content, encoding="utf-8")
 
         scaffold_project(tmp_path)

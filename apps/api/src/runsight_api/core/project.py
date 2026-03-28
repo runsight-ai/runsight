@@ -1,6 +1,7 @@
 """Project detection: resolve base_path from marker file or directory structure."""
 
 import logging
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -98,7 +99,37 @@ def scaffold_project(base_path: Path) -> None:
     # .gitignore
     gitignore_path = base_path / ".gitignore"
     if not gitignore_path.is_file():
-        gitignore_path.write_text(".canvas/\n", encoding="utf-8")
+        gitignore_path.write_text(".canvas/\n.runsight/\n", encoding="utf-8")
+    else:
+        content = gitignore_path.read_text(encoding="utf-8")
+        if ".runsight/" not in content:
+            with gitignore_path.open("a", encoding="utf-8") as f:
+                if content and not content.endswith("\n"):
+                    f.write("\n")
+                f.write(".runsight/\n")
+
+    # Git init if no repo exists
+    if not (base_path / ".git").is_dir():
+        subprocess.run(["git", "init"], cwd=base_path, capture_output=True, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "runsight@localhost"],
+            cwd=base_path,
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Runsight"],
+            cwd=base_path,
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(["git", "add", "."], cwd=base_path, capture_output=True, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Initial Runsight project"],
+            cwd=base_path,
+            capture_output=True,
+            check=True,
+        )
 
     if is_new:
         logger.info("Created new Runsight project at %s", base_path)
