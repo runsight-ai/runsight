@@ -38,7 +38,10 @@ export function ShellLayout() {
         )}
       >
         {/* Logo + collapse toggle */}
-        <div className="group h-[var(--header-height)] px-3 border-b border-border-subtle flex items-center gap-2 shrink-0">
+        <div className={cn(
+          "group h-14 px-3 flex items-center shrink-0",
+          sidebarOpen ? "gap-2" : "justify-center",
+        )}>
           <svg
             width="24"
             height="24"
@@ -100,7 +103,9 @@ export function ShellLayout() {
           </svg>
           {sidebarOpen ? (
             <>
-              <span className="text-[13px] font-semibold tracking-[0.08em] uppercase text-primary flex-1">
+              <span className="text-sm font-bold tracking-tight text-primary flex-1"
+                style={{ fontFamily: "'Geist', sans-serif" }}
+              >
                 Runsight
               </span>
               <button
@@ -129,44 +134,58 @@ export function ShellLayout() {
               end={"end" in rest}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 h-9 px-3 rounded-md text-sm transition-colors",
+                  "relative flex items-center h-8 rounded-md text-sm transition-colors",
+                  sidebarOpen ? "gap-2 px-2" : "justify-center px-0",
                   isActive
-                    ? "text-primary"
+                    ? "bg-[var(--surface-selected)] text-primary"
                     : "text-muted hover:text-primary hover:bg-[var(--sidebar-hover)]",
                 )
               }
-              style={({ isActive }) => isActive
-                ? { backgroundColor: "var(--sidebar-active-indicator)" }
-                : {}
-              }
             >
-              <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
-              {sidebarOpen && <span>{label}</span>}
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span
+                      className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-sm"
+                      style={{ background: "var(--sidebar-active-indicator)" }}
+                    />
+                  )}
+                  <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
+                  {sidebarOpen && <span>{label}</span>}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
 
         {/* Bottom nav */}
-        <div className="p-2 border-t border-border-subtle">
+        <div className="p-2">
           {BOTTOM_NAV.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 h-9 px-3 rounded-md text-sm transition-colors",
+                  "relative flex items-center h-8 rounded-md text-sm transition-colors",
+                  sidebarOpen ? "gap-2 px-2" : "justify-center px-0",
                   isActive
-                    ? "text-primary"
+                    ? "bg-[var(--surface-selected)] text-primary"
                     : "text-muted hover:text-primary hover:bg-[var(--sidebar-hover)]",
                 )
               }
-              style={({ isActive }) => isActive
-                ? { backgroundColor: "var(--sidebar-active-indicator)" }
-                : {}
-              }
             >
-              <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
-              {sidebarOpen && <span>{label}</span>}
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span
+                      className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-sm"
+                      style={{ background: "var(--sidebar-active-indicator)" }}
+                    />
+                  )}
+                  <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
+                  {sidebarOpen && <span>{label}</span>}
+                </>
+              )}
             </NavLink>
           ))}
         </div>

@@ -26,7 +26,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "flex h-[var(--header-height)] items-center justify-between border-b border-border-default px-4",
+        "flex h-14 items-center justify-between border-b border-border-default px-4",
         className
       )}
     >
