@@ -19,6 +19,7 @@ from ..logic.services.soul_service import SoulService
 from ..logic.services.registry_service import RegistryService
 from ..logic.services.workflow_service import WorkflowService
 from ..logic.services.execution_service import ExecutionService
+from ..logic.services.git_service import GitService
 from ..logic.services.model_service import ModelService
 from runsight_core.llm.model_catalog import ModelCatalogPort, LiteLLMModelCatalog
 
@@ -59,10 +60,15 @@ def get_soul_repo() -> SoulRepository:
     return SoulRepository(settings.base_path)
 
 
+def get_git_service() -> GitService:
+    return GitService(settings.base_path)
+
+
 def get_workflow_service(
     workflow_repo: WorkflowRepository = Depends(get_workflow_repo),
+    git_service: GitService = Depends(get_git_service),
 ) -> WorkflowService:
-    return WorkflowService(workflow_repo)
+    return WorkflowService(workflow_repo, git_service=git_service)
 
 
 def get_run_service(
@@ -81,8 +87,11 @@ def get_execution_service(
         return None
 
 
-def get_soul_service(soul_repo: SoulRepository = Depends(get_soul_repo)) -> SoulService:
-    return SoulService(soul_repo)
+def get_soul_service(
+    soul_repo: SoulRepository = Depends(get_soul_repo),
+    git_service: GitService = Depends(get_git_service),
+) -> SoulService:
+    return SoulService(soul_repo, git_service=git_service)
 
 
 def get_registry_service() -> RegistryService:
