@@ -11,8 +11,18 @@ from pydantic import BaseModel, field_validator
 
 from ...core.config import settings
 from ...domain.errors import GitError, InputValidationError
+from ...logic.services.git_service import GitService
 
 router = APIRouter(prefix="/git", tags=["Git"])
+
+
+# ---------------------------------------------------------------------------
+# GitService instance (scoped to project base_path)
+# ---------------------------------------------------------------------------
+
+
+def _get_git_service() -> GitService:
+    return GitService(repo_path=settings.base_path)
 
 
 # ---------------------------------------------------------------------------
@@ -79,21 +89,12 @@ _STATUS_MAP = {
 }
 
 
-def _run_git(*args: str) -> subprocess.CompletedProcess:
-    """Run a git command in settings.base_path with shell=False."""
-    result = subprocess.run(
-        ["git", *args],
-        cwd=settings.base_path,
-        capture_output=True,
-        text=True,
-    )
-    return result
-
-
 def _ensure_git_repo() -> None:
     """Raise GitError if base_path is not inside a git repo."""
-    result = _run_git("rev-parse", "--is-inside-work-tree")
-    if result.returncode != 0:
+    svc = _get_git_service()
+    try:
+        svc._run("rev-parse", "--is-inside-work-tree")
+    except subprocess.CalledProcessError:
         raise GitError("Not a git repository")
 
 
@@ -158,11 +159,11 @@ def _sanitize_commit_message(message: str) -> str:
 @router.get("/status", response_model=StatusResponse)
 async def git_status():
     _ensure_git_repo()
+    svc = _get_git_service()
 
-    branch_result = _run_git("rev-parse", "--abbrev-ref", "HEAD")
-    branch = branch_result.stdout.strip() or "HEAD"
+    branch = svc.current_branch() or "HEAD"
 
-    porcelain = _run_git("status", "--porcelain", "-u")
+    porcelain = svc._run("status", "--porcelain", "-u", check=False)
     files: List[UncommittedFile] = []
     for line in porcelain.stdout.splitlines():
         if not line.strip():
@@ -182,25 +183,26 @@ async def git_status():
 @router.post("/commit", response_model=CommitResponse)
 async def git_commit(body: CommitRequest):
     _ensure_git_repo()
+    svc = _get_git_service()
 
     if body.files:
         for f in body.files:
             _validate_file_path(f)
-        _run_git("add", "--", *body.files)
+        svc._run("add", "--", *body.files)
     else:
-        _run_git("add", ".")
+        svc._run("add", ".")
 
     safe_message = _sanitize_commit_message(body.message)
     if not safe_message:
         raise GitError("Commit message is empty after sanitization")
 
-    result = _run_git("commit", "-m", safe_message)
+    result = svc._run("commit", "-m", safe_message, check=False)
     if result.returncode != 0:
         detail = _scrub_base_path(result.stderr.strip()) or "Commit failed"
         raise GitError(detail)
 
-    hash_result = _run_git("rev-parse", "HEAD")
-    commit_hash = hash_result.stdout.strip()
+    head_result = svc._run("rev-parse", "HEAD")
+    commit_hash = head_result.stdout.strip()
 
     return CommitResponse(hash=commit_hash, message=safe_message)
 
@@ -208,18 +210,20 @@ async def git_commit(body: CommitRequest):
 @router.get("/diff", response_model=DiffResponse)
 async def git_diff():
     _ensure_git_repo()
+    svc = _get_git_service()
 
-    result = _run_git("diff", "HEAD")
+    result = svc._run("diff", "HEAD", check=False)
     return DiffResponse(diff=result.stdout)
 
 
 @router.get("/log", response_model=LogResponse)
 async def git_log():
     _ensure_git_repo()
+    svc = _get_git_service()
 
     sep = "<SEP>"
     fmt = f"%H{sep}%s{sep}%ai{sep}%an"
-    result = _run_git("log", "--max-count=50", f"--format={fmt}")
+    result = svc._run("log", "--max-count=50", f"--format={fmt}", check=False)
 
     if result.returncode != 0:
         raise GitError(result.stderr.strip() or "Git log failed")
