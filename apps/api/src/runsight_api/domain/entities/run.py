@@ -91,6 +91,7 @@ class RunNode(SQLModel, table=True):
     output: Optional[str] = None
     error: Optional[str] = None
     error_traceback: Optional[str] = None
+    last_phase: Optional[str] = None
     soul_id: Optional[str] = None
     model_name: Optional[str] = None
     prompt_hash: Optional[str] = None

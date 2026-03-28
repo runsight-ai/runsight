@@ -174,14 +174,29 @@
           "default": null,
           "title": "Assertions"
         },
-        "code": {
-          "title": "Code",
-          "type": "string"
-        },
         "timeout_seconds": {
           "default": 30,
           "title": "Timeout Seconds",
           "type": "integer"
+        },
+        "stall_thresholds": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stall Thresholds"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
         },
         "allowed_imports": {
           "anyOf": [
@@ -396,6 +411,28 @@
           ],
           "default": null,
           "title": "Assertions"
+        },
+        "timeout_seconds": {
+          "default": 300,
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "stall_thresholds": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stall Thresholds"
         }
       },
       "required": [
@@ -534,6 +571,28 @@
           ],
           "default": null,
           "title": "Assertions"
+        },
+        "timeout_seconds": {
+          "default": 300,
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "stall_thresholds": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stall Thresholds"
         },
         "soul_ref": {
           "title": "Soul Ref",
@@ -679,6 +738,28 @@
           "default": null,
           "title": "Assertions"
         },
+        "timeout_seconds": {
+          "default": 300,
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "stall_thresholds": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stall Thresholds"
+        },
         "soul_ref": {
           "title": "Soul Ref",
           "type": "string"
@@ -790,6 +871,28 @@
           ],
           "default": null,
           "title": "Assertions"
+        },
+        "timeout_seconds": {
+          "default": 300,
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "stall_thresholds": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stall Thresholds"
         },
         "inner_block_refs": {
           "items": {
@@ -1081,6 +1184,28 @@
           "default": null,
           "title": "Assertions"
         },
+        "timeout_seconds": {
+          "default": 300,
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "stall_thresholds": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stall Thresholds"
+        },
         "soul_ref": {
           "title": "Soul Ref",
           "type": "string"
@@ -1247,6 +1372,28 @@
           ],
           "default": null,
           "title": "Assertions"
+        },
+        "timeout_seconds": {
+          "default": 300,
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "stall_thresholds": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stall Thresholds"
         },
         "workflow_ref": {
           "title": "Workflow Ref",

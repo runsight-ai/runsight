@@ -135,6 +135,8 @@ class BaseBlockDef(BaseModel):
     retry_config: Optional[RetryConfig] = None
     exits: Optional[List[ExitDef]] = None
     assertions: Optional[List[Dict[str, Any]]] = None
+    timeout_seconds: int = Field(default=300, ge=1, le=3600)
+    stall_thresholds: Optional[Dict[str, int]] = None
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)

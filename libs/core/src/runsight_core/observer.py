@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
@@ -70,6 +71,15 @@ class WorkflowObserver(Protocol):
 
     def on_workflow_complete(
         self, workflow_name: str, state: WorkflowState, duration_s: float
+    ) -> None: ...
+
+    def on_block_heartbeat(
+        self,
+        workflow_name: str,
+        block_id: str,
+        phase: str,
+        detail: str,
+        timestamp: datetime,
     ) -> None: ...
 
     def on_workflow_error(
@@ -141,6 +151,23 @@ class LoggingObserver:
             duration_s,
             state.total_cost_usd,
             state.total_tokens,
+        )
+
+    def on_block_heartbeat(
+        self,
+        workflow_name: str,
+        block_id: str,
+        phase: str,
+        detail: str,
+        timestamp: datetime,
+    ) -> None:
+        self.logger.log(
+            self.level,
+            "[%s] Heartbeat: block=%s phase=%s detail=%s",
+            workflow_name,
+            block_id,
+            phase,
+            detail,
         )
 
     def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
@@ -236,6 +263,24 @@ class FileObserver:
             },
         )
 
+    def on_block_heartbeat(
+        self,
+        workflow_name: str,
+        block_id: str,
+        phase: str,
+        detail: str,
+        timestamp: datetime,
+    ) -> None:
+        self._write(
+            "block_heartbeat",
+            {
+                "workflow": workflow_name,
+                "block_id": block_id,
+                "phase": phase,
+                "detail": detail,
+            },
+        )
+
     def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
         self._write(
             "workflow_error",
@@ -327,6 +372,25 @@ class CompositeObserver:
     ) -> None:
         for obs in self.observers:
             self._safe_call(obs, "on_workflow_complete", workflow_name, state, duration_s)
+
+    def on_block_heartbeat(
+        self,
+        workflow_name: str,
+        block_id: str,
+        phase: str,
+        detail: str,
+        timestamp: datetime,
+    ) -> None:
+        for obs in self.observers:
+            self._safe_call(
+                obs,
+                "on_block_heartbeat",
+                workflow_name,
+                block_id,
+                phase,
+                detail,
+                timestamp,
+            )
 
     def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
         for obs in self.observers:

@@ -140,6 +140,7 @@ def parse_workflow_yaml(
     workflow_registry: Optional["WorkflowRegistry"] = None,
     api_key: Optional[str] = None,
     api_keys: Optional[Dict[str, str]] = None,
+    runner: Optional[Any] = None,
 ) -> Workflow:
     """
     Parse a YAML workflow definition into a runnable Workflow object.
@@ -202,8 +203,9 @@ def parse_workflow_yaml(
         )
 
     # Step 4: Instantiate runner (shared across all blocks in this workflow)
-    model_name = str(file_def.config.get("model_name", "gpt-4o"))
-    runner = RunsightTeamRunner(model_name=model_name, api_key=api_key, api_keys=api_keys)
+    if runner is None:
+        model_name = str(file_def.config.get("model_name", "gpt-4o"))
+        runner = RunsightTeamRunner(model_name=model_name, api_key=api_key, api_keys=api_keys)
 
     # Step 5: Build all blocks (single pass)
     built_blocks: Dict[str, BaseBlock] = {}
@@ -281,6 +283,20 @@ def parse_workflow_yaml(
     for block_id, block_def in file_def.blocks.items():
         if block_def.stateful and block_id in built_blocks:
             built_blocks[block_id].stateful = block_def.stateful
+
+    # Step 6.5a: Wrap LLM blocks with IsolatedBlockWrapper at build time
+    from runsight_core.isolation.wrapper import IsolatedBlockWrapper, LLM_BLOCK_TYPES
+
+    for block_id, block_def in file_def.blocks.items():
+        if block_def.type in LLM_BLOCK_TYPES and block_id in built_blocks:
+            inner = built_blocks[block_id]
+            wrapper = IsolatedBlockWrapper(
+                block_id=block_id,
+                inner_block=inner,
+                retry_config=inner.retry_config,
+            )
+            wrapper.stateful = inner.stateful
+            built_blocks[block_id] = wrapper
 
     # Step 6.6: Validate and resolve tools per soul
     # 6.6a: Validate tool sources exist in BUILTIN_TOOL_CATALOG

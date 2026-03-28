@@ -1,6 +1,7 @@
 """StreamingObserver: bridges core WorkflowObserver protocol to an asyncio.Queue for SSE streaming."""
 
 import asyncio
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from runsight_core.primitives import Soul
@@ -95,6 +96,25 @@ class StreamingObserver:
             }
         )
         self.is_done = True
+
+    def on_block_heartbeat(
+        self,
+        workflow_name: str,
+        block_id: str,
+        phase: str,
+        detail: str,
+        timestamp: datetime,
+    ) -> None:
+        self.queue.put_nowait(
+            {
+                "event": "node_heartbeat",
+                "data": {
+                    "node_id": block_id,
+                    "phase": phase,
+                    "detail": detail,
+                },
+            }
+        )
 
     def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
         self.queue.put_nowait(

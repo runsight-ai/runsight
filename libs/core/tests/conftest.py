@@ -3,6 +3,8 @@ Shared test infrastructure for runsight_core tests.
 """
 
 import asyncio
+import tempfile
+from pathlib import Path
 
 import pytest
 from runsight_core.primitives import Soul
@@ -58,6 +60,13 @@ workflow:
   entry: {entry}
   transitions:
 {transitions}"""
+
+
+@pytest.fixture
+def tmp_path(request):
+    """Override tmp_path with a shorter base to avoid AF_UNIX path length limits on macOS."""
+    with tempfile.TemporaryDirectory(prefix="rs_") as d:
+        yield Path(d)
 
 
 @pytest.fixture
