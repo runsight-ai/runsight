@@ -36,6 +36,8 @@ class WorkflowService:
     def _auto_commit(self, message: str, files: list) -> None:
         if not self.git_service:
             return
+        if self.git_service.is_clean():
+            return  # nothing changed, skip empty commit
         self.git_service.commit_to_branch("main", files, message)
 
     def delete_workflow(self, id: str) -> bool:
