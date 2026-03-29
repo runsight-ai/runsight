@@ -23,6 +23,13 @@ mkdir -p "$GENERATED_DIR"
 cd "$REPO_ROOT/apps/gui"
 npx openapi-typescript "$OPENAPI_JSON" -o "$GENERATED_DIR/api.ts"
 
+# Keep a runtime export alongside the type-only namespace so the generated
+# module can be imported in tests without being fully erased at runtime.
+cat >> "$GENERATED_DIR/api.ts" << 'API_RUNTIME_SHIM'
+
+export const components = {};
+API_RUNTIME_SHIM
+
 # Step 3: Generate Zod schemas
 echo "Generating Zod schemas..."
 uv run python "$REPO_ROOT/scripts/generate-zod-schemas.py" \

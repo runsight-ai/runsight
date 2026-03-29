@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/api/runs/{run_id}/eval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run Eval */
+        get: operations["get_run_eval_api_runs__run_id__eval_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/souls/{soul_id}/eval/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Soul Eval History */
+        get: operations["get_soul_eval_history_api_souls__soul_id__eval_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs": {
         parameters: {
             query?: never;
@@ -378,6 +412,145 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dashboard/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Attention Items */
+        get: operations["get_attention_items_api_dashboard_attention_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/git/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Git Status */
+        get: operations["git_status_api_git_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/git/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Git Commit */
+        post: operations["git_commit_api_git_commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/git/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Git Diff */
+        get: operations["git_diff_api_git_diff_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/git/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Git Log */
+        get: operations["git_log_api_git_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Models */
+        get: operations["list_models_api_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/models/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Providers */
+        get: operations["list_providers_api_models_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Run Events
+         * @description SSE endpoint that streams real-time execution events for a run.
+         */
+        get: operations["stream_run_events_api_runs__run_id__stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -410,6 +583,32 @@ export interface components {
             /** Onboarding Completed */
             onboarding_completed?: boolean | null;
         };
+        /** AttentionItem */
+        AttentionItem: {
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "assertion_regression" | "cost_spike" | "quality_drop" | "new_baseline";
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Run Id */
+            run_id: string;
+            /** Workflow Id */
+            workflow_id: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "warning" | "info";
+        };
+        /** AttentionItemsResponse */
+        AttentionItemsResponse: {
+            /** Items */
+            items: components["schemas"]["AttentionItem"][];
+        };
         /** CanvasViewport */
         CanvasViewport: {
             /**
@@ -428,38 +627,116 @@ export interface components {
              */
             zoom: number;
         };
-        /** DashboardResponse */
-        DashboardResponse: {
-            /** Active Runs */
-            active_runs: number;
-            /** Completed Runs */
-            completed_runs: number;
-            /** Total Cost Usd */
-            total_cost_usd: number;
-            /** Recent Errors */
-            recent_errors: number;
-            /** System Status */
-            system_status: string;
+        /** CommitEntry */
+        CommitEntry: {
+            /** Hash */
+            hash: string;
+            /** Message */
+            message: string;
+            /** Date */
+            date: string;
+            /** Author */
+            author: string;
+        };
+        /** CommitRequest */
+        CommitRequest: {
+            /** Message */
+            message: string;
+            /** Files */
+            files?: string[] | null;
+        };
+        /** CommitResponse */
+        CommitResponse: {
+            /** Hash */
+            hash: string;
+            /** Message */
+            message: string;
+        };
+        /** DashboardKPIsResponse */
+        DashboardKPIsResponse: {
+            /** Runs Today */
+            runs_today: number;
+            /** Cost Today Usd */
+            cost_today_usd: number;
+            /** Eval Pass Rate */
+            eval_pass_rate: number | null;
+            /** Regressions */
+            regressions: number | null;
+            /**
+             * Period Hours
+             * @default 24
+             */
+            period_hours: number;
+        };
+        /** DiffResponse */
+        DiffResponse: {
+            /** Diff */
+            diff: string;
+        };
+        /** EvalDelta */
+        EvalDelta: {
+            /** Cost Pct */
+            cost_pct: number;
+            /** Tokens Pct */
+            tokens_pct: number;
+            /** Score Delta */
+            score_delta: number | null;
+            /** Baseline Run Count */
+            baseline_run_count: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** LogResponse */
-        LogResponse: {
-            /** Id */
-            id: number;
-            /** Run Id */
-            run_id: string;
-            /** Timestamp */
-            timestamp: number;
-            /** Level */
-            level: string;
+        /** ModelResponse */
+        ModelResponse: {
+            /** Provider */
+            provider: string;
+            /** Provider Name */
+            provider_name: string;
+            /** Model Id */
+            model_id: string;
+            /** Mode */
+            mode: string;
+            /** Max Tokens */
+            max_tokens?: number | null;
+            /** Input Cost Per Token */
+            input_cost_per_token?: number | null;
+            /** Output Cost Per Token */
+            output_cost_per_token?: number | null;
+            /**
+             * Supports Vision
+             * @default false
+             */
+            supports_vision: boolean;
+            /**
+             * Supports Function Calling
+             * @default false
+             */
+            supports_function_calling: boolean;
+        };
+        /** NodeEvalResult */
+        NodeEvalResult: {
             /** Node Id */
-            node_id: string | null;
-            /** Message */
-            message: string;
+            node_id: string;
+            /** Block Id */
+            block_id: string;
+            /** Soul Id */
+            soul_id: string | null;
+            /** Prompt Hash */
+            prompt_hash: string | null;
+            /** Soul Version */
+            soul_version: string | null;
+            /** Eval Score */
+            eval_score: number | null;
+            /** Passed */
+            passed: boolean | null;
+            /** Assertions */
+            assertions: {
+                [key: string]: unknown;
+            }[] | null;
+            delta: components["schemas"]["EvalDelta"] | null;
         };
         /** NodeSummary */
         NodeSummary: {
@@ -477,7 +754,7 @@ export interface components {
         /** PaginatedLogsResponse */
         PaginatedLogsResponse: {
             /** Items */
-            items: components["schemas"]["LogResponse"][];
+            items: components["schemas"]["runsight_api__transport__schemas__runs__LogResponse"][];
             /** Total */
             total: number;
             /** Offset */
@@ -493,6 +770,20 @@ export interface components {
             api_key_env?: string | null;
             /** Base Url */
             base_url?: string | null;
+        };
+        /** ProviderSummary */
+        ProviderSummary: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Model Count */
+            model_count: number;
+            /**
+             * Is Configured
+             * @default false
+             */
+            is_configured: boolean;
         };
         /** ProviderUpdate */
         ProviderUpdate: {
@@ -511,6 +802,22 @@ export interface components {
             task_data?: {
                 [key: string]: unknown;
             };
+            /**
+             * Source
+             * @default manual
+             */
+            source: string | null;
+        };
+        /** RunEvalResponse */
+        RunEvalResponse: {
+            /** Run Id */
+            run_id: string;
+            /** Aggregate Score */
+            aggregate_score: number | null;
+            /** Passed */
+            passed: boolean | null;
+            /** Nodes */
+            nodes: components["schemas"]["NodeEvalResult"][];
         };
         /** RunListResponse */
         RunListResponse: {
@@ -572,6 +879,18 @@ export interface components {
             total_tokens: number;
             /** Created At */
             created_at: number;
+            /**
+             * Branch
+             * @default main
+             */
+            branch: string;
+            /**
+             * Source
+             * @default manual
+             */
+            source: string;
+            /** Commit Sha */
+            commit_sha?: string | null;
             node_summary?: components["schemas"]["NodeSummary"] | null;
         };
         /** SoulCreate */
@@ -584,6 +903,13 @@ export interface components {
             system_prompt?: string | null;
             /** Models */
             models?: string[] | null;
+        };
+        /** SoulEvalHistoryResponse */
+        SoulEvalHistoryResponse: {
+            /** Soul Id */
+            soul_id: string;
+            /** Versions */
+            versions: components["schemas"]["SoulVersionEntry"][];
         };
         /** SoulListResponse */
         SoulListResponse: {
@@ -616,6 +942,30 @@ export interface components {
              * @default false
              */
             copy_on_edit: boolean;
+        };
+        /** SoulVersionEntry */
+        SoulVersionEntry: {
+            /** Soul Version */
+            soul_version: string;
+            /** Avg Score */
+            avg_score: number | null;
+            /** Avg Cost */
+            avg_cost: number;
+            /** Run Count */
+            run_count: number;
+            /** First Seen */
+            first_seen: number | string;
+            /** Last Seen */
+            last_seen: number | string;
+        };
+        /** StatusResponse */
+        StatusResponse: {
+            /** Branch */
+            branch: string;
+            /** Uncommitted Files */
+            uncommitted_files: components["schemas"]["UncommittedFile"][];
+            /** Is Clean */
+            is_clean: boolean;
         };
         /** StepCreate */
         StepCreate: {
@@ -703,6 +1053,13 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /** UncommittedFile */
+        UncommittedFile: {
+            /** Path */
+            path: string;
+            /** Status */
+            status: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -782,6 +1139,26 @@ export interface components {
             yaml?: string | null;
             canvas_state?: components["schemas"]["WorkflowCanvasState"] | null;
         };
+        /** LogResponse */
+        runsight_api__transport__routers__git__LogResponse: {
+            /** Commits */
+            commits: components["schemas"]["CommitEntry"][];
+        };
+        /** LogResponse */
+        runsight_api__transport__schemas__runs__LogResponse: {
+            /** Id */
+            id: number;
+            /** Run Id */
+            run_id: string;
+            /** Timestamp */
+            timestamp: number;
+            /** Level */
+            level: string;
+            /** Node Id */
+            node_id: string | null;
+            /** Message */
+            message: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -791,9 +1168,73 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_run_eval_api_runs__run_id__eval_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunEvalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_soul_eval_history_api_souls__soul_id__eval_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                soul_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoulEvalHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_runs_api_runs_get: {
         parameters: {
             query?: {
+                status?: string[] | null;
+                workflow_id?: string | null;
                 offset?: number;
                 limit?: number;
             };
@@ -1955,7 +2396,217 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DashboardResponse"];
+                    "application/json": components["schemas"]["DashboardKPIsResponse"];
+                };
+            };
+        };
+    };
+    get_attention_items_api_dashboard_attention_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttentionItemsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    git_status_api_git_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    git_commit_api_git_commit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    git_diff_api_git_diff_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiffResponse"];
+                };
+            };
+        };
+    };
+    git_log_api_git_log_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["runsight_api__transport__routers__git__LogResponse"];
+                };
+            };
+        };
+    };
+    list_models_api_models_get: {
+        parameters: {
+            query?: {
+                provider?: string | null;
+                mode?: string | null;
+                supports_vision?: boolean | null;
+                supports_function_calling?: boolean | null;
+                all?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_providers_api_models_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderSummary"][];
+                };
+            };
+        };
+    };
+    stream_run_events_api_runs__run_id__stream_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1982,8 +2633,4 @@ export interface operations {
     };
 }
 
-/**
- * Runtime marker so dynamic imports can verify this module was generated.
- * The `components` interface above is type-only (erased at runtime).
- */
-export const components = true as const;
+export const components = {};

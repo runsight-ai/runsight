@@ -5,6 +5,90 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/runs/{run_id}/eval": {
+      "get": {
+        "tags": [
+          "eval"
+        ],
+        "summary": "Get Run Eval",
+        "operationId": "get_run_eval_api_runs__run_id__eval_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunEvalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/souls/{soul_id}/eval/history": {
+      "get": {
+        "tags": [
+          "eval"
+        ],
+        "summary": "Get Soul Eval History",
+        "operationId": "get_soul_eval_history_api_souls__soul_id__eval_history_get",
+        "parameters": [
+          {
+            "name": "soul_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Soul Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoulEvalHistoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runs": {
       "post": {
         "tags": [
@@ -53,6 +137,41 @@
         "operationId": "list_runs_api_runs_get",
         "parameters": [
           {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "workflow_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workflow Id"
+            }
+          },
+          {
             "name": "offset",
             "in": "query",
             "required": false,
@@ -68,7 +187,7 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "default": 50,
+              "default": 20,
               "title": "Limit"
             }
           }
@@ -1608,7 +1727,331 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DashboardResponse"
+                  "$ref": "#/components/schemas/DashboardKPIsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/attention": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get Attention Items",
+        "operationId": "get_attention_items_api_dashboard_attention_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionItemsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/git/status": {
+      "get": {
+        "tags": [
+          "Git"
+        ],
+        "summary": "Git Status",
+        "operationId": "git_status_api_git_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/git/commit": {
+      "post": {
+        "tags": [
+          "Git"
+        ],
+        "summary": "Git Commit",
+        "operationId": "git_commit_api_git_commit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/git/diff": {
+      "get": {
+        "tags": [
+          "Git"
+        ],
+        "summary": "Git Diff",
+        "operationId": "git_diff_api_git_diff_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiffResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/git/log": {
+      "get": {
+        "tags": [
+          "Git"
+        ],
+        "summary": "Git Log",
+        "operationId": "git_log_api_git_log_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/runsight_api__transport__routers__git__LogResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models": {
+      "get": {
+        "tags": [
+          "models"
+        ],
+        "summary": "List Models",
+        "operationId": "list_models_api_models_get",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mode"
+            }
+          },
+          {
+            "name": "supports_vision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Supports Vision"
+            }
+          },
+          {
+            "name": "supports_function_calling",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Supports Function Calling"
+            }
+          },
+          {
+            "name": "all",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "All"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModelResponse"
+                  },
+                  "title": "Response List Models Api Models Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/providers": {
+      "get": {
+        "tags": [
+          "models"
+        ],
+        "summary": "List Providers",
+        "operationId": "list_providers_api_models_providers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Providers Api Models Providers Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/stream": {
+      "get": {
+        "tags": [
+          "SSE Stream"
+        ],
+        "summary": "Stream Run Events",
+        "description": "SSE endpoint that streams real-time execution events for a run.",
+        "operationId": "stream_run_events_api_runs__run_id__stream_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1685,6 +2128,70 @@
         "type": "object",
         "title": "AppSettingsOut"
       },
+      "AttentionItem": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "assertion_regression",
+              "cost_spike",
+              "quality_drop",
+              "new_baseline"
+            ],
+            "title": "Type"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "info"
+            ],
+            "title": "Severity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "description",
+          "run_id",
+          "workflow_id",
+          "severity"
+        ],
+        "title": "AttentionItem"
+      },
+      "AttentionItemsResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AttentionItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "AttentionItemsResponse"
+      },
       "CanvasViewport": {
         "properties": {
           "x": {
@@ -1706,38 +2213,173 @@
         "type": "object",
         "title": "CanvasViewport"
       },
-      "DashboardResponse": {
+      "CommitEntry": {
         "properties": {
-          "active_runs": {
-            "type": "integer",
-            "title": "Active Runs"
-          },
-          "completed_runs": {
-            "type": "integer",
-            "title": "Completed Runs"
-          },
-          "total_cost_usd": {
-            "type": "number",
-            "title": "Total Cost Usd"
-          },
-          "recent_errors": {
-            "type": "integer",
-            "title": "Recent Errors"
-          },
-          "system_status": {
+          "hash": {
             "type": "string",
-            "title": "System Status"
+            "title": "Hash"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "author": {
+            "type": "string",
+            "title": "Author"
           }
         },
         "type": "object",
         "required": [
-          "active_runs",
-          "completed_runs",
-          "total_cost_usd",
-          "recent_errors",
-          "system_status"
+          "hash",
+          "message",
+          "date",
+          "author"
         ],
-        "title": "DashboardResponse"
+        "title": "CommitEntry"
+      },
+      "CommitRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "CommitRequest"
+      },
+      "CommitResponse": {
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Hash"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hash",
+          "message"
+        ],
+        "title": "CommitResponse"
+      },
+      "DashboardKPIsResponse": {
+        "properties": {
+          "runs_today": {
+            "type": "integer",
+            "title": "Runs Today"
+          },
+          "cost_today_usd": {
+            "type": "number",
+            "title": "Cost Today Usd"
+          },
+          "eval_pass_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Pass Rate"
+          },
+          "regressions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regressions"
+          },
+          "period_hours": {
+            "type": "integer",
+            "title": "Period Hours",
+            "default": 24
+          }
+        },
+        "type": "object",
+        "required": [
+          "runs_today",
+          "cost_today_usd",
+          "eval_pass_rate",
+          "regressions"
+        ],
+        "title": "DashboardKPIsResponse"
+      },
+      "DiffResponse": {
+        "properties": {
+          "diff": {
+            "type": "string",
+            "title": "Diff"
+          }
+        },
+        "type": "object",
+        "required": [
+          "diff"
+        ],
+        "title": "DiffResponse"
+      },
+      "EvalDelta": {
+        "properties": {
+          "cost_pct": {
+            "type": "number",
+            "title": "Cost Pct"
+          },
+          "tokens_pct": {
+            "type": "number",
+            "title": "Tokens Pct"
+          },
+          "score_delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Delta"
+          },
+          "baseline_run_count": {
+            "type": "integer",
+            "title": "Baseline Run Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cost_pct",
+          "tokens_pct",
+          "score_delta",
+          "baseline_run_count"
+        ],
+        "title": "EvalDelta"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1752,25 +2394,88 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "LogResponse": {
+      "ModelResponse": {
         "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "run_id": {
+          "provider": {
             "type": "string",
-            "title": "Run Id"
+            "title": "Provider"
           },
-          "timestamp": {
-            "type": "number",
-            "title": "Timestamp"
-          },
-          "level": {
+          "provider_name": {
             "type": "string",
-            "title": "Level"
+            "title": "Provider Name"
           },
+          "model_id": {
+            "type": "string",
+            "title": "Model Id"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "max_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tokens"
+          },
+          "input_cost_per_token": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Cost Per Token"
+          },
+          "output_cost_per_token": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Cost Per Token"
+          },
+          "supports_vision": {
+            "type": "boolean",
+            "title": "Supports Vision",
+            "default": false
+          },
+          "supports_function_calling": {
+            "type": "boolean",
+            "title": "Supports Function Calling",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "provider_name",
+          "model_id",
+          "mode"
+        ],
+        "title": "ModelResponse"
+      },
+      "NodeEvalResult": {
+        "properties": {
           "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "block_id": {
+            "type": "string",
+            "title": "Block Id"
+          },
+          "soul_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -1779,23 +2484,91 @@
                 "type": "null"
               }
             ],
-            "title": "Node Id"
+            "title": "Soul Id"
           },
-          "message": {
-            "type": "string",
-            "title": "Message"
+          "prompt_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Hash"
+          },
+          "soul_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Soul Version"
+          },
+          "eval_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Score"
+          },
+          "passed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passed"
+          },
+          "assertions": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assertions"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvalDelta"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
         "required": [
-          "id",
-          "run_id",
-          "timestamp",
-          "level",
           "node_id",
-          "message"
+          "block_id",
+          "soul_id",
+          "prompt_hash",
+          "soul_version",
+          "eval_score",
+          "passed",
+          "assertions",
+          "delta"
         ],
-        "title": "LogResponse"
+        "title": "NodeEvalResult"
       },
       "NodeSummary": {
         "properties": {
@@ -1834,7 +2607,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/LogResponse"
+              "$ref": "#/components/schemas/runsight_api__transport__schemas__runs__LogResponse"
             },
             "type": "array",
             "title": "Items"
@@ -1896,6 +2669,34 @@
         ],
         "title": "ProviderCreate"
       },
+      "ProviderSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "model_count": {
+            "type": "integer",
+            "title": "Model Count"
+          },
+          "is_configured": {
+            "type": "boolean",
+            "title": "Is Configured",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "model_count"
+        ],
+        "title": "ProviderSummary"
+      },
       "ProviderUpdate": {
         "properties": {
           "name": {
@@ -1945,6 +2746,18 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Task Data"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "default": "manual"
           }
         },
         "type": "object",
@@ -1952,6 +2765,51 @@
           "workflow_id"
         ],
         "title": "RunCreate"
+      },
+      "RunEvalResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "aggregate_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregate Score"
+          },
+          "passed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passed"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/NodeEvalResult"
+            },
+            "type": "array",
+            "title": "Nodes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "aggregate_score",
+          "passed",
+          "nodes"
+        ],
+        "title": "RunEvalResponse"
       },
       "RunListResponse": {
         "properties": {
@@ -2139,6 +2997,27 @@
             "type": "number",
             "title": "Created At"
           },
+          "branch": {
+            "type": "string",
+            "title": "Branch",
+            "default": "main"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "manual"
+          },
+          "commit_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Sha"
+          },
           "node_summary": {
             "anyOf": [
               {
@@ -2217,6 +3096,27 @@
         },
         "type": "object",
         "title": "SoulCreate"
+      },
+      "SoulEvalHistoryResponse": {
+        "properties": {
+          "soul_id": {
+            "type": "string",
+            "title": "Soul Id"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/SoulVersionEntry"
+            },
+            "type": "array",
+            "title": "Versions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "soul_id",
+          "versions"
+        ],
+        "title": "SoulEvalHistoryResponse"
       },
       "SoulListResponse": {
         "properties": {
@@ -2334,6 +3234,91 @@
         },
         "type": "object",
         "title": "SoulUpdate"
+      },
+      "SoulVersionEntry": {
+        "properties": {
+          "soul_version": {
+            "type": "string",
+            "title": "Soul Version"
+          },
+          "avg_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score"
+          },
+          "avg_cost": {
+            "type": "number",
+            "title": "Avg Cost"
+          },
+          "run_count": {
+            "type": "integer",
+            "title": "Run Count"
+          },
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "First Seen"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Last Seen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "soul_version",
+          "avg_score",
+          "avg_cost",
+          "run_count",
+          "first_seen",
+          "last_seen"
+        ],
+        "title": "SoulVersionEntry"
+      },
+      "StatusResponse": {
+        "properties": {
+          "branch": {
+            "type": "string",
+            "title": "Branch"
+          },
+          "uncommitted_files": {
+            "items": {
+              "$ref": "#/components/schemas/UncommittedFile"
+            },
+            "type": "array",
+            "title": "Uncommitted Files"
+          },
+          "is_clean": {
+            "type": "boolean",
+            "title": "Is Clean"
+          }
+        },
+        "type": "object",
+        "required": [
+          "branch",
+          "uncommitted_files",
+          "is_clean"
+        ],
+        "title": "StatusResponse"
       },
       "StepCreate": {
         "properties": {
@@ -2613,6 +3598,24 @@
         "type": "object",
         "title": "TaskUpdate"
       },
+      "UncommittedFile": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "status"
+        ],
+        "title": "UncommittedFile"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -2888,6 +3891,67 @@
         },
         "type": "object",
         "title": "WorkflowUpdate"
+      },
+      "runsight_api__transport__routers__git__LogResponse": {
+        "properties": {
+          "commits": {
+            "items": {
+              "$ref": "#/components/schemas/CommitEntry"
+            },
+            "type": "array",
+            "title": "Commits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "commits"
+        ],
+        "title": "LogResponse"
+      },
+      "runsight_api__transport__schemas__runs__LogResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "timestamp": {
+            "type": "number",
+            "title": "Timestamp"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "run_id",
+          "timestamp",
+          "level",
+          "node_id",
+          "message"
+        ],
+        "title": "LogResponse"
       }
     }
   }
