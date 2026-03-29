@@ -3,6 +3,7 @@ import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { RunButton } from "./RunButton";
+import { CheckCircle, AlertTriangle } from "lucide-react";
 
 interface CanvasTopbarProps {
   workflowId: string;
@@ -10,9 +11,11 @@ interface CanvasTopbarProps {
   onValueChange: (value: string) => void;
   isDirty?: boolean;
   onSave?: () => void;
+  yamlValid?: boolean;
+  errorCount?: number;
 }
 
-export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave }: CanvasTopbarProps) {
+export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid = true, errorCount = 0 }: CanvasTopbarProps) {
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
 
@@ -78,6 +81,14 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
 
       {/* Right: actions placeholder */}
       <div className="flex items-center gap-2 ml-auto">
+        {yamlValid ? (
+          <CheckCircle className="w-4 h-4 text-[var(--success-9)]" aria-label="YAML valid" />
+        ) : (
+          <span className="flex items-center gap-1">
+            <AlertTriangle className="w-4 h-4 text-amber-500" aria-label="YAML errors" />
+            <span className="text-xs text-amber-500">{errorCount} {errorCount === 1 ? "error" : "errors"}</span>
+          </span>
+        )}
         {isDirty && <span className="h-2 w-2 rounded-full bg-interactive-default" aria-label="unsaved indicator" />}
         <Button
           variant={isDirty ? "primary" : "ghost"}

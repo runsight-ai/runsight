@@ -2,17 +2,20 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
 import { LazyMonacoEditor } from "./LazyMonacoEditor";
 import { defineYamlTheme, THEME_NAME } from "./yamlTheme";
+import { useYamlValidation, type ValidationState } from "./useYamlValidation";
 
 interface YamlEditorProps {
   workflowId: string;
   onDirtyChange?: (dirty: boolean) => void;
+  onValidation?: (state: ValidationState) => void;
 }
 
-export function YamlEditor({ workflowId, onDirtyChange }: YamlEditorProps) {
+export function YamlEditor({ workflowId, onDirtyChange, onValidation }: YamlEditorProps) {
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
   const [isDirty, setIsDirty] = useState(false);
   const contentRef = useRef(workflow?.yaml ?? "");
+  const { validate, setEditorRefs } = useYamlValidation(onValidation);
 
   useEffect(() => {
     if (workflow?.yaml != null) {
@@ -46,9 +49,14 @@ export function YamlEditor({ workflowId, onDirtyChange }: YamlEditorProps) {
     defineYamlTheme(monaco as Parameters<typeof defineYamlTheme>[0]);
   }
 
+  function onMount(editor: unknown, monaco: unknown) {
+    setEditorRefs(editor, monaco);
+  }
+
   function onChange(value: string | undefined) {
     contentRef.current = value ?? "";
     setIsDirty(true);
+    validate(contentRef.current);
   }
 
   return (
@@ -59,6 +67,7 @@ export function YamlEditor({ workflowId, onDirtyChange }: YamlEditorProps) {
         value={workflow?.yaml ?? ""}
         height="100%"
         onChange={onChange}
+        onMount={onMount}
         beforeMount={handleEditorMount}
       />
     </div>
