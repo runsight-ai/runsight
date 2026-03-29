@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useBlocker } from "react-router";
 import { Layout } from "lucide-react";
 import { CanvasTopbar } from "./CanvasTopbar";
+import { CanvasStatusBar } from "./CanvasStatusBar";
 import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { PaletteSidebar } from "./PaletteSidebar";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -67,6 +68,7 @@ export function Component() {
       </div>
 
       <CanvasBottomPanel />
+      <CanvasStatusBar activeTab={activeTab} />
 
       {/* Unsaved changes dialog */}
       <Dialog open={blocker.state === "blocked"}>
