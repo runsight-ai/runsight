@@ -51,9 +51,12 @@ def _fetch_paginated_runs(
     offset: int,
     limit: int,
     status: Optional[List[str]] = None,
+    workflow_id: Optional[str] = None,
 ):
     """Fetch runs with SQL pagination, falling back to in-memory for compatibility."""
-    result = run_service.list_runs_paginated(offset=offset, limit=limit, status=status)
+    result = run_service.list_runs_paginated(
+        offset=offset, limit=limit, status=status, workflow_id=workflow_id
+    )
     if isinstance(result, tuple):
         return result
     all_runs = run_service.list_runs()
@@ -70,12 +73,15 @@ def _resolve_summaries(run_service: RunService, run_ids: list, raw_batch):
 @router.get("", response_model=RunListResponse)
 async def list_runs(
     status: Optional[List[str]] = Query(None),
+    workflow_id: Optional[str] = Query(None),
     offset: int = 0,
     limit: int = 20,
     run_service: RunService = Depends(get_run_service),
 ):
     limit = min(limit, 100)
-    runs, total = _fetch_paginated_runs(run_service, offset, limit, status=status)
+    runs, total = _fetch_paginated_runs(
+        run_service, offset, limit, status=status, workflow_id=workflow_id
+    )
 
     run_ids = [run.id for run in runs]
     summaries_map = _resolve_summaries(
