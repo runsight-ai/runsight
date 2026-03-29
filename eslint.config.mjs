@@ -63,7 +63,7 @@ export default tseslint.config(
       ],
       "no-undef": "off",
       "@typescript-eslint/consistent-type-imports": [
-        "warn",
+        "error",
         {
           prefer: "type-imports",
           fixStyle: "inline-type-imports",
@@ -81,6 +81,7 @@ export default tseslint.config(
       ],
       "react-hooks/refs": "off",
       "react-hooks/set-state-in-effect": "off",
+      "react-hooks/exhaustive-deps": "error",
     },
   },
   {
