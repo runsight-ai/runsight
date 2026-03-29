@@ -10,7 +10,7 @@ class AppSettingsConfig(BaseModel):
 
     default_provider: str | None = None
     auto_save: bool | None = None
-    onboarding_completed: bool | None = None
+    onboarding_completed: bool = False
 
 
 class FallbackChainEntry(BaseModel):
