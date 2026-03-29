@@ -32,6 +32,7 @@ except ImportError:
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "runsight-workflow-schema.json"
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent  # runsight/
+CORE_ROOT = REPO_ROOT / "packages" / "core"
 CUSTOM_WORKFLOWS = REPO_ROOT / "custom" / "workflows"
 
 
@@ -391,7 +392,7 @@ class TestNoRetryBlockReferences:
                 "--include=*.py",
                 "-l",
                 "RetryBlock",
-                str(REPO_ROOT / "libs"),
+                str(CORE_ROOT / "src"),
             ],
             capture_output=True,
             text=True,
@@ -416,7 +417,7 @@ class TestNoRetryBlockReferences:
                 "--include=*.py",
                 "-l",
                 "RetryBlockDef",
-                str(REPO_ROOT / "libs"),
+                str(CORE_ROOT / "src"),
             ],
             capture_output=True,
             text=True,
@@ -451,7 +452,7 @@ class TestNoRetryBlockReferences:
 
     def test_no_retry_block_in_init_exports(self):
         """__init__.py must not export RetryBlock."""
-        init_path = REPO_ROOT / "libs" / "core" / "src" / "runsight_core" / "__init__.py"
+        init_path = CORE_ROOT / "src" / "runsight_core" / "__init__.py"
         content = init_path.read_text()
         assert "RetryBlock" not in content, "RetryBlock still in __init__.py — remove it"
 

@@ -335,7 +335,11 @@ class ExecutionService:
             logger.exception("Failed to store workflow_commit_sha for run %s", run_id)
 
     def _store_branch_and_sha(self, run_id: str, branch: str, commit_sha: Optional[str]) -> None:
-        """Persist branch and commit_sha on the Run record."""
+        """Persist branch and commit SHA on the Run record.
+
+        Keep the deprecated workflow_commit_sha field in sync until the
+        backward-compat cleanup removes it.
+        """
         if self.engine is None:
             return
         try:
@@ -348,6 +352,7 @@ class ExecutionService:
                 if run:
                     run.branch = branch
                     run.commit_sha = commit_sha
+                    run.workflow_commit_sha = commit_sha
                     run.updated_at = time.time()
                     session.add(run)
                     session.commit()

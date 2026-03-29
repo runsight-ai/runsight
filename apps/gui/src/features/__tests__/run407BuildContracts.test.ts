@@ -19,11 +19,12 @@ const FEATURES_TESTS_DIR = __dirname;
 const SRC_DIR = resolve(FEATURES_TESTS_DIR, "..", "..");
 const GUI_ROOT = resolve(SRC_DIR, "..");
 const REPO_ROOT = resolve(GUI_ROOT, "..", "..");
+const PACKAGES_ROOT = resolve(REPO_ROOT, "packages");
 
 const WORKFLOW_LIST_PATH = resolve(SRC_DIR, "features", "workflows", "WorkflowList.tsx");
-const BUTTON_PATH = resolve(SRC_DIR, "components", "ui", "button.tsx");
-const DIALOG_STORY_PATH = resolve(SRC_DIR, "stories", "Dialog.stories.tsx");
-const ZOD_TYPES_PATH = resolve(SRC_DIR, "types", "generated", "zod.ts");
+const BUTTON_PATH = resolve(PACKAGES_ROOT, "ui", "src", "components", "ui", "button.tsx");
+const DIALOG_STORY_PATH = resolve(PACKAGES_ROOT, "ui", "src", "stories", "Dialog.stories.tsx");
+const ZOD_TYPES_PATH = resolve(PACKAGES_ROOT, "shared", "src", "zod.ts");
 const TSCONFIG_PATH = resolve(GUI_ROOT, "tsconfig.json");
 const WORKFLOW_LIST_TEST_PATH = resolve(
   SRC_DIR,

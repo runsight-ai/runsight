@@ -93,7 +93,7 @@ describe("Status bar height uses --status-bar-height (AC1)", () => {
 describe("Connection status with dot indicator (AC2)", () => {
   it("imports StatusDot component from component library", () => {
     const source = readSource(STATUS_BAR_PATH);
-    expect(source).toMatch(/import.*StatusDot.*from.*components\/ui\/status-dot/);
+    expect(source).toMatch(/import.*StatusDot.*from.*(@runsight\/ui\/status-dot|components\/ui\/status-dot)/);
   });
 
   it("renders <StatusDot in the status bar", () => {

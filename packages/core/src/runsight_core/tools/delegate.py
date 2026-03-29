@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List
 
 from runsight_core.tools._catalog import ToolInstance, register_builtin
@@ -33,11 +34,13 @@ def create_delegate_tool(exits: List[ExitDef] | None = None) -> ToolInstance:
 
     async def _execute(args: dict) -> str:
         port = args["port"]
-        task = args.get("task", "")
+        task = args.get("task")
         if exit_ids and port not in exit_ids:
             valid = ", ".join(exit_ids)
             return f"Error: invalid port '{port}'. Valid ports: {valid}"
-        return f"Delegated to port '{port}' with task: {task}"
+        if not task:
+            return port
+        return json.dumps({"port": port, "task": task})
 
     return ToolInstance(
         name="delegate",

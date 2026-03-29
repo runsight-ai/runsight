@@ -1,10 +1,12 @@
 import { api } from "./client";
 import {
-  SoulResponse,
-  SoulResponseSchema,
-  SoulListResponse,
   SoulListResponseSchema,
+  SoulResponseSchema,
+} from "@runsight/shared/zod";
+import type {
   SoulCreate,
+  SoulListResponse,
+  SoulResponse,
   SoulUpdate,
 } from "@runsight/shared/zod";
 

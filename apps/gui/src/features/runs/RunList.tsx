@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from "react-router";
 import { useRuns } from "@/queries/runs";
-import { RunResponse } from "@runsight/shared/zod";
+import type { RunResponse } from "@runsight/shared/zod";
 import {
   Table,
   TableBody,
@@ -22,7 +22,7 @@ import {
 import { Workflow, Search, X, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { cn } from "@/utils/helpers";
 import { formatDuration, formatCost, formatTimestamp } from "@/utils/formatting";
-import React, { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 
 // Status badge component matching design spec
 function StatusBadge({ status }: { status: string }) {
@@ -545,7 +545,7 @@ export function Component() {
     }
   );
 
-  const runs = data?.items ?? [];
+  const runs = useMemo(() => data?.items ?? [], [data?.items]);
   const totalCount = data?.total ?? 0;
 
   // Extract unique workflow names for filter dropdown

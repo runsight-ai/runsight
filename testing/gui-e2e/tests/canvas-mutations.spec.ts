@@ -15,14 +15,6 @@ async function apiGet(path: string) {
   return res.json();
 }
 
-async function apiPut(path: string, body: object) {
-  return fetch(`${API}${path}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
 test.describe("Canvas Mutations", () => {
   const testWorkflowName = `e2e-mutations-${Date.now()}`;
   let createdWorkflowId: string | null = null;
@@ -95,8 +87,6 @@ test.describe("Canvas Mutations", () => {
 
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
-
-    const currentName = (await apiGet(`/workflows/${createdWorkflowId}`)).name;
 
     await page.getByRole("button", { name: "Edit workflow name" }).click();
     const input = page.getByRole("textbox", { name: "Edit workflow name" });

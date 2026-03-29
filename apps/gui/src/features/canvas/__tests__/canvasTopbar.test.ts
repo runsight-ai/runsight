@@ -180,7 +180,7 @@ describe("Canvas|YAML toggle (AC4)", () => {
 
   it("imports Tabs components from component library", () => {
     source = readSource(CANVAS_TOPBAR_PATH);
-    expect(source).toMatch(/import.*Tabs.*from.*components\/ui\/tabs/);
+    expect(source).toMatch(/import.*Tabs.*from.*(@runsight\/ui\/tabs|components\/ui\/tabs)/);
   });
 
   it("renders TabsList with contained variant", () => {
@@ -200,11 +200,10 @@ describe("Canvas|YAML toggle (AC4)", () => {
     expect(source).toMatch(/YAML/);
   });
 
-  it("Canvas tab is disabled", () => {
+  it("Canvas tab is switchable without the disabled prop", () => {
     source = readSource(CANVAS_TOPBAR_PATH);
-    // The Canvas tab should have disabled prop
-    // Pattern: <TabsTrigger ... disabled ...>Canvas</TabsTrigger>
-    expect(source).toMatch(/disabled/);
+    const canvasTabDisabled = /TabsTrigger\s+value=["']canvas["'][^>]*disabled/.test(source);
+    expect(canvasTabDisabled).toBe(false);
   });
 
   it("YAML tab is active by default", () => {
@@ -213,14 +212,14 @@ describe("Canvas|YAML toggle (AC4)", () => {
     expect(source).toMatch(/defaultValue\s*=\s*["']yaml["']|value.*yaml/i);
   });
 
-  it("Canvas tab has 'Coming soon' tooltip", () => {
+  it("Canvas tab does not have the legacy 'Coming soon' tooltip", () => {
     source = readSource(CANVAS_TOPBAR_PATH);
-    expect(source).toMatch(/Coming soon/);
+    expect(source).not.toMatch(/Coming soon/);
   });
 
-  it("imports Tooltip components for the disabled Canvas tab", () => {
+  it("does not import Tooltip components for the legacy disabled Canvas tab", () => {
     source = readSource(CANVAS_TOPBAR_PATH);
-    expect(source).toMatch(/import.*Tooltip.*from.*components\/ui\/tooltip/);
+    expect(source).not.toMatch(/import.*Tooltip.*from.*(@runsight\/ui\/tooltip|components\/ui\/tooltip)/);
   });
 });
 
@@ -265,9 +264,6 @@ describe("Uses design system tokens only (AC7)", () => {
     const source = readSource(CANVAS_TOPBAR_PATH);
     // Should not have any inline hex colors.
     const hexMatches = source.match(/#[0-9a-fA-F]{3,8}\b/g);
-    const filteredHex = hexMatches?.filter(
-      (m) => !/^#[0-9a-fA-F]{6}$/.test(m) || true,
-    );
     // All color values should come from CSS variables or tokens.
     expect(hexMatches).toBeNull();
   });

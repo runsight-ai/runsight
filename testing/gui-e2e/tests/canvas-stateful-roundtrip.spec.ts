@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { parse } from "yaml";
 
 test.describe.configure({ mode: "serial" });
@@ -28,7 +29,7 @@ test.describe("Canvas YAML — stateful field round-trip", () => {
   // ---------------------------------------------------------------------------
   // Helper: set YAML in the code editor and apply it
   // ---------------------------------------------------------------------------
-  async function setYamlAndApply(page: import("@playwright/test").Page, yaml: string) {
+  async function setYamlAndApply(page: Page, yaml: string) {
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector('[data-testid="canvas-reactflow"]', { timeout: 15000 });
 
@@ -53,7 +54,7 @@ test.describe("Canvas YAML — stateful field round-trip", () => {
   // ---------------------------------------------------------------------------
   // Helper: trigger recompilation via save, then read the recompiled YAML
   // ---------------------------------------------------------------------------
-  async function triggerRecompileAndReadYaml(page: import("@playwright/test").Page): Promise<string> {
+  async function triggerRecompileAndReadYaml(page: Page): Promise<string> {
     // Click canvas-save to trigger compileGraphToWorkflowYaml
     await page.getByTestId("canvas-save").click();
     await expect(page.getByTestId("canvas-save")).toContainText("Save", { timeout: 5000 });
@@ -64,7 +65,15 @@ test.describe("Canvas YAML — stateful field round-trip", () => {
 
     // Read value via Monaco editor API (no __e2eGetValue bridge exists)
     const yamlText = await page.evaluate(() => {
-      const models = (window as any).monaco?.editor?.getModels?.();
+      type MonacoWindow = Window & {
+        monaco?: {
+          editor?: {
+            getModels?: () => Array<{ getValue: () => string }>;
+          };
+        };
+      };
+
+      const models = (window as MonacoWindow).monaco?.editor?.getModels?.();
       if (models && models.length > 0) return models[0].getValue();
       // Fallback: read textContent from the editor element
       const el = document.querySelector('[data-testid="canvas-yaml-editor"]');

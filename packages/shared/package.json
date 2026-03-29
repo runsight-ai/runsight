@@ -9,6 +9,7 @@
     "./zod": "./src/zod.ts"
   },
   "scripts": {
+    "lint": "pnpm --dir ../.. exec eslint packages/shared",
     "generate:types": "bash ../../tools/generate-types.sh",
     "check:types-fresh": "bash ../../tools/check-types-fresh.sh",
     "test:unit": "vitest run --config vitest.config.ts",

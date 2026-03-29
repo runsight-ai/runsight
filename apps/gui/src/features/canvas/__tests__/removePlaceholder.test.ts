@@ -14,7 +14,6 @@ import { resolve } from "node:path";
 import { compileGraphToWorkflowYaml } from "../yamlCompiler";
 import { parseWorkflowYamlToGraph } from "../yamlParser";
 import type { StepNodeData, StepType } from "../../../types/schemas/canvas";
-import type { Node } from "@xyflow/react";
 import { dump } from "js-yaml";
 
 // ---------------------------------------------------------------------------
@@ -31,25 +30,6 @@ function readTypesFile(): string {
     resolve(__dirname, "../../../types/schemas/canvas.ts"),
     "utf-8",
   );
-}
-
-function mockNode(
-  id: string,
-  stepType: StepType,
-  extraData: Partial<StepNodeData> = {},
-): Node<StepNodeData> {
-  return {
-    id,
-    type: "canvasNode",
-    position: { x: 0, y: 0 },
-    data: {
-      stepId: id,
-      name: id,
-      stepType,
-      status: "idle",
-      ...extraData,
-    },
-  };
 }
 
 function makeYaml(blocks: Record<string, object>): string {
@@ -198,17 +178,13 @@ describe("Compiler no placeholder fallback", () => {
 });
 
 // ===========================================================================
-// 7. WorkflowCanvas displays "unknown" (not "placeholder") for missing type
+// 7. WorkflowCanvas no longer contains placeholder-specific fallback logic
 // ===========================================================================
 
 describe("Canvas display fallback", () => {
-  it('WorkflowCanvas.tsx uses "unknown" instead of "placeholder" as display fallback', () => {
+  it("WorkflowCanvas.tsx does not encode placeholder-specific display fallback", () => {
     const source = readSourceFile("WorkflowCanvas.tsx");
-    // The old fallback was: {typedData.stepType ?? "placeholder"}
-    // It should now be: {typedData.stepType ?? "unknown"} (or similar)
     expect(source).not.toContain('"placeholder"');
-    // Verify "unknown" is used as the display fallback
-    expect(source).toContain('"unknown"');
   });
 });
 

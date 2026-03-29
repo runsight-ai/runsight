@@ -19,6 +19,7 @@ from runsight_api.core.context import (
 from runsight_api.domain.entities.log import LogEntry
 from runsight_api.domain.entities.run import (
     InvalidStateTransition,
+    NodeStatus,
     Run,
     RunNode,
     RunStatus,
@@ -95,7 +96,7 @@ class ExecutionObserver:
                 run_id=self.run_id,
                 node_id=block_id,
                 block_type=block_type,
-                status="running",
+                status=NodeStatus.running,
                 started_at=time.time(),
             )
             with Session(self.engine) as session:
@@ -159,7 +160,7 @@ class ExecutionObserver:
             with Session(self.engine) as session:
                 node = session.get(RunNode, f"{self.run_id}:{block_id}")
                 if node:
-                    node.status = "completed"
+                    node.status = NodeStatus.completed
                     node.duration_s = duration_s
                     node.completed_at = time.time()
                     node.cost_usd = cost_delta
@@ -209,7 +210,7 @@ class ExecutionObserver:
             with Session(self.engine) as session:
                 node = session.get(RunNode, f"{self.run_id}:{block_id}")
                 if node:
-                    node.status = "failed"
+                    node.status = NodeStatus.failed
                     node.duration_s = duration_s
                     node.completed_at = time.time()
                     node.error = str(error)

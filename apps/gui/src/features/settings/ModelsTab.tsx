@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   useModelDefaults,
   useProviders,
@@ -86,14 +86,17 @@ function FallbackChainSection({
   onReorder: (id: string, chain: string[]) => void;
 }) {
   const primary = modelDefaults.find((m) => m.is_default) ?? modelDefaults[0];
+  const fallbackChainSource = primary?.fallback_chain;
+  const primaryFallbackChain = useMemo(
+    () => fallbackChainSource ?? [],
+    [fallbackChainSource],
+  );
   const [localChain, setLocalChain] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    if (primary && !hasChanges) setLocalChain(primary.fallback_chain ?? []);
-  }, [primary?.id, JSON.stringify(primary?.fallback_chain ?? []), hasChanges]);
-
-  if (!primary) return null;
+    if (primary && !hasChanges) setLocalChain(primaryFallbackChain);
+  }, [primary, primaryFallbackChain, hasChanges]);
 
   const move = (index: number, direction: 1 | -1) => {
     const newIndex = index + direction;
@@ -115,9 +118,11 @@ function FallbackChainSection({
   }, [primary.id, localChain, onReorder]);
 
   const handleCancel = useCallback(() => {
-    setLocalChain(primary.fallback_chain);
+    setLocalChain(primaryFallbackChain);
     setHasChanges(false);
-  }, [primary.fallback_chain]);
+  }, [primaryFallbackChain]);
+
+  if (!primary) return null;
 
   if (localChain.length === 0 && !hasChanges) {
     return (
@@ -193,7 +198,7 @@ export function ModelsTab() {
   const { data: providersData } = useProviders();
   const updateModelDefault = useUpdateModelDefault();
   const modelDefaults = data?.items ?? [];
-  const providers = providersData?.items ?? [];
+  const providers = useMemo(() => providersData?.items ?? [], [providersData?.items]);
 
   const getProviderModels = useCallback(
     (providerId: string) => {

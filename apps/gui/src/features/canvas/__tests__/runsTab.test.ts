@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -27,10 +27,6 @@ const SRC_DIR = resolve(__dirname, "../../..");
 
 function readSource(relativePath: string): string {
   return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
-}
-
-function fileExists(relativePath: string): boolean {
-  return existsSync(resolve(SRC_DIR, relativePath));
 }
 
 // ---------------------------------------------------------------------------

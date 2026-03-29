@@ -138,7 +138,7 @@ describe("KPI section shows 4 skeleton shapes while loading (AC2)", () => {
     // when data has loaded. Look for conditional rendering patterns:
     // {isLoading ? <skeletons> : <real content>} or {isLoading && <skeletons>}
     const hasConditionalSkeleton =
-      /(?:isLoading|isPending)\s*[\?&][\s\S]*?<Skeleton|<Skeleton[\s\S]*?(?:isLoading|isPending)/.test(
+      /(?:isLoading|isPending)\s*[?&][\s\S]*?<Skeleton|<Skeleton[\s\S]*?(?:isLoading|isPending)/.test(
         source,
       );
     expect(

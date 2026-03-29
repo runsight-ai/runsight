@@ -52,7 +52,7 @@ test.describe("Runs", () => {
     }
   });
 
-  test("run creation (known limitation without LLM)", async ({ page }) => {
+  test("run creation (known limitation without LLM)", async () => {
     // Documenting known limitation: Run creation may not work without LLM
     // BUG: Run creation fails gracefully or ungracefully if no LLM is configured
     test.info().annotations.push({

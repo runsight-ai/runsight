@@ -18,7 +18,7 @@ from runsight_core.state import WorkflowState
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent.parent
 IMPLEMENTATIONS_PY = (
-    REPO_ROOT / "libs" / "core" / "src" / "runsight_core" / "blocks" / "implementations.py"
+    REPO_ROOT / "packages" / "core" / "src" / "runsight_core" / "blocks" / "implementations.py"
 )
 
 

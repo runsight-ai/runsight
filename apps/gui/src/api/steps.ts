@@ -1,10 +1,12 @@
 import { api } from "./client";
 import {
-  StepResponse,
-  StepResponseSchema,
-  StepListResponse,
   StepListResponseSchema,
+  StepResponseSchema,
+} from "@runsight/shared/zod";
+import type {
   StepCreate,
+  StepListResponse,
+  StepResponse,
   StepUpdate,
 } from "@runsight/shared/zod";
 

@@ -26,7 +26,7 @@ from runsight_core.yaml.schema import RetryConfig
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent  # runsight/
-LIBS_TESTS = REPO_ROOT / "libs" / "core" / "tests"
+CORE_TESTS = REPO_ROOT / "packages" / "core" / "tests"
 
 
 # ── Test helpers ──────────────────────────────────────────────────────────
@@ -131,14 +131,14 @@ class TestStaleRetryBlockComments:
 
     def test_integration_advanced_blocks_file_deleted(self):
         """test_integration_advanced_blocks.py was deleted with RouterBlock removal."""
-        assert not (LIBS_TESTS / "test_integration_advanced_blocks.py").exists(), (
+        assert not (CORE_TESTS / "test_integration_advanced_blocks.py").exists(), (
             "test_integration_advanced_blocks.py should have been deleted "
             "as part of RouterBlock removal"
         )
 
     def test_integration_cross_feature_file_deleted(self):
         """test_integration_cross_feature_boundaries.py was deleted with RouterBlock removal."""
-        assert not (LIBS_TESTS / "test_integration_cross_feature_boundaries.py").exists(), (
+        assert not (CORE_TESTS / "test_integration_cross_feature_boundaries.py").exists(), (
             "test_integration_cross_feature_boundaries.py should have been deleted "
             "as part of RouterBlock removal"
         )
@@ -146,7 +146,7 @@ class TestStaleRetryBlockComments:
     def test_no_stale_retryblock_comment_in_yaml_parser(self):
         """test_yaml_parser.py should not contain stale
         '# TestRetryBlock: removed (RUN-158)' comment."""
-        content = (LIBS_TESTS / "test_yaml_parser.py").read_text()
+        content = (CORE_TESTS / "test_yaml_parser.py").read_text()
         assert "TestRetryBlock: removed" not in content, (
             "Stale 'TestRetryBlock: removed (RUN-158)' comment still present "
             "in test_yaml_parser.py — clean up the migration comment"
@@ -159,7 +159,7 @@ class TestStaleRetryBlockComments:
         test_loop_exports_schema.py that verify RetryBlock was removed.
         """
         result = subprocess.run(
-            ["grep", "-rn", "--include=*.py", "RetryBlock", str(LIBS_TESTS)],
+            ["grep", "-rn", "--include=*.py", "RetryBlock", str(CORE_TESTS)],
             capture_output=True,
             text=True,
         )

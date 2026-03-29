@@ -9,6 +9,7 @@
     "./*": "./src/components/ui/*.tsx"
   },
   "scripts": {
+    "lint": "pnpm --dir ../.. exec eslint packages/ui",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o ./storybook-static",
     "test:unit": "vitest run --config vitest.config.ts",

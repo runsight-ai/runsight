@@ -1,5 +1,17 @@
 {
   "private": true,
+  "scripts": {
+    "lint": "pnpm run lint:js && pnpm run lint:py",
+    "lint:js": "pnpm -C apps/gui run lint && pnpm -C packages/ui run lint && pnpm -C packages/shared run lint && pnpm -C testing/gui-e2e run lint",
+    "lint:py": "ruff check apps/api packages/core"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.24.0",
+    "eslint": "^9.24.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^16.0.0",
+    "typescript-eslint": "^8.29.1"
+  },
   "pnpm": {
     "overrides": {
       "rollup": "npm:@rollup/wasm-node@4.59.0"

@@ -265,7 +265,9 @@ describe("RunButton disabled when no blocks on canvas (RUN-359 AC6)", () => {
 
   it("imports Tooltip from component library for disabled hint", () => {
     const source = readSource(RUN_BUTTON_PATH);
-    expect(source).toMatch(/import.*Tooltip.*from.*components\/ui\/tooltip/);
+    expect(source).toMatch(
+      /import.*Tooltip.*from.*(@runsight\/ui\/tooltip|components\/ui\/tooltip)/,
+    );
   });
 });
 

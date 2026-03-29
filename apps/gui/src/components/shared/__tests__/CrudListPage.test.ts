@@ -153,7 +153,7 @@ describe("DeleteConfirmDialog module", () => {
 
   it("uses Dialog from shadcn", () => {
     source = readSource(SHARED_DIR, "DeleteConfirmDialog.tsx");
-    expect(source).toMatch(/import.*Dialog.*from.*["']@\/components\/ui\/dialog["']/);
+    expect(source).toMatch(/import.*Dialog.*from.*["'](@runsight\/ui\/dialog|@\/components\/ui\/dialog)["']/);
   });
 
   it("shows confirmation message with resource name", () => {
@@ -215,7 +215,7 @@ describe("SoulList migration", () => {
     source = readSource(SIDEBAR_DIR, "SoulList.tsx");
     // Should not import Dialog directly — DeleteConfirmDialog handles that
     expect(source).not.toMatch(
-      /import.*\{[^}]*Dialog[^}]*\}.*from.*["']@\/components\/ui\/dialog["']/
+      /import.*\{[^}]*Dialog[^}]*\}.*from.*["'](@runsight\/ui\/dialog|@\/components\/ui\/dialog)["']/
     );
   });
 });

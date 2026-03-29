@@ -53,9 +53,6 @@ describe("Palette search input (AC1)", () => {
 
   it("has a search state variable", () => {
     const source = readSource(PALETTE_SIDEBAR_PATH);
-    const hasSearchState =
-      /search|query|filter/i.test(source) &&
-      /useState|useSearch|useFilter/.test(source);
     // Must have a dedicated search/filter state, not just the existing isCollapsed
     const hasSearchSpecificState =
       /useState.*search|useState.*query|useState.*filter|search.*useState|query.*useState|filter.*useState/is.test(

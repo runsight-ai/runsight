@@ -50,7 +50,7 @@ describe("Save button uses Button component (AC1)", () => {
   it("imports Button from the component library", () => {
     topbarSource = readSource(CANVAS_TOPBAR_PATH);
     expect(topbarSource).toMatch(
-      /import.*\bButton\b.*from.*components\/ui\/button/,
+      /import.*\bButton\b.*from.*(@runsight\/ui\/button|components\/ui\/button)/,
     );
   });
 

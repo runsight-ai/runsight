@@ -2,16 +2,18 @@
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import Optional
 
 from runsight_core.artifacts import ArtifactStore
+from runsight_core.observer import WorkflowObserver
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 
 logger = logging.getLogger(__name__)
 
 
-class ArtifactCleanupObserver:
+class ArtifactCleanupObserver(WorkflowObserver):
     """Implements WorkflowObserver protocol. Cleans up artifacts when the root workflow
     completes or errors. Child workflow events are ignored."""
 
@@ -74,6 +76,16 @@ class ArtifactCleanupObserver:
     ) -> None:
         if workflow_name == self.root_workflow_name:
             self._schedule_cleanup()
+
+    def on_block_heartbeat(
+        self,
+        workflow_name: str,
+        block_id: str,
+        phase: str,
+        detail: str,
+        timestamp: datetime,
+    ) -> None:
+        pass
 
     def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
         if workflow_name == self.root_workflow_name:

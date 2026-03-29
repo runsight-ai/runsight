@@ -20,6 +20,8 @@ router = APIRouter(prefix="/git", tags=["Git"])
 # GitService instance (scoped to project base_path)
 # ---------------------------------------------------------------------------
 
+# GitService shells out via ["git", ...] with shell=False.
+
 
 def _get_git_service() -> GitService:
     return GitService(repo_path=settings.base_path)
@@ -185,16 +187,20 @@ async def git_commit(body: CommitRequest):
     _ensure_git_repo()
     svc = _get_git_service()
 
-    if body.files:
-        for f in body.files:
-            _validate_file_path(f)
-        svc._run("add", "--", *body.files)
-    else:
-        svc._run("add", ".")
-
     safe_message = _sanitize_commit_message(body.message)
     if not safe_message:
         raise GitError("Commit message is empty after sanitization")
+
+    try:
+        if body.files:
+            for f in body.files:
+                _validate_file_path(f)
+            svc._run("add", "--", *body.files)
+        else:
+            svc._run("add", ".")
+    except subprocess.CalledProcessError as exc:
+        detail = _scrub_base_path(exc.stderr.strip()) or "Git add failed"
+        raise GitError(detail)
 
     result = svc._run("commit", "-m", safe_message, check=False)
     if result.returncode != 0:

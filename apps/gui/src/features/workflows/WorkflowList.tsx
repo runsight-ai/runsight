@@ -108,7 +108,7 @@ export function Component() {
   const [showNewWorkflowModal, setShowNewWorkflowModal] = useState(false);
   const [workflowToDelete, setWorkflowToDelete] = useState<WorkflowResponse | null>(null);
 
-  const workflows = workflowsData?.items || [];
+  const workflows = useMemo(() => workflowsData?.items ?? [], [workflowsData?.items]);
   const totalCount = workflowsData?.total || 0;
 
   // Filter and sort workflows

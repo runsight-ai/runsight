@@ -70,7 +70,7 @@ function Avatar({
   )
 }
 
-interface AvatarGroupProps extends React.HTMLAttributes<HTMLDivElement> {}
+type AvatarGroupProps = React.HTMLAttributes<HTMLDivElement>
 
 function AvatarGroup({ className, children, ...props }: AvatarGroupProps) {
   return (

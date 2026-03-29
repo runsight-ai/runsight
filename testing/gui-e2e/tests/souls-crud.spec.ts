@@ -18,6 +18,16 @@ test.describe("Souls CRUD", () => {
   const testSoulNameEdited = `${testSoulName}-edited`;
   let createdSoulId: string | null = null;
 
+  type NamedEntity = {
+    id: string;
+    name: string;
+  };
+
+  type NamedEntityListResponse = {
+    total: number;
+    items: NamedEntity[];
+  };
+
   test.afterAll(async () => {
     if (createdSoulId) {
       await apiDelete(`/souls/${createdSoulId}`);
@@ -33,7 +43,7 @@ test.describe("Souls CRUD", () => {
     await page.goto("/souls");
     await page.waitForLoadState("networkidle");
 
-    const beforeData = await apiGet("/souls");
+    const beforeData = (await apiGet("/souls")) as NamedEntityListResponse;
     const countBefore = beforeData.total;
 
     await page.getByRole("button", { name: /New Soul/i }).first().click();
@@ -48,8 +58,8 @@ test.describe("Souls CRUD", () => {
     await expect(modal).not.toBeVisible({ timeout: 10000 });
     await expect(page.getByText(testSoulName, { exact: true })).toBeVisible({ timeout: 10000 });
 
-    const afterData = await apiGet("/souls");
-    const created = afterData.items.find((s: any) => s.name === testSoulName);
+    const afterData = (await apiGet("/souls")) as NamedEntityListResponse;
+    const created = afterData.items.find((s) => s.name === testSoulName);
     expect(created).toBeDefined();
     expect(afterData.total).toBeGreaterThanOrEqual(countBefore + 1);
     createdSoulId = created.id;
@@ -74,8 +84,8 @@ test.describe("Souls CRUD", () => {
     await expect(modal).not.toBeVisible({ timeout: 10000 });
     await expect(page.getByText(testSoulNameEdited, { exact: true })).toBeVisible({ timeout: 10000 });
 
-    const afterData = await apiGet("/souls");
-    const updated = afterData.items.find((s: any) => s.id === createdSoulId);
+    const afterData = (await apiGet("/souls")) as NamedEntityListResponse;
+    const updated = afterData.items.find((s) => s.id === createdSoulId);
     expect(updated.name).toBe(testSoulNameEdited);
   });
 
@@ -96,8 +106,8 @@ test.describe("Souls CRUD", () => {
     await expect(confirmModal).not.toBeVisible({ timeout: 10000 });
     await expect(page.getByText(testSoulNameEdited, { exact: true })).not.toBeVisible({ timeout: 10000 });
 
-    const afterData = await apiGet("/souls");
-    const deleted = afterData.items.find((s: any) => s.id === createdSoulId);
+    const afterData = (await apiGet("/souls")) as NamedEntityListResponse;
+    const deleted = afterData.items.find((s) => s.id === createdSoulId);
     expect(deleted).toBeUndefined();
     
     createdSoulId = null;

@@ -156,7 +156,8 @@ describe("CanvasStatusBar accesses providers via .items (RUN-406 AC2)", () => {
   it("reads first provider name from items array, not from data object directly", () => {
     const source = readSource(STATUS_BAR_PATH);
     // Should access items[0].name, not providers[0].name where providers is { items, total }
-    const readsFromItems = /items\[0\]\.name|items\?\.?\[0\]|items\.at\(0\)/.test(source);
+    const readsFromItems =
+      /items\[0\]\??\.name|items\?\.?\[0\]\??\.name|items\.at\(0\)\??\.name/.test(source);
     expect(
       readsFromItems,
       "CanvasStatusBar should read provider name from items[0], not from the { items, total } object",
@@ -241,7 +242,6 @@ describe("No .length called on { items, total } object in canvas components (RUN
       if (!usesProviders) return; // Skip if component doesn't use this hook
 
       // Extract lines that reference the destructured variable and .length
-      const lines = source.split("\n");
       const aliasMatch = source.match(/const\s*\{\s*data:\s*(\w+)\s*\}\s*=\s*useProviders/);
 
       if (aliasMatch) {

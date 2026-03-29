@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "pnpm --dir ../.. exec eslint testing/gui-e2e",
     "test": "playwright test",
     "test:list": "playwright test --list"
   },

@@ -1,4 +1,5 @@
 import logging
+import inspect
 
 from fastapi import APIRouter, Depends, Query
 from typing import List, Optional
@@ -67,9 +68,11 @@ def _fetch_paginated_runs(
     workflow_id: Optional[str] = None,
 ):
     """Fetch runs with SQL pagination, falling back to in-memory for compatibility."""
-    result = run_service.list_runs_paginated(
-        offset=offset, limit=limit, status=status, workflow_id=workflow_id
-    )
+    paginated = run_service.list_runs_paginated
+    kwargs = {"offset": offset, "limit": limit, "status": status}
+    if "workflow_id" in inspect.signature(paginated).parameters:
+        kwargs["workflow_id"] = workflow_id
+    result = paginated(**kwargs)
     if isinstance(result, tuple):
         return result
     all_runs = run_service.list_runs()

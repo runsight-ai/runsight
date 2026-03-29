@@ -60,7 +60,7 @@ export const Default: Story = {
 
 export const Range: Story = {
   name: "Token Budget (256–8192)",
-  render: () => {
+  render: function RangeStory() {
     const [value, setValue] = React.useState(2048)
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>

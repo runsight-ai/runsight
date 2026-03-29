@@ -103,7 +103,9 @@ describe("GitBadge uses useGitStatus hook (AC2)", () => {
 describe("Orange/warning badge when not clean (AC3)", () => {
   it("uses Badge component from component library", () => {
     const source = readSource(GIT_BADGE_PATH);
-    expect(source).toMatch(/import\s+\{[^}]*Badge[^}]*\}\s+from\s+["']@\/components\/ui\/badge["']/);
+    expect(source).toMatch(
+      /import\s+\{[^}]*Badge[^}]*\}\s+from\s+["'](@runsight\/ui\/badge|@\/components\/ui\/badge)["']/,
+    );
   });
 
   it("uses warning variant on Badge", () => {

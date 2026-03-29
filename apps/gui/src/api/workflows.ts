@@ -1,10 +1,12 @@
 import { api } from "./client";
 import {
-  WorkflowResponse,
-  WorkflowResponseSchema,
-  WorkflowListResponse,
   WorkflowListResponseSchema,
+  WorkflowResponseSchema,
+} from "@runsight/shared/zod";
+import type {
   WorkflowCreate,
+  WorkflowListResponse,
+  WorkflowResponse,
   WorkflowUpdate,
 } from "@runsight/shared/zod";
 

@@ -40,8 +40,6 @@ function readSource(relativePath: string): string {
 
 const DASHBOARD_PATH = "features/dashboard/DashboardOrOnboarding.tsx";
 const RUNS_QUERIES_PATH = "queries/runs.ts";
-const RUNS_API_PATH = "api/runs.ts";
-
 // ===========================================================================
 // 1. useActiveRuns hook exists (AC3)
 // ===========================================================================

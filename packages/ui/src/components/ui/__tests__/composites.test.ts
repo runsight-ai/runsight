@@ -40,10 +40,6 @@ function readComponent(filename: string): string {
   return readFileSync(resolve(UI_DIR, filename), "utf-8");
 }
 
-function sharedExists(filename: string): boolean {
-  return existsSync(resolve(SHARED_DIR, filename));
-}
-
 function readShared(filename: string): string {
   return readFileSync(resolve(SHARED_DIR, filename), "utf-8");
 }

@@ -159,6 +159,7 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
       <div role="tablist" className="flex items-center h-9 border-t px-2">
         <button
           role="tab"
+          aria-label="Expand logs panel"
           aria-selected={activeTab === "logs"}
           onClick={() => {
             setActiveTab("logs");
@@ -169,6 +170,7 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
         </button>
         <button
           role="tab"
+          aria-label="Expand runs panel"
           aria-selected={activeTab === "runs"}
           onClick={() => {
             setActiveTab("runs");

@@ -3,7 +3,7 @@
  * Ensures no pollution of the real database.
  */
 import { type FullConfig } from "@playwright/test";
-import { execSync, spawn, type ChildProcess } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -41,7 +41,7 @@ async function waitForServer(url: string, timeoutMs = 30000): Promise<void> {
   throw new Error(`Server at ${url} did not start within ${timeoutMs}ms`);
 }
 
-async function globalSetup(config: FullConfig) {
+async function globalSetup(_config: FullConfig) {
   const useIntegration = process.env.E2E_INTEGRATION === "1";
   if (!useIntegration) return;
 

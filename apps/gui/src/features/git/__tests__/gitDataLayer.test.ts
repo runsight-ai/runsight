@@ -12,7 +12,7 @@
  * - apps/gui/src/queries/git.ts
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
 
@@ -27,8 +27,6 @@ const SCHEMAS_PATH = resolve(
 const API_CLIENT_PATH = resolve(__dirname, "../../../api/git.ts");
 const HOOKS_PATH = resolve(__dirname, "../../../queries/git.ts");
 const KEYS_PATH = resolve(__dirname, "../../../queries/keys.ts");
-const CONSTANTS_PATH = resolve(__dirname, "../../../utils/constants.ts");
-
 // ===========================================================================
 // SECTION 1: Zod Schemas
 // ===========================================================================

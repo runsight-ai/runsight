@@ -1,18 +1,16 @@
-import { api } from "./client";
 import {
-  StatusResponseSchema,
+  CommitEntrySchema,
   CommitResponseSchema,
   DiffResponseSchema,
-  CommitEntrySchema,
-  type StatusResponse,
-  type CommitResponse,
-  type DiffResponse,
-  type CommitEntry,
+  StatusResponseSchema,
+} from "@runsight/shared/zod";
+import type {
+  CommitEntry,
+  CommitResponse,
+  DiffResponse,
+  StatusResponse,
 } from "@runsight/shared/zod";
 import { z } from "zod";
-
-/** Re-export api client type for consumers that need it. */
-export type ApiClient = typeof api;
 
 const GitLogResponseSchema = z.object({
   commits: z.array(CommitEntrySchema),

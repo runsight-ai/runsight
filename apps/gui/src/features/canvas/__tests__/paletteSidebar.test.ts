@@ -219,7 +219,7 @@ describe("Icons visible in collapsed state (AC3)", () => {
 describe("Hover tooltips in collapsed state (AC5)", () => {
   it("imports Tooltip components", () => {
     const source = readSource(PALETTE_SIDEBAR_PATH);
-    expect(source).toMatch(/import.*Tooltip.*from.*components\/ui\/tooltip/);
+    expect(source).toMatch(/import.*Tooltip.*from.*(@runsight\/ui\/tooltip|components\/ui\/tooltip)/);
   });
 
   it("wraps items with Tooltip for collapsed state", () => {

@@ -13,7 +13,7 @@
  * These tests MUST FAIL until the Green Team implements the feature.
  */
 
-import { describe, it, expect, test } from "vitest";
+import { describe, it, expect } from "vitest";
 import { compileGraphToWorkflowYaml } from "../yamlCompiler";
 import { parseWorkflowYamlToGraph } from "../yamlParser";
 import type { StepNodeData, StepType, BlockDef, SoulDef } from "../../../types/schemas/canvas";

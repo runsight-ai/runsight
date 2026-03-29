@@ -20,6 +20,10 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { useCanvasStore } from "../../../store/canvas";
 import type { RunStatus, StepNodeData } from "../../../types/schemas/canvas";
 import type { Node } from "@xyflow/react";
+import type {
+  getStatusBorderColor as GetStatusBorderColorFn,
+  mapSSEEventToStoreAction as MapSSEEventToStoreActionFn,
+} from "../useRunStream";
 
 // ---------------------------------------------------------------------------
 // Helpers — create minimal canvas nodes for testing
@@ -250,7 +254,7 @@ describe("useCanvasStore — runCost (RUN-7)", () => {
 
 describe("mapSSEEventToStoreAction (RUN-7)", () => {
   // The function should be importable from the canvas feature's useRunStream module
-  let mapSSEEventToStoreAction: typeof import("../useRunStream").mapSSEEventToStoreAction;
+  let mapSSEEventToStoreAction: typeof MapSSEEventToStoreActionFn;
 
   beforeEach(async () => {
     const mod = await import("../useRunStream");
@@ -351,7 +355,7 @@ describe("mapSSEEventToStoreAction (RUN-7)", () => {
 // ===========================================================================
 
 describe("getStatusBorderColor (RUN-7)", () => {
-  let getStatusBorderColor: typeof import("../useRunStream").getStatusBorderColor;
+  let getStatusBorderColor: typeof GetStatusBorderColorFn;
 
   beforeEach(async () => {
     const mod = await import("../useRunStream");
@@ -422,7 +426,7 @@ describe("getStatusBorderColor (RUN-7)", () => {
 // ===========================================================================
 
 describe("Store + SSE integration contract (RUN-7)", () => {
-  let mapSSEEventToStoreAction: typeof import("../useRunStream").mapSSEEventToStoreAction;
+  let mapSSEEventToStoreAction: typeof MapSSEEventToStoreActionFn;
 
   beforeEach(async () => {
     useCanvasStore.getState().reset();

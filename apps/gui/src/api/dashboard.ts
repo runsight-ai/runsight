@@ -1,9 +1,11 @@
 import { api } from "./client";
 import {
-  DashboardKPIsResponse,
   DashboardKPIsResponseSchema,
-  AttentionItemsResponse,
   AttentionItemsResponseSchema,
+} from "@runsight/shared/zod";
+import type {
+  AttentionItemsResponse,
+  DashboardKPIsResponse,
 } from "@runsight/shared/zod";
 
 export const dashboardApi = {

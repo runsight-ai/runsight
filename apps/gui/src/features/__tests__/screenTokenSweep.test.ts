@@ -252,7 +252,7 @@ const WORKFLOW_FEATURES = [
 
 const LAYOUTS = ["routes/layouts/ShellLayout.tsx"];
 
-const UTILITIES = ["utils/colors.ts", "utils/icons.tsx"];
+const UTILITIES = ["utils/icons.tsx"];
 
 const ALL_FILES = [
   ...SHARED_COMPONENTS,

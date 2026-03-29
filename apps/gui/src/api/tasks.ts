@@ -1,10 +1,12 @@
 import { api } from "./client";
 import {
-  TaskResponse,
-  TaskResponseSchema,
-  TaskListResponse,
   TaskListResponseSchema,
+  TaskResponseSchema,
+} from "@runsight/shared/zod";
+import type {
   TaskCreate,
+  TaskListResponse,
+  TaskResponse,
   TaskUpdate,
 } from "@runsight/shared/zod";
 

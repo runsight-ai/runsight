@@ -74,8 +74,13 @@ export function StatCard({
       {/* Value — font-mono, 3xl, bold, tighter tracking, tight leading, text-heading */}
       <span
         data-slot="stat-card-value"
-        className="font-mono text-3xl font-bold tracking-tighter leading-tight text-heading"
+        className="font-mono text-3xl font-bold tracking-tighter leading-tight text-heading flex items-center gap-2"
       >
+        {icon !== undefined && icon !== null ? (
+          <span data-slot="stat-card-icon" className="inline-flex text-muted">
+            {icon}
+          </span>
+        ) : null}
         {value}
       </span>
 

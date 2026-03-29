@@ -32,5 +32,14 @@ markers = [
 target-version = "py311"
 line-length = 100
 
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
 [tool.ruff.lint.per-file-ignores]
 "apps/api/tests/test_run134_openapi_codegen.py" = ["F401"]

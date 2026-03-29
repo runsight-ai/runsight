@@ -1,39 +1,39 @@
+from contextlib import asynccontextmanager
 import time
 from pathlib import Path
 
+from alembic import command as alembic_command
+from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
+from sqlalchemy import text
 from sqlmodel import Session, select
 
-from alembic.config import Config as AlembicConfig
-from alembic import command as alembic_command
-
 from .core.config import settings as app_settings, ensure_project_dirs
+from .core.di import container, engine
 from .core.logging import configure_logging
 from .core.secrets import SecretsEnvLoader
-from .domain.entities.run import Run, RunStatus
-from .core.di import container, engine
 from .data.repositories.run_repo import RunRepository
 from .data.filesystem.provider_repo import FileSystemProviderRepo
 from .data.filesystem.workflow_repo import WorkflowRepository
+from .domain.entities.run import Run, RunStatus
 from .logic.services.execution_service import ExecutionService
 from .domain.errors import RunsightError
+from .transport.middleware.access_log import AccessLogMiddleware
 from .transport.middleware.error_handler import global_exception_handler
 from .transport.middleware.request_id import RequestIdMiddleware
-from .transport.middleware.access_log import AccessLogMiddleware
 from .transport.routers import (
-    eval,
-    runs,
-    workflows,
-    souls,
-    steps,
-    tasks,
-    settings,
     dashboard,
+    eval,
     git,
     models,
+    runs,
+    settings,
+    souls,
     sse_stream,
+    steps,
+    tasks,
+    workflows,
 )
 
 
@@ -49,10 +49,59 @@ def _recover_stale_runs(engine):
         session.commit()
 
 
+def _ensure_sqlite_columns(engine) -> None:
+    """Backfill additive SQLite columns for older local dev databases.
+
+    The current baseline migration uses ``create_all()``, which does not alter
+    existing tables. For pre-MVP local databases we can safely add missing
+    nullable/defaulted columns in place so the app can start cleanly after
+    model evolution.
+    """
+    if engine.dialect.name != "sqlite":
+        return
+
+    additive_columns = {
+        "run": {
+            "error_traceback": "VARCHAR",
+            "workflow_commit_sha": "VARCHAR",
+            "branch": "VARCHAR NOT NULL DEFAULT 'main'",
+            "source": "VARCHAR NOT NULL DEFAULT 'manual'",
+            "commit_sha": "VARCHAR",
+        },
+        "runnode": {
+            "last_phase": "VARCHAR",
+            "prompt_hash": "VARCHAR",
+            "soul_version": "VARCHAR",
+            "eval_score": "FLOAT",
+            "eval_passed": "BOOLEAN",
+            "eval_results": "JSON",
+        },
+    }
+
+    with engine.begin() as conn:
+        for table_name, columns in additive_columns.items():
+            existing = {
+                row[1]
+                for row in conn.exec_driver_sql(f"PRAGMA table_info({table_name})").fetchall()
+            }
+            for column_name, ddl in columns.items():
+                if column_name in existing:
+                    continue
+                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}"))
+
+
+def _build_alembic_config() -> AlembicConfig:
+    config_dir = Path(__file__).parent
+    alembic_cfg = AlembicConfig(str(config_dir / "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", str(config_dir / "alembic"))
+    return alembic_cfg
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    alembic_cfg = AlembicConfig(str(Path(__file__).parent / "alembic.ini"))
+    alembic_cfg = _build_alembic_config()
     alembic_command.upgrade(alembic_cfg, "head")
+    _ensure_sqlite_columns(engine)
     _recover_stale_runs(engine)
     ensure_project_dirs(app_settings)
 

@@ -17,6 +17,16 @@ test.describe("Workflows CRUD", () => {
   const testWorkflowName = `e2e-workflow-${Date.now()}`;
   let createdWorkflowId: string | null = null;
 
+  type NamedEntity = {
+    id: string;
+    name: string;
+  };
+
+  type NamedEntityListResponse = {
+    total: number;
+    items: NamedEntity[];
+  };
+
   test.afterAll(async () => {
     if (createdWorkflowId) {
       await apiDelete(`/workflows/${createdWorkflowId}`);
@@ -34,7 +44,7 @@ test.describe("Workflows CRUD", () => {
     await page.goto("/workflows");
     await page.waitForLoadState("networkidle");
 
-    const beforeData = await apiGet("/workflows");
+    const beforeData = (await apiGet("/workflows")) as NamedEntityListResponse;
     const countBefore = beforeData.total;
 
     await page.getByRole("button", { name: /New Workflow/i }).first().click();
@@ -49,8 +59,8 @@ test.describe("Workflows CRUD", () => {
     // Verify navigation to canvas
     await expect(page).toHaveURL(/\/workflows\//, { timeout: 15000 });
 
-    const afterData = await apiGet("/workflows");
-    const created = afterData.items.find((w: any) => w.name === testWorkflowName);
+    const afterData = (await apiGet("/workflows")) as NamedEntityListResponse;
+    const created = afterData.items.find((w) => w.name === testWorkflowName);
     expect(created).toBeDefined();
     expect(afterData.total).toBe(countBefore + 1);
     createdWorkflowId = created.id;
@@ -73,8 +83,8 @@ test.describe("Workflows CRUD", () => {
     await expect(confirmModal).not.toBeVisible({ timeout: 10000 });
     await expect(page.getByText(testWorkflowName, { exact: true })).not.toBeVisible({ timeout: 10000 });
 
-    const afterData = await apiGet("/workflows");
-    const deleted = afterData.items.find((w: any) => w.id === createdWorkflowId);
+    const afterData = (await apiGet("/workflows")) as NamedEntityListResponse;
+    const deleted = afterData.items.find((w) => w.id === createdWorkflowId);
     expect(deleted).toBeUndefined();
     
     createdWorkflowId = null;
