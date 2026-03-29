@@ -8,7 +8,7 @@ httpx.get() calls without SSRF validation. These tests verify that:
 - A shared SSRF validation utility is extracted and importable
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -221,13 +221,17 @@ class TestOllamaLocalhostException:
             mock_resp = Mock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {"models": [{"name": "llama3"}]}
-            mock_httpx.get.return_value = mock_resp
+            mock_client = AsyncMock()
+            mock_client.get.return_value = mock_resp
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx.AsyncClient.return_value = mock_client
 
             result = await service.test_connection("prov_test123")
 
         assert result["success"] is True
         # The request should have been made (not blocked)
-        mock_httpx.get.assert_called_once()
+        mock_client.get.assert_called_once()
 
     async def test_ollama_127_0_0_1_allowed(self):
         """Ollama with 127.0.0.1 base_url should NOT be blocked by SSRF."""
@@ -243,12 +247,16 @@ class TestOllamaLocalhostException:
             mock_resp = Mock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {"models": [{"name": "llama3"}]}
-            mock_httpx.get.return_value = mock_resp
+            mock_client = AsyncMock()
+            mock_client.get.return_value = mock_resp
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx.AsyncClient.return_value = mock_client
 
             result = await service.test_connection("prov_test123")
 
         assert result["success"] is True
-        mock_httpx.get.assert_called_once()
+        mock_client.get.assert_called_once()
 
     async def test_ollama_default_url_allowed(self):
         """Ollama with no explicit base_url (defaults to localhost:11434) should work."""
@@ -264,7 +272,11 @@ class TestOllamaLocalhostException:
             mock_resp = Mock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {"models": [{"name": "llama3"}]}
-            mock_httpx.get.return_value = mock_resp
+            mock_client = AsyncMock()
+            mock_client.get.return_value = mock_resp
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx.AsyncClient.return_value = mock_client
 
             result = await service.test_connection("prov_test123")
 
@@ -291,12 +303,16 @@ class TestPublicURLsStillWork:
             mock_resp = Mock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}]}
-            mock_httpx.get.return_value = mock_resp
+            mock_client = AsyncMock()
+            mock_client.get.return_value = mock_resp
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx.AsyncClient.return_value = mock_client
 
             result = await service.test_connection("prov_test123")
 
         assert result["success"] is True
-        mock_httpx.get.assert_called_once()
+        mock_client.get.assert_called_once()
 
     async def test_custom_provider_public_url_works(self):
         """Custom provider with a public URL should pass SSRF validation."""
@@ -310,12 +326,16 @@ class TestPublicURLsStillWork:
             mock_resp = Mock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {"data": [{"id": "custom-model"}]}
-            mock_httpx.get.return_value = mock_resp
+            mock_client = AsyncMock()
+            mock_client.get.return_value = mock_resp
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx.AsyncClient.return_value = mock_client
 
             result = await service.test_connection("prov_test123")
 
         assert result["success"] is True
-        mock_httpx.get.assert_called_once()
+        mock_client.get.assert_called_once()
 
 
 # ===========================================================================
