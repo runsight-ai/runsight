@@ -1,16 +1,20 @@
 import { createBrowserRouter, Navigate } from "react-router";
 import { ShellLayout } from "./layouts/ShellLayout";
 import ComponentShowcase from "@/features/dev/ComponentShowcase";
+import { createSetupGuardLoader, createReverseGuardLoader } from "./guards";
+import { queryClient } from "@/lib/queryClient";
 
 export const router = createBrowserRouter([
   {
     path: "setup/start",
+    loader: createReverseGuardLoader(queryClient),
     lazy: () =>
       import("@/features/setup/SetupStartPage").then((m) => ({
         Component: m.Component,
       })),
   },
   {
+    loader: createSetupGuardLoader(queryClient),
     element: <ShellLayout />,
     children: [
       {
