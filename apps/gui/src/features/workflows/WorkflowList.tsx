@@ -37,7 +37,6 @@ import {
   LayoutGrid,
   List,
   MoreHorizontal,
-  Copy,
   Trash2,
   Workflow,
   AlertCircle,
@@ -114,11 +113,6 @@ export function Component() {
 
   const handleRowClick = (workflow: WorkflowResponse) => {
     navigate(`/workflows/${workflow.id}`);
-  };
-
-  const handleDuplicate = (workflow: WorkflowResponse) => {
-    // TODO: Implement duplicate workflow
-    console.log("Duplicate workflow:", workflow.id);
   };
 
   const handleDelete = async () => {
@@ -248,10 +242,6 @@ export function Component() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(workflow); }}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Duplicate
-                </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={(e) => { e.stopPropagation(); setWorkflowToDelete(workflow); }}
                   className="text-danger focus:text-danger"
@@ -515,9 +505,9 @@ export function Component() {
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger>
-                        <Button 
-                          variant="ghost" 
-                          size="icon-sm" 
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
                           className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -525,11 +515,7 @@ export function Component() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(workflow); }}>
-                          <Copy className="h-4 w-4 mr-2" />
-                          Duplicate
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={(e) => { e.stopPropagation(); setWorkflowToDelete(workflow); }}
                           className="text-danger focus:text-danger"
                         >
