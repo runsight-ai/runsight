@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useBlocker } from "react-router";
 import { Layout } from "lucide-react";
 import { CanvasTopbar } from "./CanvasTopbar";
+import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { PaletteSidebar } from "./PaletteSidebar";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { YamlEditor } from "./YamlEditor";
@@ -64,6 +65,8 @@ export function Component() {
           </div>
         )}
       </div>
+
+      <CanvasBottomPanel />
 
       {/* Unsaved changes dialog */}
       <Dialog open={blocker.state === "blocked"}>
