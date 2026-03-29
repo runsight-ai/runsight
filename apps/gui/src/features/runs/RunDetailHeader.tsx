@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { Link, useNavigate } from "react-router";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@runsight/ui/button";
 import { cn } from "@/utils/helpers";
 import {
   ChevronLeft,
@@ -13,7 +13,7 @@ import {
   Maximize,
   Activity,
 } from "lucide-react";
-import type { RunResponse } from "@/types/generated/zod";
+import type { RunResponse } from "@runsight/shared/zod";
 
 // ---------------------------------------------------------------------------
 // Props

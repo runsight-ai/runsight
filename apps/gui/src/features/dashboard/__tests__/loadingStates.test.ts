@@ -27,26 +27,31 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const SRC_DIR = resolve(__dirname, "../../..");
+const REPO_ROOT = resolve(__dirname, "../../../../../..");
+const SKELETON_PATH = resolve(
+  REPO_ROOT,
+  "packages",
+  "ui",
+  "src",
+  "components",
+  "ui",
+  "skeleton.tsx",
+);
 
 function readSource(relativePath: string): string {
   return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
 }
 
-// ---------------------------------------------------------------------------
-// File paths
-// ---------------------------------------------------------------------------
-
 const DASHBOARD_PATH = "features/dashboard/DashboardOrOnboarding.tsx";
-const SKELETON_PATH = "components/ui/skeleton.tsx";
 
 // ===========================================================================
 // 1. Dashboard imports Skeleton component (AC5)
 // ===========================================================================
 
 describe("Dashboard uses existing Skeleton component (AC5)", () => {
-  it("imports Skeleton from components/ui/skeleton", () => {
+  it("imports Skeleton from @runsight/ui/skeleton", () => {
     const source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/import.*Skeleton.*from.*skeleton/);
+    expect(source).toMatch(/import.*Skeleton.*from.*@runsight\/ui\/skeleton/);
   });
 
   it("renders <Skeleton> elements in JSX", () => {
@@ -58,7 +63,7 @@ describe("Dashboard uses existing Skeleton component (AC5)", () => {
   it("does NOT create any new skeleton or loading component files", () => {
     // The existing Skeleton component should be the only one used.
     // Verify it still exports correctly — no new file should be created.
-    const source = readSource(SKELETON_PATH);
+    const source = readFileSync(SKELETON_PATH, "utf-8");
     expect(source).toMatch(/export.*Skeleton/);
   });
 });

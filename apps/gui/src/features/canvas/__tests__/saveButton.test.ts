@@ -262,10 +262,10 @@ describe("Navigate-away dialog with useBlocker (AC4)", () => {
 // ===========================================================================
 
 describe("Uses Dialog component from library (AC5)", () => {
-  it("imports Dialog components from components/ui/dialog", () => {
+  it("imports Dialog components from @runsight/ui/dialog", () => {
     const pageSource = readSource(CANVAS_PAGE_PATH);
     expect(pageSource).toMatch(
-      /import.*Dialog.*from.*components\/ui\/dialog/,
+      /import.*Dialog.*from.*@runsight\/ui\/dialog/,
     );
   });
 

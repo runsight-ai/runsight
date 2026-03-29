@@ -1,9 +1,9 @@
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from "@/queries/tasks";
 import { CrudListPage, type CrudListPageConfig } from "@/components/shared/CrudListPage";
 import { type Column } from "@/components/shared/DataTable";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@runsight/ui/badge";
 import { CheckSquare } from "lucide-react";
-import type { TaskResponse } from "@/types/generated/zod";
+import type { TaskResponse } from "@runsight/shared/zod";
 import { truncateText } from "@/utils/formatting";
 import { NewTaskModal, EditTaskModal } from "./TaskModals";
 

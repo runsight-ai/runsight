@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/shared";
 import {
   Tabs,
   TabsContent,
-} from "@/components/ui/tabs";
+} from "@runsight/ui/tabs";
 import {
   Plug,
   Bot,

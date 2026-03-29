@@ -6,7 +6,7 @@ import {
   WorkflowListResponseSchema,
   WorkflowCreate,
   WorkflowUpdate,
-} from "../types/generated/zod";
+} from "@runsight/shared/zod";
 
 export const workflowsApi = {
   listWorkflows: async (): Promise<WorkflowListResponse> => {

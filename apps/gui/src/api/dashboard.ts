@@ -4,7 +4,7 @@ import {
   DashboardKPIsResponseSchema,
   AttentionItemsResponse,
   AttentionItemsResponseSchema,
-} from "../types/generated/zod";
+} from "@runsight/shared/zod";
 
 export const dashboardApi = {
   getKPIs: async (): Promise<DashboardKPIsResponse> => {

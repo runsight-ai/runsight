@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { stepsApi } from "../api/steps";
 import { queryKeys } from "./keys";
-import type { StepCreate, StepUpdate } from "../types/generated/zod";
+import type { StepCreate, StepUpdate } from "@runsight/shared/zod";
 
 export function useSteps(params?: Record<string, string>) {
   return useQuery({

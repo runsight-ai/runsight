@@ -1,4 +1,4 @@
-import type { RunCreate } from "../../types/generated/zod";
+import type { RunCreate } from "@runsight/shared/zod";
 
 export interface RunWorkflowOptions {
   workflowId: string;

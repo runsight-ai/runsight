@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/utils/helpers";
-import { Input } from "@/components/ui/input";
+import { Input } from "@runsight/ui/input";
 import {
   Table,
   TableBody,
@@ -8,7 +8,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@runsight/ui/table";
 import { ChevronUp, ChevronDown, Search } from "lucide-react";
 
 export interface Column {

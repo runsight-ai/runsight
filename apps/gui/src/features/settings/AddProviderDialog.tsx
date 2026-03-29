@@ -5,8 +5,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from "@runsight/ui/dialog";
+import { Button } from "@runsight/ui/button";
 import { ProviderSetup } from "@/components/provider/ProviderSetup";
 import type { ProviderSetupRef, ProviderSetupState, EditingProvider } from "@/components/provider/ProviderSetup";
 import { useDeleteProvider } from "@/queries/settings";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useGitStatus } from "@/queries/git";
-import { Badge, BadgeDot } from "@/components/ui/badge";
+import { Badge, BadgeDot } from "@runsight/ui/badge";
 import { CommitDialog } from "./CommitDialog";
 
 export function GitBadge() {

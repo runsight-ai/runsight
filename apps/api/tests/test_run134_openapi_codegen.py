@@ -21,8 +21,8 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]  # apps/api/tests -> repo root
 API_ROOT = REPO_ROOT / "apps" / "api"
-GUI_ROOT = REPO_ROOT / "apps" / "gui"
-GENERATED_TYPES_DIR = GUI_ROOT / "src" / "types" / "generated"
+SHARED_ROOT = REPO_ROOT / "packages" / "shared"
+GENERATED_TYPES_DIR = SHARED_ROOT / "src"
 
 
 # ---------------------------------------------------------------------------
@@ -89,11 +89,11 @@ class TestCodegenScriptExists:
     """A script/command must exist to regenerate TypeScript types from OpenAPI."""
 
     def test_codegen_script_exists(self):
-        """scripts/generate-types.sh (or similar) must exist at repo root."""
+        """tools/generate-types.sh (or similar) must exist at repo root."""
         candidates = [
-            REPO_ROOT / "scripts" / "generate-types.sh",
-            REPO_ROOT / "scripts" / "generate-types.ts",
-            REPO_ROOT / "scripts" / "codegen.sh",
+            REPO_ROOT / "tools" / "generate-types.sh",
+            REPO_ROOT / "tools" / "generate-types.ts",
+            REPO_ROOT / "tools" / "codegen.sh",
         ]
         found = [p for p in candidates if p.exists()]
         assert found, (
@@ -102,13 +102,13 @@ class TestCodegenScriptExists:
 
     def test_codegen_script_is_executable(self):
         """The codegen script must have executable permissions."""
-        script = REPO_ROOT / "scripts" / "generate-types.sh"
+        script = REPO_ROOT / "tools" / "generate-types.sh"
         assert script.exists(), f"{script} does not exist"
         assert os.access(script, os.X_OK), f"{script} is not executable"
 
-    def test_gui_package_json_has_codegen_script(self):
-        """apps/gui/package.json must have a 'generate:types' script."""
-        pkg_json = GUI_ROOT / "package.json"
+    def test_shared_package_json_has_codegen_script(self):
+        """packages/shared/package.json must have a 'generate:types' script."""
+        pkg_json = SHARED_ROOT / "package.json"
         assert pkg_json.exists()
         pkg = json.loads(pkg_json.read_text())
         scripts = pkg.get("scripts", {})
@@ -118,8 +118,8 @@ class TestCodegenScriptExists:
         )
 
     def test_openapi_typescript_is_a_dev_dependency(self):
-        """openapi-typescript must be in devDependencies."""
-        pkg_json = GUI_ROOT / "package.json"
+        """packages/shared must own the openapi-typescript dependency."""
+        pkg_json = SHARED_ROOT / "package.json"
         assert pkg_json.exists()
         pkg = json.loads(pkg_json.read_text())
         dev_deps = pkg.get("devDependencies", {})
@@ -137,7 +137,7 @@ class TestGeneratedTypesExist:
     """Generated TypeScript + Zod files must exist at the expected location."""
 
     def test_generated_types_directory_has_generated_files(self):
-        """apps/gui/src/types/generated/ must contain generated .ts files (not just test scaffolding)."""
+        """packages/shared/src/ must contain generated .ts files (not just test scaffolding)."""
         assert GENERATED_TYPES_DIR.is_dir(), (
             f"Generated types directory does not exist: {GENERATED_TYPES_DIR}"
         )
@@ -214,8 +214,8 @@ class TestCIFreshnessCheck:
     def test_ci_check_script_exists(self):
         """A CI check script for type freshness must exist."""
         candidates = [
-            REPO_ROOT / "scripts" / "check-types-fresh.sh",
-            REPO_ROOT / "scripts" / "ci-check-types.sh",
+            REPO_ROOT / "tools" / "check-types-fresh.sh",
+            REPO_ROOT / "tools" / "ci-check-types.sh",
             REPO_ROOT / ".github" / "workflows" / "check-types.yml",
             REPO_ROOT / ".github" / "workflows" / "codegen.yml",
         ]

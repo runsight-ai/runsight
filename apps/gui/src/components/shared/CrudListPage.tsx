@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable, type Column } from "@/components/shared/DataTable";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState } from "@runsight/ui/empty-state";
 import { DeleteConfirmDialog } from "@/components/shared/DeleteConfirmDialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@runsight/ui/button";
+import { Input } from "@runsight/ui/input";
 import { Plus, Search, AlertCircle, RotateCcw } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { UseMutationResult } from "@tanstack/react-query";

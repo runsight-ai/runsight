@@ -6,7 +6,7 @@ import {
   SoulListResponseSchema,
   SoulCreate,
   SoulUpdate,
-} from "../types/generated/zod";
+} from "@runsight/shared/zod";
 
 export const soulsApi = {
   listSouls: async (): Promise<SoulListResponse> => {

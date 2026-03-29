@@ -7,11 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+} from "@runsight/ui/dialog";
+import { Button } from "@runsight/ui/button";
+import { Input } from "@runsight/ui/input";
+import { Textarea } from "@runsight/ui/textarea";
+import { Label } from "@runsight/ui/label";
 import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 

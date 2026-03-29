@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from "react-router";
 import { useRuns } from "@/queries/runs";
-import { RunResponse } from "@/types/generated/zod";
+import { RunResponse } from "@runsight/shared/zod";
 import {
   Table,
   TableBody,
@@ -8,17 +8,17 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+} from "@runsight/ui/table";
+import { Badge } from "@runsight/ui/badge";
+import { Input } from "@runsight/ui/input";
+import { Button } from "@runsight/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@runsight/ui/select";
 import { Workflow, Search, X, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { cn } from "@/utils/helpers";
 import { formatDuration, formatCost, formatTimestamp } from "@/utils/formatting";

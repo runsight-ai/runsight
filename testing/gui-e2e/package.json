@@ -1,0 +1,13 @@
+{
+  "name": "@runsight/gui-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:list": "playwright test --list"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "yaml": "^2.8.2"
+  }
+}

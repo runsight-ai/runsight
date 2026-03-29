@@ -7,8 +7,8 @@ import {
   DialogTitle,
   DialogBody,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from "@runsight/ui/dialog";
+import { Button } from "@runsight/ui/button";
 import { DiffView } from "./DiffView";
 
 interface FileStatus {

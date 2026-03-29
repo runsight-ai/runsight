@@ -10,7 +10,7 @@ import {
   PaginatedLogsResponseSchema,
   type PaginatedLogsResponse,
   type runsight_api__transport__schemas__runs__LogResponse as RunLogResponse,
-} from "../types/generated/zod";
+} from "@runsight/shared/zod";
 
 /** Map frontend shorthand status values to actual RunStatus enum values. */
 const STATUS_ALIASES: Record<string, string[]> = {

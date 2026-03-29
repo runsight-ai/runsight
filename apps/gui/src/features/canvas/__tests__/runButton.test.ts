@@ -81,9 +81,9 @@ describe("RunButton component exists (RUN-359)", () => {
 // ===========================================================================
 
 describe("RunButton uses Button from component library (RUN-359 AC5)", () => {
-  it("imports Button from @/components/ui/button", () => {
+  it("imports Button from @runsight/ui/button", () => {
     const source = readSource(RUN_BUTTON_PATH);
-    expect(source).toMatch(/import.*Button.*from.*components\/ui\/button/);
+    expect(source).toMatch(/import.*Button.*from.*@runsight\/ui\/button/);
   });
 
   it("renders <Button> element (not raw <button>)", () => {

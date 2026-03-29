@@ -1,25 +1,25 @@
 import { useState, useEffect } from "react";
 import { useCreateStep, useUpdateStep } from "@/queries/steps";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { Button } from "@runsight/ui/button";
+import { Input } from "@runsight/ui/input";
+import { Textarea } from "@runsight/ui/textarea";
+import { Label } from "@runsight/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@runsight/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@runsight/ui/select";
 import { Plus, Pencil } from "lucide-react";
-import type { StepResponse } from "@/types/generated/zod";
+import type { StepResponse } from "@runsight/shared/zod";
 
 const STEP_TYPES = [
   { value: "step", label: "Step" },

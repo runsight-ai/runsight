@@ -1,2 +1,5 @@
 packages:
   - "apps/gui"
+  - "testing/gui-e2e"
+  - "packages/ui"
+  - "packages/shared"

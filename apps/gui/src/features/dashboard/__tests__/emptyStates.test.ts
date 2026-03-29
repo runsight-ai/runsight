@@ -28,26 +28,31 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const SRC_DIR = resolve(__dirname, "../../..");
+const REPO_ROOT = resolve(__dirname, "../../../../../..");
+const EMPTY_STATE_PATH = resolve(
+  REPO_ROOT,
+  "packages",
+  "ui",
+  "src",
+  "components",
+  "shared",
+  "EmptyState.tsx",
+);
 
 function readSource(relativePath: string): string {
   return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
 }
 
-// ---------------------------------------------------------------------------
-// File paths
-// ---------------------------------------------------------------------------
-
 const DASHBOARD_PATH = "features/dashboard/DashboardOrOnboarding.tsx";
-const EMPTY_STATE_PATH = "components/shared/EmptyState.tsx";
 
 // ===========================================================================
 // 1. Dashboard imports EmptyState component (AC4)
 // ===========================================================================
 
 describe("Dashboard uses existing EmptyState component (AC4)", () => {
-  it("imports EmptyState from components/shared/EmptyState", () => {
+  it("imports EmptyState from @runsight/ui/empty-state", () => {
     const source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/import.*EmptyState.*from.*EmptyState/);
+    expect(source).toMatch(/import.*EmptyState.*from.*@runsight\/ui\/empty-state/);
   });
 
   it("renders EmptyState at least twice (one for no-workflows, one for no-runs)", () => {
@@ -58,7 +63,7 @@ describe("Dashboard uses existing EmptyState component (AC4)", () => {
 
   it("does NOT define any new component files for empty states", () => {
     // EmptyState.tsx already exists and should be the only empty state component
-    const source = readSource(EMPTY_STATE_PATH);
+    const source = readFileSync(EMPTY_STATE_PATH, "utf-8");
     expect(source).toMatch(/export\s+function\s+EmptyState/);
   });
 });

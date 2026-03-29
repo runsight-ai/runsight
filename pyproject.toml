@@ -13,14 +13,14 @@ dev = [
 ]
 
 [tool.uv.workspace]
-members = ["apps/api", "libs/*"]
+members = ["apps/api", "packages/core"]
 
 [tool.uv.sources]
 runsight-core = { workspace = true }
 runsight-api = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["apps/api/tests", "libs/core/tests"]
+testpaths = ["apps/api/tests", "packages/core/tests"]
 addopts = ""
 markers = [
     "integration: requires tmux and/or agent CLIs",

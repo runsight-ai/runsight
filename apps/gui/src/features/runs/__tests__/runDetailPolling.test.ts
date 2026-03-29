@@ -16,7 +16,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { NodeSummarySchema, RunResponseSchema } from "../../../types/generated/zod";
+import { NodeSummarySchema, RunResponseSchema } from "@runsight/shared/zod";
 
 // Read RunDetail source once for behavioral source-level assertions.
 // This verifies what the component *does*, not what it *exports*.
@@ -154,6 +154,9 @@ describe("RunDetail displays total_tokens (RUN-144)", () => {
       workflow_id: "wf-1",
       workflow_name: "Test",
       status: "completed",
+      started_at: null,
+      completed_at: null,
+      duration_seconds: null,
       total_cost_usd: 0.042,
       total_tokens: 1500,
       created_at: Date.now() / 1000,

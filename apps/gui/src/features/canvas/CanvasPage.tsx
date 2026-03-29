@@ -8,11 +8,11 @@ import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { FirstTimeTooltip } from "./FirstTimeTooltip";
 import { PaletteSidebar } from "./PaletteSidebar";
 import { ExploreBanner } from "./ExploreBanner";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState } from "@runsight/ui/empty-state";
 import { YamlEditor } from "./YamlEditor";
 import { useUpdateWorkflow } from "@/queries/workflows";
-import { Dialog, DialogContent, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle, DialogFooter } from "@runsight/ui/dialog";
+import { Button } from "@runsight/ui/button";
 import type { ValidationState } from "./useYamlValidation";
 
 export function Component() {

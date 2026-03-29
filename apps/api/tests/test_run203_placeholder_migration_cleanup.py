@@ -4,7 +4,7 @@ RED tests for RUN-203: Migrate API test files + regenerate JSON schema + final c
 Verifies that:
 1. The JSON schema file does NOT contain PlaceholderBlockDef or "placeholder" block type
 2. API test files do NOT contain `type: placeholder` or `PlaceholderBlock` string references
-3. libs/core/tests/test_debate_messagebus_removal.py does NOT reference PlaceholderBlock
+3. packages/core/tests/test_debate_messagebus_removal.py does NOT reference PlaceholderBlock
 4. The entire codebase (excluding RUN-201 removal test and this file) has zero
    PlaceholderBlock / PlaceholderBlockDef / _build_placeholder references
 
@@ -24,7 +24,7 @@ import pytest
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent.parent
-CORE_ROOT = REPO_ROOT / "libs" / "core"
+CORE_ROOT = REPO_ROOT / "packages" / "core"
 API_TESTS = REPO_ROOT / "apps" / "api" / "tests"
 JSON_SCHEMA = CORE_ROOT / "runsight-workflow-schema.json"
 
@@ -145,7 +145,7 @@ class TestApiTestFilesMigrated:
 
 
 class TestDebateRemovalFileClean:
-    """libs/core/tests/test_debate_messagebus_removal.py must not reference PlaceholderBlock."""
+    """packages/core/tests/test_debate_messagebus_removal.py must not reference PlaceholderBlock."""
 
     DEBATE_FILE = CORE_ROOT / "tests" / "test_debate_messagebus_removal.py"
 

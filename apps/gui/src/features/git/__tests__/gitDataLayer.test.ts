@@ -7,7 +7,7 @@
  * 3. React Query hooks — query keys, polling, cache invalidation
  *
  * All tests must FAIL until Green-team implements:
- * - apps/gui/src/types/generated/zod.ts (Git schemas)
+ * - packages/shared/src/zod.ts (Git schemas)
  * - apps/gui/src/api/git.ts
  * - apps/gui/src/queries/git.ts
  */
@@ -20,7 +20,10 @@ import { resolve } from "path";
 // Helpers: path constants
 // ---------------------------------------------------------------------------
 
-const SCHEMAS_PATH = resolve(__dirname, "../../../types/generated/zod.ts");
+const SCHEMAS_PATH = resolve(
+  __dirname,
+  "../../../../../../packages/shared/src/zod.ts",
+);
 const API_CLIENT_PATH = resolve(__dirname, "../../../api/git.ts");
 const HOOKS_PATH = resolve(__dirname, "../../../queries/git.ts");
 const KEYS_PATH = resolve(__dirname, "../../../queries/keys.ts");
@@ -32,17 +35,17 @@ const CONSTANTS_PATH = resolve(__dirname, "../../../utils/constants.ts");
 
 describe("Git Zod schemas (RUN-154)", () => {
   // Guard: file must exist before any schema test runs
-  it("schema file exists at types/generated/zod.ts", () => {
+  it("schema file exists at packages/shared/src/zod.ts", () => {
     expect(existsSync(SCHEMAS_PATH)).toBe(true);
   });
 
   // We dynamically import so the rest of the suite still reports useful failures
   // even when the file is missing (the guard test above catches that).
 
-  describe("GitFileStatusSchema", () => {
+  describe("UncommittedFileSchema", () => {
     it("parses a valid file status object", async () => {
-      const { GitFileStatusSchema } = await import("../../../types/generated/zod");
-      const result = GitFileStatusSchema.safeParse({
+      const { UncommittedFileSchema } = await import("@runsight/shared/zod");
+      const result = UncommittedFileSchema.safeParse({
         path: "src/app.ts",
         status: "modified",
       });
@@ -54,33 +57,33 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when path is missing", async () => {
-      const { GitFileStatusSchema } = await import("../../../types/generated/zod");
-      const result = GitFileStatusSchema.safeParse({ status: "modified" });
+      const { UncommittedFileSchema } = await import("@runsight/shared/zod");
+      const result = UncommittedFileSchema.safeParse({ status: "modified" });
       expect(result.success).toBe(false);
     });
 
     it("rejects when status is missing", async () => {
-      const { GitFileStatusSchema } = await import("../../../types/generated/zod");
-      const result = GitFileStatusSchema.safeParse({ path: "foo.ts" });
+      const { UncommittedFileSchema } = await import("@runsight/shared/zod");
+      const result = UncommittedFileSchema.safeParse({ path: "foo.ts" });
       expect(result.success).toBe(false);
     });
 
     it("rejects non-string path", async () => {
-      const { GitFileStatusSchema } = await import("../../../types/generated/zod");
-      const result = GitFileStatusSchema.safeParse({ path: 123, status: "modified" });
+      const { UncommittedFileSchema } = await import("@runsight/shared/zod");
+      const result = UncommittedFileSchema.safeParse({ path: 123, status: "modified" });
       expect(result.success).toBe(false);
     });
 
     it("rejects non-string status", async () => {
-      const { GitFileStatusSchema } = await import("../../../types/generated/zod");
-      const result = GitFileStatusSchema.safeParse({ path: "foo.ts", status: true });
+      const { UncommittedFileSchema } = await import("@runsight/shared/zod");
+      const result = UncommittedFileSchema.safeParse({ path: "foo.ts", status: true });
       expect(result.success).toBe(false);
     });
   });
 
-  describe("GitStatusResponseSchema", () => {
+  describe("StatusResponseSchema", () => {
     it("parses a valid status response", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
+      const { StatusResponseSchema } = await import("@runsight/shared/zod");
       const data = {
         branch: "main",
         uncommitted_files: [
@@ -89,7 +92,7 @@ describe("Git Zod schemas (RUN-154)", () => {
         ],
         is_clean: false,
       };
-      const result = GitStatusResponseSchema.safeParse(data);
+      const result = StatusResponseSchema.safeParse(data);
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.branch).toBe("main");
@@ -99,8 +102,8 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("parses a clean repo response", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
-      const result = GitStatusResponseSchema.safeParse({
+      const { StatusResponseSchema } = await import("@runsight/shared/zod");
+      const result = StatusResponseSchema.safeParse({
         branch: "feat/foo",
         uncommitted_files: [],
         is_clean: true,
@@ -109,8 +112,8 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when branch is missing", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
-      const result = GitStatusResponseSchema.safeParse({
+      const { StatusResponseSchema } = await import("@runsight/shared/zod");
+      const result = StatusResponseSchema.safeParse({
         uncommitted_files: [],
         is_clean: true,
       });
@@ -118,8 +121,8 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when uncommitted_files is not an array", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
-      const result = GitStatusResponseSchema.safeParse({
+      const { StatusResponseSchema } = await import("@runsight/shared/zod");
+      const result = StatusResponseSchema.safeParse({
         branch: "main",
         uncommitted_files: "not-an-array",
         is_clean: true,
@@ -128,8 +131,8 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when is_clean is missing", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
-      const result = GitStatusResponseSchema.safeParse({
+      const { StatusResponseSchema } = await import("@runsight/shared/zod");
+      const result = StatusResponseSchema.safeParse({
         branch: "main",
         uncommitted_files: [],
       });
@@ -137,16 +140,16 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("has exactly the fields: branch, uncommitted_files, is_clean", async () => {
-      const { GitStatusResponseSchema } = await import("../../../types/generated/zod");
-      const keys = Object.keys(GitStatusResponseSchema.shape).sort();
+      const { StatusResponseSchema } = await import("@runsight/shared/zod");
+      const keys = Object.keys(StatusResponseSchema.shape).sort();
       expect(keys).toEqual(["branch", "is_clean", "uncommitted_files"]);
     });
   });
 
-  describe("GitCommitResponseSchema", () => {
+  describe("CommitResponseSchema", () => {
     it("parses a valid commit response", async () => {
-      const { GitCommitResponseSchema } = await import("../../../types/generated/zod");
-      const result = GitCommitResponseSchema.safeParse({
+      const { CommitResponseSchema } = await import("@runsight/shared/zod");
+      const result = CommitResponseSchema.safeParse({
         hash: "abc123def456",
         message: "feat: add git integration",
       });
@@ -158,28 +161,28 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when hash is missing", async () => {
-      const { GitCommitResponseSchema } = await import("../../../types/generated/zod");
-      const result = GitCommitResponseSchema.safeParse({ message: "hi" });
+      const { CommitResponseSchema } = await import("@runsight/shared/zod");
+      const result = CommitResponseSchema.safeParse({ message: "hi" });
       expect(result.success).toBe(false);
     });
 
     it("rejects when message is missing", async () => {
-      const { GitCommitResponseSchema } = await import("../../../types/generated/zod");
-      const result = GitCommitResponseSchema.safeParse({ hash: "abc123" });
+      const { CommitResponseSchema } = await import("@runsight/shared/zod");
+      const result = CommitResponseSchema.safeParse({ hash: "abc123" });
       expect(result.success).toBe(false);
     });
 
     it("has exactly the fields: hash, message", async () => {
-      const { GitCommitResponseSchema } = await import("../../../types/generated/zod");
-      const keys = Object.keys(GitCommitResponseSchema.shape).sort();
+      const { CommitResponseSchema } = await import("@runsight/shared/zod");
+      const keys = Object.keys(CommitResponseSchema.shape).sort();
       expect(keys).toEqual(["hash", "message"]);
     });
   });
 
-  describe("GitLogEntrySchema", () => {
+  describe("CommitEntrySchema", () => {
     it("parses a valid log entry", async () => {
-      const { GitLogEntrySchema } = await import("../../../types/generated/zod");
-      const result = GitLogEntrySchema.safeParse({
+      const { CommitEntrySchema } = await import("@runsight/shared/zod");
+      const result = CommitEntrySchema.safeParse({
         hash: "abc123",
         message: "initial commit",
         date: "2026-03-18 10:00:00 -0700",
@@ -193,9 +196,9 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("rejects when any required field is missing", async () => {
-      const { GitLogEntrySchema } = await import("../../../types/generated/zod");
+      const { CommitEntrySchema } = await import("@runsight/shared/zod");
       // Missing author
-      const result = GitLogEntrySchema.safeParse({
+      const result = CommitEntrySchema.safeParse({
         hash: "abc",
         message: "msg",
         date: "2026-01-01",
@@ -204,16 +207,16 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("has exactly the fields: hash, message, date, author", async () => {
-      const { GitLogEntrySchema } = await import("../../../types/generated/zod");
-      const keys = Object.keys(GitLogEntrySchema.shape).sort();
+      const { CommitEntrySchema } = await import("@runsight/shared/zod");
+      const keys = Object.keys(CommitEntrySchema.shape).sort();
       expect(keys).toEqual(["author", "date", "hash", "message"]);
     });
   });
 
-  describe("GitDiffResponseSchema", () => {
+  describe("DiffResponseSchema", () => {
     it("parses a valid diff response", async () => {
-      const { GitDiffResponseSchema } = await import("../../../types/generated/zod");
-      const result = GitDiffResponseSchema.safeParse({
+      const { DiffResponseSchema } = await import("@runsight/shared/zod");
+      const result = DiffResponseSchema.safeParse({
         diff: "--- a/foo.ts\n+++ b/foo.ts\n@@ -1 +1 @@\n-old\n+new",
       });
       expect(result.success).toBe(true);
@@ -223,20 +226,20 @@ describe("Git Zod schemas (RUN-154)", () => {
     });
 
     it("parses an empty diff string", async () => {
-      const { GitDiffResponseSchema } = await import("../../../types/generated/zod");
-      const result = GitDiffResponseSchema.safeParse({ diff: "" });
+      const { DiffResponseSchema } = await import("@runsight/shared/zod");
+      const result = DiffResponseSchema.safeParse({ diff: "" });
       expect(result.success).toBe(true);
     });
 
     it("rejects when diff is missing", async () => {
-      const { GitDiffResponseSchema } = await import("../../../types/generated/zod");
-      const result = GitDiffResponseSchema.safeParse({});
+      const { DiffResponseSchema } = await import("@runsight/shared/zod");
+      const result = DiffResponseSchema.safeParse({});
       expect(result.success).toBe(false);
     });
 
     it("has exactly the field: diff", async () => {
-      const { GitDiffResponseSchema } = await import("../../../types/generated/zod");
-      const keys = Object.keys(GitDiffResponseSchema.shape).sort();
+      const { DiffResponseSchema } = await import("@runsight/shared/zod");
+      const keys = Object.keys(DiffResponseSchema.shape).sort();
       expect(keys).toEqual(["diff"]);
     });
   });
@@ -400,17 +403,17 @@ describe("Git API client (RUN-154)", () => {
       expect(source).toMatch(/import\s*\{[^}]*api[^}]*\}\s*from\s*["']\.\/client["']/);
     });
 
-    it("imports Zod schemas from types/generated/zod", () => {
+    it("imports Zod schemas from @runsight/shared/zod", () => {
       const source = readFileSync(API_CLIENT_PATH, "utf-8");
-      expect(source).toMatch(/from\s*["']\.\.\/types\/generated\/zod["']/);
+      expect(source).toMatch(/from\s*["']@runsight\/shared\/zod["']/);
     });
 
     it("calls .parse() on responses for type safety", () => {
       const source = readFileSync(API_CLIENT_PATH, "utf-8");
       // Each endpoint should parse with the corresponding schema
-      expect(source).toMatch(/GitStatusResponseSchema\.parse/);
-      expect(source).toMatch(/GitCommitResponseSchema\.parse/);
-      expect(source).toMatch(/GitDiffResponseSchema\.parse/);
+      expect(source).toMatch(/StatusResponseSchema\.parse/);
+      expect(source).toMatch(/CommitResponseSchema\.parse/);
+      expect(source).toMatch(/DiffResponseSchema\.parse/);
     });
 
     it("exports gitApi object with all four methods", () => {

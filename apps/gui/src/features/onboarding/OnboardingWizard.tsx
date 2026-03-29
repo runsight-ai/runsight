@@ -1,6 +1,6 @@
 import { useRef, useCallback, useState } from "react";
 import { useNavigate } from "react-router";
-import { Button } from "@/components/ui/button";
+import { Button } from "@runsight/ui/button";
 import { ProviderSetup } from "@/components/provider/ProviderSetup";
 import type { ProviderSetupRef, ProviderSetupState } from "@/components/provider/ProviderSetup";
 import { useUpdateAppSettings } from "@/queries/settings";

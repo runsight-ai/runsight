@@ -199,7 +199,6 @@ const SHARED_COMPONENTS = [
   "components/shared/CrudListPage.tsx",
   "components/shared/DataTable.tsx",
   "components/shared/DeleteConfirmDialog.tsx",
-  "components/shared/EmptyState.tsx",
   "components/shared/ErrorBoundary.tsx",
   "components/shared/PageHeader.tsx",
   "components/shared/StatusBadge.tsx",

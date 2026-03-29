@@ -1,6 +1,6 @@
 import { cn } from "@/utils/helpers";
 import { ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@runsight/ui/button";
 
 interface PageHeaderProps {
   title: string;

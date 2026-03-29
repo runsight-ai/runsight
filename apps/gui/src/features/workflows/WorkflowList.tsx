@@ -5,16 +5,16 @@ import { NewWorkflowModal } from "./NewWorkflowModal";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { StatusBadge, type StatusVariant } from "@/components/shared/StatusBadge";
-import { EmptyState } from "@/components/shared/EmptyState";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { EmptyState } from "@runsight/ui/empty-state";
+import { Button } from "@runsight/ui/button";
+import { Input } from "@runsight/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@runsight/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -22,13 +22,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@runsight/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@runsight/ui/dropdown-menu";
 import {
   Plus,
   Upload,
@@ -42,7 +42,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { getWorkflowIcon, getWorkflowIconBg } from "@/utils/icons";
-import type { WorkflowResponse } from "@/types/generated/zod";
+import type { WorkflowResponse } from "@runsight/shared/zod";
 
 type SortOption = "updated" | "name" | "created";
 type ViewMode = "list" | "grid";

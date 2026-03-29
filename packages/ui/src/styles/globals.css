@@ -1,0 +1,792 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* ========================================
+   FONT LOADING
+   ======================================== */
+
+/* Geist — primary product body font (variable, 100-900) */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(https://cdn.jsdelivr.net/fontsource/fonts/geist:vf@latest/latin-wght-normal.woff2) format('woff2');
+}
+
+/* JetBrains Mono — code/data/metrics */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url(https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono:vf@latest/latin-wght-normal.woff2) format('woff2');
+}
+
+
+/* ========================================
+   TAILWIND THEME BRIDGE
+   Maps design system tokens to Tailwind utilities
+   ======================================== */
+
+@theme inline {
+  /* Surfaces */
+  --color-surface-primary:    var(--surface-primary);
+  --color-surface-secondary:  var(--surface-secondary);
+  --color-surface-tertiary:   var(--surface-tertiary);
+  --color-surface-raised:     var(--surface-raised);
+  --color-surface-overlay:    var(--surface-overlay);
+  --color-surface-sunken:     var(--surface-sunken);
+  --color-surface-hover:      var(--surface-hover);
+  --color-surface-active:     var(--surface-active);
+  --color-surface-selected:   var(--surface-selected);
+
+  /* Interactive */
+  --color-interactive-default: var(--interactive-default);
+  --color-interactive-hover:   var(--interactive-hover);
+  --color-interactive-active:  var(--interactive-active);
+  --color-interactive-muted:   var(--interactive-muted);
+
+  /* Borders */
+  --color-border-subtle:  var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-hover:   var(--border-hover);
+  --color-border-accent:  var(--border-accent);
+  --color-border-focus:   var(--border-focus);
+  --color-border-danger:  var(--border-danger);
+  --color-border-success: var(--border-success);
+  --color-border-warning: var(--border-warning);
+  --color-border-info:    var(--border-info);
+
+  /* Semantic colors */
+  --color-success: var(--success-9);
+  --color-warning: var(--warning-9);
+  --color-danger:  var(--danger-9);
+  --color-info:    var(--info-9);
+
+  /* Chart palette */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+
+  /* Block category colors */
+  --color-block-agent:   var(--block-agent);
+  --color-block-logic:   var(--block-logic);
+  --color-block-control: var(--block-control);
+  --color-block-utility: var(--block-utility);
+  --color-block-custom:  var(--block-custom);
+
+  /* Radius */
+  --radius-none: 0px;
+  --radius-xs:   var(--radius-xs);
+  --radius-sm:   var(--radius-sm);
+  --radius-md:   4px;
+  --radius-lg:   var(--radius-lg);
+  --radius-xl:   var(--radius-xl);
+  --radius-2xl:  var(--radius-2xl);
+  --radius-full: 9999px;
+
+  /* Spacing — single multiplier: p-1=4px, p-4=16px, p-12=48px */
+  --spacing: 4px;
+
+  /* Font sizes */
+  --text-3xs: 10px; /* tooltip/compact context — below font-size-2xs (11px) */
+  --text-2xs: var(--font-size-2xs);
+  --text-xs:  var(--font-size-xs);
+  --text-sm:  var(--font-size-sm);
+  --text-md:  var(--font-size-md);
+  --text-lg:  var(--font-size-lg);
+  --text-xl:  var(--font-size-xl);
+  --text-2xl: var(--font-size-2xl);
+  --text-3xl: var(--font-size-3xl);
+
+  /* Font weights */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  /* Line heights */
+  --leading-tight:   var(--line-height-tight);
+  --leading-snug:    var(--line-height-snug);
+  --leading-normal:  var(--line-height-normal);
+  --leading-relaxed: var(--line-height-relaxed);
+  --leading-loose:   var(--line-height-loose);
+
+  /* Letter spacing */
+  --tracking-tighter: var(--tracking-tighter);
+  --tracking-tight:   var(--tracking-tight);
+  --tracking-normal:  0;
+  --tracking-slight:  var(--tracking-slight);
+  --tracking-wide:    var(--tracking-wide);
+  --tracking-wider:   var(--tracking-wider);
+  --tracking-widest:  var(--tracking-widest);
+
+  /* Font families — Tailwind v4 uses --font-family-* for font-* utilities */
+  --font-family-sans:    var(--font-body);
+  --font-family-mono:    var(--font-mono);
+  --font-family-display: var(--font-display);
+
+  /* Shadows */
+  --shadow-raised:       var(--elevation-raised-shadow);
+  --shadow-overlay:      var(--elevation-overlay-shadow);
+  --shadow-card:         0 1px 2px rgba(0,0,0,0.30);
+  --shadow-card-hover:   0 4px 8px rgba(0,0,0,0.40);
+
+  /* Easing */
+  --ease-default: var(--ease-default);
+  --ease-out:     var(--ease-out);
+  --ease-in:      var(--ease-in);
+  --ease-in-out:  var(--ease-in-out);
+  --ease-spring:  var(--ease-spring);
+
+  /* Text color short aliases (text-muted, text-heading, text-on-accent) */
+  --color-muted:     var(--text-muted);
+  --color-heading:   var(--text-heading);
+  --color-on-accent: var(--text-on-accent);
+  --color-primary:   var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-accent:    var(--text-accent);
+
+  /* Reference color scales — enables bg-accent-9, text-danger-11, bg-neutral-6, etc. */
+  --color-accent-1:   var(--accent-1);
+  --color-accent-2:   var(--accent-2);
+  --color-accent-3:   var(--accent-3);
+  --color-accent-7:   var(--accent-7);
+  --color-accent-9:   var(--accent-9);
+  --color-accent-10:  var(--accent-10);
+  --color-accent-11:  var(--accent-11);
+  --color-accent-12:  var(--accent-12);
+  --color-neutral-2:  var(--neutral-2);
+  --color-neutral-3:  var(--neutral-3);
+  --color-neutral-4:  var(--neutral-4);
+  --color-neutral-5:  var(--neutral-5);
+  --color-neutral-6:  var(--neutral-6);
+  --color-neutral-7:  var(--neutral-7);
+  --color-neutral-9:  var(--neutral-9);
+  --color-neutral-10: var(--neutral-10);
+  --color-neutral-12: var(--neutral-12);
+  --color-success-3:  var(--success-3);
+  --color-success-7:  var(--success-7);
+  --color-success-9:  var(--success-9);
+  --color-success-11: var(--success-11);
+  --color-warning-3:  var(--warning-3);
+  --color-warning-7:  var(--warning-7);
+  --color-warning-9:  var(--warning-9);
+  --color-warning-11: var(--warning-11);
+  --color-danger-3:   var(--danger-3);
+  --color-danger-7:   var(--danger-7);
+  --color-danger-8:   var(--danger-8);
+  --color-danger-9:   var(--danger-9);
+  --color-danger-10:  var(--danger-10);
+  --color-danger-11:  var(--danger-11);
+  --color-info-3:     var(--info-3);
+  --color-info-7:     var(--info-7);
+  --color-info-9:     var(--info-9);
+  --color-info-11:    var(--info-11);
+}
+
+
+/* ========================================
+   ROOT TOKENS — DARK THEME (PRIMARY)
+   ======================================== */
+
+:root {
+
+  /* --- Fonts --- */
+  --font-display: 'Satoshi', system-ui, -apple-system, sans-serif;
+  --font-body:    'Geist', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+
+  /* ========================================
+     REFERENCE TOKENS (raw values)
+     ======================================== */
+
+  /* --- Reference: Neutral Scale (12 steps, hue 40 warm-tinted) --- */
+  --neutral-1:   hsl(40, 12%, 8%);     /* App background           */
+  --neutral-2:   hsl(40, 10%, 10%);    /* Subtle background        */
+  --neutral-3:   hsl(40, 8%, 13%);     /* UI element background    */
+  --neutral-4:   hsl(40, 7%, 16%);     /* Hovered UI element       */
+  --neutral-5:   hsl(40, 6%, 19%);     /* Active/selected element  */
+  --neutral-6:   hsl(40, 6%, 24%);     /* Subtle border            */
+  --neutral-7:   hsl(40, 5%, 32%);     /* Default border, dividers */
+  --neutral-8:   hsl(40, 5%, 42%);     /* Hover border, solid fill */
+  --neutral-9:   hsl(40, 4%, 50%);     /* Muted text, icons        */
+  --neutral-10:  hsl(40, 4%, 60%);     /* Secondary text           */
+  --neutral-11:  hsl(40, 5%, 72%);     /* Primary text             */
+  --neutral-12:  hsl(40, 8%, 93%);     /* Heading/emphasis text    */
+
+  /* --- Reference: Accent Scale (12 steps, amber hue 38-42) --- */
+  --accent-1:   hsl(40, 50%, 10%);     /* Lightest tint — subtle bg    */
+  --accent-2:   hsl(40, 55%, 12%);     /* Light tint — hover bg        */
+  --accent-3:   hsl(40, 60%, 14%);     /* UI element bg, selected      */
+  --accent-4:   hsl(38, 70%, 18%);     /* Hovered UI element           */
+  --accent-5:   hsl(38, 75%, 22%);     /* Active/selected element      */
+  --accent-6:   hsl(38, 80%, 28%);     /* Subtle border on accent      */
+  --accent-7:   hsl(38, 85%, 36%);     /* Default accent border        */
+  --accent-8:   hsl(38, 88%, 44%);     /* Solid accent — secondary     */
+  --accent-9:   hsl(38, 92%, 55%);     /* Solid accent — PRIMARY (CTA) */
+  --accent-10:  hsl(40, 90%, 62%);     /* Hovered solid accent         */
+  --accent-11:  hsl(42, 95%, 68%);     /* Accent text on gray bg       */
+  --accent-12:  hsl(42, 90%, 88%);     /* Accent text on accent-1/2    */
+
+  /* --- Reference: Semantic Hue Scales --- */
+  /* Success — green */
+  --success-3:   hsl(142, 50%, 14%);
+  --success-7:   hsl(142, 55%, 30%);
+  --success-9:   hsl(142, 72%, 45%);
+  --success-11:  hsl(142, 60%, 62%);
+
+  /* Warning — amber (shares accent hue family) */
+  --warning-3:   hsl(38, 50%, 14%);
+  --warning-7:   hsl(38, 60%, 30%);
+  --warning-9:   hsl(38, 92%, 55%);
+  --warning-11:  hsl(42, 80%, 65%);
+
+  /* Danger — red */
+  --danger-3:    hsl(0, 50%, 14%);
+  --danger-7:    hsl(0, 55%, 30%);
+  --danger-8:    hsl(0, 72%, 42%);
+  --danger-9:    hsl(0, 72%, 55%);
+  --danger-10:   hsl(0, 72%, 48%);
+  --danger-11:   hsl(0, 60%, 62%);
+
+  /* Info — blue */
+  --info-3:      hsl(210, 50%, 14%);
+  --info-7:      hsl(210, 55%, 30%);
+  --info-9:      hsl(210, 72%, 55%);
+  --info-11:     hsl(210, 60%, 62%);
+
+  /* --- Reference: Chart Palette --- */
+  --chart-1:  hsl(210, 65%, 55%);    /* Blue      */
+  --chart-2:  hsl(142, 60%, 50%);    /* Green     */
+  --chart-3:  hsl(38, 85%, 55%);     /* Amber     */
+  --chart-4:  hsl(280, 55%, 60%);    /* Purple    */
+  --chart-5:  hsl(180, 55%, 50%);    /* Teal      */
+  --chart-6:  hsl(0, 60%, 55%);      /* Red       */
+  --chart-7:  hsl(320, 50%, 55%);    /* Pink      */
+  --chart-8:  hsl(60, 60%, 50%);     /* Yellow-green */
+
+  /* --- Reference: Block Category Colors --- */
+  --block-agent:      hsl(210, 50%, 58%);   /* Blue    */
+  --block-logic:      hsl(265, 45%, 60%);   /* Violet  */
+  --block-control:    hsl(175, 50%, 48%);   /* Teal    */
+  --block-utility:    hsl(330, 45%, 55%);   /* Pink    */
+  --block-custom:     hsl(40, 8%, 52%);     /* Warm gray */
+
+  /* --- Reference: YAML Syntax Colors --- */
+  --syntax-key:       hsl(38, 90%, 65%);
+  --syntax-string:    hsl(142, 60%, 62%);
+  --syntax-value:     hsl(210, 55%, 68%);
+  --syntax-comment:   var(--neutral-7);
+  --syntax-punct:     var(--neutral-8);
+
+
+  /* ========================================
+     SYSTEM TOKENS (semantic meaning)
+     ======================================== */
+
+  /* --- System: Surfaces --- */
+  --surface-primary:     var(--neutral-1);
+  --surface-secondary:   var(--neutral-2);
+  --surface-tertiary:    var(--neutral-3);
+  --surface-raised:      var(--neutral-3);
+  --surface-overlay:     var(--neutral-2);
+  --surface-sunken:      var(--neutral-1);
+  --surface-hover:       var(--neutral-4);
+  --surface-active:      var(--neutral-5);
+  --surface-selected:    var(--accent-3);
+
+  /* --- System: Text --- */
+  --text-heading:        var(--neutral-12);
+  --text-primary:        var(--neutral-11);
+  --text-secondary:      var(--neutral-10);
+  --text-muted:          var(--neutral-9);
+  --text-on-accent:      var(--neutral-1);
+  --text-accent:         var(--accent-11);
+  --text-success:        var(--success-11);
+  --text-warning:        var(--warning-11);
+  --text-danger:         var(--danger-11);
+  --text-info:           var(--info-11);
+
+  /* --- System: Borders --- */
+  --border-subtle:       var(--neutral-6);
+  --border-default:      var(--neutral-7);
+  --border-hover:        var(--neutral-8);
+  --border-accent:       var(--accent-7);
+  --border-focus:        var(--accent-9);
+  --border-danger:       var(--danger-7);
+  --border-success:      var(--success-7);
+  --border-warning:      var(--warning-7);
+  --border-info:         var(--info-7);
+
+  /* --- System: Interactive --- */
+  --interactive-default: var(--accent-9);
+  --interactive-hover:   var(--accent-10);
+  --interactive-active:  var(--accent-11);
+  --interactive-muted:   var(--accent-3);
+
+  /* --- System: Elevation --- */
+  --elevation-sunken-surface:  var(--neutral-1);
+  --elevation-sunken-shadow:   none;
+
+  --elevation-default-surface: var(--surface-primary);
+  --elevation-default-shadow:  none;
+
+  --elevation-raised-surface:  var(--surface-raised);
+  --elevation-raised-shadow:   0 1px 3px rgba(0,0,0,0.15),
+                               0 4px 8px rgba(0,0,0,0.12);
+
+  --elevation-overlay-surface: var(--surface-overlay);
+  --elevation-overlay-shadow:  0 4px 8px rgba(0,0,0,0.12),
+                               0 12px 24px rgba(0,0,0,0.15);
+
+  /* Dark mode elevation borders */
+  --elevation-border-subtle:  rgba(255, 255, 255, 0.06);
+  --elevation-border-default: rgba(255, 255, 255, 0.08);
+  --elevation-border-raised:  rgba(255, 255, 255, 0.1);
+  --elevation-border-top:     rgba(255, 255, 255, 0.12);
+
+
+  /* ========================================
+     REFERENCE TOKENS — TYPOGRAPHY
+     ======================================== */
+
+  /* --- Reference: Type Scale (px-based, base 14px) --- */
+  --font-size-2xs:  11px;
+  --font-size-xs:   12px;
+  --font-size-sm:   13px;
+  --font-size-md:   14px;
+  --font-size-lg:   16px;
+  --font-size-xl:   18px;
+  --font-size-2xl:  20px;
+  --font-size-3xl:  24px;
+
+  /* --- Reference: Line Height --- */
+  --line-height-tight:    1.2;
+  --line-height-snug:     1.333;
+  --line-height-normal:   1.429;
+  --line-height-relaxed:  1.5;
+  --line-height-loose:    1.625;
+
+  /* --- Reference: Font Weight --- */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  /* --- Reference: Letter Spacing --- */
+  --tracking-tighter:  -0.03em;
+  --tracking-tight:    -0.02em;
+  --tracking-normal:    0;
+  --tracking-slight:    0.02em;
+  --tracking-wide:      0.04em;
+  --tracking-wider:     0.08em;
+  --tracking-widest:    0.1em;
+
+
+  /* ========================================
+     REFERENCE TOKENS — SPACING
+     ======================================== */
+
+  /* --- Reference: Spacing Scale --- */
+  --space-0:    0px;
+  --space-px:   1px;
+  --space-0-5:  2px;
+  --space-1:    4px;
+  --space-1-5:  6px;
+  --space-2:    8px;
+  --space-2-5:  10px;
+  --space-3:    12px;
+  --space-4:    16px;
+  --space-5:    20px;
+  --space-6:    24px;
+  --space-7:    28px;
+  --space-8:    32px;
+  --space-9:    36px;
+  --space-10:   40px;
+  --space-11:   44px;
+  --space-12:   48px;
+
+  /* --- Reference: Negative Spacing Scale --- */
+  --space-neg-0-5: -2px;
+  --space-neg-1:   -4px;
+  --space-neg-2:   -8px;
+  --space-neg-3:   -12px;
+  --space-neg-4:   -16px;
+  --space-neg-6:   -24px;
+  --space-neg-8:   -32px;
+
+  /* --- System: Density Contexts --- */
+  --gap-condensed:      var(--space-2);
+  --gap-normal:         var(--space-4);
+  --gap-spacious:       var(--space-6);
+  --padding-condensed:  var(--space-2);
+  --padding-normal:     var(--space-4);
+  --padding-spacious:   var(--space-6);
+
+
+  /* ========================================
+     SYSTEM TOKENS — LAYOUT
+     ======================================== */
+
+  /* --- System: Z-Index --- */
+  --z-behind:    -1;
+  --z-base:       0;
+  --z-sticky:   100;
+  --z-dropdown: 200;
+  --z-overlay:  300;
+  --z-modal:    400;
+  --z-popover:  500;
+  --z-toast:    600;
+
+  /* --- System: Control Heights --- */
+  --control-height-xs:  24px;
+  --control-height-sm:  32px;
+  --control-height-md:  40px;
+  --control-height-lg:  48px;
+
+  /* --- System: Overlay Sizes --- */
+  --overlay-width-xs:   192px;
+  --overlay-width-sm:   320px;
+  --overlay-width-md:   480px;
+  --overlay-width-lg:   640px;
+  --overlay-width-xl:   960px;
+  --overlay-height-sm:  256px;
+  --overlay-height-md:  320px;
+  --overlay-height-lg:  432px;
+  --overlay-height-xl:  600px;
+
+  /* --- System: Panel Sizes --- */
+  --sidebar-width-collapsed:  48px;
+  --sidebar-width-expanded:   240px;
+  --sidebar-width-max:        320px;
+  --header-height:            40px;
+  --status-bar-height:        22px;
+  --inspector-width:          320px;
+  --inspector-width-min:      240px;
+  --inspector-width-max:      480px;
+
+
+  /* ========================================
+     REFERENCE TOKENS — BORDERS
+     ======================================== */
+
+  /* --- Reference: Border Width --- */
+  --border-width-0:     0px;
+  --border-width-hair:  0.5px;
+  --border-width-thin:  1px;
+  --border-width-thick: 2px;
+  --border-width-heavy: 4px;
+
+  /* --- Reference: Border Radius --- */
+  --radius-none:  0px;
+  --radius-xs:    2px;
+  --radius-sm:    3px;
+  --radius-md:    4px;
+  --radius-lg:    6px;
+  --radius-xl:    8px;
+  --radius-2xl:   12px;
+  --radius-full:  9999px;
+
+
+  /* ========================================
+     REFERENCE TOKENS — MOTION
+     ======================================== */
+
+  /* --- Reference: Duration --- */
+  --duration-0:       0ms;
+  --duration-50:      50ms;
+  --duration-100:     100ms;
+  --duration-150:     150ms;
+  --duration-200:     200ms;
+  --duration-300:     300ms;
+  --duration-400:     400ms;
+
+  /* --- Reference: Easing --- */
+  --ease-default:  cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:       cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out:   cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+
+
+  /* ========================================
+     REFERENCE TOKENS — ICONS
+     ======================================== */
+
+  --icon-size-xs:  12px;
+  --icon-size-sm:  14px;
+  --icon-size-md:  16px;
+  --icon-size-lg:  20px;
+  --icon-size-xl:  24px;
+
+
+  /* ========================================
+     SYSTEM TOKENS — FOCUS & ACCESSIBILITY
+     ======================================== */
+
+  accent-color: var(--interactive-default);
+
+  --focus-ring-width:   2px;
+  --focus-ring-offset:  2px;
+  --focus-ring-color:   var(--border-focus);
+
+  --selection-bg:       var(--accent-3);
+  --selection-text:     var(--text-heading);
+
+  --touch-target-min:   24px;
+  --touch-target-ideal: 44px;
+
+
+  /* ========================================
+     COMPONENT TOKENS — SIDEBAR
+     ======================================== */
+
+  --sidebar-bg:                var(--surface-secondary);
+  --sidebar-fg:                var(--text-primary);
+  --sidebar-border:            var(--border-subtle);
+  --sidebar-accent:            var(--interactive-default);
+  --sidebar-accent-fg:         var(--text-on-accent);
+  --sidebar-muted:             var(--text-muted);
+  --sidebar-hover:             var(--surface-hover);
+  --sidebar-active-indicator:  var(--interactive-default);
+}
+
+
+/* ========================================
+   DENSITY MODES
+   ======================================== */
+
+[data-density="compact"] {
+  --density-control-height:     24px;
+  --density-row-height:         28px;
+  --density-cell-padding-block: 4px;
+  --density-input-height:       24px;
+  --density-button-height:      24px;
+  --density-nav-item-height:    28px;
+}
+
+[data-density="default"],
+:root {
+  --density-control-height:     32px;
+  --density-row-height:         36px;
+  --density-cell-padding-block: 8px;
+  --density-input-height:       32px;
+  --density-button-height:      32px;
+  --density-nav-item-height:    32px;
+}
+
+[data-density="comfortable"] {
+  --density-control-height:     40px;
+  --density-row-height:         44px;
+  --density-cell-padding-block: 12px;
+  --density-input-height:       40px;
+  --density-button-height:      40px;
+  --density-nav-item-height:    40px;
+}
+
+
+/* ========================================
+   LIGHT THEME
+   Apply via data-theme="light" on <html>
+   ======================================== */
+
+[data-theme="light"] {
+  /* --- Neutral Scale (inverted) --- */
+  --neutral-1:   hsl(40, 15%, 97%);
+  --neutral-2:   hsl(40, 12%, 94%);
+  --neutral-3:   hsl(40, 10%, 90%);
+  --neutral-4:   hsl(40, 8%, 86%);
+  --neutral-5:   hsl(40, 7%, 82%);
+  --neutral-6:   hsl(40, 6%, 76%);
+  --neutral-7:   hsl(40, 5%, 68%);
+  --neutral-8:   hsl(40, 5%, 56%);
+  --neutral-9:   hsl(40, 4%, 46%);
+  --neutral-10:  hsl(40, 5%, 36%);
+  --neutral-11:  hsl(40, 7%, 22%);
+  --neutral-12:  hsl(40, 12%, 10%);
+
+  /* --- Accent adjusted for light bg contrast --- */
+  --accent-9:    hsl(38, 85%, 42%);
+  --accent-10:   hsl(38, 82%, 36%);
+  --accent-11:   hsl(38, 80%, 32%);
+  --text-on-accent: hsl(40, 15%, 97%);
+
+  /* --- Semantic hues adjusted for light mode --- */
+  --success-3:   hsl(142, 40%, 92%);
+  --success-9:   hsl(142, 65%, 35%);
+  --success-11:  hsl(142, 50%, 28%);
+
+  --warning-3:   hsl(38, 40%, 92%);
+  --warning-9:   hsl(38, 80%, 42%);
+  --warning-11:  hsl(42, 65%, 30%);
+
+  --danger-3:    hsl(0, 40%, 94%);
+  --danger-9:    hsl(0, 65%, 48%);
+  --danger-11:   hsl(0, 50%, 35%);
+
+  --info-3:      hsl(210, 40%, 93%);
+  --info-9:      hsl(210, 65%, 45%);
+  --info-11:     hsl(210, 50%, 30%);
+
+  /* --- Elevation borders for light mode --- */
+  --elevation-border-subtle:  rgba(0, 0, 0, 0.06);
+  --elevation-border-default: rgba(0, 0, 0, 0.08);
+  --elevation-border-raised:  rgba(0, 0, 0, 0.1);
+  --elevation-border-top:     rgba(0, 0, 0, 0.04);
+
+  /* --- Shadows adjusted for light mode --- */
+  --elevation-raised-shadow:  0 1px 2px rgba(0,0,0,0.06),
+                              0 2px 4px rgba(0,0,0,0.06);
+  --elevation-overlay-shadow: 0 4px 8px rgba(0,0,0,0.06),
+                              0 12px 24px rgba(0,0,0,0.08);
+}
+
+
+/* ========================================
+   GLOBAL STYLES
+   Wrapped in @layer base so Tailwind utilities can override.
+   The universal reset (box-sizing, margin, padding) is handled
+   by Tailwind's preflight — do NOT duplicate it here.
+   ======================================== */
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font-body);
+    font-size: var(--font-size-md);
+    line-height: var(--line-height-normal);
+    background: var(--surface-primary);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Skip link */
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 0;
+    z-index: var(--z-toast);
+    padding: var(--space-2) var(--space-4);
+    background: var(--interactive-default);
+    color: var(--text-on-accent);
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+  }
+  .skip-link:focus {
+    top: 0;
+  }
+
+  /* Focus ring */
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: var(--selection-bg);
+    color: var(--selection-text);
+  }
+
+  /* Scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-default) transparent;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--neutral-7);
+    border-radius: var(--radius-full);
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
+}
+
+
+/* ========================================
+   REDUCED MOTION
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  [style*="backdrop-filter"] {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+
+/* ========================================
+   KEYFRAME PRESETS
+   ======================================== */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(2deg); }
+}
+
+@keyframes progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+@keyframes node-pulse-glow {
+  /* Matches --accent-9: hsl(38, 92%, 55%) — update if accent changes */
+  0%, 100% { box-shadow: 0 0 0 0 hsla(38, 92%, 55%, 0); }
+  50% { box-shadow: 0 0 12px 2px hsla(38, 92%, 55%, 0.15); }
+}

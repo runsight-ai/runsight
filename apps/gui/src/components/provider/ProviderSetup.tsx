@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 import type { ReactNode } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@runsight/ui/input";
+import { Label } from "@runsight/ui/label";
+import { Switch } from "@runsight/ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@runsight/ui/select";
 import { useCreateProvider, useUpdateProvider, useTestProviderConnection } from "@/queries/settings";
 import { Check, Loader2, XCircle, Eye, EyeOff } from "lucide-react";
 

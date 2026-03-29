@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Button } from "@/components/ui/button";
+import { Button } from "@runsight/ui/button";
 import { ChevronRight } from "lucide-react";
 
 const RUNSIGHT_LOGO_SVG = (

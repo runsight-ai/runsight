@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
 import { useCreateSoul, useUpdateSoul } from "@/queries/souls";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { Button } from "@runsight/ui/button";
+import { Input } from "@runsight/ui/input";
+import { Textarea } from "@runsight/ui/textarea";
+import { Label } from "@runsight/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@runsight/ui/dialog";
 import { Plus, Pencil } from "lucide-react";
-import type { SoulResponse } from "@/types/generated/zod";
+import type { SoulResponse } from "@runsight/shared/zod";
 
 const AVAILABLE_MODELS = [
   { value: "gpt-4o", label: "GPT-4o" },

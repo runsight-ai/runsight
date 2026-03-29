@@ -4,15 +4,15 @@ import {
   useProviders,
   useUpdateModelDefault,
 } from "@/queries/settings";
-import { EmptyState } from "@/components/shared";
-import { Button } from "@/components/ui/button";
+import { EmptyState } from "@runsight/ui/empty-state";
+import { Button } from "@runsight/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@runsight/ui/select";
 import { Bot, Check, X, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import type { ModelDefault } from "@/api/settings";

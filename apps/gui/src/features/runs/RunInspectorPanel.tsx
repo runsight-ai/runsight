@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Node } from "@xyflow/react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@runsight/ui/button";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { cn } from "@/utils/helpers";
 import { formatDuration } from "@/utils/formatting";

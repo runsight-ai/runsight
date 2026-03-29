@@ -1,9 +1,9 @@
 import { useSteps, useCreateStep, useUpdateStep, useDeleteStep } from "@/queries/steps";
 import { CrudListPage, type CrudListPageConfig } from "@/components/shared/CrudListPage";
 import { type Column } from "@/components/shared/DataTable";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@runsight/ui/badge";
 import { Footprints } from "lucide-react";
-import type { StepResponse } from "@/types/generated/zod";
+import type { StepResponse } from "@runsight/shared/zod";
 import { truncateText } from "@/utils/formatting";
 import { NewStepModal, EditStepModal } from "./StepModals";
 

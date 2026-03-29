@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "./keys";
 import { api } from "../api/client";
-import type { DashboardKPIsResponse } from "../types/generated/zod";
-import type { RunResponse } from "../types/generated/zod";
+import type { DashboardKPIsResponse } from "@runsight/shared/zod";
+import type { RunResponse } from "@runsight/shared/zod";
 import {
   DashboardKPIsResponseSchema,
   AttentionItemsResponseSchema,
-} from "../types/generated/zod";
-import type { AttentionItemsResponse } from "../types/generated/zod";
+} from "@runsight/shared/zod";
+import type { AttentionItemsResponse } from "@runsight/shared/zod";
 
 export function useDashboardKPIs() {
   return useQuery({

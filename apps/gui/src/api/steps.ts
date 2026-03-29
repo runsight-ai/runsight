@@ -6,7 +6,7 @@ import {
   StepListResponseSchema,
   StepCreate,
   StepUpdate,
-} from "../types/generated/zod";
+} from "@runsight/shared/zod";
 
 export const stepsApi = {
   listSteps: async (params?: Record<string, string>): Promise<StepListResponse> => {

@@ -8,7 +8,7 @@ import {
   type CommitResponse,
   type DiffResponse,
   type CommitEntry,
-} from "../types/generated/zod";
+} from "@runsight/shared/zod";
 import { z } from "zod";
 
 /** Re-export api client type for consumers that need it. */

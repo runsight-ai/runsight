@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -28,13 +28,13 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const SRC_DIR = resolve(__dirname, "../../..");
+const SHARED_ZOD_PATH = resolve(
+  __dirname,
+  "../../../../../../packages/shared/src/zod.ts",
+);
 
 function readSource(relativePath: string): string {
   return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
-}
-
-function fileExists(relativePath: string): boolean {
-  return existsSync(resolve(SRC_DIR, relativePath));
 }
 
 // ---------------------------------------------------------------------------
@@ -45,7 +45,6 @@ const DASHBOARD_PATH = "features/dashboard/DashboardOrOnboarding.tsx";
 const QUERIES_DASHBOARD_PATH = "queries/dashboard.ts";
 const API_DASHBOARD_PATH = "api/dashboard.ts";
 const QUERY_KEYS_PATH = "queries/keys.ts";
-const GENERATED_ZOD_PATH = "types/generated/zod.ts";
 
 // ===========================================================================
 // 1. "ATTENTION" section label (AC1)
@@ -319,7 +318,7 @@ describe("API layer and Zod schema for attention items", () => {
   });
 
   it("generated zod.ts exports AttentionItemsResponseSchema", () => {
-    const source = readSource(GENERATED_ZOD_PATH);
+    const source = readFileSync(SHARED_ZOD_PATH, "utf-8");
     expect(source).toMatch(/AttentionItem/);
   });
 });

@@ -1,14 +1,14 @@
 import { Workflow, User } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@runsight/ui/card";
+import { Input } from "@runsight/ui/input";
+import { Textarea } from "@runsight/ui/textarea";
+import { Label } from "@runsight/ui/label";
+import { Switch } from "@runsight/ui/switch";
+import { Button } from "@runsight/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@runsight/ui/select";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { NodeBadge } from "@/components/shared/NodeBadge";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState } from "@runsight/ui/empty-state";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 
 const tableColumns: Column[] = [

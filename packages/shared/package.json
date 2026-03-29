@@ -1,0 +1,26 @@
+{
+  "name": "@runsight/shared",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api.ts",
+    "./zod": "./src/zod.ts"
+  },
+  "scripts": {
+    "generate:types": "bash ../../tools/generate-types.sh",
+    "check:types-fresh": "bash ../../tools/check-types-fresh.sh",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5",
+    "vitest": "^3.2.4"
+  }
+}

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { workflowsApi } from "../api/workflows";
 import { queryKeys } from "./keys";
-import { WorkflowCreate, WorkflowUpdate } from "../types/generated/zod";
+import { WorkflowCreate, WorkflowUpdate } from "@runsight/shared/zod";
 
 export function useWorkflows() {
   return useQuery({

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@runsight/ui/tabs";
+import { Button } from "@runsight/ui/button";
 import { RunButton } from "./RunButton";
 import { ExecutionMetrics } from "./ExecutionMetrics";
 import { useCanvasStore } from "@/store/canvas";

@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -28,13 +28,13 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const SRC_DIR = resolve(__dirname, "../../..");
+const SHARED_ZOD_PATH = resolve(
+  __dirname,
+  "../../../../../../packages/shared/src/zod.ts",
+);
 
 function readSource(relativePath: string): string {
   return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
-}
-
-function fileExists(relativePath: string): boolean {
-  return existsSync(resolve(SRC_DIR, relativePath));
 }
 
 // ---------------------------------------------------------------------------
@@ -44,7 +44,6 @@ function fileExists(relativePath: string): boolean {
 const DASHBOARD_PATH = "features/dashboard/DashboardOrOnboarding.tsx";
 const QUERIES_DASHBOARD_PATH = "queries/dashboard.ts";
 const API_DASHBOARD_PATH = "api/dashboard.ts";
-const GENERATED_ZOD_PATH = "types/generated/zod.ts";
 const QUERY_KEYS_PATH = "queries/keys.ts";
 
 // ===========================================================================
@@ -159,33 +158,33 @@ describe('Null eval fields display as "—" (AC4)', () => {
 
 describe("Uses generated Zod schema DashboardKPIsResponseSchema (AC5)", () => {
   it("generated/zod.ts exports DashboardKPIsResponseSchema", () => {
-    const source = readSource(GENERATED_ZOD_PATH);
+    const source = readFileSync(SHARED_ZOD_PATH, "utf-8");
     expect(source).toMatch(/export\s+(const|type)\s+DashboardKPIsResponseSchema/);
   });
 
   it("DashboardKPIsResponseSchema has runs_today field", () => {
-    const source = readSource(GENERATED_ZOD_PATH);
+    const source = readFileSync(SHARED_ZOD_PATH, "utf-8");
     // The schema should contain runs_today as a z.number() field
     expect(source).toMatch(/runs_today:\s*z\.number\(\)/);
   });
 
   it("DashboardKPIsResponseSchema has cost_today_usd field", () => {
-    const source = readSource(GENERATED_ZOD_PATH);
+    const source = readFileSync(SHARED_ZOD_PATH, "utf-8");
     expect(source).toMatch(/cost_today_usd:\s*z\.number\(\)/);
   });
 
   it("DashboardKPIsResponseSchema has eval_pass_rate nullable field", () => {
-    const source = readSource(GENERATED_ZOD_PATH);
+    const source = readFileSync(SHARED_ZOD_PATH, "utf-8");
     expect(source).toMatch(/eval_pass_rate:\s*z\.number\(\)\.nullable\(\)/);
   });
 
   it("DashboardKPIsResponseSchema has regressions nullable field", () => {
-    const source = readSource(GENERATED_ZOD_PATH);
+    const source = readFileSync(SHARED_ZOD_PATH, "utf-8");
     expect(source).toMatch(/regressions:\s*z\.number\(\)\.nullable\(\)/);
   });
 
   it("DashboardKPIsResponseSchema has period_hours with default 24", () => {
-    const source = readSource(GENERATED_ZOD_PATH);
+    const source = readFileSync(SHARED_ZOD_PATH, "utf-8");
     expect(source).toMatch(/period_hours:\s*z\.number\(\).*\.default\(24\)/);
   });
 
@@ -200,7 +199,7 @@ describe("Uses generated Zod schema DashboardKPIsResponseSchema (AC5)", () => {
   });
 
   it("old DashboardResponseSchema is removed from generated/zod.ts", () => {
-    const source = readSource(GENERATED_ZOD_PATH);
+    const source = readFileSync(SHARED_ZOD_PATH, "utf-8");
     expect(source).not.toMatch(/export\s+const\s+DashboardResponseSchema/);
   });
 });

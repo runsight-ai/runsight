@@ -7,7 +7,7 @@ import {
   ChevronLeft,
   User,
 } from "lucide-react";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@runsight/ui/tooltip";
 import { useSouls } from "@/queries/souls";
 
 const BLOCK_TYPES = [

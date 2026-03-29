@@ -5,7 +5,7 @@ import { RouterProvider } from "react-router";
 import { Toaster } from "sonner";
 import { router } from "@/routes";
 import { AppErrorBoundary } from "@/components/shared/ErrorBoundary";
-import "@/styles/globals.css";
+import "@runsight/ui/styles.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {

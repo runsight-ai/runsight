@@ -6,8 +6,8 @@ import {
   useUpdateProvider,
 } from "@/queries/settings";
 import { StatusBadge } from "@/components/shared";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@runsight/ui/button";
+import { Switch } from "@runsight/ui/switch";
 import {
   Plus,
   Pencil,

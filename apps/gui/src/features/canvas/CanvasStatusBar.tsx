@@ -1,4 +1,4 @@
-import { StatusDot } from "@/components/ui/status-dot";
+import { StatusDot } from "@runsight/ui/status-dot";
 import { useProviders } from "@/queries/settings";
 
 interface CanvasStatusBarProps {

@@ -1,9 +1,9 @@
 import { useSouls, useCreateSoul, useUpdateSoul, useDeleteSoul } from "@/queries/souls";
 import { CrudListPage, type CrudListPageConfig } from "@/components/shared/CrudListPage";
 import { type Column } from "@/components/shared/DataTable";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@runsight/ui/badge";
 import { Sparkles } from "lucide-react";
-import type { SoulResponse } from "@/types/generated/zod";
+import type { SoulResponse } from "@runsight/shared/zod";
 import { truncateText } from "@/utils/formatting";
 import { NewSoulModal, EditSoulModal } from "./SoulModals";
 

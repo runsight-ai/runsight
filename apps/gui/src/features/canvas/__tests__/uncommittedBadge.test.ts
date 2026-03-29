@@ -176,9 +176,9 @@ describe("CommitDialog uses Dialog from component library (AC6)", () => {
     expect(source).toMatch(/export\s+(function|const)\s+CommitDialog/);
   });
 
-  it("imports Dialog components from @/components/ui/dialog", () => {
+  it("imports Dialog components from @runsight/ui/dialog", () => {
     const source = readSource(COMMIT_DIALOG_PATH);
-    expect(source).toMatch(/import\s+\{[^}]*Dialog[^}]*\}\s+from\s+["']@\/components\/ui\/dialog["']/);
+    expect(source).toMatch(/import\s+\{[^}]*Dialog[^}]*\}\s+from\s+["']@runsight\/ui\/dialog["']/);
   });
 
   it("uses Dialog, DialogContent, DialogTitle in JSX", () => {

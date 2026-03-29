@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@runsight/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
 import { useCreateRun, useCancelRun, useRun } from "@/queries/runs";
 import { useProviders } from "@/queries/settings";
 import { useCanvasStore } from "@/store/canvas";

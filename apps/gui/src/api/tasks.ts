@@ -6,7 +6,7 @@ import {
   TaskListResponseSchema,
   TaskCreate,
   TaskUpdate,
-} from "../types/generated/zod";
+} from "@runsight/shared/zod";
 
 export const tasksApi = {
   listTasks: async (params?: Record<string, string>): Promise<TaskListResponse> => {
