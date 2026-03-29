@@ -5,6 +5,7 @@ import { CanvasTopbar } from "./CanvasTopbar";
 import { UncommittedBanner } from "./UncommittedBanner";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { CanvasBottomPanel } from "./CanvasBottomPanel";
+import { FirstTimeTooltip } from "./FirstTimeTooltip";
 import { PaletteSidebar } from "./PaletteSidebar";
 import { ExploreBanner } from "./ExploreBanner";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -81,6 +82,7 @@ export function Component() {
         )}
       </div>
 
+      <FirstTimeTooltip />
       <CanvasBottomPanel />
       <CanvasStatusBar activeTab={activeTab} />
 
