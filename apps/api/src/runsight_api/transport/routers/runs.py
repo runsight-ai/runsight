@@ -42,6 +42,9 @@ async def create_run(
         total_cost_usd=run.total_cost_usd,
         total_tokens=run.total_tokens,
         created_at=run.created_at,
+        branch=run.branch,
+        source=run.source,
+        commit_sha=run.commit_sha,
         node_summary=NodeSummary(total=0, completed=0, running=0, pending=0, failed=0),
     )
 
@@ -103,6 +106,9 @@ async def list_runs(
                 total_cost_usd=summaries.get("total_cost_usd", 0.0),
                 total_tokens=summaries.get("total_tokens", 0),
                 created_at=run.created_at,
+                branch=run.branch,
+                source=run.source,
+                commit_sha=run.commit_sha,
                 node_summary=NodeSummary(
                     total=summaries.get("total", 0),
                     completed=summaries.get("completed", 0),
@@ -135,6 +141,9 @@ async def get_run(run_id: str, run_service: RunService = Depends(get_run_service
         total_cost_usd=summaries["total_cost_usd"],
         total_tokens=summaries["total_tokens"],
         created_at=run.created_at,
+        branch=run.branch,
+        source=run.source,
+        commit_sha=run.commit_sha,
         node_summary=NodeSummary(
             total=summaries["total"],
             completed=summaries["completed"],
