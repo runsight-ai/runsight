@@ -13,11 +13,41 @@ import {
   CancelRunResponse,
 } from "../types/generated/zod";
 
+/** Map frontend shorthand status values to actual RunStatus enum values. */
+const STATUS_ALIASES: Record<string, string[]> = {
+  active: ["running", "pending"],
+};
+
+function buildQueryString(params: Record<string, string> | URLSearchParams): string {
+  if (params instanceof URLSearchParams) {
+    return params.toString();
+  }
+
+  const sp = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (key === "status") {
+      // Resolve aliases (e.g. "active" → ["running", "pending"])
+      if (value in STATUS_ALIASES) {
+        for (const v of STATUS_ALIASES[value]) {
+          sp.append(key, v);
+        }
+        continue;
+      }
+      // Split comma-separated values (e.g. "completed,failed" → two params)
+      const parts = value.split(",");
+      for (const part of parts) {
+        sp.append(key, part);
+      }
+    } else {
+      sp.append(key, value);
+    }
+  }
+  return sp.toString();
+}
+
 export const runsApi = {
   listRuns: async (params?: Record<string, string> | URLSearchParams): Promise<RunListResponse> => {
-    const qs = params
-      ? `?${params instanceof URLSearchParams ? params.toString() : new URLSearchParams(params).toString()}`
-      : "";
+    const qs = params ? `?${buildQueryString(params)}` : "";
     const res = await api.get(`/runs${qs}`);
     return RunListResponseSchema.parse(res);
   },
