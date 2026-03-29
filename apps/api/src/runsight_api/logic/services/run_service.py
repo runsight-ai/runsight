@@ -26,10 +26,16 @@ class RunService:
         return self.run_repo.list_runs()
 
     def list_runs_paginated(
-        self, offset: int, limit: int, status: Optional[List[str]] = None
+        self,
+        offset: int,
+        limit: int,
+        status: Optional[List[str]] = None,
+        workflow_id: Optional[str] = None,
     ) -> Tuple[List[Run], int]:
         """Return a page of runs and total count via SQL pagination."""
-        return self.run_repo.list_runs_paginated(offset, limit, status=status)
+        return self.run_repo.list_runs_paginated(
+            offset, limit, status=status, workflow_id=workflow_id
+        )
 
     def get_run_nodes(self, run_id: str) -> List[RunNode]:
         return self.run_repo.list_nodes_for_run(run_id)

@@ -23,7 +23,11 @@ class RunRepository:
         return list(self.session.exec(statement).all())
 
     def list_runs_paginated(
-        self, offset: int, limit: int, status: list[str] | None = None
+        self,
+        offset: int,
+        limit: int,
+        status: list[str] | None = None,
+        workflow_id: str | None = None,
     ) -> tuple:
         """Return a page of runs and the total count using SQL LIMIT/OFFSET."""
         count_statement = select(func.count()).select_from(Run)
@@ -32,6 +36,10 @@ class RunRepository:
         if status:
             count_statement = count_statement.where(Run.status.in_(status))
             statement = statement.where(Run.status.in_(status))
+
+        if workflow_id:
+            count_statement = count_statement.where(Run.workflow_id == workflow_id)
+            statement = statement.where(Run.workflow_id == workflow_id)
 
         total = self.session.exec(count_statement).one()
         items = list(self.session.exec(statement.offset(offset).limit(limit)).all())
