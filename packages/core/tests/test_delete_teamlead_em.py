@@ -268,35 +268,6 @@ class TestYamlValidationErrors:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestBuiltInSoulsCleanup:
-    """The engineering_manager entry must be removed from BUILT_IN_SOULS in parser.py."""
-
-    def test_engineering_manager_not_in_built_in_souls(self):
-        """'engineering_manager' must not be a key in BUILT_IN_SOULS."""
-        from runsight_core.yaml.parser import BUILT_IN_SOULS
-
-        assert "engineering_manager" not in BUILT_IN_SOULS, (
-            "'engineering_manager' is still in BUILT_IN_SOULS — it must be removed"
-        )
-
-    def test_built_in_souls_still_has_other_entries(self):
-        """Other BUILT_IN_SOULS entries (researcher, reviewer, etc.) must remain."""
-        from runsight_core.yaml.parser import BUILT_IN_SOULS
-
-        expected_remaining = {
-            "researcher",
-            "reviewer",
-            "coder",
-            "architect",
-            "synthesizer",
-            "generalist",
-        }
-        for soul_key in expected_remaining:
-            assert soul_key in BUILT_IN_SOULS, (
-                f"'{soul_key}' was accidentally removed from BUILT_IN_SOULS"
-            )
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # 7. test_advanced_blocks.py deleted
 # ═══════════════════════════════════════════════════════════════════════════════

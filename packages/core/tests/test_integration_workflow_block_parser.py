@@ -34,6 +34,11 @@ class TestParserIntegration:
         """Ensure existing workflow parsing still works without workflow blocks."""
         yaml_def = """
 version: "1.0"
+souls:
+  researcher:
+    id: researcher_1
+    role: Senior Researcher
+    system_prompt: You research topics.
 workflow:
   name: simple_wf
   entry: research

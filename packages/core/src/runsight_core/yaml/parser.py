@@ -1,6 +1,6 @@
 """
 YAML workflow parser for Runsight.
-Exports: parse_workflow_yaml, parse_task_yaml, BUILT_IN_SOULS
+Exports: parse_workflow_yaml, parse_task_yaml
 """
 
 from __future__ import annotations
@@ -33,58 +33,6 @@ from runsight_core.yaml.schema import (
 # 1. Add the new version string here.
 # 2. Gate migration logic on ``file_def.version`` before the block-building loop.
 SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
-
-
-BUILT_IN_SOULS: Dict[str, Soul] = {
-    "researcher": Soul(
-        id="researcher_1",
-        role="Senior Researcher",
-        system_prompt=(
-            "You are an expert researcher. Provide concise, structured summaries "
-            "backed by evidence. Cite sources where possible."
-        ),
-    ),
-    "reviewer": Soul(
-        id="reviewer_1",
-        role="Peer Reviewer",
-        system_prompt=(
-            "You are a strict peer reviewer. Evaluate submissions critically "
-            "and provide actionable, specific feedback."
-        ),
-    ),
-    "coder": Soul(
-        id="coder_1",
-        role="Software Engineer",
-        system_prompt=(
-            "You are a skilled software engineer. Write clean, well-documented, "
-            "tested code. Follow language idioms and best practices."
-        ),
-    ),
-    "architect": Soul(
-        id="architect_1",
-        role="Systems Architect",
-        system_prompt=(
-            "You are a systems architect. Design robust, scalable, maintainable "
-            "architectures. Make trade-offs explicit."
-        ),
-    ),
-    "synthesizer": Soul(
-        id="synthesizer_1",
-        role="Synthesis Agent",
-        system_prompt=(
-            "You synthesize multiple inputs into coherent, unified outputs. "
-            "Identify common themes, resolve conflicts, and produce comprehensive summaries."
-        ),
-    ),
-    "generalist": Soul(
-        id="generalist_1",
-        role="General-purpose Assistant",
-        system_prompt=(
-            "You are a general-purpose assistant. Handle diverse tasks with "
-            "clarity, precision, and thoughtfulness."
-        ),
-    ),
-}
 
 
 def _resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
@@ -188,8 +136,8 @@ def parse_workflow_yaml(
             f"please upgrade runsight-core to a compatible release."
         )
 
-    # Step 3: Merge souls — YAML-defined souls override built-ins by key
-    souls_map: Dict[str, Soul] = dict(BUILT_IN_SOULS)  # start with built-ins
+    # Step 3: Build souls map from YAML-defined souls
+    souls_map: Dict[str, Soul] = {}
     for key, soul_def in file_def.souls.items():
         souls_map[key] = Soul(
             id=soul_def.id,

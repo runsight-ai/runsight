@@ -16,6 +16,14 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
+_RESEARCHER_SOUL = {
+    "researcher": {
+        "id": "researcher_1",
+        "role": "Senior Researcher",
+        "system_prompt": "You research topics.",
+    }
+}
+
 
 class TestParseWorkflowBlock:
     """Tests for parsing workflow blocks from YAML."""
@@ -33,6 +41,7 @@ class TestParseWorkflowBlock:
         # Create and register child workflow
         child_yaml_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "child_step": {
                     "type": "linear",
@@ -54,6 +63,7 @@ class TestParseWorkflowBlock:
         # Create parent YAML with workflow block
         parent_yaml_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "invoke_child": {
                     "type": "workflow",
@@ -138,6 +148,7 @@ class TestParseWorkflowBlock:
         # Create and register child workflow
         child_yaml_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "child_step": {
                     "type": "linear",
@@ -187,6 +198,7 @@ class TestParseWorkflowBlock:
         # Create and register child workflow
         child_yaml_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "child_step": {
                     "type": "linear",
@@ -237,6 +249,7 @@ class TestParseWorkflowBlock:
         # Create and register child workflow
         child_yaml_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "child_step": {
                     "type": "linear",
@@ -286,6 +299,7 @@ class TestParseWorkflowBlock:
         # Create simple workflow without workflow blocks
         yaml_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "step1": {
                     "type": "linear",

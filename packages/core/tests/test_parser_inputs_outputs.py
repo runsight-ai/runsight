@@ -28,6 +28,22 @@ from runsight_core.yaml import parser as parser_module
 from runsight_core.yaml.parser import parse_workflow_yaml
 
 # ---------------------------------------------------------------------------
+# Shared soul definitions for YAML fixtures
+# ---------------------------------------------------------------------------
+
+SOULS_YAML = """
+souls:
+  researcher:
+    id: researcher_1
+    role: Senior Researcher
+    system_prompt: You research topics.
+  reviewer:
+    id: reviewer_1
+    role: Peer Reviewer
+    system_prompt: You review topics.
+"""
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -58,8 +74,9 @@ class TestInputParsing:
 
     def test_parse_inputs_basic(self):
         """YAML with inputs.from reference parses without error."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   step_a:
     type: linear
@@ -97,8 +114,9 @@ workflow:
 
     def test_parse_inputs_invalid_block_ref(self):
         """inputs.from referencing nonexistent block raises ValueError with clear message."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   step_a:
     type: linear
@@ -123,8 +141,9 @@ workflow:
 
     def test_parse_inputs_self_reference(self):
         """inputs.from referencing self (same block) raises ValueError for circular dependency."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   step_b:
     type: linear
@@ -144,8 +163,9 @@ workflow:
 
     def test_parse_inputs_circular_dependency(self):
         """A inputs from B, B inputs from A raises ValueError for circular dependency."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   step_a:
     type: linear
@@ -173,8 +193,9 @@ workflow:
 
     def test_parse_inputs_circular_dependency_three_nodes(self):
         """A->B->C->A circular input dependency chain raises ValueError."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   step_a:
     type: linear
@@ -210,8 +231,9 @@ workflow:
 
     def test_parse_inputs_multiple_inputs(self):
         """Block with multiple input references parses all correctly."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   step_a:
     type: linear
@@ -245,8 +267,9 @@ workflow:
 
     def test_parse_inputs_no_inputs(self):
         """Block without inputs field works fine (backward compatible)."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   step_a:
     type: linear
@@ -272,8 +295,9 @@ class TestOutputDeclarations:
 
     def test_parse_outputs_basic(self):
         """Block with outputs declaration (typed output schema) parses correctly."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   evaluator:
     type: linear
@@ -293,8 +317,9 @@ workflow:
 
     def test_parse_outputs_none(self):
         """Block without outputs field works fine (backward compatible)."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   step_a:
     type: linear
@@ -320,8 +345,9 @@ class TestOutputConditionsWiring:
 
     def test_parse_output_conditions_wired_to_workflow(self):
         """output_conditions in YAML populates workflow._output_conditions for the block."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   evaluator:
     type: linear
@@ -351,8 +377,9 @@ workflow:
 
     def test_parse_output_conditions_with_conditional_transition(self):
         """output_conditions on block + conditional_transition from that block both work together."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   evaluator:
     type: linear
@@ -395,8 +422,9 @@ workflow:
 
     def test_parse_output_conditions_empty(self):
         """Block without output_conditions has no entry in workflow._output_conditions."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   step_a:
     type: linear
@@ -519,8 +547,9 @@ class TestParserWiresInputsToStep:
 
     def test_parser_creates_step_with_declared_inputs(self):
         """When block has inputs, parser creates Step with declared_inputs populated."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   step_a:
     type: linear
@@ -563,8 +592,9 @@ workflow:
     @pytest.mark.asyncio
     async def test_parser_full_round_trip(self):
         """Complete YAML with inputs + output_conditions + transitions parses and validates."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   research:
     type: linear
@@ -653,8 +683,9 @@ class TestBuilderSimplification:
         # inputs with wrong structure — missing 'from' key inside InputRef.
         # After RUN-112 changes BlockDef.inputs to Dict[str, InputRef],
         # this should be caught by schema (InputRef validation), not builder.
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
+{SOULS_YAML}
 blocks:
   step_a:
     type: linear
