@@ -1,6 +1,7 @@
 """SSE streaming endpoint for real-time run execution events."""
 
 import json
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -12,6 +13,7 @@ from ...logic.services.execution_service import ExecutionService
 from ...domain.errors import RunNotFound, ServiceUnavailable
 
 router = APIRouter(prefix="/runs", tags=["SSE Stream"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/{run_id}/stream")
@@ -38,7 +40,7 @@ async def stream_run_events(
                     data = {"message": log.message}
                 yield f"event:replay\ndata:{json.dumps(data)}\n\n"
         except Exception:
-            pass
+            logger.warning("SSE replay failed", exc_info=True)
 
         async for event in execution_service.subscribe_stream(run_id):
             event_type = event["event"]
