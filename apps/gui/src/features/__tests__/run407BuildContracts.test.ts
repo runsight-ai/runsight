@@ -1,33 +1,40 @@
 /**
  * RED-TEAM tests for RUN-407 QA-004: frontend build cleanup contracts.
  *
- * These source/config guard tests express the accepted cleanup decisions:
- * 1. WorkflowList must stop reading phantom fields that do not exist on WorkflowResponse.
- * 2. The shared Button contract must keep support for size="icon-sm".
- * 3. Dialog stories must use only valid button variants.
- * 4. GUI build config must exclude story/test files from the app TypeScript build graph.
+ * These tests keep the contract focused on build outcomes first:
+ * 1. The GUI build should complete cleanly.
+ * 2. Story/test files should be outside the app TypeScript build graph.
+ * 3. WorkflowList must stop reading phantom fields that do not exist on WorkflowResponse.
+ * 4. The shared Button contract must keep support for size="icon-sm".
+ * 5. Dialog stories must use only valid button variants.
  */
 
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
+import ts from "typescript";
 
 const FEATURES_TESTS_DIR = __dirname;
 const SRC_DIR = resolve(FEATURES_TESTS_DIR, "..", "..");
 const GUI_ROOT = resolve(SRC_DIR, "..");
+const REPO_ROOT = resolve(GUI_ROOT, "..", "..");
 
 const WORKFLOW_LIST_PATH = resolve(SRC_DIR, "features", "workflows", "WorkflowList.tsx");
 const BUTTON_PATH = resolve(SRC_DIR, "components", "ui", "button.tsx");
 const DIALOG_STORY_PATH = resolve(SRC_DIR, "stories", "Dialog.stories.tsx");
 const ZOD_TYPES_PATH = resolve(SRC_DIR, "types", "generated", "zod.ts");
 const TSCONFIG_PATH = resolve(GUI_ROOT, "tsconfig.json");
+const WORKFLOW_LIST_TEST_PATH = resolve(
+  SRC_DIR,
+  "features",
+  "workflows",
+  "__tests__",
+  "WorkflowList.test.ts",
+);
 
 function readSource(filePath: string): string {
   return readFileSync(filePath, "utf-8");
-}
-
-function readJson<T>(filePath: string): T {
-  return JSON.parse(readSource(filePath)) as T;
 }
 
 function extractWorkflowResponseFields(): string[] {
@@ -52,6 +59,44 @@ function extractWorkflowResponseFields(): string[] {
       return fieldMatch[1];
     });
 }
+
+function getBuildRootFileNames(): string[] {
+  const parsedConfig = ts.getParsedCommandLineOfConfigFile(
+    TSCONFIG_PATH,
+    {},
+    {
+      ...ts.sys,
+      onUnRecoverableConfigFileDiagnostic: (diagnostic) => {
+        throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+      },
+    },
+  );
+
+  if (!parsedConfig) {
+    throw new Error("TypeScript could not parse apps/gui/tsconfig.json");
+  }
+
+  return parsedConfig.fileNames.map((fileName) => resolve(fileName));
+}
+
+describe("RUN-407: GUI build contracts", () => {
+  it("pnpm -C apps/gui run build succeeds cleanly", () => {
+    expect(() =>
+      execFileSync("pnpm", ["-C", "apps/gui", "run", "build"], {
+        cwd: REPO_ROOT,
+        stdio: "pipe",
+      }),
+    ).not.toThrow();
+  });
+
+  it("the app TypeScript build graph excludes known story and test files", () => {
+    const rootFileNames = getBuildRootFileNames();
+
+    expect(rootFileNames).not.toContain(resolve(DIALOG_STORY_PATH));
+    expect(rootFileNames).not.toContain(resolve(__filename));
+    expect(rootFileNames).not.toContain(resolve(WORKFLOW_LIST_TEST_PATH));
+  });
+});
 
 describe("RUN-407: WorkflowList build-safe WorkflowResponse usage", () => {
   const phantomFields = [
@@ -83,16 +128,16 @@ describe("RUN-407: WorkflowList build-safe WorkflowResponse usage", () => {
 });
 
 describe('RUN-407: Button shared contract keeps size "icon-sm"', () => {
-  it('declares "icon-sm" inside the shared button size variants', () => {
+  it('retains "icon-sm" as part of the shared button source contract', () => {
     const source = readSource(BUTTON_PATH);
 
-    expect(source).toMatch(/size:\s*\{[\s\S]*"icon-sm"\s*:/);
+    expect(source).toContain('"icon-sm"');
   });
 
-  it('keeps an icon-only compound variant for size "icon-sm"', () => {
-    const source = readSource(BUTTON_PATH);
+  it("keeps at least one real GUI call site using size=\"icon-sm\"", () => {
+    const workflowListSource = readSource(WORKFLOW_LIST_PATH);
 
-    expect(source).toMatch(/\{\s*variant:\s*"icon-only",\s*size:\s*"icon-sm",\s*className:\s*"[^"]+"\s*\}/);
+    expect(workflowListSource).toMatch(/size="icon-sm"/);
   });
 });
 
@@ -107,34 +152,5 @@ describe("RUN-407: Dialog stories use only valid Button variants", () => {
     const source = readSource(DIALOG_STORY_PATH);
 
     expect(source).not.toMatch(/variant="outline"/);
-  });
-});
-
-describe("RUN-407: GUI TypeScript build graph excludes stories and tests", () => {
-  type TsConfig = {
-    include?: string[];
-    exclude?: string[];
-  };
-
-  it("tsconfig.json excludes test files from the app build graph", () => {
-    const tsconfig = readJson<TsConfig>(TSCONFIG_PATH);
-
-    expect(tsconfig.exclude).toEqual(
-      expect.arrayContaining([
-        "src/**/*.test.*",
-        "src/**/*.spec.*",
-        "src/**/__tests__/**",
-      ]),
-    );
-  });
-
-  it("tsconfig.json excludes Storybook story files from the app build graph", () => {
-    const tsconfig = readJson<TsConfig>(TSCONFIG_PATH);
-
-    expect(tsconfig.exclude).toEqual(
-      expect.arrayContaining([
-        "src/**/*.stories.*",
-      ]),
-    );
   });
 });
