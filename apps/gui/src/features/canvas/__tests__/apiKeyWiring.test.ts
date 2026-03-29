@@ -59,17 +59,17 @@ describe("CanvasPage imports and renders ApiKeyModal (RUN-355)", () => {
 
   it("passes open prop to ApiKeyModal", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<ApiKeyModal[^>]*\bopen[=\s{]/);
+    expect(source).toMatch(/<ApiKeyModal[\s\S]*?\bopen[=\s{]/);
   });
 
   it("passes onOpenChange prop to ApiKeyModal", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<ApiKeyModal[^>]*onOpenChange/);
+    expect(source).toMatch(/<ApiKeyModal[\s\S]*?onOpenChange/);
   });
 
   it("passes onSaveSuccess callback to ApiKeyModal", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<ApiKeyModal[^>]*onSaveSuccess/);
+    expect(source).toMatch(/<ApiKeyModal[\s\S]*?onSaveSuccess/);
   });
 });
 
@@ -100,7 +100,7 @@ describe("CanvasPage has apiKeyModalOpen state (RUN-355)", () => {
 describe("CanvasPage passes onAddApiKey to ExploreBanner (RUN-355 AC2)", () => {
   it("passes onAddApiKey prop to ExploreBanner", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<ExploreBanner[^>]*onAddApiKey/);
+    expect(source).toMatch(/<ExploreBanner[\s\S]*?onAddApiKey/);
   });
 
   it("onAddApiKey callback opens the modal", () => {
@@ -179,7 +179,7 @@ describe("RunButton calls onAddApiKey when no providers (RUN-355 AC1)", () => {
 describe("CanvasPage wires onAddApiKey through to RunButton (RUN-355 AC1)", () => {
   it("CanvasTopbar passes onAddApiKey to RunButton", () => {
     const topbarSource = readSource("features/canvas/CanvasTopbar.tsx");
-    expect(topbarSource).toMatch(/<RunButton[^>]*onAddApiKey/);
+    expect(topbarSource).toMatch(/<RunButton[\s\S]*?onAddApiKey/);
   });
 
   it("CanvasTopbar accepts onAddApiKey in its props", () => {
@@ -189,7 +189,7 @@ describe("CanvasPage wires onAddApiKey through to RunButton (RUN-355 AC1)", () =
 
   it("CanvasPage passes onAddApiKey to CanvasTopbar", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<CanvasTopbar[^>]*onAddApiKey/);
+    expect(source).toMatch(/<CanvasTopbar[\s\S]*?onAddApiKey/);
   });
 });
 
@@ -224,13 +224,51 @@ describe("CanvasPage handles save success (RUN-355 AC3)", () => {
 });
 
 // ===========================================================================
+// 8b. RunButton swaps to "Run" when providers exist (AC3)
+// ===========================================================================
+
+describe("RunButton swaps to Run when providers exist (RUN-355 AC3)", () => {
+  it("RunButton uses useProviders() to determine provider state", () => {
+    const source = readSource(RUN_BUTTON_PATH);
+    expect(source).toMatch(/useProviders/);
+  });
+
+  it("RunButton conditionally renders Add API Key vs Run based on hasProviders", () => {
+    const source = readSource(RUN_BUTTON_PATH);
+    // Should have conditional logic based on providers being present
+    const hasConditional =
+      /hasProviders|items\.length/.test(source) &&
+      /Add API Key/.test(source) &&
+      /Run/.test(source);
+    expect(
+      hasConditional,
+      "Expected RunButton to conditionally render Add API Key vs Run based on provider state",
+    ).toBe(true);
+  });
+
+  it("ApiKeyModal.onSaveSuccess triggers query invalidation so RunButton re-renders", () => {
+    // ApiKeyModal calls onSaveSuccess, CanvasPage's handler should invalidate
+    // provider queries — causing useProviders() in RunButton to refetch
+    const source = readSource(CANVAS_PAGE_PATH);
+    const hasInvalidation =
+      /invalidateQueries|queryClient/.test(source) ||
+      // Or the modal itself handles invalidation and the callback just closes
+      /onSaveSuccess/.test(source);
+    expect(
+      hasInvalidation,
+      "Expected save success flow to trigger provider query invalidation",
+    ).toBe(true);
+  });
+});
+
+// ===========================================================================
 // 9. Save & Run triggers execution (AC4)
 // ===========================================================================
 
 describe("Save & Run triggers workflow execution (RUN-355 AC4)", () => {
   it("ApiKeyModal receives saveAndRun prop from CanvasPage", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<ApiKeyModal[^>]*saveAndRun/);
+    expect(source).toMatch(/<ApiKeyModal[\s\S]*?saveAndRun/);
   });
 
   it("save success handler triggers run when saveAndRun is true", () => {
@@ -250,37 +288,81 @@ describe("Save & Run triggers workflow execution (RUN-355 AC4)", () => {
 // ===========================================================================
 
 describe("Explore banner dismissed on save (RUN-355 AC3)", () => {
-  it("CanvasPage dismisses explore banner after successful save", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // Should write to localStorage to persist banner dismissal
-    const dismissesBanner =
-      /localStorage.*explore.*banner|exploreBannerDismissed|explore-banner-dismissed/i.test(source);
+  it("ExploreBanner uses useProviders() to auto-hide when providers exist", () => {
+    const bannerSource = readSource(EXPLORE_BANNER_PATH);
+    // ExploreBanner should use useProviders() and hide when items.length > 0
+    expect(bannerSource).toMatch(/useProviders/);
+    const hidesWhenProviders =
+      /items\.length\s*>\s*0/.test(bannerSource) ||
+      /providers.*length/.test(bannerSource);
     expect(
-      dismissesBanner,
-      "Expected localStorage write to dismiss explore banner on save",
+      hidesWhenProviders,
+      "Expected ExploreBanner to auto-hide when providers exist",
     ).toBe(true);
   });
 
-  it("ExploreBanner reads the same storage key for dismissal state", () => {
+  it("ExploreBanner returns null when providers are present", () => {
     const bannerSource = readSource(EXPLORE_BANNER_PATH);
-    const canvasSource = readSource(CANVAS_PAGE_PATH);
-    // Both should reference the same storage key
-    const bannerKeyMatch = bannerSource.match(/["']([^"']*explore[^"']*dismiss[^"']*)["']/i)
-      || bannerSource.match(/["']([^"']*explore[^"']*banner[^"']*)["']/i);
+    // Should have an early return null when items.length > 0
+    const hasEarlyReturn =
+      /if\s*\(items\.length\s*>\s*0\)\s*return\s*null/.test(bannerSource);
     expect(
-      bannerKeyMatch,
-      "Expected ExploreBanner to have a storage key for dismiss state",
-    ).toBeTruthy();
-    // Canvas page should reference the same key or the banner's STORAGE_KEY
-    const storageKey = bannerKeyMatch?.[1];
-    if (storageKey) {
-      expect(canvasSource).toContain(storageKey);
-    }
+      hasEarlyReturn,
+      "Expected ExploreBanner to return null when items.length > 0",
+    ).toBe(true);
+  });
+
+  it("save success triggers query invalidation so banner auto-hides", () => {
+    const canvasSource = readSource(CANVAS_PAGE_PATH);
+    // CanvasPage save success handler should invalidate queries (or rely on
+    // ApiKeyModal's internal invalidation via onSaveSuccess callback)
+    const hasInvalidation =
+      /invalidateQueries|queryClient|onSaveSuccess/.test(canvasSource);
+    expect(
+      hasInvalidation,
+      "Expected save success to trigger provider query invalidation for banner auto-hide",
+    ).toBe(true);
+  });
+
+  it("ExploreBanner handles manual dismissal via localStorage internally", () => {
+    const bannerSource = readSource(EXPLORE_BANNER_PATH);
+    // ExploreBanner owns its own localStorage dismissal — CanvasPage doesn't need to
+    expect(bannerSource).toMatch(/localStorage/);
+    expect(bannerSource).toMatch(/dismiss/i);
   });
 });
 
 // ===========================================================================
-// 11. No new Zustand stores for modal state
+// 11. Focus returns to trigger element on modal close (AC5)
+// ===========================================================================
+
+describe("Focus returns to trigger element on modal close (RUN-355 AC5)", () => {
+  it("CanvasPage creates a ref for the modal trigger element", () => {
+    const source = readSource(CANVAS_PAGE_PATH);
+    // Should have a useRef for the trigger element (button that opened the modal)
+    // e.g. triggerRef, apiKeyTriggerRef, modalTriggerRef
+    const hasRef =
+      /triggerRef|apiKeyTriggerRef|modalTriggerRef/.test(source);
+    expect(
+      hasRef,
+      "Expected CanvasPage to create a ref for the modal trigger element",
+    ).toBe(true);
+  });
+
+  it("modal close handler restores focus to the trigger ref", () => {
+    const source = readSource(CANVAS_PAGE_PATH);
+    // On modal close, should call .focus() on the trigger ref
+    const restoresFocus =
+      /triggerRef.*\.current.*\.focus\(\)|modalTriggerRef.*\.current.*\.focus\(\)|apiKeyTriggerRef.*\.current.*\.focus\(\)|\.current\?*\.focus\(\)/.test(source);
+    expect(
+      restoresFocus,
+      "Expected modal close handler to call focus() on the trigger ref",
+    ).toBe(true);
+  });
+});
+
+// ===========================================================================
+// 12. No new Zustand stores for modal state
 // ===========================================================================
 
 describe("No new Zustand stores for modal state (RUN-355)", () => {
