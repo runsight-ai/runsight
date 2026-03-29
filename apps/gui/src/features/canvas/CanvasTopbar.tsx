@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 
 interface CanvasTopbarProps {
   workflowId: string;
@@ -76,12 +77,14 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
 
       {/* Right: actions placeholder */}
       <div className="flex items-center gap-2 ml-auto">
-        <button
-          className={`text-sm ${isDirty ? "text-interactive-default font-medium" : "text-secondary"}`}
+        {isDirty && <span className="h-2 w-2 rounded-full bg-interactive-default" aria-label="unsaved indicator" />}
+        <Button
+          variant={isDirty ? "primary" : "ghost"}
+          size="sm"
           onClick={onSave}
         >
           Save
-        </button>
+        </Button>
         <span className="text-sm text-secondary">Run</span>
       </div>
     </header>
