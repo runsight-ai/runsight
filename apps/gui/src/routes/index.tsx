@@ -4,20 +4,6 @@ import ComponentShowcase from "@/features/dev/ComponentShowcase";
 
 export const router = createBrowserRouter([
   {
-    path: "landing",
-    lazy: () =>
-      import("@/features/landing/LandingPage").then((m) => ({
-        Component: m.Component,
-      })),
-  },
-  {
-    path: "onboarding",
-    lazy: () =>
-      import("@/features/onboarding/OnboardingWizard").then((m) => ({
-        Component: m.Component,
-      })),
-  },
-  {
     element: <ShellLayout />,
     children: [
       {
@@ -80,13 +66,6 @@ export const router = createBrowserRouter([
         path: "steps",
         lazy: () =>
           import("@/features/sidebar/StepList").then((m) => ({
-            Component: m.Component,
-          })),
-      },
-      {
-        path: "templates",
-        lazy: () =>
-          import("@/features/templates/TemplatesPage").then((m) => ({
             Component: m.Component,
           })),
       },
