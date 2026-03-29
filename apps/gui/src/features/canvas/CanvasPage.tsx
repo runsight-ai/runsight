@@ -10,11 +10,14 @@ import { YamlEditor } from "./YamlEditor";
 import { useUpdateWorkflow } from "@/queries/workflows";
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import type { ValidationState } from "./useYamlValidation";
 
 export function Component() {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState("yaml");
   const [isDirty, setIsDirty] = useState(false);
+  const [yamlValid, setYamlValid] = useState(true);
+  const [errorCount, setErrorCount] = useState(0);
   const yamlRef = useRef("");
   const updateWorkflow = useUpdateWorkflow();
 
@@ -22,6 +25,11 @@ export function Component() {
 
   const handleDirtyChange = useCallback((dirty: boolean) => {
     setIsDirty(dirty);
+  }, []);
+
+  const handleValidation = useCallback((state: ValidationState) => {
+    setYamlValid(state.isValid);
+    setErrorCount(state.errorCount);
   }, []);
 
   const handleSave = useCallback(() => {
@@ -50,6 +58,8 @@ export function Component() {
         onValueChange={setActiveTab}
         isDirty={isDirty}
         onSave={handleSave}
+        yamlValid={yamlValid}
+        errorCount={errorCount}
       />
       <div className="flex flex-row flex-1 overflow-hidden h-full">
         <PaletteSidebar />
@@ -62,7 +72,7 @@ export function Component() {
           />
         ) : (
           <div className="flex-1 overflow-hidden">
-            <YamlEditor workflowId={id!} onDirtyChange={handleDirtyChange} />
+            <YamlEditor workflowId={id!} onDirtyChange={handleDirtyChange} onValidation={handleValidation} />
           </div>
         )}
       </div>
