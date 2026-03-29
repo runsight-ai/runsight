@@ -1,0 +1,48 @@
+import { useState } from "react";
+import { Info, X } from "lucide-react";
+import { useProviders } from "@/queries/settings";
+
+const STORAGE_KEY = "runsight:explore-banner-dismissed";
+
+export function ExploreBanner({ onAddApiKey }: { onAddApiKey?: () => void }) {
+  const { data: providers } = useProviders();
+  const [dismissed, setDismissed] = useState(
+    () => localStorage.getItem(STORAGE_KEY) === "true",
+  );
+
+  if (dismissed) return null;
+  if (providers && providers.length > 0) return null;
+
+  function handleDismiss() {
+    setDismissed(true);
+    localStorage.setItem(STORAGE_KEY, "true");
+  }
+
+  return (
+    <div
+      className="flex items-center gap-2 px-4 py-2 text-sm bg-(--info-3) border-b border-(--info-7) text-(--info-11)"
+      role="status"
+    >
+      <Info className="size-4 shrink-0" />
+      <span>
+        You are in explore mode.{" "}
+        <button
+          type="button"
+          className="underline font-medium hover:opacity-80"
+          onClick={onAddApiKey}
+        >
+          Add an API key
+        </button>{" "}
+        to start running workflows.
+      </span>
+      <button
+        type="button"
+        aria-label="Dismiss banner"
+        className="ml-auto p-1 rounded hover:bg-(--info-7)/20"
+        onClick={handleDismiss}
+      >
+        <X className="size-3.5" />
+      </button>
+    </div>
+  );
+}
