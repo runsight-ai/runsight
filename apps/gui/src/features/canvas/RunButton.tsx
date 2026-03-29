@@ -16,7 +16,8 @@ export function RunButton({ workflowId }: RunButtonProps) {
   const nodes = useCanvasStore((s) => s.nodes);
 
   const { data: providers } = useProviders();
-  const hasProviders = (providers?.length ?? 0) > 0;
+  const items = providers?.items ?? [];
+  const hasProviders = items.length > 0;
 
   const createRun = useCreateRun();
   const cancelRun = useCancelRun();

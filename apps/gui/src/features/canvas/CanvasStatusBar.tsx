@@ -13,8 +13,9 @@ export function CanvasStatusBar({
   edgeCount = 0,
 }: CanvasStatusBarProps) {
   const { data: providers } = useProviders();
-  const connected = providers && providers.length > 0;
-  const providerName = connected ? providers[0].name : "No provider";
+  const items = providers?.items ?? [];
+  const connected = items.length > 0;
+  const providerName = connected ? items[0].name : "No provider";
 
   return (
     <div className="flex items-center gap-3 px-3 h-[var(--status-bar-height)] border-t border-border bg-background text-xs text-muted-foreground">
