@@ -5,9 +5,11 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 
 interface CanvasTopbarProps {
   workflowId: string;
+  isDirty?: boolean;
+  onSave?: () => void;
 }
 
-export function CanvasTopbar({ workflowId }: CanvasTopbarProps) {
+export function CanvasTopbar({ workflowId, isDirty, onSave }: CanvasTopbarProps) {
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
 
@@ -80,7 +82,12 @@ export function CanvasTopbar({ workflowId }: CanvasTopbarProps) {
 
       {/* Right: actions placeholder */}
       <div className="flex items-center gap-2 ml-auto">
-        <span className="text-sm text-secondary">Save</span>
+        <button
+          className={`text-sm ${isDirty ? "text-interactive-default font-medium" : "text-secondary"}`}
+          onClick={onSave}
+        >
+          Save
+        </button>
         <span className="text-sm text-secondary">Run</span>
       </div>
     </header>
