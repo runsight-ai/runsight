@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useBlocker } from "react-router";
 import { Layout } from "lucide-react";
 import { CanvasTopbar } from "./CanvasTopbar";
+import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { YamlEditor } from "./YamlEditor";
 import { useUpdateWorkflow } from "@/queries/workflows";
@@ -60,6 +61,8 @@ export function Component() {
           <YamlEditor workflowId={id!} onDirtyChange={handleDirtyChange} />
         </div>
       )}
+
+      <CanvasBottomPanel />
 
       {/* Unsaved changes dialog */}
       <Dialog open={blocker.state === "blocked"}>
