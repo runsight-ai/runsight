@@ -9,10 +9,6 @@ from ...core.secrets import SecretsEnvLoader
 from ...data.filesystem.provider_repo import FileSystemProviderRepo
 from ...domain.value_objects import ProviderEntity
 
-# Legacy stubs — kept so negative-assertion tests can patch them to verify they're never called
-encrypt = None
-decrypt = None
-
 # Infer provider type from name (case-insensitive)
 _NAME_TO_TYPE = {
     "openai": "openai",
