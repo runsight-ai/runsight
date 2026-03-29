@@ -2,8 +2,9 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useCreateRun, useCancelRun, useRun } from "@/queries/runs";
+import { useProviders } from "@/queries/settings";
 import { useCanvasStore } from "@/store/canvas";
-import { Play, X } from "lucide-react";
+import { Play, X, Key } from "lucide-react";
 
 interface RunButtonProps {
   workflowId: string;
@@ -13,6 +14,9 @@ export function RunButton({ workflowId }: RunButtonProps) {
   const activeRunId = useCanvasStore((s) => s.activeRunId);
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const nodes = useCanvasStore((s) => s.nodes);
+
+  const { data: providers } = useProviders();
+  const hasProviders = (providers?.length ?? 0) > 0;
 
   const createRun = useCreateRun();
   const cancelRun = useCancelRun();
@@ -43,6 +47,20 @@ export function RunButton({ workflowId }: RunButtonProps) {
         { onSuccess: (result) => setActiveRunId(result.id) },
       );
     }
+  }
+
+  if (!hasProviders && !isRunning) {
+    return (
+      <Button
+        variant="primary"
+        onClick={() => {
+          window.location.href = "/settings";
+        }}
+      >
+        <Key className="size-4" />
+        Add API Key
+      </Button>
+    );
   }
 
   const button = (
