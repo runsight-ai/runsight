@@ -84,25 +84,15 @@ config: {}
         workflow_repo.get_by_id.return_value = mock_entity
 
         # Provider returns an API key
-        mock_provider = Mock()
-        mock_provider.api_key_encrypted = "encrypted_key"
-        provider_repo.get_by_type.return_value = mock_provider
-
         svc = ExecutionService(
             run_repo=run_repo,
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
         )
 
-        with (
-            patch(
-                "runsight_api.logic.services.execution_service.parse_workflow_yaml"
-            ) as mock_parse,
-            patch(
-                "runsight_api.logic.services.execution_service.decrypt",
-                return_value="sk-test-key",
-            ),
-        ):
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
             mock_wf = AsyncMock()
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
@@ -124,10 +114,6 @@ config: {}
         mock_entity.yaml = "workflow:\n  name: test\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
         workflow_repo.get_by_id.return_value = mock_entity
 
-        mock_provider = Mock()
-        mock_provider.api_key_encrypted = "enc"
-        provider_repo.get_by_type.return_value = mock_provider
-
         svc = ExecutionService(
             run_repo=run_repo,
             workflow_repo=workflow_repo,
@@ -144,15 +130,9 @@ config: {}
 
             return WorkflowState()
 
-        with (
-            patch(
-                "runsight_api.logic.services.execution_service.parse_workflow_yaml"
-            ) as mock_parse,
-            patch(
-                "runsight_api.logic.services.execution_service.decrypt",
-                return_value="sk-test",
-            ),
-        ):
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
             mock_wf = Mock()
             mock_wf.run = slow_run
             mock_parse.return_value = mock_wf
@@ -187,25 +167,15 @@ class TestAutoCleanup:
         mock_entity.yaml = "workflow:\n  name: test\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
         workflow_repo.get_by_id.return_value = mock_entity
 
-        mock_provider = Mock()
-        mock_provider.api_key_encrypted = "enc"
-        provider_repo.get_by_type.return_value = mock_provider
-
         svc = ExecutionService(
             run_repo=run_repo,
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
         )
 
-        with (
-            patch(
-                "runsight_api.logic.services.execution_service.parse_workflow_yaml"
-            ) as mock_parse,
-            patch(
-                "runsight_api.logic.services.execution_service.decrypt",
-                return_value="sk-test",
-            ),
-        ):
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
             from runsight_core.state import WorkflowState
 
             mock_wf = Mock()
@@ -448,15 +418,9 @@ class TestRunStatusTransitions:
 
         running_seen = asyncio.Event()
 
-        with (
-            patch(
-                "runsight_api.logic.services.execution_service.parse_workflow_yaml"
-            ) as mock_parse,
-            patch(
-                "runsight_api.logic.services.execution_service.decrypt",
-                return_value="sk-x",
-            ),
-        ):
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
             from runsight_core.state import WorkflowState
 
             async def slow_run(*a, **kw):
@@ -513,15 +477,9 @@ class TestRunStatusTransitions:
             engine=db_engine,
         )
 
-        with (
-            patch(
-                "runsight_api.logic.services.execution_service.parse_workflow_yaml"
-            ) as mock_parse,
-            patch(
-                "runsight_api.logic.services.execution_service.decrypt",
-                return_value="sk-x",
-            ),
-        ):
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
             from runsight_core.state import WorkflowState
 
             result_state = WorkflowState()
@@ -580,15 +538,9 @@ class TestRunStatusTransitions:
             engine=db_engine,
         )
 
-        with (
-            patch(
-                "runsight_api.logic.services.execution_service.parse_workflow_yaml"
-            ) as mock_parse,
-            patch(
-                "runsight_api.logic.services.execution_service.decrypt",
-                return_value="sk-x",
-            ),
-        ):
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
             error = RuntimeError("LLM exploded")
 
             # Mock wf.run to behave like real Workflow.run(): call observer on error, then raise
