@@ -1,13 +1,13 @@
 import { api } from "./client";
 import {
-  GitStatusResponseSchema,
-  GitCommitResponseSchema,
-  GitDiffResponseSchema,
-  GitLogEntrySchema,
-  type GitStatusResponse,
-  type GitCommitResponse,
-  type GitDiffResponse,
-  type GitLogEntry,
+  StatusResponseSchema,
+  CommitResponseSchema,
+  DiffResponseSchema,
+  CommitEntrySchema,
+  type StatusResponse,
+  type CommitResponse,
+  type DiffResponse,
+  type CommitEntry,
 } from "../types/generated/zod";
 import { z } from "zod";
 
@@ -15,29 +15,29 @@ import { z } from "zod";
 export type ApiClient = typeof api;
 
 const GitLogResponseSchema = z.object({
-  commits: z.array(GitLogEntrySchema),
+  commits: z.array(CommitEntrySchema),
 });
 
 export const gitApi = {
-  getStatus: async (): Promise<GitStatusResponse> => {
+  getStatus: async (): Promise<StatusResponse> => {
     const { api } = await import("./client");
     const res = await api.get("/git/status");
-    return GitStatusResponseSchema.parse(res);
+    return StatusResponseSchema.parse(res);
   },
 
-  commit: async (message: string): Promise<GitCommitResponse> => {
+  commit: async (message: string): Promise<CommitResponse> => {
     const { api } = await import("./client");
     const res = await api.post("/git/commit", { message });
-    return GitCommitResponseSchema.parse(res);
+    return CommitResponseSchema.parse(res);
   },
 
-  getDiff: async (): Promise<GitDiffResponse> => {
+  getDiff: async (): Promise<DiffResponse> => {
     const { api } = await import("./client");
     const res = await api.get("/git/diff");
-    return GitDiffResponseSchema.parse(res);
+    return DiffResponseSchema.parse(res);
   },
 
-  getLog: async (limit?: number): Promise<GitLogEntry[]> => {
+  getLog: async (limit?: number): Promise<CommitEntry[]> => {
     const { api } = await import("./client");
     const qs = limit !== undefined ? `?limit=${limit}` : "";
     const res = await api.get(`/git/log${qs}`);

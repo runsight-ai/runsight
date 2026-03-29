@@ -1,21 +1,58 @@
 import { api } from "./client";
-import {
-  ProviderSchema,
-  ProviderListSchema,
-  Provider,
-  CreateProvider,
-  UpdateProvider,
-  ModelDefaultSchema,
-  ModelDefaultListSchema,
-  ModelDefault,
-  BudgetSchema,
-  BudgetListSchema,
-  Budget,
-  CreateBudget,
-  UpdateBudget,
-  AppSettingsSchema,
-  AppSettings,
-} from "../types/generated/zod";
+import { z } from "zod";
+
+const ProviderSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.string().optional().default("connected"),
+  api_key_env: z.string().nullable().optional(),
+  base_url: z.string().nullable().optional(),
+  models: z.array(z.string()).optional(),
+  model_count: z.number().optional(),
+  is_configured: z.boolean().optional(),
+});
+const ProviderListSchema = z.object({
+  items: z.array(ProviderSchema),
+  total: z.number().optional(),
+}).transform(({ items, total }) => ({ items, total: total ?? items.length }));
+export type Provider = z.infer<typeof ProviderSchema>;
+export type CreateProvider = Pick<Provider, "name" | "api_key_env" | "base_url">;
+export type UpdateProvider = Partial<CreateProvider> & {
+  is_active?: boolean;
+};
+
+const ModelDefaultSchema = z.object({
+  id: z.string(),
+  provider_id: z.string().optional(),
+  provider_name: z.string(),
+  model_name: z.string(),
+  is_default: z.boolean().optional().default(false),
+  fallback_chain: z.array(z.string()).optional().default([]),
+});
+const ModelDefaultListSchema = z.object({
+  items: z.array(ModelDefaultSchema),
+  total: z.number().optional(),
+}).transform(({ items, total }) => ({ items, total: total ?? items.length }));
+export type ModelDefault = z.infer<typeof ModelDefaultSchema>;
+
+const BudgetSchema = z.object({
+  id: z.string(),
+  name: z.string().optional().default("Budget"),
+  limit_usd: z.number().optional().default(0),
+  period: z.string().optional().default("monthly"),
+});
+const BudgetListSchema = z.object({
+  items: z.array(BudgetSchema),
+  total: z.number().optional(),
+}).transform(({ items, total }) => ({ items, total: total ?? items.length }));
+export type Budget = z.infer<typeof BudgetSchema>;
+export type CreateBudget = Partial<Budget>;
+export type UpdateBudget = Partial<Budget>;
+
+const AppSettingsSchema = z.object({
+  onboarding_completed: z.boolean().optional(),
+}).passthrough();
+export type AppSettings = z.infer<typeof AppSettingsSchema>;
 
 export const settingsApi = {
   listProviders: async (params?: Record<string, string>): Promise<{ items: Provider[]; total: number }> => {

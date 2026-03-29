@@ -263,13 +263,12 @@ describe("Placeholder slots for Save and Run (AC5)", () => {
 describe("Uses design system tokens only (AC7)", () => {
   it("CanvasTopbar does NOT use hardcoded hex colors", () => {
     const source = readSource(CANVAS_TOPBAR_PATH);
-    // Should not have any inline hex colors like #fff, #1a1a1a, etc.
-    // Allow # in CSS variable references like var(--something)
+    // Should not have any inline hex colors.
     const hexMatches = source.match(/#[0-9a-fA-F]{3,8}\b/g);
     const filteredHex = hexMatches?.filter(
       (m) => !/^#[0-9a-fA-F]{6}$/.test(m) || true,
     );
-    // All color values should come from CSS variables/tokens
+    // All color values should come from CSS variables or tokens.
     expect(hexMatches).toBeNull();
   });
 

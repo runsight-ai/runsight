@@ -10,14 +10,13 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { toast } from "sonner";
 
-import { useWorkflowStore } from "@/store/workflowStore";
+import { useCanvasStore } from "@/store/canvas";
 import { nodeTypes } from "./nodes";
 
 export function WorkflowCanvas() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode } =
-    useWorkflowStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, selectNode } =
+    useCanvasStore();
 
   const onNodeClick: NodeMouseHandler = useCallback(
     (_, node) => {
@@ -30,17 +29,6 @@ export function WorkflowCanvas() {
     selectNode(null);
   }, [selectNode]);
 
-  const onSave = async () => {
-    try {
-      await useWorkflowStore.getState().saveWorkflow();
-      toast.success("Workflow saved");
-    } catch (error: unknown) {
-      toast.error("Failed to save workflow", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  };
-
   return (
     <div className="flex-1 flex flex-col">
       {/* React Flow Canvas - Unified Workflow View (no DAG/State Machine toggle per spec) */}
@@ -50,7 +38,6 @@ export function WorkflowCanvas() {
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
@@ -100,4 +87,8 @@ export function WorkflowCanvas() {
       </div>
     </div>
   );
+}
+
+export function Component() {
+  return <WorkflowCanvas />;
 }

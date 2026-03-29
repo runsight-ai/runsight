@@ -19,7 +19,7 @@ import {
 import { AddProviderDialog } from "./AddProviderDialog";
 import type { EditingProvider } from "@/components/provider/ProviderSetup";
 import { cn } from "@/utils/helpers";
-import type { Provider } from "@/types/generated/zod";
+import type { Provider } from "@/api/settings";
 
 // Provider icon/logo component
 function ProviderLogo({ name, status }: { name: string; status: string }) {

@@ -2,14 +2,14 @@
 
 import { memo, useCallback } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import type { SoulNodeData } from "@/types/workflow";
+import { useCanvasStore } from "@/store/canvas";
 import type { Node } from "@xyflow/react";
-import { useWorkflowStore } from "@/store/workflowStore";
+import type { StepNodeData } from "@/types/schemas/canvas";
 
-type SoulNodeType = Node<SoulNodeData, "soul">;
+type SoulNodeType = Node<StepNodeData, "soul">;
 
 function SoulNodeComponent({ id, data, selected }: NodeProps<SoulNodeType>) {
-  const selectNode = useWorkflowStore((s) => s.selectNode);
+  const selectNode = useCanvasStore((state) => state.selectNode);
 
   const handleClick = useCallback(() => {
     selectNode(id);
@@ -32,13 +32,14 @@ function SoulNodeComponent({ id, data, selected }: NodeProps<SoulNodeType>) {
 
       <div className="flex items-center gap-2 mb-1">
         <div className="w-2 h-2 bg-success rounded-full" />
-        <span className="text-primary font-medium">{data.label}</span>
+        <span className="text-primary font-medium">{String(data.name ?? data.stepId ?? "Soul")}</span>
         <span className="bg-soul/30 text-soul px-1.5 py-0.5 rounded text-[10px] ml-auto font-medium">
           SOUL
         </span>
       </div>
       <div className="text-xs text-soul/70">
-        {data.model} • tools: {data.toolCount}
+        {typeof data.soulRef === "string" ? data.soulRef : "Unknown soul"} • status:{" "}
+        {typeof data.status === "string" ? data.status : "idle"}
       </div>
 
       <Handle

@@ -4,7 +4,7 @@ import { useCanvasStore } from "@/store/canvas";
 import { mapSSEEventToStoreAction } from "./useRunStream";
 
 interface LogEntry {
-  timestamp: string;
+  timestamp: string | number;
   level: string;
   message: string;
 }
@@ -78,10 +78,7 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
     workflowId ? { workflow_id: workflowId } : undefined,
   );
 
-  const entries: LogEntry[] = [
-    ...((logData as LogEntry[]) ?? []),
-    ...sseEntries,
-  ];
+  const entries: LogEntry[] = [...(logData?.items ?? []), ...sseEntries];
 
   // SSE: EventSource connection to /api/runs/${runId}/stream for real-time log events
   useEffect(() => {

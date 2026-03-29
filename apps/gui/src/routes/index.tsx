@@ -38,7 +38,7 @@ export const router = createBrowserRouter([
         path: "workflows/:id",
         lazy: () =>
           import("@/features/canvas/WorkflowCanvas").then((m) => ({
-            Component: m.Component,
+            Component: m.Component ?? m.WorkflowCanvas,
           })),
       },
       {

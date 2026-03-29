@@ -105,8 +105,7 @@ describe(".storybook/preview.ts — existence and design system imports", () => 
 
   it("configures a dark background option with a dark hex/HSL color value", () => {
     const content = readFile(PREVIEW_TS);
-    // A named 'dark' background must have a color value (hex or hsl)
-    // e.g. { name: 'dark', value: '#0d0d0d' } or similar
+    // A named 'dark' background must have a color value.
     expect(content).toMatch(/name.*dark|dark.*name/i);
     expect(content).toMatch(/value\s*:/);
   });

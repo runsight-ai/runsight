@@ -54,6 +54,8 @@ const buttonVariants = cva(
         // leading-tight repeated per size to survive tailwind-merge (tw-merge v3
         // treats text-* as setting line-height, stripping leading-* from base)
         xs: "h-6 px-2 text-2xs leading-tight gap-1 rounded-sm",
+        // compact icon button used across shared headers and overlays
+        "icon-sm": "h-8 w-8 p-0",
         // .btn--sm: height 32px, px-3, text-sm
         sm: "h-8 px-3 text-sm leading-tight",
         // .btn--md: height 40px, px-4, text-md
@@ -65,6 +67,7 @@ const buttonVariants = cva(
     compoundVariants: [
       // icon-only should match the height of the selected size (square)
       { variant: "icon-only", size: "xs", className: "h-6 w-6" },
+      { variant: "icon-only", size: "icon-sm", className: "h-8 w-8" },
       { variant: "icon-only", size: "sm", className: "h-8 w-8" },
       { variant: "icon-only", size: "md", className: "h-10 w-10" },
       { variant: "icon-only", size: "lg", className: "h-12 w-12" },

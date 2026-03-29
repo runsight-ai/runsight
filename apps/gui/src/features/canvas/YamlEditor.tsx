@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
 import { LazyMonacoEditor } from "./LazyMonacoEditor";
-import { defineYamlTheme, THEME_NAME } from "./yamlTheme";
+import { defineYamlTheme } from "./yamlTheme";
 import { useYamlValidation, type ValidationState } from "./useYamlValidation";
 
 interface YamlEditorProps {
