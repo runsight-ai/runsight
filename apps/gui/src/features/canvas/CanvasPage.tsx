@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useBlocker } from "react-router";
 import { Layout } from "lucide-react";
 import { CanvasTopbar } from "./CanvasTopbar";
+import { UncommittedBanner } from "./UncommittedBanner";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { PaletteSidebar } from "./PaletteSidebar";
@@ -63,6 +64,7 @@ export function Component() {
         errorCount={errorCount}
       />
       <ExploreBanner />
+      <UncommittedBanner />
       <div className="flex flex-row flex-1 overflow-hidden h-full">
         <PaletteSidebar />
         {activeTab === "canvas" ? (
