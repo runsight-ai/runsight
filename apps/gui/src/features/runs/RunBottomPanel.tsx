@@ -11,7 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import type { LogResponse } from "@/types/generated/zod";
+import type { RunLogResponse as LogResponse } from "@/api/runs";
 
 // ---------------------------------------------------------------------------
 // Props

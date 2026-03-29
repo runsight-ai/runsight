@@ -1,16 +1,15 @@
 import { api } from "./client";
 import {
-  RunCreate,
+  type RunCreate,
   RunResponseSchema,
-  RunResponse,
+  type RunResponse,
   RunListResponseSchema,
-  RunListResponse,
+  type RunListResponse,
   RunNodeResponseSchema,
-  RunNodeResponse,
+  type RunNodeResponse,
   PaginatedLogsResponseSchema,
-  PaginatedLogsResponse,
-  CancelRunResponseSchema,
-  CancelRunResponse,
+  type PaginatedLogsResponse,
+  type runsight_api__transport__schemas__runs__LogResponse as RunLogResponse,
 } from "../types/generated/zod";
 
 /** Map frontend shorthand status values to actual RunStatus enum values. */
@@ -26,9 +25,10 @@ function buildQueryString(params: Record<string, string> | URLSearchParams): str
   const sp = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (key === "status") {
+      const aliases = STATUS_ALIASES[value];
       // Resolve aliases (e.g. "active" → ["running", "pending"])
-      if (value in STATUS_ALIASES) {
-        for (const v of STATUS_ALIASES[value]) {
+      if (aliases) {
+        for (const v of aliases) {
           sp.append(key, v);
         }
         continue;
@@ -62,9 +62,8 @@ export const runsApi = {
     return RunResponseSchema.parse(res);
   },
   
-  cancelRun: async (id: string): Promise<CancelRunResponse> => {
-    const res = await api.post(`/runs/${id}/cancel`);
-    return CancelRunResponseSchema.parse(res);
+  cancelRun: async (id: string): Promise<unknown> => {
+    return api.post(`/runs/${id}/cancel`);
   },
   
   deleteRun: async (id: string): Promise<{ id: string; deleted: boolean }> => {
@@ -88,3 +87,5 @@ export const runsApi = {
     return PaginatedLogsResponseSchema.parse(res);
   },
 };
+
+export type { RunLogResponse };

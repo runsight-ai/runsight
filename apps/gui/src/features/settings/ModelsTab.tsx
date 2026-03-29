@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Bot, Check, X, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import type { ModelDefault } from "@/types/generated/zod";
+import type { ModelDefault } from "@/api/settings";
 
 function ModelRow({
   model,
@@ -268,7 +268,7 @@ export function ModelsTab() {
                 <ModelRow
                   key={model.id}
                   model={model}
-                  availableModels={getProviderModels(model.provider_id)}
+                  availableModels={model.provider_id ? getProviderModels(model.provider_id) : []}
                   onSave={handleSaveModel}
                   onCancel={() => {}}
                 />
