@@ -6,12 +6,13 @@ const STORAGE_KEY = "runsight:explore-banner-dismissed";
 
 export function ExploreBanner({ onAddApiKey }: { onAddApiKey?: () => void }) {
   const { data: providers } = useProviders();
+  const items = providers?.items ?? [];
   const [dismissed, setDismissed] = useState(
     () => localStorage.getItem(STORAGE_KEY) === "true",
   );
 
   if (dismissed) return null;
-  if (providers && providers.length > 0) return null;
+  if (items.length > 0) return null;
 
   function handleDismiss() {
     setDismissed(true);
