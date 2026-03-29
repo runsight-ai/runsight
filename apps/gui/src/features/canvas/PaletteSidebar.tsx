@@ -19,9 +19,23 @@ const BLOCK_TYPES = [
 
 export function PaletteSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [search, setSearch] = useState("");
   const { data: souls } = useSouls();
 
   const width = isCollapsed ? 48 : 240;
+
+  const filteredBlocks = BLOCK_TYPES.filter((b) =>
+    b.label.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const filteredSouls = souls?.filter((s) =>
+    s.name.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  function handleToggleCollapse() {
+    setIsCollapsed((prev) => !prev);
+    setSearch("");
+  }
 
   return (
     <aside
@@ -31,7 +45,7 @@ export function PaletteSidebar() {
       {/* Toggle / notch button with chevron */}
       <div className="flex justify-end p-1">
         <button
-          onClick={() => setIsCollapsed((prev) => !prev)}
+          onClick={handleToggleCollapse}
           className="p-1 rounded hover:bg-(--neutral-3) text-(--text-secondary)"
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
@@ -42,6 +56,13 @@ export function PaletteSidebar() {
         </button>
       </div>
 
+      {/* Search input — hidden when collapsed */}
+      {!isCollapsed && (
+        <div className="px-2 pb-2">
+          <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full px-2 py-1 rounded text-sm border border-border bg-(--neutral-1) text-(--text-primary) placeholder:text-(--text-muted)" />
+        </div>
+      )}
+
       {/* Block types section */}
       <div className="px-2 pb-2">
         {!isCollapsed && (
@@ -50,11 +71,19 @@ export function PaletteSidebar() {
           </span>
         )}
         <TooltipProvider>
-          {BLOCK_TYPES.map(({ label, icon: Icon }) =>
+          {filteredBlocks.map(({ label, icon: Icon }) =>
             isCollapsed ? ( // isCollapsed — show Tooltip
               <Tooltip key={label}>
                 <TooltipTrigger
-                  className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3)"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "copy";
+                    e.dataTransfer.setData(
+                      "application/runsight-block",
+                      JSON.stringify({ type: "block", label }),
+                    );
+                  }}
+                  className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3) cursor-grab"
                 >
                   <Icon size={16} className="shrink-0" />
                 </TooltipTrigger>
@@ -63,7 +92,15 @@ export function PaletteSidebar() {
             ) : (
               <div
                 key={label}
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3)"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "copy";
+                  e.dataTransfer.setData(
+                    "application/runsight-block",
+                    JSON.stringify({ type: "block", label }),
+                  );
+                }}
+                className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3) cursor-grab"
               >
                 <Icon size={16} className="shrink-0" />
                 <span>{label}</span>
@@ -84,11 +121,19 @@ export function PaletteSidebar() {
           </span>
         )}
         <TooltipProvider>
-          {souls?.map((soul) =>
+          {filteredSouls?.map((soul) =>
             isCollapsed ? (
               <Tooltip key={soul.id}>
                 <TooltipTrigger
-                  className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3)"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "copy";
+                    e.dataTransfer.setData(
+                      "application/runsight-soul",
+                      JSON.stringify({ type: "soul", label: soul.name }),
+                    );
+                  }}
+                  className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3) cursor-grab"
                 >
                   <User size={16} className="shrink-0" />
                 </TooltipTrigger>
@@ -97,7 +142,15 @@ export function PaletteSidebar() {
             ) : (
               <div
                 key={soul.id}
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3)"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "copy";
+                  e.dataTransfer.setData(
+                    "application/runsight-soul",
+                    JSON.stringify({ type: "soul", label: soul.name }),
+                  );
+                }}
+                className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3) cursor-grab"
               >
                 <User size={16} className="shrink-0" />
                 <span>{soul.name}</span>
