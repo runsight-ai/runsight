@@ -16,7 +16,7 @@ Acceptance criteria covered:
   - deps.py provides FileSystemProviderRepo + SecretsEnvLoader
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -204,13 +204,17 @@ class TestTestConnectionUsesSecrets:
             mock_resp = Mock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}]}
-            mock_httpx.get.return_value = mock_resp
+            mock_client = AsyncMock()
+            mock_client.get.return_value = mock_resp
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx.AsyncClient.return_value = mock_client
 
             result = await service.test_connection("openai")
 
         assert result["success"] is True
         # Verify the HTTP call used the real key, not the ${ENV_VAR} reference
-        call_kwargs = mock_httpx.get.call_args
+        call_kwargs = mock_client.get.call_args
         auth_header = call_kwargs[1]["headers"]["Authorization"]
         assert "sk-real-key" in auth_header
         assert "${" not in auth_header, "Must not send ${ENV_VAR} as auth header"
@@ -233,7 +237,11 @@ class TestTestConnectionUsesSecrets:
             mock_resp = Mock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}]}
-            mock_httpx.get.return_value = mock_resp
+            mock_client = AsyncMock()
+            mock_client.get.return_value = mock_resp
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx.AsyncClient.return_value = mock_client
 
             # Should succeed without calling decrypt
             await service.test_connection("openai")
@@ -304,7 +312,11 @@ class TestSSRFPreserved:
             mock_resp = Mock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {"models": [{"name": "llama3"}]}
-            mock_httpx.get.return_value = mock_resp
+            mock_client = AsyncMock()
+            mock_client.get.return_value = mock_resp
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_httpx.AsyncClient.return_value = mock_client
 
             result = await service.test_connection("ollama")
 

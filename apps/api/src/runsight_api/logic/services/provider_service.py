@@ -134,44 +134,49 @@ class ProviderService:
                 base = provider.base_url or "https://api.openai.com/v1"
                 url = f"{base}/models"
                 await validate_ssrf(url, allow_private=allow_private)
-                resp = httpx.get(
-                    url,
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    timeout=10,
-                )
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        url,
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        timeout=10,
+                    )
             elif provider.type == "anthropic":
                 url = "https://api.anthropic.com/v1/models"
                 await validate_ssrf(url, allow_private=allow_private)
-                resp = httpx.get(
-                    url,
-                    headers={
-                        "x-api-key": api_key,
-                        "anthropic-version": "2023-06-01",
-                    },
-                    timeout=10,
-                )
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        url,
+                        headers={
+                            "x-api-key": api_key,
+                            "anthropic-version": "2023-06-01",
+                        },
+                        timeout=10,
+                    )
             elif provider.type == "google":
                 url = "https://generativelanguage.googleapis.com/v1beta/models"
                 await validate_ssrf(url, allow_private=allow_private)
-                resp = httpx.get(
-                    url,
-                    headers={"x-goog-api-key": api_key},
-                    timeout=10,
-                )
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        url,
+                        headers={"x-goog-api-key": api_key},
+                        timeout=10,
+                    )
             elif provider.type == "ollama":
                 base = provider.base_url or "http://localhost:11434"
                 url = f"{base}/api/tags"
                 await validate_ssrf(url, allow_private=allow_private)
-                resp = httpx.get(url, timeout=10)
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(url, timeout=10)
             else:
                 base = provider.base_url or "https://api.openai.com/v1"
                 url = f"{base}/models"
                 await validate_ssrf(url, allow_private=allow_private)
-                resp = httpx.get(
-                    url,
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    timeout=10,
-                )
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        url,
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        timeout=10,
+                    )
 
             success = resp.status_code == 200
             models: list[str] = []

@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 from runsight_api.logic.services.provider_service import (
     ProviderService,
     _infer_provider_type,
@@ -287,7 +287,11 @@ async def test_test_connection_ollama_no_api_key_allowed():
         mock_resp = Mock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"models": [{"name": "llama3"}]}
-        mock_httpx.get.return_value = mock_resp
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_httpx.AsyncClient.return_value = mock_client
 
         result = await service.test_connection("p1")
 
@@ -315,15 +319,19 @@ async def test_test_connection_successful_openai():
         mock_resp = Mock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}, {"id": "gpt-3.5"}]}
-        mock_httpx.get.return_value = mock_resp
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_httpx.AsyncClient.return_value = mock_client
 
         result = await service.test_connection("p1")
 
     assert result["success"] is True
     assert "gpt-4o" in result.get("models", [])
     assert "gpt-3.5" in result.get("models", [])
-    mock_httpx.get.assert_called_once()
-    call_kwargs = mock_httpx.get.call_args[1]
+    mock_client.get.assert_called_once()
+    call_kwargs = mock_client.get.call_args[1]
     assert "Bearer sk-xxx" in call_kwargs["headers"]["Authorization"]
 
 
@@ -345,7 +353,11 @@ async def test_test_connection_http_error():
     with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
         mock_resp = Mock()
         mock_resp.status_code = 401
-        mock_httpx.get.return_value = mock_resp
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_httpx.AsyncClient.return_value = mock_client
 
         result = await service.test_connection("p1")
 
