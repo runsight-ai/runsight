@@ -4,6 +4,13 @@ import ComponentShowcase from "@/features/dev/ComponentShowcase";
 
 export const router = createBrowserRouter([
   {
+    path: "setup/start",
+    lazy: () =>
+      import("@/features/setup/SetupStartPage").then((m) => ({
+        Component: m.Component,
+      })),
+  },
+  {
     element: <ShellLayout />,
     children: [
       {

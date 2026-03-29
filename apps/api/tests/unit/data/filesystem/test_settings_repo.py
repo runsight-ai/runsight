@@ -69,10 +69,10 @@ class TestMissingFileDefaults:
         result = repo.get_settings()
         assert result.auto_save is None
 
-    def test_default_settings_has_none_onboarding_completed(self, repo):
-        """Default AppSettingsConfig must have onboarding_completed as None."""
+    def test_default_settings_has_false_onboarding_completed(self, repo):
+        """Default AppSettingsConfig must have onboarding_completed as False."""
         result = repo.get_settings()
-        assert result.onboarding_completed is None
+        assert result.onboarding_completed is False
 
     def test_get_fallback_chain_returns_empty_when_no_file(self, repo):
         """get_fallback_chain must return an empty list when no file exists."""
@@ -678,7 +678,7 @@ class TestHandAuthoredYaml:
         settings = repo.get_settings()
         assert settings.default_provider == "openai"
         assert settings.auto_save is None
-        assert settings.onboarding_completed is None
+        assert settings.onboarding_completed is False
 
         # Missing sections default to empty lists
         assert repo.get_fallback_chain() == []
