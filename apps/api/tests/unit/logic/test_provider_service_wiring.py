@@ -81,7 +81,7 @@ class TestProviderServiceAcceptsSecrets:
 
 
 class TestCreateProviderUsesSecrets:
-    """create_provider must use secrets.store_key instead of encrypt()."""
+    """create_provider must use secrets.store_key for API key persistence."""
 
     def test_create_provider_stores_env_var_reference(self, service, secrets):
         """After create, the provider's api_key field must be a ${...} reference."""
@@ -116,19 +116,6 @@ class TestCreateProviderUsesSecrets:
         )
         assert provider.api_key is None
 
-    def test_create_provider_does_not_call_encrypt(self, service):
-        """create_provider must NOT call the legacy encrypt() function."""
-        with patch(
-            "runsight_api.logic.services.provider_service.encrypt",
-            side_effect=AssertionError("encrypt() must not be called"),
-        ):
-            # This should succeed without calling encrypt
-            service.create_provider(
-                name="OpenAI",
-                api_key="sk-test-key-123",
-                provider_type="openai",
-            )
-
     def test_create_provider_yaml_does_not_contain_raw_key(self, service, provider_repo, tmp_base):
         """The YAML file on disk must contain ${ENV_VAR}, never the raw key."""
         from pathlib import Path
@@ -152,7 +139,7 @@ class TestCreateProviderUsesSecrets:
 
 
 class TestUpdateProviderUsesSecrets:
-    """update_provider must use secrets.store_key instead of encrypt()."""
+    """update_provider must use secrets.store_key for API key persistence."""
 
     def test_update_provider_stores_new_key_via_secrets(self, service, secrets):
         """Updating api_key must write new key to secrets.env."""
@@ -174,15 +161,6 @@ class TestUpdateProviderUsesSecrets:
         assert provider.api_key is not None
         assert provider.api_key.startswith("${")
 
-    def test_update_provider_does_not_call_encrypt(self, service):
-        """update_provider must NOT call the legacy encrypt() function."""
-        service.create_provider(name="OpenAI", api_key="sk-old", provider_type="openai")
-        with patch(
-            "runsight_api.logic.services.provider_service.encrypt",
-            side_effect=AssertionError("encrypt() must not be called"),
-        ):
-            service.update_provider("openai", api_key="sk-new")
-
 
 # ===========================================================================
 # 4. test_connection resolves keys through SecretsEnvLoader
@@ -190,7 +168,7 @@ class TestUpdateProviderUsesSecrets:
 
 
 class TestTestConnectionUsesSecrets:
-    """test_connection must resolve API keys via secrets.resolve, not decrypt()."""
+    """test_connection must resolve API keys via secrets.resolve."""
 
     async def test_test_connection_resolves_key_via_secrets(self, service, secrets):
         """test_connection must use secrets.resolve to get the actual API key."""
@@ -218,33 +196,6 @@ class TestTestConnectionUsesSecrets:
         auth_header = call_kwargs[1]["headers"]["Authorization"]
         assert "sk-real-key" in auth_header
         assert "${" not in auth_header, "Must not send ${ENV_VAR} as auth header"
-
-    async def test_test_connection_does_not_call_decrypt(self, service):
-        """test_connection must NOT call the legacy decrypt() function."""
-        service.create_provider(
-            name="OpenAI",
-            api_key="sk-real-key",
-            provider_type="openai",
-        )
-
-        with (
-            patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx,
-            patch(
-                "runsight_api.logic.services.provider_service.decrypt",
-                side_effect=AssertionError("decrypt() must not be called"),
-            ),
-        ):
-            mock_resp = Mock()
-            mock_resp.status_code = 200
-            mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}]}
-            mock_client = AsyncMock()
-            mock_client.get.return_value = mock_resp
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_httpx.AsyncClient.return_value = mock_client
-
-            # Should succeed without calling decrypt
-            await service.test_connection("openai")
 
     async def test_test_connection_no_key_configured(self, service):
         """test_connection with no API key must return failure for non-ollama."""
@@ -414,7 +365,7 @@ class TestExecutionServiceUsesSecrets:
         assert isinstance(svc.secrets, SecretsEnvLoader)
 
     def test_resolve_api_keys_uses_secrets_resolve(self, tmp_base, secrets):
-        """_resolve_api_keys must call secrets.resolve() instead of decrypt()."""
+        """_resolve_api_keys must call secrets.resolve()."""
         from runsight_api.logic.services.execution_service import ExecutionService
 
         # Set up a provider with ${ENV_VAR} ref and store the real key in secrets
@@ -439,31 +390,6 @@ class TestExecutionServiceUsesSecrets:
 
         assert isinstance(result, dict)
         assert result.get("openai") == "sk-real-key-123"
-
-    def test_resolve_api_keys_does_not_call_decrypt(self, secrets):
-        """_resolve_api_keys must NOT call the legacy decrypt() function."""
-        from runsight_api.logic.services.execution_service import ExecutionService
-
-        provider_repo = Mock()
-        provider_mock = Mock()
-        provider_mock.type = "openai"
-        provider_mock.api_key = "${OPENAI_API_KEY}"
-        provider_repo.list_all.return_value = [provider_mock]
-
-        secrets.store_key("openai", "sk-real")
-
-        svc = ExecutionService(
-            run_repo=Mock(),
-            workflow_repo=Mock(),
-            provider_repo=provider_repo,
-            secrets=secrets,
-        )
-
-        with patch(
-            "runsight_api.logic.services.execution_service.decrypt",
-            side_effect=AssertionError("decrypt() must not be called"),
-        ):
-            svc._resolve_api_keys()
 
     def test_resolve_api_keys_skips_provider_without_api_key(self, secrets):
         """Providers with no api_key ref should be skipped."""

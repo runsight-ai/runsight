@@ -43,23 +43,17 @@ def _make_service(max_concurrent_runs=None):
     return svc, run_repo, workflow_repo, provider_repo
 
 
-def _patch_parse_and_decrypt(slow_run_coro):
-    """Return a context manager that patches parse_workflow_yaml and decrypt.
+def _patch_parse_workflow(slow_run_coro):
+    """Return a context manager that patches parse_workflow_yaml.
 
     The parsed workflow's .run will be set to slow_run_coro.
     """
     mock_wf = Mock()
     mock_wf.run = slow_run_coro
 
-    return (
-        patch(
-            "runsight_api.logic.services.execution_service.parse_workflow_yaml",
-            return_value=mock_wf,
-        ),
-        patch(
-            "runsight_api.logic.services.execution_service.decrypt",
-            return_value="sk-test",
-        ),
+    return patch(
+        "runsight_api.logic.services.execution_service.parse_workflow_yaml",
+        return_value=mock_wf,
     )
 
 
@@ -121,8 +115,8 @@ class TestConcurrencyLimit:
 
             return WorkflowState()
 
-        p1, p2 = _patch_parse_and_decrypt(tracked_run)
-        with p1, p2:
+        p1 = _patch_parse_workflow(tracked_run)
+        with p1:
             for i in range(total_runs):
                 await svc.launch_execution(f"run_{i}", "wf_1", {"instruction": "go"})
 
@@ -178,8 +172,8 @@ class TestConcurrencyLimit:
 
             return WorkflowState()
 
-        p1, p2 = _patch_parse_and_decrypt(tracked_run)
-        with p1, p2:
+        p1 = _patch_parse_workflow(tracked_run)
+        with p1:
             for i in range(total_runs):
                 await svc.launch_execution(f"run_d{i}", "wf_1", {"instruction": "go"})
 
@@ -223,8 +217,8 @@ class TestConcurrencyLimit:
                     all_done.set()
             return result
 
-        p1, p2 = _patch_parse_and_decrypt(gated_run)
-        with p1, p2:
+        p1 = _patch_parse_workflow(gated_run)
+        with p1:
             for i in range(total_runs):
                 await svc.launch_execution(f"run_q{i}", "wf_1", {"instruction": "go"})
 
@@ -258,8 +252,8 @@ class TestConcurrencyLimit:
 
             return WorkflowState()
 
-        p1, p2 = _patch_parse_and_decrypt(blocking_run)
-        with p1, p2:
+        p1 = _patch_parse_workflow(blocking_run)
+        with p1:
             # First run occupies the semaphore
             await svc.launch_execution("run_a", "wf_1", {"instruction": "go"})
             # Second run should NOT raise — it queues
@@ -298,8 +292,8 @@ class TestSemaphoreRelease:
 
             return WorkflowState()
 
-        p1, p2 = _patch_parse_and_decrypt(failing_then_ok)
-        with p1, p2:
+        p1 = _patch_parse_workflow(failing_then_ok)
+        with p1:
             await svc.launch_execution("run_fail", "wf_1", {"instruction": "go"})
             await asyncio.sleep(0.1)  # Let the failure happen
 
@@ -346,8 +340,8 @@ class TestSemaphoreRelease:
                 return await long_run(*args, **kwargs)
             return await quick_run(*args, **kwargs)
 
-        p1, p2 = _patch_parse_and_decrypt(dispatch_run)
-        with p1, p2:
+        p1 = _patch_parse_workflow(dispatch_run)
+        with p1:
             await svc.launch_execution("run_cancel", "wf_1", {"instruction": "go"})
             await run_started.wait()
 
@@ -379,8 +373,8 @@ class TestSemaphoreRelease:
         async def always_fail(*args, **kwargs):
             raise RuntimeError("always fails")
 
-        p1, p2 = _patch_parse_and_decrypt(always_fail)
-        with p1, p2:
+        p1 = _patch_parse_workflow(always_fail)
+        with p1:
             # Fill all semaphore slots with failing runs
             for i in range(limit):
                 await svc.launch_execution(f"run_fail_{i}", "wf_1", {"instruction": "go"})
@@ -395,8 +389,8 @@ class TestSemaphoreRelease:
 
             return WorkflowState()
 
-        p1c, p2c = _patch_parse_and_decrypt(success_run)
-        with p1c, p2c:
+        p1c = _patch_parse_workflow(success_run)
+        with p1c:
             await svc.launch_execution("run_after_fails", "wf_1", {"instruction": "go"})
             try:
                 await asyncio.wait_for(success_event.wait(), timeout=2.0)
@@ -466,8 +460,8 @@ class TestPendingUntilAcquired:
 
             return WorkflowState()
 
-        p1, p2 = _patch_parse_and_decrypt(blocking_run)
-        with p1, p2:
+        p1 = _patch_parse_workflow(blocking_run)
+        with p1:
             # First run occupies the semaphore
             await svc.launch_execution("run_active", "wf_1", {"instruction": "go"})
             await asyncio.sleep(0.1)
@@ -552,8 +546,8 @@ class TestPendingUntilAcquired:
 
                 return WorkflowState()
 
-        p1, p2 = _patch_parse_and_decrypt(dispatch_run)
-        with p1, p2:
+        p1 = _patch_parse_workflow(dispatch_run)
+        with p1:
             await svc.launch_execution("run_first", "wf_1", {"instruction": "go"})
             await asyncio.sleep(0.1)
 
@@ -599,8 +593,8 @@ class TestImmediateReturn:
 
             return WorkflowState()
 
-        p1, p2 = _patch_parse_and_decrypt(blocking_run)
-        with p1, p2:
+        p1 = _patch_parse_workflow(blocking_run)
+        with p1:
             # Fill the semaphore
             await svc.launch_execution("run_fill", "wf_1", {"instruction": "go"})
 

@@ -16,9 +16,6 @@ from ..observers.eval_observer import EvalObserver
 from ..observers.execution_observer import ExecutionObserver
 from ..observers.streaming_observer import StreamingObserver
 
-# Legacy stub — kept so negative-assertion tests can patch it to verify it's never called
-decrypt = None
-
 logger = logging.getLogger(__name__)
 
 
