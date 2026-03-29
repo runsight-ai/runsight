@@ -42,6 +42,13 @@ export const router = createBrowserRouter([
           })),
       },
       {
+        path: "workflows/:id/edit",
+        lazy: () =>
+          import("@/features/canvas/CanvasPage").then((m) => ({
+            Component: m.Component,
+          })),
+      },
+      {
         path: "runs",
         lazy: () =>
           import("@/features/runs/RunList").then((m) => ({
