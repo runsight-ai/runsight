@@ -18,6 +18,14 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
 
+_RESEARCHER_SOUL = {
+    "researcher": {
+        "id": "researcher_1",
+        "role": "Senior Researcher",
+        "system_prompt": "You research topics.",
+    }
+}
+
 
 class TestSchemaParsingIntegration:
     """Test schema validation at the boundary with parser."""
@@ -116,6 +124,7 @@ class TestParserRegistryIntegration:
         # Create child workflow
         child_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {"step1": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "analysis_child",
@@ -164,6 +173,7 @@ class TestParserMaxDepthResolution:
         """Block-level max_depth should override global config."""
         child_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
@@ -197,6 +207,7 @@ class TestParserMaxDepthResolution:
         """Global config should be used when block has no max_depth."""
         child_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
@@ -230,6 +241,7 @@ class TestParserMaxDepthResolution:
         """Default 10 should be used when neither block nor config set."""
         child_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
@@ -269,6 +281,7 @@ class TestParserNestedWorkflowRecursion:
         # Grandchild (deepest level)
         grandchild_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {"step": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "grandchild",
@@ -349,6 +362,7 @@ class TestWorkflowBlockExecutionIntegration:
         # Create child workflow
         child_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {"research": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "research_child",
@@ -364,6 +378,7 @@ class TestWorkflowBlockExecutionIntegration:
         # Create parent with workflow block
         parent_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "setup": {"type": "linear", "soul_ref": "researcher"},
                 "invoke_analysis": {
@@ -399,6 +414,7 @@ class TestWorkflowBlockExecutionIntegration:
         # Child workflow
         child_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {"task": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "child",
@@ -414,6 +430,7 @@ class TestWorkflowBlockExecutionIntegration:
         # Parent with input/output mapping
         parent_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "setup": {"type": "linear", "soul_ref": "researcher"},
                 "invoke": {
@@ -449,6 +466,7 @@ class TestWorkflowBlockExecutionIntegration:
         # Child
         child_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
@@ -524,6 +542,7 @@ class TestWorkflowBlockErrorHandling:
         # Child that expects input
         child_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
@@ -588,6 +607,7 @@ class TestBackwardCompatibility:
         """Workflows without workflow blocks should parse normally."""
         yaml_dict = {
             "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "step1": {"type": "linear", "soul_ref": "researcher"},
             },
@@ -628,6 +648,11 @@ class TestBackwardCompatibility:
         """All original block types should still parse."""
         yaml_str = """
 version: "1.0"
+souls:
+  researcher:
+    id: researcher_1
+    role: Senior Researcher
+    system_prompt: You research topics.
 workflow:
   name: full_test
   entry: linear_step

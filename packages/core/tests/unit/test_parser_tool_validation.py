@@ -487,9 +487,15 @@ souls:
 
         assert soul.resolved_tools is None
 
-    def test_builtin_soul_without_tools_has_none_resolved_tools(self):
-        """AC6: Built-in soul (no tools) -> resolved_tools is None."""
+    def test_defined_soul_without_tools_has_none_resolved_tools(self):
+        """AC6: Explicitly defined soul (no tools) -> resolved_tools is None."""
         yaml_str = _make_yaml(
+            souls="""\
+souls:
+  researcher:
+    id: researcher_1
+    role: Senior Researcher
+    system_prompt: You research topics.""",
             blocks="""\
   my_block:
     type: linear

@@ -14,7 +14,6 @@ from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_
 from runsight_core.primitives import Task
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import (
-    BUILT_IN_SOULS,
     parse_task_yaml,
     parse_workflow_yaml,
 )
@@ -41,30 +40,6 @@ class TestBlockTypeRegistry:
         """Verify all builders in registry are callable."""
         for block_type, builder in BLOCK_TYPE_REGISTRY.items():
             assert callable(builder), f"Builder for {block_type} is not callable"
-
-
-class TestBuiltInSouls:
-    """Tests for built-in souls."""
-
-    def test_built_in_souls_exist(self):
-        """Verify BUILT_IN_SOULS contains expected souls."""
-        expected_souls = {
-            "researcher",
-            "reviewer",
-            "coder",
-            "architect",
-            "synthesizer",
-            "generalist",
-        }
-        assert set(BUILT_IN_SOULS.keys()) == expected_souls
-        assert len(BUILT_IN_SOULS) == 6
-
-    def test_built_in_souls_have_required_fields(self):
-        """Verify each built-in soul has required fields."""
-        for soul_key, soul in BUILT_IN_SOULS.items():
-            assert soul.id is not None
-            assert soul.role is not None
-            assert soul.system_prompt is not None
 
 
 class TestLinearBlock:
@@ -110,10 +85,15 @@ workflow:
         with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
-    def test_linear_block_with_builtin_soul(self):
-        """AC-3: LinearBlock can use built-in souls."""
+    def test_linear_block_with_defined_soul(self):
+        """AC-3: LinearBlock can use explicitly defined souls."""
         yaml_content = """
 version: "1.0"
+souls:
+  researcher:
+    id: researcher_1
+    role: Senior Researcher
+    system_prompt: You research topics.
 blocks:
   linear_block:
     type: linear
@@ -136,6 +116,15 @@ class TestFanOutBlock:
         """AC-4: Parse valid fanout block with exits."""
         yaml_content = """
 version: "1.0"
+souls:
+  researcher:
+    id: researcher_1
+    role: Senior Researcher
+    system_prompt: You research topics.
+  reviewer:
+    id: reviewer_1
+    role: Peer Reviewer
+    system_prompt: You review topics.
 blocks:
   fanout_block:
     type: fanout
@@ -196,6 +185,19 @@ class TestSynthesizeBlock:
         """AC-7: Parse valid synthesize block with dependencies."""
         yaml_content = """
 version: "1.0"
+souls:
+  researcher:
+    id: researcher_1
+    role: Senior Researcher
+    system_prompt: You research topics.
+  reviewer:
+    id: reviewer_1
+    role: Peer Reviewer
+    system_prompt: You review topics.
+  synthesizer:
+    id: synthesizer_1
+    role: Synthesis Agent
+    system_prompt: You synthesize inputs.
 blocks:
   block_a:
     type: linear
@@ -243,6 +245,11 @@ workflow:
         """AC-9: SynthesizeBlock without input_block_ids raises ValueError."""
         yaml_content = """
 version: "1.0"
+souls:
+  synthesizer:
+    id: synthesizer_1
+    role: Synthesis Agent
+    system_prompt: You synthesize inputs.
 blocks:
   synthesize_block:
     type: synthesize
@@ -273,8 +280,8 @@ workflow:
         with pytest.raises(ValueError, match="Soul reference 'nonexistent_soul' not found"):
             parse_workflow_yaml(yaml_content)
 
-    def test_custom_soul_overrides_builtin(self):
-        """AC-29: Custom soul definition overrides built-in soul."""
+    def test_custom_soul_definition_works(self):
+        """AC-29: Custom soul definition in YAML works correctly."""
         yaml_content = """
 version: "1.0"
 souls:
@@ -344,6 +351,13 @@ class TestParseFromDict:
         """AC-33: parse_workflow_yaml accepts dict input."""
         workflow_dict = {
             "version": "1.0",
+            "souls": {
+                "researcher": {
+                    "id": "researcher_1",
+                    "role": "Senior Researcher",
+                    "system_prompt": "You research topics.",
+                }
+            },
             "blocks": {
                 "linear_block": {
                     "type": "linear",
@@ -370,6 +384,27 @@ class TestComplexWorkflow:
 version: "1.0"
 config:
   model_name: gpt-4o
+souls:
+  researcher:
+    id: researcher_1
+    role: Senior Researcher
+    system_prompt: You research topics.
+  reviewer:
+    id: reviewer_1
+    role: Peer Reviewer
+    system_prompt: You review topics.
+  coder:
+    id: coder_1
+    role: Software Engineer
+    system_prompt: You write code.
+  synthesizer:
+    id: synthesizer_1
+    role: Synthesis Agent
+    system_prompt: You synthesize inputs.
+  generalist:
+    id: generalist_1
+    role: General-purpose Assistant
+    system_prompt: You handle diverse tasks.
 blocks:
   research_block:
     type: linear
@@ -603,6 +638,11 @@ class TestVersionValidation:
     # -- Minimal valid workflow YAML used as a base for version tests --------
     _BASE_YAML_TEMPLATE = """
 version: "{version}"
+souls:
+  researcher:
+    id: researcher_1
+    role: Senior Researcher
+    system_prompt: You research topics.
 blocks:
   b:
     type: linear
@@ -616,6 +656,13 @@ workflow:
 """
 
     _BASE_DICT_NO_VERSION = {
+        "souls": {
+            "researcher": {
+                "id": "researcher_1",
+                "role": "Senior Researcher",
+                "system_prompt": "You research topics.",
+            }
+        },
         "blocks": {"b": {"type": "linear", "soul_ref": "researcher"}},
         "workflow": {
             "name": "version_test",
