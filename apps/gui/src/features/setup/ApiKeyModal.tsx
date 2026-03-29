@@ -46,7 +46,7 @@ export function ApiKeyModal({
   const [showApiKey, setShowApiKey] = useState(false);
   const [baseUrl, setBaseUrl] = useState("");
 
-  const provider = ALL_PROVIDERS.find((p) => p.id === selectedProviderId) ?? ALL_PROVIDERS[0];
+  const provider: ProviderDef = ALL_PROVIDERS.find((p) => p.id === selectedProviderId) ?? ALL_PROVIDERS[0]!;
   const isCustomProvider = provider.isCustom === true;
   const isOllama = provider.id === "ollama";
   const showBaseUrl = isCustomProvider || isOllama;
@@ -61,7 +61,8 @@ export function ApiKeyModal({
   const helperUrl = getDocsUrl(provider);
 
   const handleProviderChange = useCallback(
-    (value: string) => {
+    (value: string | null) => {
+      if (!value) return;
       setSelectedProviderId(value);
       setApiKey("");
       setShowApiKey(false);

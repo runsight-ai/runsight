@@ -17,9 +17,10 @@ interface CanvasTopbarProps {
   onSave?: () => void;
   yamlValid?: boolean;
   errorCount?: number;
+  onAddApiKey?: () => void;
 }
 
-export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid = true, errorCount = 0 }: CanvasTopbarProps) {
+export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid = true, errorCount = 0, onAddApiKey }: CanvasTopbarProps) {
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
 
@@ -127,7 +128,7 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
           Save
         </Button>
         <ExecutionMetrics runId={lastTerminalRunId} />
-        <RunButton workflowId={workflowId} />
+        <RunButton workflowId={workflowId} onAddApiKey={onAddApiKey} />
       </div>
     </header>
   );
