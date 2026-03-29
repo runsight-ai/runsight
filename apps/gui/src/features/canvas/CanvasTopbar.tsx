@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 interface CanvasTopbarProps {
   workflowId: string;
+  activeTab: string;
+  onValueChange: (value: string) => void;
   isDirty?: boolean;
   onSave?: () => void;
 }
 
-export function CanvasTopbar({ workflowId, isDirty, onSave }: CanvasTopbarProps) {
+export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave }: CanvasTopbarProps) {
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
 
@@ -63,18 +64,11 @@ export function CanvasTopbar({ workflowId, isDirty, onSave }: CanvasTopbarProps)
 
       {/* Center: Canvas | YAML toggle */}
       <div className="flex-1 flex justify-center">
-        <Tabs defaultValue="yaml">
+        <Tabs value={activeTab} onValueChange={onValueChange}>
           <TabsList variant="contained">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <TabsTrigger value="canvas" disabled>
-                    Canvas
-                  </TabsTrigger>
-                </TooltipTrigger>
-                <TooltipContent>Coming soon</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <TabsTrigger value="canvas" className="opacity-50">
+              Canvas
+            </TabsTrigger>
             <TabsTrigger value="yaml">YAML</TabsTrigger>
           </TabsList>
         </Tabs>
