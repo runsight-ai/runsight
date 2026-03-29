@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { RunButton } from "./RunButton";
+import { ExecutionMetrics } from "./ExecutionMetrics";
+import { useCanvasStore } from "@/store/canvas";
+import { useRun } from "@/queries/runs";
 import { CheckCircle, AlertTriangle } from "lucide-react";
 
 interface CanvasTopbarProps {
@@ -21,6 +24,30 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
+
+  // Track last completed/failed run for metrics display
+  const activeRunId = useCanvasStore((s) => s.activeRunId);
+  const [lastTerminalRunId, setLastTerminalRunId] = useState<string | null>(null);
+  const prevActiveRunId = useRef<string | null>(null);
+
+  const { data: trackedRun } = useRun(prevActiveRunId.current ?? "", {
+    refetchInterval: prevActiveRunId.current ? 2000 : false,
+  });
+
+  // When activeRunId is set, remember it for post-completion tracking
+  useEffect(() => {
+    if (activeRunId) {
+      prevActiveRunId.current = activeRunId;
+    }
+  }, [activeRunId]);
+
+  // When tracked run reaches terminal state, surface it for metrics
+  useEffect(() => {
+    const status = trackedRun?.status;
+    if (prevActiveRunId.current && (status === "completed" || status === "failed")) {
+      setLastTerminalRunId(prevActiveRunId.current);
+    }
+  }, [trackedRun?.status]);
 
   const workflowName = workflow?.name ?? "Untitled Workflow";
 
@@ -97,6 +124,7 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
         >
           Save
         </Button>
+        <ExecutionMetrics runId={lastTerminalRunId} />
         <RunButton workflowId={workflowId} />
       </div>
     </header>
