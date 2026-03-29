@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRunLogs, useRuns } from "@/queries/runs";
+import { useCanvasStore } from "@/store/canvas";
+import { mapSSEEventToStoreAction } from "./useRunStream";
 
 interface LogEntry {
   timestamp: string;
@@ -12,6 +14,47 @@ interface CanvasBottomPanelProps {
   workflowId?: string;
 }
 
+function sseEventToLogEntry(
+  eventType: string,
+  data: Record<string, unknown>,
+): LogEntry | null {
+  const ts = new Date().toISOString();
+  switch (eventType) {
+    case "node_started":
+      return {
+        timestamp: ts,
+        level: "info",
+        message: `Node ${data.node_id as string} started`,
+      };
+    case "node_completed":
+      return {
+        timestamp: ts,
+        level: "info",
+        message: `Node ${data.node_id as string} completed${data.cost_usd != null ? ` ($${(data.cost_usd as number).toFixed(4)})` : ""}`,
+      };
+    case "node_failed":
+      return {
+        timestamp: ts,
+        level: "error",
+        message: `Node ${data.node_id as string} failed: ${(data.error as string) ?? "unknown error"}`,
+      };
+    case "run_completed":
+      return {
+        timestamp: ts,
+        level: "info",
+        message: `Run completed. Total cost: $${((data.total_cost_usd as number) ?? 0).toFixed(4)}`,
+      };
+    case "run_failed":
+      return {
+        timestamp: ts,
+        level: "error",
+        message: `Run failed: ${(data.error as string) ?? "unknown error"}`,
+      };
+    default:
+      return null;
+  }
+}
+
 export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBottomPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<"logs" | "runs">("logs");
@@ -19,7 +62,13 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
   const logsRef = useRef<HTMLDivElement>(null);
   const [sseEntries, setSseEntries] = useState<LogEntry[]>([]);
 
-  const currentRunId = selectedRunId ?? initialRunId;
+  const activeRunId = useCanvasStore((s) => s.activeRunId);
+  const setNodeStatus = useCanvasStore((s) => s.setNodeStatus);
+  const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
+  const setRunCost = useCanvasStore((s) => s.setRunCost);
+
+  // Use activeRunId from store as primary, fall back to selectedRunId or prop
+  const currentRunId = activeRunId ?? selectedRunId ?? initialRunId;
 
   const { data: logData } = useRunLogs(currentRunId ?? "", undefined, {
     refetchInterval: undefined,
@@ -38,12 +87,58 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
   useEffect(() => {
     if (!currentRunId) return;
     const source = new EventSource(`/api/runs/${currentRunId}/stream`);
-    source.addEventListener("log_entry", (event) => {
-      const entry = JSON.parse(event.data) as LogEntry;
-      setSseEntries((prev) => [...prev, entry]);
-    });
+
+    const EVENT_TYPES = [
+      "log_entry",
+      "node_started",
+      "node_completed",
+      "node_failed",
+      "run_completed",
+      "run_failed",
+    ] as const;
+
+    for (const eventType of EVENT_TYPES) {
+      source.addEventListener(eventType, (event) => {
+        const data = JSON.parse((event as MessageEvent).data) as Record<string, unknown>;
+
+        if (eventType === "log_entry") {
+          const entry = data as unknown as LogEntry;
+          setSseEntries((prev) => [...prev, entry]);
+          return;
+        }
+
+        // Map SSE event to store action for canvas node status updates
+        const storeAction = mapSSEEventToStoreAction(eventType, data);
+        if (storeAction) {
+          switch (storeAction.action) {
+            case "setNodeStatus":
+              setNodeStatus(storeAction.nodeId, storeAction.status);
+              break;
+            case "runCompleted":
+              setRunCost(storeAction.totalCost);
+              setActiveRunId(null);
+              break;
+            case "runFailed":
+              setActiveRunId(null);
+              break;
+          }
+        }
+
+        // Convert node lifecycle events to log entries
+        const logEntry = sseEventToLogEntry(eventType, data);
+        if (logEntry) {
+          setSseEntries((prev) => [...prev, logEntry]);
+        }
+
+        // Close EventSource on terminal events
+        if (eventType === "run_completed" || eventType === "run_failed") {
+          source.close();
+        }
+      });
+    }
+
     return () => source.close();
-  }, [currentRunId]);
+  }, [currentRunId, setNodeStatus, setActiveRunId, setRunCost]);
 
   // Auto-scroll when new entries arrive
   useEffect(() => {
