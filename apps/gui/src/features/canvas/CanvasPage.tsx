@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useBlocker } from "react-router";
 import { Layout } from "lucide-react";
 import { CanvasTopbar } from "./CanvasTopbar";
+import { PaletteSidebar } from "./PaletteSidebar";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { YamlEditor } from "./YamlEditor";
 import { useUpdateWorkflow } from "@/queries/workflows";
@@ -48,18 +49,21 @@ export function Component() {
         isDirty={isDirty}
         onSave={handleSave}
       />
-      {activeTab === "canvas" ? (
-        <EmptyState
-          icon={Layout}
-          title="Visual canvas coming soon"
-          description="Switch to YAML to edit your workflow."
-          action={{ label: "Switch to YAML", onClick: () => setActiveTab("yaml") }}
-        />
-      ) : (
-        <div className="flex-1 overflow-hidden">
-          <YamlEditor workflowId={id!} onDirtyChange={handleDirtyChange} />
-        </div>
-      )}
+      <div className="flex flex-row flex-1 overflow-hidden h-full">
+        <PaletteSidebar />
+        {activeTab === "canvas" ? (
+          <EmptyState
+            icon={Layout}
+            title="Visual canvas coming soon"
+            description="Switch to YAML to edit your workflow."
+            action={{ label: "Switch to YAML", onClick: () => setActiveTab("yaml") }}
+          />
+        ) : (
+          <div className="flex-1 overflow-hidden">
+            <YamlEditor workflowId={id!} onDirtyChange={handleDirtyChange} />
+          </div>
+        )}
+      </div>
 
       {/* Unsaved changes dialog */}
       <Dialog open={blocker.state === "blocked"}>
