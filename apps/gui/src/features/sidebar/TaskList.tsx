@@ -1,4 +1,4 @@
-import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from "@/queries/tasks";
+import { useTasks, useDeleteTask } from "@/queries/tasks";
 import { CrudListPage, type CrudListPageConfig } from "@/components/shared/CrudListPage";
 import { type Column } from "@/components/shared/DataTable";
 import { Badge } from "@runsight/ui/badge";
@@ -79,8 +79,6 @@ const taskConfig: CrudListPageConfig<TaskResponse> = {
   resourceNamePlural: "Tasks",
   icon: CheckSquare,
   useList: useTasks,
-  useCreate: useCreateTask,
-  useUpdate: useUpdateTask,
   useDelete: useDeleteTask,
   columns,
   searchKeys: ["name", "description", "type"],

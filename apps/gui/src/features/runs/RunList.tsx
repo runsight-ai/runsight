@@ -1,3 +1,4 @@
+import { Fragment, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { useRuns } from "@/queries/runs";
 import type { RunResponse } from "@runsight/shared/zod";
@@ -22,7 +23,6 @@ import {
 import { Workflow, Search, X, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { cn } from "@/utils/helpers";
 import { formatDuration, formatCost, formatTimestamp } from "@/utils/formatting";
-import { useMemo, useState } from "react";
 
 // Status badge component matching design spec
 function StatusBadge({ status }: { status: string }) {
@@ -479,9 +479,9 @@ function Pagination({
           <ChevronLeft className="w-4 h-4" />
         </Button>
 
-        <div className="flex items-center gap-1">
-          {getPageNumbers().map((page, idx) => (
-            <React.Fragment key={idx}>
+          <div className="flex items-center gap-1">
+            {getPageNumbers().map((page, idx) => (
+            <Fragment key={idx}>
               {page === "..." ? (
                 <span className="px-2 text-muted">...</span>
               ) : (
@@ -494,7 +494,7 @@ function Pagination({
                   {page}
                 </Button>
               )}
-            </React.Fragment>
+            </Fragment>
           ))}
         </div>
 

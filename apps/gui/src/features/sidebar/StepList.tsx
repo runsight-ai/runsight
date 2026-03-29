@@ -1,4 +1,4 @@
-import { useSteps, useCreateStep, useUpdateStep, useDeleteStep } from "@/queries/steps";
+import { useSteps, useDeleteStep } from "@/queries/steps";
 import { CrudListPage, type CrudListPageConfig } from "@/components/shared/CrudListPage";
 import { type Column } from "@/components/shared/DataTable";
 import { Badge } from "@runsight/ui/badge";
@@ -81,8 +81,6 @@ const stepConfig: CrudListPageConfig<StepResponse> = {
   resourceNamePlural: "Steps",
   icon: Footprints,
   useList: useSteps,
-  useCreate: useCreateStep,
-  useUpdate: useUpdateStep,
   useDelete: useDeleteStep,
   columns,
   searchKeys: ["name", "description", "type"],

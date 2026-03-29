@@ -1,4 +1,4 @@
-import { useSouls, useCreateSoul, useUpdateSoul, useDeleteSoul } from "@/queries/souls";
+import { useSouls, useDeleteSoul } from "@/queries/souls";
 import { CrudListPage, type CrudListPageConfig } from "@/components/shared/CrudListPage";
 import { type Column } from "@/components/shared/DataTable";
 import { Badge } from "@runsight/ui/badge";
@@ -68,8 +68,6 @@ const soulConfig: CrudListPageConfig<SoulResponse> = {
   resourceNamePlural: "Souls",
   icon: Sparkles,
   useList: useSouls,
-  useCreate: useCreateSoul,
-  useUpdate: useUpdateSoul,
   useDelete: useDeleteSoul,
   columns,
   searchKeys: ["name", "system_prompt"],

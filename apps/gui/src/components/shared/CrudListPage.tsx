@@ -19,9 +19,7 @@ export interface CrudListPageConfig<T> {
     error: Error | null;
     refetch: () => void;
   };
-  useCreate: () => UseMutationResult<any, Error, any>;
-  useUpdate: () => UseMutationResult<any, Error, any>;
-  useDelete: () => UseMutationResult<any, Error, string>;
+  useDelete: () => UseMutationResult<unknown, Error, string>;
   columns: Column[];
   searchKeys: string[];
   getItemName: (item: T) => string;

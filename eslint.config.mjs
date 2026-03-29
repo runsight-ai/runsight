@@ -161,4 +161,22 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ["apps/gui/src/**/*.{ts,tsx}"],
+    rules: {
+      "no-console": [
+        "error",
+        {
+          allow: ["error", "warn"],
+        },
+      ],
+      "@typescript-eslint/no-explicit-any": "error",
+    },
+  },
+  {
+    files: ["apps/gui/src/**/__tests__/**/*.{ts,tsx}", "apps/gui/src/**/*.test.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 );

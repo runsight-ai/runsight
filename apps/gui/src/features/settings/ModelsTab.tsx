@@ -86,6 +86,7 @@ function FallbackChainSection({
   onReorder: (id: string, chain: string[]) => void;
 }) {
   const primary = modelDefaults.find((m) => m.is_default) ?? modelDefaults[0];
+  const primaryId = primary?.id ?? null;
   const fallbackChainSource = primary?.fallback_chain;
   const primaryFallbackChain = useMemo(
     () => fallbackChainSource ?? [],
@@ -113,9 +114,10 @@ function FallbackChainSection({
   };
 
   const handleSave = useCallback(() => {
-    onReorder(primary.id, localChain);
+    if (!primaryId) return;
+    onReorder(primaryId, localChain);
     setHasChanges(false);
-  }, [primary.id, localChain, onReorder]);
+  }, [localChain, onReorder, primaryId]);
 
   const handleCancel = useCallback(() => {
     setLocalChain(primaryFallbackChain);

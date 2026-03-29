@@ -73,16 +73,6 @@ describe("CrudListPage module", () => {
     expect(source).toMatch(/useList\s*[?:]?\s*:/);
   });
 
-  it("defines a config interface with useCreate hook reference", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/useCreate\s*[?:]?\s*:/);
-  });
-
-  it("defines a config interface with useUpdate hook reference", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/useUpdate\s*[?:]?\s*:/);
-  });
-
   it("defines a config interface with useDelete hook reference", () => {
     source = readSource(SHARED_DIR, "CrudListPage.tsx");
     expect(source).toMatch(/useDelete\s*[?:]?\s*:/);
