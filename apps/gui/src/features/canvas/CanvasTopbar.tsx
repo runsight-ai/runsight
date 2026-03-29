@@ -7,6 +7,7 @@ import { ExecutionMetrics } from "./ExecutionMetrics";
 import { useCanvasStore } from "@/store/canvas";
 import { useRun } from "@/queries/runs";
 import { CheckCircle, AlertTriangle } from "lucide-react";
+import { GitBadge } from "@/features/git/GitBadge";
 
 interface CanvasTopbarProps {
   workflowId: string;
@@ -116,6 +117,7 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
             <span className="text-xs text-amber-500">{errorCount} {errorCount === 1 ? "error" : "errors"}</span>
           </span>
         )}
+        <GitBadge />
         {isDirty && <span className="h-2 w-2 rounded-full bg-interactive-default" aria-label="unsaved indicator" />}
         <Button
           variant={isDirty ? "primary" : "ghost"}
