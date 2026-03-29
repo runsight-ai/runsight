@@ -35,7 +35,7 @@ export function Component() {
   const createWorkflow = useCreateWorkflow();
   const workflows = useWorkflows();
   const { activeRuns, subscribeToRunStream, isLoading, isError: isRunsError } = useActiveRuns();
-  const { data, isPending, isError, error, refetch } = useDashboardKPIs();
+  const { data, isPending, isError, refetch } = useDashboardKPIs();
   const { data: attentionData } = useAttentionItems();
   const attentionItems = attentionData?.items ?? [];
   const eventSourcesRef = useRef<Map<string, EventSource>>(new Map());
