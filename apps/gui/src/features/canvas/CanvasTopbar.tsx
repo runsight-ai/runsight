@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RunButton } from "./RunButton";
 
 interface CanvasTopbarProps {
   workflowId: string;
@@ -82,7 +83,7 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
         >
           Save
         </button>
-        <span className="text-sm text-secondary">Run</span>
+        <RunButton workflowId={workflowId} />
       </div>
     </header>
   );
