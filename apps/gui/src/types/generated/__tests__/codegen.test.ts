@@ -10,15 +10,99 @@
  *   4. package.json has the generate:types script
  */
 
-import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync } from "fs";
-import { resolve } from "path";
+import { describe, it, expect, beforeAll } from "vitest";
+import { existsSync, readFileSync, mkdtempSync, rmSync } from "fs";
+import { join, resolve } from "path";
+import { execFileSync } from "child_process";
+import { tmpdir } from "os";
 
 const GENERATED_DIR = resolve(__dirname, "..");
 // __dirname = apps/gui/src/types/generated/__tests__
 // up 1=generated, 2=types, 3=src, 4=gui
 const GUI_ROOT = resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = resolve(__dirname, "..", "..", "..", "..", "..", "..");
 const PACKAGE_JSON_PATH = resolve(GUI_ROOT, "package.json");
+const ZOD_GENERATOR_SCRIPT = resolve(REPO_ROOT, "scripts", "generate-zod-schemas.py");
+const COMMITTED_ZOD_PATH = resolve(GENERATED_DIR, "zod.ts");
+
+type SchemaFieldSnapshot = {
+  fresh: string[];
+  committed: string[];
+};
+
+function extractSchemaFieldNames(source: string, schemaName: string): string[] {
+  const pattern = new RegExp(
+    `export const ${schemaName}Schema = z\\.object\\(\\{([\\s\\S]*?)\\n\\}\\);`,
+  );
+  const match = source.match(pattern);
+  if (!match) {
+    throw new Error(`Could not find ${schemaName}Schema in generated output`);
+  }
+
+  return match[1]
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const fieldMatch = line.match(/^([A-Za-z0-9_]+):\s/);
+      if (!fieldMatch) {
+        throw new Error(`Could not parse schema field line: ${line}`);
+      }
+      return fieldMatch[1];
+    });
+}
+
+function buildFreshSchemaSnapshot(): {
+  runCreate: SchemaFieldSnapshot;
+  runResponse: SchemaFieldSnapshot;
+} {
+  const workdir = mkdtempSync(join(tmpdir(), "runsight-zod-"));
+  const openapiPath = resolve(workdir, "openapi.json");
+  const generatedZodPath = resolve(workdir, "zod.ts");
+  const openapiPython = [
+    "import json",
+    "import sys",
+    "from pathlib import Path",
+    "from runsight_api.main import app",
+    'Path(sys.argv[1]).write_text(json.dumps(app.openapi(), indent=2) + "\\n")',
+  ].join("\n");
+
+  try {
+    execFileSync(
+      "uv",
+      ["run", "python", "-c", openapiPython, openapiPath],
+      {
+        cwd: REPO_ROOT,
+        stdio: "pipe",
+      },
+    );
+
+    execFileSync(
+      "uv",
+      ["run", "python", ZOD_GENERATOR_SCRIPT, openapiPath, generatedZodPath],
+      {
+        cwd: REPO_ROOT,
+        stdio: "pipe",
+      },
+    );
+
+    const freshZod = readFileSync(generatedZodPath, "utf8");
+    const committedZod = readFileSync(COMMITTED_ZOD_PATH, "utf8");
+
+    return {
+      runCreate: {
+        fresh: extractSchemaFieldNames(freshZod, "RunCreate"),
+        committed: extractSchemaFieldNames(committedZod, "RunCreate"),
+      },
+      runResponse: {
+        fresh: extractSchemaFieldNames(freshZod, "RunResponse"),
+        committed: extractSchemaFieldNames(committedZod, "RunResponse"),
+      },
+    };
+  } finally {
+    rmSync(workdir, { recursive: true, force: true });
+  }
+}
 
 // ---------------------------------------------------------------------------
 // 1. Generated files exist
@@ -123,41 +207,28 @@ describe("RUN-134: Generated Zod schemas are valid", () => {
     });
     expect(result.success).toBe(true);
   });
+});
 
-  it("RunCreateSchema preserves source on parse", async () => {
-    const mod = await import("../zod");
-    const parsed = mod.RunCreateSchema.parse({
-      workflow_id: "wf-1",
-      source: "dashboard",
-    });
-    expect(parsed).toMatchObject({
-      workflow_id: "wf-1",
-      source: "dashboard",
-    });
+describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () => {
+  let snapshot: {
+    runCreate: SchemaFieldSnapshot;
+    runResponse: SchemaFieldSnapshot;
+  };
+
+  beforeAll(() => {
+    snapshot = buildFreshSchemaSnapshot();
   });
 
-  it("RunResponseSchema preserves branch, source, and commit_sha on parse", async () => {
-    const mod = await import("../zod");
-    const parsed = mod.RunResponseSchema.parse({
-      id: "run-1",
-      workflow_id: "wf-1",
-      workflow_name: "Test",
-      status: "completed",
-      started_at: 1000,
-      completed_at: 2000,
-      duration_seconds: 1,
-      total_cost_usd: 0.01,
-      total_tokens: 100,
-      created_at: 1000,
-      branch: "main",
-      source: "cli",
-      commit_sha: "abc123",
-    });
-    expect(parsed).toMatchObject({
-      branch: "main",
-      source: "cli",
-      commit_sha: "abc123",
-    });
+  it("RunCreateSchema includes source in the generated output", () => {
+    expect(snapshot.runCreate.fresh).toContain("source");
+    expect(snapshot.runCreate.committed).toEqual(snapshot.runCreate.fresh);
+  });
+
+  it("RunResponseSchema includes branch, source, and commit_sha in the generated output", () => {
+    expect(snapshot.runResponse.fresh).toEqual(
+      expect.arrayContaining(["branch", "source", "commit_sha"]),
+    );
+    expect(snapshot.runResponse.committed).toEqual(snapshot.runResponse.fresh);
   });
 });
 
