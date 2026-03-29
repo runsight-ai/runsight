@@ -9,7 +9,8 @@ Tests target:
 """
 
 import json
-from unittest.mock import Mock
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -20,6 +21,9 @@ from runsight_api.transport.deps import get_run_service, get_execution_service
 
 
 client = TestClient(app)
+SSE_STREAM_PATH = (
+    Path(__file__).resolve().parents[2] / "src/runsight_api/transport/routers/sse_stream.py"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -478,3 +482,50 @@ class TestObserverRegistry:
         exec_service.unregister_observer("run_reg_2")
 
         assert exec_service.get_observer("run_reg_2") is None
+
+
+# ---------------------------------------------------------------------------
+# 9. RUN-410 replay failure logging
+# ---------------------------------------------------------------------------
+
+
+class TestReplayFailureLogging:
+    def test_replay_failure_logs_warning_and_stream_continues(self):
+        """Replay DB errors should log a warning and still emit live terminal events."""
+        from runsight_api.transport.routers import sse_stream
+
+        mock_run_service = Mock()
+        mock_run_service.get_run.return_value = _make_mock_run()
+        mock_run_service.get_run_logs.side_effect = RuntimeError("db unavailable")
+
+        mock_exec_service = Mock()
+
+        async def _fake_stream(run_id):
+            yield {"event": "run_completed", "data": {"run_id": run_id}}
+
+        mock_exec_service.subscribe_stream = _fake_stream
+
+        app.dependency_overrides[get_run_service] = lambda: mock_run_service
+        app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
+
+        try:
+            with patch.object(sse_stream, "logger", create=True) as mock_logger:
+                with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
+                    body = response.read().decode()
+
+            events = _parse_sse_events(body)
+
+            assert response.status_code == 200
+            assert events[-1]["event"] == "run_completed"
+            mock_logger.warning.assert_called_once()
+            call_args = mock_logger.warning.call_args
+            assert call_args.args[0] == "SSE replay failed"
+            assert call_args.kwargs["exc_info"] is True
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_sse_stream_source_has_no_bare_except_pass_in_replay_path(self):
+        """The replay path must not silently swallow exceptions with except/pass."""
+        source = SSE_STREAM_PATH.read_text()
+
+        assert "except Exception:\n            pass" not in source
