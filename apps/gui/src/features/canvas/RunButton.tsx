@@ -8,9 +8,10 @@ import { Play, X, Key } from "lucide-react";
 
 interface RunButtonProps {
   workflowId: string;
+  onAddApiKey?: () => void;
 }
 
-export function RunButton({ workflowId }: RunButtonProps) {
+export function RunButton({ workflowId, onAddApiKey }: RunButtonProps) {
   const activeRunId = useCanvasStore((s) => s.activeRunId);
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const nodes = useCanvasStore((s) => s.nodes);
@@ -54,9 +55,7 @@ export function RunButton({ workflowId }: RunButtonProps) {
     return (
       <Button
         variant="primary"
-        onClick={() => {
-          window.location.href = "/settings";
-        }}
+        onClick={() => onAddApiKey?.()}
       >
         <Key className="size-4" />
         Add API Key
