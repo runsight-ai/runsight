@@ -123,6 +123,42 @@ describe("RUN-134: Generated Zod schemas are valid", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("RunCreateSchema preserves source on parse", async () => {
+    const mod = await import("../zod");
+    const parsed = mod.RunCreateSchema.parse({
+      workflow_id: "wf-1",
+      source: "dashboard",
+    });
+    expect(parsed).toMatchObject({
+      workflow_id: "wf-1",
+      source: "dashboard",
+    });
+  });
+
+  it("RunResponseSchema preserves branch, source, and commit_sha on parse", async () => {
+    const mod = await import("../zod");
+    const parsed = mod.RunResponseSchema.parse({
+      id: "run-1",
+      workflow_id: "wf-1",
+      workflow_name: "Test",
+      status: "completed",
+      started_at: 1000,
+      completed_at: 2000,
+      duration_seconds: 1,
+      total_cost_usd: 0.01,
+      total_tokens: 100,
+      created_at: 1000,
+      branch: "main",
+      source: "cli",
+      commit_sha: "abc123",
+    });
+    expect(parsed).toMatchObject({
+      branch: "main",
+      source: "cli",
+      commit_sha: "abc123",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
