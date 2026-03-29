@@ -4,8 +4,7 @@ import { useWorkflows, useDeleteWorkflow } from "@/queries/workflows";
 import { NewWorkflowModal } from "./NewWorkflowModal";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable, type Column } from "@/components/shared/DataTable";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { CostDisplay } from "@/components/shared/CostDisplay";
+import { StatusBadge, type StatusVariant } from "@/components/shared/StatusBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,12 +42,59 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { getWorkflowIcon, getWorkflowIconBg } from "@/utils/icons";
-import { getTimeAgo } from "@/utils/formatting";
 import type { WorkflowResponse } from "@/types/generated/zod";
 
 type SortOption = "updated" | "name" | "created";
 type ViewMode = "list" | "grid";
 type StatusFilter = "all" | "active" | "draft" | "archived";
+
+function getWorkflowStepCount(workflow: WorkflowResponse) {
+  return workflow.canvas_state?.nodes?.length ?? 0;
+}
+
+function getWorkflowStatus(workflow: WorkflowResponse): {
+  badgeStatus: StatusVariant;
+  label: string;
+  filterValue: Exclude<StatusFilter, "all" | "archived">;
+} {
+  if (workflow.validation_error || workflow.valid === false) {
+    return {
+      badgeStatus: "warning",
+      label: "Needs Review",
+      filterValue: "draft",
+    };
+  }
+
+  if (workflow.yaml?.trim() || getWorkflowStepCount(workflow) > 0) {
+    return {
+      badgeStatus: "success",
+      label: "Ready",
+      filterValue: "active",
+    };
+  }
+
+  return {
+    badgeStatus: "pending",
+    label: "Draft",
+    filterValue: "draft",
+  };
+}
+
+function getWorkflowSummary(workflow: WorkflowResponse) {
+  if (workflow.validation_error) {
+    return "Validation issue";
+  }
+
+  if (workflow.yaml?.trim()) {
+    return "YAML workflow";
+  }
+
+  if (getWorkflowStepCount(workflow) > 0) {
+    return "Canvas workflow";
+  }
+
+  return "No run data";
+}
 
 export function Component() {
   const navigate = useNavigate();
@@ -82,30 +128,26 @@ export function Component() {
     // Status filter
     if (statusFilter !== "all") {
       result = result.filter((w) => {
-        const status = w.status || "draft";
-        if (statusFilter === "active") return status === "active" || status === "running";
-        if (statusFilter === "draft") return status === "draft" || status === "idle";
-        if (statusFilter === "archived") return status === "archived";
-        return true;
+        if (statusFilter === "archived") {
+          return false;
+        }
+
+        return getWorkflowStatus(w).filterValue === statusFilter;
       });
     }
 
     // Sort
     result.sort((a, b) => {
-      if (sortBy === "updated") {
-        const aDate = new Date(a.updated_at || a.created_at || 0).getTime();
-        const bDate = new Date(b.updated_at || b.created_at || 0).getTime();
-        return bDate - aDate; // Most recent first
-      }
       if (sortBy === "name") {
         return (a.name || "Untitled").localeCompare(b.name || "Untitled");
       }
-      if (sortBy === "created") {
-        const aDate = new Date(a.created_at || 0).getTime();
-        const bDate = new Date(b.created_at || 0).getTime();
-        return bDate - aDate; // Most recent first
+
+      const stepDifference = getWorkflowStepCount(b) - getWorkflowStepCount(a);
+      if (stepDifference !== 0) {
+        return stepDifference;
       }
-      return 0;
+
+      return (a.name || "Untitled").localeCompare(b.name || "Untitled");
     });
 
     return result;
@@ -165,9 +207,9 @@ export function Component() {
       width: "80px",
       render: (row) => {
         const workflow = row as WorkflowResponse;
-        const count = workflow.step_count ?? workflow.block_count ?? 0;
+        const count = getWorkflowStepCount(workflow);
         return (
-          <div className="text-center text-sm text-muted">{count || 0}</div>
+          <div className="text-center text-sm text-muted">{count}</div>
         );
       },
     },
@@ -177,18 +219,12 @@ export function Component() {
       width: "140px",
       render: (row) => {
         const workflow = row as WorkflowResponse;
-        const status = workflow.status || "idle";
-        const variant = status === "running" ? "running" : 
-                       status === "completed" ? "success" : 
-                       status === "failed" ? "error" : "pending";
+        const status = getWorkflowStatus(workflow);
         return (
           <div className="flex flex-col gap-1">
-            <StatusBadge 
-              status={variant} 
-              label={status.charAt(0).toUpperCase() + status.slice(1)} 
-            />
+            <StatusBadge status={status.badgeStatus} label={status.label} />
             <span className="text-xs text-muted">
-              {getTimeAgo(workflow.last_run_completed_at || workflow.updated_at)}
+              {getWorkflowSummary(workflow)}
             </span>
           </div>
         );
@@ -198,14 +234,9 @@ export function Component() {
       key: "cost",
       header: "Cost",
       width: "100px",
-      render: (row) => {
-        const workflow = row as WorkflowResponse;
-        const cost = workflow.last_run_cost_usd ?? 0;
-        const completedAt = workflow.last_run_completed_at;
+      render: () => {
         return (
-          <div className="text-right">
-            <CostDisplay cost={cost} isEstimate={!completedAt} />
-          </div>
+          <div className="text-right text-sm text-muted">--</div>
         );
       },
     },
@@ -217,7 +248,7 @@ export function Component() {
         const workflow = row as WorkflowResponse;
         return (
           <div className="text-sm text-muted">
-            {getTimeAgo(workflow.updated_at)}
+            {getWorkflowSummary(workflow)}
           </div>
         );
       },
@@ -479,11 +510,8 @@ export function Component() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredWorkflows.map((workflow) => {
               const name = workflow.name || "Untitled";
-              const status = workflow.status || "idle";
-              const variant = status === "running" ? "running" : 
-                             status === "completed" ? "success" : 
-                             status === "failed" ? "error" : "pending";
-              const stepCount = workflow.step_count ?? workflow.block_count ?? 0;
+              const status = getWorkflowStatus(workflow);
+              const stepCount = getWorkflowStepCount(workflow);
 
               return (
                 <div
@@ -531,9 +559,9 @@ export function Component() {
                     </p>
                   )}
                   <div className="flex items-center justify-between pt-3 border-t border-[var(--border-default)]">
-                    <StatusBadge status={variant} label={status.charAt(0).toUpperCase() + status.slice(1)} />
+                    <StatusBadge status={status.badgeStatus} label={status.label} />
                     <span className="text-xs text-muted">
-                      {getTimeAgo(workflow.updated_at)}
+                      {getWorkflowSummary(workflow)}
                     </span>
                   </div>
                 </div>

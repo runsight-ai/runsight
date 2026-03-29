@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import React from "react";
 
 import {
   Dialog,
@@ -70,7 +69,7 @@ export const Confirmation: Story = {
           </p>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" size="sm">Cancel</Button>} />
+          <DialogClose render={<Button variant="secondary" size="sm">Cancel</Button>} />
           <Button variant="danger" size="sm">Delete</Button>
         </DialogFooter>
       </DialogContent>
@@ -103,7 +102,7 @@ export const WithForm: Story = {
           </div>
         </DialogBody>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" size="sm">Cancel</Button>} />
+          <DialogClose render={<Button variant="secondary" size="sm">Cancel</Button>} />
           <Button variant="primary" size="sm">Save Changes</Button>
         </DialogFooter>
       </DialogContent>
