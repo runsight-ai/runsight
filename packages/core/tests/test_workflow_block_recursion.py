@@ -2,11 +2,11 @@
 Tests for WorkflowBlock cycle detection and depth limit enforcement.
 """
 
-import pytest
 from unittest.mock import AsyncMock
 
-from runsight_core.state import WorkflowState
+import pytest
 from runsight_core import WorkflowBlock
+from runsight_core.state import WorkflowState
 
 
 @pytest.fixture

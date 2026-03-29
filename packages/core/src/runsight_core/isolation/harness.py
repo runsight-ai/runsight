@@ -33,7 +33,6 @@ from runsight_core.isolation.envelope import (
 )
 from runsight_core.isolation.ipc import IPCServer
 
-
 # ---------------------------------------------------------------------------
 # HeartbeatTracker — tracks phase changes and detects stalls
 # ---------------------------------------------------------------------------

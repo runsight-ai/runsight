@@ -22,7 +22,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Constants
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -67,7 +66,9 @@ class TestImportsRaiseError:
         """``from runsight_core.blocks.engineering_manager import EngineeringManagerBlock``
         must raise ImportError."""
         with pytest.raises(ImportError):
-            from runsight_core.blocks.engineering_manager import EngineeringManagerBlock  # noqa: F401
+            from runsight_core.blocks.engineering_manager import (
+                EngineeringManagerBlock,  # noqa: F401
+            )
 
     def test_import_team_lead_block_def_raises(self):
         """``from runsight_core.blocks.team_lead import TeamLeadBlockDef``
@@ -79,7 +80,9 @@ class TestImportsRaiseError:
         """``from runsight_core.blocks.engineering_manager import EngineeringManagerBlockDef``
         must raise ImportError."""
         with pytest.raises(ImportError):
-            from runsight_core.blocks.engineering_manager import EngineeringManagerBlockDef  # noqa: F401
+            from runsight_core.blocks.engineering_manager import (
+                EngineeringManagerBlockDef,  # noqa: F401
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

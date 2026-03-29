@@ -2,8 +2,8 @@
 Tests for WorkflowState data model.
 """
 
-from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Task
+from runsight_core.state import BlockResult, WorkflowState
 
 
 def test_workflow_state_initialization():

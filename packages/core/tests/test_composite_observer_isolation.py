@@ -7,7 +7,6 @@ and a warning is logged with the failing observer's class name.
 import logging
 from unittest.mock import MagicMock
 
-
 from runsight_core.observer import CompositeObserver
 from runsight_core.state import WorkflowState
 

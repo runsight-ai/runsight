@@ -7,8 +7,8 @@ Create Date: 2026-03-22
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlmodel
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "001_initial"

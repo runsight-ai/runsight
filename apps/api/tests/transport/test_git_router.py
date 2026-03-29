@@ -10,9 +10,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from runsight_api.main import app
 from runsight_api.core.config import settings
-
+from runsight_api.main import app
 
 # ---------------------------------------------------------------------------
 # Helpers

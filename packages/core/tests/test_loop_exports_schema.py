@@ -22,7 +22,8 @@ import pytest
 import yaml as pyyaml
 
 try:
-    from jsonschema import validate, ValidationError as JsonSchemaValidationError
+    from jsonschema import ValidationError as JsonSchemaValidationError
+    from jsonschema import validate
 except ImportError:
     pytest.skip("jsonschema not installed", allow_module_level=True)
 

@@ -16,7 +16,6 @@ from runsight_core.assertions.deterministic.linguistic import (
     RougeNAssertion,
 )
 
-
 # ── Helper ───────────────────────────────────────────────────────────────────
 
 

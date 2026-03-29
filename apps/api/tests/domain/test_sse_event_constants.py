@@ -21,7 +21,6 @@ from unittest.mock import Mock
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # AC-1: SSE event type names defined as constants in domain/events.py
 # ---------------------------------------------------------------------------

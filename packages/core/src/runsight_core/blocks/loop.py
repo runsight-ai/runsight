@@ -11,8 +11,8 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks._helpers import convert_condition, convert_condition_group
+from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
 
 
@@ -255,8 +255,8 @@ class LoopBlockDef(BaseBlockDef):
 
 
 # Explicit registration (PEP 563 workaround)
-from runsight_core.blocks._registry import register_block_def as _register_block_def  # noqa: E402
 from runsight_core.blocks._registry import register_block_builder as _register_builder  # noqa: E402
+from runsight_core.blocks._registry import register_block_def as _register_block_def  # noqa: E402
 
 _register_block_def("loop", LoopBlockDef)
 

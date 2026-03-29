@@ -410,8 +410,9 @@ class TestPendingUntilAcquired:
 
         With semaphore(1): run_1 occupies the slot. run_2 should stay pending.
         """
-        from runsight_api.domain.entities.run import Run, RunStatus
         from sqlmodel import Session, SQLModel, create_engine
+
+        from runsight_api.domain.entities.run import Run, RunStatus
 
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
@@ -483,8 +484,9 @@ class TestPendingUntilAcquired:
     @pytest.mark.asyncio
     async def test_status_transitions_to_running_after_semaphore_acquired(self):
         """Once a queued run acquires the semaphore, it should transition to 'running'."""
-        from runsight_api.domain.entities.run import Run, RunStatus
         from sqlmodel import Session, SQLModel, create_engine
+
+        from runsight_api.domain.entities.run import Run, RunStatus
 
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)

@@ -12,7 +12,6 @@ from runsight_api.domain.value_objects import (
     WorkflowEntity,
 )
 
-
 # ── SoulEntity ──────────────────────────────────────────────────────
 
 

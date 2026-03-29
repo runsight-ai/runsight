@@ -19,7 +19,6 @@ from pathlib import Path
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
-
 from runsight_core.blocks.code import CodeBlockDef
 from runsight_core.blocks.fanout import FanOutBlockDef
 from runsight_core.blocks.gate import GateBlockDef

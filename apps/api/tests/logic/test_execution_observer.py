@@ -12,13 +12,12 @@ import time
 from unittest.mock import patch
 
 import pytest
+from runsight_core.observer import WorkflowObserver
+from runsight_core.state import BlockResult, WorkflowState
 from sqlmodel import Session, SQLModel, create_engine
 
-from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.domain.entities.log import LogEntry
-from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.observer import WorkflowObserver
-
+from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 
 # ---------------------------------------------------------------------------
 # Deferred import helper (module does not exist yet)

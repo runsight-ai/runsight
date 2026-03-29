@@ -1,5 +1,7 @@
-from fastapi.testclient import TestClient
 from unittest.mock import Mock
+
+from fastapi.testclient import TestClient
+
 from runsight_api.main import app
 from runsight_api.transport.deps import get_registry_service, get_task_repo
 

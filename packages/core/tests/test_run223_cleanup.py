@@ -27,7 +27,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Constants
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -234,12 +233,12 @@ workflow:
 
     def test_block_classes_importable_from_own_modules(self):
         """All block classes should be importable directly from their own modules."""
-        from runsight_core.blocks.linear import LinearBlock
-        from runsight_core.blocks.fanout import FanOutBlock
-        from runsight_core.blocks.synthesize import SynthesizeBlock
-        from runsight_core.blocks.loop import LoopBlock
-        from runsight_core.blocks.gate import GateBlock
         from runsight_core.blocks.code import CodeBlock
+        from runsight_core.blocks.fanout import FanOutBlock
+        from runsight_core.blocks.gate import GateBlock
+        from runsight_core.blocks.linear import LinearBlock
+        from runsight_core.blocks.loop import LoopBlock
+        from runsight_core.blocks.synthesize import SynthesizeBlock
         from runsight_core.blocks.workflow_block import WorkflowBlock
 
         # Verify they are actual classes
@@ -268,7 +267,7 @@ workflow:
     def test_registry_still_has_all_block_types(self):
         """The auto-registration path should still discover all block types."""
         import runsight_core.blocks  # trigger auto-discovery  # noqa: F401
-        from runsight_core.blocks._registry import get_all_block_types, BLOCK_BUILDER_REGISTRY
+        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY, get_all_block_types
 
         block_types = get_all_block_types()
         expected_types = {

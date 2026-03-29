@@ -18,11 +18,9 @@ Tests cover:
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from runsight_core.primitives import Soul
-from runsight_core.runner import RunsightTeamRunner, ExecutionResult
+from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -426,6 +424,7 @@ class TestGateErrorRemovedFromLoop:
     def test_loop_module_does_not_import_gate_error(self):
         """loop.py must not contain an import of GateError."""
         import inspect
+
         import runsight_core.blocks.loop as loop_mod
 
         source = inspect.getsource(loop_mod)

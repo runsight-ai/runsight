@@ -5,21 +5,22 @@ Exports: parse_workflow_yaml, parse_task_yaml, BUILT_IN_SOULS
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+
 import yaml
-from typing import Any, Dict, Union, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from runsight_core.yaml.registry import WorkflowRegistry
 
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Soul, Step, Task
-from runsight_core.runner import RunsightTeamRunner
-from runsight_core.workflow import Workflow
 from runsight_core.conditions.engine import (
     Condition,
     ConditionGroup,
 )
+from runsight_core.primitives import Soul, Step, Task
+from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import BUILTIN_TOOL_CATALOG, resolve_tool
+from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import (
     ConditionDef,
     ConditionGroupDef,
@@ -27,7 +28,6 @@ from runsight_core.yaml.schema import (
     RunsightTaskFile,
     RunsightWorkflowFile,
 )
-
 
 # Supported schema versions.  When a future version bump is needed:
 # 1. Add the new version string here.
@@ -127,7 +127,6 @@ import runsight_core.blocks  # noqa: E402, F401
 import runsight_core.tools.delegate  # noqa: E402, F401
 import runsight_core.tools.file_io  # noqa: E402, F401
 import runsight_core.tools.http  # noqa: E402, F401
-
 from runsight_core.yaml.schema import rebuild_block_def_union as _rebuild  # noqa: E402
 
 _rebuild()
@@ -285,7 +284,7 @@ def parse_workflow_yaml(
             built_blocks[block_id].stateful = block_def.stateful
 
     # Step 6.5a: Wrap LLM blocks with IsolatedBlockWrapper at build time
-    from runsight_core.isolation.wrapper import IsolatedBlockWrapper, LLM_BLOCK_TYPES
+    from runsight_core.isolation.wrapper import LLM_BLOCK_TYPES, IsolatedBlockWrapper
 
     for block_id, block_def in file_def.blocks.items():
         if block_def.type in LLM_BLOCK_TYPES and block_id in built_blocks:

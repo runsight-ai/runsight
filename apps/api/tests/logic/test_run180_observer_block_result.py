@@ -11,11 +11,10 @@ All tests should FAIL until the implementation is updated.
 import json
 
 import pytest
+from runsight_core.state import BlockResult, WorkflowState
 from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
-from runsight_core.state import BlockResult, WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Deferred import helper

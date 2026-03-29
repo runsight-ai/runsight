@@ -9,11 +9,10 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-
-from runsight_api.logic.services.execution_service import ExecutionService
 from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
 
+from runsight_api.logic.services.execution_service import ExecutionService
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -4,9 +4,10 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
+from runsight_api.domain.entities.log import LogEntry  # noqa: F401
+
 # Import all models so SQLModel.metadata is populated
 from runsight_api.domain.entities.run import Run, RunNode  # noqa: F401
-from runsight_api.domain.entities.log import LogEntry  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

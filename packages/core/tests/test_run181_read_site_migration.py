@@ -27,7 +27,6 @@ from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from runsight_core.conditions.engine import (
     Case,
     Condition,
@@ -36,7 +35,6 @@ from runsight_core.conditions.engine import (
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
-
 
 # ==============================================================================
 # Helpers
@@ -101,8 +99,8 @@ class TestEvaluateOutputConditionsReadSite:
     @pytest.mark.asyncio
     async def test_output_conditions_uses_output_not_str(self):
         """evaluate_output_conditions should receive .output, not str(BlockResult)."""
-        from runsight_core.workflow import Workflow
         from runsight_core.blocks.base import BaseBlock
+        from runsight_core.workflow import Workflow
 
         # Set up a condition that matches "REAL_OUTPUT" via contains
         cases = [

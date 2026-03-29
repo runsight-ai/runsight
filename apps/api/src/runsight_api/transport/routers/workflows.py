@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends
 from typing import Optional
+
+from fastapi import APIRouter, Depends
+
+from ...logic.services.workflow_service import WorkflowService
+from ..deps import get_workflow_service
 from ..schemas.workflows import (
-    WorkflowResponse,
-    WorkflowListResponse,
     WorkflowCreate,
+    WorkflowListResponse,
+    WorkflowResponse,
     WorkflowUpdate,
 )
-from ..deps import get_workflow_service
-from ...logic.services.workflow_service import WorkflowService
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
 

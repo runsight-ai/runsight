@@ -12,10 +12,9 @@ import time
 import uuid
 
 import pytest
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from runsight_api.domain.entities.run import Run, RunStatus
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -206,7 +205,7 @@ class TestStaleRunRecovery:
 
         with Session(db_engine) as session:
             # Verify nothing changed
-            all_runs = session.query(Run).all()
+            all_runs = session.exec(select(Run)).all()
             for run in all_runs:
                 assert run.status != RunStatus.running
 

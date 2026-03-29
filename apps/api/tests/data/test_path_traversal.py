@@ -12,7 +12,6 @@ from runsight_api.data.filesystem.step_repo import StepRepository
 from runsight_api.data.filesystem.task_repo import TaskRepository
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

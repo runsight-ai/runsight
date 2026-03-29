@@ -13,14 +13,13 @@ Tests verify that when stateful=True, LinearBlock:
 When stateful=False (default), conversation_histories must be untouched.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from runsight_core import LinearBlock
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -82,6 +81,7 @@ def _make_stateful_block(block_id, soul, runner):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_first_invocation_stores_user_and_assistant(
     mock_runner,
     sample_soul,
@@ -110,6 +110,7 @@ async def test_stateful_first_invocation_stores_user_and_assistant(
     assert history[1]["content"] == "Analysis complete."
 
 
+@pytest.mark.asyncio
 async def test_stateful_first_invocation_user_message_matches_prompt(
     mock_runner,
     sample_soul,
@@ -133,6 +134,7 @@ async def test_stateful_first_invocation_user_message_matches_prompt(
     assert history[0]["content"] == expected_prompt
 
 
+@pytest.mark.asyncio
 async def test_stateful_first_invocation_with_context_in_task(
     mock_runner,
     sample_soul,
@@ -162,6 +164,7 @@ async def test_stateful_first_invocation_with_context_in_task(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_continuation_passes_existing_history_to_runner(
     mock_runner,
     sample_soul,
@@ -202,6 +205,7 @@ async def test_stateful_continuation_passes_existing_history_to_runner(
     assert passed_messages == prior_history
 
 
+@pytest.mark.asyncio
 async def test_stateful_continuation_appends_new_pair_to_history(
     mock_runner,
     sample_soul,
@@ -246,6 +250,7 @@ async def test_stateful_continuation_appends_new_pair_to_history(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_history_key_format(mock_runner, sample_soul, sample_task):
     """History key must be '{block_id}_{soul_id}'."""
     mock_runner.execute_task.return_value = ExecutionResult(
@@ -269,6 +274,7 @@ async def test_stateful_history_key_format(mock_runner, sample_soul, sample_task
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_windowing_is_called(
     mock_runner,
     sample_soul,
@@ -299,6 +305,7 @@ async def test_stateful_windowing_is_called(
     ), "prune_messages was not called during stateful execution"
 
 
+@pytest.mark.asyncio
 async def test_stateful_windowing_prunes_oldest_pairs(
     mock_runner,
     sample_soul,
@@ -342,6 +349,7 @@ async def test_stateful_windowing_prunes_oldest_pairs(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_windowing_uses_soul_model_name(
     mock_runner,
     soul_with_model,
@@ -372,6 +380,7 @@ async def test_stateful_windowing_uses_soul_model_name(
         assert "write_soul_b" in new_state.conversation_histories
 
 
+@pytest.mark.asyncio
 async def test_stateful_windowing_falls_back_to_runner_model(
     mock_runner,
     sample_soul,
@@ -406,6 +415,7 @@ async def test_stateful_windowing_falls_back_to_runner_model(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_non_stateful_block_no_history_entries(
     mock_runner,
     sample_soul,
@@ -427,6 +437,7 @@ async def test_non_stateful_block_no_history_entries(
     assert new_state.conversation_histories == {}
 
 
+@pytest.mark.asyncio
 async def test_non_stateful_block_preserves_other_histories(
     mock_runner,
     sample_soul,
@@ -459,6 +470,7 @@ async def test_non_stateful_block_preserves_other_histories(
     assert "analyze_soul_a" not in new_state.conversation_histories
 
 
+@pytest.mark.asyncio
 async def test_non_stateful_does_not_pass_messages_to_runner(
     mock_runner,
     sample_soul,
@@ -486,6 +498,7 @@ async def test_non_stateful_does_not_pass_messages_to_runner(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_no_system_messages_stored(
     mock_runner,
     sample_soul,
@@ -521,6 +534,7 @@ async def test_stateful_no_system_messages_stored(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_block_still_stores_result_and_log(
     mock_runner,
     sample_soul,
@@ -561,6 +575,7 @@ async def test_stateful_block_still_stores_result_and_log(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_does_not_mutate_original_state(
     mock_runner,
     sample_soul,

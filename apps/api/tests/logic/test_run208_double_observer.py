@@ -14,13 +14,12 @@ All tests should FAIL until the manual observer calls are removed.
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from runsight_core.state import WorkflowState
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from runsight_api.domain.entities.log import LogEntry
 from runsight_api.domain.entities.run import Run, RunStatus
 from runsight_api.logic.services.execution_service import ExecutionService
-from runsight_core.state import WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Helpers

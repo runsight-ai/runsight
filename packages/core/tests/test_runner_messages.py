@@ -6,9 +6,9 @@ Verifies that execute_task() and stream_task() accept an optional
 before being sent to the LLM client.
 """
 
-import pytest
 from unittest.mock import patch
 
+import pytest
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
 

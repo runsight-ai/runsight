@@ -5,11 +5,11 @@ Tests the interaction between the runner and primitive data models,
 ensuring proper data flow and transformation.
 """
 
-import pytest
 from unittest.mock import patch
 
+import pytest
 from runsight_core.primitives import Soul, Task
-from runsight_core.runner import RunsightTeamRunner, ExecutionResult
+from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 
 
 @pytest.fixture

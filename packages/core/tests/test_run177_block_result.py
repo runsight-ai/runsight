@@ -13,9 +13,9 @@ Tests cover:
 - WorkflowState empty results still works
 """
 
-import pytest
 from typing import Dict
 
+import pytest
 
 # ==============================================================================
 # BlockResult Model Tests
@@ -70,6 +70,7 @@ class TestBlockResultModel:
     def test_block_result_model_dump_is_json_serializable(self):
         """BlockResult.model_dump() returns a JSON-serializable dict."""
         import json
+
         from runsight_core.state import BlockResult
 
         result = BlockResult(
@@ -127,7 +128,6 @@ class TestWorkflowStateAutoCoercion:
     def test_string_value_rejected_by_workflow_state(self):
         """WorkflowState(results={"key": "value"}) raises ValidationError after RUN-179."""
         from pydantic import ValidationError
-
         from runsight_core.state import WorkflowState
 
         with pytest.raises(ValidationError):
@@ -159,7 +159,6 @@ class TestWorkflowStateAutoCoercion:
     def test_mixed_dict_with_string_rejected(self):
         """Mixed dict with str and BlockResult values raises ValidationError after RUN-179."""
         from pydantic import ValidationError
-
         from runsight_core.state import BlockResult, WorkflowState
 
         br = BlockResult(output="x")

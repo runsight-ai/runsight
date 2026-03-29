@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
 
+from ...domain.errors import EvalNotFound
+from ...logic.services.eval_service import EvalService
 from ..deps import get_eval_service
 from ..schemas.eval import RunEvalResponse, SoulEvalHistoryResponse
-from ...logic.services.eval_service import EvalService
-from ...domain.errors import EvalNotFound
 
 router = APIRouter(tags=["eval"])
 

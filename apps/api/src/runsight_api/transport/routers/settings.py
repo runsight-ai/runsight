@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 from typing import Optional
 
-from ..deps import get_provider_service, get_settings_repo
-from ...logic.services.provider_service import ProviderService
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
 from ...domain.errors import ProviderNotFound
+from ...logic.services.provider_service import ProviderService
+from ..deps import get_provider_service, get_settings_repo
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 

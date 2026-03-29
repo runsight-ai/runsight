@@ -1,9 +1,9 @@
 import uuid
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from ...data.filesystem.soul_repo import SoulRepository
-from ...domain.value_objects import SoulEntity
 from ...domain.errors import SoulNotFound
+from ...domain.value_objects import SoulEntity
 
 
 class SoulService:

@@ -12,7 +12,6 @@ because the auto-coercion validator and backward-compat methods still exist.
 
 import pytest
 
-
 # ==============================================================================
 # Strict Typing: WorkflowState rejects raw strings in results
 # ==============================================================================
@@ -24,7 +23,6 @@ class TestWorkflowStateRejectsRawStrings:
     def test_raw_string_in_results_raises_validation_error(self):
         """WorkflowState(results={"key": "string"}) must raise ValidationError."""
         from pydantic import ValidationError
-
         from runsight_core.state import WorkflowState
 
         with pytest.raises(ValidationError):
@@ -48,7 +46,6 @@ class TestWorkflowStateRejectsRawStrings:
     def test_mixed_dict_with_string_raises_validation_error(self):
         """Mixed dict {"a": "string", "b": BlockResult(...)} must raise ValidationError."""
         from pydantic import ValidationError
-
         from runsight_core.state import BlockResult, WorkflowState
 
         with pytest.raises(ValidationError):
@@ -57,7 +54,6 @@ class TestWorkflowStateRejectsRawStrings:
     def test_multiple_raw_strings_raise_validation_error(self):
         """Multiple raw string values must all be rejected."""
         from pydantic import ValidationError
-
         from runsight_core.state import WorkflowState
 
         with pytest.raises(ValidationError):

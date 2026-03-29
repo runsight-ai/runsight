@@ -17,7 +17,6 @@ from runsight_api.domain.entities.run import Run, RunStatus
 from runsight_api.logic.observers.execution_observer import ExecutionObserver
 from runsight_api.logic.services.execution_service import ExecutionService
 
-
 # ======================================================================
 # C1 — Single status writer (RUN-326)
 # ======================================================================

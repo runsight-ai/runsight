@@ -7,8 +7,7 @@ import json
 import os
 import socket
 import uuid
-from typing import Any, Callable, Awaitable
-
+from typing import Any, Awaitable, Callable
 
 Handler = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 

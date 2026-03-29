@@ -17,10 +17,8 @@ All tests mock LiteLLMClient.achat() to avoid real API calls.
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
-
 
 # ---------------------------------------------------------------------------
 # Helpers

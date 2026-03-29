@@ -7,10 +7,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
-from ..deps import get_run_service, get_execution_service
-from ...logic.services.run_service import RunService
-from ...logic.services.execution_service import ExecutionService
 from ...domain.errors import RunNotFound, ServiceUnavailable
+from ...logic.services.execution_service import ExecutionService
+from ...logic.services.run_service import RunService
+from ..deps import get_execution_service, get_run_service
 
 router = APIRouter(prefix="/runs", tags=["SSE Stream"])
 logger = logging.getLogger(__name__)

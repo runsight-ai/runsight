@@ -222,8 +222,8 @@ class WorkflowBlockDef(BaseBlockDef):
 
 
 # Explicit registration (PEP 563 workaround)
-from runsight_core.blocks._registry import register_block_def as _register_block_def  # noqa: E402
 from runsight_core.blocks._registry import register_block_builder as _register_builder  # noqa: E402
+from runsight_core.blocks._registry import register_block_def as _register_block_def  # noqa: E402
 
 _register_block_def("workflow", WorkflowBlockDef)
 

@@ -15,10 +15,9 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from runsight_api.main import app
 from runsight_api.domain.entities.run import RunStatus
-from runsight_api.transport.deps import get_run_service, get_execution_service
-
+from runsight_api.main import app
+from runsight_api.transport.deps import get_execution_service, get_run_service
 
 client = TestClient(app)
 SSE_STREAM_PATH = (
@@ -341,8 +340,9 @@ class TestStreamCleanup:
 
     def test_streaming_observer_implements_workflow_observer(self):
         """StreamingObserver should satisfy the WorkflowObserver protocol."""
-        from runsight_api.logic.observers.streaming_observer import StreamingObserver
         from runsight_core.observer import WorkflowObserver
+
+        from runsight_api.logic.observers.streaming_observer import StreamingObserver
 
         observer = StreamingObserver(run_id="run_proto_1")
         assert isinstance(observer, WorkflowObserver)

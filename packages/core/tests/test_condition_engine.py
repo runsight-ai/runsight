@@ -11,7 +11,6 @@ The engine evaluates conditions against a block's OWN result (no eval_source).
 import json
 
 import pytest
-
 from runsight_core.conditions.engine import (
     ALL_OPERATORS,
     Case,
@@ -22,7 +21,6 @@ from runsight_core.conditions.engine import (
     evaluate_output_conditions,
     resolve_dotted_path,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

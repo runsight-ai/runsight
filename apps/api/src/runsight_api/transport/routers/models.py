@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from ..deps import get_model_service
 from ...logic.services.model_service import ModelService
+from ..deps import get_model_service
 
 router = APIRouter(tags=["models"])
 

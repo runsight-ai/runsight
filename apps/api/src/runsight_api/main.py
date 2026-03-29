@@ -1,5 +1,5 @@
-from contextlib import asynccontextmanager
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from alembic import command as alembic_command
@@ -9,16 +9,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlmodel import Session, select
 
-from .core.config import settings as app_settings, ensure_project_dirs
+from .core.config import ensure_project_dirs
+from .core.config import settings as app_settings
 from .core.di import container, engine
 from .core.logging import configure_logging
 from .core.secrets import SecretsEnvLoader
-from .data.repositories.run_repo import RunRepository
 from .data.filesystem.provider_repo import FileSystemProviderRepo
 from .data.filesystem.workflow_repo import WorkflowRepository
+from .data.repositories.run_repo import RunRepository
 from .domain.entities.run import Run, RunStatus
-from .logic.services.execution_service import ExecutionService
 from .domain.errors import RunsightError
+from .logic.services.execution_service import ExecutionService
 from .transport.middleware.access_log import AccessLogMiddleware
 from .transport.middleware.error_handler import global_exception_handler
 from .transport.middleware.request_id import RequestIdMiddleware

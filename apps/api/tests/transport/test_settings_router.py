@@ -1,5 +1,7 @@
-from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, Mock
+
+from fastapi.testclient import TestClient
+
 from runsight_api.main import app
 from runsight_api.transport.deps import get_provider_service, get_session
 
@@ -112,7 +114,8 @@ def test_settings_budgets_list():
 
 def test_settings_app_get():
     import tempfile
-    from sqlmodel import SQLModel, Session, create_engine
+
+    from sqlmodel import Session, SQLModel, create_engine
 
     # File-based DB so all connections share schema (unlike :memory:)
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
@@ -139,9 +142,10 @@ def test_settings_app_get():
 
 
 def test_settings_app_put():
-    import tempfile
     import os
-    from sqlmodel import SQLModel, Session, create_engine
+    import tempfile
+
+    from sqlmodel import Session, SQLModel, create_engine
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name

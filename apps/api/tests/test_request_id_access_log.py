@@ -16,7 +16,6 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from starlette.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Helpers — lightweight app with both middleware for integration tests
 # ---------------------------------------------------------------------------
@@ -24,8 +23,8 @@ from starlette.testclient import TestClient
 
 def _make_app() -> FastAPI:
     """Build a minimal FastAPI app with both middleware registered."""
-    from runsight_api.transport.middleware.request_id import RequestIdMiddleware
     from runsight_api.transport.middleware.access_log import AccessLogMiddleware
+    from runsight_api.transport.middleware.request_id import RequestIdMiddleware
 
     app = FastAPI()
     # Order matters: request-id first so access-log can read it

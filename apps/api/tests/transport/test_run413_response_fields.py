@@ -6,7 +6,6 @@ from runsight_api.domain.entities.run import RunStatus
 from runsight_api.main import app
 from runsight_api.transport.deps import get_run_service
 
-
 client = TestClient(app)
 
 

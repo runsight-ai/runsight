@@ -10,13 +10,13 @@ Tests cross-feature interactions across schema, registry, parser, and execution:
 """
 
 import pytest
-from runsight_core.yaml.parser import parse_workflow_yaml
-from runsight_core.yaml.registry import WorkflowRegistry
 from pydantic import TypeAdapter
-from runsight_core.yaml.schema import RunsightWorkflowFile, BlockDef
 from runsight_core import WorkflowBlock
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
+from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.yaml.registry import WorkflowRegistry
+from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
 
 
 class TestSchemaParsingIntegration:

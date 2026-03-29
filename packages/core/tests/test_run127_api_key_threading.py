@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # 1. LiteLLMClient accepts api_key parameter
 # ---------------------------------------------------------------------------

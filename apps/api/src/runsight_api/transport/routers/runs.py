@@ -1,19 +1,20 @@
-import logging
 import inspect
+import logging
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
-from typing import List, Optional
+
+from ...logic.services.execution_service import ExecutionService
+from ...logic.services.run_service import RunService
+from ..deps import get_execution_service, get_run_service
 from ..schemas.runs import (
+    NodeSummary,
+    PaginatedLogsResponse,
     RunCreate,
-    RunResponse,
     RunListResponse,
     RunNodeResponse,
-    PaginatedLogsResponse,
-    NodeSummary,
+    RunResponse,
 )
-from ..deps import get_run_service, get_execution_service
-from ...logic.services.run_service import RunService
-from ...logic.services.execution_service import ExecutionService
 
 logger = logging.getLogger(__name__)
 

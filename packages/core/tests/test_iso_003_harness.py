@@ -30,7 +30,6 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from runsight_core.isolation import (
     ContextEnvelope,
     HeartbeatMessage,
@@ -38,7 +37,6 @@ from runsight_core.isolation import (
     SoulEnvelope,
     TaskEnvelope,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -107,12 +105,14 @@ def _make_result_envelope(
 class TestMinimalEnvironment:
     """Subprocess must receive only PATH + ONE API key + macOS dylib paths."""
 
+    @pytest.mark.asyncio
     async def test_subprocess_harness_importable(self):
         """SubprocessHarness can be imported from runsight_core.isolation."""
         from runsight_core.isolation import SubprocessHarness
 
         assert SubprocessHarness is not None
 
+    @pytest.mark.asyncio
     async def test_spawn_env_contains_path(self):
         """Subprocess env must include PATH."""
         from runsight_core.isolation import SubprocessHarness
@@ -122,6 +122,7 @@ class TestMinimalEnvironment:
 
         assert "PATH" in env
 
+    @pytest.mark.asyncio
     async def test_spawn_env_contains_api_key(self):
         """Subprocess env must include RUNSIGHT_BLOCK_API_KEY."""
         from runsight_core.isolation import SubprocessHarness
@@ -131,6 +132,7 @@ class TestMinimalEnvironment:
 
         assert env.get("RUNSIGHT_BLOCK_API_KEY") == "sk-test-key-123"
 
+    @pytest.mark.asyncio
     async def test_spawn_env_does_not_inherit_host_env(self):
         """Subprocess env must NOT inherit the full host environment."""
         from runsight_core.isolation import SubprocessHarness
@@ -142,6 +144,7 @@ class TestMinimalEnvironment:
         for var in ("HOME", "USER", "SHELL", "DATABASE_URL", "SECRET_KEY"):
             assert var not in env, f"{var} should not be in subprocess env"
 
+    @pytest.mark.asyncio
     async def test_spawn_env_contains_ipc_socket_path(self):
         """Subprocess env must include RUNSIGHT_IPC_SOCKET."""
         from runsight_core.isolation import SubprocessHarness
@@ -152,6 +155,7 @@ class TestMinimalEnvironment:
         assert "RUNSIGHT_IPC_SOCKET" in env
         assert env["RUNSIGHT_IPC_SOCKET"] == "/tmp/rs-abc123.sock"
 
+    @pytest.mark.asyncio
     async def test_spawn_env_has_macos_dylib_paths(self):
         """On macOS, subprocess env includes DYLD_LIBRARY_PATH or DYLD_FALLBACK_LIBRARY_PATH."""
         from runsight_core.isolation import SubprocessHarness
@@ -163,6 +167,7 @@ class TestMinimalEnvironment:
             has_dylib = "DYLD_LIBRARY_PATH" in env or "DYLD_FALLBACK_LIBRARY_PATH" in env
             assert has_dylib, "macOS env must include dylib paths"
 
+    @pytest.mark.asyncio
     async def test_spawn_env_limited_key_count(self):
         """Subprocess env should have a small number of keys (minimal env)."""
         from runsight_core.isolation import SubprocessHarness
@@ -182,6 +187,7 @@ class TestMinimalEnvironment:
 class TestFreshTempWorkingDir:
     """Subprocess must run in a fresh temp dir, not project root."""
 
+    @pytest.mark.asyncio
     async def test_working_dir_is_temp_dir(self):
         """SubprocessHarness creates a fresh temp dir for the subprocess cwd."""
         from runsight_core.isolation import SubprocessHarness
@@ -197,6 +203,7 @@ class TestFreshTempWorkingDir:
         # Cleanup
         os.rmdir(work_dir)
 
+    @pytest.mark.asyncio
     async def test_working_dir_is_not_project_root(self):
         """Working dir must not be the project root or cwd."""
         from runsight_core.isolation import SubprocessHarness
@@ -209,6 +216,7 @@ class TestFreshTempWorkingDir:
         # Cleanup
         os.rmdir(work_dir)
 
+    @pytest.mark.asyncio
     async def test_each_call_creates_unique_dir(self):
         """Each invocation creates a different temp dir."""
         from runsight_core.isolation import SubprocessHarness
@@ -232,6 +240,7 @@ class TestFreshTempWorkingDir:
 class TestSocketCreation:
     """SubprocessHarness creates and binds the socket (not IPCServer)."""
 
+    @pytest.mark.asyncio
     async def test_create_socket_returns_bound_socket(self):
         """_create_socket returns a bound Unix socket object."""
         from runsight_core.isolation import SubprocessHarness
@@ -247,6 +256,7 @@ class TestSocketCreation:
             sock.close()
             Path(sock_path).unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_socket_path_is_random(self):
         """Socket path must be random (different each call)."""
         from runsight_core.isolation import SubprocessHarness
@@ -261,6 +271,7 @@ class TestSocketCreation:
             Path(path1).unlink(missing_ok=True)
             Path(path2).unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_socket_path_format(self):
         """Socket path follows /tmp/rs-{random}.sock pattern."""
         from runsight_core.isolation import SubprocessHarness
@@ -277,6 +288,7 @@ class TestSocketCreation:
             sock.close()
             Path(sock_path).unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_socket_permissions_0600(self):
         """Socket file must have mode 0600 (owner read/write only)."""
         from runsight_core.isolation import SubprocessHarness
@@ -302,6 +314,7 @@ class TestSocketCreation:
 class TestContextScoping:
     """ContextEnvelope must contain only data declared by YAML context_scope."""
 
+    @pytest.mark.asyncio
     async def test_linear_block_gets_previous_block_output(self):
         """LinearBlock default scoping: receives previous block output from state.results."""
         from runsight_core.isolation import SubprocessHarness
@@ -329,6 +342,7 @@ class TestContextScoping:
         assert "block-1" in envelope.scoped_results
         assert "block-0" not in envelope.scoped_results
 
+    @pytest.mark.asyncio
     async def test_gate_block_gets_eval_key_only(self):
         """GateBlock scoping: receives eval_key result only."""
         from runsight_core.isolation import SubprocessHarness
@@ -353,6 +367,7 @@ class TestContextScoping:
         assert "eval-block" in envelope.scoped_results
         assert "other-block" not in envelope.scoped_results
 
+    @pytest.mark.asyncio
     async def test_synthesize_block_gets_input_block_ids_only(self):
         """SynthesizeBlock scoping: receives only input_block_ids results."""
         from runsight_core.isolation import SubprocessHarness
@@ -379,6 +394,7 @@ class TestContextScoping:
         assert "block-c" in envelope.scoped_results
         assert "block-b" not in envelope.scoped_results
 
+    @pytest.mark.asyncio
     async def test_custom_scope_from_yaml_declarations(self):
         """Custom YAML context_scope.results + context_scope.shared_memory."""
         from runsight_core.isolation import SubprocessHarness
@@ -422,6 +438,7 @@ class TestContextScoping:
 class TestTimeoutEnforcement:
     """Subprocess must be killed when it exceeds the timeout."""
 
+    @pytest.mark.asyncio
     async def test_run_raises_on_timeout(self):
         """SubprocessHarness.run() raises a timeout error when the subprocess exceeds timeout."""
         from runsight_core.isolation import SubprocessHarness
@@ -438,6 +455,7 @@ class TestTimeoutEnforcement:
             exc_info.value, (asyncio.TimeoutError, TimeoutError)
         )
 
+    @pytest.mark.asyncio
     async def test_timeout_uses_envelope_value(self):
         """Timeout is taken from the ContextEnvelope.timeout_seconds field."""
         from runsight_core.isolation import SubprocessHarness
@@ -459,6 +477,7 @@ class TestTimeoutEnforcement:
 class TestHeartbeatStallDetection:
     """Subprocess must be killed when heartbeats stop arriving."""
 
+    @pytest.mark.asyncio
     async def test_heartbeat_timeout_kills_subprocess(self):
         """If no heartbeat for heartbeat_timeout seconds, subprocess is killed."""
         from runsight_core.isolation import SubprocessHarness
@@ -471,6 +490,7 @@ class TestHeartbeatStallDetection:
         # The harness should track heartbeats and kill on stall
         assert hasattr(harness, "_heartbeat_timeout") or hasattr(harness, "heartbeat_timeout")
 
+    @pytest.mark.asyncio
     async def test_monitor_detects_missing_heartbeat(self):
         """The monitoring coroutine detects when heartbeats stop."""
         from runsight_core.isolation import SubprocessHarness
@@ -502,6 +522,7 @@ class TestHeartbeatStallDetection:
 class TestPhaseStallDetection:
     """Subprocess must be killed when same phase exceeds phase_timeout."""
 
+    @pytest.mark.asyncio
     async def test_phase_stall_kills_subprocess(self):
         """If same phase continues beyond phase_timeout, subprocess is killed."""
         from runsight_core.isolation import SubprocessHarness
@@ -513,6 +534,7 @@ class TestPhaseStallDetection:
 
         assert hasattr(harness, "_phase_timeout") or hasattr(harness, "phase_timeout")
 
+    @pytest.mark.asyncio
     async def test_phase_change_resets_timer(self):
         """When the phase changes, the phase stall timer resets."""
         from runsight_core.isolation import SubprocessHarness
@@ -555,6 +577,7 @@ class TestPhaseStallDetection:
 class TestResultEnvelopeValidation:
     """SubprocessHarness validates ResultEnvelope schema and size cap."""
 
+    @pytest.mark.asyncio
     async def test_valid_result_envelope_accepted(self):
         """A well-formed ResultEnvelope passes validation."""
         from runsight_core.isolation import SubprocessHarness
@@ -567,6 +590,7 @@ class TestResultEnvelopeValidation:
         assert validated.block_id == "block-1"
         assert validated.output == "done"
 
+    @pytest.mark.asyncio
     async def test_oversized_result_rejected(self):
         """A ResultEnvelope exceeding max_output_bytes is rejected."""
         from runsight_core.isolation import SubprocessHarness
@@ -580,6 +604,7 @@ class TestResultEnvelopeValidation:
 
         assert "size" in str(exc_info.value).lower() or "bytes" in str(exc_info.value).lower()
 
+    @pytest.mark.asyncio
     async def test_malformed_json_rejected(self):
         """Invalid JSON is rejected during result validation."""
         from runsight_core.isolation import SubprocessHarness
@@ -589,6 +614,7 @@ class TestResultEnvelopeValidation:
         with pytest.raises((json.JSONDecodeError, ValueError, Exception)):
             harness._validate_result("not valid json {{{", max_bytes=1_000_000)
 
+    @pytest.mark.asyncio
     async def test_missing_required_fields_rejected(self):
         """A ResultEnvelope missing required fields is rejected."""
         from runsight_core.isolation import SubprocessHarness
@@ -609,6 +635,7 @@ class TestResultEnvelopeValidation:
 class TestGracefulKillEscalation:
     """Kill must send SIGTERM first, then SIGKILL after 5 seconds."""
 
+    @pytest.mark.asyncio
     async def test_kill_sends_sigterm_first(self):
         """_kill_subprocess sends SIGTERM before SIGKILL."""
         from runsight_core.isolation import SubprocessHarness
@@ -634,6 +661,7 @@ class TestGracefulKillEscalation:
 
         assert signals_sent[0] == "SIGTERM"
 
+    @pytest.mark.asyncio
     async def test_kill_escalates_to_sigkill(self):
         """If SIGTERM doesn't work within grace period, SIGKILL is sent."""
         from runsight_core.isolation import SubprocessHarness
@@ -661,6 +689,7 @@ class TestGracefulKillEscalation:
         assert "SIGTERM" in signals_sent
         assert "SIGKILL" in signals_sent
 
+    @pytest.mark.asyncio
     async def test_no_sigkill_if_sigterm_succeeds(self):
         """If SIGTERM causes the process to exit, no SIGKILL is sent."""
         from runsight_core.isolation import SubprocessHarness
@@ -694,6 +723,7 @@ class TestGracefulKillEscalation:
 class TestNegativeReturnCodeMapping:
     """Negative return codes should map to meaningful signal-based errors."""
 
+    @pytest.mark.asyncio
     async def test_sigkill_mapped_to_oom(self):
         """Return code -9 (SIGKILL) is mapped to OOM error message."""
         from runsight_core.isolation import SubprocessHarness
@@ -703,6 +733,7 @@ class TestNegativeReturnCodeMapping:
 
         assert "SIGKILL" in error_msg or "OOM" in error_msg or "signal 9" in error_msg.lower()
 
+    @pytest.mark.asyncio
     async def test_sigsegv_mapped_to_segfault(self):
         """Return code -11 (SIGSEGV) is mapped to segfault error message."""
         from runsight_core.isolation import SubprocessHarness
@@ -716,6 +747,7 @@ class TestNegativeReturnCodeMapping:
             or "signal 11" in error_msg.lower()
         )
 
+    @pytest.mark.asyncio
     async def test_sigterm_mapped(self):
         """Return code -15 (SIGTERM) is mapped to termination message."""
         from runsight_core.isolation import SubprocessHarness
@@ -729,6 +761,7 @@ class TestNegativeReturnCodeMapping:
             or "signal 15" in error_msg.lower()
         )
 
+    @pytest.mark.asyncio
     async def test_positive_return_code_is_application_error(self):
         """Return code > 0 indicates an application-level error."""
         from runsight_core.isolation import SubprocessHarness
@@ -738,6 +771,7 @@ class TestNegativeReturnCodeMapping:
 
         assert "error" in error_msg.lower() or "exit" in error_msg.lower()
 
+    @pytest.mark.asyncio
     async def test_zero_return_code_is_success(self):
         """Return code 0 is success (no error)."""
         from runsight_core.isolation import SubprocessHarness
@@ -757,6 +791,7 @@ class TestNegativeReturnCodeMapping:
 class TestCleanup:
     """Socket file and temp dir must be cleaned up on exit, even on crashes."""
 
+    @pytest.mark.asyncio
     async def test_socket_cleaned_up_after_normal_exit(self):
         """Socket file is removed after a successful run."""
         from runsight_core.isolation import SubprocessHarness
@@ -770,6 +805,7 @@ class TestCleanup:
         assert not Path(sock_path).exists()
         sock.close()
 
+    @pytest.mark.asyncio
     async def test_temp_dir_cleaned_up_after_normal_exit(self):
         """Temp working dir is removed after a successful run."""
         from runsight_core.isolation import SubprocessHarness
@@ -781,6 +817,7 @@ class TestCleanup:
 
         assert not Path(work_dir).exists()
 
+    @pytest.mark.asyncio
     async def test_cleanup_handles_already_removed_socket(self):
         """Cleanup does not raise if the socket was already removed."""
         from runsight_core.isolation import SubprocessHarness
@@ -790,6 +827,7 @@ class TestCleanup:
         # Should not raise
         harness._cleanup(socket_path="/tmp/rs-nonexistent.sock", working_dir=None)
 
+    @pytest.mark.asyncio
     async def test_cleanup_handles_already_removed_dir(self):
         """Cleanup does not raise if the temp dir was already removed."""
         from runsight_core.isolation import SubprocessHarness
@@ -799,6 +837,7 @@ class TestCleanup:
         # Should not raise
         harness._cleanup(socket_path=None, working_dir="/tmp/rs-nonexistent-dir")
 
+    @pytest.mark.asyncio
     async def test_cleanup_on_exception(self):
         """Both socket and temp dir are cleaned up even when run() raises."""
         from runsight_core.isolation import SubprocessHarness
@@ -823,6 +862,7 @@ class TestCleanup:
 class TestLinearBlockRoundTrip:
     """End-to-end: build envelope, spawn subprocess, get result back."""
 
+    @pytest.mark.asyncio
     async def test_run_returns_result_envelope(self):
         """SubprocessHarness.run() returns a ResultEnvelope on success."""
         from runsight_core.isolation import SubprocessHarness
@@ -837,6 +877,7 @@ class TestLinearBlockRoundTrip:
         assert isinstance(result, ResultEnvelope)
         assert result.block_id == "block-1"
 
+    @pytest.mark.asyncio
     async def test_run_writes_envelope_to_stdin(self):
         """SubprocessHarness passes ContextEnvelope JSON to subprocess stdin."""
         from runsight_core.isolation import SubprocessHarness
@@ -853,6 +894,7 @@ class TestLinearBlockRoundTrip:
         result = await harness.run(envelope)
         assert isinstance(result, ResultEnvelope)
 
+    @pytest.mark.asyncio
     async def test_run_starts_ipc_server(self):
         """SubprocessHarness starts an IPCServer as an asyncio task during run."""
         from runsight_core.isolation import SubprocessHarness
@@ -861,6 +903,7 @@ class TestLinearBlockRoundTrip:
         harness = SubprocessHarness(api_key="sk-test-key-123")
         assert callable(getattr(harness, "run", None))
 
+    @pytest.mark.asyncio
     async def test_result_contains_output_and_cost(self):
         """The ResultEnvelope from a successful run includes output and cost data."""
         from runsight_core.isolation import SubprocessHarness

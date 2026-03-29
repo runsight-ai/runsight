@@ -13,7 +13,6 @@ import subprocess
 import pytest
 from pydantic import ValidationError
 
-
 # ─── Paths ────────────────────────────────────────────────────────────────────
 
 CORE_SRC = pathlib.Path(__file__).resolve().parent.parent / "src"

@@ -12,7 +12,6 @@ Tests cover:
 
 import pytest
 
-
 # ==============================================================================
 # ArtifactStore ABC Tests
 # ==============================================================================
@@ -104,6 +103,7 @@ class TestInMemoryArtifactStoreConstruction:
 class TestInMemoryArtifactStoreWrite:
     """Tests for the write method."""
 
+    @pytest.mark.asyncio
     async def test_write_returns_ref_string(self):
         """write() returns a ref string in mem://{run_id}/{key} format."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -112,6 +112,7 @@ class TestInMemoryArtifactStoreWrite:
         ref = await store.write("research_output", "long text...")
         assert ref == "mem://run123/research_output"
 
+    @pytest.mark.asyncio
     async def test_write_returns_string_type(self):
         """write() return value is a string."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -120,6 +121,7 @@ class TestInMemoryArtifactStoreWrite:
         ref = await store.write("key1", "content1")
         assert isinstance(ref, str)
 
+    @pytest.mark.asyncio
     async def test_write_with_metadata(self):
         """write() accepts optional metadata dict."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -128,6 +130,7 @@ class TestInMemoryArtifactStoreWrite:
         ref = await store.write("output", "content", metadata={"model": "gpt-4", "tokens": 100})
         assert ref == "mem://run123/output"
 
+    @pytest.mark.asyncio
     async def test_write_without_metadata(self):
         """write() works without metadata (defaults to None)."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -136,6 +139,7 @@ class TestInMemoryArtifactStoreWrite:
         ref = await store.write("key1", "content1")
         assert ref == "mem://run123/key1"
 
+    @pytest.mark.asyncio
     async def test_write_empty_content(self):
         """write() with empty string content is valid."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -147,6 +151,7 @@ class TestInMemoryArtifactStoreWrite:
         content = await store.read(ref)
         assert content == ""
 
+    @pytest.mark.asyncio
     async def test_write_duplicate_key_overwrites(self):
         """Writing the same key twice overwrites (last write wins)."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -157,6 +162,7 @@ class TestInMemoryArtifactStoreWrite:
         content = await store.read("mem://run123/key1")
         assert content == "second version"
 
+    @pytest.mark.asyncio
     async def test_write_multiple_keys(self):
         """Multiple different keys can be written."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -177,6 +183,7 @@ class TestInMemoryArtifactStoreWrite:
 class TestInMemoryArtifactStoreRead:
     """Tests for the read method."""
 
+    @pytest.mark.asyncio
     async def test_read_returns_stored_content(self):
         """read() returns the content that was written."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -186,6 +193,7 @@ class TestInMemoryArtifactStoreRead:
         content = await store.read("mem://run123/research_output")
         assert content == "long text..."
 
+    @pytest.mark.asyncio
     async def test_read_returns_string_type(self):
         """read() return value is a string."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -195,6 +203,7 @@ class TestInMemoryArtifactStoreRead:
         content = await store.read("mem://run123/key1")
         assert isinstance(content, str)
 
+    @pytest.mark.asyncio
     async def test_read_nonexistent_ref_raises(self):
         """read() with a non-existent ref raises KeyError or ValueError."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -203,6 +212,7 @@ class TestInMemoryArtifactStoreRead:
         with pytest.raises((KeyError, ValueError)):
             await store.read("mem://run123/nonexistent")
 
+    @pytest.mark.asyncio
     async def test_read_after_overwrite_returns_latest(self):
         """read() after overwrite returns the latest content."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -222,6 +232,7 @@ class TestInMemoryArtifactStoreRead:
 class TestInMemoryArtifactStoreListArtifacts:
     """Tests for the list_artifacts method."""
 
+    @pytest.mark.asyncio
     async def test_list_artifacts_empty_store(self):
         """list_artifacts() returns empty list for a fresh store."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -230,6 +241,7 @@ class TestInMemoryArtifactStoreListArtifacts:
         artifacts = await store.list_artifacts()
         assert artifacts == []
 
+    @pytest.mark.asyncio
     async def test_list_artifacts_returns_list(self):
         """list_artifacts() returns a list type."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -238,6 +250,7 @@ class TestInMemoryArtifactStoreListArtifacts:
         artifacts = await store.list_artifacts()
         assert isinstance(artifacts, list)
 
+    @pytest.mark.asyncio
     async def test_list_artifacts_after_write(self):
         """list_artifacts() returns info for each written artifact."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -248,6 +261,7 @@ class TestInMemoryArtifactStoreListArtifacts:
         assert len(artifacts) == 1
         assert isinstance(artifacts[0], dict)
 
+    @pytest.mark.asyncio
     async def test_list_artifacts_contains_key_and_ref(self):
         """Each artifact info dict contains at least 'key' and 'ref'."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -261,6 +275,7 @@ class TestInMemoryArtifactStoreListArtifacts:
         assert artifact["key"] == "research_output"
         assert artifact["ref"] == "mem://run123/research_output"
 
+    @pytest.mark.asyncio
     async def test_list_artifacts_multiple(self):
         """list_artifacts() returns all written artifacts."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -274,6 +289,7 @@ class TestInMemoryArtifactStoreListArtifacts:
         keys = {a["key"] for a in artifacts}
         assert keys == {"key1", "key2", "key3"}
 
+    @pytest.mark.asyncio
     async def test_list_artifacts_after_overwrite_no_duplicates(self):
         """Overwriting a key does not create a duplicate entry."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -294,6 +310,7 @@ class TestInMemoryArtifactStoreListArtifacts:
 class TestInMemoryArtifactStoreCleanup:
     """Tests for the cleanup method."""
 
+    @pytest.mark.asyncio
     async def test_cleanup_empties_store(self):
         """cleanup() removes all stored artifacts."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -305,6 +322,7 @@ class TestInMemoryArtifactStoreCleanup:
         artifacts = await store.list_artifacts()
         assert artifacts == []
 
+    @pytest.mark.asyncio
     async def test_cleanup_makes_read_fail(self):
         """After cleanup(), read() for previously stored ref raises."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -315,6 +333,7 @@ class TestInMemoryArtifactStoreCleanup:
         with pytest.raises((KeyError, ValueError)):
             await store.read(ref)
 
+    @pytest.mark.asyncio
     async def test_cleanup_on_empty_store_is_noop(self):
         """cleanup() on an already-empty store does not raise."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -324,6 +343,7 @@ class TestInMemoryArtifactStoreCleanup:
         artifacts = await store.list_artifacts()
         assert artifacts == []
 
+    @pytest.mark.asyncio
     async def test_write_after_cleanup(self):
         """Store can be used normally after cleanup()."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -347,6 +367,7 @@ class TestInMemoryArtifactStoreCleanup:
 class TestInMemoryArtifactStoreMetadata:
     """Tests for metadata storage and retrieval."""
 
+    @pytest.mark.asyncio
     async def test_metadata_stored_with_artifact(self):
         """Metadata passed to write() is preserved in list_artifacts()."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -358,6 +379,7 @@ class TestInMemoryArtifactStoreMetadata:
         assert "metadata" in artifact
         assert artifact["metadata"] == {"model": "gpt-4", "tokens": 100}
 
+    @pytest.mark.asyncio
     async def test_metadata_none_when_not_provided(self):
         """When metadata is not provided, it defaults to None in listing."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -368,6 +390,7 @@ class TestInMemoryArtifactStoreMetadata:
         artifact = artifacts[0]
         assert artifact.get("metadata") is None
 
+    @pytest.mark.asyncio
     async def test_metadata_overwritten_with_key(self):
         """When a key is overwritten, metadata is also replaced."""
         from runsight_core.artifacts import InMemoryArtifactStore

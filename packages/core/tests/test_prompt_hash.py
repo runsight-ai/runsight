@@ -13,9 +13,7 @@ All tests should FAIL until the implementation exists.
 
 import hashlib
 
-
 from runsight_core.primitives import Soul
-
 
 # ---------------------------------------------------------------------------
 # Deferred import — functions do not exist yet

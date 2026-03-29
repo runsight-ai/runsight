@@ -17,7 +17,6 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import RunNode
 
-
 # ---------------------------------------------------------------------------
 # Deferred imports — BaselineStats and get_baseline do not exist yet
 # ---------------------------------------------------------------------------

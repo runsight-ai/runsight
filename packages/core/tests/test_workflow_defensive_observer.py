@@ -11,11 +11,9 @@ All tests should FAIL until the implementation is done.
 """
 
 import pytest
-
+from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
-from runsight_core.blocks.base import BaseBlock
-
 
 # ---------------------------------------------------------------------------
 # Helper: a simple block that succeeds or fails on demand

@@ -8,6 +8,9 @@ import traceback
 from datetime import datetime
 from typing import Optional
 
+from runsight_core.observer import compute_prompt_hash, compute_soul_version
+from runsight_core.primitives import Soul
+from runsight_core.state import WorkflowState
 from sqlmodel import Session
 
 from runsight_api.core.context import (
@@ -25,9 +28,6 @@ from runsight_api.domain.entities.run import (
     RunStatus,
     validate_transition,
 )
-from runsight_core.observer import compute_prompt_hash, compute_soul_version
-from runsight_core.primitives import Soul
-from runsight_core.state import WorkflowState
 
 logger = logging.getLogger(__name__)
 

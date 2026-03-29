@@ -5,14 +5,14 @@ Tests the interaction between WorkflowState, BaseBlock, and concrete block
 implementations, focusing on state immutability and proper data flow.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from runsight_core.state import BlockResult, WorkflowState
+import pytest
+from runsight_core import LinearBlock
+from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
-from runsight_core.blocks.base import BaseBlock
-from runsight_core import LinearBlock
+from runsight_core.state import BlockResult, WorkflowState
 
 
 @pytest.fixture

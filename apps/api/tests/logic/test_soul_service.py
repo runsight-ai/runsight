@@ -1,9 +1,10 @@
 from unittest.mock import Mock
-import pytest
-from runsight_api.logic.services.soul_service import SoulService
-from runsight_api.domain.value_objects import SoulEntity
-from runsight_api.domain.errors import SoulNotFound
 
+import pytest
+
+from runsight_api.domain.errors import SoulNotFound
+from runsight_api.domain.value_objects import SoulEntity
+from runsight_api.logic.services.soul_service import SoulService
 
 # --- list_souls ---
 

@@ -3,12 +3,11 @@ Tests for CodeBlock — sandboxed Python code execution block.
 """
 
 import json
-import pytest
 import textwrap
 
+import pytest
 from runsight_core import CodeBlock
 from runsight_core.state import WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Helpers

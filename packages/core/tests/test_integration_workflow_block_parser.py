@@ -8,17 +8,17 @@ Tests the interaction between:
 4. WorkflowBlock resolving workflow references via registry
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
-from runsight_core.yaml.parser import parse_workflow_yaml
+import pytest
 from pydantic import TypeAdapter
-from runsight_core.yaml.schema import RunsightWorkflowFile, BlockDef
-from runsight_core.yaml.registry import WorkflowRegistry
-from runsight_core import WorkflowBlock, LinearBlock
-from runsight_core.state import BlockResult, WorkflowState
+from runsight_core import LinearBlock, WorkflowBlock
+from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 from runsight_core.primitives import Soul
+from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.yaml.registry import WorkflowRegistry
+from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
 
 
 class TestParserIntegration:

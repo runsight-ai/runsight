@@ -1,7 +1,9 @@
-from sqlmodel import Session, select, func
 from typing import List, Optional
-from ...domain.entities.run import BaselineStats, Run, RunNode
+
+from sqlmodel import Session, func, select
+
 from ...domain.entities.log import LogEntry
+from ...domain.entities.run import BaselineStats, Run, RunNode
 
 
 class RunRepository:

@@ -22,7 +22,6 @@ from runsight_core.assertions.deterministic.string import (
     WordCountAssertion,
 )
 
-
 # ── Helper ───────────────────────────────────────────────────────────────────
 
 

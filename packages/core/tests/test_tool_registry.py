@@ -26,7 +26,6 @@ import pytest
 # Trigger auto-registration of all built-ins via parser import
 import runsight_core.yaml.parser  # noqa: F401
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -194,7 +193,7 @@ class TestRegisterBuiltinRoundTrip:
 
     def test_register_and_retrieve(self):
         """Factory stored with register_builtin is returned by get_builtin."""
-        from runsight_core.tools import BUILTIN_TOOL_CATALOG, register_builtin, get_builtin
+        from runsight_core.tools import BUILTIN_TOOL_CATALOG, get_builtin, register_builtin
 
         source = "test/runtool_registry_roundtrip"
         BUILTIN_TOOL_CATALOG.pop(source, None)
@@ -211,7 +210,7 @@ class TestRegisterBuiltinRoundTrip:
 
     def test_second_registration_overwrites_first(self):
         """Registering the same source twice replaces the first factory."""
-        from runsight_core.tools import BUILTIN_TOOL_CATALOG, register_builtin, get_builtin
+        from runsight_core.tools import BUILTIN_TOOL_CATALOG, get_builtin, register_builtin
 
         source = "test/runtool_registry_overwrite"
         BUILTIN_TOOL_CATALOG.pop(source, None)
@@ -383,7 +382,7 @@ class TestCatalogMutability:
 
     def test_removed_key_no_longer_in_catalog(self):
         """After removing a key from catalog, get_builtin returns None for it."""
-        from runsight_core.tools import BUILTIN_TOOL_CATALOG, register_builtin, get_builtin
+        from runsight_core.tools import BUILTIN_TOOL_CATALOG, get_builtin, register_builtin
 
         source = "test/runtool_registry_mutability_remove"
 

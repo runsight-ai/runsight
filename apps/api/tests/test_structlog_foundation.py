@@ -12,7 +12,6 @@ All tests should FAIL until the implementation is written.
 
 import json
 
-
 # ---------------------------------------------------------------------------
 # Tests — context.py: ContextVars exist and are importable
 # ---------------------------------------------------------------------------
@@ -23,9 +22,9 @@ class TestContextVarsExist:
 
     def test_context_module_importable(self):
         from runsight_api.core.context import (  # noqa: F401
+            block_id,
             request_id,
             run_id,
-            block_id,
             workflow_name,
         )
 
@@ -95,10 +94,10 @@ class TestClearBlockContext:
 
     def test_resets_block_id_to_empty(self):
         from runsight_api.core.context import (
-            bind_execution_context,
             bind_block_context,
-            clear_block_context,
+            bind_execution_context,
             block_id,
+            clear_block_context,
         )
 
         bind_execution_context(run_id="run-1", workflow_name="wf")
@@ -108,8 +107,8 @@ class TestClearBlockContext:
 
     def test_preserves_run_id(self):
         from runsight_api.core.context import (
-            bind_execution_context,
             bind_block_context,
+            bind_execution_context,
             clear_block_context,
             run_id,
         )
@@ -147,10 +146,10 @@ class TestClearExecutionContext:
 
     def test_resets_block_id(self):
         from runsight_api.core.context import (
-            bind_execution_context,
             bind_block_context,
-            clear_execution_context,
+            bind_execution_context,
             block_id,
+            clear_execution_context,
         )
 
         bind_execution_context(run_id="run-1", workflow_name="wf")
@@ -178,6 +177,7 @@ class TestConfigureLoggingJson:
 
     def test_json_output_has_required_keys(self, capsys):
         import structlog
+
         from runsight_api.core.logging import configure_logging
 
         configure_logging("INFO", "json")
@@ -203,6 +203,7 @@ class TestConfigureLoggingText:
 
     def test_text_output_is_not_json(self, capsys):
         import structlog
+
         from runsight_api.core.logging import configure_logging
 
         configure_logging("DEBUG", "text")
@@ -233,8 +234,9 @@ class TestContextVarsInjectedIntoLogs:
 
     def test_request_id_appears_in_json_log(self, capsys):
         import structlog
-        from runsight_api.core.logging import configure_logging
+
         from runsight_api.core.context import bind_request_context
+        from runsight_api.core.logging import configure_logging
 
         configure_logging("INFO", "json")
         bind_request_context("req-in-log")
@@ -249,8 +251,9 @@ class TestContextVarsInjectedIntoLogs:
 
     def test_execution_context_appears_in_json_log(self, capsys):
         import structlog
-        from runsight_api.core.logging import configure_logging
+
         from runsight_api.core.context import bind_execution_context
+        from runsight_api.core.logging import configure_logging
 
         configure_logging("INFO", "json")
         bind_execution_context(run_id="run-log", workflow_name="wf-log")

@@ -1,8 +1,8 @@
-import pytest
 from unittest.mock import patch
 
+import pytest
 from runsight_core.primitives import Soul, Task
-from runsight_core.runner import RunsightTeamRunner, ExecutionResult
+from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 
 
 @pytest.fixture

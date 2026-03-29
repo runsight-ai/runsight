@@ -11,15 +11,14 @@ These tests cover:
 """
 
 import json
-import pytest
 
+import pytest
 from runsight_core.blocks.code import (
-    CodeBlock,
     _HARNESS_TEMPLATE,
     BLOCKED_MODULES,
+    CodeBlock,
 )
 from runsight_core.state import WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Helpers

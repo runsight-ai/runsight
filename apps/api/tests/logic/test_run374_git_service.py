@@ -23,7 +23,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers — tiny git wrappers for *arranging* test state
 # ---------------------------------------------------------------------------

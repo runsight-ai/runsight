@@ -14,15 +14,14 @@ All tests should FAIL until the implementation exists.
 """
 
 import asyncio
-
-import pytest
-from sqlmodel import Session, SQLModel, create_engine, select
 from unittest.mock import MagicMock
 
-from runsight_api.domain.entities.run import Run, RunNode, RunStatus
+import pytest
 from runsight_core.primitives import Soul
 from runsight_core.state import BlockResult, WorkflowState
+from sqlmodel import Session, SQLModel, create_engine, select
 
+from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 
 # ---------------------------------------------------------------------------
 # Deferred import — EvalObserver does not exist yet

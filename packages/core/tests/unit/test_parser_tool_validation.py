@@ -14,10 +14,8 @@ All tests should FAIL until the parser is updated with tool validation logic.
 from __future__ import annotations
 
 import pytest
-
 from runsight_core.tools import ToolInstance
 from runsight_core.yaml.parser import parse_workflow_yaml
-
 
 # ---------------------------------------------------------------------------
 # Helper: minimal YAML builder for tool-validation tests

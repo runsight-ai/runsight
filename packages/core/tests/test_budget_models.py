@@ -24,7 +24,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-
 # ===========================================================================
 # 1. Module importability
 # ===========================================================================
@@ -134,7 +133,6 @@ class TestContextBudgetRequest:
 
     def test_is_pydantic_model(self):
         from pydantic import BaseModel
-
         from runsight_core.memory.budget import ContextBudgetRequest
 
         assert issubclass(ContextBudgetRequest, BaseModel)

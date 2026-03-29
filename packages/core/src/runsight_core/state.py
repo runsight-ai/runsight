@@ -3,7 +3,9 @@ WorkflowState data model for workflow execution context.
 """
 
 from typing import Annotated, Any, Dict, List, Optional
+
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation
+
 from runsight_core.artifacts import ArtifactStore
 from runsight_core.primitives import Task
 

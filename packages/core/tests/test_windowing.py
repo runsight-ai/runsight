@@ -16,7 +16,6 @@ from unittest.mock import patch
 
 from runsight_core.memory.windowing import get_max_tokens, prune_messages
 
-
 # ===========================================================================
 # Helpers
 # ===========================================================================

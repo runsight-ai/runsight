@@ -17,13 +17,12 @@ import uuid
 from unittest.mock import patch
 
 import pytest
+from runsight_core.state import WorkflowState
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from runsight_api.domain.entities.log import LogEntry
 from runsight_api.domain.entities.run import Run, RunStatus
 from runsight_api.logic.observers.execution_observer import ExecutionObserver
-from runsight_core.state import WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Helpers

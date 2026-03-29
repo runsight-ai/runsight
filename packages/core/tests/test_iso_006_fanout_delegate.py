@@ -15,12 +15,10 @@ Tests cover all 8 acceptance criteria:
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-
 from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
 from runsight_core.isolation.envelope import DelegateArtifact, ResultEnvelope
 from runsight_core.primitives import Soul, Task
 from runsight_core.state import BlockResult, WorkflowState
-
 
 # ── Shared fixtures ─────────────────────────────────────────────────────────
 

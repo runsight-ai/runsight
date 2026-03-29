@@ -7,18 +7,18 @@ PRIORITY 3: Tests multi-block workflow scenarios
 """
 
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.primitives import Soul, Task
-from runsight_core.runner import ExecutionResult
+import pytest
 from runsight_core import (
-    LinearBlock,
     FanOutBlock,
+    LinearBlock,
     SynthesizeBlock,
 )
 from runsight_core.blocks.fanout import FanOutBranch
+from runsight_core.primitives import Soul, Task
+from runsight_core.runner import ExecutionResult
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 
 

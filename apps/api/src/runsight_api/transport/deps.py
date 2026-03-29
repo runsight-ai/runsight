@@ -1,27 +1,28 @@
 from typing import Optional
 
 from fastapi import Depends, Request
+from runsight_core.llm.model_catalog import LiteLLMModelCatalog, ModelCatalogPort
 from sqlmodel import Session
-from ..core.di import engine
+
 from ..core.config import settings
+from ..core.di import engine
 from ..core.secrets import SecretsEnvLoader
-from ..data.repositories.run_repo import RunRepository
 from ..data.filesystem.provider_repo import FileSystemProviderRepo
 from ..data.filesystem.settings_repo import FileSystemSettingsRepo
-from ..data.filesystem.workflow_repo import WorkflowRepository
 from ..data.filesystem.soul_repo import SoulRepository
-from ..data.filesystem.task_repo import TaskRepository
 from ..data.filesystem.step_repo import StepRepository
+from ..data.filesystem.task_repo import TaskRepository
+from ..data.filesystem.workflow_repo import WorkflowRepository
+from ..data.repositories.run_repo import RunRepository
 from ..logic.services.eval_service import EvalService
-from ..logic.services.provider_service import ProviderService
-from ..logic.services.run_service import RunService
-from ..logic.services.soul_service import SoulService
-from ..logic.services.registry_service import RegistryService
-from ..logic.services.workflow_service import WorkflowService
 from ..logic.services.execution_service import ExecutionService
 from ..logic.services.git_service import GitService
 from ..logic.services.model_service import ModelService
-from runsight_core.llm.model_catalog import ModelCatalogPort, LiteLLMModelCatalog
+from ..logic.services.provider_service import ProviderService
+from ..logic.services.registry_service import RegistryService
+from ..logic.services.run_service import RunService
+from ..logic.services.soul_service import SoulService
+from ..logic.services.workflow_service import WorkflowService
 
 
 def get_session():

@@ -35,6 +35,7 @@ class TestOpenAPISpecExtraction:
     def test_openapi_json_endpoint_exists(self):
         """GET /openapi.json should return a valid OpenAPI 3.x spec."""
         from fastapi.testclient import TestClient
+
         from runsight_api.main import app
 
         client = TestClient(app)

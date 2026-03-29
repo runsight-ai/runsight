@@ -93,6 +93,7 @@ export default tseslint.config(
   {
     files: ["packages/ui/**/*.{ts,tsx}"],
     rules: {
+      "@typescript-eslint/no-explicit-any": "error",
       "no-restricted-imports": [
         "error",
         {
@@ -107,8 +108,15 @@ export default tseslint.config(
     },
   },
   {
+    files: ["packages/ui/src/**/*.{ts,tsx}", "packages/shared/src/**/*.{ts,tsx}"],
+    rules: {
+      "no-console": "error",
+    },
+  },
+  {
     files: ["packages/shared/**/*.{ts,tsx}"],
     rules: {
+      "@typescript-eslint/no-explicit-any": "error",
       "no-restricted-imports": [
         "error",
         {

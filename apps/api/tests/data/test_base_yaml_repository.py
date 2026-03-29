@@ -1,13 +1,13 @@
 """Tests for BaseYamlRepository generic base class."""
 
 import tempfile
+from typing import Optional
+
 import pytest
 from pydantic import BaseModel
-from typing import Optional
 
 from runsight_api.data.filesystem._base_yaml_repo import BaseYamlRepository
 from runsight_api.domain.errors import RunsightError
-
 
 # -- Fixtures: a minimal entity and concrete repo for testing ----------------
 

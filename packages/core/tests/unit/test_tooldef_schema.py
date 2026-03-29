@@ -14,7 +14,6 @@ Tests target:
 import pytest
 from pydantic import ValidationError
 
-
 # ---------------------------------------------------------------------------
 # AC1: ToolDef model — YAML `tools:` section parses correctly
 # ---------------------------------------------------------------------------
@@ -353,8 +352,8 @@ class TestFullYamlToolsParse:
         """Parse a complete workflow with tools section and soul tool references."""
         from runsight_core.yaml.schema import (
             RunsightWorkflowFile,
-            ToolDef,
             SoulDef,
+            ToolDef,
             WorkflowDef,
         )
 

@@ -12,7 +12,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
 from runsight_core.observer import (
     CompositeObserver,
     FileObserver,
@@ -21,7 +20,6 @@ from runsight_core.observer import (
 )
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

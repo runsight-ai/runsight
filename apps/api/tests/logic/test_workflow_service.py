@@ -7,10 +7,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from runsight_api.logic.services.workflow_service import WorkflowService
-from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.domain.errors import WorkflowNotFound
-
+from runsight_api.domain.value_objects import WorkflowEntity
+from runsight_api.logic.services.workflow_service import WorkflowService
 
 # --- Fixtures ---
 

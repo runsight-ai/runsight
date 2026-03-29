@@ -19,11 +19,10 @@ import asyncio
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-
-from runsight_api.logic.services.execution_service import ExecutionService
-from runsight_api.logic.observers.streaming_observer import StreamingObserver
 from runsight_core.state import WorkflowState
 
+from runsight_api.logic.observers.streaming_observer import StreamingObserver
+from runsight_api.logic.services.execution_service import ExecutionService
 
 # ---------------------------------------------------------------------------
 # Helpers

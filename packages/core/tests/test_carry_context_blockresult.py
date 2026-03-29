@@ -18,11 +18,9 @@ Tests cover:
 from typing import Any, Dict, List
 
 import pytest
-
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.blocks.loop import CarryContextConfig
-
+from runsight_core.state import BlockResult, WorkflowState
 
 # ==============================================================================
 # Test helpers — blocks that produce BlockResult (matching real-world behavior)

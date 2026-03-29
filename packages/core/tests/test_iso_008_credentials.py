@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from runsight_core.isolation import (
     ContextEnvelope,
     IPCClient,
@@ -31,7 +30,6 @@ from runsight_core.isolation import (
     SubprocessHarness,
     TaskEnvelope,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -159,6 +157,7 @@ class TestHTTPCredentialInjection:
     tool config before executing it. The subprocess never sees the raw token.
     """
 
+    @pytest.mark.asyncio
     async def test_http_handler_injects_auth_header(self, tmp_path: Path):
         """http handler adds Authorization header from tool credential config."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -177,6 +176,7 @@ class TestHTTPCredentialInjection:
         # The handler should have merged the credential header into the request
         assert "error" not in result
 
+    @pytest.mark.asyncio
     async def test_http_handler_does_not_expose_token_in_response(self, tmp_path: Path):
         """The token injected by the engine must not appear in the IPC response."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -196,6 +196,7 @@ class TestHTTPCredentialInjection:
         result_str = json.dumps(result)
         assert "sk-super-secret" not in result_str
 
+    @pytest.mark.asyncio
     async def test_subprocess_request_has_no_credential_fields(self, tmp_path: Path):
         """Subprocess sends requests without credential fields — engine adds them."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -223,6 +224,7 @@ class TestHTTPCredentialInjection:
 class TestHTTPURLAllowlist:
     """HTTP requests must be validated against a URL allowlist."""
 
+    @pytest.mark.asyncio
     async def test_allowed_host_passes(self, tmp_path: Path):
         """Requests to hosts on the allowlist are permitted."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -241,6 +243,7 @@ class TestHTTPURLAllowlist:
         )
         assert "error" not in result
 
+    @pytest.mark.asyncio
     async def test_disallowed_host_rejected(self, tmp_path: Path):
         """Requests to hosts NOT on the allowlist are rejected with an error."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -260,6 +263,7 @@ class TestHTTPURLAllowlist:
         assert "error" in result
         assert "allowlist" in result["error"].lower() or "allowed" in result["error"].lower()
 
+    @pytest.mark.asyncio
     async def test_empty_allowlist_blocks_all(self, tmp_path: Path):
         """An empty allowlist blocks all HTTP requests."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -275,6 +279,7 @@ class TestHTTPURLAllowlist:
         )
         assert "error" in result
 
+    @pytest.mark.asyncio
     async def test_wildcard_allowlist_permits_all(self, tmp_path: Path):
         """A '*' entry in the allowlist permits all hosts."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -290,6 +295,7 @@ class TestHTTPURLAllowlist:
         )
         assert "error" not in result
 
+    @pytest.mark.asyncio
     async def test_allowlist_matches_hostname_not_path(self, tmp_path: Path):
         """Allowlist checks the hostname, not the full URL path."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -318,6 +324,7 @@ class TestHTTPURLAllowlist:
 class TestHTTPSSRFProtection:
     """HTTP handler must block requests targeting private/reserved IPs."""
 
+    @pytest.mark.asyncio
     async def test_localhost_blocked(self, tmp_path: Path):
         """Requests to 127.0.0.1 are blocked by SSRF validation."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -334,6 +341,7 @@ class TestHTTPSSRFProtection:
         assert "error" in result
         assert "ssrf" in result["error"].lower() or "blocked" in result["error"].lower()
 
+    @pytest.mark.asyncio
     async def test_private_ip_10_blocked(self, tmp_path: Path):
         """Requests to 10.x.x.x private range are blocked."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -349,6 +357,7 @@ class TestHTTPSSRFProtection:
         )
         assert "error" in result
 
+    @pytest.mark.asyncio
     async def test_private_ip_192_168_blocked(self, tmp_path: Path):
         """Requests to 192.168.x.x private range are blocked."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -364,6 +373,7 @@ class TestHTTPSSRFProtection:
         )
         assert "error" in result
 
+    @pytest.mark.asyncio
     async def test_link_local_169_254_blocked(self, tmp_path: Path):
         """Requests to 169.254.x.x (link-local / cloud metadata) are blocked."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -379,6 +389,7 @@ class TestHTTPSSRFProtection:
         )
         assert "error" in result
 
+    @pytest.mark.asyncio
     async def test_public_ip_allowed(self, tmp_path: Path):
         """Requests to public IPs pass SSRF validation."""
         from runsight_core.isolation.handlers import make_http_handler
@@ -406,6 +417,7 @@ class TestHTTPSSRFProtection:
 class TestFileIOBaseDir:
     """File I/O handler must scope all paths to a per-workflow base directory."""
 
+    @pytest.mark.asyncio
     async def test_file_io_handler_requires_base_dir(self, tmp_path: Path):
         """make_file_io_handler requires a base_dir parameter."""
         from runsight_core.isolation.handlers import make_file_io_handler
@@ -416,6 +428,7 @@ class TestFileIOBaseDir:
         handler = make_file_io_handler(base_dir=str(base))
         assert handler is not None
 
+    @pytest.mark.asyncio
     async def test_read_resolves_relative_to_base_dir(self, tmp_path: Path):
         """Reading a file resolves the path relative to base_dir."""
         from runsight_core.isolation.handlers import make_file_io_handler
@@ -434,6 +447,7 @@ class TestFileIOBaseDir:
 
         assert result.get("content") == "hello from base"
 
+    @pytest.mark.asyncio
     async def test_write_resolves_relative_to_base_dir(self, tmp_path: Path):
         """Writing a file places it inside base_dir."""
         from runsight_core.isolation.handlers import make_file_io_handler
@@ -453,6 +467,7 @@ class TestFileIOBaseDir:
         assert "error" not in result
         assert (base / "output.txt").read_text() == "result data"
 
+    @pytest.mark.asyncio
     async def test_absolute_path_rejected(self, tmp_path: Path):
         """Absolute paths must be rejected — only relative paths within base_dir."""
         from runsight_core.isolation.handlers import make_file_io_handler
@@ -479,6 +494,7 @@ class TestFileIOBaseDir:
 class TestFileIOPathTraversal:
     """File I/O handler must block path traversal via '..' in path components."""
 
+    @pytest.mark.asyncio
     async def test_dotdot_in_path_rejected(self, tmp_path: Path):
         """Paths containing '..' are rejected."""
         from runsight_core.isolation.handlers import make_file_io_handler
@@ -497,6 +513,7 @@ class TestFileIOPathTraversal:
         assert "error" in result
         assert "traversal" in result["error"].lower() or ".." in result["error"]
 
+    @pytest.mark.asyncio
     async def test_dotdot_in_middle_of_path_rejected(self, tmp_path: Path):
         """Paths with '..' in a middle segment are rejected."""
         from runsight_core.isolation.handlers import make_file_io_handler
@@ -514,6 +531,7 @@ class TestFileIOPathTraversal:
 
         assert "error" in result
 
+    @pytest.mark.asyncio
     async def test_encoded_dotdot_rejected(self, tmp_path: Path):
         """URL-encoded '..' variants should also be caught."""
         from runsight_core.isolation.handlers import make_file_io_handler
@@ -533,6 +551,7 @@ class TestFileIOPathTraversal:
 
         assert "error" in result
 
+    @pytest.mark.asyncio
     async def test_write_with_traversal_rejected(self, tmp_path: Path):
         """Write operations with path traversal are blocked."""
         from runsight_core.isolation.handlers import make_file_io_handler

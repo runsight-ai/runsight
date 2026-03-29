@@ -10,14 +10,14 @@ from the filename stem (e.g., onboarding-flow-k8x3m.yaml → id = "onboarding-fl
 
 import json
 import logging
+import random
 import re
 import time
-import random
-import yaml as yaml_mod
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote
 
+import yaml as yaml_mod
 from pydantic import ValidationError as PydanticValidationError
 from runsight_core.yaml.schema import RunsightWorkflowFile
 

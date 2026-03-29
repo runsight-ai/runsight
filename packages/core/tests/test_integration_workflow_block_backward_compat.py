@@ -9,14 +9,14 @@ These tests verify that:
 """
 
 import pytest
+from runsight_core import (
+    LinearBlock,
+    WorkflowBlock,
+)
+from runsight_core.blocks.base import BaseBlock
+from runsight_core.primitives import Soul, Task
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
-from runsight_core.blocks.base import BaseBlock
-from runsight_core import (
-    WorkflowBlock,
-    LinearBlock,
-)
-from runsight_core.primitives import Soul, Task
 
 
 class EchoBlock(BaseBlock):

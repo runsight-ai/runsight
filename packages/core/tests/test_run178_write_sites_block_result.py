@@ -38,11 +38,9 @@ from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
-
 
 # ==============================================================================
 # NoCoercionWorkflowState — rejects raw strings in results
@@ -231,8 +229,8 @@ class TestLoopBlockEmitsBlockResult:
     @pytest.mark.asyncio
     async def test_loop_block_writes_block_result_not_raw_string(self):
         """LoopBlock must emit BlockResult(output=...) for its completion marker."""
-        from runsight_core.blocks.base import BaseBlock
         from runsight_core import LoopBlock
+        from runsight_core.blocks.base import BaseBlock
 
         # Create a minimal inner block that writes a BlockResult (compliant)
         class PassthroughBlock(BaseBlock):

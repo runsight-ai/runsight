@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends
 from typing import Optional
-from ..schemas.souls import SoulResponse, SoulListResponse, SoulCreate, SoulUpdate
-from ..deps import get_soul_service
+
+from fastapi import APIRouter, Depends
+
 from ...logic.services.soul_service import SoulService
+from ..deps import get_soul_service
+from ..schemas.souls import SoulCreate, SoulListResponse, SoulResponse, SoulUpdate
 
 router = APIRouter(prefix="/souls", tags=["Souls"])
 

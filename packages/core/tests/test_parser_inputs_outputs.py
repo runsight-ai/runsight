@@ -20,14 +20,12 @@ Dependencies assumed done (RUN-110, RUN-111):
 import json
 
 import pytest
-
+from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
-from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml import parser as parser_module
-from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
-
+from runsight_core.yaml.parser import parse_workflow_yaml
 
 # ---------------------------------------------------------------------------
 # Helpers

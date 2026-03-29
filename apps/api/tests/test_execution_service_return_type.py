@@ -8,8 +8,8 @@ These tests verify via source inspection that:
 
 from typing import get_type_hints
 
-from runsight_api.transport.deps import get_execution_service
 from runsight_api.logic.services.execution_service import ExecutionService
+from runsight_api.transport.deps import get_execution_service
 
 
 class TestGetExecutionServiceReturnType:

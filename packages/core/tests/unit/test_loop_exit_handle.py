@@ -19,12 +19,10 @@ import inspect
 
 import pytest
 from pydantic import TypeAdapter
-
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.blocks.loop import LoopBlock, LoopBlockDef
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.schema import BaseBlockDef, BlockDef
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -22,18 +22,19 @@ All tests are expected to FAIL against the current implementation because:
 - The runs router hardcodes completed=0, running=0, pending=0, failed=0 in NodeSummary
 """
 
-import pytest
 from unittest.mock import Mock
-from fastapi.testclient import TestClient
-from sqlmodel import SQLModel, Session, create_engine
 
-from runsight_api.main import app
-from runsight_api.transport.deps import get_run_service
+import pytest
+from fastapi.testclient import TestClient
+from sqlmodel import Session, SQLModel, create_engine
+
+from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.domain.value_objects import NodeSummary as DomainNodeSummary
-from runsight_api.transport.schemas.runs import NodeSummary as TransportNodeSummary
-from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.logic.services.run_service import RunService
+from runsight_api.main import app
+from runsight_api.transport.deps import get_run_service
+from runsight_api.transport.schemas.runs import NodeSummary as TransportNodeSummary
 
 client = TestClient(app)
 

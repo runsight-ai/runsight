@@ -12,9 +12,7 @@ Tests target:
 
 from __future__ import annotations
 
-
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helper fixtures
@@ -157,8 +155,8 @@ class TestRegisterAndGetBuiltin:
         """register_builtin stores a factory; get_builtin retrieves it."""
         from runsight_core.tools import (
             BUILTIN_TOOL_CATALOG,
-            register_builtin,
             get_builtin,
+            register_builtin,
         )
 
         # Use a unique source key to avoid cross-test pollution
@@ -180,8 +178,8 @@ class TestRegisterAndGetBuiltin:
         """Registering the same source twice overwrites the previous factory."""
         from runsight_core.tools import (
             BUILTIN_TOOL_CATALOG,
-            register_builtin,
             get_builtin,
+            register_builtin,
         )
 
         source = "test/overwrite_tool"

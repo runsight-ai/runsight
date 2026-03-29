@@ -10,11 +10,11 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from runsight_core.state import WorkflowState
 
 from runsight_api.logic.observers.artifact_cleanup_observer import (
     ArtifactCleanupObserver,
 )
-from runsight_core.state import WorkflowState
 
 
 class TestCleanupTaskStored:

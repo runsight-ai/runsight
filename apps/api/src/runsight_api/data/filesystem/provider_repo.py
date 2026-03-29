@@ -9,10 +9,11 @@ Provider ID = slugify(name) — provider names are unique by business rule.
 
 import logging
 import re
-import yaml
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import unquote
+
+import yaml
 
 from ...domain.errors import ProviderNotFound
 from ...domain.value_objects import ProviderEntity

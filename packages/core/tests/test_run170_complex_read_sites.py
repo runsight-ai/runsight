@@ -20,9 +20,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from runsight_core.state import BlockResult, WorkflowState
-
 
 # =============================================================================
 # 1. CodeBlock subprocess serialization

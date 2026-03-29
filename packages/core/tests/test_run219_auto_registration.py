@@ -12,10 +12,9 @@ Tests cover:
 """
 
 import sys
-
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. _registry.py — module-level registry functions
@@ -119,6 +118,7 @@ class TestBlockDefRegistry:
     def test_registry_has_zero_project_imports(self):
         """_registry.py must NOT import from any project module (import firewall)."""
         import inspect
+
         import runsight_core.blocks._registry as registry_mod
 
         source = inspect.getsource(registry_mod)
@@ -147,10 +147,9 @@ class TestInitSubclassRegistration:
 
     def test_all_7_types_registered(self):
         """After importing schema, all 7 existing BlockDef subclasses are registered."""
-        from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
-
         # Force schema import to trigger __init_subclass__
         import runsight_core.yaml.schema  # noqa: F401
+        from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
 
         registered_types = set(BLOCK_DEF_REGISTRY.keys())
         assert self.EXPECTED_BLOCK_TYPES.issubset(registered_types)
@@ -158,8 +157,8 @@ class TestInitSubclassRegistration:
 
     def test_registry_count_is_7(self):
         """Exactly 7 block types are in the registry (no extras from base classes)."""
-        from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
         import runsight_core.yaml.schema  # noqa: F401
+        from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
 
         # Filter out any test artifacts — only count the known types
         known = {k: v for k, v in BLOCK_DEF_REGISTRY.items() if k in self.EXPECTED_BLOCK_TYPES}
@@ -248,6 +247,7 @@ class TestBuildBlockDefUnion:
     def test_build_block_def_union_matches_hardcoded(self):
         """build_block_def_union() produces a union with the same types as the hardcoded BlockDef."""
         import typing
+
         from runsight_core.yaml.schema import BlockDef, build_block_def_union
 
         dynamic_union = build_block_def_union()
@@ -261,6 +261,7 @@ class TestBuildBlockDefUnion:
     def test_build_block_def_union_empty_registry_raises(self):
         """build_block_def_union() raises an error when the registry is empty."""
         from unittest.mock import patch
+
         from runsight_core.yaml.schema import build_block_def_union
 
         with patch("runsight_core.blocks._registry.BLOCK_DEF_REGISTRY", {}):
@@ -270,8 +271,8 @@ class TestBuildBlockDefUnion:
     def test_rebuild_block_def_union_updates_global(self):
         """rebuild_block_def_union() updates the module-level BlockDef and rebuilds models."""
         from runsight_core.yaml.schema import (
-            rebuild_block_def_union,
             RunsightWorkflowFile,
+            rebuild_block_def_union,
         )
 
         # Should not raise
@@ -284,8 +285,8 @@ class TestBuildBlockDefUnion:
     def test_rebuild_block_def_union_model_rebuild_succeeds(self):
         """After rebuild_block_def_union(), RunsightWorkflowFile.model_rebuild() works."""
         from runsight_core.yaml.schema import (
-            rebuild_block_def_union,
             RunsightWorkflowFile,
+            rebuild_block_def_union,
         )
 
         rebuild_block_def_union()
@@ -305,9 +306,9 @@ class TestHelpers:
     def test_import_helpers_module(self):
         """_helpers.py module can be imported."""
         from runsight_core.blocks._helpers import (  # noqa: F401
-            resolve_soul,
             convert_condition,
             convert_condition_group,
+            resolve_soul,
         )
 
     def test_resolve_soul_found(self):
@@ -331,8 +332,8 @@ class TestHelpers:
     def test_convert_condition(self):
         """convert_condition converts a ConditionDef to a runtime Condition."""
         from runsight_core.blocks._helpers import convert_condition
-        from runsight_core.yaml.schema import ConditionDef
         from runsight_core.conditions.engine import Condition
+        from runsight_core.yaml.schema import ConditionDef
 
         cond_def = ConditionDef(eval_key="status", operator="eq", value="PASS")
         result = convert_condition(cond_def)
@@ -345,8 +346,8 @@ class TestHelpers:
     def test_convert_condition_group(self):
         """convert_condition_group converts a ConditionGroupDef to a ConditionGroup."""
         from runsight_core.blocks._helpers import convert_condition_group
-        from runsight_core.yaml.schema import ConditionDef, ConditionGroupDef
         from runsight_core.conditions.engine import ConditionGroup
+        from runsight_core.yaml.schema import ConditionDef, ConditionGroupDef
 
         group_def = ConditionGroupDef(
             combinator="AND",
@@ -402,7 +403,8 @@ class TestParserFallback:
         patches past Pydantic validation so the custom type reaches the builder
         lookup, then verifies the mock builder was actually called.
         """
-        from unittest.mock import patch, MagicMock as Mock
+        from unittest.mock import MagicMock as Mock
+        from unittest.mock import patch
 
         from runsight_core.blocks._registry import (
             BLOCK_BUILDER_REGISTRY,
@@ -487,10 +489,9 @@ class TestAutoDiscovery:
 
     def test_auto_discover_populates_builder_registry(self):
         """After _auto_discover_blocks(), BLOCK_BUILDER_REGISTRY has entries."""
-        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY
-
         # Importing blocks triggers _auto_discover_blocks at module level
         import runsight_core.blocks  # noqa: F401
+        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY
 
         # There should be at least some builders registered
         assert len(BLOCK_BUILDER_REGISTRY) > 0
@@ -507,8 +508,8 @@ class TestEdgeCases:
     def test_model_rebuild_preserves_nested_validation(self):
         """After rebuild_block_def_union, nested model validation still works."""
         from runsight_core.yaml.schema import (
-            rebuild_block_def_union,
             RunsightWorkflowFile,
+            rebuild_block_def_union,
         )
 
         rebuild_block_def_union()

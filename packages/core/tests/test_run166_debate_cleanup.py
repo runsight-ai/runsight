@@ -16,7 +16,6 @@ import subprocess
 
 import pytest
 
-
 # ─── Paths ────────────────────────────────────────────────────────────────────
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent.parent

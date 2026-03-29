@@ -2,7 +2,8 @@
 Core primitives for Runsight Agent OS.
 """
 
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:

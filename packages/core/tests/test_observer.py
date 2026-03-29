@@ -6,12 +6,11 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
-
 from runsight_core.observer import (
-    WorkflowObserver,
-    LoggingObserver,
-    FileObserver,
     CompositeObserver,
+    FileObserver,
+    LoggingObserver,
+    WorkflowObserver,
 )
 from runsight_core.state import WorkflowState
 

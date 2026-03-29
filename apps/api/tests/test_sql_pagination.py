@@ -6,12 +6,12 @@ These tests verify that:
 - Response includes total count from DB
 """
 
-from fastapi.testclient import TestClient
 from unittest.mock import Mock
+
+from fastapi.testclient import TestClient
 
 from runsight_api.main import app
 from runsight_api.transport.deps import get_run_service
-
 
 # ---------------------------------------------------------------------------
 # 1. Default limit is 20, max limit is clamped to 100

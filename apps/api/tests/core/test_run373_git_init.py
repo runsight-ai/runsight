@@ -13,7 +13,7 @@ Tests for scaffold_project(base_path) which should:
 import subprocess
 from pathlib import Path
 
-from runsight_api.core.project import scaffold_project, MARKER_FILE
+from runsight_api.core.project import MARKER_FILE, scaffold_project
 
 
 class TestGitInitOnFreshDirectory:

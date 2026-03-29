@@ -10,9 +10,7 @@ and PASS once the Green agent implements the rename.
 
 import pathlib
 
-
 from runsight_core.state import WorkflowState
-
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 

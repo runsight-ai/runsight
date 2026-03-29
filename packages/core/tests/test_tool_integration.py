@@ -33,13 +33,11 @@ from typing import Any, Dict, List
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.tools import BUILTIN_TOOL_CATALOG, ToolInstance, register_builtin
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.schema import ExitDef
-
 
 # ---------------------------------------------------------------------------
 # Shared response builders (same pattern as test_agentic_tool_loop.py)

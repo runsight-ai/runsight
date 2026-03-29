@@ -1,10 +1,11 @@
 """Generic base class for YAML-backed filesystem repositories."""
 
 import logging
-import yaml
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 from urllib.parse import unquote
+
+import yaml
 
 from ...domain.errors import RunsightError
 

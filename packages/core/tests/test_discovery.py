@@ -12,12 +12,11 @@ import tempfile
 from pathlib import Path
 from textwrap import dedent
 
-
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
-from runsight_core.yaml.discovery import discover_custom_assets, _to_snake_case
+from runsight_core.yaml.discovery import _to_snake_case, discover_custom_assets
 
 
 class SimpleBlock(BaseBlock):

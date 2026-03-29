@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from runsight_api.core.project import scaffold_project, MARKER_FILE
+from runsight_api.core.project import MARKER_FILE, scaffold_project
 
 
 class TestScaffoldEmptyDirectory:

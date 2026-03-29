@@ -6,9 +6,9 @@ Tests target two endpoints and one service layer that do NOT yet exist:
   - ModelService             (service layer bridging catalog + provider config)
 """
 
+from types import SimpleNamespace
 from unittest.mock import Mock
 
-import pytest
 from fastapi.testclient import TestClient
 
 from runsight_api.main import app
@@ -31,18 +31,18 @@ def _make_model_response(
     output_cost_per_token: float = 0.00006,
     supports_vision: bool = False,
     supports_function_calling: bool = True,
-) -> dict:
-    return {
-        "provider": provider,
-        "provider_name": provider_name,
-        "model_id": model_id,
-        "mode": mode,
-        "max_tokens": max_tokens,
-        "input_cost_per_token": input_cost_per_token,
-        "output_cost_per_token": output_cost_per_token,
-        "supports_vision": supports_vision,
-        "supports_function_calling": supports_function_calling,
-    }
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        provider=provider,
+        provider_name=provider_name,
+        model_id=model_id,
+        mode=mode,
+        max_tokens=max_tokens,
+        input_cost_per_token=input_cost_per_token,
+        output_cost_per_token=output_cost_per_token,
+        supports_vision=supports_vision,
+        supports_function_calling=supports_function_calling,
+    )
 
 
 def _make_provider_summary(
@@ -84,25 +84,32 @@ class TestGetModelsEndpoint:
 
     def test_model_response_shape(self):
         """Each item must include required ModelResponse fields."""
-        response = client.get("/api/models")
-        data = response.json()
-        items = data if isinstance(data, list) else data.get("items", data)
-        if len(items) == 0:
-            pytest.skip("No models returned — shape check needs at least one item")
-        first = items[0]
-        required_fields = {
-            "provider",
-            "provider_name",
-            "model_id",
-            "mode",
-            "max_tokens",
-            "input_cost_per_token",
-            "output_cost_per_token",
-            "supports_vision",
-            "supports_function_calling",
-        }
-        missing = required_fields - set(first.keys())
-        assert not missing, f"ModelResponse missing fields: {missing}"
+        from runsight_api.transport.deps import get_model_service
+
+        mock_service = Mock()
+        mock_service.get_available_models.return_value = [_make_model_response()]
+        app.dependency_overrides[get_model_service] = lambda: mock_service
+        try:
+            response = client.get("/api/models")
+            data = response.json()
+            items = data if isinstance(data, list) else data.get("items", data)
+            assert len(items) == 1
+            first = items[0]
+            required_fields = {
+                "provider",
+                "provider_name",
+                "model_id",
+                "mode",
+                "max_tokens",
+                "input_cost_per_token",
+                "output_cost_per_token",
+                "supports_vision",
+                "supports_function_calling",
+            }
+            missing = required_fields - set(first.keys())
+            assert not missing, f"ModelResponse missing fields: {missing}"
+        finally:
+            app.dependency_overrides.clear()
 
 
 # ===========================================================================
@@ -232,15 +239,22 @@ class TestGetProvidersEndpoint:
 
     def test_provider_summary_shape(self):
         """Each item must include required ProviderSummary fields."""
-        response = client.get("/api/models/providers")
-        data = response.json()
-        items = data if isinstance(data, list) else data.get("items", data)
-        if len(items) == 0:
-            pytest.skip("No providers returned — shape check needs at least one")
-        first = items[0]
-        required_fields = {"id", "name", "model_count", "is_configured"}
-        missing = required_fields - set(first.keys())
-        assert not missing, f"ProviderSummary missing fields: {missing}"
+        from runsight_api.transport.deps import get_model_service
+
+        mock_service = Mock()
+        mock_service.get_provider_summary.return_value = [_make_provider_summary()]
+        app.dependency_overrides[get_model_service] = lambda: mock_service
+        try:
+            response = client.get("/api/models/providers")
+            data = response.json()
+            items = data if isinstance(data, list) else data.get("items", data)
+            assert len(items) == 1
+            first = items[0]
+            required_fields = {"id", "name", "model_count", "is_configured"}
+            missing = required_fields - set(first.keys())
+            assert not missing, f"ProviderSummary missing fields: {missing}"
+        finally:
+            app.dependency_overrides.clear()
 
 
 # ===========================================================================

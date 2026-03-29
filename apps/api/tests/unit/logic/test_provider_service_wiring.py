@@ -24,7 +24,6 @@ from runsight_api.core.secrets import SecretsEnvLoader
 from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
 from runsight_api.logic.services.provider_service import ProviderService
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -170,6 +169,7 @@ class TestUpdateProviderUsesSecrets:
 class TestTestConnectionUsesSecrets:
     """test_connection must resolve API keys via secrets.resolve."""
 
+    @pytest.mark.asyncio
     async def test_test_connection_resolves_key_via_secrets(self, service, secrets):
         """test_connection must use secrets.resolve to get the actual API key."""
         service.create_provider(
@@ -197,6 +197,7 @@ class TestTestConnectionUsesSecrets:
         assert "sk-real-key" in auth_header
         assert "${" not in auth_header, "Must not send ${ENV_VAR} as auth header"
 
+    @pytest.mark.asyncio
     async def test_test_connection_no_key_configured(self, service):
         """test_connection with no API key must return failure for non-ollama."""
         service.create_provider(name="OpenAI", provider_type="openai")
@@ -223,6 +224,7 @@ class TestTestConnectionUsesSecrets:
 class TestSSRFPreserved:
     """SSRF validation must still be called in test_connection after rewiring."""
 
+    @pytest.mark.asyncio
     async def test_ssrf_blocks_private_ip(self, service):
         """Private IP in base_url must still be blocked after filesystem rewiring."""
         service.create_provider(
@@ -237,6 +239,7 @@ class TestSSRFPreserved:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
+    @pytest.mark.asyncio
     async def test_ssrf_blocks_metadata_endpoint(self, service):
         """Cloud metadata endpoint must still be blocked."""
         service.create_provider(
@@ -251,6 +254,7 @@ class TestSSRFPreserved:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
+    @pytest.mark.asyncio
     async def test_ssrf_allows_ollama_localhost(self, service):
         """Ollama localhost must still be allowed after rewiring."""
         service.create_provider(
@@ -273,6 +277,7 @@ class TestSSRFPreserved:
 
         assert result["success"] is True
 
+    @pytest.mark.asyncio
     async def test_ssrf_no_http_call_for_blocked_url(self, service):
         """When SSRF blocks a URL, httpx.get must NOT be called."""
         service.create_provider(
@@ -315,8 +320,8 @@ class TestApiResponseContract:
 
     def test_provider_to_out_uses_api_key_not_api_key_encrypted(self):
         """_provider_to_out must use ProviderEntity.api_key, not .api_key_encrypted."""
-        from runsight_api.transport.routers.settings import _provider_to_out
         from runsight_api.domain.value_objects import ProviderEntity
+        from runsight_api.transport.routers.settings import _provider_to_out
 
         # ProviderEntity has api_key (not api_key_encrypted)
         entity = ProviderEntity(
@@ -484,8 +489,8 @@ class TestSettingsRouterWiring:
 
     def test_provider_to_out_works_with_provider_entity(self):
         """_provider_to_out must work with ProviderEntity (not just Provider SQLModel)."""
-        from runsight_api.transport.routers.settings import _provider_to_out
         from runsight_api.domain.value_objects import ProviderEntity
+        from runsight_api.transport.routers.settings import _provider_to_out
 
         entity = ProviderEntity(
             id="openai",

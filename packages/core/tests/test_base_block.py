@@ -9,13 +9,13 @@ Acceptance Criteria:
 """
 
 import asyncio
-import pytest
 from unittest.mock import MagicMock
 
-from runsight_core.state import WorkflowState
-from runsight_core.blocks.base import BaseBlock, NodeKilledException
+import pytest
 from runsight_core import LinearBlock
+from runsight_core.blocks.base import BaseBlock, NodeKilledException
 from runsight_core.primitives import Soul
+from runsight_core.state import WorkflowState
 
 
 class SimpleTestBlock(BaseBlock):

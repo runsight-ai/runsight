@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 
-from runsight_api.core.project import resolve_base_path, _parse_marker, _find_marker
+from runsight_api.core.project import _find_marker, _parse_marker, resolve_base_path
 
 
 class TestParseMarker:

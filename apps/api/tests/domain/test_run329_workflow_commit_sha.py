@@ -12,7 +12,6 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
-
 # ---------------------------------------------------------------------------
 # 1. Run model — workflow_commit_sha field
 # ---------------------------------------------------------------------------

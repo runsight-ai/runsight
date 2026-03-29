@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
 
+from runsight_api.domain.entities.run import RunStatus
 from runsight_api.main import app
 from runsight_api.transport.deps import get_run_service
-from runsight_api.domain.entities.run import RunStatus
 
 
 def _make_mock_run(run_id="run_new"):

@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, Literal
 
-from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks._helpers import resolve_soul
+from runsight_core.blocks.base import BaseBlock
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.memory.token_counting import litellm_token_counter
-from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
+from runsight_core.state import BlockResult, WorkflowState
 
 
 class LinearBlock(BaseBlock):
@@ -91,8 +91,8 @@ class LinearBlockDef(BaseBlockDef):
 
 
 # Explicit registration (PEP 563 workaround)
-from runsight_core.blocks._registry import register_block_def as _register_block_def  # noqa: E402
 from runsight_core.blocks._registry import register_block_builder as _register_builder  # noqa: E402
+from runsight_core.blocks._registry import register_block_def as _register_block_def  # noqa: E402
 
 _register_block_def("linear", LinearBlockDef)
 

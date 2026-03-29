@@ -10,13 +10,13 @@ workflow_registry through the workflow execution chain without raising
 TypeError.
 """
 
-import pytest
 from unittest.mock import AsyncMock
 
-from runsight_core.state import WorkflowState
+import pytest
 from runsight_core import (
     WorkflowBlock,
 )
+from runsight_core.state import WorkflowState
 from runsight_core.yaml.registry import WorkflowRegistry
 
 

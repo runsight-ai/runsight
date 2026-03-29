@@ -2,7 +2,6 @@ import time
 from typing import List, Optional
 
 import httpx
-
 from runsight_core.security import SSRFError, validate_ssrf
 
 from ...core.secrets import SecretsEnvLoader

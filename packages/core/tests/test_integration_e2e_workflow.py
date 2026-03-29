@@ -5,13 +5,13 @@ Tests the full integration chain: Task -> Soul -> Runner -> ExecutionResult ->
 LinearBlock -> WorkflowState, simulating real workflow scenarios.
 """
 
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from runsight_core.state import WorkflowState
+import pytest
+from runsight_core import LinearBlock
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
-from runsight_core import LinearBlock
+from runsight_core.state import WorkflowState
 
 
 @pytest.mark.asyncio

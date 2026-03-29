@@ -10,14 +10,14 @@ This module tests:
 
 import pytest
 from pydantic import ValidationError
-from runsight_core.yaml.parser import (
-    parse_workflow_yaml,
-    parse_task_yaml,
-    BUILT_IN_SOULS,
-)
 from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
-from runsight_core.workflow import Workflow
 from runsight_core.primitives import Task
+from runsight_core.workflow import Workflow
+from runsight_core.yaml.parser import (
+    BUILT_IN_SOULS,
+    parse_task_yaml,
+    parse_workflow_yaml,
+)
 
 
 class TestBlockTypeRegistry:

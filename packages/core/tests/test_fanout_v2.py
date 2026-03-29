@@ -21,16 +21,14 @@ Tests cover ALL acceptance criteria:
 """
 
 import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from pydantic import ValidationError
-
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.schema import FanOutExitDef
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -100,8 +98,9 @@ class TestFanOutBranchDataclass:
 
     def test_is_dataclass(self):
         """FanOutBranch is a dataclass."""
-        from runsight_core.blocks.fanout import FanOutBranch
         import dataclasses
+
+        from runsight_core.blocks.fanout import FanOutBranch
 
         assert dataclasses.is_dataclass(FanOutBranch)
 
@@ -183,6 +182,7 @@ class TestFanOutBlockNewConstructor:
 class TestPerExitTaskDifferentiation:
     """Each branch receives its own task with its unique instruction."""
 
+    @pytest.mark.asyncio
     async def test_each_branch_receives_unique_instruction(
         self, soul_analyst, soul_reviewer, mock_runner
     ):
@@ -221,6 +221,7 @@ class TestPerExitTaskDifferentiation:
         # Reviewer branch must have received "Review the proposal"
         assert captured_tasks["reviewer"].instruction == "Review the proposal"
 
+    @pytest.mark.asyncio
     async def test_each_branch_task_has_correct_id_format(
         self, soul_analyst, soul_reviewer, mock_runner
     ):
@@ -266,6 +267,7 @@ class TestPerExitTaskDifferentiation:
 class TestPerExitResultKeying:
     """Results stored at state.results["{block_id}.{exit_id}"] per branch."""
 
+    @pytest.mark.asyncio
     async def test_per_exit_results_stored(self, soul_analyst, soul_reviewer, mock_runner):
         """Each branch's result appears at state.results['{block_id}.{exit_id}']."""
         from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
@@ -297,6 +299,7 @@ class TestPerExitResultKeying:
         assert "fan.exit_a" in new_state.results
         assert "fan.exit_b" in new_state.results
 
+    @pytest.mark.asyncio
     async def test_per_exit_result_contains_correct_output(
         self, soul_analyst, soul_reviewer, mock_runner
     ):
@@ -330,6 +333,7 @@ class TestPerExitResultKeying:
         assert new_state.results["fan.exit_a"].output == "Output from analyst"
         assert new_state.results["fan.exit_b"].output == "Output from reviewer"
 
+    @pytest.mark.asyncio
     async def test_per_exit_result_exit_handle_set(self, soul_analyst, soul_reviewer, mock_runner):
         """Per-exit BlockResult has exit_handle set to the exit_id."""
         from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
@@ -370,6 +374,7 @@ class TestPerExitResultKeying:
 class TestCombinedResult:
     """Combined summary result stored at state.results["{block_id}"]."""
 
+    @pytest.mark.asyncio
     async def test_combined_result_exists(self, soul_analyst, soul_reviewer, mock_runner):
         """state.results[block_id] contains a combined BlockResult."""
         from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
@@ -401,6 +406,7 @@ class TestCombinedResult:
         assert "fan" in new_state.results
         assert isinstance(new_state.results["fan"], BlockResult)
 
+    @pytest.mark.asyncio
     async def test_combined_result_is_json_list(self, soul_analyst, soul_reviewer, mock_runner):
         """Combined result output is a JSON list."""
         from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
@@ -442,6 +448,7 @@ class TestCombinedResult:
 class TestContextInheritance:
     """Branch tasks inherit context from state.current_task.context."""
 
+    @pytest.mark.asyncio
     async def test_context_passed_to_branch_task(self, soul_analyst, mock_runner):
         """When current_task has context, each branch's Task.context is set to it."""
         from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
@@ -475,6 +482,7 @@ class TestContextInheritance:
 
         assert captured_tasks["analyst"].context == "Budget is $10k"
 
+    @pytest.mark.asyncio
     async def test_current_task_none_does_not_crash(self, soul_analyst, mock_runner):
         """When state.current_task is None, context defaults to None and no crash."""
         from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
@@ -505,6 +513,7 @@ class TestContextInheritance:
         # Context defaults to None
         assert captured_tasks["analyst"].context is None
 
+    @pytest.mark.asyncio
     async def test_current_task_without_context_passes_none(self, soul_analyst, mock_runner):
         """When current_task exists but has no context, branch task context is None."""
         from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
@@ -541,6 +550,7 @@ class TestContextInheritance:
 class TestCostTokenAggregation:
     """Costs and tokens from all branches are summed into the state."""
 
+    @pytest.mark.asyncio
     async def test_cost_aggregation(self, soul_analyst, soul_reviewer, mock_runner):
         """total_cost_usd sums costs from all branches."""
         from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
@@ -645,7 +655,7 @@ class TestBuildFunction:
 
     def test_build_creates_block_with_branches(self, soul_analyst, soul_reviewer, mock_runner):
         """build() reads block_def.exits and returns FanOutBlock with branches."""
-        from runsight_core.blocks.fanout import build, FanOutBlockDef
+        from runsight_core.blocks.fanout import FanOutBlockDef, build
 
         exit_a = FanOutExitDef(
             id="exit_a", label="Exit A", soul_ref="analyst", task="Analyze the data"
@@ -668,7 +678,7 @@ class TestBuildFunction:
 
     def test_build_raises_on_missing_soul_ref(self, soul_analyst, mock_runner):
         """build() raises ValueError when a soul_ref is not in souls_map."""
-        from runsight_core.blocks.fanout import build, FanOutBlockDef
+        from runsight_core.blocks.fanout import FanOutBlockDef, build
 
         exit_a = FanOutExitDef(id="exit_a", label="Exit A", soul_ref="nonexistent", task="Do stuff")
         block_def = FanOutBlockDef(type="fanout", exits=[exit_a])
@@ -695,6 +705,7 @@ class TestBuildFunction:
 class TestStatefulPerExitHistories:
     """Stateful mode keys histories by '{block_id}_{exit_id}' (not soul_id)."""
 
+    @pytest.mark.asyncio
     async def test_stateful_creates_per_exit_history_keys(
         self, soul_analyst, soul_reviewer, mock_runner
     ):
@@ -734,6 +745,7 @@ class TestStatefulPerExitHistories:
         assert "fan_analyst" not in new_state.conversation_histories
         assert "fan_reviewer" not in new_state.conversation_histories
 
+    @pytest.mark.asyncio
     async def test_stateful_continuation_reads_per_exit_history(
         self, soul_analyst, soul_reviewer, mock_runner
     ):
@@ -789,6 +801,7 @@ class TestStatefulPerExitHistories:
         # Review branch must have received review history
         assert captured_messages["fan_review"] is not None
 
+    @pytest.mark.asyncio
     async def test_stateful_budget_fitting_uses_branch_soul_model(
         self, soul_analyst, soul_editor, mock_runner
     ):
@@ -867,6 +880,7 @@ class TestStatefulPerExitHistories:
 class TestSameSoulMultipleExits:
     """Same soul on two different exits produces independent histories."""
 
+    @pytest.mark.asyncio
     async def test_same_soul_different_exits_independent_histories(self, soul_analyst, mock_runner):
         """When the same soul is used on two different exits, each exit gets
         its own independent conversation history keyed by exit_id."""
@@ -917,6 +931,7 @@ class TestSameSoulMultipleExits:
         assert "RISK_OUTPUT" in risk_content
         assert "COST_OUTPUT" not in risk_content
 
+    @pytest.mark.asyncio
     async def test_same_soul_different_exits_round_2_reads_correct_history(
         self, soul_analyst, mock_runner
     ):
@@ -983,6 +998,7 @@ class TestSameSoulMultipleExits:
 class TestNonStatefulPath:
     """Non-stateful execute still works with the new branch-based constructor."""
 
+    @pytest.mark.asyncio
     async def test_non_stateful_no_history_entries(self, soul_analyst, soul_reviewer, mock_runner):
         """A non-stateful FanOutBlock does not create conversation_histories."""
         from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
@@ -1015,6 +1031,7 @@ class TestNonStatefulPath:
 
         assert new_state.conversation_histories == {}
 
+    @pytest.mark.asyncio
     async def test_non_stateful_still_produces_per_exit_results(
         self, soul_analyst, soul_reviewer, mock_runner
     ):

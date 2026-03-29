@@ -12,9 +12,7 @@ from __future__ import annotations
 
 import textwrap
 
-
 from runsight_core.yaml.schema import RunsightWorkflowFile
-
 
 MINIMAL_WORKFLOW = {
     "workflow": {
@@ -127,18 +125,18 @@ class TestEngineIgnoresEnabled:
 
     def test_workflow_class_has_no_enabled_attr(self) -> None:
         """Workflow (runtime object) must not have an `enabled` attribute."""
-        from runsight_core.workflow import Workflow
-
         import inspect
+
+        from runsight_core.workflow import Workflow
 
         sig = inspect.signature(Workflow.__init__)
         assert "enabled" not in sig.parameters
 
     def test_runner_class_has_no_enabled_attr(self) -> None:
         """RunsightTeamRunner must not have an `enabled` attribute."""
-        from runsight_core.runner import RunsightTeamRunner
-
         import inspect
+
+        from runsight_core.runner import RunsightTeamRunner
 
         sig = inspect.signature(RunsightTeamRunner.__init__)
         assert "enabled" not in sig.parameters
@@ -146,6 +144,7 @@ class TestEngineIgnoresEnabled:
     def test_enabled_not_in_runner_source(self) -> None:
         """The word 'enabled' must not appear in runner.py source code."""
         import inspect
+
         from runsight_core import runner
 
         source = inspect.getsource(runner)
@@ -154,6 +153,7 @@ class TestEngineIgnoresEnabled:
     def test_enabled_not_in_workflow_source(self) -> None:
         """The word 'enabled' must not appear in workflow.py source code."""
         import inspect
+
         from runsight_core import workflow
 
         source = inspect.getsource(workflow)

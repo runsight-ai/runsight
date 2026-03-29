@@ -7,11 +7,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from runsight_api.logic.services.run_service import RunService
-from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.domain.entities.log import LogEntry
+from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.domain.errors import RunNotFound, WorkflowNotFound
-
+from runsight_api.logic.services.run_service import RunService
 
 # --- Fixtures ---
 

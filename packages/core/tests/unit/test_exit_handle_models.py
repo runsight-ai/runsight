@@ -17,7 +17,6 @@ Tests cover:
 import pytest
 from pydantic import ValidationError
 
-
 # ==============================================================================
 # AC1 + AC2 + AC3: BlockResult.exit_handle
 # ==============================================================================
@@ -296,7 +295,7 @@ class TestBaseBlockDefExits:
 
     def test_existing_fields_still_work_with_exits(self):
         """Existing BaseBlockDef fields work alongside exits."""
-        from runsight_core.yaml.schema import BaseBlockDef, ExitDef, CaseDef
+        from runsight_core.yaml.schema import BaseBlockDef, CaseDef, ExitDef
 
         block = BaseBlockDef(
             type="linear",

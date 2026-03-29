@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends
 from typing import Optional
 
-from ..schemas.tasks import TaskListResponse, TaskResponse, TaskCreate, TaskUpdate
-from ..deps import get_registry_service, get_task_repo
-from ...logic.services.registry_service import RegistryService
+from fastapi import APIRouter, Depends
+
 from ...data.filesystem.task_repo import TaskRepository
 from ...domain.errors import TaskNotFound
+from ...logic.services.registry_service import RegistryService
+from ..deps import get_registry_service, get_task_repo
+from ..schemas.tasks import TaskCreate, TaskListResponse, TaskResponse, TaskUpdate
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 

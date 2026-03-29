@@ -7,10 +7,8 @@ All tests should FAIL until the implementation exists.
 """
 
 import pytest
-
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
-
 
 # ---------------------------------------------------------------------------
 # 1. Runner accepts api_keys dict

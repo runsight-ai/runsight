@@ -1,5 +1,7 @@
-import pytest
 import tempfile
+
+import pytest
+
 from runsight_api.data.filesystem.step_repo import StepRepository
 from runsight_api.domain.errors import StepNotFound
 

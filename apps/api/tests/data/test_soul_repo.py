@@ -1,5 +1,7 @@
-import pytest
 import tempfile
+
+import pytest
+
 from runsight_api.data.filesystem.soul_repo import SoulRepository
 from runsight_api.domain.errors import SoulNotFound
 

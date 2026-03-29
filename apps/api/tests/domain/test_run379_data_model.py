@@ -15,7 +15,6 @@ from unittest.mock import Mock
 
 from sqlmodel import Session, SQLModel, create_engine
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

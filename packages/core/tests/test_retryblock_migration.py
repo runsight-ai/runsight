@@ -14,16 +14,14 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
-from runsight_core.blocks.base import BaseBlock
 from runsight_core import (
     LoopBlock,
 )
+from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import RetryConfig
-
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent  # runsight/
 CORE_TESTS = REPO_ROOT / "packages" / "core" / "tests"

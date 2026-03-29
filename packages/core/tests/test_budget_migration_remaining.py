@@ -11,6 +11,7 @@ import importlib
 import inspect
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.blocks.loop import CarryContextConfig, LoopBlock
 from runsight_core.memory.budget import (
@@ -147,6 +148,7 @@ class TestLoopCarryContextBudgetIntegration:
         )
         return final_state
 
+    @pytest.mark.asyncio
     async def test_twenty_two_rounds_complete_with_carry_context_in_task(self):
         """LoopBlock with 22 rounds + carry_context mode='all' must inject
         carry_context data into state.current_task.context (not just shared_memory).
@@ -175,6 +177,7 @@ class TestLoopCarryContextBudgetIntegration:
             "so inner blocks can pass it through fit_to_budget as P2 elastic data."
         )
 
+    @pytest.mark.asyncio
     async def test_carry_context_is_set_on_task_context(self):
         """The inner block must receive carry_context data via state.current_task.context
         (P2 elastic field), not just via shared_memory."""
@@ -235,6 +238,7 @@ class TestLoopCarryContextBudgetIntegration:
             "goes to shared_memory, but it must also flow through task.context."
         )
 
+    @pytest.mark.asyncio
     async def test_fit_to_budget_receives_carry_context_as_p2(self):
         """fit_to_budget must receive carry_context data in the context field
         (P2 elastic) of the ContextBudgetRequest, not empty string."""
@@ -314,6 +318,7 @@ class TestLoopCarryContextBudgetIntegration:
             f"so fit_to_budget can manage it as P2 elastic content."
         )
 
+    @pytest.mark.asyncio
     async def test_budget_report_shows_pruning_in_later_rounds(self):
         """After enough rounds, the BudgetReport from fit_to_budget should show
         p2_tokens_before > p2_tokens_after, proving carry_context was pruned."""

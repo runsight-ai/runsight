@@ -19,11 +19,10 @@ All tests should FAIL until the wiring implementation exists.
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from runsight_core.yaml.parser import parse_workflow_yaml
 from sqlmodel import Session, SQLModel, create_engine
 
-from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
-
 
 # ---------------------------------------------------------------------------
 # Minimal YAML templates
@@ -175,8 +174,8 @@ class TestExecutionServiceBuildsAssertionConfigs:
     async def test_eval_observer_receives_assertion_configs(self, db_engine):
         """EvalObserver is constructed with a non-None assertion_configs dict
         when the workflow contains souls with assertions."""
-        from runsight_api.logic.services.execution_service import ExecutionService
         from runsight_api.logic.observers.eval_observer import EvalObserver
+        from runsight_api.logic.services.execution_service import ExecutionService
 
         # Set up mocks
         run_repo = Mock()
@@ -239,8 +238,8 @@ class TestExecutionServiceBuildsAssertionConfigs:
     @pytest.mark.asyncio
     async def test_assertion_configs_contain_correct_types(self, db_engine):
         """The assertion_configs dict for a block contains the correct assertion types."""
-        from runsight_api.logic.services.execution_service import ExecutionService
         from runsight_api.logic.observers.eval_observer import EvalObserver
+        from runsight_api.logic.services.execution_service import ExecutionService
 
         run_repo = Mock()
         workflow_repo = Mock()
@@ -325,11 +324,9 @@ class TestBlockSoulAssertionMerge:
         import yaml as pyyaml
 
         raw = pyyaml.safe_load(YAML_SOUL_AND_BLOCK_ASSERTIONS)
-        from runsight_core.yaml.schema import RunsightWorkflowFile
-
         # Trigger schema rebuild for block def union
         import runsight_core.blocks  # noqa: F401
-        from runsight_core.yaml.schema import rebuild_block_def_union
+        from runsight_core.yaml.schema import RunsightWorkflowFile, rebuild_block_def_union
 
         rebuild_block_def_union()
 

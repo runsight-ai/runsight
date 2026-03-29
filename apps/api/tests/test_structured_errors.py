@@ -14,7 +14,6 @@ All tests should FAIL until the implementation is written.
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Tests — RunsightError class-level defaults
 # ---------------------------------------------------------------------------
@@ -261,7 +260,7 @@ class TestBackwardCompatibility:
         assert isinstance(err, Exception)
 
     def test_can_catch_subclass_as_runsight_error(self):
-        from runsight_api.domain.errors import WorkflowNotFound, RunsightError
+        from runsight_api.domain.errors import RunsightError, WorkflowNotFound
 
         with pytest.raises(RunsightError):
             raise WorkflowNotFound("wf-1 not found")

@@ -15,7 +15,6 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 
-
 # ---------------------------------------------------------------------------
 # 1. NodeStatus enum existence and values
 # ---------------------------------------------------------------------------
@@ -30,8 +29,9 @@ class TestNodeStatusEnumExists:
 
     def test_node_status_is_str_enum(self):
         """NodeStatus is a str Enum (same pattern as RunStatus)."""
-        from runsight_api.domain.entities.run import NodeStatus
         from enum import Enum
+
+        from runsight_api.domain.entities.run import NodeStatus
 
         assert issubclass(NodeStatus, str)
         assert issubclass(NodeStatus, Enum)
@@ -238,9 +238,10 @@ class TestObserverIntegration:
 
     def test_block_complete_persists_node_status_completed(self, seed_run):
         """After on_block_complete, RunNode.status in DB is NodeStatus.completed."""
+        from runsight_core.state import WorkflowState
+
         from runsight_api.domain.entities.run import NodeStatus
         from runsight_api.logic.observers.execution_observer import ExecutionObserver
-        from runsight_core.state import WorkflowState
 
         engine, run_id = seed_run
         obs = ExecutionObserver(engine=engine, run_id=run_id)

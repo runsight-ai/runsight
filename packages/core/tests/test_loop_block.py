@@ -13,7 +13,6 @@ Tests cover:
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
-
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
@@ -21,7 +20,6 @@ from runsight_core.yaml.schema import (
     BlockDef,
     RunsightWorkflowFile,
 )
-
 
 # ── Shared TypeAdapter for discriminated union ─────────────────────────────
 

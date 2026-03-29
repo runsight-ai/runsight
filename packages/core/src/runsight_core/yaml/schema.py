@@ -6,8 +6,8 @@ Phase 1 (RUN-110): Discriminated-union BlockDef with per-type models.
 """
 
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, ConfigDict, Field
 
+from pydantic import BaseModel, ConfigDict, Field
 
 # -- Soul / Task / Task-file (unchanged) ------------------------------------
 

@@ -15,6 +15,8 @@ Tests verify:
   3. Behavioral: health checks still return correct results via async client
 """
 
+import pytest
+
 import ast
 import importlib
 import inspect
@@ -22,7 +24,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from runsight_api.domain.value_objects import ProviderEntity
 from runsight_api.logic.services.provider_service import ProviderService
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -165,6 +166,7 @@ class TestASTNoSyncHttpx:
 class TestTestConnectionUsesAsyncClient:
     """test_connection must use httpx.AsyncClient context manager for HTTP calls."""
 
+    @pytest.mark.asyncio
     async def test_openai_uses_async_client(self):
         """test_connection for OpenAI provider must use httpx.AsyncClient."""
         provider = _make_provider(
@@ -195,6 +197,7 @@ class TestTestConnectionUsesAsyncClient:
         mock_httpx.AsyncClient.assert_called()
         assert result["success"] is True
 
+    @pytest.mark.asyncio
     async def test_anthropic_uses_async_client(self):
         """test_connection for Anthropic provider must use httpx.AsyncClient."""
         provider = _make_provider(
@@ -223,6 +226,7 @@ class TestTestConnectionUsesAsyncClient:
         mock_httpx.AsyncClient.assert_called()
         assert result["success"] is True
 
+    @pytest.mark.asyncio
     async def test_google_uses_async_client(self):
         """test_connection for Google provider must use httpx.AsyncClient."""
         provider = _make_provider(
@@ -251,6 +255,7 @@ class TestTestConnectionUsesAsyncClient:
         mock_httpx.AsyncClient.assert_called()
         assert result["success"] is True
 
+    @pytest.mark.asyncio
     async def test_ollama_uses_async_client(self):
         """test_connection for Ollama provider must use httpx.AsyncClient."""
         provider = _make_provider(
@@ -281,6 +286,7 @@ class TestTestConnectionUsesAsyncClient:
         mock_httpx.AsyncClient.assert_called()
         assert result["success"] is True
 
+    @pytest.mark.asyncio
     async def test_custom_provider_uses_async_client(self):
         """test_connection for custom/fallback provider must use httpx.AsyncClient."""
         provider = _make_provider(
@@ -310,6 +316,7 @@ class TestTestConnectionUsesAsyncClient:
         mock_httpx.AsyncClient.assert_called()
         assert result["success"] is True
 
+    @pytest.mark.asyncio
     async def test_sync_httpx_get_is_never_called(self):
         """httpx.get (sync) must never be called — only httpx.AsyncClient.get."""
         provider = _make_provider(
@@ -368,6 +375,7 @@ class _NoOpAsyncClient:
 class TestHealthCheckBehaviorWithAsyncClient:
     """Health check behavior must be preserved when using httpx.AsyncClient."""
 
+    @pytest.mark.asyncio
     async def test_openai_health_check_returns_models(self):
         """OpenAI health check must return discovered models via async client."""
         provider = _make_provider(
@@ -395,6 +403,7 @@ class TestHealthCheckBehaviorWithAsyncClient:
         assert "gpt-4o" in result["models"]
         assert "gpt-4o-mini" in result["models"]
 
+    @pytest.mark.asyncio
     async def test_anthropic_health_check_sends_correct_headers(self):
         """Anthropic health check must send x-api-key and anthropic-version headers."""
         provider = _make_provider(
@@ -425,6 +434,7 @@ class TestHealthCheckBehaviorWithAsyncClient:
         assert "x-api-key" in headers
         assert "anthropic-version" in headers
 
+    @pytest.mark.asyncio
     async def test_ollama_health_check_no_auth_header(self):
         """Ollama health check must not send an Authorization header."""
         provider = _make_provider(
@@ -458,6 +468,7 @@ class TestHealthCheckBehaviorWithAsyncClient:
         url = call_args[0][0] if call_args[0] else call_args.kwargs.get("url", "")
         assert "/api/tags" in url
 
+    @pytest.mark.asyncio
     async def test_google_health_check_sends_api_key_header(self):
         """Google health check must send x-goog-api-key header."""
         provider = _make_provider(
@@ -486,6 +497,7 @@ class TestHealthCheckBehaviorWithAsyncClient:
         headers = call_kwargs[1].get("headers") or call_kwargs.kwargs.get("headers", {})
         assert "x-goog-api-key" in headers
 
+    @pytest.mark.asyncio
     async def test_failed_health_check_still_updates_provider_status(self):
         """A 401 response via async client must still update provider status to 'error'."""
         provider = _make_provider(
@@ -521,6 +533,7 @@ class TestHealthCheckBehaviorWithAsyncClient:
         update_data = repo.update.call_args[0][1]
         assert update_data["status"] == "error"
 
+    @pytest.mark.asyncio
     async def test_timeout_via_async_client_reports_failure(self):
         """A timeout from the async client must be caught and reported.
 

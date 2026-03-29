@@ -3,7 +3,7 @@ Tests for BlockRegistry factory registry.
 """
 
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.blocks.registry import BlockRegistry, BlockFactory
+from runsight_core.blocks.registry import BlockFactory, BlockRegistry
 from runsight_core.state import WorkflowState
 
 

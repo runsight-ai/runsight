@@ -16,12 +16,10 @@ The key architectural change:
 import json
 
 import pytest
-
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, Condition, ConditionGroup
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
-
 
 # ---------------------------------------------------------------------------
 # Mock Blocks

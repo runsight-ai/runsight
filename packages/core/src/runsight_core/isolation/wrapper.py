@@ -14,7 +14,6 @@ from runsight_core.isolation.envelope import (
 from runsight_core.isolation.errors import BlockExecutionError
 from runsight_core.state import BlockResult, WorkflowState
 
-
 # Block types whose soul attribute is not named "soul"
 _SOUL_ATTR_MAP = {
     "GateBlock": "gate_soul",

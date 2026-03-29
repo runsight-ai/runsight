@@ -12,9 +12,7 @@ All tests mock litellm.acompletion to avoid real API calls.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from runsight_core.llm.client import LiteLLMClient
-
 
 # ---------------------------------------------------------------------------
 # Helpers: mock litellm response objects

@@ -19,11 +19,9 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from runsight_core.security import SSRFError
 from runsight_core.tools import BUILTIN_TOOL_CATALOG, ToolInstance
 from runsight_core.yaml.schema import ExitDef
-
 
 # ===========================================================================
 # AC5: Catalog registration — all three tools registered

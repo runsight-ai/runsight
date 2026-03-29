@@ -8,11 +8,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse, unquote
+from urllib.parse import unquote, urlparse
 
 from runsight_core.isolation.ipc import Handler
 from runsight_core.security import SSRFError, validate_ssrf
-
 
 # ---------------------------------------------------------------------------
 # HTTP handler

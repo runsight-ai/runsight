@@ -3,8 +3,8 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from runsight_core.primitives import Soul, Task
 from runsight_core.llm.client import LiteLLMClient
+from runsight_core.primitives import Soul, Task
 
 
 class ExecutionResult(BaseModel):

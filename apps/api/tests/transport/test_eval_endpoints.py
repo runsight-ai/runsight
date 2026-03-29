@@ -10,15 +10,15 @@ Tests cover:
 - AC7: Response is JSON-serializable
 """
 
-import pytest
 from unittest.mock import Mock
 
+import pytest
 from fastapi.testclient import TestClient
-
-from runsight_api.main import app
 
 # -- Imports that will fail until Green creates these modules ----------------
 from runsight_api.logic.services.eval_service import EvalService
+from runsight_api.main import app
+from runsight_api.transport.deps import get_eval_service
 from runsight_api.transport.schemas.eval import (
     EvalDelta,
     NodeEvalResult,
@@ -26,7 +26,6 @@ from runsight_api.transport.schemas.eval import (
     SoulEvalHistoryResponse,
     SoulVersionEntry,
 )
-from runsight_api.transport.deps import get_eval_service
 
 client = TestClient(app)
 

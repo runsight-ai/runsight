@@ -1,8 +1,9 @@
 import tempfile
-from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+
 from runsight_api.data.filesystem.soul_repo import SoulRepository
-from runsight_api.data.filesystem.task_repo import TaskRepository
 from runsight_api.data.filesystem.step_repo import StepRepository
+from runsight_api.data.filesystem.task_repo import TaskRepository
+from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 
 
 def test_workflow_repository():

@@ -4,6 +4,7 @@ BaseBlock abstract interface for workflow blocks.
 
 import asyncio
 from abc import ABC, abstractmethod
+
 from runsight_core.state import WorkflowState
 
 

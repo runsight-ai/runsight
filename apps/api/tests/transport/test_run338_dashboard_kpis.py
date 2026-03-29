@@ -13,13 +13,13 @@ old DashboardResponse shape with all-time, unscoped counts.
 """
 
 import time
-from fastapi.testclient import TestClient
 from unittest.mock import Mock
 
+from fastapi.testclient import TestClient
+
+from runsight_api.domain.entities.run import RunStatus
 from runsight_api.main import app
 from runsight_api.transport.deps import get_run_service
-from runsight_api.domain.entities.run import RunStatus
-
 
 client = TestClient(app)
 

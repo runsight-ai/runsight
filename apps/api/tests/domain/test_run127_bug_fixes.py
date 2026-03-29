@@ -135,8 +135,8 @@ class TestCreateRunStartedAt:
         """RunService.create_run should leave started_at as None (pending, not yet running)."""
         from unittest.mock import Mock
 
-        from runsight_api.logic.services.run_service import RunService
         from runsight_api.domain.entities.run import RunStatus
+        from runsight_api.logic.services.run_service import RunService
 
         run_repo = Mock()
         workflow_repo = Mock()

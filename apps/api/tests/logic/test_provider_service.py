@@ -1,10 +1,12 @@
+import pytest
+
 from unittest.mock import AsyncMock, Mock, patch
+
+from runsight_api.domain.value_objects import ProviderEntity
 from runsight_api.logic.services.provider_service import (
     ProviderService,
     _infer_provider_type,
 )
-from runsight_api.domain.value_objects import ProviderEntity
-
 
 # --- _infer_provider_type ---
 
@@ -242,6 +244,7 @@ def test_delete_provider_not_found_returns_false():
 # --- test_connection ---
 
 
+@pytest.mark.asyncio
 async def test_test_connection_provider_not_found():
     repo = Mock()
     secrets = Mock()
@@ -253,6 +256,7 @@ async def test_test_connection_provider_not_found():
     assert "models" not in result or result.get("models") == []
 
 
+@pytest.mark.asyncio
 async def test_test_connection_no_api_key_non_ollama():
     repo = Mock()
     secrets = Mock()
@@ -270,6 +274,7 @@ async def test_test_connection_no_api_key_non_ollama():
     assert result["message"] == "No API key configured"
 
 
+@pytest.mark.asyncio
 async def test_test_connection_ollama_no_api_key_allowed():
     repo = Mock()
     secrets = Mock()
@@ -299,6 +304,7 @@ async def test_test_connection_ollama_no_api_key_allowed():
     assert "llama3" in result.get("models", [])
 
 
+@pytest.mark.asyncio
 async def test_test_connection_successful_openai():
     repo = Mock()
     secrets = Mock()
@@ -335,6 +341,7 @@ async def test_test_connection_successful_openai():
     assert "Bearer sk-xxx" in call_kwargs["headers"]["Authorization"]
 
 
+@pytest.mark.asyncio
 async def test_test_connection_http_error():
     repo = Mock()
     secrets = Mock()
@@ -365,6 +372,7 @@ async def test_test_connection_http_error():
     assert "401" in result["message"]
 
 
+@pytest.mark.asyncio
 async def test_test_connection_timeout_exception():
     repo = Mock()
     secrets = Mock()

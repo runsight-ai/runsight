@@ -17,15 +17,13 @@ Tests cover:
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from runsight_core.blocks.base import BaseBlock
 from runsight_core import LinearBlock, LoopBlock
+from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import RetryConfig
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -79,6 +77,7 @@ class TestFailedAttemptDoesNotPolluteHistory:
     the resulting conversation_histories must contain ONLY the successful
     attempt's messages — NOT any messages from the failed attempt."""
 
+    @pytest.mark.asyncio
     async def test_fail_then_succeed_history_contains_only_success_messages(
         self, mock_runner, soul, task
     ):
@@ -122,6 +121,7 @@ class TestFailedAttemptDoesNotPolluteHistory:
         assert history[1]["role"] == "assistant"
         assert history[1]["content"] == "Success on attempt 2."
 
+    @pytest.mark.asyncio
     async def test_fail_twice_then_succeed_no_stale_history(self, mock_runner, soul, task):
         """Fails on attempts 1 and 2, succeeds on attempt 3.
         History should have exactly 1 pair from the final success."""
@@ -163,6 +163,7 @@ class TestSuccessfulRetryCreatesCleanHistory:
     """After a retry succeeds, the resulting history should be indistinguishable
     from a first-attempt success — clean user+assistant pair, no corruption."""
 
+    @pytest.mark.asyncio
     async def test_retry_success_history_matches_first_attempt_format(
         self, mock_runner, soul, task
     ):
@@ -200,6 +201,7 @@ class TestSuccessfulRetryCreatesCleanHistory:
         assert history[1]["role"] == "assistant"
         assert history[1]["content"] == "Retry succeeded."
 
+    @pytest.mark.asyncio
     async def test_retry_success_no_system_messages_in_history(self, mock_runner, soul, task):
         """No system messages should leak into conversation_histories after retry."""
         call_count = 0
@@ -237,6 +239,7 @@ class TestOriginalStateNotMutated:
     """Each retry attempt receives the same original pre-execution state.
     The original state's conversation_histories must never be mutated."""
 
+    @pytest.mark.asyncio
     async def test_input_state_conversation_histories_unchanged_after_retry(
         self, mock_runner, soul, task
     ):
@@ -267,6 +270,7 @@ class TestOriginalStateNotMutated:
         # Result state must have the history
         assert "analyze_agent_1" in result_state.conversation_histories
 
+    @pytest.mark.asyncio
     async def test_existing_history_preserved_after_retry_of_different_block(
         self, mock_runner, soul, task
     ):
@@ -316,6 +320,7 @@ class TestRetryPassesSameHistoryToEachAttempt:
     each retry of a stateful block gets the same conversation_histories snapshot
     as the first attempt. Failed attempt's additions never accumulate."""
 
+    @pytest.mark.asyncio
     async def test_runner_receives_empty_history_on_every_attempt(self, mock_runner, soul, task):
         """On a fresh state, every retry attempt should pass empty messages to runner."""
         received_messages = []
@@ -364,6 +369,7 @@ class TestStatefulBlockInsideLoopWithRetry:
       replays from the pre-loop state (round 1 history is NOT carried over)
     """
 
+    @pytest.mark.asyncio
     async def test_stateful_history_accumulates_across_loop_rounds(self, mock_runner, soul, task):
         """LoopBlock with 2 rounds: round 1 adds 1 pair, round 2 adds 1 pair.
         Final history = 4 messages (2 pairs)."""
@@ -409,6 +415,7 @@ class TestStatefulBlockInsideLoopWithRetry:
         assert history[3]["role"] == "assistant"
         assert history[3]["content"] == "Output from round 2."
 
+    @pytest.mark.asyncio
     async def test_loop_with_retry_replays_from_pre_loop_state(self, mock_runner, soul, task):
         """LoopBlock with retry_config: if the loop fails on round 2,
         the retry replays the entire loop from scratch (pre-loop state).
@@ -462,6 +469,7 @@ class TestStatefulBlockInsideLoopWithRetry:
         assert history[1]["content"] == "Output from call 3."
         assert history[3]["content"] == "Output from call 4."
 
+    @pytest.mark.asyncio
     async def test_loop_retry_no_history_duplication(self, mock_runner, soul, task):
         """After a loop retry, history should have exactly 2 user messages
         (one per round in the successful attempt), not 3 or 4."""
@@ -511,6 +519,7 @@ class TestAllRetriesExhaustedNoHistoryPollution:
     """When a stateful block exhausts all retries and raises,
     conversation_histories should remain as they were before the block ran."""
 
+    @pytest.mark.asyncio
     async def test_exhausted_retries_leave_history_unchanged(self, mock_runner, soul, task):
         """All retry attempts fail -> exception raised,
         history should not be modified."""
@@ -530,6 +539,7 @@ class TestAllRetriesExhaustedNoHistoryPollution:
         # the initial state is untouched
         assert initial_state.conversation_histories == {}
 
+    @pytest.mark.asyncio
     async def test_exhausted_retries_preserve_prior_history(self, mock_runner, soul, task):
         """If prior history exists from other blocks, exhausted retries
         should not corrupt it (the state is never returned)."""
@@ -566,6 +576,7 @@ class TestRetryMetadataCoexistsWithHistory:
     """When a stateful block succeeds after retry, both retry metadata
     in shared_memory AND conversation_histories should be correctly set."""
 
+    @pytest.mark.asyncio
     async def test_retry_metadata_and_history_both_present(self, mock_runner, soul, task):
         """After fail-then-succeed, shared_memory has retry metadata AND
         conversation_histories has the history — both correct."""

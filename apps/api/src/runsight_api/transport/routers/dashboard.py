@@ -2,10 +2,10 @@ import time
 
 from fastapi import APIRouter, Depends
 
-from ..schemas.dashboard import AttentionItemsResponse, DashboardKPIsResponse
-from ..deps import get_eval_service, get_run_service
 from ...logic.services.eval_service import EvalService
 from ...logic.services.run_service import RunService
+from ..deps import get_eval_service, get_run_service
+from ..schemas.dashboard import AttentionItemsResponse, DashboardKPIsResponse
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 

@@ -15,7 +15,6 @@ from runsight_core.assertions.deterministic.performance import (
     LatencyAssertion,
 )
 
-
 # ── Helper ───────────────────────────────────────────────────────────────────
 
 

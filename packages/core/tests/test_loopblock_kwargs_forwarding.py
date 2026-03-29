@@ -17,11 +17,9 @@ from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
 import pytest
-
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
-
 
 # ── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -81,6 +79,7 @@ class SimplePassthroughBlock(BaseBlock):
 class TestLoopBlockForwardsKwargs:
     """LoopBlock must forward **kwargs to inner block execute() calls."""
 
+    @pytest.mark.asyncio
     async def test_inner_block_receives_blocks_kwarg(self):
         """Inner blocks must receive 'blocks' dict via kwargs when LoopBlock gets it."""
         from runsight_core import LoopBlock
@@ -101,6 +100,7 @@ class TestLoopBlockForwardsKwargs:
             "LoopBlock did not forward 'blocks' kwarg to inner block"
         )
 
+    @pytest.mark.asyncio
     async def test_inner_block_receives_call_stack_kwarg(self):
         """Inner blocks must receive 'call_stack' when LoopBlock gets it."""
         from runsight_core import LoopBlock
@@ -123,6 +123,7 @@ class TestLoopBlockForwardsKwargs:
         )
         assert spy.captured_kwargs[0]["call_stack"] == ["parent_workflow"]
 
+    @pytest.mark.asyncio
     async def test_inner_block_receives_workflow_registry_kwarg(self):
         """Inner blocks must receive 'workflow_registry' when LoopBlock gets it."""
         from runsight_core import LoopBlock
@@ -145,6 +146,7 @@ class TestLoopBlockForwardsKwargs:
         )
         assert spy.captured_kwargs[0]["workflow_registry"] is mock_registry
 
+    @pytest.mark.asyncio
     async def test_inner_block_receives_observer_kwarg(self):
         """Inner blocks must receive 'observer' when LoopBlock gets it."""
         from runsight_core import LoopBlock
@@ -167,6 +169,7 @@ class TestLoopBlockForwardsKwargs:
         )
         assert spy.captured_kwargs[0]["observer"] is mock_observer
 
+    @pytest.mark.asyncio
     async def test_all_kwargs_forwarded_together(self):
         """All kwargs (blocks, call_stack, workflow_registry, observer) forwarded at once."""
         from runsight_core import LoopBlock
@@ -199,6 +202,7 @@ class TestLoopBlockForwardsKwargs:
         assert "workflow_registry" in kw
         assert "observer" in kw
 
+    @pytest.mark.asyncio
     async def test_kwargs_forwarded_every_round(self):
         """kwargs should be forwarded on every round, not just the first."""
         from runsight_core import LoopBlock
@@ -230,6 +234,7 @@ class TestLoopBlockForwardsKwargs:
 class TestNestedLoopBlockKwargs:
     """LoopBlock nested inside another LoopBlock must receive blocks dict to work."""
 
+    @pytest.mark.asyncio
     async def test_nested_loop_resolves_inner_blocks(self):
         """Inner LoopBlock must be able to resolve its own inner_block_refs from blocks dict.
 
@@ -266,6 +271,7 @@ class TestNestedLoopBlockKwargs:
             f"Expected 4 leaf executions (2 inner x 2 outer), got {len(leaf_calls)}"
         )
 
+    @pytest.mark.asyncio
     async def test_deeply_nested_loop_three_levels(self):
         """Three levels deep: outer > middle > inner > leaf — kwargs chain all the way.
 
@@ -303,6 +309,7 @@ class TestNestedLoopBlockKwargs:
         leaf_calls = result_state.shared_memory.get("leaf_block_calls", [])
         assert len(leaf_calls) == 8, f"Expected 8 leaf executions (2^3), got {len(leaf_calls)}"
 
+    @pytest.mark.asyncio
     async def test_nested_loop_via_workflow_run(self):
         """Nested LoopBlock through Workflow.run() — the real integration path.
 
@@ -347,6 +354,7 @@ class TestNestedLoopBlockKwargs:
 class TestWorkflowBlockInsideLoopBlock:
     """WorkflowBlock nested in LoopBlock must receive call_stack and workflow_registry."""
 
+    @pytest.mark.asyncio
     async def test_workflow_block_gets_call_stack_via_loop(self):
         """WorkflowBlock inside LoopBlock should receive call_stack for cycle detection.
 
@@ -395,6 +403,7 @@ class TestWorkflowBlockInsideLoopBlock:
         with pytest.raises(RecursionError, match="depth"):
             await parent_wf.run(state)
 
+    @pytest.mark.asyncio
     async def test_workflow_block_cycle_detection_inside_loop(self):
         """Cycle detection must work for WorkflowBlock inside LoopBlock.
 
@@ -446,6 +455,7 @@ class TestWorkflowBlockInsideLoopBlock:
 class TestObserverForwardingInsideLoop:
     """Observer kwarg must be forwarded so inner blocks can emit events."""
 
+    @pytest.mark.asyncio
     async def test_observer_forwarded_to_inner_block(self):
         """Inner block inside LoopBlock should receive the observer kwarg."""
         from runsight_core import LoopBlock
@@ -478,6 +488,7 @@ class TestObserverForwardingInsideLoop:
 class TestLoopBlockSimpleRegression:
     """Simple LoopBlock cases that should pass with or without the fix."""
 
+    @pytest.mark.asyncio
     async def test_simple_loop_still_works(self):
         """Basic LoopBlock with a simple inner block should still work."""
         from runsight_core import LoopBlock
@@ -496,6 +507,7 @@ class TestLoopBlockSimpleRegression:
         calls = result_state.shared_memory.get("inner_block_calls", [])
         assert len(calls) == 3
 
+    @pytest.mark.asyncio
     async def test_simple_loop_via_workflow_run(self):
         """Basic LoopBlock through Workflow.run() still works."""
         from runsight_core import LoopBlock
@@ -519,6 +531,7 @@ class TestLoopBlockSimpleRegression:
         calls = result_state.shared_memory.get("inner_block_calls", [])
         assert len(calls) == 2
 
+    @pytest.mark.asyncio
     async def test_multi_ref_loop_still_works(self):
         """LoopBlock with multiple inner refs still runs all per round."""
         from runsight_core import LoopBlock

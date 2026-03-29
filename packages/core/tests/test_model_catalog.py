@@ -20,18 +20,15 @@ from unittest.mock import patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Import targets (will fail until implementation exists)
 # ---------------------------------------------------------------------------
-
 from runsight_core.llm.model_catalog import (
     LiteLLMModelCatalog,
     ModelCatalogPort,
     ModelInfo,
     ProviderInfo,
 )
-
 
 # ===========================================================================
 # 1. ModelInfo dataclass

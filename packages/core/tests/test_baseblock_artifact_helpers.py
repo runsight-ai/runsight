@@ -10,12 +10,11 @@ Tests cover:
 - Edge cases: invalid ref delegates KeyError, metadata=None handled gracefully
 """
 
-import pytest
 from unittest.mock import AsyncMock
 
+import pytest
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import WorkflowState
-
 
 # ── Test helper ───────────────────────────────────────────────────────────
 
@@ -35,6 +34,7 @@ class StubBlock(BaseBlock):
 class TestWriteArtifact:
     """Tests for BaseBlock.write_artifact()."""
 
+    @pytest.mark.asyncio
     async def test_write_artifact_returns_ref_string(self):
         """write_artifact() returns the ref string from store.write()."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -47,6 +47,7 @@ class TestWriteArtifact:
 
         assert ref == "mem://run-1/my_key"
 
+    @pytest.mark.asyncio
     async def test_write_artifact_return_type_is_str(self):
         """write_artifact() return value is a str."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -59,6 +60,7 @@ class TestWriteArtifact:
 
         assert isinstance(ref, str)
 
+    @pytest.mark.asyncio
     async def test_write_artifact_delegates_to_store_write(self):
         """write_artifact() calls state.artifact_store.write() with correct args."""
         mock_store = AsyncMock()
@@ -72,6 +74,7 @@ class TestWriteArtifact:
         mock_store.write.assert_awaited_once_with("the_key", "the_content", metadata=None)
         assert ref == "mock-ref-123"
 
+    @pytest.mark.asyncio
     async def test_write_artifact_content_retrievable_via_store(self):
         """Content written via write_artifact() is retrievable from the store."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -94,6 +97,7 @@ class TestWriteArtifact:
 class TestWriteArtifactMetadata:
     """Tests for metadata parameter forwarding in write_artifact()."""
 
+    @pytest.mark.asyncio
     async def test_metadata_forwarded_to_store(self):
         """metadata dict is forwarded to store.write()."""
         mock_store = AsyncMock()
@@ -107,6 +111,7 @@ class TestWriteArtifactMetadata:
 
         mock_store.write.assert_awaited_once_with("key", "content", metadata=meta)
 
+    @pytest.mark.asyncio
     async def test_metadata_none_by_default(self):
         """When metadata is not provided, None is forwarded to store.write()."""
         mock_store = AsyncMock()
@@ -119,6 +124,7 @@ class TestWriteArtifactMetadata:
 
         mock_store.write.assert_awaited_once_with("key", "content", metadata=None)
 
+    @pytest.mark.asyncio
     async def test_metadata_stored_in_artifact_store(self):
         """Metadata provided to write_artifact() is visible in store.list_artifacts()."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -143,6 +149,7 @@ class TestWriteArtifactMetadata:
 class TestReadArtifact:
     """Tests for BaseBlock.read_artifact()."""
 
+    @pytest.mark.asyncio
     async def test_read_artifact_returns_content_string(self):
         """read_artifact() returns the content string from store.read()."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -156,6 +163,7 @@ class TestReadArtifact:
 
         assert content == "the content"
 
+    @pytest.mark.asyncio
     async def test_read_artifact_return_type_is_str(self):
         """read_artifact() return value is a str."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -169,6 +177,7 @@ class TestReadArtifact:
 
         assert isinstance(content, str)
 
+    @pytest.mark.asyncio
     async def test_read_artifact_delegates_to_store_read(self):
         """read_artifact() calls state.artifact_store.read() with the ref."""
         mock_store = AsyncMock()
@@ -191,6 +200,7 @@ class TestReadArtifact:
 class TestWriteReadRoundtrip:
     """Tests for the full write_artifact -> read_artifact cycle."""
 
+    @pytest.mark.asyncio
     async def test_write_then_read_returns_original_content(self):
         """ref = write_artifact(...); read_artifact(ref) returns original content."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -204,6 +214,7 @@ class TestWriteReadRoundtrip:
 
         assert content == "AI is powerful"
 
+    @pytest.mark.asyncio
     async def test_multiple_write_read_roundtrips(self):
         """Multiple artifacts can be written and read back independently."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -227,6 +238,7 @@ class TestWriteReadRoundtrip:
 class TestArtifactStoreGuard:
     """Tests for RuntimeError guard when artifact_store is None."""
 
+    @pytest.mark.asyncio
     async def test_write_artifact_raises_runtime_error_when_no_store(self):
         """write_artifact() raises RuntimeError if state.artifact_store is None."""
         state = WorkflowState()  # artifact_store defaults to None
@@ -235,6 +247,7 @@ class TestArtifactStoreGuard:
         with pytest.raises(RuntimeError):
             await block.write_artifact(state, "key", "content")
 
+    @pytest.mark.asyncio
     async def test_read_artifact_raises_runtime_error_when_no_store(self):
         """read_artifact() raises RuntimeError if state.artifact_store is None."""
         state = WorkflowState()  # artifact_store defaults to None
@@ -243,6 +256,7 @@ class TestArtifactStoreGuard:
         with pytest.raises(RuntimeError):
             await block.read_artifact(state, "mem://run-1/key")
 
+    @pytest.mark.asyncio
     async def test_write_guard_error_message_mentions_artifact_store(self):
         """RuntimeError message should mention ArtifactStore for clarity."""
         state = WorkflowState()
@@ -251,6 +265,7 @@ class TestArtifactStoreGuard:
         with pytest.raises(RuntimeError, match="(?i)artifactstore|artifact.store"):
             await block.write_artifact(state, "key", "content")
 
+    @pytest.mark.asyncio
     async def test_read_guard_error_message_mentions_artifact_store(self):
         """RuntimeError message should mention ArtifactStore for clarity."""
         state = WorkflowState()
@@ -268,6 +283,7 @@ class TestArtifactStoreGuard:
 class TestArtifactHelperEdgeCases:
     """Edge case tests for artifact helpers."""
 
+    @pytest.mark.asyncio
     async def test_read_invalid_ref_raises_key_error(self):
         """read_artifact with invalid ref delegates KeyError from store."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -279,6 +295,7 @@ class TestArtifactHelperEdgeCases:
         with pytest.raises(KeyError):
             await block.read_artifact(state, "mem://run-1/nonexistent")
 
+    @pytest.mark.asyncio
     async def test_write_empty_content(self):
         """write_artifact with empty string content succeeds."""
         from runsight_core.artifacts import InMemoryArtifactStore
@@ -322,6 +339,7 @@ class TestInheritance:
     def test_linear_block_inherits_helpers(self):
         """LinearBlock (a real concrete block) should inherit the artifact helpers."""
         from unittest.mock import MagicMock
+
         from runsight_core import LinearBlock
         from runsight_core.primitives import Soul
 

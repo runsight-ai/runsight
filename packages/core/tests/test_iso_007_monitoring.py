@@ -24,7 +24,6 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from runsight_core.isolation import (
     ContextEnvelope,
     HeartbeatMessage,
@@ -38,7 +37,6 @@ from runsight_core.observer import (
     LoggingObserver,
     WorkflowObserver,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

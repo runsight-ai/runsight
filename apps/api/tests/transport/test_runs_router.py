@@ -1,8 +1,10 @@
-from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, Mock
-from runsight_api.main import app
-from runsight_api.transport.deps import get_run_service, get_execution_service
+
+from fastapi.testclient import TestClient
+
 from runsight_api.domain.entities.run import RunStatus
+from runsight_api.main import app
+from runsight_api.transport.deps import get_execution_service, get_run_service
 
 client = TestClient(app)
 

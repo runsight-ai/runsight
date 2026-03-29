@@ -3,14 +3,13 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from sqlmodel import Session, select
-
 from runsight_core.assertions.base import AssertionContext, GradingResult
 from runsight_core.assertions.registry import NOT_PREFIX, _get_handler
 from runsight_core.assertions.scoring import AssertionsResult
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
 from runsight_core.state import BlockResult, WorkflowState
+from sqlmodel import Session, select
 
 from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.domain.entities.run import RunNode

@@ -11,9 +11,7 @@ Legitimate-code tests should PASS already.
 import textwrap
 
 import pytest
-
 from runsight_core import CodeBlock
-
 
 # ---------------------------------------------------------------------------
 # Helpers

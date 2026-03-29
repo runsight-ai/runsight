@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 _ROOT = Path(__file__).resolve().parents[3]  # apps/api
 _SRC = _ROOT / "src" / "runsight_api" / "logic" / "services"
 

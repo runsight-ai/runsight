@@ -15,7 +15,6 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import RunNode
 
-
 # ---------------------------------------------------------------------------
 # Fixture: in-memory DB with RunNode table
 # ---------------------------------------------------------------------------

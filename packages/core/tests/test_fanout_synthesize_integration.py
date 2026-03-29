@@ -10,17 +10,16 @@ Tests the full integration chain:
 All tests mock LiteLLMClient.achat to return different outputs per branch.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
-from runsight_core.blocks.synthesize import SynthesizeBlock
 from runsight_core.blocks.loop import LoopBlock
+from runsight_core.blocks.synthesize import SynthesizeBlock
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml
-
 
 # ---------------------------------------------------------------------------
 # Shared YAML fixture

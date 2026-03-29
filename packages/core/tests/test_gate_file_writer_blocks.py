@@ -6,10 +6,9 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from runsight_core import GateBlock
 from runsight_core.primitives import Soul
-from runsight_core.runner import RunsightTeamRunner, ExecutionResult
+from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
 
 

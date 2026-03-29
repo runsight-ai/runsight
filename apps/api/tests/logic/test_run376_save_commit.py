@@ -16,8 +16,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from runsight_api.domain.value_objects import WorkflowEntity, SoulEntity
-
+from runsight_api.domain.value_objects import SoulEntity, WorkflowEntity
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -368,6 +367,7 @@ class TestDepsWiring:
     def test_get_workflow_service_includes_git_service(self):
         """get_workflow_service must inject a GitService instance."""
         import inspect
+
         from runsight_api.transport.deps import get_workflow_service
 
         sig = inspect.signature(get_workflow_service)
@@ -380,6 +380,7 @@ class TestDepsWiring:
     def test_get_soul_service_includes_git_service(self):
         """get_soul_service must inject a GitService instance."""
         import inspect
+
         from runsight_api.transport.deps import get_soul_service
 
         sig = inspect.signature(get_soul_service)

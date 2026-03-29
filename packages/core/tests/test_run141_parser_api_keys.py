@@ -3,11 +3,9 @@
 All tests should FAIL until the implementation exists.
 """
 
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import MagicMock, patch
 
 from runsight_core.yaml.parser import parse_workflow_yaml
-
 
 MINIMAL_WORKFLOW_YAML = """
 workflow:

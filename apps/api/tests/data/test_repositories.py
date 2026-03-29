@@ -1,7 +1,8 @@
 import pytest
-from sqlmodel import SQLModel, Session, create_engine
-from runsight_api.domain.entities import Run, RunNode
+from sqlmodel import Session, SQLModel, create_engine
+
 from runsight_api.data.repositories import RunRepository
+from runsight_api.domain.entities import Run, RunNode
 
 
 @pytest.fixture(name="session")

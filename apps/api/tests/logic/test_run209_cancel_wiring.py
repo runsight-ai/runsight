@@ -12,12 +12,12 @@ but never actually stops the running asyncio task. These tests verify:
 """
 
 import asyncio
+import inspect
 from unittest.mock import Mock
 
 from fastapi.testclient import TestClient
 
 from runsight_api.logic.services.execution_service import ExecutionService
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -53,7 +53,7 @@ class TestCancelExecutionExists:
         """cancel_execution should be a regular (sync) method since
         asyncio.Task.cancel() is synchronous."""
         svc = _make_service()
-        assert not asyncio.iscoroutinefunction(svc.cancel_execution), (
+        assert not inspect.iscoroutinefunction(svc.cancel_execution), (
             "cancel_execution should be a regular method, not async"
         )
 
@@ -188,7 +188,7 @@ class TestCancelRouteIntegration:
         """POST /runs/{id}/cancel must inject execution_service and call
         cancel_execution(run_id)."""
         from runsight_api.main import app
-        from runsight_api.transport.deps import get_run_service, get_execution_service
+        from runsight_api.transport.deps import get_execution_service, get_run_service
 
         mock_run_svc = Mock()
         mock_run_svc.cancel_run.return_value = self._make_mock_run()
@@ -212,7 +212,7 @@ class TestCancelRouteIntegration:
         """POST /runs/{id}/cancel must still call run_service.cancel_run()
         for DB status update (backwards compatibility)."""
         from runsight_api.main import app
-        from runsight_api.transport.deps import get_run_service, get_execution_service
+        from runsight_api.transport.deps import get_execution_service, get_run_service
 
         mock_run_svc = Mock()
         mock_run_svc.cancel_run.return_value = self._make_mock_run()
@@ -234,7 +234,7 @@ class TestCancelRouteIntegration:
     def test_cancel_route_passes_correct_run_id(self):
         """The run_id from the URL path is forwarded to both services."""
         from runsight_api.main import app
-        from runsight_api.transport.deps import get_run_service, get_execution_service
+        from runsight_api.transport.deps import get_execution_service, get_run_service
 
         mock_run_svc = Mock()
         mock_run_svc.cancel_run.return_value = self._make_mock_run("run_abc")
@@ -259,7 +259,7 @@ class TestCancelRouteIntegration:
         already finished), the route should still succeed — it's a no-op
         on the execution side but DB status is still updated."""
         from runsight_api.main import app
-        from runsight_api.transport.deps import get_run_service, get_execution_service
+        from runsight_api.transport.deps import get_execution_service, get_run_service
 
         mock_run_svc = Mock()
         mock_run_svc.cancel_run.return_value = self._make_mock_run()

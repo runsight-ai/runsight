@@ -1,5 +1,5 @@
-from .run import Run, RunNode, RunStatus, NodeStatus
 from .log import LogEntry
+from .run import NodeStatus, Run, RunNode, RunStatus
 from .settings import AppSettingsConfig, FallbackChainEntry, ModelDefaultEntry
 
 __all__ = [

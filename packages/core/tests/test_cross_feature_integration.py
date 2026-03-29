@@ -11,14 +11,14 @@ TOGETHER in a single workflow:
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+from runsight_core import LinearBlock, LoopBlock
 from runsight_core.artifacts import InMemoryArtifactStore
 from runsight_core.blocks.base import BaseBlock
-from runsight_core import LinearBlock, LoopBlock
+from runsight_core.blocks.loop import CarryContextConfig
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.blocks.loop import CarryContextConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -216,6 +216,7 @@ class TestStatefulLoopWithArtifacts:
     Verifies conversation history accumulates (6 msgs for 3 rounds) and
     artifacts are written to the InMemoryArtifactStore."""
 
+    @pytest.mark.asyncio
     async def test_stateful_loop_with_artifacts(self):
         """3 rounds: 6 conversation messages + 3 artifacts in store."""
         runner = _make_mock_runner()
@@ -272,6 +273,7 @@ class TestStatefulLoopWithArtifacts:
         # -- artifact_store survived through all rounds --
         assert result_state.artifact_store is store
 
+    @pytest.mark.asyncio
     async def test_artifact_refs_in_block_results(self):
         """BlockResult objects in state.results should carry artifact_ref."""
         runner = _make_mock_runner()
@@ -317,6 +319,7 @@ class TestCarryContextWithBlockResultAndArtifacts:
     with artifact_ref. Verifies carry_context extracts .output (not BlockResult)
     and artifact_ref is accessible in results."""
 
+    @pytest.mark.asyncio
     async def test_carry_context_extracts_output_from_blockresult(self):
         """carry_context must extract .output string, not pass BlockResult object."""
         runner = _make_mock_runner()
@@ -361,6 +364,7 @@ class TestCarryContextWithBlockResultAndArtifacts:
         # No BlockResult repr should leak into carried context
         assert "BlockResult" not in repr(carried)
 
+    @pytest.mark.asyncio
     async def test_carry_context_all_mode_with_artifacts(self):
         """mode='all' accumulates string outputs across rounds, not BlockResult objects."""
         runner = _make_mock_runner()
@@ -406,6 +410,7 @@ class TestCarryContextWithBlockResultAndArtifacts:
         artifacts = await store.list_artifacts()
         assert len(artifacts) == 3
 
+    @pytest.mark.asyncio
     async def test_artifact_ref_accessible_in_results_with_carry_context(self):
         """artifact_ref remains accessible on BlockResult in state.results
         even when carry_context is active."""
@@ -460,6 +465,7 @@ class TestStatefulWithWindowingAndArtifacts:
     """Stateful block with a very low token budget forces FIFO windowing.
     Verifies history is pruned but artifacts are still written correctly."""
 
+    @pytest.mark.asyncio
     async def test_windowing_prunes_history_but_artifacts_persist(self):
         """With aggressive pruning, history is capped but all artifacts are written."""
         runner = _make_mock_runner()
@@ -523,6 +529,7 @@ class TestStatefulWithWindowingAndArtifacts:
         # artifact_store survived
         assert result_state.artifact_store is store
 
+    @pytest.mark.asyncio
     async def test_windowing_with_carry_context_and_artifacts(self):
         """Windowing + carry_context + artifacts all working together."""
         runner = _make_mock_runner()
@@ -588,6 +595,7 @@ class TestStatefulWithWindowingAndArtifacts:
         # -- artifact_store survived the full execution --
         assert result_state.artifact_store is store
 
+    @pytest.mark.asyncio
     async def test_llm_receives_pruned_history_each_round(self):
         """The LLM should receive the pruned (shorter) history on subsequent rounds."""
         runner = _make_mock_runner()

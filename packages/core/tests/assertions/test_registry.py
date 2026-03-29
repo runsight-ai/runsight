@@ -1,7 +1,6 @@
 """Tests for assertion plugin registry, not- prefix handling, run_assertion, and run_assertions."""
 
 import pytest
-
 from runsight_core.assertions.base import (
     AssertionContext,
     GradingResult,
@@ -12,7 +11,6 @@ from runsight_core.assertions.registry import (
     run_assertions,
 )
 from runsight_core.assertions.scoring import AssertionsResult
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -253,6 +251,7 @@ class TestRunAssertion:
 
 
 class TestRunAssertions:
+    @pytest.mark.asyncio
     async def test_run_assertions_returns_assertions_result(self):
         """AC-11: run_assertions returns an AssertionsResult."""
         register_assertion("contains", _ContainsAssertion)
@@ -264,6 +263,7 @@ class TestRunAssertions:
         result = await run_assertions(config, output="Hello world", context=ctx)
         assert isinstance(result, AssertionsResult)
 
+    @pytest.mark.asyncio
     async def test_run_assertions_multiple_assertions(self):
         """AC-11: run_assertions processes all assertions in config."""
         register_assertion("contains", _ContainsAssertion)
@@ -279,6 +279,7 @@ class TestRunAssertions:
         assert result.results[0].passed is True
         assert result.results[1].passed is True
 
+    @pytest.mark.asyncio
     async def test_run_assertions_respects_weights(self):
         """run_assertions applies weights from config to AssertionsResult."""
         register_assertion("contains", _ContainsAssertion)
@@ -293,6 +294,7 @@ class TestRunAssertions:
         # aggregate = (1.0*3 + 0.0*1) / (3+1) = 0.75
         assert abs(result.aggregate_score - 0.75) < 1e-9
 
+    @pytest.mark.asyncio
     async def test_run_assertions_default_concurrency_limit(self):
         """AC-11: Default max_concurrent is 10."""
         register_assertion("contains", _ContainsAssertion)
@@ -303,6 +305,7 @@ class TestRunAssertions:
         result = await run_assertions(config, output="no match", context=ctx)
         assert len(result.results) == 15
 
+    @pytest.mark.asyncio
     async def test_run_assertions_custom_concurrency_limit(self):
         """AC-11: run_assertions accepts a max_concurrent parameter."""
         register_assertion("contains", _ContainsAssertion)
@@ -312,6 +315,7 @@ class TestRunAssertions:
         result = await run_assertions(config, output="no match", context=ctx, max_concurrent=2)
         assert len(result.results) == 5
 
+    @pytest.mark.asyncio
     async def test_run_assertions_empty_config(self):
         """run_assertions with an empty config returns an empty AssertionsResult."""
         ctx = _make_context()
@@ -320,6 +324,7 @@ class TestRunAssertions:
         assert len(result.results) == 0
         assert result.aggregate_score == 0.0
 
+    @pytest.mark.asyncio
     async def test_run_assertions_handles_not_prefix(self):
         """run_assertions correctly handles not- prefixed assertions in config."""
         register_assertion("contains", _ContainsAssertion)
@@ -333,6 +338,7 @@ class TestRunAssertions:
         assert result.results[0].passed is True
         assert result.results[0].score == 1.0
 
+    @pytest.mark.asyncio
     async def test_run_assertions_weight_zero_in_config(self):
         """AC-8: Weight=0 assertions in config contribute named_scores but not aggregate."""
         register_assertion("contains", _ContainsAssertion)

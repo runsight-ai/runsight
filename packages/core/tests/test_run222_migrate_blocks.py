@@ -28,8 +28,8 @@ from __future__ import annotations
 import inspect
 import sys
 from pathlib import Path
-import pytest
 
+import pytest
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Constants
@@ -190,10 +190,9 @@ class TestRegistryCounts:
 
     def test_block_def_registry_has_7_entries(self):
         """BLOCK_DEF_REGISTRY must have exactly 7 entries from auto-discovery."""
-        from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
-
         # Trigger all imports
         import runsight_core.blocks  # noqa: F401
+        from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
 
         known = {k: v for k, v in BLOCK_DEF_REGISTRY.items() if k in ALL_BLOCK_TYPES}
         assert len(known) == 7, (
@@ -203,10 +202,9 @@ class TestRegistryCounts:
 
     def test_block_builder_registry_has_7_entries(self):
         """BLOCK_BUILDER_REGISTRY must have exactly 7 entries from auto-discovery."""
-        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY
-
         # Trigger all imports
         import runsight_core.blocks  # noqa: F401
+        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY
 
         known = {k: v for k, v in BLOCK_BUILDER_REGISTRY.items() if k in ALL_BLOCK_TYPES}
         assert len(known) == 7, (
@@ -216,9 +214,8 @@ class TestRegistryCounts:
 
     def test_all_block_def_classes_from_blocks_package(self):
         """Every registered BlockDef class must originate from runsight_core.blocks.*, not schema.py."""
-        from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
-
         import runsight_core.blocks  # noqa: F401
+        from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
 
         for block_type in ALL_BLOCK_TYPES:
             cls = BLOCK_DEF_REGISTRY.get(block_type)
@@ -230,9 +227,8 @@ class TestRegistryCounts:
 
     def test_all_block_builder_functions_from_blocks_package(self):
         """Every registered builder must originate from runsight_core.blocks.*, not parser.py."""
-        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY
-
         import runsight_core.blocks  # noqa: F401
+        from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY
 
         for block_type in ALL_BLOCK_TYPES:
             builder = BLOCK_BUILDER_REGISTRY.get(block_type)
@@ -494,8 +490,8 @@ class TestEndToEndRoundTrip:
     def test_parse_linear_block(self):
         """parse_workflow_yaml must still work with linear blocks after migration."""
         from runsight_core import LinearBlock
-        from runsight_core.yaml.parser import parse_workflow_yaml
         from runsight_core.workflow import Workflow
+        from runsight_core.yaml.parser import parse_workflow_yaml
 
         wf = parse_workflow_yaml(VALID_LINEAR_YAML)
         assert isinstance(wf, Workflow)
@@ -507,8 +503,8 @@ class TestEndToEndRoundTrip:
     def test_parse_loop_block(self):
         """parse_workflow_yaml must still work with loop blocks after migration."""
         from runsight_core import LoopBlock
-        from runsight_core.yaml.parser import parse_workflow_yaml
         from runsight_core.workflow import Workflow
+        from runsight_core.yaml.parser import parse_workflow_yaml
 
         wf = parse_workflow_yaml(VALID_LOOP_YAML)
         assert isinstance(wf, Workflow)
@@ -520,8 +516,8 @@ class TestEndToEndRoundTrip:
     def test_parse_code_block(self):
         """parse_workflow_yaml must still work with code blocks after migration."""
         from runsight_core import CodeBlock
-        from runsight_core.yaml.parser import parse_workflow_yaml
         from runsight_core.workflow import Workflow
+        from runsight_core.yaml.parser import parse_workflow_yaml
 
         wf = parse_workflow_yaml(VALID_CODE_YAML)
         assert isinstance(wf, Workflow)
@@ -567,6 +563,7 @@ class TestSchemaReExports:
     ):
         """The class from the block module should be a proper BaseBlockDef subclass."""
         import importlib
+
         from runsight_core.yaml.schema import BaseBlockDef
 
         blocks_mod = importlib.import_module(f"runsight_core.blocks.{module_name}")

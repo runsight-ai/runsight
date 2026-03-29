@@ -22,7 +22,6 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunStatus
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -292,8 +291,9 @@ class TestObserverRespectsGuard:
 
     def test_on_workflow_complete_skips_if_already_cancelled(self, db_engine):
         """If run is already cancelled, on_workflow_complete must not overwrite to completed."""
-        from runsight_api.logic.observers.execution_observer import ExecutionObserver
         from runsight_core.state import WorkflowState
+
+        from runsight_api.logic.observers.execution_observer import ExecutionObserver
 
         run_id = _seed_run(db_engine, status=RunStatus.cancelled)
         obs = ExecutionObserver(engine=db_engine, run_id=run_id)
@@ -329,8 +329,9 @@ class TestObserverRespectsGuard:
 
     def test_on_workflow_start_skips_if_already_failed(self, db_engine):
         """If run is already failed, on_workflow_start must not overwrite to running."""
-        from runsight_api.logic.observers.execution_observer import ExecutionObserver
         from runsight_core.state import WorkflowState
+
+        from runsight_api.logic.observers.execution_observer import ExecutionObserver
 
         run_id = _seed_run(db_engine, status=RunStatus.failed)
         obs = ExecutionObserver(engine=db_engine, run_id=run_id)
@@ -342,8 +343,9 @@ class TestObserverRespectsGuard:
 
     def test_on_workflow_complete_after_cancel_via_error(self, db_engine):
         """A CancelledError sets cancelled; subsequent complete must not overwrite."""
-        from runsight_api.logic.observers.execution_observer import ExecutionObserver
         from runsight_core.state import WorkflowState
+
+        from runsight_api.logic.observers.execution_observer import ExecutionObserver
 
         run_id = _seed_run(db_engine, status=RunStatus.running)
         obs = ExecutionObserver(engine=db_engine, run_id=run_id)

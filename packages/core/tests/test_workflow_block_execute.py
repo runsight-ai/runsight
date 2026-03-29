@@ -2,11 +2,11 @@
 Tests for WorkflowBlock execution, mapping, and state isolation.
 """
 
-import pytest
 from unittest.mock import AsyncMock
 
-from runsight_core.state import BlockResult, WorkflowState
+import pytest
 from runsight_core import WorkflowBlock
+from runsight_core.state import BlockResult, WorkflowState
 
 
 @pytest.fixture

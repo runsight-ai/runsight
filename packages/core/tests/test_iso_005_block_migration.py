@@ -21,7 +21,6 @@ Tests cover all 13 acceptance criteria:
 import asyncio
 
 import pytest
-
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
 from runsight_core.blocks.gate import GateBlock
@@ -32,7 +31,6 @@ from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul, Task
 from runsight_core.state import WorkflowState
 from runsight_core.yaml.schema import BaseBlockDef, RetryConfig
-
 
 # ── Shared fixtures ─────────────────────────────────────────────────────────
 
@@ -75,8 +73,9 @@ class TestIsolatedBlockWrapperWrapsBlocks:
 
     def test_wraps_linear_block(self):
         """IsolatedBlockWrapper can wrap a LinearBlock."""
-        from runsight_core.isolation import IsolatedBlockWrapper
         from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -86,8 +85,9 @@ class TestIsolatedBlockWrapperWrapsBlocks:
 
     def test_wraps_gate_block(self):
         """IsolatedBlockWrapper can wrap a GateBlock."""
-        from runsight_core.isolation import IsolatedBlockWrapper
         from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -97,8 +97,9 @@ class TestIsolatedBlockWrapperWrapsBlocks:
 
     def test_wraps_synthesize_block(self):
         """IsolatedBlockWrapper can wrap a SynthesizeBlock."""
-        from runsight_core.isolation import IsolatedBlockWrapper
         from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -108,8 +109,9 @@ class TestIsolatedBlockWrapperWrapsBlocks:
 
     def test_wraps_fanout_block(self):
         """IsolatedBlockWrapper can wrap a FanOutBlock."""
-        from runsight_core.isolation import IsolatedBlockWrapper
         from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -131,8 +133,9 @@ class TestWrapperExposesSoul:
 
     def test_soul_attribute_from_linear_block(self):
         """Wrapper.soul returns the inner LinearBlock's soul."""
-        from runsight_core.isolation import IsolatedBlockWrapper
         from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -142,8 +145,9 @@ class TestWrapperExposesSoul:
 
     def test_soul_attribute_from_gate_block(self):
         """Wrapper.soul returns the inner GateBlock's gate_soul."""
-        from runsight_core.isolation import IsolatedBlockWrapper
         from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -155,8 +159,9 @@ class TestWrapperExposesSoul:
 
     def test_prompt_hash_computable_from_wrapper_soul(self):
         """Observer can compute prompt_hash from wrapper.soul."""
-        from runsight_core.isolation import IsolatedBlockWrapper
         from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -166,8 +171,9 @@ class TestWrapperExposesSoul:
 
     def test_soul_version_computable_from_wrapper_soul(self):
         """Observer can compute soul_version from wrapper.soul."""
-        from runsight_core.isolation import IsolatedBlockWrapper
         from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -186,8 +192,9 @@ class TestExistingBlockCodeUnchanged:
 
     def test_wrapper_execute_returns_workflow_state(self):
         """Wrapper.execute() returns a WorkflowState (via subprocess)."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from runsight_core.isolation import IsolatedBlockWrapper
-        from unittest.mock import MagicMock, AsyncMock, patch
 
         soul = _make_soul()
         runner = MagicMock()
@@ -218,8 +225,9 @@ class TestExistingBlockCodeUnchanged:
 
     def test_inner_block_execute_not_called_directly(self):
         """The wrapper must NOT call inner_block.execute() in the engine process."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from runsight_core.isolation import IsolatedBlockWrapper
-        from unittest.mock import MagicMock, AsyncMock, patch
 
         soul = _make_soul()
         runner = MagicMock()
@@ -260,8 +268,9 @@ class TestAgenticLoopThroughSubprocess:
 
     def test_tool_calls_count_propagated(self):
         """ResultEnvelope.tool_calls_made is reflected in final state."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from runsight_core.isolation import IsolatedBlockWrapper
-        from unittest.mock import MagicMock, AsyncMock, patch
 
         soul = _make_soul()
         runner = MagicMock()
@@ -305,8 +314,9 @@ class TestCostTokenPropagation:
 
     def test_cost_usd_applied(self):
         """ResultEnvelope.cost_usd is added to state.total_cost_usd."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from runsight_core.isolation import IsolatedBlockWrapper
-        from unittest.mock import MagicMock, AsyncMock, patch
 
         soul = _make_soul()
         runner = MagicMock()
@@ -338,8 +348,9 @@ class TestCostTokenPropagation:
 
     def test_total_tokens_applied(self):
         """ResultEnvelope.total_tokens is added to state.total_tokens."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from runsight_core.isolation import IsolatedBlockWrapper
-        from unittest.mock import MagicMock, AsyncMock, patch
 
         soul = _make_soul()
         runner = MagicMock()
@@ -380,8 +391,9 @@ class TestConversationHistoryRoundTrip:
 
     def test_history_returned_in_state(self):
         """ResultEnvelope.conversation_history is written back to state."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from runsight_core.isolation import IsolatedBlockWrapper
-        from unittest.mock import MagicMock, AsyncMock, patch
 
         soul = _make_soul()
         runner = MagicMock()
@@ -420,8 +432,9 @@ class TestConversationHistoryRoundTrip:
 
     def test_existing_history_sent_in_envelope(self):
         """Pre-existing conversation history is included in the ContextEnvelope."""
-        from runsight_core.isolation import IsolatedBlockWrapper
         from unittest.mock import MagicMock, patch
+
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -475,8 +488,9 @@ class TestLoopBlockWithSubprocessInnerBlocks:
 
     def test_three_round_loop_accumulates_history(self):
         """After 3 loop rounds, conversation history contains all rounds."""
-        from runsight_core.isolation import IsolatedBlockWrapper
         from unittest.mock import MagicMock, patch
+
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -532,8 +546,9 @@ class TestRetryConfigWithWrapper:
 
     def test_wrapper_carries_retry_config(self):
         """IsolatedBlockWrapper preserves retry_config from the inner block definition."""
-        from runsight_core.isolation import IsolatedBlockWrapper
         from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -549,8 +564,9 @@ class TestRetryConfigWithWrapper:
 
     def test_non_retryable_error_not_retried(self):
         """Errors in non_retryable_errors list are raised immediately, not retried."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from runsight_core.isolation import IsolatedBlockWrapper
-        from unittest.mock import MagicMock, AsyncMock, patch
 
         soul = _make_soul()
         runner = MagicMock()
@@ -602,8 +618,9 @@ class TestRetryMatchesOriginalErrorType:
 
     def test_error_type_from_envelope_used_for_retry_matching(self):
         """The error raised by the wrapper uses ResultEnvelope.error_type, not SubprocessError."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from runsight_core.isolation import IsolatedBlockWrapper
-        from unittest.mock import MagicMock, AsyncMock, patch
 
         soul = _make_soul()
         runner = MagicMock()
@@ -640,8 +657,9 @@ class TestRetryMatchesOriginalErrorType:
 
     def test_timeout_raises_timeout_error(self):
         """Subprocess timeout raises TimeoutError, not SubprocessError."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from runsight_core.isolation import IsolatedBlockWrapper
-        from unittest.mock import MagicMock, AsyncMock, patch
 
         soul = _make_soul()
         runner = MagicMock()
@@ -660,9 +678,10 @@ class TestRetryMatchesOriginalErrorType:
 
     def test_heartbeat_stall_raises_block_stall_error(self):
         """Heartbeat stall raises BlockStallError."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from runsight_core.isolation import IsolatedBlockWrapper
         from runsight_core.isolation.errors import BlockStallError
-        from unittest.mock import MagicMock, AsyncMock, patch
 
         soul = _make_soul()
         runner = MagicMock()
@@ -681,9 +700,10 @@ class TestRetryMatchesOriginalErrorType:
 
     def test_nonzero_exit_raises_block_execution_error(self):
         """Non-zero subprocess exit raises BlockExecutionError."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from runsight_core.isolation import IsolatedBlockWrapper
         from runsight_core.isolation.errors import BlockExecutionError
-        from unittest.mock import MagicMock, AsyncMock, patch
 
         soul = _make_soul()
         runner = MagicMock()
@@ -796,8 +816,9 @@ workflow:
     - from: blk1
       to: null
 """
-        from runsight_core.yaml.parser import parse_workflow_yaml
         from unittest.mock import MagicMock
+
+        from runsight_core.yaml.parser import parse_workflow_yaml
 
         runner = MagicMock()
         parse_workflow_yaml(yaml_str, runner=runner)
@@ -817,9 +838,10 @@ class TestBudgetFittingInsideSubprocess:
 
     def test_wrapper_does_not_import_fit_to_budget(self):
         """IsolatedBlockWrapper.execute() does not call fit_to_budget."""
-        from runsight_core.isolation import IsolatedBlockWrapper
-        from unittest.mock import MagicMock, AsyncMock, patch
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         import runsight_core.memory.budget as budget_module
+        from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
@@ -863,9 +885,10 @@ class TestNoDispatchInWorkflow:
 
     def test_parser_returns_wrapped_blocks_for_linear(self):
         """parse_workflow_yaml wraps linear blocks with IsolatedBlockWrapper."""
+        from unittest.mock import MagicMock
+
         from runsight_core.isolation import IsolatedBlockWrapper
         from runsight_core.yaml.parser import parse_workflow_yaml
-        from unittest.mock import MagicMock
 
         yaml_str = """\
 version: "1.0"
@@ -892,9 +915,10 @@ workflow:
 
     def test_parser_returns_wrapped_blocks_for_gate(self):
         """parse_workflow_yaml wraps gate blocks with IsolatedBlockWrapper."""
+        from unittest.mock import MagicMock
+
         from runsight_core.isolation import IsolatedBlockWrapper
         from runsight_core.yaml.parser import parse_workflow_yaml
-        from unittest.mock import MagicMock
 
         yaml_str = """\
 version: "1.0"
@@ -927,9 +951,10 @@ workflow:
 
     def test_parser_returns_wrapped_blocks_for_synthesize(self):
         """parse_workflow_yaml wraps synthesize blocks with IsolatedBlockWrapper."""
+        from unittest.mock import MagicMock
+
         from runsight_core.isolation import IsolatedBlockWrapper
         from runsight_core.yaml.parser import parse_workflow_yaml
-        from unittest.mock import MagicMock
 
         yaml_str = """\
 version: "1.0"
@@ -969,9 +994,10 @@ workflow:
 
     def test_parser_returns_wrapped_blocks_for_fanout(self):
         """parse_workflow_yaml wraps fanout blocks with IsolatedBlockWrapper."""
+        from unittest.mock import MagicMock
+
         from runsight_core.isolation import IsolatedBlockWrapper
         from runsight_core.yaml.parser import parse_workflow_yaml
-        from unittest.mock import MagicMock
 
         yaml_str = """\
 version: "1.0"

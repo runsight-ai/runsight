@@ -14,10 +14,8 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from runsight_core.observer import WorkflowObserver
 from runsight_core.state import WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Deferred import helper (module does not exist yet)

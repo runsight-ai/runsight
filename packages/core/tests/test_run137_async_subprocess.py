@@ -16,10 +16,8 @@ import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from runsight_core import CodeBlock
 from runsight_core.state import WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Helpers

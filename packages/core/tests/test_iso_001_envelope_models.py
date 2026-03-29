@@ -17,7 +17,6 @@ from datetime import datetime
 
 import pytest
 
-
 # ==============================================================================
 # AC1: All models are Pydantic BaseModel with model_validate_json
 # ==============================================================================
@@ -29,7 +28,6 @@ class TestModelsArePydanticBaseModel:
     def test_context_envelope_is_base_model(self):
         """ContextEnvelope is a Pydantic BaseModel."""
         from pydantic import BaseModel
-
         from runsight_core.isolation import ContextEnvelope
 
         assert issubclass(ContextEnvelope, BaseModel)
@@ -37,7 +35,6 @@ class TestModelsArePydanticBaseModel:
     def test_result_envelope_is_base_model(self):
         """ResultEnvelope is a Pydantic BaseModel."""
         from pydantic import BaseModel
-
         from runsight_core.isolation import ResultEnvelope
 
         assert issubclass(ResultEnvelope, BaseModel)
@@ -45,7 +42,6 @@ class TestModelsArePydanticBaseModel:
     def test_heartbeat_message_is_base_model(self):
         """HeartbeatMessage is a Pydantic BaseModel."""
         from pydantic import BaseModel
-
         from runsight_core.isolation import HeartbeatMessage
 
         assert issubclass(HeartbeatMessage, BaseModel)
@@ -533,7 +529,6 @@ class TestDelegateArtifact:
 
     def test_delegate_artifact_is_base_model(self):
         from pydantic import BaseModel
-
         from runsight_core.isolation import DelegateArtifact
 
         assert issubclass(DelegateArtifact, BaseModel)

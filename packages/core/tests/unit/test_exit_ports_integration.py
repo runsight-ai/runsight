@@ -22,12 +22,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import yaml
-
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.gate import GateBlock
 from runsight_core.blocks.loop import LoopBlock
 from runsight_core.primitives import Soul, Task
-from runsight_core.runner import RunsightTeamRunner, ExecutionResult
+from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import ExitDef
@@ -938,6 +937,7 @@ class TestFullWorkflowBranchingFromYAML:
         """Parse a complete YAML workflow with gate + conditional_transitions,
         mock the runner to PASS, verify correct execution path."""
         from unittest.mock import patch
+
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_content = """
@@ -1038,6 +1038,7 @@ blocks:
     async def test_full_yaml_gate_workflow_fail_path(self):
         """Parse a complete YAML workflow, mock runner to FAIL, verify fail path."""
         from unittest.mock import patch
+
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_content = """

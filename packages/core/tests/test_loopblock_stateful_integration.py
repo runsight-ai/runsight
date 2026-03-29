@@ -13,6 +13,7 @@ a LoopBlock across multiple rounds:
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from runsight_core import (
     FanOutBlock,
     LinearBlock,
@@ -24,7 +25,6 @@ from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -91,6 +91,7 @@ class TestStatefulLinearBlockInsideLoop:
     """Stateful LinearBlock inside LoopBlock across multiple rounds.
     Conversation history should grow by 2 messages (user + assistant) per round."""
 
+    @pytest.mark.asyncio
     async def test_history_grows_2n_after_n_rounds(self):
         """After 3 rounds, conversation_histories[key] must have 2*3 = 6 messages."""
         runner = _make_mock_runner()
@@ -124,6 +125,7 @@ class TestStatefulLinearBlockInsideLoop:
         history = result_state.conversation_histories[history_key]
         assert len(history) == 6, f"Expected 6 messages (3 rounds x 2), got {len(history)}"
 
+    @pytest.mark.asyncio
     async def test_each_round_alternates_user_assistant(self):
         """History must alternate user/assistant for every message."""
         runner = _make_mock_runner()
@@ -157,6 +159,7 @@ class TestStatefulLinearBlockInsideLoop:
                 f"Message {i}: expected role '{expected_role}', got '{msg['role']}'"
             )
 
+    @pytest.mark.asyncio
     async def test_llm_receives_growing_history_each_round(self):
         """Each round's LLM call must include all prior rounds' messages."""
         runner = _make_mock_runner()
@@ -194,6 +197,7 @@ class TestStatefulLinearBlockInsideLoop:
         # Round 3: 4 messages from rounds 1 and 2
         assert len(messages_received_per_call[2]) == 4
 
+    @pytest.mark.asyncio
     async def test_round_outputs_in_correct_order(self):
         """Assistant messages in history must be in chronological order."""
         runner = _make_mock_runner()
@@ -224,6 +228,7 @@ class TestStatefulLinearBlockInsideLoop:
         assistant_msgs = [m["content"] for m in history if m["role"] == "assistant"]
         assert assistant_msgs == ["Response_1", "Response_2", "Response_3"]
 
+    @pytest.mark.asyncio
     async def test_works_via_workflow_run(self):
         """Integration through Workflow.run() — the real execution path."""
         runner = _make_mock_runner()
@@ -268,6 +273,7 @@ class TestStatefulFanOutBlockInsideLoop:
     """Stateful FanOutBlock with 3 souls inside LoopBlock across 2 rounds.
     Each soul must have independent 2-round history."""
 
+    @pytest.mark.asyncio
     async def test_per_soul_histories_after_2_rounds(self):
         """Each of 3 souls should have 4 messages (2 rounds x user + assistant)."""
         runner = _make_mock_runner()
@@ -305,6 +311,7 @@ class TestStatefulFanOutBlockInsideLoop:
                 f"Expected 4 messages for {history_key} (2 rounds x 2), got {len(history)}"
             )
 
+    @pytest.mark.asyncio
     async def test_per_soul_history_independence(self):
         """Each soul's history must contain only its own outputs, not other souls'."""
         runner = _make_mock_runner()
@@ -342,6 +349,7 @@ class TestStatefulFanOutBlockInsideLoop:
                         f"{soul_id}'s history contains {other_id}'s output"
                     )
 
+    @pytest.mark.asyncio
     async def test_each_soul_receives_own_growing_history(self):
         """In round 2, each soul's LLM call must include only that soul's round 1 messages."""
         runner = _make_mock_runner()
@@ -382,6 +390,7 @@ class TestStatefulFanOutBlockInsideLoop:
                 f"Round 2 for {soul_id}: expected 2 messages, got {len(calls[1])}"
             )
 
+    @pytest.mark.asyncio
     async def test_fanout_inside_loop_via_workflow_run(self):
         """Integration through Workflow.run()."""
         runner = _make_mock_runner()
@@ -423,6 +432,7 @@ class TestStatefulFanOutBlockInsideLoop:
 class TestWindowingActivatesInsideLoop:
     """When history exceeds token budget inside a loop, budget fitting must prune."""
 
+    @pytest.mark.asyncio
     async def test_windowing_prunes_during_loop_rounds(self):
         """With a tiny token budget simulated by mock, old messages get dropped."""
         runner = _make_mock_runner()
@@ -494,6 +504,7 @@ class TestWindowingActivatesInsideLoop:
         assert history[-1]["role"] == "assistant"
         assert history[-1]["content"] == "Response 5"
 
+    @pytest.mark.asyncio
     async def test_windowing_prunes_fanout_per_soul_inside_loop(self):
         """Budget fitting should prune per-soul histories independently inside a loop."""
         runner = _make_mock_runner()
@@ -558,6 +569,7 @@ class TestWindowingActivatesInsideLoop:
             )
             assert history[-1]["role"] == "assistant"
 
+    @pytest.mark.asyncio
     async def test_pruned_history_still_passed_to_next_round(self):
         """After budget fitting, the pruned (shorter) history should be what the
         next round's LLM call receives — proving state passthrough works."""
@@ -641,6 +653,7 @@ class TestBreakConditionWithBlockResult:
     """Break condition must evaluate the string .output from BlockResult,
     not the BlockResult object itself."""
 
+    @pytest.mark.asyncio
     async def test_break_condition_receives_string_output(self):
         """When inner block stores BlockResult in state.results, the break
         condition must extract .output and evaluate the string."""
@@ -679,6 +692,7 @@ class TestBreakConditionWithBlockResult:
         assert meta["rounds_completed"] == 2
         assert meta["broke_early"] is True
 
+    @pytest.mark.asyncio
     async def test_break_condition_does_not_see_blockresult_object(self):
         """Verify the break condition evaluates a string, not 'BlockResult(output=...)'.
         If it saw the object repr, a 'contains' check for 'DONE' against
@@ -715,6 +729,7 @@ class TestBreakConditionWithBlockResult:
         assert meta["rounds_completed"] == 2
         assert meta["broke_early"] is True
 
+    @pytest.mark.asyncio
     async def test_break_condition_with_stateful_fanout_output(self):
         """Break condition works when inner block is a stateful FanOutBlock
         that stores BlockResult with JSON output."""
@@ -751,6 +766,7 @@ class TestBreakConditionWithBlockResult:
         assert meta["rounds_completed"] == 1
         assert meta["broke_early"] is True
 
+    @pytest.mark.asyncio
     async def test_stateful_history_preserved_after_early_break(self):
         """When break condition triggers early, the accumulated history
         up to that point must be preserved in the state."""
@@ -797,6 +813,7 @@ class TestBreakConditionWithBlockResult:
 class TestCombinedStatefulWindowingBreak:
     """Full integration: stateful block with windowing and break condition inside a loop."""
 
+    @pytest.mark.asyncio
     async def test_stateful_windowed_loop_with_early_break(self):
         """Stateful LinearBlock with windowing, breaking early at round 3 of 10."""
         runner = _make_mock_runner()

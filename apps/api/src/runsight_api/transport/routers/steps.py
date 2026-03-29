@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends
 from typing import Optional
 
-from ..schemas.steps import StepListResponse, StepResponse, StepCreate, StepUpdate
-from ..deps import get_registry_service, get_step_repo
-from ...logic.services.registry_service import RegistryService
+from fastapi import APIRouter, Depends
+
 from ...data.filesystem.step_repo import StepRepository
 from ...domain.errors import StepNotFound
+from ...logic.services.registry_service import RegistryService
+from ..deps import get_registry_service, get_step_repo
+from ..schemas.steps import StepCreate, StepListResponse, StepResponse, StepUpdate
 
 router = APIRouter(prefix="/steps", tags=["Steps"])
 

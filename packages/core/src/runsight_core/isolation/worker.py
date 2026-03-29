@@ -10,8 +10,8 @@ runner, llm, memory, state, and blocks sub-packages.
 from __future__ import annotations
 
 import json
-import sys
 import os
+import sys
 import threading
 from datetime import datetime, timezone
 from typing import Any
@@ -29,7 +29,6 @@ from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Public helper functions (importable by tests)

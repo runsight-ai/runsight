@@ -18,12 +18,10 @@ Tests cover:
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import RetryConfig
-
 
 # ── Test helpers ──────────────────────────────────────────────────────────
 

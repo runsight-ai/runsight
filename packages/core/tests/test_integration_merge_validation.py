@@ -9,11 +9,10 @@ Priority: Tests the renamed classes and their cross-feature interactions.
 """
 
 import pytest
-from runsight_core.workflow import Workflow
-from runsight_core.primitives import Task, Step
-from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.blocks.base import BaseBlock
-
+from runsight_core.primitives import Step, Task
+from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.workflow import Workflow
 
 # ===== Test Doubles =====
 

@@ -12,15 +12,14 @@ Tests verify that when stateful=True, FanOutBlock:
 When stateful=False (default), conversation_histories must be untouched.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from runsight_core import FanOutBlock
 from runsight_core.blocks.fanout import FanOutBranch
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -119,6 +118,7 @@ def _setup_runner_side_effect(mock_runner, soul_output_map):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_first_invocation_creates_per_soul_histories(
     mock_runner,
     soul_alpha,
@@ -151,6 +151,7 @@ async def test_stateful_first_invocation_creates_per_soul_histories(
     assert len(history_b) == 2
 
 
+@pytest.mark.asyncio
 async def test_stateful_first_invocation_stores_correct_user_and_assistant(
     mock_runner,
     soul_alpha,
@@ -188,6 +189,7 @@ async def test_stateful_first_invocation_stores_correct_user_and_assistant(
     assert history_b[1]["content"] == "Beta says no."
 
 
+@pytest.mark.asyncio
 async def test_stateful_first_invocation_user_message_includes_context(
     mock_runner,
     soul_alpha,
@@ -222,6 +224,7 @@ async def test_stateful_first_invocation_user_message_includes_context(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_continuation_passes_per_soul_history_to_runner(
     mock_runner,
     soul_alpha,
@@ -271,6 +274,7 @@ async def test_stateful_continuation_passes_per_soul_history_to_runner(
     assert captured_messages["soul_beta"] == prior_beta
 
 
+@pytest.mark.asyncio
 async def test_stateful_continuation_appends_new_pair_per_soul(
     mock_runner,
     soul_alpha,
@@ -331,6 +335,7 @@ async def test_stateful_continuation_appends_new_pair_per_soul(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_parallel_history_independence(
     mock_runner,
     soul_alpha,
@@ -366,6 +371,7 @@ async def test_stateful_parallel_history_independence(
     assert "ALPHA_UNIQUE_OUTPUT" not in all_b_content
 
 
+@pytest.mark.asyncio
 async def test_stateful_three_souls_independent_histories(
     mock_runner,
     soul_alpha,
@@ -425,6 +431,7 @@ async def test_stateful_three_souls_independent_histories(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_single_model_copy_update(
     mock_runner,
     soul_alpha,
@@ -454,6 +461,7 @@ async def test_stateful_single_model_copy_update(
     assert len(new_state.conversation_histories) == 2
 
 
+@pytest.mark.asyncio
 async def test_stateful_preserves_other_block_histories(
     mock_runner,
     soul_alpha,
@@ -496,6 +504,7 @@ async def test_stateful_preserves_other_block_histories(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_history_key_format(
     mock_runner,
     soul_alpha,
@@ -526,6 +535,7 @@ async def test_stateful_history_key_format(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_windowing_called_per_soul(
     mock_runner,
     soul_alpha,
@@ -582,6 +592,7 @@ async def test_stateful_windowing_called_per_soul(
     )
 
 
+@pytest.mark.asyncio
 async def test_stateful_windowing_prunes_large_history(
     mock_runner,
     soul_alpha,
@@ -628,6 +639,7 @@ async def test_stateful_windowing_prunes_large_history(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_windowing_uses_soul_specific_model(
     mock_runner,
     soul_alpha,
@@ -692,6 +704,7 @@ async def test_stateful_windowing_uses_soul_specific_model(
     )
 
 
+@pytest.mark.asyncio
 async def test_stateful_windowing_falls_back_to_runner_model(
     mock_runner,
     soul_alpha,
@@ -753,6 +766,7 @@ async def test_stateful_windowing_falls_back_to_runner_model(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_no_system_messages_stored(
     mock_runner,
     soul_alpha,
@@ -790,6 +804,7 @@ async def test_stateful_no_system_messages_stored(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_non_stateful_no_history_entries(
     mock_runner,
     soul_alpha,
@@ -814,6 +829,7 @@ async def test_non_stateful_no_history_entries(
     assert new_state.conversation_histories == {}
 
 
+@pytest.mark.asyncio
 async def test_non_stateful_preserves_other_histories(
     mock_runner,
     soul_alpha,
@@ -847,6 +863,7 @@ async def test_non_stateful_preserves_other_histories(
     assert "review_soul_alpha" not in new_state.conversation_histories
 
 
+@pytest.mark.asyncio
 async def test_non_stateful_does_not_pass_messages_to_runner(
     mock_runner,
     soul_alpha,
@@ -885,6 +902,7 @@ async def test_non_stateful_does_not_pass_messages_to_runner(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_still_stores_result_and_log(
     mock_runner,
     soul_alpha,
@@ -925,6 +943,7 @@ async def test_stateful_still_stores_result_and_log(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_does_not_mutate_original_state(
     mock_runner,
     soul_alpha,
@@ -963,6 +982,7 @@ async def test_stateful_does_not_mutate_original_state(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_stateful_gather_failure_writes_no_history(
     mock_runner,
     soul_alpha,

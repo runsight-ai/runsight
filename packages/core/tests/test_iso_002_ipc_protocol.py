@@ -24,7 +24,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # AC3: IPCServer accepts existing socket (does not create it)
 # ---------------------------------------------------------------------------
@@ -33,12 +32,14 @@ import pytest
 class TestIPCServerAcceptsExistingSocket:
     """IPCServer must accept an already-bound socket, not create one."""
 
+    @pytest.mark.asyncio
     async def test_ipc_server_importable(self):
         """IPCServer can be imported from runsight_core.isolation."""
         from runsight_core.isolation import IPCServer
 
         assert IPCServer is not None
 
+    @pytest.mark.asyncio
     async def test_ipc_server_does_not_create_socket(self, tmp_path: Path):
         """IPCServer does not create or bind the socket itself."""
         from runsight_core.isolation import IPCServer
@@ -59,6 +60,7 @@ class TestIPCServerAcceptsExistingSocket:
             if sock_path.exists():
                 sock_path.unlink()
 
+    @pytest.mark.asyncio
     async def test_ipc_server_raises_on_raw_path_string(self, tmp_path: Path):
         """IPCServer should require a socket object, not a path string."""
         from runsight_core.isolation import IPCServer
@@ -75,6 +77,7 @@ class TestIPCServerAcceptsExistingSocket:
 class TestNDJSONFraming:
     """Messages are NDJSON: one JSON object per line, terminated by newline."""
 
+    @pytest.mark.asyncio
     async def test_ipc_client_sends_ndjson_line(self, tmp_path: Path):
         """IPCClient.request() sends a single JSON line terminated by newline."""
         from runsight_core.isolation import IPCClient
@@ -121,6 +124,7 @@ class TestNDJSONFraming:
         assert "action" in parsed
         assert "id" in parsed
 
+    @pytest.mark.asyncio
     async def test_ndjson_messages_are_single_line(self, tmp_path: Path):
         """Each NDJSON message must not contain embedded newlines."""
         from runsight_core.isolation import IPCClient
@@ -177,12 +181,14 @@ class TestNDJSONFraming:
 class TestIPCClientRequestResponseCorrelation:
     """IPCClient.request() must correlate responses by id."""
 
+    @pytest.mark.asyncio
     async def test_ipc_client_importable(self):
         """IPCClient can be imported from runsight_core.isolation."""
         from runsight_core.isolation import IPCClient
 
         assert IPCClient is not None
 
+    @pytest.mark.asyncio
     async def test_ipc_client_reads_env_var_for_socket_path(self):
         """IPCClient uses RUNSIGHT_IPC_SOCKET env var for socket path."""
         from runsight_core.isolation import IPCClient
@@ -190,6 +196,7 @@ class TestIPCClientRequestResponseCorrelation:
         client = IPCClient(socket_path="/tmp/test_ipc.sock")
         assert client is not None
 
+    @pytest.mark.asyncio
     async def test_request_returns_response_with_matching_id(self, tmp_path: Path):
         """IPCClient.request() returns the response whose id matches the request id."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -220,6 +227,7 @@ class TestIPCClientRequestResponseCorrelation:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_request_includes_action_field(self, tmp_path: Path):
         """Each request sent by IPCClient includes an 'action' field."""
         from runsight_core.isolation import IPCClient
@@ -265,6 +273,7 @@ class TestIPCClientRequestResponseCorrelation:
 class TestIPCServerDispatches:
     """IPCServer must dispatch to the correct handler based on the action field."""
 
+    @pytest.mark.asyncio
     async def test_dispatches_http_action(self, tmp_path: Path):
         """IPCServer dispatches 'http' action to its http handler."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -300,6 +309,7 @@ class TestIPCServerDispatches:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_dispatches_file_io_action(self, tmp_path: Path):
         """IPCServer dispatches 'file_io' action to its file_io handler."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -330,6 +340,7 @@ class TestIPCServerDispatches:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_dispatches_delegate_action(self, tmp_path: Path):
         """IPCServer dispatches 'delegate' action to its delegate handler."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -360,6 +371,7 @@ class TestIPCServerDispatches:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_dispatches_write_artifact_action(self, tmp_path: Path):
         """IPCServer dispatches 'write_artifact' action to its write_artifact handler."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -401,6 +413,7 @@ class TestIPCServerDispatches:
 class TestNoLLMCallAction:
     """IPCServer must reject llm_call action — IPC is for tool calls only."""
 
+    @pytest.mark.asyncio
     async def test_llm_call_action_rejected(self, tmp_path: Path):
         """Sending an llm_call action results in an error response."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -435,6 +448,7 @@ class TestNoLLMCallAction:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_unknown_action_rejected(self, tmp_path: Path):
         """Sending an unknown action results in an error response."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -474,6 +488,7 @@ class TestNoLLMCallAction:
 class TestSocketCleanup:
     """Socket resources must be cleaned up properly."""
 
+    @pytest.mark.asyncio
     async def test_server_shutdown_releases_socket(self, tmp_path: Path):
         """After IPCServer.shutdown(), the socket is no longer accepting connections."""
         from runsight_core.isolation import IPCServer
@@ -499,6 +514,7 @@ class TestSocketCleanup:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_client_close_releases_resources(self, tmp_path: Path):
         """After IPCClient.close(), internal resources are released."""
         from runsight_core.isolation import IPCClient
@@ -544,6 +560,7 @@ class TestSocketCleanup:
 class TestSocketDropFailure:
     """When the socket drops, the client must fail — no reconnection attempts."""
 
+    @pytest.mark.asyncio
     async def test_client_raises_on_server_disconnect(self, tmp_path: Path):
         """IPCClient raises an error when the server disconnects mid-session."""
         from runsight_core.isolation import IPCClient
@@ -577,6 +594,7 @@ class TestSocketDropFailure:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_no_automatic_reconnection(self, tmp_path: Path):
         """After a socket drop, IPCClient does NOT attempt to reconnect."""
         from runsight_core.isolation import IPCClient
@@ -639,6 +657,7 @@ class TestSocketDropFailure:
 class TestWriteArtifactReturnsRef:
     """write_artifact action must store content and return a ref string."""
 
+    @pytest.mark.asyncio
     async def test_write_artifact_returns_ref_string(self, tmp_path: Path):
         """write_artifact handler returns a dict containing 'ref'."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -684,6 +703,7 @@ class TestWriteArtifactReturnsRef:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_write_artifact_handler_receives_key_content_metadata(self, tmp_path: Path):
         """write_artifact handler receives key, content, and metadata params."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -734,6 +754,7 @@ class TestWriteArtifactReturnsRef:
 class TestHTTPRoundTrip:
     """End-to-end: client sends http action, server dispatches, client gets response."""
 
+    @pytest.mark.asyncio
     async def test_http_get_round_trip(self, tmp_path: Path):
         """Full round-trip: http GET request -> handler -> response with status/body/headers."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -779,6 +800,7 @@ class TestHTTPRoundTrip:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_http_post_round_trip(self, tmp_path: Path):
         """Full round-trip: http POST with body -> handler -> 201 response."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -833,6 +855,7 @@ class TestHTTPRoundTrip:
 class TestWriteArtifactRoundTrip:
     """End-to-end: client sends write_artifact, server stores it, client gets ref."""
 
+    @pytest.mark.asyncio
     async def test_write_artifact_full_round_trip(self, tmp_path: Path):
         """Full round-trip: write_artifact -> handler stores content -> ref returned."""
         from runsight_core.isolation import IPCClient, IPCServer
@@ -884,6 +907,7 @@ class TestWriteArtifactRoundTrip:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
     async def test_multiple_artifacts_stored_independently(self, tmp_path: Path):
         """Multiple write_artifact calls store independently and return unique refs."""
         from runsight_core.isolation import IPCClient, IPCServer

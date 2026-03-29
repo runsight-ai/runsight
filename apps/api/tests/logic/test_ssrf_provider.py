@@ -15,7 +15,6 @@ import pytest
 from runsight_api.domain.value_objects import ProviderEntity
 from runsight_api.logic.services.provider_service import ProviderService
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -67,6 +66,7 @@ class TestSharedSSRFUtilityExists:
         """The SSRFError exception should be importable from the shared module."""
         from runsight_core.security import SSRFError  # noqa: F401
 
+    @pytest.mark.asyncio
     async def test_shared_validator_blocks_private_ip(self):
         """The shared validator should raise SSRFError for private IPs."""
         from runsight_core.security import SSRFError, validate_ssrf
@@ -74,6 +74,7 @@ class TestSharedSSRFUtilityExists:
         with pytest.raises(SSRFError):
             await validate_ssrf("http://192.168.1.1/models")
 
+    @pytest.mark.asyncio
     async def test_shared_validator_allows_public_url(self):
         """The shared validator should not raise for public URLs."""
         from runsight_core.security import validate_ssrf
@@ -81,6 +82,7 @@ class TestSharedSSRFUtilityExists:
         # Should not raise
         await validate_ssrf("https://api.openai.com/v1/models")
 
+    @pytest.mark.asyncio
     async def test_shared_validator_respects_allow_private_flag(self):
         """The shared validator should accept an allow_private flag."""
         from runsight_core.security import validate_ssrf
@@ -97,6 +99,7 @@ class TestSharedSSRFUtilityExists:
 class TestSSRFBlocksPrivateIPs:
     """test_connection() should reject URLs targeting private/internal networks."""
 
+    @pytest.mark.asyncio
     async def test_blocks_private_ip_192_168(self):
         """Private IP 192.168.x.x must be blocked."""
         provider = _make_provider(base_url="http://192.168.1.1/v1")
@@ -107,6 +110,7 @@ class TestSSRFBlocksPrivateIPs:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
+    @pytest.mark.asyncio
     async def test_blocks_private_ip_10_network(self):
         """Private IP 10.x.x.x must be blocked."""
         provider = _make_provider(base_url="http://10.0.0.1:8080/admin")
@@ -117,6 +121,7 @@ class TestSSRFBlocksPrivateIPs:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
+    @pytest.mark.asyncio
     async def test_blocks_private_ip_172_16(self):
         """Private IP 172.16.x.x must be blocked."""
         provider = _make_provider(base_url="http://172.16.0.1/v1/models")
@@ -131,6 +136,7 @@ class TestSSRFBlocksPrivateIPs:
 class TestSSRFBlocksLoopback:
     """test_connection() should reject loopback addresses for non-Ollama providers."""
 
+    @pytest.mark.asyncio
     async def test_blocks_loopback_127_0_0_1(self):
         """Loopback 127.0.0.1 must be blocked for non-Ollama providers."""
         provider = _make_provider(
@@ -144,6 +150,7 @@ class TestSSRFBlocksLoopback:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
+    @pytest.mark.asyncio
     async def test_blocks_loopback_localhost(self):
         """Loopback via 'localhost' hostname must be blocked for non-Ollama providers."""
         provider = _make_provider(
@@ -157,6 +164,7 @@ class TestSSRFBlocksLoopback:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
+    @pytest.mark.asyncio
     async def test_blocks_ipv6_loopback(self):
         """IPv6 loopback ::1 must be blocked for non-Ollama providers."""
         provider = _make_provider(
@@ -174,6 +182,7 @@ class TestSSRFBlocksLoopback:
 class TestSSRFBlocksLinkLocal:
     """test_connection() should reject link-local addresses (cloud metadata endpoints)."""
 
+    @pytest.mark.asyncio
     async def test_blocks_cloud_metadata_endpoint(self):
         """AWS/GCP metadata endpoint 169.254.169.254 must be blocked."""
         provider = _make_provider(
@@ -186,6 +195,7 @@ class TestSSRFBlocksLinkLocal:
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
 
+    @pytest.mark.asyncio
     async def test_blocks_link_local_169_254(self):
         """Link-local range 169.254.x.x must be blocked."""
         provider = _make_provider(
@@ -207,6 +217,7 @@ class TestSSRFBlocksLinkLocal:
 class TestOllamaLocalhostException:
     """Ollama providers intentionally run on localhost; SSRF should allow this."""
 
+    @pytest.mark.asyncio
     async def test_ollama_localhost_allowed(self):
         """Ollama with localhost base_url should NOT be blocked by SSRF."""
         provider = _make_provider(
@@ -233,6 +244,7 @@ class TestOllamaLocalhostException:
         # The request should have been made (not blocked)
         mock_client.get.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_ollama_127_0_0_1_allowed(self):
         """Ollama with 127.0.0.1 base_url should NOT be blocked by SSRF."""
         provider = _make_provider(
@@ -258,6 +270,7 @@ class TestOllamaLocalhostException:
         assert result["success"] is True
         mock_client.get.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_ollama_default_url_allowed(self):
         """Ollama with no explicit base_url (defaults to localhost:11434) should work."""
         provider = _make_provider(
@@ -291,6 +304,7 @@ class TestOllamaLocalhostException:
 class TestPublicURLsStillWork:
     """Normal public URLs should not be affected by SSRF protection."""
 
+    @pytest.mark.asyncio
     async def test_public_openai_url_works(self):
         """Public OpenAI URL should pass SSRF validation."""
         provider = _make_provider(
@@ -314,6 +328,7 @@ class TestPublicURLsStillWork:
         assert result["success"] is True
         mock_client.get.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_custom_provider_public_url_works(self):
         """Custom provider with a public URL should pass SSRF validation."""
         provider = _make_provider(
@@ -346,6 +361,7 @@ class TestPublicURLsStillWork:
 class TestSSRFValidationOrder:
     """SSRF validation must occur before the outbound HTTP request is made."""
 
+    @pytest.mark.asyncio
     async def test_no_http_call_for_private_ip(self):
         """When SSRF blocks a URL, httpx.get() should never be called."""
         provider = _make_provider(base_url="http://192.168.1.1/v1")
@@ -358,6 +374,7 @@ class TestSSRFValidationOrder:
         # The HTTP client must NOT have been called
         mock_httpx.get.assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_no_http_call_for_metadata_endpoint(self):
         """When SSRF blocks cloud metadata, httpx.get() should never be called."""
         provider = _make_provider(
@@ -371,6 +388,7 @@ class TestSSRFValidationOrder:
         assert result["success"] is False
         mock_httpx.get.assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_no_http_call_for_loopback_non_ollama(self):
         """When SSRF blocks loopback for non-Ollama, httpx.get() should never be called."""
         provider = _make_provider(
