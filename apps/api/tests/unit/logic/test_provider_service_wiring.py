@@ -81,7 +81,7 @@ class TestProviderServiceAcceptsSecrets:
 
 
 class TestCreateProviderUsesSecrets:
-    """create_provider must use secrets.store_key instead of encrypt()."""
+    """create_provider must use secrets.store_key for API key persistence."""
 
     def test_create_provider_stores_env_var_reference(self, service, secrets):
         """After create, the provider's api_key field must be a ${...} reference."""
@@ -116,19 +116,6 @@ class TestCreateProviderUsesSecrets:
         )
         assert provider.api_key is None
 
-    def test_create_provider_does_not_call_encrypt(self, service):
-        """create_provider must NOT call the legacy encrypt() function."""
-        with patch(
-            "runsight_api.logic.services.provider_service.encrypt",
-            side_effect=AssertionError("encrypt() must not be called"),
-        ):
-            # This should succeed without calling encrypt
-            service.create_provider(
-                name="OpenAI",
-                api_key="sk-test-key-123",
-                provider_type="openai",
-            )
-
     def test_create_provider_yaml_does_not_contain_raw_key(self, service, provider_repo, tmp_base):
         """The YAML file on disk must contain ${ENV_VAR}, never the raw key."""
         from pathlib import Path
@@ -152,7 +139,7 @@ class TestCreateProviderUsesSecrets:
 
 
 class TestUpdateProviderUsesSecrets:
-    """update_provider must use secrets.store_key instead of encrypt()."""
+    """update_provider must use secrets.store_key for API key persistence."""
 
     def test_update_provider_stores_new_key_via_secrets(self, service, secrets):
         """Updating api_key must write new key to secrets.env."""
@@ -173,15 +160,6 @@ class TestUpdateProviderUsesSecrets:
         assert provider is not None
         assert provider.api_key is not None
         assert provider.api_key.startswith("${")
-
-    def test_update_provider_does_not_call_encrypt(self, service):
-        """update_provider must NOT call the legacy encrypt() function."""
-        service.create_provider(name="OpenAI", api_key="sk-old", provider_type="openai")
-        with patch(
-            "runsight_api.logic.services.provider_service.encrypt",
-            side_effect=AssertionError("encrypt() must not be called"),
-        ):
-            service.update_provider("openai", api_key="sk-new")
 
 
 # ===========================================================================
