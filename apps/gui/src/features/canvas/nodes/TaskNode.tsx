@@ -2,14 +2,14 @@
 
 import { memo, useCallback } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import type { TaskNodeData } from "@/types/workflow";
 import type { Node } from "@xyflow/react";
-import { useWorkflowStore } from "@/store/workflowStore";
+import type { StepNodeData } from "@/types/schemas/canvas";
+import { useCanvasStore } from "@/store/canvas";
 
-type TaskNodeType = Node<TaskNodeData, "task">;
+type TaskNodeType = Node<StepNodeData, "task">;
 
 function TaskNodeComponent({ id, data, selected }: NodeProps<TaskNodeType>) {
-  const selectNode = useWorkflowStore((s) => s.selectNode);
+  const selectNode = useCanvasStore((state) => state.selectNode);
 
   const handleClick = useCallback(() => {
     selectNode(id);
@@ -32,14 +32,14 @@ function TaskNodeComponent({ id, data, selected }: NodeProps<TaskNodeType>) {
 
       <div className="flex items-center gap-2 mb-1.5">
         <div className="w-2 h-2 bg-success rounded-full" />
-        <span className="text-primary font-medium">{data.label}</span>
+        <span className="text-primary font-medium">{String(data.name ?? data.stepId ?? "Task")}</span>
         <span className="bg-task/30 text-task px-1.5 py-0.5 rounded text-[10px] ml-auto font-medium">
           TASK
         </span>
       </div>
-      {data.description && (
+      {typeof data.stepType === "string" && (
         <div className="text-xs text-task/70 leading-relaxed line-clamp-3">
-          {data.description}
+          {data.stepType}
         </div>
       )}
 

@@ -23,13 +23,14 @@ export function PaletteSidebar() {
   const { data: souls } = useSouls();
 
   const width = isCollapsed ? 48 : 240;
+  const soulItems = souls?.items ?? [];
 
   const filteredBlocks = BLOCK_TYPES.filter((b) =>
     b.label.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const filteredSouls = souls?.filter((s) =>
-    s.name.toLowerCase().includes(search.toLowerCase()),
+  const filteredSouls = soulItems.filter((soul) =>
+    (soul.name ?? "").toLowerCase().includes(search.toLowerCase()),
   );
 
   function handleToggleCollapse() {
@@ -121,7 +122,7 @@ export function PaletteSidebar() {
           </span>
         )}
         <TooltipProvider>
-          {filteredSouls?.map((soul) =>
+          {filteredSouls.map((soul) =>
             isCollapsed ? (
               <Tooltip key={soul.id}>
                 <TooltipTrigger

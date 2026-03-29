@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Tooltip } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCreateRun, useCancelRun, useRun } from "@/queries/runs";
 import { useProviders } from "@/queries/settings";
 import { useCanvasStore } from "@/store/canvas";
@@ -86,7 +86,14 @@ export function RunButton({ workflowId }: RunButtonProps) {
   );
 
   if (isEmpty && !isRunning) {
-    return <Tooltip content="Add at least one block">{button}</Tooltip>;
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger render={button} />
+          <TooltipContent>Add at least one block</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   }
 
   return button;
