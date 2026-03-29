@@ -240,9 +240,6 @@ const SETTINGS_FEATURES = [
 const OTHER_FEATURES = [
   "features/dashboard/DashboardOrOnboarding.tsx",
   "features/health/HealthPage.tsx",
-  "features/landing/LandingPage.tsx",
-  "features/onboarding/OnboardingWizard.tsx",
-  "features/templates/TemplatesPage.tsx",
 ];
 
 const WORKFLOW_FEATURES = [
