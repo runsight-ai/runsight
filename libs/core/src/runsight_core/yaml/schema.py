@@ -209,6 +209,7 @@ class RunsightWorkflowFile(BaseModel):
     """
 
     version: str = "1.0"
+    enabled: bool = False
     config: Dict[str, Any] = Field(default_factory=dict)
     tools: Dict[str, ToolDef] = Field(default_factory=dict)
     souls: Dict[str, SoulDef] = Field(default_factory=dict)
