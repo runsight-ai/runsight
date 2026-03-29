@@ -11,6 +11,21 @@ export const AppSettingsOutSchema = z.object({
 });
 export type AppSettingsOut = z.infer<typeof AppSettingsOutSchema>;
 
+export const AttentionItemSchema = z.object({
+  type: z.string(),
+  title: z.string(),
+  description: z.string(),
+  run_id: z.string(),
+  workflow_id: z.string(),
+  severity: z.string(),
+});
+export type AttentionItem = z.infer<typeof AttentionItemSchema>;
+
+export const AttentionItemsResponseSchema = z.object({
+  items: z.array(AttentionItemSchema),
+});
+export type AttentionItemsResponse = z.infer<typeof AttentionItemsResponseSchema>;
+
 export const CanvasViewportSchema = z.object({
   x: z.number().optional().default(0.0),
   y: z.number().optional().default(0.0),
@@ -18,14 +33,47 @@ export const CanvasViewportSchema = z.object({
 });
 export type CanvasViewport = z.infer<typeof CanvasViewportSchema>;
 
+export const CommitEntrySchema = z.object({
+  hash: z.string(),
+  message: z.string(),
+  date: z.string(),
+  author: z.string(),
+});
+export type CommitEntry = z.infer<typeof CommitEntrySchema>;
+
+export const CommitRequestSchema = z.object({
+  message: z.string(),
+  files: z.array(z.string()).nullable().optional(),
+});
+export type CommitRequest = z.infer<typeof CommitRequestSchema>;
+
+export const CommitResponseSchema = z.object({
+  hash: z.string(),
+  message: z.string(),
+});
+export type CommitResponse = z.infer<typeof CommitResponseSchema>;
+
 export const DashboardKPIsResponseSchema = z.object({
   runs_today: z.number(),
   cost_today_usd: z.number(),
   eval_pass_rate: z.number().nullable(),
   regressions: z.number().nullable(),
-  period_hours: z.number().default(24),
+  period_hours: z.number().optional().default(24),
 });
 export type DashboardKPIsResponse = z.infer<typeof DashboardKPIsResponseSchema>;
+
+export const DiffResponseSchema = z.object({
+  diff: z.string(),
+});
+export type DiffResponse = z.infer<typeof DiffResponseSchema>;
+
+export const EvalDeltaSchema = z.object({
+  cost_pct: z.number(),
+  tokens_pct: z.number(),
+  score_delta: z.number().nullable(),
+  baseline_run_count: z.number(),
+});
+export type EvalDelta = z.infer<typeof EvalDeltaSchema>;
 
 export const ValidationErrorSchema = z.object({
   loc: z.array(z.union([z.string(), z.number()])),
@@ -41,15 +89,31 @@ export const HTTPValidationErrorSchema = z.object({
 });
 export type HTTPValidationError = z.infer<typeof HTTPValidationErrorSchema>;
 
-export const LogResponseSchema = z.object({
-  id: z.number(),
-  run_id: z.string(),
-  timestamp: z.number(),
-  level: z.string(),
-  node_id: z.string().nullable(),
-  message: z.string(),
+export const ModelResponseSchema = z.object({
+  provider: z.string(),
+  provider_name: z.string(),
+  model_id: z.string(),
+  mode: z.string(),
+  max_tokens: z.number().nullable().optional(),
+  input_cost_per_token: z.number().nullable().optional(),
+  output_cost_per_token: z.number().nullable().optional(),
+  supports_vision: z.boolean().optional().default(false),
+  supports_function_calling: z.boolean().optional().default(false),
 });
-export type LogResponse = z.infer<typeof LogResponseSchema>;
+export type ModelResponse = z.infer<typeof ModelResponseSchema>;
+
+export const NodeEvalResultSchema = z.object({
+  node_id: z.string(),
+  block_id: z.string(),
+  soul_id: z.string().nullable(),
+  prompt_hash: z.string().nullable(),
+  soul_version: z.string().nullable(),
+  eval_score: z.number().nullable(),
+  passed: z.boolean().nullable(),
+  assertions: z.array(z.record(z.string(), z.unknown())).nullable(),
+  delta: EvalDeltaSchema.nullable(),
+});
+export type NodeEvalResult = z.infer<typeof NodeEvalResultSchema>;
 
 export const NodeSummarySchema = z.object({
   total: z.number(),
@@ -60,8 +124,18 @@ export const NodeSummarySchema = z.object({
 });
 export type NodeSummary = z.infer<typeof NodeSummarySchema>;
 
+export const runsight_api__transport__schemas__runs__LogResponseSchema = z.object({
+  id: z.number(),
+  run_id: z.string(),
+  timestamp: z.number(),
+  level: z.string(),
+  node_id: z.string().nullable(),
+  message: z.string(),
+});
+export type runsight_api__transport__schemas__runs__LogResponse = z.infer<typeof runsight_api__transport__schemas__runs__LogResponseSchema>;
+
 export const PaginatedLogsResponseSchema = z.object({
-  items: z.array(LogResponseSchema),
+  items: z.array(runsight_api__transport__schemas__runs__LogResponseSchema),
   total: z.number(),
   offset: z.number(),
   limit: z.number(),
@@ -75,6 +149,14 @@ export const ProviderCreateSchema = z.object({
 });
 export type ProviderCreate = z.infer<typeof ProviderCreateSchema>;
 
+export const ProviderSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  model_count: z.number(),
+  is_configured: z.boolean().optional().default(false),
+});
+export type ProviderSummary = z.infer<typeof ProviderSummarySchema>;
+
 export const ProviderUpdateSchema = z.object({
   name: z.string().nullable().optional(),
   api_key_env: z.string().nullable().optional(),
@@ -85,8 +167,17 @@ export type ProviderUpdate = z.infer<typeof ProviderUpdateSchema>;
 export const RunCreateSchema = z.object({
   workflow_id: z.string(),
   task_data: z.record(z.string(), z.unknown()).optional(),
+  source: z.string().nullable().optional().default("manual"),
 });
 export type RunCreate = z.infer<typeof RunCreateSchema>;
+
+export const RunEvalResponseSchema = z.object({
+  run_id: z.string(),
+  aggregate_score: z.number().nullable(),
+  passed: z.boolean().nullable(),
+  nodes: z.array(NodeEvalResultSchema),
+});
+export type RunEvalResponse = z.infer<typeof RunEvalResponseSchema>;
 
 export const RunResponseSchema = z.object({
   id: z.string(),
@@ -99,6 +190,9 @@ export const RunResponseSchema = z.object({
   total_cost_usd: z.number(),
   total_tokens: z.number(),
   created_at: z.number(),
+  branch: z.string().optional().default("main"),
+  source: z.string().optional().default("manual"),
+  commit_sha: z.string().nullable().optional(),
   node_summary: NodeSummarySchema.nullable().optional(),
 });
 export type RunResponse = z.infer<typeof RunResponseSchema>;
@@ -134,6 +228,22 @@ export const SoulCreateSchema = z.object({
 });
 export type SoulCreate = z.infer<typeof SoulCreateSchema>;
 
+export const SoulVersionEntrySchema = z.object({
+  soul_version: z.string(),
+  avg_score: z.number().nullable(),
+  avg_cost: z.number(),
+  run_count: z.number(),
+  first_seen: z.union([z.number(), z.string()]),
+  last_seen: z.union([z.number(), z.string()]),
+});
+export type SoulVersionEntry = z.infer<typeof SoulVersionEntrySchema>;
+
+export const SoulEvalHistoryResponseSchema = z.object({
+  soul_id: z.string(),
+  versions: z.array(SoulVersionEntrySchema),
+});
+export type SoulEvalHistoryResponse = z.infer<typeof SoulEvalHistoryResponseSchema>;
+
 export const SoulResponseSchema = z.object({
   id: z.string(),
   name: z.string().nullable().optional(),
@@ -155,6 +265,19 @@ export const SoulUpdateSchema = z.object({
   copy_on_edit: z.boolean().optional().default(false),
 });
 export type SoulUpdate = z.infer<typeof SoulUpdateSchema>;
+
+export const UncommittedFileSchema = z.object({
+  path: z.string(),
+  status: z.string(),
+});
+export type UncommittedFile = z.infer<typeof UncommittedFileSchema>;
+
+export const StatusResponseSchema = z.object({
+  branch: z.string(),
+  uncommitted_files: z.array(UncommittedFileSchema),
+  is_clean: z.boolean(),
+});
+export type StatusResponse = z.infer<typeof StatusResponseSchema>;
 
 export const StepCreateSchema = z.object({
   id: z.string().nullable().optional(),
@@ -258,143 +381,8 @@ export const WorkflowUpdateSchema = z.object({
 });
 export type WorkflowUpdate = z.infer<typeof WorkflowUpdateSchema>;
 
-
-// ---------------------------------------------------------------------------
-// RUN-335 supplementary: CancelRun
-// ---------------------------------------------------------------------------
-
-export const CancelRunResponseSchema = z.object({
-  id: z.string(),
-  status: z.string(),
+export const runsight_api__transport__routers__git__LogResponseSchema = z.object({
+  commits: z.array(CommitEntrySchema),
 });
-export type CancelRunResponse = z.infer<typeof CancelRunResponseSchema>;
+export type runsight_api__transport__routers__git__LogResponse = z.infer<typeof runsight_api__transport__routers__git__LogResponseSchema>;
 
-// ---------------------------------------------------------------------------
-// RUN-335 supplementary: Git schemas (not yet emitted by codegen)
-// ---------------------------------------------------------------------------
-
-export const GitFileStatusSchema = z.object({
-  path: z.string(),
-  status: z.string(),
-});
-export type GitFileStatus = z.infer<typeof GitFileStatusSchema>;
-
-export const GitStatusResponseSchema = z.object({
-  branch: z.string(),
-  uncommitted_files: z.array(GitFileStatusSchema),
-  is_clean: z.boolean(),
-});
-export type GitStatusResponse = z.infer<typeof GitStatusResponseSchema>;
-
-export const GitCommitResponseSchema = z.object({
-  hash: z.string(),
-  message: z.string(),
-});
-export type GitCommitResponse = z.infer<typeof GitCommitResponseSchema>;
-
-export const GitLogEntrySchema = z.object({
-  hash: z.string(),
-  message: z.string(),
-  date: z.string(),
-  author: z.string(),
-});
-export type GitLogEntry = z.infer<typeof GitLogEntrySchema>;
-
-export const GitDiffResponseSchema = z.object({
-  diff: z.string(),
-});
-export type GitDiffResponse = z.infer<typeof GitDiffResponseSchema>;
-
-// ---------------------------------------------------------------------------
-// RUN-335 supplementary: Settings-domain schemas (not yet emitted by codegen)
-// ---------------------------------------------------------------------------
-
-export const ProviderSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  status: z.enum(["connected", "disconnected", "active", "rate-limited", "error", "unknown", "offline"]),
-  api_key_env: z.string().nullish(),
-  base_url: z.string().nullish(),
-  models: z.array(z.string()),
-  created_at: z.string().nullish(),
-  updated_at: z.string().nullish(),
-});
-export type Provider = z.infer<typeof ProviderSchema>;
-
-export const ProviderListSchema = z.object({
-  items: z.array(ProviderSchema),
-  total: z.number(),
-});
-
-/** Alias — settings API uses CreateProvider (maps to codegen ProviderCreate) */
-export const CreateProviderSchema = ProviderCreateSchema;
-export type CreateProvider = ProviderCreate;
-
-/** Alias — settings API uses UpdateProvider (maps to codegen ProviderUpdate) */
-export const UpdateProviderSchema = ProviderUpdateSchema.extend({
-  is_active: z.boolean().optional(),
-});
-export type UpdateProvider = z.infer<typeof UpdateProviderSchema>;
-
-export const ModelDefaultSchema = z.object({
-  id: z.string(),
-  model_name: z.string(),
-  provider_id: z.string(),
-  provider_name: z.string(),
-  fallback_chain: z.array(z.string()),
-  is_default: z.boolean(),
-});
-export type ModelDefault = z.infer<typeof ModelDefaultSchema>;
-
-export const ModelDefaultListSchema = z.object({
-  items: z.array(ModelDefaultSchema),
-  total: z.number(),
-});
-
-export const BudgetSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  limit_usd: z.number(),
-  spent_usd: z.number(),
-  period: z.enum(["daily", "weekly", "monthly"]),
-  reset_at: z.string().optional(),
-});
-export type Budget = z.infer<typeof BudgetSchema>;
-
-export const BudgetListSchema = z.object({
-  items: z.array(BudgetSchema),
-  total: z.number(),
-});
-
-export const CreateBudgetSchema = z.object({
-  name: z.string(),
-  limit_usd: z.number(),
-  period: z.enum(["daily", "weekly", "monthly"]),
-});
-export type CreateBudget = z.infer<typeof CreateBudgetSchema>;
-
-export const UpdateBudgetSchema = CreateBudgetSchema.partial();
-export type UpdateBudget = z.infer<typeof UpdateBudgetSchema>;
-
-/** Alias — settings API uses AppSettingsSchema (maps to codegen AppSettingsOutSchema) */
-export const AppSettingsSchema = AppSettingsOutSchema;
-export type AppSettings = AppSettingsOut;
-
-// ---------------------------------------------------------------------------
-// RUN-341: Attention section schemas
-// ---------------------------------------------------------------------------
-
-export const AttentionItemSchema = z.object({
-  type: z.enum(["assertion_regression", "cost_spike", "quality_drop", "new_baseline"]),
-  title: z.string(),
-  description: z.string(),
-  run_id: z.string(),
-  workflow_id: z.string(),
-  severity: z.enum(["warning", "info"]),
-});
-export type AttentionItem = z.infer<typeof AttentionItemSchema>;
-
-export const AttentionItemsResponseSchema = z.object({
-  items: z.array(AttentionItemSchema),
-});
-export type AttentionItemsResponse = z.infer<typeof AttentionItemsResponseSchema>;
