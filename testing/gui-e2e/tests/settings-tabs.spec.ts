@@ -34,6 +34,7 @@ test.describe("Settings tabs", () => {
 
   test("supports tab and arrow-key tab navigation", async ({ page }) => {
     await page.goto("/settings");
+    await expect(page).toHaveURL(/\/settings$/);
 
     const providersTab = page.getByRole("tab", { name: "Providers" });
     const modelsTab = page.getByRole("tab", { name: "Models" });
@@ -45,6 +46,18 @@ test.describe("Settings tabs", () => {
       }
     }
     await expect(providersTab).toBeFocused();
+    await expect(page).toHaveURL(/\/settings$/);
+
+    await page.keyboard.press("Tab");
+
+    await expect(providersTab).not.toBeFocused();
+    await expect(providersTab).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(/\/settings$/);
+
+    await page.keyboard.press("Shift+Tab");
+
+    await expect(providersTab).toBeFocused();
+    await expect(page).toHaveURL(/\/settings$/);
 
     await providersTab.focus();
     await page.keyboard.press("ArrowRight");
