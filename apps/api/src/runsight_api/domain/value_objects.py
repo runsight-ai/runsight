@@ -45,9 +45,12 @@ class SoulEntity(BaseModel):
     max_tool_iterations: int = Field(default=5)
     model_name: Optional[str] = None
     assertions: Optional[List[Dict[str, Any]]] = None
+    provider: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
     avatar_color: Optional[str] = None
     workflow_count: int = Field(default=0)
-    model_config = {"extra": "ignore"}
+    model_config = {"extra": "allow"}
 
 
 class TaskEntity(BaseModel):

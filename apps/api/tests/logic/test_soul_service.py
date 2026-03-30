@@ -350,7 +350,12 @@ def test_create_soul_real_git_commit_uses_custom_souls_path(tmp_path):
 
 def test_update_soul_happy_path():
     soul_repo = Mock()
-    existing = SoulEntity(id="soul_1", role="Old")
+    existing = SoulEntity(
+        id="soul_1",
+        role="Old",
+        system_prompt="Keep me",
+        assertions=[{"type": "contains", "value": "result"}],
+    )
     updated = SoulEntity(id="soul_1", role="New")
     soul_repo.get_by_id.return_value = existing
     soul_repo.update.return_value = updated
@@ -359,7 +364,13 @@ def test_update_soul_happy_path():
     result = service.update_soul("soul_1", {"role": "New"})
 
     assert result == updated
-    soul_repo.update.assert_called_once_with("soul_1", {"role": "New"})
+    soul_repo.update.assert_called_once()
+    update_id, payload = soul_repo.update.call_args[0]
+    assert update_id == "soul_1"
+    assert payload["id"] == "soul_1"
+    assert payload["role"] == "New"
+    assert payload["system_prompt"] == "Keep me"
+    assert payload["assertions"] == [{"type": "contains", "value": "result"}]
 
 
 def test_update_soul_not_found_raises_soul_not_found():

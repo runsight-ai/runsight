@@ -25,15 +25,15 @@ def test_soul_entity_accepts_core_fields_and_avatar_color():
     assert soul.avatar_color == "lime"
 
 
-def test_soul_entity_ignores_legacy_name_and_models_fields():
+def test_soul_entity_preserves_legacy_name_and_models_fields_as_extras():
     from runsight_api.domain.value_objects import SoulEntity
 
     soul = SoulEntity(id="legacy", name="Legacy Soul", models=["gpt-4o"])
 
     assert soul.id == "legacy"
     assert soul.role is None
-    assert not hasattr(soul, "name")
-    assert not hasattr(soul, "models")
+    assert soul.name == "Legacy Soul"
+    assert soul.models == ["gpt-4o"]
 
 
 def test_soul_create_requires_role_and_system_prompt():

@@ -103,7 +103,9 @@ class SoulService:
             self._auto_commit(f"Create {result.id}.yaml", [self._soul_file_path(result.id)])
             return result
 
-        result = self.soul_repo.update(id, data)
+        merged = existing.model_dump(exclude={"workflow_count"})
+        merged.update(data)
+        result = self.soul_repo.update(id, merged)
         self._auto_commit(f"Update {id}.yaml", [self._soul_file_path(id)])
         return result
 

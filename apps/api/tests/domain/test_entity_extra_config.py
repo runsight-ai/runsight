@@ -1,8 +1,7 @@
-"""Tests for entity extra field configuration (RUN-321).
+"""Tests for entity extra field configuration.
 
-SoulEntity, TaskEntity, StepEntity should use extra="ignore" — unknown fields
-are silently dropped.  WorkflowEntity should keep extra="allow" — unknown
-fields are preserved.
+SoulEntity and WorkflowEntity preserve extra fields. TaskEntity and StepEntity
+still use extra="ignore" — unknown fields are silently dropped.
 """
 
 from runsight_api.domain.value_objects import (
@@ -15,14 +14,14 @@ from runsight_api.domain.value_objects import (
 # ── SoulEntity ──────────────────────────────────────────────────────
 
 
-class TestSoulEntityIgnoresExtraFields:
-    def test_unknown_field_is_ignored(self):
+class TestSoulEntityPreservesExtraFields:
+    def test_unknown_field_is_preserved(self):
         soul = SoulEntity(id="s1", role="Alpha", bogus_field="oops")
-        assert not hasattr(soul, "bogus_field")
+        assert soul.bogus_field == "oops"
 
-    def test_typo_field_is_not_stored(self):
+    def test_typo_field_is_preserved(self):
         soul = SoulEntity(id="s1", naem="typo")
-        assert not hasattr(soul, "naem")
+        assert soul.naem == "typo"
         assert soul.role is None  # default kept
 
     def test_known_fields_work(self):
