@@ -2,83 +2,34 @@ import { useState } from "react";
 import { PageHeader } from "@/components/shared";
 import {
   Tabs,
+  TabsList,
   TabsContent,
+  TabsTrigger,
 } from "@runsight/ui/tabs";
-import {
-  Plug,
-  Bot,
-  Wallet,
-  User,
-  Settings,
-} from "lucide-react";
 import { ProvidersTab } from "./ProvidersTab";
 import { ModelsTab } from "./ModelsTab";
-import { cn } from "@/utils/helpers";
 
-type TabValue = "providers" | "models" | "budgets";
-
-const settingsNavItems = [
-  { value: "providers" as TabValue, label: "Providers", icon: Plug },
-  { value: "models" as TabValue, label: "Models", icon: Bot },
-  { value: "budgets" as TabValue, label: "Budgets", icon: Wallet },
-  { value: "profile" as const, label: "Profile", icon: User },
-  { value: "advanced" as const, label: "Advanced", icon: Settings },
-];
+type TabValue = "providers" | "models";
 
 export function Component() {
   const [activeTab, setActiveTab] = useState<TabValue>("providers");
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header Bar (48px) */}
-      <PageHeader
-        title="Global Settings"
-      />
+      <PageHeader title="Settings" />
 
-      {/* Settings Layout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Settings Nav Sidebar (200px) */}
-        <aside className="w-[200px] flex-shrink-0 border-r border-border-default bg-surface-secondary p-3">
-          <nav className="space-y-0.5">
-            {settingsNavItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.value;
-              const isImplemented = ["providers", "models"].includes(
-                item.value
-              );
-
-              return (
-                <button
-                  key={item.value}
-                  onClick={() =>
-                    isImplemented && setActiveTab(item.value as TabValue)
-                  }
-                  className={cn(
-                    "flex h-9 w-full items-center gap-3 rounded-md px-3 text-sm transition-colors relative",
-                    isActive
-                      ? "text-primary"
-                      : "text-muted hover:bg-surface-hover hover:text-primary",
-                    !isImplemented && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {isActive && (
-                    <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-interactive rounded-full" />
-                  )}
-                  <Icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 overflow-auto bg-surface-primary p-6">
+      <main className="flex-1 overflow-auto bg-surface-primary p-6">
+        <div className="mx-auto max-w-4xl">
           <Tabs
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as TabValue)}
             className="w-full"
           >
+            <TabsList className="mb-6">
+              <TabsTrigger value="providers">Providers</TabsTrigger>
+              <TabsTrigger value="models">Models</TabsTrigger>
+            </TabsList>
+
             <TabsContent value="providers" className="mt-0">
               <ProvidersTab />
             </TabsContent>
@@ -86,8 +37,8 @@ export function Component() {
               <ModelsTab />
             </TabsContent>
           </Tabs>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
