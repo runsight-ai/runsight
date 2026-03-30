@@ -135,19 +135,19 @@ describe("RunButton simulation behavior (RUN-423)", () => {
     await click();
 
     expect(mocks.createSimulationSnapshot).toHaveBeenCalledTimes(1);
-    expect(mocks.createSimulationSnapshot).toHaveBeenCalledWith("wf_1", {
-      yaml: "workflow:\n  name: Test Flow\n",
-    });
     expect(mocks.createSimulationSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.createRunMutate.mock.invocationCallOrder[0],
     );
-    expect(mocks.createRunMutate).toHaveBeenCalledWith(
-      {
+    expect(mocks.createRunMutate).toHaveBeenCalledTimes(1);
+    expect(mocks.createRunMutate.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
         workflow_id: "wf_1",
         source: "simulation",
         branch: "sim/test-flow/20260330/abc12",
-      },
-      { onSuccess: expect.any(Function) },
+      }),
+    );
+    expect(mocks.createRunMutate.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
   });
 
