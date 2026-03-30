@@ -9,8 +9,8 @@ import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { FirstTimeTooltip } from "./FirstTimeTooltip";
 import { PaletteSidebar } from "./PaletteSidebar";
 import { ExploreBanner } from "./ExploreBanner";
+import { ProviderModal } from "@/components/provider/ProviderModal";
 import { CommitDialog } from "@/features/git/CommitDialog";
-import { ApiKeyModal } from "@/features/setup/ApiKeyModal";
 import { gitApi } from "@/api/git";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { YamlEditor } from "./YamlEditor";
@@ -64,7 +64,7 @@ export function Component() {
   }, [id, updateWorkflow]);
 
   const handleOpenApiKeyModal = useCallback(() => {
-    setSaveAndRun(false);
+    setSaveAndRun(true);
     setApiKeyModalOpen(true);
   }, []);
 
@@ -192,11 +192,11 @@ export function Component() {
         </DialogContent>
       </Dialog>
 
-      <ApiKeyModal
+      <ProviderModal
+        mode="canvas"
         open={apiKeyModalOpen}
         onOpenChange={handleApiKeyModalClose}
         onSaveSuccess={handleSaveSuccess}
-        saveAndRun={saveAndRun}
       />
 
       <CommitDialog

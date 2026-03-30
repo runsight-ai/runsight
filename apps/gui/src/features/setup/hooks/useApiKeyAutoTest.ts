@@ -1,11 +1,20 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { TestStatus } from "@/components/provider";
-import { useCreateProvider, useTestProviderConnection, useDeleteProvider } from "@/queries/settings";
+import {
+  useCreateProvider,
+  useDeleteProvider,
+  useTestProviderConnection,
+  useUpdateProvider,
+} from "@/queries/settings";
 
 interface UseApiKeyAutoTestParams {
   providerType: string;
+  providerName?: string;
   apiKey: string;
   baseUrl: string;
+  editing?: {
+    id: string;
+  };
 }
 
 interface UseApiKeyAutoTestReturn {
@@ -19,43 +28,46 @@ interface UseApiKeyAutoTestReturn {
 
 export function useApiKeyAutoTest({
   providerType,
+  providerName,
   apiKey,
   baseUrl,
+  editing,
 }: UseApiKeyAutoTestParams): UseApiKeyAutoTestReturn {
   const [testStatus, setTestStatus] = useState<TestStatus>("idle");
   const [testMessage, setTestMessage] = useState("");
   const [models, setModels] = useState<string[]>([]);
-  const [providerId, setProviderId] = useState<string | null>(null);
+  const [providerId, setProviderId] = useState<string | null>(editing?.id ?? null);
 
   const createProvider = useCreateProvider();
   const testConnection = useTestProviderConnection();
   const deleteProvider = useDeleteProvider();
+  const updateProvider = useUpdateProvider();
 
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const providerIdRef = useRef<string | null>(null);
+  const providerIdRef = useRef<string | null>(editing?.id ?? null);
 
   const reset = useCallback(() => {
     clearTimeout(debounceRef.current);
     setTestStatus("idle");
     setTestMessage("");
     setModels([]);
-    setProviderId(null);
-    providerIdRef.current = null;
-  }, []);
+    setProviderId(editing?.id ?? null);
+    providerIdRef.current = editing?.id ?? null;
+  }, [editing?.id]);
 
   const cleanup = useCallback(() => {
     clearTimeout(debounceRef.current);
     const pid = providerIdRef.current;
-    if (pid) {
+    if (pid && !editing) {
       deleteProvider.mutate(pid);
     }
     reset();
-  }, [deleteProvider, reset]);
+  }, [deleteProvider, editing, reset]);
 
   const runAutoTest = useCallback(async () => {
     const trimmedKey = apiKey.trim();
     const isOllama = providerType === "ollama";
-    if (!trimmedKey && !isOllama) return;
+    if (!trimmedKey && !isOllama && !editing) return;
 
     setTestStatus("testing");
     setTestMessage("");
@@ -64,9 +76,21 @@ export function useApiKeyAutoTest({
     try {
       let pid = providerIdRef.current;
 
-      if (!pid) {
+      if (editing) {
+        pid = editing.id;
+        providerIdRef.current = pid;
+        setProviderId(pid);
+
+        await updateProvider.mutateAsync({
+          id: pid,
+          data: {
+            api_key_env: trimmedKey || undefined,
+            base_url: baseUrl.trim() || undefined,
+          },
+        });
+      } else if (!pid) {
         const created = await createProvider.mutateAsync({
-          name: providerType,
+          name: providerName || providerType,
           api_key_env: trimmedKey || undefined,
           base_url: baseUrl.trim() || undefined,
         });
@@ -89,7 +113,7 @@ export function useApiKeyAutoTest({
       setTestStatus("error");
       setTestMessage(err instanceof Error ? err.message : "Connection failed");
     }
-  }, [providerType, apiKey, baseUrl, createProvider, testConnection]);
+  }, [providerType, providerName, apiKey, baseUrl, editing, createProvider, testConnection, updateProvider]);
 
   const runAutoTestRef = useRef(runAutoTest);
   runAutoTestRef.current = runAutoTest;
@@ -97,7 +121,7 @@ export function useApiKeyAutoTest({
   useEffect(() => {
     const trimmedKey = apiKey.trim();
     const isOllama = providerType === "ollama";
-    if (!trimmedKey && !isOllama) return;
+    if (!trimmedKey && !isOllama && !editing) return;
 
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -105,7 +129,7 @@ export function useApiKeyAutoTest({
     }, 1000);
 
     return () => clearTimeout(debounceRef.current);
-  }, [apiKey, baseUrl, providerType]);
+  }, [apiKey, baseUrl, providerType, editing]);
 
   return { testStatus, testMessage, models, providerId, reset, cleanup };
 }
