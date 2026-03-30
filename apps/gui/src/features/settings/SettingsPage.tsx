@@ -25,7 +25,11 @@ export function Component() {
             onValueChange={(v) => setActiveTab(v as TabValue)}
             className="w-full"
           >
-            <TabsList className="mb-6">
+            <TabsList
+              className="mb-6"
+              aria-label="Settings sections"
+              activateOnFocus={false}
+            >
               <TabsTrigger value="providers">Providers</TabsTrigger>
               <TabsTrigger value="models">Models</TabsTrigger>
             </TabsList>

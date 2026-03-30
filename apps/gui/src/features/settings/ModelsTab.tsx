@@ -63,6 +63,7 @@ function ModelRow({
               size="sm"
               className="h-8 w-8 text-[var(--success-9)] hover:text-[var(--success-9)]"
               onClick={() => onSave(model.id, selectedModel)}
+              aria-label={`Save ${model.provider_name} default model`}
             >
               <Check className="h-4 w-4" />
             </Button>
@@ -71,6 +72,7 @@ function ModelRow({
               size="sm"
               className="h-8 w-8 text-muted"
               onClick={onCancel}
+              aria-label={`Cancel ${model.provider_name} model change`}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -188,6 +190,7 @@ function FallbackChainSection({
                 className="h-6 w-6"
                 onClick={() => move(i, -1)}
                 disabled={!enabled || i === 0}
+                aria-label={`Move ${name} up`}
               >
                 <ChevronUp className="h-3.5 w-3.5" />
               </Button>
@@ -197,6 +200,7 @@ function FallbackChainSection({
                 className="h-6 w-6"
                 onClick={() => move(i, 1)}
                 disabled={!enabled || i === localChain.length - 1}
+                aria-label={`Move ${name} down`}
               >
                 <ChevronDown className="h-3.5 w-3.5" />
               </Button>

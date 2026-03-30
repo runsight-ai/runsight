@@ -145,10 +145,14 @@ function ProviderCard({
               <h3 className="text-base font-medium text-primary">
                 {provider.name}
               </h3>
-              <StatusBadge
-                status={getStatusVariant(provider.status)}
-                label={getStatusLabel(provider.status)}
-              />
+              <div
+                aria-label={`Provider ${provider.name} status ${getStatusLabel(provider.status)}`}
+              >
+                <StatusBadge
+                  status={getStatusVariant(provider.status)}
+                  label={getStatusLabel(provider.status)}
+                />
+              </div>
             </div>
 
             <div className="space-y-2 text-sm">
@@ -197,7 +201,7 @@ function ProviderCard({
           <Switch
             checked={isEnabled}
             onCheckedChange={handleToggle}
-            aria-label={`Toggle ${provider.name}`}
+            aria-label={`Enable ${provider.name} provider`}
           />
           <div className="flex items-center gap-1">
             <Button
@@ -206,6 +210,7 @@ function ProviderCard({
               onClick={handleTest}
               disabled={testStatus === "testing"}
               className="text-xs"
+              aria-label={`Test ${provider.name} connection`}
             >
               {testStatus === "testing" ? (
                 "Testing..."
@@ -228,6 +233,7 @@ function ProviderCard({
               size="sm"
               onClick={() => onEdit(provider)}
               title="Edit provider"
+              aria-label={`Edit ${provider.name} provider`}
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -237,6 +243,7 @@ function ProviderCard({
               onClick={() => onDelete(provider)}
               className="text-[var(--danger-9)] hover:text-[var(--danger-9)]"
               title="Remove provider"
+              aria-label={`Delete ${provider.name} provider`}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
