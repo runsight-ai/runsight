@@ -126,6 +126,64 @@ def test_workflows_put_with_invalid_canvas_mode_422():
     app.dependency_overrides.clear()
 
 
+def test_workflows_post_commit_returns_commit_metadata():
+    mock_service = Mock()
+    mock_service.commit_workflow.return_value = {
+        "hash": "abc123def456",
+        "message": "Save workflow to main",
+    }
+    app.dependency_overrides[get_workflow_service] = lambda: mock_service
+
+    draft = {
+        "yaml": "workflow:\n  name: Updated Flow\n",
+        "canvas_state": {
+            "nodes": [{"id": "node-1", "position": {"x": 10, "y": 20}}],
+            "edges": [],
+            "viewport": {"x": 1, "y": 2, "zoom": 0.75},
+            "selected_node_id": "node-1",
+            "canvas_mode": "dag",
+        },
+        "message": "Save workflow to main",
+    }
+
+    response = client.post("/api/workflows/wf_1/commits", json=draft)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "hash": "abc123def456",
+        "message": "Save workflow to main",
+    }
+    mock_service.commit_workflow.assert_called_once_with(
+        "wf_1",
+        {
+            "yaml": "workflow:\n  name: Updated Flow\n",
+            "canvas_state": {
+                "nodes": [{"id": "node-1", "position": {"x": 10, "y": 20}}],
+                "edges": [],
+                "viewport": {"x": 1, "y": 2, "zoom": 0.75},
+                "selected_node_id": "node-1",
+                "canvas_mode": "dag",
+            },
+        },
+        "Save workflow to main",
+    )
+    app.dependency_overrides.clear()
+
+
+def test_workflows_post_commit_requires_commit_message():
+    mock_service = Mock()
+    app.dependency_overrides[get_workflow_service] = lambda: mock_service
+
+    response = client.post(
+        "/api/workflows/wf_1/commits",
+        json={"yaml": "workflow:\n  name: Updated Flow\n"},
+    )
+
+    assert response.status_code == 422
+    mock_service.commit_workflow.assert_not_called()
+    app.dependency_overrides.clear()
+
+
 def test_workflows_delete():
     mock_service = Mock()
     mock_service.delete_workflow.return_value = True

@@ -168,6 +168,74 @@ def test_update_workflow_not_found(workflow_service, workflow_repo):
     assert "wf_missing" in str(exc_info.value)
 
 
+# --- commit_workflow ---
+
+
+def test_commit_workflow_writes_current_state_and_returns_commit_metadata(workflow_repo):
+    """commit_workflow writes the draft payload, commits it to main, and returns commit metadata."""
+    git_service = Mock()
+    git_service.commit_to_branch.return_value = "abc123def456"
+    saved = WorkflowEntity(
+        id="wf_1",
+        name="Updated Flow",
+        yaml="workflow:\n  name: Updated Flow\n",
+        canvas_state={
+            "nodes": [{"id": "node-1"}],
+            "edges": [],
+            "viewport": {"x": 1, "y": 2, "zoom": 0.75},
+            "selected_node_id": "node-1",
+            "canvas_mode": "dag",
+        },
+    )
+    workflow_repo.update.return_value = saved
+
+    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+
+    draft = {
+        "yaml": "workflow:\n  name: Updated Flow\n",
+        "canvas_state": {
+            "nodes": [{"id": "node-1"}],
+            "edges": [],
+            "viewport": {"x": 1, "y": 2, "zoom": 0.75},
+            "selected_node_id": "node-1",
+            "canvas_mode": "dag",
+        },
+    }
+
+    result = workflow_service.commit_workflow("wf_1", draft, "Save workflow to main")
+
+    assert result == {"hash": "abc123def456", "message": "Save workflow to main"}
+    workflow_repo.update.assert_called_once_with("wf_1", draft)
+    git_service.commit_to_branch.assert_called_once_with(
+        "main",
+        [
+            "custom/workflows/wf_1.yaml",
+            "custom/workflows/.canvas/wf_1.canvas.json",
+        ],
+        "Save workflow to main",
+    )
+
+
+def test_commit_workflow_stages_only_workflow_owned_files(workflow_repo):
+    """commit_workflow must not stage unrelated worktree changes during an explicit save."""
+    git_service = Mock()
+    git_service.commit_to_branch.return_value = "abc123def456"
+    workflow_repo.update.return_value = WorkflowEntity(id="wf_1", name="Updated Flow")
+
+    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+
+    workflow_service.commit_workflow(
+        "wf_1",
+        {"yaml": "workflow:\n  name: Updated Flow\n"},
+        "Save workflow to main",
+    )
+
+    _, files, _ = git_service.commit_to_branch.call_args.args
+    assert files == ["custom/workflows/wf_1.yaml"]
+    assert "README.md" not in files
+    assert ".env" not in files
+
+
 # --- delete_workflow ---
 
 
