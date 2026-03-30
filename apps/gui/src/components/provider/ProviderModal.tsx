@@ -125,8 +125,9 @@ export function ProviderModal({
   const handleSave = useCallback(() => {
     if (testStatus !== "success" || !providerId) return;
     onSaveSuccess?.(providerId);
+    reset();
     onOpenChange(false);
-  }, [onOpenChange, onSaveSuccess, providerId, testStatus]);
+  }, [onOpenChange, onSaveSuccess, providerId, reset, testStatus]);
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen ? handleClose() : onOpenChange(nextOpen)}>
