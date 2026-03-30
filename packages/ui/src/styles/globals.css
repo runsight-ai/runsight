@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* Ensure Tailwind v4 scans UI component source files for class detection */
+@source "../components";
+
 /* ========================================
    FONT LOADING
    ======================================== */
