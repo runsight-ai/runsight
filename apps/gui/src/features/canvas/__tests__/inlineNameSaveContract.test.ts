@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   stateValues: [] as unknown[],
   stateCursor: 0,
-  updateWorkflowMutate: vi.fn(),
 }));
 
 vi.mock("react", async () => {
@@ -38,7 +37,7 @@ vi.mock("react", async () => {
 
 vi.mock("@/queries/workflows", () => ({
   useWorkflow: () => ({ data: { name: "Example Workflow" } }),
-  useUpdateWorkflow: () => ({ mutate: mocks.updateWorkflowMutate }),
+  useUpdateWorkflow: () => ({ mutate: vi.fn() }),
 }));
 
 vi.mock("@/queries/runs", () => ({
@@ -78,7 +77,7 @@ vi.mock("lucide-react", () => ({
 
 const { CanvasTopbar } = await import("../CanvasTopbar");
 
-function renderTopbar() {
+function renderTopbar(onSave = vi.fn()) {
   mocks.stateCursor = 0;
 
   return CanvasTopbar({
@@ -86,6 +85,7 @@ function renderTopbar() {
     activeTab: "yaml",
     onValueChange: vi.fn(),
     isDirty: true,
+    onSave,
   });
 }
 
@@ -130,12 +130,12 @@ function findElement(
 beforeEach(() => {
   mocks.stateValues.length = 0;
   mocks.stateCursor = 0;
-  mocks.updateWorkflowMutate.mockReset();
 });
 
 describe("CanvasTopbar inline rename save contract (RUN-424)", () => {
-  it("keeps a blurred inline name edit local until the explicit Save action", () => {
-    const initialTree = renderTopbar();
+  it("does not trigger the explicit production save path when a blurred inline rename completes", () => {
+    const onSave = vi.fn();
+    const initialTree = renderTopbar(onSave);
     const workflowName = findElement(
       initialTree,
       (element) => element.type === "span" && textContent(element.props.children) === "Example Workflow",
@@ -157,11 +157,12 @@ describe("CanvasTopbar inline rename save contract (RUN-424)", () => {
 
     editedInput?.props.onBlur?.();
 
-    expect(mocks.updateWorkflowMutate).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("keeps the Enter key path local until the explicit Save action", () => {
-    const initialTree = renderTopbar();
+  it("does not trigger the explicit production save path when inline rename is confirmed with Enter", () => {
+    const onSave = vi.fn();
+    const initialTree = renderTopbar(onSave);
     const workflowName = findElement(
       initialTree,
       (element) => element.type === "span" && textContent(element.props.children) === "Example Workflow",
@@ -183,6 +184,6 @@ describe("CanvasTopbar inline rename save contract (RUN-424)", () => {
 
     editedInput?.props.onKeyDown?.({ key: "Enter" });
 
-    expect(mocks.updateWorkflowMutate).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
   });
 });
