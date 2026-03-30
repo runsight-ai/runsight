@@ -9,9 +9,10 @@ from ...domain.value_objects import SoulEntity, WorkflowEntity
 
 
 class SoulService:
-    def __init__(self, soul_repo: SoulRepository, git_service=None):
+    def __init__(self, soul_repo: SoulRepository, git_service=None, workflow_repo=None):
         self.soul_repo = soul_repo
         self.git_service = git_service
+        self.workflow_repo = workflow_repo
 
     @staticmethod
     def _soul_file_path(id: str) -> str:
@@ -38,6 +39,9 @@ class SoulService:
                     soul_ids.append(soul_id)
         return soul_ids
 
+    def _resolve_workflow_repo(self, workflow_repo=None):
+        return workflow_repo or self.workflow_repo
+
     def list_souls(self, query: Optional[str] = None, workflow_repo=None) -> List[SoulEntity]:
         souls = self.soul_repo.list_all()
         if query:
@@ -45,6 +49,7 @@ class SoulService:
             souls = [
                 s for s in souls if query in s.id.lower() or (s.role and query in s.role.lower())
             ]
+        workflow_repo = self._resolve_workflow_repo(workflow_repo)
         if workflow_repo:
             counts = self._compute_workflow_counts(souls, workflow_repo)
             souls = [
@@ -55,16 +60,19 @@ class SoulService:
     def get_soul(self, id: str) -> Optional[SoulEntity]:
         return self.soul_repo.get_by_id(id)
 
-    def get_soul_usages(self, id: str, workflow_repo) -> List[Dict[str, Optional[str]]]:
+    def get_soul_usages(self, id: str, workflow_repo=None) -> List[Dict[str, Optional[str]]]:
         soul = self.get_soul(id)
         if not soul:
             raise SoulNotFound(f"Soul {id} not found")
+        workflow_repo = self._resolve_workflow_repo(workflow_repo)
         return self._get_workflow_soul_refs(id, workflow_repo)
 
     def _get_workflow_soul_refs(
         self, soul_id: str, workflow_repo
     ) -> List[Dict[str, Optional[str]]]:
         usages: List[Dict[str, Optional[str]]] = []
+        if not workflow_repo:
+            return usages
         for workflow in workflow_repo.list_all():
             if soul_id in self._extract_workflow_soul_ids(workflow):
                 usages.append({"workflow_id": workflow.id, "workflow_name": workflow.name})
@@ -73,6 +81,8 @@ class SoulService:
     def _compute_workflow_counts(self, souls: List[SoulEntity], workflow_repo) -> Dict[str, int]:
         counts = {soul.id: 0 for soul in souls}
         if not counts:
+            return counts
+        if not workflow_repo:
             return counts
 
         for workflow in workflow_repo.list_all():
@@ -114,6 +124,7 @@ class SoulService:
         if not soul:
             raise SoulNotFound(f"Soul {id} not found")
 
+        workflow_repo = self._resolve_workflow_repo(workflow_repo)
         if workflow_repo and not force:
             usages = self._get_workflow_soul_refs(id, workflow_repo)
             if usages:

@@ -21,9 +21,8 @@ async def list_souls(
     offset: int = 0,
     limit: int = 50,
     service: SoulService = Depends(get_soul_service),
-    workflow_repo=Depends(get_workflow_repo),
 ):
-    souls = service.list_souls(query=q, workflow_repo=workflow_repo)
+    souls = service.list_souls(query=q)
     items = souls[offset : offset + limit]
     response_items = [SoulResponse(**s.model_dump()) for s in items]
     return SoulListResponse(items=response_items, total=len(souls))
@@ -33,9 +32,8 @@ async def list_souls(
 async def get_soul_usages(
     id: str,
     service: SoulService = Depends(get_soul_service),
-    workflow_repo=Depends(get_workflow_repo),
 ):
-    usages = service.get_soul_usages(id, workflow_repo)
+    usages = service.get_soul_usages(id)
     return SoulUsageResponse(soul_id=id, usages=usages, total=len(usages))
 
 
