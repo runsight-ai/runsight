@@ -6,7 +6,8 @@ from pydantic import BaseModel
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
 from ...domain.errors import ProviderNotFound
 from ...logic.services.provider_service import ProviderService
-from ..deps import get_provider_service, get_settings_repo
+from ...logic.services.settings_service import SettingsService
+from ..deps import get_provider_service, get_settings_repo, get_settings_service
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -145,8 +146,11 @@ async def test_provider(
 
 
 @router.get("/models")
-async def list_model_defaults():
-    return {"items": [], "total": 0}
+async def list_model_defaults(
+    service: SettingsService = Depends(get_settings_service),
+):
+    items = service.get_model_defaults()
+    return {"items": items, "total": len(items)}
 
 
 @router.put("/models/{model_id}")
