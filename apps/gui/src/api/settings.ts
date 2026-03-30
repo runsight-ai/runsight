@@ -51,6 +51,7 @@ export type UpdateBudget = Partial<Budget>;
 
 const AppSettingsSchema = z.object({
   onboarding_completed: z.boolean().optional(),
+  fallback_chain_enabled: z.boolean().optional(),
 }).passthrough();
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
 

@@ -1,11 +1,14 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import {
+  useAppSettings,
   useModelDefaults,
   useProviders,
+  useUpdateAppSettings,
   useUpdateModelDefault,
 } from "@/queries/settings";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { Button } from "@runsight/ui/button";
+import { Switch } from "@runsight/ui/switch";
 import {
   Select,
   SelectContent,
@@ -79,9 +82,11 @@ function ModelRow({
 }
 
 function FallbackChainSection({
+  enabled,
   modelDefaults,
   onReorder,
 }: {
+  enabled: boolean;
   modelDefaults: ModelDefault[];
   onReorder: (id: string, chain: string[]) => void;
 }) {
@@ -100,6 +105,7 @@ function FallbackChainSection({
   }, [primary, primaryFallbackChain, hasChanges]);
 
   const move = (index: number, direction: 1 | -1) => {
+    if (!enabled) return;
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= localChain.length) return;
     const next = [...localChain];
@@ -147,6 +153,7 @@ function FallbackChainSection({
               size="sm"
               className="h-7 text-xs"
               onClick={handleSave}
+              disabled={!enabled}
             >
               Save order
             </Button>
@@ -155,13 +162,20 @@ function FallbackChainSection({
               size="sm"
               className="h-7 text-xs"
               onClick={handleCancel}
+              disabled={!enabled}
             >
               Cancel
             </Button>
           </div>
         )}
       </div>
-      <ul className="space-y-2">
+      <ul
+        className={
+          enabled
+            ? "space-y-2"
+            : "space-y-2 opacity-50 pointer-events-none"
+        }
+      >
         {localChain.map((name, i) => (
           <li
             key={`${name}-${i}`}
@@ -173,7 +187,7 @@ function FallbackChainSection({
                 size="sm"
                 className="h-6 w-6"
                 onClick={() => move(i, -1)}
-                disabled={i === 0}
+                disabled={!enabled || i === 0}
               >
                 <ChevronUp className="h-3.5 w-3.5" />
               </Button>
@@ -182,7 +196,7 @@ function FallbackChainSection({
                 size="sm"
                 className="h-6 w-6"
                 onClick={() => move(i, 1)}
-                disabled={i === localChain.length - 1}
+                disabled={!enabled || i === localChain.length - 1}
               >
                 <ChevronDown className="h-3.5 w-3.5" />
               </Button>
@@ -198,9 +212,12 @@ function FallbackChainSection({
 export function ModelsTab() {
   const { data, isLoading } = useModelDefaults();
   const { data: providersData } = useProviders();
+  const { data: appSettings } = useAppSettings();
   const updateModelDefault = useUpdateModelDefault();
+  const updateAppSettings = useUpdateAppSettings();
   const modelDefaults = data?.items ?? [];
   const providers = useMemo(() => providersData?.items ?? [], [providersData?.items]);
+  const fallbackChainEnabled = appSettings?.fallback_chain_enabled ?? true;
 
   const getProviderModels = useCallback(
     (providerId: string) => {
@@ -284,16 +301,27 @@ export function ModelsTab() {
           </section>
 
           <section className="rounded-lg border border-border-default bg-surface-secondary p-5">
-            <div className="mb-4">
-              <h3 className="text-base font-medium text-primary">
-                Fallback Chain
-              </h3>
-              <p className="mt-1 text-sm text-muted">
-                When the primary model fails (rate limit, error), the system
-                retries with the next model in chain.
-              </p>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-medium text-primary">
+                  Fallback Chain
+                </h3>
+                <p className="mt-1 text-sm text-muted">
+                  When the primary model fails (rate limit, error), the system
+                  retries with the next model in chain.
+                </p>
+              </div>
+              <Switch
+                checked={fallbackChainEnabled}
+                onCheckedChange={(checked) =>
+                  updateAppSettings.mutateAsync({ fallback_chain_enabled: checked })
+                }
+                aria-label="Enable fallback chain"
+                disabled={updateAppSettings.isPending}
+              />
             </div>
             <FallbackChainSection
+              enabled={fallbackChainEnabled}
               modelDefaults={modelDefaults}
               onReorder={handleReorderChain}
             />
