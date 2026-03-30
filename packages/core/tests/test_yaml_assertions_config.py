@@ -1,20 +1,87 @@
-"""Red tests for RUN-315: YAML schema extension for assertion configs.
+"""Red tests for RUN-346: block-level assertion wiring in core parsing/runtime."""
 
-Tests target new `assertions` fields on:
-  - SoulDef (YAML schema)
-  - Soul (core primitives)
-  - BaseBlockDef (YAML schema)
+from runsight_core.blocks.base import BaseBlock
+from runsight_core.primitives import Soul
+from runsight_core.state import WorkflowState
+from runsight_core.yaml.parser import parse_workflow_yaml
 
-And propagation of soul-level + block-level assertions into an
-assertion_configs dict keyed by block_id.
-
-All tests should FAIL until the implementation exists.
+YAML_BLOCK_WITH_ASSERTIONS = """\
+version: "1.0"
+config:
+  model_name: gpt-4o
+souls:
+  analyst:
+    id: analyst_v1
+    role: Analyst
+    system_prompt: Analyze the data.
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+    assertions:
+      - type: contains
+        value: analysis
+      - type: cost
+        threshold: 0.02
+workflow:
+  name: block_assertions
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null
 """
 
 
-# ---------------------------------------------------------------------------
-# 1. SoulDef accepts assertions field
-# ---------------------------------------------------------------------------
+YAML_BLOCK_WITHOUT_ASSERTIONS = """\
+version: "1.0"
+config:
+  model_name: gpt-4o
+souls:
+  analyst:
+    id: analyst_v1
+    role: Analyst
+    system_prompt: Analyze the data.
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+workflow:
+  name: block_without_assertions
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null
+"""
+
+
+YAML_SOUL_ONLY_ASSERTIONS = """\
+version: "1.0"
+config:
+  model_name: gpt-4o
+souls:
+  analyst:
+    id: analyst_v1
+    role: Analyst
+    system_prompt: Analyze the data.
+    assertions:
+      - type: contains
+        value: analysis
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+workflow:
+  name: soul_only_assertions
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null
+"""
+
+
+class DummyBlock(BaseBlock):
+    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+        return state
 
 
 class TestSoulDefAssertions:
@@ -47,16 +114,9 @@ class TestSoulDefAssertions:
         assert soul_def.assertions is None
 
 
-# ---------------------------------------------------------------------------
-# 2. Soul (core primitives) accepts assertions field
-# ---------------------------------------------------------------------------
-
-
 class TestSoulAssertions:
     def test_soul_accepts_assertions_field(self):
         """Soul model can be instantiated with an assertions field."""
-        from runsight_core.primitives import Soul
-
         soul = Soul(
             id="researcher_v1",
             role="Senior Researcher",
@@ -71,8 +131,6 @@ class TestSoulAssertions:
 
     def test_soul_assertions_defaults_to_none(self):
         """Soul.assertions defaults to None when not provided."""
-        from runsight_core.primitives import Soul
-
         soul = Soul(
             id="researcher_v1",
             role="Senior Researcher",
@@ -80,11 +138,6 @@ class TestSoulAssertions:
             model_name="gpt-4o",
         )
         assert soul.assertions is None
-
-
-# ---------------------------------------------------------------------------
-# 3. BaseBlockDef accepts assertions field
-# ---------------------------------------------------------------------------
 
 
 class TestBaseBlockDefAssertions:
@@ -110,47 +163,55 @@ class TestBaseBlockDefAssertions:
         assert block_def.assertions is None
 
 
-# ---------------------------------------------------------------------------
-# 4. Assertions propagation from soul+block to assertion_configs
-# ---------------------------------------------------------------------------
+class TestBaseBlockAssertionsAttribute:
+    """BaseBlock runtime instances must expose block-owned assertions."""
+
+    def test_base_block_has_assertions_attribute(self):
+        """BaseBlock should initialize a runtime assertions attribute."""
+        block = DummyBlock("b1")
+        assert hasattr(block, "assertions")
+
+    def test_base_block_assertions_default_none(self):
+        """Runtime blocks default assertions to None before parser bridging."""
+        block = DummyBlock("b1")
+        assert hasattr(block, "assertions")
+        assert block.assertions is None
 
 
 class TestAssertionConfigsPropagation:
-    def test_parser_propagates_soul_assertions(self):
-        """Parser extracts soul-level assertions into assertion_configs dict.
+    """Parser should bridge block assertions onto the built runtime block."""
 
-        When a soul has assertions and a block uses that soul, the block_id
-        should appear in the assertion_configs with the soul's assertions.
-        """
-        # This test validates the contract that somewhere in the parse pipeline,
-        # soul.assertions get collected into a dict[block_id, list[config]].
-        # The exact mechanism (parser helper, service layer, etc.) is an
-        # implementation detail, but the Soul must carry the data.
-        from runsight_core.primitives import Soul
+    def test_parser_bridges_block_assertions_to_runtime_block(self):
+        """Parsed runtime block exposes block_def.assertions after build."""
+        wf = parse_workflow_yaml(YAML_BLOCK_WITH_ASSERTIONS)
 
-        soul = Soul(
-            id="analyst",
-            role="Analyst",
-            system_prompt="Analyze data.",
-            model_name="gpt-4o",
-            assertions=[
-                {"type": "contains", "value": "analysis"},
-                {"type": "cost", "threshold": 0.02},
-            ],
-        )
-        # Soul should carry the assertions for downstream consumption
-        assert soul.assertions is not None
-        assert len(soul.assertions) == 2
-        assert soul.assertions[0]["type"] == "contains"
-        assert soul.assertions[1]["type"] == "cost"
-
-    def test_block_level_assertions_accessible(self):
-        """Block-level assertions are accessible on the block def."""
-        from runsight_core.yaml.schema import BaseBlockDef
-
-        block = BaseBlockDef(
-            type="linear",
-            assertions=[{"type": "is-json"}],
-        )
+        block = wf._blocks["analyze"]
         assert block.assertions is not None
-        assert block.assertions[0]["type"] == "is-json"
+        assert len(block.assertions) == 2
+
+    def test_parser_preserves_block_assertion_fields(self):
+        """Bridged block assertions retain the YAML config fields."""
+        wf = parse_workflow_yaml(YAML_BLOCK_WITH_ASSERTIONS)
+
+        block = wf._blocks["analyze"]
+        assert block.assertions is not None
+        assert block.assertions[0]["type"] == "contains"
+        assert block.assertions[0]["value"] == "analysis"
+        assert block.assertions[1]["type"] == "cost"
+        assert block.assertions[1]["threshold"] == 0.02
+
+    def test_parser_leaves_runtime_block_assertions_none_when_omitted(self):
+        """Blocks without YAML assertions still expose assertions=None."""
+        wf = parse_workflow_yaml(YAML_BLOCK_WITHOUT_ASSERTIONS)
+
+        block = wf._blocks["analyze"]
+        assert hasattr(block, "assertions")
+        assert block.assertions is None
+
+    def test_parser_does_not_source_runtime_block_assertions_from_soul(self):
+        """Soul assertions alone should not populate block.assertions."""
+        wf = parse_workflow_yaml(YAML_SOUL_ONLY_ASSERTIONS)
+
+        block = wf._blocks["analyze"]
+        assert hasattr(block, "assertions")
+        assert block.assertions is None
