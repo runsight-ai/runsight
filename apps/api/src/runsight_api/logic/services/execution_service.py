@@ -158,16 +158,14 @@ class ExecutionService:
 
             workflow_path = str(self.workflow_repo._get_path(workflow_id))
 
-            # Branch-aware YAML reading
-            if branch != "main" and self.git_service:
+            # When Git is configured, always load the workflow from the requested
+            # branch snapshot instead of the working tree copy.
+            if self.git_service:
                 yaml_content = self.git_service.read_file(workflow_path, branch)
                 commit_sha = self.git_service.get_sha(branch, workflow_path)
             else:
                 yaml_content = wf_entity.yaml
-                if self.git_service:
-                    commit_sha = self.git_service.get_sha("main", workflow_path)
-                else:
-                    commit_sha = self._get_workflow_commit_sha(workflow_path)
+                commit_sha = self._get_workflow_commit_sha(workflow_path)
 
             # Resolve API keys: provider repo -> env var fallback
             api_keys = self._resolve_api_keys()

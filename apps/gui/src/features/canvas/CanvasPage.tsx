@@ -73,7 +73,7 @@ export function Component() {
       const yamlContent = useCanvasStore.getState().yamlContent;
       const simResult = await gitApi.createSimBranch(id!, yamlContent);
       createRun.mutate(
-        { workflow_id: id!, source: "sim", branch: simResult.branch },
+        { workflow_id: id!, source: "simulation", branch: simResult.branch },
         { onSuccess: (result) => setActiveRunId(result.id) },
       );
     } else {
@@ -105,6 +105,24 @@ export function Component() {
     },
     [queryClient, saveAndRun, handleRun],
   );
+
+  const canvasStoreState = useCanvasStore.getState();
+  const currentCanvasState =
+    typeof canvasStoreState.toPersistedState === "function"
+      ? canvasStoreState.toPersistedState()
+      : undefined;
+  const currentDraft = {
+    yaml: canvasStoreState.yamlContent,
+    canvas_state: currentCanvasState as Record<string, unknown> | undefined,
+  };
+  const currentFiles = [{ path: `custom/workflows/${id!}.yaml`, status: "modified" }];
+
+  if (currentCanvasState) {
+    currentFiles.push({
+      path: `custom/workflows/.canvas/${id!}.canvas.json`,
+      status: "modified",
+    });
+  }
 
   return (
     <div
@@ -181,7 +199,14 @@ export function Component() {
         saveAndRun={saveAndRun}
       />
 
-      <CommitDialog open={commitDialogOpen} onOpenChange={setCommitDialogOpen} files={[]} onCommitSuccess={() => setIsDirty(false)} />
+      <CommitDialog
+        open={commitDialogOpen}
+        onOpenChange={setCommitDialogOpen}
+        files={currentFiles}
+        workflowId={id!}
+        draft={currentDraft}
+        onCommitSuccess={() => setIsDirty(false)}
+      />
     </div>
   );
 }

@@ -1,287 +1,276 @@
-/**
- * RED-TEAM tests for RUN-424: Save button opens commit modal (ADR-001).
- *
- * ADR-001: Save = commit to main via commit modal. Current code has
- * handleSave calling updateWorkflow.mutate() directly (PUT to disk,
- * no modal). The fix is to change handleSave to open CommitDialog
- * instead.
- *
- * AC1: handleSave sets commitDialogOpen = true (not PUT)
- * AC2: handleSave does NOT call updateWorkflow.mutate
- * AC3: Cmd+S opens commit modal (same path as Save button)
- * AC4: CommitDialog accepts onCommitSuccess callback to reset isDirty
- * AC5: CanvasPage passes isDirty-reset callback to CommitDialog
- * AC6: After commit, isDirty resets to false
- *
- * Expected failures (current state):
- *   - handleSave calls updateWorkflow.mutate({ id, data: { yaml } }) (AC1, AC2 fail)
- *   - handleSave does NOT set commitDialogOpen = true (AC1 fails)
- *   - CommitDialog has no onCommitSuccess prop (AC4 fails)
- *   - CanvasPage does not pass onCommitSuccess to CommitDialog (AC5 fails)
- *   - isDirty reset is tied to PUT onSuccess, not to commit flow (AC6 fails)
- */
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+const mocks = vi.hoisted(() => {
+  const stateValues: unknown[] = [];
+  const canvasStoreState = {
+    setActiveRunId: vi.fn(),
+    blockCount: 3,
+    edgeCount: 2,
+    yamlContent: "workflow:\n  name: Test Flow\n",
+  };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+  const useCanvasStore = ((selector: (store: typeof canvasStoreState) => unknown) =>
+    selector(canvasStoreState)) as {
+    (selector: (store: typeof canvasStoreState) => unknown): unknown;
+    getState: () => typeof canvasStoreState;
+  };
 
-const SRC_DIR = resolve(__dirname, "../../..");
+  useCanvasStore.getState = () => canvasStoreState;
 
-function readSource(relativePath: string): string {
-  return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
+  return {
+    stateValues,
+    stateCursor: 0,
+    topbarProps: [] as Array<Record<string, unknown>>,
+    yamlEditorProps: [] as Array<Record<string, unknown>>,
+    commitDialogProps: [] as Array<Record<string, unknown>>,
+    buttonProps: [] as Array<Record<string, unknown>>,
+    blocker: {
+      state: "unblocked",
+      proceed: vi.fn(),
+      reset: vi.fn(),
+    },
+    queryClient: {
+      invalidateQueries: vi.fn(),
+    },
+    updateWorkflowMutate: vi.fn(),
+    createRunMutate: vi.fn(),
+    createSimBranch: vi.fn(),
+    canvasStoreState,
+    useCanvasStore,
+  };
+});
+
+vi.mock("react", async () => {
+  const actual = await vi.importActual<typeof React>("react");
+
+  return {
+    ...actual,
+    useState: <T,>(initial: T | (() => T)) => {
+      const index = mocks.stateCursor++;
+
+      if (!(index in mocks.stateValues)) {
+        mocks.stateValues[index] =
+          typeof initial === "function" ? (initial as () => T)() : initial;
+      }
+
+      const setState = (value: T | ((previous: T) => T)) => {
+        const previous = mocks.stateValues[index] as T;
+        mocks.stateValues[index] =
+          typeof value === "function"
+            ? (value as (previous: T) => T)(previous)
+            : value;
+      };
+
+      return [mocks.stateValues[index] as T, setState] as const;
+    },
+    useCallback: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+    useRef: <T,>(initial: T) => ({ current: initial }),
+  };
+});
+
+vi.mock("react-router", () => ({
+  useParams: () => ({ id: "wf_1" }),
+  useBlocker: () => mocks.blocker,
+}));
+
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => mocks.queryClient,
+}));
+
+vi.mock("../CanvasTopbar", () => ({
+  CanvasTopbar: (props: Record<string, unknown>) => {
+    mocks.topbarProps.push(props);
+    return React.createElement("canvas-topbar");
+  },
+}));
+
+vi.mock("../YamlEditor", () => ({
+  YamlEditor: (props: Record<string, unknown>) => {
+    mocks.yamlEditorProps.push(props);
+    return React.createElement("yaml-editor");
+  },
+}));
+
+vi.mock("@/features/git/CommitDialog", () => ({
+  CommitDialog: (props: Record<string, unknown>) => {
+    mocks.commitDialogProps.push(props);
+    return React.createElement("commit-dialog");
+  },
+}));
+
+vi.mock("@runsight/ui/dialog", () => ({
+  Dialog: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
+    open ? React.createElement(React.Fragment, null, children) : null,
+  DialogContent: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", null, children),
+  DialogTitle: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("h2", null, children),
+  DialogFooter: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", null, children),
+}));
+
+vi.mock("@runsight/ui/button", () => ({
+  Button: (props: Record<string, unknown>) => {
+    mocks.buttonProps.push(props);
+    return React.createElement("button", { type: "button" }, props.children);
+  },
+}));
+
+vi.mock("@runsight/ui/empty-state", () => ({
+  EmptyState: () => React.createElement("div", null, "Empty State"),
+}));
+
+vi.mock("../UncommittedBanner", () => ({
+  UncommittedBanner: () => React.createElement("div", null, "Uncommitted"),
+}));
+
+vi.mock("../CanvasStatusBar", () => ({
+  CanvasStatusBar: () => React.createElement("div", null, "Status"),
+}));
+
+vi.mock("../CanvasBottomPanel", () => ({
+  CanvasBottomPanel: () => React.createElement("div", null, "Bottom Panel"),
+}));
+
+vi.mock("../FirstTimeTooltip", () => ({
+  FirstTimeTooltip: () => React.createElement("div", null, "Tooltip"),
+}));
+
+vi.mock("../PaletteSidebar", () => ({
+  PaletteSidebar: () => React.createElement("div", null, "Sidebar"),
+}));
+
+vi.mock("../ExploreBanner", () => ({
+  ExploreBanner: () => React.createElement("div", null, "Explore"),
+}));
+
+vi.mock("@/features/setup/ApiKeyModal", () => ({
+  ApiKeyModal: () => React.createElement("div", null, "API Key Modal"),
+}));
+
+vi.mock("@/api/git", () => ({
+  gitApi: {
+    createSimBranch: mocks.createSimBranch,
+  },
+}));
+
+vi.mock("@/queries/workflows", () => ({
+  useUpdateWorkflow: () => ({
+    mutate: mocks.updateWorkflowMutate,
+  }),
+}));
+
+vi.mock("@/queries/runs", () => ({
+  useCreateRun: () => ({
+    mutate: mocks.createRunMutate,
+  }),
+}));
+
+vi.mock("@/store/canvas", () => ({
+  useCanvasStore: mocks.useCanvasStore,
+}));
+
+vi.mock("lucide-react", () => ({
+  Layout: () => React.createElement("span", null, "layout"),
+}));
+
+const { Component: CanvasPage } = await import("../CanvasPage");
+
+function renderPage() {
+  mocks.stateCursor = 0;
+  mocks.topbarProps.length = 0;
+  mocks.yamlEditorProps.length = 0;
+  mocks.commitDialogProps.length = 0;
+  mocks.buttonProps.length = 0;
+
+  renderToStaticMarkup(React.createElement(CanvasPage));
+
+  return {
+    topbar: mocks.topbarProps.at(-1) as { isDirty?: boolean; onSave?: () => void },
+    yamlEditor: mocks.yamlEditorProps.at(-1) as {
+      onDirtyChange?: (dirty: boolean) => void;
+    },
+    commitDialog: mocks.commitDialogProps.at(-1) as {
+      open?: boolean;
+      onCommitSuccess?: () => void;
+    },
+  };
 }
 
-// ---------------------------------------------------------------------------
-// File paths
-// ---------------------------------------------------------------------------
+function findButton(label: string) {
+  return mocks.buttonProps.find((props) =>
+    React.Children.toArray(props.children).some((child) => child === label),
+  ) as { onClick?: () => void } | undefined;
+}
 
-const CANVAS_PAGE_PATH = "features/canvas/CanvasPage.tsx";
-const CANVAS_TOPBAR_PATH = "features/canvas/CanvasTopbar.tsx";
-const COMMIT_DIALOG_PATH = "features/git/CommitDialog.tsx";
-
-// ===========================================================================
-// AC1: handleSave opens CommitDialog (sets commitDialogOpen = true)
-// ===========================================================================
-
-describe("AC1: handleSave opens CommitDialog instead of calling PUT", () => {
-  it("handleSave body contains setCommitDialogOpen(true)", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // Extract the handleSave function body. It should set commitDialogOpen = true.
-    // Match: handleSave = useCallback(() => { ... setCommitDialogOpen(true) ... })
-    // or:   function handleSave() { ... setCommitDialogOpen(true) ... }
-    const handleSaveMatch = source.match(
-      /handleSave\s*=\s*useCallback\(\s*\(\)\s*=>\s*\{([\s\S]*?)\}\s*,/,
-    );
-    expect(
-      handleSaveMatch,
-      "Expected handleSave defined as useCallback in CanvasPage",
-    ).toBeTruthy();
-
-    const handleSaveBody = handleSaveMatch![1];
-    expect(
-      handleSaveBody,
-      "handleSave body must call setCommitDialogOpen(true) to open the commit modal",
-    ).toMatch(/setCommitDialogOpen\s*\(\s*true\s*\)/);
-  });
-
-  it("handleSave does NOT contain updateWorkflow.mutate", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // Extract handleSave body and verify it does NOT call updateWorkflow.mutate
-    const handleSaveMatch = source.match(
-      /handleSave\s*=\s*useCallback\(\s*\(\)\s*=>\s*\{([\s\S]*?)\}\s*,/,
-    );
-    expect(handleSaveMatch).toBeTruthy();
-
-    const handleSaveBody = handleSaveMatch![1];
-    expect(
-      handleSaveBody,
-      "handleSave must NOT call updateWorkflow.mutate — save should open the commit modal, not PUT directly",
-    ).not.toMatch(/updateWorkflow\.mutate/);
-  });
-
-  it("handleSave does NOT read yamlContent from the store", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // If handleSave only opens the modal, it should not need to read yamlContent.
-    // The CommitDialog handles the actual commit flow.
-    const handleSaveMatch = source.match(
-      /handleSave\s*=\s*useCallback\(\s*\(\)\s*=>\s*\{([\s\S]*?)\}\s*,/,
-    );
-    expect(handleSaveMatch).toBeTruthy();
-
-    const handleSaveBody = handleSaveMatch![1];
-    expect(
-      handleSaveBody,
-      "handleSave should not read yamlContent — it only opens the modal",
-    ).not.toMatch(/yamlContent|getState\(\)/);
-  });
+beforeEach(() => {
+  mocks.stateValues.length = 0;
+  mocks.stateCursor = 0;
+  mocks.topbarProps.length = 0;
+  mocks.yamlEditorProps.length = 0;
+  mocks.commitDialogProps.length = 0;
+  mocks.buttonProps.length = 0;
+  mocks.blocker.state = "unblocked";
+  mocks.blocker.proceed.mockReset();
+  mocks.blocker.reset.mockReset();
+  mocks.queryClient.invalidateQueries.mockReset();
+  mocks.updateWorkflowMutate.mockReset();
+  mocks.createRunMutate.mockReset();
+  mocks.createSimBranch.mockReset();
+  mocks.canvasStoreState.setActiveRunId.mockReset();
 });
 
-// ===========================================================================
-// AC2: handleSave does NOT call updateWorkflow.mutate anywhere in its flow
-// ===========================================================================
+describe("CanvasPage save flow (RUN-433)", () => {
+  it("opens the commit dialog when the topbar save action runs", () => {
+    const firstRender = renderPage();
 
-describe("AC2: No direct PUT in the save flow", () => {
-  it("handleSave dependency array does NOT include updateWorkflow", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // Extract the useCallback dependency array for handleSave
-    // Pattern: handleSave = useCallback(() => { ... }, [deps])
-    const depMatch = source.match(
-      /handleSave\s*=\s*useCallback\(\s*\(\)\s*=>\s*\{[\s\S]*?\}\s*,\s*\[([\s\S]*?)\]\s*\)/,
+    expect(firstRender.commitDialog.open).toBe(false);
+
+    firstRender.topbar.onSave?.();
+
+    const secondRender = renderPage();
+
+    expect(secondRender.commitDialog.open).toBe(true);
+    expect(mocks.updateWorkflowMutate).not.toHaveBeenCalled();
+  });
+
+  it("clears the dirty save cue after a successful commit", () => {
+    const firstRender = renderPage();
+
+    firstRender.yamlEditor.onDirtyChange?.(true);
+
+    const dirtyRender = renderPage();
+    expect(dirtyRender.topbar.isDirty).toBe(true);
+
+    dirtyRender.commitDialog.onCommitSuccess?.();
+
+    const cleanRender = renderPage();
+    expect(cleanRender.topbar.isDirty).toBe(false);
+  });
+
+  it("uses the inline workflow save only for Save & Leave when navigation is blocked", () => {
+    const firstRender = renderPage();
+    firstRender.yamlEditor.onDirtyChange?.(true);
+    renderPage();
+
+    mocks.blocker.state = "blocked";
+    renderPage();
+
+    const saveAndLeaveButton = findButton("Save & Leave");
+
+    expect(saveAndLeaveButton?.onClick).toBeTypeOf("function");
+
+    saveAndLeaveButton?.onClick?.();
+
+    expect(mocks.updateWorkflowMutate).toHaveBeenCalledWith(
+      {
+        id: "wf_1",
+        data: { yaml: mocks.canvasStoreState.yamlContent },
+      },
+      { onSuccess: expect.any(Function) },
     );
-    expect(depMatch, "Expected handleSave with useCallback and dependency array").toBeTruthy();
-
-    const deps = depMatch![1];
-    expect(
-      deps,
-      "handleSave deps should NOT include updateWorkflow — it no longer calls mutate",
-    ).not.toMatch(/updateWorkflow/);
-  });
-
-  it("handleSave dependency array does NOT include id (not needed for opening modal)", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    const depMatch = source.match(
-      /handleSave\s*=\s*useCallback\(\s*\(\)\s*=>\s*\{[\s\S]*?\}\s*,\s*\[([\s\S]*?)\]\s*\)/,
-    );
-    expect(depMatch).toBeTruthy();
-
-    const deps = depMatch![1];
-    // Opening a modal doesn't need the workflow id — that's a concern for CommitDialog
-    expect(
-      deps,
-      "handleSave deps should NOT include id — opening a modal has no external deps",
-    ).not.toMatch(/\bid\b/);
-  });
-});
-
-// ===========================================================================
-// AC3: Cmd+S opens commit modal (same path as Save button)
-// ===========================================================================
-
-describe("AC3: Cmd+S opens commit modal", () => {
-  it("CanvasTopbar Cmd+S handler calls onSave (which opens the modal)", () => {
-    const source = readSource(CANVAS_TOPBAR_PATH);
-    // The Cmd+S handler calls onSave?.() which is handleSave from CanvasPage.
-    // This test verifies the handler exists and calls onSave — the fact that
-    // onSave opens the modal is verified in AC1.
-    expect(
-      source,
-      "CanvasTopbar must have a Cmd+S handler that calls onSave",
-    ).toMatch(/onSave\s*\?\.\s*\(\)/);
-  });
-
-  it("CanvasPage passes handleSave (the modal opener) as onSave to CanvasTopbar", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // Verify CanvasPage passes handleSave to the topbar's onSave prop.
-    // Since handleSave now opens the modal, Cmd+S -> onSave -> handleSave -> modal opens.
-    expect(source).toMatch(/<CanvasTopbar[^>]*onSave\s*=\s*\{handleSave\}/);
-  });
-
-  it("Save button onClick calls onSave (same function that opens modal)", () => {
-    const source = readSource(CANVAS_TOPBAR_PATH);
-    // The Save button's onClick should call the same onSave function
-    // Pattern: onClick={onSave} on a Button that contains "Save"
-    expect(source).toMatch(/onClick\s*=\s*\{onSave\}/);
-  });
-});
-
-// ===========================================================================
-// AC4: CommitDialog accepts onCommitSuccess callback
-// ===========================================================================
-
-describe("AC4: CommitDialog accepts onCommitSuccess callback", () => {
-  it("CommitDialogProps interface includes onCommitSuccess", () => {
-    const source = readSource(COMMIT_DIALOG_PATH);
-    // CommitDialog should accept an onCommitSuccess callback so the parent
-    // can react to a successful commit (e.g., reset isDirty).
-    expect(
-      source,
-      "CommitDialogProps must include onCommitSuccess callback",
-    ).toMatch(/onCommitSuccess\s*[?:]?\s*:\s*\(\s*\)\s*=>\s*void/);
-  });
-
-  it("CommitDialog calls onCommitSuccess after successful commit", () => {
-    const source = readSource(COMMIT_DIALOG_PATH);
-    // After commit.mutate succeeds, onCommitSuccess should be called.
-    // Pattern: onSuccess callback that invokes onCommitSuccess
-    expect(
-      source,
-      "CommitDialog must call onCommitSuccess in the commit onSuccess handler",
-    ).toMatch(/onCommitSuccess/);
-  });
-
-  it("CommitDialog destructures onCommitSuccess from props", () => {
-    const source = readSource(COMMIT_DIALOG_PATH);
-    // The component function should destructure onCommitSuccess from its props
-    expect(
-      source,
-      "CommitDialog should destructure onCommitSuccess from props",
-    ).toMatch(/\{\s*[^}]*onCommitSuccess[^}]*\}\s*:\s*CommitDialogProps/);
-  });
-});
-
-// ===========================================================================
-// AC5: CanvasPage passes isDirty-reset callback to CommitDialog
-// ===========================================================================
-
-describe("AC5: CanvasPage passes onCommitSuccess to CommitDialog", () => {
-  it("CommitDialog element receives onCommitSuccess prop", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // CanvasPage renders <CommitDialog ... onCommitSuccess={...} />
-    expect(
-      source,
-      "CanvasPage must pass onCommitSuccess prop to <CommitDialog>",
-    ).toMatch(/<CommitDialog[^>]*\bonCommitSuccess\b/);
-  });
-
-  it("onCommitSuccess callback resets isDirty to false", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // The onCommitSuccess handler should call setIsDirty(false).
-    // Pattern: onCommitSuccess={() => setIsDirty(false)} or a named handler.
-    // We check that somewhere near the CommitDialog rendering, setIsDirty(false)
-    // is connected to onCommitSuccess.
-    const hasResetInCallback =
-      /onCommitSuccess\s*=\s*\{[^}]*setIsDirty\s*\(\s*false\s*\)/.test(source) ||
-      /onCommitSuccess\s*=\s*\{handleCommitSuccess\}/.test(source);
-    expect(
-      hasResetInCallback,
-      "onCommitSuccess must reset isDirty to false after a successful commit",
-    ).toBe(true);
-  });
-});
-
-// ===========================================================================
-// AC6: After commit, isDirty resets (end-to-end path verification)
-// ===========================================================================
-
-describe("AC6: isDirty reset is tied to commit flow, not to PUT", () => {
-  /**
-   * Helper: extract the full handleSave body by counting braces,
-   * so we correctly capture nested callbacks like onSuccess.
-   */
-  function extractHandleSaveBody(source: string): string | null {
-    const marker = source.indexOf("handleSave = useCallback(");
-    if (marker === -1) return null;
-    // Find the opening brace of the arrow body: () => {
-    const arrowIdx = source.indexOf("=> {", marker);
-    if (arrowIdx === -1) return null;
-    const bodyStart = source.indexOf("{", arrowIdx);
-    let depth = 0;
-    let i = bodyStart;
-    for (; i < source.length; i++) {
-      if (source[i] === "{") depth++;
-      if (source[i] === "}") depth--;
-      if (depth === 0) break;
-    }
-    return source.slice(bodyStart + 1, i);
-  }
-
-  it("setIsDirty(false) is NOT inside handleSave", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // In the old code, setIsDirty(false) was in handleSave's onSuccess for PUT.
-    // Now it should NOT be there — it belongs in the commit success path.
-    const body = extractHandleSaveBody(source);
-    expect(body, "Expected handleSave function body to be extractable").toBeTruthy();
-    expect(
-      body!,
-      "setIsDirty(false) must NOT be inside handleSave — it belongs in the commit success flow",
-    ).not.toMatch(/setIsDirty\s*\(\s*false\s*\)/);
-  });
-
-  it("CanvasPage does NOT use updateWorkflow for the save action", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // The handleSave function should no longer use updateWorkflow at all.
-    // updateWorkflow may still exist for name editing (in CanvasTopbar), but
-    // CanvasPage's handleSave should NOT reference it.
-    const body = extractHandleSaveBody(source);
-    expect(body, "Expected handleSave function body to be extractable").toBeTruthy();
-    const hasMutateCall = /\.mutate\s*\(/.test(body!);
-    expect(
-      hasMutateCall,
-      "handleSave should NOT call any .mutate() — the commit modal handles persistence",
-    ).toBe(false);
+    expect(mocks.blocker.proceed).toHaveBeenCalledTimes(1);
   });
 });

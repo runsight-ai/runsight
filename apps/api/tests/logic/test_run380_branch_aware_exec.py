@@ -1,13 +1,11 @@
-"""Red tests for RUN-380: Branch-aware execution — ExecutionService reads YAML from branch.
+"""Regression tests for RUN-380 branch-aware execution behavior.
 
 ExecutionService.launch_execution must:
 1. Accept a ``branch`` parameter (default "main")
-2. When branch != "main", read YAML via GitService.read_file(path, branch)
-3. When branch == "main", read from filesystem (unchanged behavior)
+2. When Git is configured, read YAML via GitService.read_file(path, branch)
+3. ``branch="main"`` must load committed main content, not mutable working-tree YAML
 4. Pass YAML *string* (not file path) to parse_workflow_yaml
 5. Persist ``branch`` + ``commit_sha`` on the Run record
-
-All tests should FAIL until the implementation is wired.
 """
 
 import asyncio
@@ -123,12 +121,11 @@ class TestLaunchAcceptsBranch:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            # Call without branch — should NOT use git_service.read_file
+            # Call without branch — should load committed main from git
             await svc.launch_execution("run_3", "wf_1", {"instruction": "go"})
             await asyncio.sleep(0.05)
 
-            # Default is main -> filesystem read, not git read
-            git_service.read_file.assert_not_called()
+            git_service.read_file.assert_called_once_with("/fake/workflows/test.yaml", "main")
 
 
 # ---------------------------------------------------------------------------
@@ -213,16 +210,16 @@ class TestSimBranchReadsViaGit:
 
 
 # ---------------------------------------------------------------------------
-# 3. Main branch reads from filesystem (unchanged behavior)
+# 3. Main branch reads committed main via Git
 # ---------------------------------------------------------------------------
 
 
-class TestMainBranchFilesystem:
-    """AC: Main branch runs read from filesystem (unchanged behavior)."""
+class TestMainBranchReadsViaGit:
+    """AC: Main branch runs read committed main content via GitService."""
 
     @pytest.mark.asyncio
-    async def test_main_branch_does_not_call_git_read_file(self):
-        """When branch is 'main', GitService.read_file is NOT called."""
+    async def test_main_branch_calls_git_read_file(self):
+        """When branch is 'main', GitService.read_file is called for main."""
         svc, _, _, _, git_service = _make_service()
 
         with patch(
@@ -235,12 +232,14 @@ class TestMainBranchFilesystem:
             await svc.launch_execution("run_main1", "wf_1", {"instruction": "go"}, branch="main")
             await asyncio.sleep(0.05)
 
-            git_service.read_file.assert_not_called()
+            git_service.read_file.assert_called_once_with("/fake/workflows/test.yaml", "main")
 
     @pytest.mark.asyncio
-    async def test_main_branch_uses_workflow_entity_yaml(self):
-        """Main branch uses wf_entity.yaml (filesystem) as YAML source."""
+    async def test_main_branch_uses_git_yaml_not_workflow_entity_yaml(self):
+        """Main branch parses committed main YAML, not mutable workflow entity YAML."""
         svc, _, workflow_repo, _, _ = _make_service()
+        workflow_repo.get_by_id.return_value.yaml = "workflow:\n  name: dirty-working-tree\n"
+        svc.git_service.read_file.return_value = VALID_YAML
 
         with patch(
             "runsight_api.logic.services.execution_service.parse_workflow_yaml"
@@ -255,6 +254,7 @@ class TestMainBranchFilesystem:
             mock_parse.assert_called_once()
             yaml_arg = mock_parse.call_args[0][0]
             assert yaml_arg == VALID_YAML
+            assert yaml_arg != workflow_repo.get_by_id.return_value.yaml
 
 
 # ---------------------------------------------------------------------------

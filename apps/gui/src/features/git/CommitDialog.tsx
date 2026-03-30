@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCommit } from "@/queries/git";
+import { useCommitWorkflow } from "@/queries/git";
 import {
   Dialog,
   DialogContent,
@@ -20,22 +20,45 @@ interface CommitDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   files: FileStatus[];
+  workflowId?: string;
+  draft?: {
+    name?: string;
+    description?: string;
+    yaml?: string;
+    canvas_state?: Record<string, unknown>;
+  };
   onCommitSuccess?: () => void;
 }
 
-export function CommitDialog({ open, onOpenChange, files, onCommitSuccess }: CommitDialogProps) {
+export function CommitDialog({
+  open,
+  onOpenChange,
+  files,
+  workflowId,
+  draft,
+  onCommitSuccess,
+}: CommitDialogProps) {
   const [message, setMessage] = useState("");
-  const commit = useCommit();
+  const commitWorkflow = useCommitWorkflow();
 
   function handleSubmit() {
-    if (!message.trim()) return;
-    commit.mutate(message.trim(), {
+    if (!workflowId || !message.trim()) return;
+    commitWorkflow.mutate(
+      {
+        workflowId,
+        payload: {
+          ...draft,
+          message: message.trim(),
+        },
+      },
+      {
       onSuccess: () => {
         setMessage("");
         onOpenChange(false);
         onCommitSuccess?.();
       },
-    });
+      },
+    );
   }
 
   return (
@@ -66,7 +89,7 @@ export function CommitDialog({ open, onOpenChange, files, onCommitSuccess }: Com
           </div>
 
           {/* Diff preview */}
-          <DiffView />
+          <DiffView draft={draft} />
 
           {/* Commit message */}
           <div>
@@ -93,9 +116,9 @@ export function CommitDialog({ open, onOpenChange, files, onCommitSuccess }: Com
           <Button
             variant="primary"
             onClick={handleSubmit}
-            disabled={!message.trim() || commit.isPending}
+            disabled={!workflowId || !message.trim() || commitWorkflow.isPending}
           >
-            {commit.isPending ? "Committing..." : "Commit"}
+            {commitWorkflow.isPending ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

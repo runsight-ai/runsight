@@ -168,6 +168,7 @@ export const RunCreateSchema = z.object({
   workflow_id: z.string(),
   task_data: z.record(z.string(), z.unknown()).optional(),
   source: z.string().nullable().optional().default("manual"),
+  branch: z.string().optional().default("main"),
 });
 export type RunCreate = z.infer<typeof RunCreateSchema>;
 
@@ -219,6 +220,18 @@ export const RunNodeResponseSchema = z.object({
   error: z.string().nullable(),
 });
 export type RunNodeResponse = z.infer<typeof RunNodeResponseSchema>;
+
+export const SimBranchRequestSchema = z.object({
+  workflow_id: z.string(),
+  yaml_content: z.string(),
+});
+export type SimBranchRequest = z.infer<typeof SimBranchRequestSchema>;
+
+export const SimBranchResponseSchema = z.object({
+  branch: z.string(),
+  commit_sha: z.string(),
+});
+export type SimBranchResponse = z.infer<typeof SimBranchResponseSchema>;
 
 export const SoulCreateSchema = z.object({
   id: z.string().nullable().optional(),
@@ -372,6 +385,17 @@ export const WorkflowListResponseSchema = z.object({
   total: z.number(),
 });
 export type WorkflowListResponse = z.infer<typeof WorkflowListResponseSchema>;
+
+export const WorkflowSimulationCreateSchema = z.object({
+  yaml: z.string(),
+});
+export type WorkflowSimulationCreate = z.infer<typeof WorkflowSimulationCreateSchema>;
+
+export const WorkflowSimulationResponseSchema = z.object({
+  branch: z.string(),
+  commit_sha: z.string(),
+});
+export type WorkflowSimulationResponse = z.infer<typeof WorkflowSimulationResponseSchema>;
 
 export const WorkflowUpdateSchema = z.object({
   name: z.string().nullable().optional(),

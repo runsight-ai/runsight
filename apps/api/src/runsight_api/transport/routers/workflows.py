@@ -5,9 +5,13 @@ from fastapi import APIRouter, Depends
 from ...logic.services.workflow_service import WorkflowService
 from ..deps import get_workflow_service
 from ..schemas.workflows import (
+    WorkflowCommitCreate,
+    WorkflowCommitResponse,
     WorkflowCreate,
     WorkflowListResponse,
     WorkflowResponse,
+    WorkflowSimulationCreate,
+    WorkflowSimulationResponse,
     WorkflowUpdate,
 )
 
@@ -52,6 +56,27 @@ async def update_workflow(
     data = body.model_dump(exclude_unset=True)
     w = service.update_workflow(id, data)
     return WorkflowResponse(**w.model_dump())
+
+
+@router.post("/{id}/commits", response_model=WorkflowCommitResponse)
+async def commit_workflow(
+    id: str,
+    body: WorkflowCommitCreate,
+    service: WorkflowService = Depends(get_workflow_service),
+):
+    data = body.model_dump(exclude={"message"}, exclude_unset=True)
+    result = service.commit_workflow(id, data, body.message)
+    return WorkflowCommitResponse(**result)
+
+
+@router.post("/{id}/simulations", response_model=WorkflowSimulationResponse)
+async def create_workflow_simulation(
+    id: str,
+    body: WorkflowSimulationCreate,
+    service: WorkflowService = Depends(get_workflow_service),
+):
+    result = service.create_simulation(workflow_id=id, yaml=body.yaml)
+    return WorkflowSimulationResponse(**result)
 
 
 @router.delete("/{id}")

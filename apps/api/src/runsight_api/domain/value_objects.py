@@ -40,6 +40,12 @@ class WorkflowEntity(BaseModel):
 class SoulEntity(BaseModel):
     id: str
     name: Optional[str] = None
+    role: Optional[str] = None
+    system_prompt: Optional[str] = None
+    model_name: Optional[str] = None
+    models: Optional[list[str]] = None
+    tools: Optional[list[str]] = None
+    max_tool_iterations: Optional[int] = None
     model_config = {"extra": "ignore"}
 
 

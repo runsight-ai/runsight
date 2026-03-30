@@ -7,7 +7,7 @@
  * AC1: Monaco renders with YAML highlighting
  * AC2: Loads content from API (useWorkflow(id) -> .yaml field)
  * AC3: Changes mark isDirty (local state)
- * AC4: Cmd+S saves (calls PUT /api/workflows/:id with updated YAML)
+ * AC4: Editor does not own a direct Cmd+S save path
  * AC5: Design system syntax colors (--syntax-* CSS vars)
  * AC6: Editor fills available space below topbar
  *
@@ -15,7 +15,7 @@
  *   - CanvasPage has an empty flex-1 div where the editor should go
  *   - No YAML editor component exists that wires Monaco to the API
  *   - No isDirty state tracking
- *   - No Cmd+S keyboard shortcut handler
+ *   - No keyboard shortcut handler
  *   - No syntax theme definition using --syntax-* tokens
  */
 
@@ -175,50 +175,39 @@ describe("isDirty state tracked on changes (AC3)", () => {
 });
 
 // ===========================================================================
-// 4. Cmd+S / Ctrl+S saves via useUpdateWorkflow (AC4)
+// 4. YamlEditor does not own a direct Cmd+S save path (AC4)
 // ===========================================================================
 
-describe("Cmd+S / Ctrl+S saves via useUpdateWorkflow (AC4)", () => {
-  it("has a keyboard event listener for save shortcut", () => {
+describe("YamlEditor does not own a direct save shortcut (AC4)", () => {
+  it("does not register a keyboard event listener for Cmd+S / Ctrl+S", () => {
     const source = getEditorSource();
-    // Should register a keydown listener or use Monaco's addCommand/addAction
     const hasKeyHandler =
       /keydown|onKeyDown|addCommand|addAction|KeyMod/.test(source);
     expect(
       hasKeyHandler,
-      "Expected keyboard event handler for Cmd+S / Ctrl+S",
-    ).toBe(true);
+      "YamlEditor should not register its own keyboard save handler once save is modal-driven",
+    ).toBe(false);
   });
 
-  it("detects Cmd+S (Mac) and Ctrl+S (Windows/Linux)", () => {
+  it("does not detect Cmd+S (Mac) and Ctrl+S (Windows/Linux)", () => {
     const source = getEditorSource();
-    // Should check for metaKey (Cmd on Mac) or ctrlKey
     const detectsSaveCombo =
       /(metaKey|ctrlKey).*['"s'"]|KeyMod\.CtrlCmd|key\s*===?\s*['"]s['"]/.test(source);
     expect(
       detectsSaveCombo,
-      "Expected detection of Cmd+S (metaKey) and Ctrl+S (ctrlKey)",
-    ).toBe(true);
+      "YamlEditor should not detect keyboard save combos directly",
+    ).toBe(false);
   });
 
-  it("preventDefault is called to block browser default save dialog", () => {
+  it("does not call preventDefault for a direct save shortcut", () => {
     const source = getEditorSource();
-    expect(source).toMatch(/preventDefault/);
+    expect(source).not.toMatch(/preventDefault/);
   });
 
-  it("uses useUpdateWorkflow mutation to save", () => {
+  it("does not import or call useUpdateWorkflow for direct keyboard save", () => {
     const source = getEditorSource();
-    expect(source).toMatch(/useUpdateWorkflow/);
-  });
-
-  it("calls mutate with workflow id and updated yaml content", () => {
-    const source = getEditorSource();
-    // Should call updateWorkflow.mutate({ id, data: { yaml: ... } })
-    const callsMutate = /mutate\s*\(/.test(source) && /yaml/.test(source);
-    expect(
-      callsMutate,
-      "Expected mutate() call with id and yaml data",
-    ).toBe(true);
+    expect(source).not.toMatch(/useUpdateWorkflow/);
+    expect(source).not.toMatch(/mutate\s*\(/);
   });
 });
 

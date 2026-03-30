@@ -41,3 +41,33 @@ export function useCommit() {
     },
   });
 }
+
+export function useCommitWorkflow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      workflowId,
+      payload,
+    }: {
+      workflowId: string;
+      payload: {
+        name?: string;
+        description?: string;
+        yaml?: string;
+        canvas_state?: Record<string, unknown>;
+        message: string;
+      };
+    }) => gitApi.commitWorkflow(workflowId, payload),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflows.detail(variables.workflowId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.git.status });
+      queryClient.invalidateQueries({ queryKey: queryKeys.git.log });
+      toast.success(`Saved to main (${data.hash})`, {
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to save workflow", { description: error.message });
+    },
+  });
+}

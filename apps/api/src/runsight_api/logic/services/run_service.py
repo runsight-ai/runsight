@@ -46,7 +46,12 @@ class RunService:
         return self.run_repo.list_logs_for_run(run_id)
 
     def create_run(
-        self, workflow_id: str, task_data: Dict[str, Any], source: str = "manual"
+        self,
+        workflow_id: str,
+        task_data: Dict[str, Any],
+        *,
+        source: str = "manual",
+        branch: str = "main",
     ) -> Run:
         workflow = self.workflow_repo.get_by_id(workflow_id)
         if not workflow:
@@ -60,7 +65,7 @@ class RunService:
             workflow_name=workflow.name if isinstance(workflow.name, str) else workflow.id,
             status=RunStatus.pending,
             task_json=json.dumps(task_data),
-            branch="main",
+            branch=branch,
             source=source,
         )
         self.run_repo.create_run(run)

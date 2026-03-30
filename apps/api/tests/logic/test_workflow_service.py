@@ -3,7 +3,7 @@
 Tests document current behavior as guardrails — they break on any behavioral change.
 """
 
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -166,6 +166,151 @@ def test_update_workflow_not_found(workflow_service, workflow_repo):
         workflow_service.update_workflow("wf_missing", {"name": "New"})
 
     assert "wf_missing" in str(exc_info.value)
+
+
+# --- commit_workflow ---
+
+
+def test_commit_workflow_writes_current_state_and_returns_commit_metadata(workflow_repo):
+    """commit_workflow writes the draft payload, commits it to main, and returns commit metadata."""
+    git_service = Mock()
+    git_service.commit_to_branch.return_value = "abc123def456"
+    saved = WorkflowEntity(
+        id="wf_1",
+        name="Updated Flow",
+        yaml="workflow:\n  name: Updated Flow\n",
+        canvas_state={
+            "nodes": [{"id": "node-1"}],
+            "edges": [],
+            "viewport": {"x": 1, "y": 2, "zoom": 0.75},
+            "selected_node_id": "node-1",
+            "canvas_mode": "dag",
+        },
+    )
+    workflow_repo.update.return_value = saved
+
+    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+
+    draft = {
+        "yaml": "workflow:\n  name: Updated Flow\n",
+        "canvas_state": {
+            "nodes": [{"id": "node-1"}],
+            "edges": [],
+            "viewport": {"x": 1, "y": 2, "zoom": 0.75},
+            "selected_node_id": "node-1",
+            "canvas_mode": "dag",
+        },
+    }
+
+    result = workflow_service.commit_workflow("wf_1", draft, "Save workflow to main")
+
+    assert result == {"hash": "abc123def456", "message": "Save workflow to main"}
+    workflow_repo.update.assert_called_once_with("wf_1", draft)
+    git_service.commit_to_branch.assert_called_once_with(
+        "main",
+        [
+            "custom/workflows/wf_1.yaml",
+            "custom/workflows/.canvas/wf_1.canvas.json",
+        ],
+        "Save workflow to main",
+    )
+
+
+def test_commit_workflow_stages_only_workflow_owned_files(workflow_repo):
+    """commit_workflow must not stage unrelated worktree changes during an explicit save."""
+    git_service = Mock()
+    git_service.commit_to_branch.return_value = "abc123def456"
+    workflow_repo.update.return_value = WorkflowEntity(id="wf_1", name="Updated Flow")
+
+    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+
+    workflow_service.commit_workflow(
+        "wf_1",
+        {"yaml": "workflow:\n  name: Updated Flow\n"},
+        "Save workflow to main",
+    )
+
+    _, files, _ = git_service.commit_to_branch.call_args.args
+    assert files == ["custom/workflows/wf_1.yaml"]
+    assert "README.md" not in files
+    assert ".env" not in files
+
+
+def test_commit_workflow_does_not_attempt_git_commit_when_persisting_the_draft_fails(workflow_repo):
+    """Atomic save contract: if the workflow write fails, the main-branch commit must never start."""
+    git_service = Mock()
+    workflow_repo.get_by_id.return_value = WorkflowEntity(
+        id="wf_1",
+        name="Original Flow",
+        yaml="workflow:\n  name: Original Flow\n",
+    )
+    workflow_repo.update.side_effect = OSError("disk full")
+
+    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+
+    with pytest.raises(OSError, match="disk full"):
+        workflow_service.commit_workflow(
+            "wf_1",
+            {"yaml": "workflow:\n  name: Updated Flow\n"},
+            "Save workflow to main",
+        )
+
+    git_service.commit_to_branch.assert_not_called()
+
+
+def test_commit_workflow_restores_the_previous_workflow_if_git_commit_to_main_fails(workflow_repo):
+    """Atomic save contract: a failed main-branch commit must roll the persisted workflow back."""
+    git_service = Mock()
+    git_service.commit_to_branch.side_effect = RuntimeError("git failed")
+    previous_canvas_state = {
+        "nodes": [{"id": "node-original"}],
+        "edges": [],
+        "viewport": {"x": 0, "y": 0, "zoom": 1.0},
+        "selected_node_id": "node-original",
+        "canvas_mode": "dag",
+    }
+    previous = WorkflowEntity(
+        id="wf_1",
+        name="Original Flow",
+        yaml="workflow:\n  name: Original Flow\n",
+        canvas_state=previous_canvas_state,
+    )
+    workflow_repo.get_by_id.return_value = previous
+    workflow_repo.update.side_effect = [
+        WorkflowEntity(
+            id="wf_1",
+            name="Updated Flow",
+            yaml="workflow:\n  name: Updated Flow\n",
+        ),
+        previous,
+    ]
+
+    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+    draft = {
+        "yaml": "workflow:\n  name: Updated Flow\n",
+        "canvas_state": {
+            "nodes": [{"id": "node-updated"}],
+            "edges": [],
+            "viewport": {"x": 2, "y": 3, "zoom": 0.75},
+            "selected_node_id": "node-updated",
+            "canvas_mode": "dag",
+        },
+    }
+
+    with pytest.raises(RuntimeError, match="git failed"):
+        workflow_service.commit_workflow("wf_1", draft, "Save workflow to main")
+
+    assert workflow_repo.update.call_args_list == [
+        call("wf_1", draft),
+        call(
+            "wf_1",
+            {
+                "yaml": "workflow:\n  name: Original Flow\n",
+                "canvas_state": previous_canvas_state,
+            },
+        ),
+    ]
+    git_service.commit_to_branch.assert_called_once()
 
 
 # --- delete_workflow ---

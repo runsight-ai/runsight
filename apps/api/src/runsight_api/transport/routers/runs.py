@@ -37,10 +37,22 @@ async def create_run(
     run_service: RunService = Depends(get_run_service),
     execution_service: Optional[ExecutionService] = Depends(get_execution_service),
 ):
-    run = run_service.create_run(body.workflow_id, body.task_data)
+    source = body.source or "manual"
+    branch = body.branch or "main"
+    run = run_service.create_run(
+        body.workflow_id,
+        body.task_data,
+        source=source,
+        branch=branch,
+    )
     if execution_service is not None:
         try:
-            await execution_service.launch_execution(run.id, run.workflow_id, body.task_data)
+            await execution_service.launch_execution(
+                run.id,
+                run.workflow_id,
+                body.task_data,
+                branch=branch,
+            )
         except Exception:
             logger.exception("Failed to launch execution for run %s", run.id)
     return RunResponse(

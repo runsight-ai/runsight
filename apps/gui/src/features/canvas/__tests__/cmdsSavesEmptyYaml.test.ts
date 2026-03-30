@@ -5,11 +5,11 @@
  * which is initialized to "" and never populated — so Cmd+S sends empty
  * YAML to the API, potentially wiping the workflow.
  *
- * Fix: Remove CanvasPage's keydown handler entirely. Let YamlEditor own
- * Cmd+S. Add yamlContent/setYamlContent to useCanvasStore. Save button
- * reads from store, not from a local ref.
+ * Fix: Remove competing direct-save shortcut paths. Cmd+S should route
+ * through the same explicit Save modal path as the Save button, and the
+ * save flow should read the current in-memory YAML from the shared store.
  *
- * AC1: Only one Cmd+S handler exists (in YamlEditor, not CanvasPage)
+ * AC1: Only one effective Cmd+S handler exists
  * AC2: Cmd+S never sends empty YAML
  * AC3: Save button uses same path as Cmd+S (reads from store, not yamlRef)
  *
@@ -46,7 +46,7 @@ const CANVAS_STORE_PATH = "store/canvas.ts";
 // AC1: Only one Cmd+S handler — in YamlEditor, not CanvasPage
 // ===========================================================================
 
-describe("AC1: Single Cmd+S handler lives in YamlEditor only", () => {
+describe("AC1: Single effective Cmd+S handler exists", () => {
   it("CanvasPage does NOT register a keydown listener", () => {
     const source = readSource(CANVAS_PAGE_PATH);
     // CanvasPage should not add its own window keydown event listener.
@@ -55,7 +55,7 @@ describe("AC1: Single Cmd+S handler lives in YamlEditor only", () => {
       /addEventListener\s*\(\s*["']keydown["']/.test(source);
     expect(
       hasKeydownListener,
-      "CanvasPage should NOT have its own keydown event listener — YamlEditor owns Cmd+S",
+      "CanvasPage should NOT have its own keydown event listener",
     ).toBe(false);
   });
 
@@ -71,15 +71,15 @@ describe("AC1: Single Cmd+S handler lives in YamlEditor only", () => {
     ).toBe(false);
   });
 
-  it("YamlEditor still has its own Cmd+S handler (sanity check)", () => {
+  it("YamlEditor does NOT retain a competing Cmd+S handler", () => {
     const source = readSource(YAML_EDITOR_PATH);
     const hasCmdS =
       /metaKey.*key\s*===?\s*["']s["']/.test(source) ||
       /ctrlKey.*key\s*===?\s*["']s["']/.test(source);
     expect(
       hasCmdS,
-      "YamlEditor should retain its Cmd+S handler",
-    ).toBe(true);
+      "YamlEditor should not keep its own Cmd+S handler once save is modal-driven",
+    ).toBe(false);
   });
 });
 
