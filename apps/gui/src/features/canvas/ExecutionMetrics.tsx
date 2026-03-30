@@ -81,17 +81,17 @@ export function ExecutionMetrics({ runId }: ExecutionMetricsProps) {
     <div
       className={`flex items-center gap-3 px-3 py-1 rounded-md text-xs transition-opacity ${
         isFailed
-          ? "bg-[var(--danger-2)] text-[var(--danger-11)]"
-          : "bg-[var(--success-2)] text-[var(--success-11)]"
+          ? "bg-danger-2 text-danger-11"
+          : "bg-success-2 text-success-11"
       }`}
       role="status"
       aria-label={`Run ${status}: cost ${formatCost(run.total_cost_usd)}, ${formatTokens(run.total_tokens)} tokens, duration ${formatDuration(run.duration_seconds)}`}
       aria-live="polite"
     >
       {isFailed ? (
-        <AlertCircle className="w-3.5 h-3.5 text-[var(--danger-9)]" />
+        <AlertCircle className="w-3.5 h-3.5 text-danger-9" />
       ) : (
-        <CheckCircle className="w-3.5 h-3.5 text-[var(--success-9)]" />
+        <CheckCircle className="w-3.5 h-3.5 text-success-9" />
       )}
 
       <span className="flex items-center gap-1">

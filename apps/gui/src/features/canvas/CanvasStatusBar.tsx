@@ -19,7 +19,7 @@ export function CanvasStatusBar({
 
   return (
     <footer
-      className="flex items-center gap-3 px-3 h-[var(--status-bar-height)] border-t border-[var(--border-subtle)] bg-[var(--surface-secondary)] text-xs text-[var(--text-muted)]"
+      className="flex items-center gap-3 px-3 h-[var(--status-bar-height)] border-t border-border-subtle bg-surface-secondary text-xs text-muted"
       style={{ gridColumn: "1 / -1", gridRow: "4" }}
     >
       <span className="flex items-center gap-1.5">

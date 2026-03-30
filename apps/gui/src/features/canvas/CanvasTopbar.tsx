@@ -74,14 +74,14 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
 
   return (
     <header
-      className="flex items-center h-[var(--header-height)] border-b border-[var(--border-subtle)] px-4"
+      className="flex items-center h-[var(--header-height)] border-b border-border-subtle px-4"
       style={{ gridColumn: "1 / -1", gridRow: "1" }}
     >
       {/* Left: Workflow name */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {isEditing ? (
           <input
-            className="font-[var(--font-body)] text-[var(--font-size-lg)] font-medium text-[var(--text-heading)] bg-transparent border border-transparent rounded-[var(--radius-sm)] px-[var(--space-1)] py-[2px] outline-none hover:bg-[var(--surface-hover)] focus:border-[var(--border-focus)]"
+            className="font-sans text-lg font-medium text-heading bg-transparent border border-transparent rounded-sm px-1 py-[2px] outline-none hover:bg-surface-hover focus:border-border-focus"
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onBlur={saveName}
@@ -90,7 +90,7 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
           />
         ) : (
           <span
-            className="text-[var(--font-size-lg)] font-medium text-[var(--text-heading)] cursor-pointer border border-transparent rounded-[var(--radius-sm)] px-[var(--space-1)] py-[2px] hover:bg-[var(--surface-hover)]"
+            className="text-lg font-medium text-heading cursor-pointer border border-transparent rounded-sm px-1 py-[2px] hover:bg-surface-hover"
             onClick={startEditing}
           >
             {workflowName}
@@ -113,15 +113,15 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
       {/* Right: actions */}
       <div className="flex items-center gap-2 flex-1 justify-end">
         {yamlValid ? (
-          <CheckCircle className="w-4 h-4 text-[var(--success-9)]" aria-label="YAML valid" />
+          <CheckCircle className="w-4 h-4 text-success-9" aria-label="YAML valid" />
         ) : (
           <span className="flex items-center gap-1">
-            <AlertTriangle className="w-4 h-4 text-[var(--warning-9)]" aria-label="YAML errors" />
-            <span className="text-xs text-[var(--warning-9)]">{errorCount} {errorCount === 1 ? "error" : "errors"}</span>
+            <AlertTriangle className="w-4 h-4 text-warning-9" aria-label="YAML errors" />
+            <span className="text-xs text-warning-9">{errorCount} {errorCount === 1 ? "error" : "errors"}</span>
           </span>
         )}
         <GitBadge />
-        {isDirty && <span className="h-2 w-2 rounded-full bg-[var(--interactive-default)]" aria-label="unsaved indicator" />}
+        {isDirty && <span className="h-2 w-2 rounded-full bg-interactive-default" aria-label="unsaved indicator" />}
         <Button
           variant={isDirty ? "primary" : "ghost"}
           size="sm"
