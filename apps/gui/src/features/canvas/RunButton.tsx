@@ -4,6 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsi
 import { useCreateRun, useCancelRun, useRun } from "@/queries/runs";
 import { useProviders } from "@/queries/settings";
 import { useCanvasStore } from "@/store/canvas";
+import { gitApi } from "@/api/git";
 import { Play, X, Key } from "lucide-react";
 
 interface RunButtonProps {
@@ -16,6 +17,8 @@ export function RunButton({ workflowId, onAddApiKey }: RunButtonProps) {
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const nodes = useCanvasStore((s) => s.nodes);
   const blockCount = useCanvasStore((s) => s.blockCount);
+  const isDirty = useCanvasStore((s) => s.isDirty);
+  const yamlContent = useCanvasStore((s) => s.yamlContent);
 
   const { data: providers } = useProviders();
   const items = providers?.items ?? [];
@@ -41,12 +44,18 @@ export function RunButton({ workflowId, onAddApiKey }: RunButtonProps) {
   const isEmpty = !nodes.length && !blockCount;
   const isPending = createRun.isPending || cancelRun.isPending;
 
-  function handleClick() {
+  async function handleClick() {
     if (isRunning) {
       cancelRun.mutate(activeRunId);
+    } else if (isDirty) {
+      const simResult = await gitApi.createSimBranch(workflowId, yamlContent);
+      createRun.mutate(
+        { workflow_id: workflowId, source: "sim", branch: simResult.branch },
+        { onSuccess: (result) => setActiveRunId(result.id) },
+      );
     } else {
       createRun.mutate(
-        { workflow_id: workflowId, source: "manual" },
+        { workflow_id: workflowId, source: "manual", branch: "main" },
         { onSuccess: (result) => setActiveRunId(result.id) },
       );
     }

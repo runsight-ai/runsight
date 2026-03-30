@@ -7,6 +7,7 @@ class RunCreate(BaseModel):
     workflow_id: str
     task_data: Dict[str, Any] = Field(default_factory=dict)
     source: Optional[str] = "manual"
+    branch: str = "main"
 
 
 class NodeSummary(BaseModel):

@@ -32,6 +32,16 @@ def _get_git_service() -> GitService:
 # ---------------------------------------------------------------------------
 
 
+class SimBranchRequest(BaseModel):
+    workflow_id: str
+    yaml_content: str
+
+
+class SimBranchResponse(BaseModel):
+    branch: str
+    commit_sha: str
+
+
 class CommitRequest(BaseModel):
     message: str
     files: Optional[List[str]] = None
@@ -250,3 +260,12 @@ async def git_log():
             )
 
     return LogResponse(commits=commits)
+
+
+@router.post("/sim-branch", response_model=SimBranchResponse)
+async def create_sim_branch(body: SimBranchRequest):
+    _ensure_git_repo()
+    git = _get_git_service()
+    yaml_path = f"custom/workflows/{body.workflow_id}.yaml"
+    result = git.create_sim_branch(body.workflow_id, body.yaml_content, yaml_path)
+    return SimBranchResponse(branch=result.branch, commit_sha=result.sha)

@@ -42,4 +42,10 @@ export const gitApi = {
     const parsed = GitLogResponseSchema.parse(res);
     return parsed.commits;
   },
+
+  createSimBranch: async (workflowId: string, yamlContent: string): Promise<{ branch: string; commit_sha: string }> => {
+    const { api } = await import("./client");
+    const res = await api.post("/git/sim-branch", { workflow_id: workflowId, yaml_content: yamlContent });
+    return res as { branch: string; commit_sha: string };
+  },
 };
