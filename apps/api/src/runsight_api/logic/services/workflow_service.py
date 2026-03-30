@@ -30,9 +30,37 @@ class WorkflowService:
         return result
 
     def update_workflow(self, id: str, data: Dict[str, Any]) -> WorkflowEntity:
-        result = self.workflow_repo.update(id, data)
-        self._auto_commit(f"Update workflow: {result.name}", [result.id])
-        return result
+        return self.workflow_repo.update(id, data)
+
+    def commit_workflow(
+        self,
+        workflow_id: str,
+        draft: Dict[str, Any],
+        message: str,
+    ) -> Dict[str, str]:
+        if self.git_service is None:
+            raise RuntimeError("Git service not configured")
+
+        previous = self.workflow_repo.get_by_id(workflow_id)
+        self.workflow_repo.update(workflow_id, draft)
+
+        files = [f"custom/workflows/{workflow_id}.yaml"]
+        if draft.get("canvas_state") is not None:
+            files.append(f"custom/workflows/.canvas/{workflow_id}.canvas.json")
+
+        try:
+            commit_hash = self.git_service.commit_to_branch("main", files, message)
+        except Exception:
+            if previous is not None:
+                rollback = {"yaml": previous.yaml}
+                if previous.canvas_state is not None:
+                    if hasattr(previous.canvas_state, "model_dump"):
+                        rollback["canvas_state"] = previous.canvas_state.model_dump()
+                    else:
+                        rollback["canvas_state"] = previous.canvas_state
+                self.workflow_repo.update(workflow_id, rollback)
+            raise
+        return {"hash": commit_hash, "message": message}
 
     def create_simulation(self, workflow_id: str, yaml: str) -> Dict[str, str]:
         if self.git_service is None:

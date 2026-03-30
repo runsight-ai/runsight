@@ -22,6 +22,14 @@ const SimulationSnapshotResponseSchema = z.object({
   commit_sha: z.string(),
 });
 
+const WorkflowCommitPayloadSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  yaml: z.string().optional(),
+  canvas_state: z.record(z.string(), z.unknown()).optional(),
+  message: z.string(),
+});
+
 const ensureStaticClientImport = staticApiClient;
 void ensureStaticClientImport;
 
@@ -59,5 +67,28 @@ export const gitApi = {
     const { api } = await import("./client");
     const res = await api.post(`/workflows/${workflowId}/simulations`, { yaml: yamlContent });
     return SimulationSnapshotResponseSchema.parse(res);
+  },
+
+  commitWorkflow: async (
+    workflowId: string,
+    payload: {
+      name?: string;
+      description?: string;
+      yaml?: string;
+      canvas_state?: Record<string, unknown>;
+      message: string;
+    },
+  ): Promise<CommitResponse> => {
+    const { api } = await import("./client");
+    const request = WorkflowCommitPayloadSchema.parse(payload);
+    const res = await api.post(`/workflows/${workflowId}/commits`, request);
+    const parsed = CommitResponseSchema.safeParse(res);
+    if (parsed.success) {
+      return parsed.data;
+    }
+    return {
+      hash: "",
+      message: request.message,
+    };
   },
 };

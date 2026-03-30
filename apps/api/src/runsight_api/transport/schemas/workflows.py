@@ -46,6 +46,19 @@ class WorkflowUpdate(BaseModel):
     canvas_state: Optional[WorkflowCanvasState] = None
 
 
+class WorkflowCommitCreate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    yaml: Optional[str] = None
+    canvas_state: Optional[WorkflowCanvasState] = None
+    message: str = Field(min_length=1)
+
+
+class WorkflowCommitResponse(BaseModel):
+    hash: str
+    message: str
+
+
 class WorkflowSimulationCreate(BaseModel):
     yaml: str
 
