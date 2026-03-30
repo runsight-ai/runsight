@@ -40,18 +40,27 @@ export function PaletteSidebar() {
 
   return (
     <aside
-      className="flex flex-col border-r border-border bg-(--neutral-1) overflow-y-auto shrink-0"
-      style={{ width }}
+      className="flex flex-col bg-[var(--surface-secondary)] border-r border-[var(--border-subtle)] overflow-y-auto shrink-0"
+      style={{ width, gridColumn: "1", gridRow: "2" }}
     >
-      {/* Toggle / notch button with chevron */}
-      <div className="flex justify-end p-1">
+      {/* Header with title + notch button */}
+      <div
+        className="flex items-center justify-between h-[var(--header-height)] border-b border-[var(--border-subtle)] shrink-0"
+        style={{ padding: isCollapsed ? "0" : "0 var(--space-3)", justifyContent: isCollapsed ? "center" : "space-between" }}
+      >
+        {!isCollapsed && (
+          <span className="text-[var(--font-size-lg)] font-medium text-[var(--text-heading)]">
+            Palette
+          </span>
+        )}
         <button
           onClick={handleToggleCollapse}
-          className="p-1 rounded hover:bg-(--neutral-3) text-(--text-secondary)"
+          className="flex items-center justify-center w-5 h-5 bg-transparent border-none text-[var(--text-muted)] cursor-pointer rounded-[var(--radius-sm)] text-xs hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!isCollapsed}
         >
           <ChevronLeft
-            size={16}
+            size={12}
             className={isCollapsed ? "rotate-180" : ""}
           />
         </button>
@@ -59,15 +68,16 @@ export function PaletteSidebar() {
 
       {/* Search input — hidden when collapsed */}
       {!isCollapsed && (
-        <div className="px-2 pb-2">
-          <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full px-2 py-1 rounded text-sm border border-border bg-(--neutral-1) text-(--text-primary) placeholder:text-(--text-muted)" />
-        </div>
+        <input type="search" placeholder="Search blocks..." value={search} onChange={(e) => setSearch(e.target.value)} className="mx-[var(--space-3)] my-[var(--space-3)] h-[var(--control-height-sm)] px-[var(--space-3)] bg-[var(--surface-tertiary)] border border-[var(--border-subtle)] rounded-[var(--radius-md)] text-[var(--text-primary)] text-[var(--font-size-sm)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)]" style={{ width: "calc(100% - var(--space-3) * 2)" }} />
       )}
 
       {/* Block types section */}
-      <div className="px-2 pb-2">
+      <div>
         {!isCollapsed && (
-          <span className="text-xs font-medium text-(--text-muted) px-1 mb-1 block">
+          <span
+            className="block px-[var(--space-3)] py-[var(--space-2)] font-mono text-[var(--font-size-2xs)] font-semibold text-[var(--text-muted)] uppercase"
+            style={{ letterSpacing: "var(--tracking-wider)" }}
+          >
             Blocks
           </span>
         )}
@@ -84,9 +94,9 @@ export function PaletteSidebar() {
                       JSON.stringify({ type: "block", label }),
                     );
                   }}
-                  className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3) cursor-grab"
+                  className="flex items-center justify-center h-9 w-full rounded-[var(--radius-md)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)] cursor-grab"
                 >
-                  <Icon size={16} className="shrink-0" />
+                  <Icon size={18} className="shrink-0" />
                 </TooltipTrigger>
                 <TooltipContent side="right">{label}</TooltipContent>
               </Tooltip>
@@ -101,9 +111,9 @@ export function PaletteSidebar() {
                     JSON.stringify({ type: "block", label }),
                   );
                 }}
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3) cursor-grab"
+                className="flex items-center gap-[var(--space-2)] h-11 px-[var(--space-3)] mx-[var(--space-1)] rounded-[var(--radius-md)] text-[var(--font-size-sm)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)] cursor-grab"
               >
-                <Icon size={16} className="shrink-0" />
+                <Icon size={18} className="shrink-0" />
                 <span>{label}</span>
               </div>
             ),
@@ -111,13 +121,16 @@ export function PaletteSidebar() {
         </TooltipProvider>
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-border mx-2" />
+      {/* Section divider */}
+      <div className="border-t border-(--border-subtle) mx-[var(--space-2)]" />
 
       {/* Souls section */}
-      <div className="px-2 pt-2">
+      <div>
         {!isCollapsed && (
-          <span className="text-xs font-medium text-(--text-muted) px-1 mb-1 block">
+          <span
+            className="block px-[var(--space-3)] py-[var(--space-2)] font-mono text-[var(--font-size-2xs)] font-semibold text-[var(--text-muted)] uppercase"
+            style={{ letterSpacing: "var(--tracking-wider)" }}
+          >
             Souls
           </span>
         )}
@@ -134,9 +147,9 @@ export function PaletteSidebar() {
                       JSON.stringify({ type: "soul", label: soul.name }),
                     );
                   }}
-                  className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3) cursor-grab"
+                  className="flex items-center justify-center h-9 w-full rounded-[var(--radius-md)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)] cursor-grab"
                 >
-                  <User size={16} className="shrink-0" />
+                  <User size={18} className="shrink-0" />
                 </TooltipTrigger>
                 <TooltipContent side="right">{soul.name}</TooltipContent>
               </Tooltip>
@@ -151,9 +164,9 @@ export function PaletteSidebar() {
                     JSON.stringify({ type: "soul", label: soul.name }),
                   );
                 }}
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm text-(--text-primary) hover:bg-(--neutral-3) cursor-grab"
+                className="flex items-center gap-[var(--space-2)] h-11 px-[var(--space-3)] mx-[var(--space-1)] rounded-[var(--radius-md)] text-[var(--font-size-sm)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)] cursor-grab"
               >
-                <User size={16} className="shrink-0" />
+                <User size={18} className="shrink-0" />
                 <span>{soul.name}</span>
               </div>
             ),

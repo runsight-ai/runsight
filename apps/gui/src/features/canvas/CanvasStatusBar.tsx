@@ -18,7 +18,10 @@ export function CanvasStatusBar({
   const providerName = connected ? items[0]?.name ?? "No provider" : "No provider";
 
   return (
-    <div className="flex items-center gap-3 px-3 h-[var(--status-bar-height)] border-t border-border bg-background text-xs text-muted-foreground">
+    <footer
+      className="flex items-center gap-3 px-3 h-[var(--status-bar-height)] border-t border-[var(--border-subtle)] bg-[var(--surface-secondary)] text-xs text-[var(--text-muted)]"
+      style={{ gridColumn: "1 / -1", gridRow: "4" }}
+    >
       <span className="flex items-center gap-1.5">
         <StatusDot variant={connected ? "success" : "danger"} />
         <span>{providerName}</span>
@@ -26,6 +29,6 @@ export function CanvasStatusBar({
       <span>{blockCount} {blockCount === 1 ? "block" : "blocks"}</span>
       <span>{edgeCount} {edgeCount === 1 ? "edge" : "edges"}</span>
       <span className="ml-auto">{activeTab === "yaml" ? "YAML" : "Canvas"}</span>
-    </div>
+    </footer>
   );
 }

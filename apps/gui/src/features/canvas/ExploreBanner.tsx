@@ -21,7 +21,7 @@ export function ExploreBanner({ onAddApiKey }: { onAddApiKey?: () => void }) {
 
   return (
     <div
-      className="flex items-center gap-2 px-4 py-2 text-sm bg-(--info-3) border-b border-(--info-7) text-(--info-11)"
+      className="absolute top-[var(--space-3)] left-[var(--space-3)] right-[var(--space-3)] flex items-center gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-2)] text-[var(--font-size-sm)] bg-[var(--info-3)] border border-[var(--info-7)] rounded-[var(--radius-md)] text-[var(--info-11)] z-10"
       role="status"
     >
       <Info className="size-4 shrink-0" />
@@ -29,7 +29,7 @@ export function ExploreBanner({ onAddApiKey }: { onAddApiKey?: () => void }) {
         You are in explore mode.{" "}
         <button
           type="button"
-          className="underline font-medium hover:opacity-80"
+          className="underline underline-offset-2 font-medium text-[var(--info-11)] hover:text-[var(--text-heading)]"
           onClick={onAddApiKey}
         >
           Add an API key
@@ -39,7 +39,7 @@ export function ExploreBanner({ onAddApiKey }: { onAddApiKey?: () => void }) {
       <button
         type="button"
         aria-label="Dismiss banner"
-        className="ml-auto p-1 rounded hover:bg-(--info-7)/20"
+        className="ml-auto p-[var(--space-1)] text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-transparent border-none cursor-pointer text-base"
         onClick={handleDismiss}
       >
         <X className="size-3.5" />

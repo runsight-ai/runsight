@@ -98,7 +98,14 @@ export function Component() {
   );
 
   return (
-    <div className="flex flex-col h-full">
+    <div
+      data-layout="flex-row"
+      className="grid h-full"
+      style={{
+        gridTemplateRows: "var(--header-height) 1fr 37px var(--status-bar-height)",
+        gridTemplateColumns: "240px 1fr",
+      }}
+    >
       <CanvasTopbar
         workflowId={id!}
         activeTab={activeTab}
@@ -109,10 +116,10 @@ export function Component() {
         errorCount={errorCount}
         onAddApiKey={handleOpenApiKeyModal}
       />
-      <ExploreBanner onAddApiKey={() => setApiKeyModalOpen(true)} />
-      <UncommittedBanner />
-      <div className="flex flex-row flex-1 overflow-hidden h-full">
-        <PaletteSidebar />
+      <PaletteSidebar />
+      <div className="relative flex flex-col overflow-hidden" style={{ gridColumn: "2", gridRow: "2" }}>
+        <ExploreBanner onAddApiKey={() => setApiKeyModalOpen(true)} />
+        <UncommittedBanner />
         {activeTab === "canvas" ? (
           <EmptyState
             icon={Layout}

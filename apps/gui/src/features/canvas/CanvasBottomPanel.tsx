@@ -154,9 +154,15 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
   return (
     <div
       data-testid="canvas-bottom-panel"
-      className={isExpanded ? "h-[200px]" : "h-9"}
+      className="bg-[var(--surface-secondary)] border-t border-[var(--border-subtle)] flex flex-col overflow-hidden"
+      style={{
+        gridColumn: "1 / -1",
+        gridRow: "3",
+        minHeight: "37px",
+        height: isExpanded ? "200px" : undefined,
+      }}
     >
-      <div role="tablist" className="flex items-center h-9 border-t px-2">
+      <div role="tablist" className="flex items-center h-9 px-[var(--space-3)] gap-[var(--space-3)] shrink-0">
         <button
           role="tab"
           aria-label="Expand logs panel"
@@ -165,6 +171,8 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
             setActiveTab("logs");
             setIsExpanded(true);
           }}
+          className={`font-mono text-[var(--font-size-2xs)] uppercase bg-transparent border-none cursor-pointer py-[var(--space-1)] ${activeTab === "logs" ? "text-[var(--text-heading)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
+          style={{ letterSpacing: "var(--tracking-wide)" }}
         >
           Logs
         </button>
@@ -176,8 +184,18 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
             setActiveTab("runs");
             setIsExpanded(true);
           }}
+          className={`font-mono text-[var(--font-size-2xs)] uppercase bg-transparent border-none cursor-pointer py-[var(--space-1)] ${activeTab === "runs" ? "text-[var(--text-heading)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
+          style={{ letterSpacing: "var(--tracking-wide)" }}
         >
           Runs
+        </button>
+        <button
+          type="button"
+          aria-label={isExpanded ? "Collapse panel" : "Expand panel"}
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="ml-auto bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-sm hover:text-[var(--text-primary)]"
+        >
+          {isExpanded ? "\u25BC" : "\u25B2"}
         </button>
       </div>
       {isExpanded && activeTab === "logs" && (

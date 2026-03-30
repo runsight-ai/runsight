@@ -91,17 +91,21 @@ export function ApiKeyModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[440px]">
         <DialogHeader>
-          <DialogTitle>Add API Key</DialogTitle>
+          <DialogTitle>Add API Key to Run</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 py-2">
+        <div className="flex flex-col gap-[var(--space-5)] px-[var(--space-6)] py-[var(--space-6)]">
+          <p className="text-[var(--font-size-sm)] text-[var(--text-secondary)] leading-normal">
+            Your workflow needs an AI provider to execute. Add an API key and you're ready to run.
+          </p>
+
           {/* Provider select */}
-          <div>
-            <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--text-muted)] mb-2">
+          <div className="flex flex-col gap-[var(--space-2)]">
+            <Label className="text-[var(--font-size-sm)] font-medium text-[var(--text-primary)]">
               Provider
             </Label>
             <Select value={selectedProviderId} onValueChange={handleProviderChange}>
-              <SelectTrigger className="h-9 w-full bg-[var(--surface-primary)] border-[var(--border-default)]">
+              <SelectTrigger className="h-8 w-full bg-[var(--neutral-2)] border-[var(--border-subtle)] rounded-[var(--radius-sm)]">
                 <SelectValue placeholder="Select a provider..." />
               </SelectTrigger>
               <SelectContent>
@@ -118,8 +122,8 @@ export function ApiKeyModal({
           </div>
 
           {/* API key input */}
-          <div>
-            <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--text-muted)] mb-2">
+          <div className="flex flex-col gap-[var(--space-2)]">
+            <Label className="text-[var(--font-size-sm)] font-medium text-[var(--text-primary)]">
               API Key
             </Label>
             <div className="relative">
@@ -128,39 +132,44 @@ export function ApiKeyModal({
                 placeholder="sk-..."
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="h-9 px-3 pr-9 bg-[var(--surface-secondary)] border-[var(--border-default)] font-mono text-sm"
+                className="h-8 px-[var(--space-3)] pr-8 bg-[var(--neutral-2)] border-[var(--border-subtle)] rounded-[var(--radius-sm)] font-mono text-[var(--font-size-sm)]"
+                autoComplete="off"
+                spellCheck={false}
               />
               <button
                 type="button"
                 onClick={() => setShowApiKey((prev) => !prev)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                className="absolute right-[var(--space-2)] top-1/2 -translate-y-1/2 p-[var(--space-1)] text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-transparent border-none cursor-pointer rounded-[var(--radius-sm)]"
               >
-                {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                {showApiKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
               </button>
             </div>
             {helperUrl && (
-              <a
-                href={helperUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] text-[var(--text-muted)] hover:underline mt-1 inline-block"
-              >
-                Get your {provider.name} API key
-              </a>
+              <span className="text-[var(--font-size-xs)] text-[var(--text-muted)]">
+                Find your API key at{" "}
+                <a
+                  href={helperUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--text-secondary)] underline underline-offset-2 hover:text-[var(--text-primary)]"
+                >
+                  {helperUrl.replace("https://", "")}
+                </a>
+              </span>
             )}
-          </div>
 
-          {/* Connection feedback */}
-          <ConnectionFeedback
-            status={testStatus}
-            message={testMessage}
-            modelCount={models.length}
-          />
+            {/* Connection feedback — inline under the input */}
+            <ConnectionFeedback
+              status={testStatus}
+              message={testMessage}
+              modelCount={models.length}
+            />
+          </div>
 
           {/* Base URL — only for custom/ollama providers */}
           {showBaseUrl && (
-            <div>
-              <Label className="block text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--text-muted)] mb-2">
+            <div className="flex flex-col gap-[var(--space-2)]">
+              <Label className="text-[var(--font-size-sm)] font-medium text-[var(--text-primary)]">
                 Base URL
               </Label>
               <Input
@@ -168,21 +177,28 @@ export function ApiKeyModal({
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
                 placeholder={isOllama ? "http://localhost:11434" : "https://api.provider.com/v1"}
-                className="h-9 px-3 bg-[var(--surface-secondary)] border-[var(--border-default)] font-mono text-sm"
+                className="h-8 px-[var(--space-3)] bg-[var(--neutral-2)] border-[var(--border-subtle)] rounded-[var(--radius-sm)] font-mono text-[var(--font-size-sm)]"
               />
             </div>
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="secondary" onClick={handleCancel}>
+        <DialogFooter className="gap-[var(--space-3)] px-[var(--space-6)] py-[var(--space-4)] border-t border-[var(--neutral-4)]">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleCancel}
+            className="h-8 bg-[var(--neutral-4)] border border-[var(--border-subtle)] text-[var(--text-primary)] hover:bg-[var(--neutral-5)] hover:text-[var(--text-heading)]"
+          >
             Cancel
           </Button>
           <Button
+            size="sm"
             disabled={testStatus !== "success"}
             onClick={handleSave}
+            className="h-8"
           >
-            {saveAndRun ? "Save & Run" : "Save"}
+            {saveAndRun ? "Save & Run" : "Save & Run"}
           </Button>
         </DialogFooter>
       </DialogContent>
