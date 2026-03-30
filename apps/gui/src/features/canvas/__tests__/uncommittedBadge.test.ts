@@ -11,7 +11,7 @@
  * AC6: CommitDialog uses Dialog from component library
  * AC7: CommitDialog shows file list from uncommitted_files
  * AC8: Commit message input
- * AC9: Submit calls useCommit
+ * AC9: Submit calls the explicit workflow save mutation
  * AC10: DiffView uses useGitDiff
  * AC11: Toast feedback on success/error
  */
@@ -219,20 +219,20 @@ describe("Commit message input (AC8)", () => {
 // 9. Submit calls useCommit (AC9)
 // ===========================================================================
 
-describe("Submit calls useCommit (AC9)", () => {
-  it("imports useCommit from queries/git", () => {
+describe("Submit calls explicit workflow save mutation (AC9)", () => {
+  it("imports useCommitWorkflow from queries/git", () => {
     const source = readSource(COMMIT_DIALOG_PATH);
-    expect(source).toMatch(/import\s+\{[^}]*useCommit[^}]*\}\s+from/);
+    expect(source).toMatch(/import\s+\{[^}]*useCommitWorkflow[^}]*\}\s+from/);
   });
 
-  it("calls useCommit hook", () => {
+  it("calls useCommitWorkflow hook", () => {
     const source = readSource(COMMIT_DIALOG_PATH);
-    expect(source).toMatch(/useCommit\(/);
+    expect(source).toMatch(/useCommitWorkflow\(/);
   });
 
-  it("calls mutate with the message on submit", () => {
+  it("calls the workflow save mutation on submit", () => {
     const source = readSource(COMMIT_DIALOG_PATH);
-    expect(source).toMatch(/\.mutate\s*\(|\.mutateAsync\s*\(/);
+    expect(source).toMatch(/commitWorkflow\.mutate/);
   });
 
   it("has a submit/commit button", () => {

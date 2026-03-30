@@ -190,9 +190,9 @@ describe("CommitDialog is functional (AC5 — sanity)", () => {
     expect(source).toMatch(/files:\s*FileStatus\[\]/);
   });
 
-  it("uses useCommit hook for git operations", () => {
+  it("uses the explicit workflow save mutation for git operations", () => {
     const source = readSource(COMMIT_DIALOG_PATH);
-    expect(source).toMatch(/useCommit\(/);
+    expect(source).toMatch(/useCommitWorkflow\(/);
   });
 
   it("renders DiffView for showing diffs", () => {
@@ -205,8 +205,8 @@ describe("CommitDialog is functional (AC5 — sanity)", () => {
     expect(source).toMatch(/<textarea/);
   });
 
-  it("has submit handler that calls commit.mutate", () => {
+  it("has submit handler that calls the workflow save mutation", () => {
     const source = readSource(COMMIT_DIALOG_PATH);
-    expect(source).toMatch(/commit\.mutate/);
+    expect(source).toMatch(/commitWorkflow\.mutate/);
   });
 });

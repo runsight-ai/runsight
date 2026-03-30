@@ -1,10 +1,10 @@
-"""Red tests for RUN-376: Save = commit to main.
+"""Red tests for RUN-376: explicit save = commit to main.
 
 ADR-001: every save (create/update/delete) writes YAML then triggers
 git add + git commit via GitService.  Tests verify that:
 
 - WorkflowService.create_workflow calls GitService with correct commit message
-- WorkflowService.update_workflow calls GitService with correct commit message
+- WorkflowService.update_workflow remains a non-commit update path
 - SoulService.create_soul / update_soul / delete_soul call GitService
 - No empty commits when nothing changed
 - Providers are NOT committed (gitignored)
@@ -111,10 +111,10 @@ class TestWorkflowCreateCommit:
 
 
 class TestWorkflowUpdateCommit:
-    """PUT /api/workflows/:id → file write + git add + git commit."""
+    """PUT /api/workflows/:id remains a non-commit update path."""
 
-    def test_update_workflow_calls_git_commit(self, workflow_repo, git_service):
-        """After updating a workflow, GitService.commit should be called."""
+    def test_update_workflow_does_not_call_git_commit(self, workflow_repo, git_service):
+        """Workflow updates no longer imply a production commit."""
         from runsight_api.logic.services.workflow_service import WorkflowService
 
         updated = WorkflowEntity(id="wf-1", name="Updated Flow")
@@ -123,10 +123,10 @@ class TestWorkflowUpdateCommit:
         svc = WorkflowService(workflow_repo, git_service=git_service)
         svc.update_workflow("wf-1", {"name": "Updated Flow"})
 
-        git_service.commit_to_branch.assert_called_once()
+        git_service.commit_to_branch.assert_not_called()
 
-    def test_update_workflow_commit_message_format(self, workflow_repo, git_service):
-        """Commit message must be 'Update workflow: {name}'."""
+    def test_update_workflow_still_persists_the_requested_payload(self, workflow_repo, git_service):
+        """Workflow updates still delegate the payload to the repository."""
         from runsight_api.logic.services.workflow_service import WorkflowService
 
         updated = WorkflowEntity(id="wf-1", name="My Cool Flow")
@@ -135,31 +135,8 @@ class TestWorkflowUpdateCommit:
         svc = WorkflowService(workflow_repo, git_service=git_service)
         svc.update_workflow("wf-1", {"name": "My Cool Flow"})
 
-        args, kwargs = git_service.commit_to_branch.call_args
-        all_args = list(args) + [kwargs.get("message", "")]
-        commit_msg = None
-        for a in all_args:
-            if isinstance(a, str) and "Update workflow" in a:
-                commit_msg = a
-                break
-        if commit_msg is None and "message" in kwargs:
-            commit_msg = kwargs["message"]
-
-        assert commit_msg is not None, "commit_to_branch not called with 'Update workflow' message"
-        assert "My Cool Flow" in commit_msg
-
-    def test_update_workflow_commits_to_main(self, workflow_repo, git_service):
-        """Update commits must target main branch."""
-        from runsight_api.logic.services.workflow_service import WorkflowService
-
-        updated = WorkflowEntity(id="wf-1", name="Test")
-        workflow_repo.update.return_value = updated
-
-        svc = WorkflowService(workflow_repo, git_service=git_service)
-        svc.update_workflow("wf-1", {"name": "Test"})
-
-        args, _ = git_service.commit_to_branch.call_args
-        assert args[0] == "main"
+        workflow_repo.update.assert_called_once_with("wf-1", {"name": "My Cool Flow"})
+        git_service.commit_to_branch.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
