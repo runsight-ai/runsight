@@ -480,18 +480,20 @@ def test_delete_soul_in_use_raises_conflict_with_usage_details():
             "wf_1",
             "Review One",
             """
-souls:
+blocks:
   one:
-    id: reviewer
+    type: linear
+    soul_ref: reviewer
 """,
         ),
         workflow_entity(
             "wf_2",
             "Review Two",
             """
-souls:
+blocks:
   two:
-    id: reviewer
+    type: linear
+    soul_ref: reviewer
 """,
         ),
     ]
@@ -516,9 +518,10 @@ def test_delete_soul_force_true_deletes_even_when_in_use():
             "wf_1",
             "Review One",
             """
-souls:
+blocks:
   one:
-    id: reviewer
+    type: linear
+    soul_ref: reviewer
 """,
         )
     ]

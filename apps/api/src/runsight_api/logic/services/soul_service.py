@@ -27,16 +27,31 @@ class SoulService:
         except Exception:
             return []
 
-        souls_section = data.get("souls", {}) or {}
-        if not isinstance(souls_section, dict):
+        blocks_section = data.get("blocks", {}) or {}
+        if not isinstance(blocks_section, dict):
             return []
 
         soul_ids: List[str] = []
-        for value in souls_section.values():
-            if isinstance(value, dict):
-                soul_id = value.get("id")
-                if isinstance(soul_id, str):
-                    soul_ids.append(soul_id)
+        seen: set[str] = set()
+        for value in blocks_section.values():
+            if not isinstance(value, dict):
+                continue
+
+            soul_ref = value.get("soul_ref")
+            if isinstance(soul_ref, str) and soul_ref not in seen:
+                seen.add(soul_ref)
+                soul_ids.append(soul_ref)
+
+            exits = value.get("exits", []) or []
+            if not isinstance(exits, list):
+                continue
+            for exit_def in exits:
+                if not isinstance(exit_def, dict):
+                    continue
+                exit_soul_ref = exit_def.get("soul_ref")
+                if isinstance(exit_soul_ref, str) and exit_soul_ref not in seen:
+                    seen.add(exit_soul_ref)
+                    soul_ids.append(exit_soul_ref)
         return soul_ids
 
     def _resolve_workflow_repo(self, workflow_repo=None):
