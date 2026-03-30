@@ -30,6 +30,8 @@ class RunRepository:
         limit: int,
         status: list[str] | None = None,
         workflow_id: str | None = None,
+        source: list[str] | None = None,
+        branch: str | None = None,
     ) -> tuple:
         """Return a page of runs and the total count using SQL LIMIT/OFFSET."""
         count_statement = select(func.count()).select_from(Run)
@@ -42,6 +44,14 @@ class RunRepository:
         if workflow_id:
             count_statement = count_statement.where(Run.workflow_id == workflow_id)
             statement = statement.where(Run.workflow_id == workflow_id)
+
+        if source:
+            count_statement = count_statement.where(Run.source.in_(source))
+            statement = statement.where(Run.source.in_(source))
+
+        if branch:
+            count_statement = count_statement.where(Run.branch == branch)
+            statement = statement.where(Run.branch == branch)
 
         total = self.session.exec(count_statement).one()
         items = list(self.session.exec(statement.offset(offset).limit(limit)).all())

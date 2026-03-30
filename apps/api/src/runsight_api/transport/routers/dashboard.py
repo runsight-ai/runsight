@@ -18,6 +18,8 @@ async def get_dashboard(run_service: RunService = Depends(get_run_service)):
     cutoff = time.time() - PERIOD_HOURS * 3600
 
     recent_runs = [r for r in runs if r.created_at > cutoff]
+    # Exclude simulation runs from production KPIs
+    recent_runs = [r for r in recent_runs if r.source != "simulation"]
 
     runs_today = len(recent_runs)
     cost_today_usd = sum(r.total_cost_usd for r in recent_runs if r.total_cost_usd)
