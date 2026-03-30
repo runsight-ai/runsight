@@ -11,6 +11,7 @@ class AppSettingsConfig(BaseModel):
     default_provider: str | None = None
     auto_save: bool | None = None
     onboarding_completed: bool = False
+    fallback_chain_enabled: bool = True
 
 
 class FallbackChainEntry(BaseModel):
@@ -18,6 +19,7 @@ class FallbackChainEntry(BaseModel):
 
     provider_id: str
     model_id: str
+    enabled: bool = True
 
 
 class ModelDefaultEntry(BaseModel):

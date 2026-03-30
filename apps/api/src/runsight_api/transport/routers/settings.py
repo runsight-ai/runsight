@@ -65,6 +65,7 @@ class AppSettingsOut(BaseModel):
     default_provider: Optional[str] = None
     auto_save: Optional[bool] = None
     onboarding_completed: Optional[bool] = None
+    fallback_chain_enabled: Optional[bool] = None
 
 
 def _provider_to_out(p) -> ProviderOut:

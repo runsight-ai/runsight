@@ -21,7 +21,12 @@ from ._utils import atomic_write
 logger = logging.getLogger(__name__)
 
 # Flat setting keys that live at the top level of the YAML file
-_FLAT_KEYS = {"default_provider", "auto_save", "onboarding_completed"}
+_FLAT_KEYS = {
+    "default_provider",
+    "auto_save",
+    "onboarding_completed",
+    "fallback_chain_enabled",
+}
 
 
 class FileSystemSettingsRepo:
