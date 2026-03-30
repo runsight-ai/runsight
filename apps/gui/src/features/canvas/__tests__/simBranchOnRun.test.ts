@@ -100,9 +100,9 @@ vi.mock("@/api/git", () => ({
 
 import { RunButton } from "../RunButton";
 
-function renderButton() {
+function renderButton(workflowId = "wf_1") {
   mocks.buttonProps.length = 0;
-  renderToStaticMarkup(React.createElement(RunButton, { workflowId: "wf_1" }));
+  renderToStaticMarkup(React.createElement(RunButton, { workflowId }));
   const button = mocks.buttonProps.at(-1);
   expect(button?.onClick).toBeTypeOf("function");
   return button!.onClick!;
@@ -125,16 +125,23 @@ beforeEach(() => {
 
 describe("RunButton simulation behavior (RUN-423)", () => {
   it("dirty canvas snapshots the in-memory workflow before starting a simulation run", async () => {
+    const currentWorkflowId = "wf_live_42";
+    const currentYaml = "workflow:\n  name: Live Flow\n  steps:\n    - id: latest-step\n";
     mocks.state.isDirty = true;
+    mocks.state.yamlContent = currentYaml;
     mocks.createSimulationSnapshot.mockResolvedValue({
       branch: "sim/test-flow/20260330/abc12",
       commit_sha: "deadbeefcafebabe",
     });
 
-    const click = renderButton();
+    const click = renderButton(currentWorkflowId);
     await click();
 
     expect(mocks.createSimulationSnapshot).toHaveBeenCalledTimes(1);
+    expect(mocks.createSimulationSnapshot).toHaveBeenCalledWith(
+      currentWorkflowId,
+      currentYaml,
+    );
     expect(mocks.createSimulationSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.createRunMutate.mock.invocationCallOrder[0],
     );

@@ -139,6 +139,7 @@ def test_workflows_delete():
 
 def test_workflows_post_simulations_returns_branch_and_commit_sha():
     mock_service = Mock()
+    posted_yaml = "workflow:\n  name: Sim Snapshot\n  steps:\n    - id: latest-step\n"
     mock_service.create_simulation.return_value = {
         "branch": "sim/wf_123/20260330/abc12",
         "commit_sha": "1234567890abcdef1234567890abcdef12345678",
@@ -147,7 +148,7 @@ def test_workflows_post_simulations_returns_branch_and_commit_sha():
 
     response = client.post(
         "/api/workflows/wf_123/simulations",
-        json={"yaml": "workflow:\n  name: Sim Snapshot\n"},
+        json={"yaml": posted_yaml},
     )
 
     assert response.status_code == 200
@@ -155,4 +156,14 @@ def test_workflows_post_simulations_returns_branch_and_commit_sha():
         "branch": "sim/wf_123/20260330/abc12",
         "commit_sha": "1234567890abcdef1234567890abcdef12345678",
     }
+    mock_service.create_simulation.assert_called_once()
+    args, kwargs = mock_service.create_simulation.call_args
+    forwarded_workflow_id = kwargs.get("workflow_id")
+    if forwarded_workflow_id is None:
+        forwarded_workflow_id = next((arg for arg in args if arg == "wf_123"), None)
+    forwarded_yaml = kwargs.get("yaml")
+    if forwarded_yaml is None:
+        forwarded_yaml = next((arg for arg in args if arg == posted_yaml), None)
+    assert forwarded_workflow_id == "wf_123"
+    assert forwarded_yaml == posted_yaml
     app.dependency_overrides.clear()
