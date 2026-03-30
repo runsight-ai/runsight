@@ -60,24 +60,11 @@ describe("GitBadge component exists (AC1)", () => {
     expect(source).toMatch(/export\s+(function|const)\s+GitBadge/);
   });
 
-  it("CanvasTopbar imports GitBadge", () => {
-    const source = readSource(CANVAS_TOPBAR_PATH);
-    expect(source).toMatch(/import\s+\{[^}]*GitBadge[^}]*\}\s+from/);
-  });
+  it.skip("CanvasTopbar imports GitBadge — removed: GitBadge moved to dedicated git UI", () => {});
 
-  it("CanvasTopbar renders GitBadge in JSX", () => {
-    const source = readSource(CANVAS_TOPBAR_PATH);
-    expect(source).toMatch(/<GitBadge/);
-  });
+  it.skip("CanvasTopbar renders GitBadge in JSX — removed: GitBadge moved to dedicated git UI", () => {});
 
-  it("GitBadge appears before Save button in CanvasTopbar", () => {
-    const source = readSource(CANVAS_TOPBAR_PATH);
-    const badgeIdx = source.indexOf("<GitBadge");
-    const saveIdx = source.search(/>\s*Save\s*</);
-    expect(badgeIdx).toBeGreaterThan(-1);
-    expect(saveIdx).toBeGreaterThan(-1);
-    expect(badgeIdx).toBeLessThan(saveIdx);
-  });
+  it.skip("GitBadge appears before Save button — removed: GitBadge moved to dedicated git UI", () => {});
 });
 
 // ===========================================================================
