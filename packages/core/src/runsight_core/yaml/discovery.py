@@ -119,12 +119,7 @@ def _discover_souls(souls_dir: Path) -> Dict[str, Soul]:
         if soul_data is None:
             continue
 
-        soul = Soul(
-            id=soul_data.get("id"),
-            role=soul_data.get("role"),
-            system_prompt=soul_data.get("system_prompt"),
-            tools=soul_data.get("tools"),
-        )
+        soul = Soul.model_validate(soul_data)
         souls[soul_key] = soul
 
     return souls
