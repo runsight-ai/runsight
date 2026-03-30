@@ -50,6 +50,11 @@ export function Component() {
   }, []);
 
   const handleSave = useCallback(() => {
+    setCommitDialogOpen(true);
+  }, []);
+
+  /** Inline save for the navigation blocker — writes directly to disk. */
+  const saveInline = useCallback(() => {
     const yamlContent = useCanvasStore.getState().yamlContent;
     updateWorkflow.mutate(
       { id: id!, data: { yaml: yamlContent } },
@@ -149,7 +154,7 @@ export function Component() {
             <Button
               variant="primary"
               onClick={() => {
-                handleSave();
+                saveInline();
                 blocker.proceed?.();
               }}
             >
@@ -166,7 +171,7 @@ export function Component() {
         saveAndRun={saveAndRun}
       />
 
-      <CommitDialog open={commitDialogOpen} onOpenChange={setCommitDialogOpen} files={[]} />
+      <CommitDialog open={commitDialogOpen} onOpenChange={setCommitDialogOpen} files={[]} onCommitSuccess={() => setIsDirty(false)} />
     </div>
   );
 }

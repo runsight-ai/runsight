@@ -20,9 +20,10 @@ interface CommitDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   files: FileStatus[];
+  onCommitSuccess?: () => void;
 }
 
-export function CommitDialog({ open, onOpenChange, files }: CommitDialogProps) {
+export function CommitDialog({ open, onOpenChange, files, onCommitSuccess }: CommitDialogProps) {
   const [message, setMessage] = useState("");
   const commit = useCommit();
 
@@ -32,6 +33,7 @@ export function CommitDialog({ open, onOpenChange, files }: CommitDialogProps) {
       onSuccess: () => {
         setMessage("");
         onOpenChange(false);
+        onCommitSuccess?.();
       },
     });
   }
