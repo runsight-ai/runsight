@@ -1,9 +1,10 @@
-"""Red tests for RUN-346: wire block-level assertions into execution."""
+"""Red tests for RUN-450: remove soul assertions while preserving block assertions."""
 
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from pydantic import ValidationError
 from runsight_core.observer import compute_soul_version
 from runsight_core.yaml.parser import parse_workflow_yaml
 from sqlmodel import Session, SQLModel, create_engine
@@ -36,7 +37,7 @@ workflow:
 """
 
 
-YAML_SOUL_ONLY_ASSERTIONS = """\
+YAML_INVALID_SOUL_ASSERTIONS = """\
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -61,7 +62,7 @@ workflow:
 """
 
 
-YAML_SOUL_AND_BLOCK_ASSERTIONS = """\
+YAML_INVALID_SOUL_AND_BLOCK_ASSERTIONS = """\
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -143,12 +144,9 @@ class TestParserPropagatesAssertions:
         assert block.assertions[0]["type"] == "contains"
         assert block.assertions[0]["value"] == "analysis"
 
-    def test_block_without_assertions_stays_none_even_if_soul_has_assertions(self):
-        wf = parse_workflow_yaml(YAML_SOUL_ONLY_ASSERTIONS)
-
-        block = wf._blocks["analyze"]
-        assert hasattr(block, "assertions")
-        assert block.assertions is None
+    def test_soul_level_assertions_raise_validation_error(self):
+        with pytest.raises(ValidationError):
+            parse_workflow_yaml(YAML_INVALID_SOUL_ASSERTIONS)
 
 
 class TestExecutionServiceBuildsAssertionConfigs:
@@ -161,7 +159,6 @@ class TestExecutionServiceBuildsAssertionConfigs:
             _blocks={
                 "analyze": SimpleNamespace(
                     assertions=[{"type": "contains", "value": "analysis"}],
-                    soul=SimpleNamespace(assertions=[{"type": "cost", "threshold": 0.10}]),
                 )
             }
         )
@@ -170,15 +167,13 @@ class TestExecutionServiceBuildsAssertionConfigs:
 
         assert configs == {"analyze": [{"type": "contains", "value": "analysis"}]}
 
-    def test_build_assertion_configs_ignores_soul_assertions_when_block_has_none(self):
+    def test_build_assertion_configs_returns_none_when_no_blocks_define_assertions(self):
         from runsight_api.logic.services.execution_service import ExecutionService
 
         wf = SimpleNamespace(
             _blocks={
-                "analyze": SimpleNamespace(
-                    assertions=None,
-                    soul=SimpleNamespace(assertions=[{"type": "contains", "value": "analysis"}]),
-                )
+                "analyze": SimpleNamespace(assertions=None),
+                "summarize": SimpleNamespace(assertions=None),
             }
         )
 
@@ -186,15 +181,12 @@ class TestExecutionServiceBuildsAssertionConfigs:
 
         assert configs is None
 
-    def test_build_assertion_configs_does_not_merge_soul_and_block_assertions(self):
+    def test_build_assertion_configs_does_not_require_soul_on_runtime_block(self):
         from runsight_api.logic.services.execution_service import ExecutionService
 
         wf = SimpleNamespace(
             _blocks={
-                "analyze": SimpleNamespace(
-                    assertions=[{"type": "contains", "value": "analysis"}],
-                    soul=SimpleNamespace(assertions=[{"type": "cost", "threshold": 0.10}]),
-                )
+                "analyze": SimpleNamespace(assertions=[{"type": "contains", "value": "analysis"}]),
             }
         )
 
@@ -234,35 +226,6 @@ class TestIntegrationEvalScoreViaService:
             assert node is not None
             assert node.eval_score is not None
             assert node.eval_results is not None
-
-    @pytest.mark.asyncio
-    async def test_soul_only_assertions_do_not_trigger_eval(self, db_engine):
-        from runsight_api.logic.services.execution_service import ExecutionService
-
-        svc = ExecutionService(
-            run_repo=Mock(),
-            workflow_repo=Mock(),
-            provider_repo=Mock(),
-            engine=db_engine,
-        )
-
-        run_id = "run_346_soul_only"
-        _seed_run(db_engine, run_id, "soul_only_assertion_test")
-        wf = parse_workflow_yaml(YAML_SOUL_ONLY_ASSERTIONS)
-
-        with patch(
-            "runsight_core.runner.RunsightTeamRunner.execute_task",
-            new_callable=AsyncMock,
-            return_value=_fake_result(),
-        ):
-            await svc._run_workflow(run_id, wf, {"instruction": "Analyze the data"})
-
-        with Session(db_engine) as session:
-            node = session.get(RunNode, f"{run_id}:analyze")
-            assert node is not None
-            assert node.eval_score is None
-            assert node.eval_passed is None
-            assert node.eval_results is None
 
     @pytest.mark.asyncio
     async def test_block_assertions_still_emit_baseline_delta_using_soul_identity(self, db_engine):
@@ -316,33 +279,13 @@ class TestIntegrationEvalScoreViaService:
         assert eval_event["data"]["delta"]["baseline_run_count"] == 1
 
 
-class TestExecutionServiceIgnoresSoulLevelMerging:
-    """When both locations exist, runtime evaluation should follow block ownership."""
+class TestInvalidSoulAssertionYaml:
+    """Soul-level assertions should be rejected before execution begins."""
 
-    @pytest.mark.asyncio
-    async def test_block_assertions_win_over_soul_assertions_during_execution(self, db_engine):
-        from runsight_api.logic.services.execution_service import ExecutionService
+    def test_soul_only_assertions_fail_validation_before_execution(self):
+        with pytest.raises(ValidationError):
+            parse_workflow_yaml(YAML_INVALID_SOUL_ASSERTIONS)
 
-        svc = ExecutionService(
-            run_repo=Mock(),
-            workflow_repo=Mock(),
-            provider_repo=Mock(),
-            engine=db_engine,
-        )
-
-        run_id = "run_346_block_wins"
-        _seed_run(db_engine, run_id, "soul_and_block_assertion_test")
-        wf = parse_workflow_yaml(YAML_SOUL_AND_BLOCK_ASSERTIONS)
-
-        with patch(
-            "runsight_core.runner.RunsightTeamRunner.execute_task",
-            new_callable=AsyncMock,
-            return_value=_fake_result(output="This output omits the expected keyword."),
-        ):
-            await svc._run_workflow(run_id, wf, {"instruction": "Analyze the data"})
-
-        with Session(db_engine) as session:
-            node = session.get(RunNode, f"{run_id}:analyze")
-            assert node is not None
-            assert node.eval_score == 0.0
-            assert node.eval_passed is False
+    def test_soul_and_block_assertions_fail_validation_before_execution(self):
+        with pytest.raises(ValidationError):
+            parse_workflow_yaml(YAML_INVALID_SOUL_AND_BLOCK_ASSERTIONS)
