@@ -28,6 +28,10 @@ class SoulDef(BaseModel):
     tools: Optional[List[str]] = None
     max_tool_iterations: int = 5
     model_name: Optional[str] = None
+    provider: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    avatar_color: Optional[str] = None
     assertions: Optional[List[Dict[str, Any]]] = None
 
 
