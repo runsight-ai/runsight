@@ -30,6 +30,25 @@ class TestSoulEntityIgnoresExtraFields:
         assert soul.id == "s1"
         assert soul.name == "Alpha"
 
+    def test_declared_runtime_fields_are_preserved(self):
+        soul = SoulEntity(
+            id="s1",
+            name="Alpha",
+            role="Researcher",
+            system_prompt="You analyze things.",
+            model_name="gpt-4o",
+            models=["gpt-4o", "gpt-4o-mini"],
+            tools=["web_search"],
+            max_tool_iterations=3,
+        )
+
+        assert soul.role == "Researcher"
+        assert soul.system_prompt == "You analyze things."
+        assert soul.model_name == "gpt-4o"
+        assert soul.models == ["gpt-4o", "gpt-4o-mini"]
+        assert soul.tools == ["web_search"]
+        assert soul.max_tool_iterations == 3
+
 
 # ── TaskEntity ──────────────────────────────────────────────────────
 
