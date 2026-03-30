@@ -8,9 +8,33 @@ from runsight_api.transport.deps import get_provider_service, get_session
 client = TestClient(app)
 
 
+def _mock_provider(*, provider_id: str, name: str, models: list[str]):
+    provider = Mock()
+    provider.id = provider_id
+    provider.name = name
+    provider.status = "active"
+    provider.api_key = "configured-key"
+    provider.base_url = None
+    provider.models = models
+    provider.created_at = None
+    provider.updated_at = None
+    return provider
+
+
 def test_settings_providers_list():
     mock_service = Mock()
-    mock_service.list_providers.return_value = []
+    mock_service.list_providers.return_value = [
+        _mock_provider(
+            provider_id="openai",
+            name="OpenAI",
+            models=["gpt-4.1", "gpt-4o"],
+        ),
+        _mock_provider(
+            provider_id="empty-provider",
+            name="Empty Provider",
+            models=[],
+        ),
+    ]
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
     response = client.get("/api/settings/providers")
@@ -18,6 +42,9 @@ def test_settings_providers_list():
     data = response.json()
     assert "items" in data
     assert "total" in data
+    assert data["total"] == 2
+    assert data["items"][0]["model_count"] == 2
+    assert data["items"][1]["model_count"] == 0
     app.dependency_overrides.clear()
 
 
@@ -33,15 +60,11 @@ def test_settings_providers_get_404():
 
 def test_settings_providers_post():
     mock_service = Mock()
-    mock_provider = Mock()
-    mock_provider.id = "openai"
-    mock_provider.name = "OpenAI"
-    mock_provider.status = "active"
-    mock_provider.api_key_encrypted = True
-    mock_provider.base_url = None
-    mock_provider.models = []
-    mock_provider.created_at = None
-    mock_provider.updated_at = None
+    mock_provider = _mock_provider(
+        provider_id="openai",
+        name="OpenAI",
+        models=[],
+    )
     mock_service.create_provider.return_value = mock_provider
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
@@ -52,6 +75,7 @@ def test_settings_providers_post():
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "openai"
+    assert data["model_count"] == 0
     app.dependency_overrides.clear()
 
 
