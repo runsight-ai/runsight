@@ -275,9 +275,9 @@ class WorkflowRepository:
         canvas_state = data.get("canvas_state")
         raw_yaml = data.get("yaml")
 
-        # D7: If raw YAML provided, write it directly (WYSIWYG).
+        # D7: If raw YAML provided (including empty string), write it directly (WYSIWYG).
         # Otherwise, build YAML from structured fields (backward compat).
-        if raw_yaml:
+        if raw_yaml is not None:
             yaml_content = raw_yaml
         else:
             yaml_data = self._extract_yaml_data(data)
@@ -311,9 +311,9 @@ class WorkflowRepository:
         canvas_state_update = data.get("canvas_state")
         raw_yaml = data.get("yaml")
 
-        # D7: If raw YAML provided, write it directly (WYSIWYG).
+        # D7: If raw YAML provided (including empty string), write it directly (WYSIWYG).
         # Otherwise, merge structured fields with existing content (backward compat).
-        if raw_yaml:
+        if raw_yaml is not None:
             yaml_content = raw_yaml
         else:
             with open(yaml_path, "r") as f:

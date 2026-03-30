@@ -5,6 +5,10 @@ interface SelectionCardProps {
   onSelect: () => void;
   children: ReactNode;
   label: string;
+  title?: string;
+  badge?: ReactNode;
+  description?: string;
+  footer?: ReactNode;
 }
 
 /**
@@ -15,6 +19,10 @@ export function SelectionCard({
   onSelect,
   children,
   label,
+  title,
+  badge,
+  description,
+  footer,
 }: SelectionCardProps) {
   return (
     <div
@@ -30,13 +38,31 @@ export function SelectionCard({
         }
       }}
       className={[
-        "flex flex-col gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors duration-100",
+        "flex flex-col gap-4 rounded-xl border p-5 cursor-pointer text-left",
+        "transition-[border-color,box-shadow] duration-200 ease-default",
         selected
-          ? "border-accent-9 bg-accent-2"
-          : "border-border-default bg-surface-primary hover:border-border-hover",
+          ? "border-accent-9 shadow-[0_0_0_1px_hsla(38,92%,55%,0.3)]"
+          : "border-border-subtle bg-surface-secondary hover:border-border-hover",
       ].join(" ")}
     >
+      {/* Header: title + badge */}
+      {title && (
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-semibold text-heading">{title}</span>
+          {badge}
+        </div>
+      )}
+
+      {/* Description */}
+      {description && (
+        <p className="text-sm text-secondary leading-relaxed">{description}</p>
+      )}
+
+      {/* Visual content (MiniDiagram or EmptyCanvasPreview) */}
       {children}
+
+      {/* Footer */}
+      {footer}
     </div>
   );
 }

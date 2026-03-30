@@ -5,10 +5,12 @@
 export function EmptyCanvasPreview() {
   return (
     <div
-      className="flex items-center justify-center h-16 w-full rounded border-2 border-dashed border-border-default text-secondary"
+      className="flex items-center justify-center py-6 px-4 bg-surface-primary rounded-md border border-neutral-3"
       aria-hidden="true"
     >
-      <span className="text-xl font-light">+</span>
+      <div className="flex items-center justify-center w-[100px] h-14 rounded-md border-[1.5px] border-dashed border-border-subtle text-neutral-7">
+        <span className="text-xl font-light text-neutral-9">+</span>
+      </div>
     </div>
   );
 }
