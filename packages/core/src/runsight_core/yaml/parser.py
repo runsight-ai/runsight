@@ -146,7 +146,6 @@ def parse_workflow_yaml(
             tools=soul_def.tools,
             max_tool_iterations=soul_def.max_tool_iterations,
             model_name=soul_def.model_name,
-            assertions=soul_def.assertions,
         )
 
     # Step 4: Instantiate runner (shared across all blocks in this workflow)

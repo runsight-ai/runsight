@@ -1,5 +1,9 @@
-"""Red tests for RUN-346: block-level assertion wiring in core parsing/runtime."""
+"""Red tests for RUN-450: retire soul assertions while preserving block assertions."""
 
+from unittest.mock import patch
+
+import pytest
+from pydantic import ValidationError
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
@@ -54,7 +58,7 @@ workflow:
 """
 
 
-YAML_SOUL_ONLY_ASSERTIONS = """\
+YAML_INVALID_SOUL_ASSERTIONS = """\
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -84,60 +88,16 @@ class DummyBlock(BaseBlock):
         return state
 
 
-class TestSoulDefAssertions:
-    def test_souldef_accepts_assertions_field(self):
-        """SoulDef can be instantiated with an assertions field (list of dicts)."""
+class TestSoulAssertionRemoval:
+    def test_souldef_has_no_assertions_field(self):
+        """SoulDef should not expose a soul-level assertions field anymore."""
         from runsight_core.yaml.schema import SoulDef
 
-        soul_def = SoulDef(
-            id="researcher_v1",
-            role="Senior Researcher",
-            system_prompt="You are a researcher.",
-            assertions=[
-                {"type": "contains", "value": "Sources", "weight": 1.0},
-                {"type": "cost", "threshold": 0.05},
-            ],
-        )
-        assert soul_def.assertions is not None
-        assert len(soul_def.assertions) == 2
-        assert soul_def.assertions[0]["type"] == "contains"
+        assert "assertions" not in SoulDef.model_fields
 
-    def test_souldef_assertions_defaults_to_none(self):
-        """SoulDef.assertions defaults to None when not provided."""
-        from runsight_core.yaml.schema import SoulDef
-
-        soul_def = SoulDef(
-            id="researcher_v1",
-            role="Senior Researcher",
-            system_prompt="You are a researcher.",
-        )
-        assert soul_def.assertions is None
-
-
-class TestSoulAssertions:
-    def test_soul_accepts_assertions_field(self):
-        """Soul model can be instantiated with an assertions field."""
-        soul = Soul(
-            id="researcher_v1",
-            role="Senior Researcher",
-            system_prompt="You are a researcher.",
-            model_name="gpt-4o",
-            assertions=[
-                {"type": "contains", "value": "Sources"},
-            ],
-        )
-        assert soul.assertions is not None
-        assert len(soul.assertions) == 1
-
-    def test_soul_assertions_defaults_to_none(self):
-        """Soul.assertions defaults to None when not provided."""
-        soul = Soul(
-            id="researcher_v1",
-            role="Senior Researcher",
-            system_prompt="You are a researcher.",
-            model_name="gpt-4o",
-        )
-        assert soul.assertions is None
+    def test_soul_has_no_assertions_field(self):
+        """Soul primitive should no longer expose a runtime assertions field."""
+        assert "assertions" not in Soul.model_fields
 
 
 class TestBaseBlockDefAssertions:
@@ -208,10 +168,22 @@ class TestAssertionConfigsPropagation:
         assert hasattr(block, "assertions")
         assert block.assertions is None
 
-    def test_parser_does_not_source_runtime_block_assertions_from_soul(self):
-        """Soul assertions alone should not populate block.assertions."""
-        wf = parse_workflow_yaml(YAML_SOUL_ONLY_ASSERTIONS)
+    def test_parser_rejects_soul_level_assertions_in_yaml(self):
+        """Soul YAML should fail validation when assertions are declared on a soul."""
+        with pytest.raises(ValidationError):
+            parse_workflow_yaml(YAML_INVALID_SOUL_ASSERTIONS)
 
-        block = wf._blocks["analyze"]
-        assert hasattr(block, "assertions")
-        assert block.assertions is None
+    def test_parser_does_not_pass_assertions_kwarg_to_soul(self):
+        """Parser should stop threading assertions into the Soul constructor."""
+        captured_kwargs = []
+        real_soul = Soul
+
+        def _build_soul(**kwargs):
+            captured_kwargs.append(kwargs)
+            return real_soul(**kwargs)
+
+        with patch("runsight_core.yaml.parser.Soul", side_effect=_build_soul):
+            parse_workflow_yaml(YAML_BLOCK_WITHOUT_ASSERTIONS)
+
+        assert captured_kwargs
+        assert "assertions" not in captured_kwargs[0]

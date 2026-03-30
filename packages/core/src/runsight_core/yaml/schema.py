@@ -22,13 +22,14 @@ class ToolDef(BaseModel):
 class SoulDef(BaseModel):
     """Soul definition as expressed in the YAML souls: section."""
 
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     role: str
     system_prompt: str
     tools: Optional[List[str]] = None
     max_tool_iterations: int = 5
     model_name: Optional[str] = None
-    assertions: Optional[List[Dict[str, Any]]] = None
 
 
 class TaskDef(BaseModel):
