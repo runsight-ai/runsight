@@ -67,12 +67,19 @@ def _fetch_paginated_runs(
     limit: int,
     status: Optional[List[str]] = None,
     workflow_id: Optional[str] = None,
+    source: Optional[List[str]] = None,
+    branch: Optional[str] = None,
 ):
     """Fetch runs with SQL pagination, falling back to in-memory for compatibility."""
     paginated = run_service.list_runs_paginated
     kwargs = {"offset": offset, "limit": limit, "status": status}
     if "workflow_id" in inspect.signature(paginated).parameters:
         kwargs["workflow_id"] = workflow_id
+    sig = inspect.signature(paginated)
+    if "source" in sig.parameters:
+        kwargs["source"] = source
+    if "branch" in sig.parameters:
+        kwargs["branch"] = branch
     result = paginated(**kwargs)
     if isinstance(result, tuple):
         return result
@@ -91,13 +98,21 @@ def _resolve_summaries(run_service: RunService, run_ids: list, raw_batch):
 async def list_runs(
     status: Optional[List[str]] = Query(None),
     workflow_id: Optional[str] = Query(None),
+    source: Optional[List[str]] = Query(None),
+    branch: Optional[str] = Query(None),
     offset: int = 0,
     limit: int = 20,
     run_service: RunService = Depends(get_run_service),
 ):
     limit = min(limit, 100)
     runs, total = _fetch_paginated_runs(
-        run_service, offset, limit, status=status, workflow_id=workflow_id
+        run_service,
+        offset,
+        limit,
+        status=status,
+        workflow_id=workflow_id,
+        source=source,
+        branch=branch,
     )
 
     run_ids = [run.id for run in runs]
