@@ -787,6 +787,48 @@
         }
       }
     },
+    "/api/souls/{id}/usages": {
+      "get": {
+        "tags": [
+          "Souls"
+        ],
+        "summary": "Get Soul Usages",
+        "operationId": "get_soul_usages_api_souls__id__usages_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoulUsageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/souls/{id}": {
       "get": {
         "tags": [
@@ -892,6 +934,16 @@
             "schema": {
               "type": "string",
               "title": "Id"
+            }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Force"
             }
           }
         ],
@@ -3478,6 +3530,50 @@
         },
         "type": "object",
         "title": "SoulUpdate"
+      },
+      "SoulUsageEntry": {
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "workflow_name": {
+            "type": "string",
+            "title": "Workflow Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workflow_id",
+          "workflow_name"
+        ],
+        "title": "SoulUsageEntry"
+      },
+      "SoulUsageResponse": {
+        "properties": {
+          "soul_id": {
+            "type": "string",
+            "title": "Soul Id"
+          },
+          "usages": {
+            "items": {
+              "$ref": "#/components/schemas/SoulUsageEntry"
+            },
+            "type": "array",
+            "title": "Usages"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "soul_id",
+          "usages",
+          "total"
+        ],
+        "title": "SoulUsageResponse"
       },
       "SoulVersionEntry": {
         "properties": {

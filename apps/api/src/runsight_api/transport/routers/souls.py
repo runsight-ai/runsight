@@ -3,8 +3,14 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 
 from ...logic.services.soul_service import SoulService
-from ..deps import get_soul_service
-from ..schemas.souls import SoulCreate, SoulListResponse, SoulResponse, SoulUpdate
+from ..deps import get_soul_service, get_workflow_repo
+from ..schemas.souls import (
+    SoulCreate,
+    SoulListResponse,
+    SoulResponse,
+    SoulUpdate,
+    SoulUsageResponse,
+)
 
 router = APIRouter(prefix="/souls", tags=["Souls"])
 
@@ -15,11 +21,22 @@ async def list_souls(
     offset: int = 0,
     limit: int = 50,
     service: SoulService = Depends(get_soul_service),
+    workflow_repo=Depends(get_workflow_repo),
 ):
-    souls = service.list_souls(query=q)
+    souls = service.list_souls(query=q, workflow_repo=workflow_repo)
     items = souls[offset : offset + limit]
     response_items = [SoulResponse(**s.model_dump()) for s in items]
     return SoulListResponse(items=response_items, total=len(souls))
+
+
+@router.get("/{id}/usages", response_model=SoulUsageResponse)
+async def get_soul_usages(
+    id: str,
+    service: SoulService = Depends(get_soul_service),
+    workflow_repo=Depends(get_workflow_repo),
+):
+    usages = service.get_soul_usages(id, workflow_repo)
+    return SoulUsageResponse(soul_id=id, usages=usages, total=len(usages))
 
 
 @router.get("/{id}", response_model=SoulResponse)
@@ -46,6 +63,11 @@ async def update_soul(id: str, body: SoulUpdate, service: SoulService = Depends(
 
 
 @router.delete("/{id}")
-async def delete_soul(id: str, service: SoulService = Depends(get_soul_service)):
-    service.delete_soul(id)
+async def delete_soul(
+    id: str,
+    force: bool = False,
+    service: SoulService = Depends(get_soul_service),
+    workflow_repo=Depends(get_workflow_repo),
+):
+    service.delete_soul(id, force=force, workflow_repo=workflow_repo)
     return {"id": id, "deleted": True}

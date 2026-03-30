@@ -292,6 +292,19 @@ export const SoulUpdateSchema = z.object({
 });
 export type SoulUpdate = z.infer<typeof SoulUpdateSchema>;
 
+export const SoulUsageEntrySchema = z.object({
+  workflow_id: z.string(),
+  workflow_name: z.string(),
+});
+export type SoulUsageEntry = z.infer<typeof SoulUsageEntrySchema>;
+
+export const SoulUsageResponseSchema = z.object({
+  soul_id: z.string(),
+  usages: z.array(SoulUsageEntrySchema),
+  total: z.number(),
+});
+export type SoulUsageResponse = z.infer<typeof SoulUsageResponseSchema>;
+
 export const UncommittedFileSchema = z.object({
   path: z.string(),
   status: z.string(),

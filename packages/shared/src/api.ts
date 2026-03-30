@@ -179,6 +179,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/souls/{id}/usages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Soul Usages */
+        get: operations["get_soul_usages_api_souls__id__usages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/souls/{id}": {
         parameters: {
             query?: never;
@@ -1020,6 +1037,22 @@ export interface components {
              */
             copy_on_edit: boolean;
         };
+        /** SoulUsageEntry */
+        SoulUsageEntry: {
+            /** Workflow Id */
+            workflow_id: string;
+            /** Workflow Name */
+            workflow_name: string;
+        };
+        /** SoulUsageResponse */
+        SoulUsageResponse: {
+            /** Soul Id */
+            soul_id: string;
+            /** Usages */
+            usages: components["schemas"]["SoulUsageEntry"][];
+            /** Total */
+            total: number;
+        };
         /** SoulVersionEntry */
         SoulVersionEntry: {
             /** Soul Version */
@@ -1732,6 +1765,37 @@ export interface operations {
             };
         };
     };
+    get_soul_usages_api_souls__id__usages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoulUsageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_soul_api_souls__id__get: {
         parameters: {
             query?: never;
@@ -1800,7 +1864,9 @@ export interface operations {
     };
     delete_soul_api_souls__id__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                force?: boolean;
+            };
             header?: never;
             path: {
                 id: string;
