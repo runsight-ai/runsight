@@ -46,6 +46,7 @@ class SoulEntity(BaseModel):
     model_name: Optional[str] = None
     assertions: Optional[List[Dict[str, Any]]] = None
     avatar_color: Optional[str] = None
+    workflow_count: int = Field(default=0)
     model_config = {"extra": "ignore"}
 
 
