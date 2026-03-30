@@ -59,7 +59,7 @@ export function NewWorkflowModal({ open, onClose }: NewWorkflowModalProps) {
 
       if (result?.id) {
         onClose();
-        navigate(`/workflows/${result.id}`);
+        navigate(`/workflows/${result.id}/edit`);
       } else {
         setError("Workflow was created but no ID was returned.");
         setIsSubmitting(false);
