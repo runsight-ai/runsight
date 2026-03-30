@@ -138,6 +138,26 @@ def test_workflows_delete():
     app.dependency_overrides.clear()
 
 
+def test_workflows_create_simulation_snapshot():
+    mock_service = Mock()
+    mock_service.create_simulation.return_value = {
+        "branch": "sim/test-flow/20260330/abc12",
+        "commit_sha": "deadbeefcafebabe",
+    }
+    app.dependency_overrides[get_workflow_service] = lambda: mock_service
+
+    payload = {"yaml": "workflow:\n  name: Test Flow\n"}
+
+    response = client.post("/api/workflows/wf_1/simulations", json=payload)
+    assert response.status_code == 200
+    assert response.json() == {
+        "branch": "sim/test-flow/20260330/abc12",
+        "commit_sha": "deadbeefcafebabe",
+    }
+    mock_service.create_simulation.assert_called_once_with("wf_1", payload)
+    app.dependency_overrides.clear()
+
+
 def test_workflows_post_simulations():
     """POST /api/workflows/{id}/simulations should delegate and return branch + commit_sha."""
     mock_service = Mock()
@@ -148,14 +168,15 @@ def test_workflows_post_simulations():
     )
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
+    payload = {"yaml": "workflow:\n  name: Sim Snapshot\n"}
     response = client.post(
         "/api/workflows/wf_123/simulations",
-        json={"yaml_content": "name: sim\n"},
+        json=payload,
     )
 
     assert response.status_code == 200
     body = response.json()
     assert body["branch"] == "sim/wf_123/20260330/abc12"
     assert body["commit_sha"] == "1234567890abcdef1234567890abcdef12345678"
-    mock_service.create_simulation.assert_called_once_with("wf_123", "name: sim\n")
+    mock_service.create_simulation.assert_called_once_with("wf_123", payload)
     app.dependency_overrides.clear()

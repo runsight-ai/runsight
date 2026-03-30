@@ -1,10 +1,12 @@
-"""Red tests for RUN-127: ExecutionService — launch_execution with background tasks.
+"""Red tests for RUN-127 and RUN-423: ExecutionService background execution.
 
 These tests target the new ExecutionService that wires POST /runs to workflow.run()
 with background asyncio execution. All tests should FAIL until the implementation exists.
 """
 
 import asyncio
+import subprocess
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -18,6 +20,40 @@ def _import_execution_service():
     from runsight_api.logic.services.execution_service import ExecutionService
 
     return ExecutionService
+
+
+def _init_git_repo_with_workflow(
+    tmp_path: Path,
+    *,
+    workflow_id: str,
+    main_yaml: str,
+) -> Path:
+    repo = tmp_path / "repo"
+    workflow_path = repo / "custom" / "workflows" / f"{workflow_id}.yaml"
+    workflow_path.parent.mkdir(parents=True, exist_ok=True)
+    workflow_path.write_text(main_yaml)
+
+    subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@runsight.dev"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Runsight Tests"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "initial workflow"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    return repo
 
 
 # ---------------------------------------------------------------------------
@@ -146,6 +182,74 @@ config: {}
             # Let the background task finish
             execution_finish.set()
             await asyncio.sleep(0.05)
+
+    @pytest.mark.asyncio
+    async def test_launch_execution_reads_yaml_from_requested_branch(self, tmp_path: Path):
+        """RUN-423: requested simulation branches must supply their own YAML content."""
+        ExecutionService = _import_execution_service()
+        from runsight_api.logic.services.git_service import GitService
+        from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+
+        main_yaml = """
+workflow:
+  name: Main Workflow
+  entry: b1
+  transitions: []
+blocks:
+  b1:
+    type: linear
+    soul_ref: main-soul
+souls: {}
+config: {}
+"""
+        sim_yaml = """
+workflow:
+  name: Simulation Workflow
+  entry: b1
+  transitions: []
+blocks:
+  b1:
+    type: linear
+    soul_ref: sim-soul
+souls: {}
+config: {}
+"""
+        repo = _init_git_repo_with_workflow(tmp_path, workflow_id="wf_1", main_yaml=main_yaml)
+        git_service = GitService(repo_path=repo)
+        sim_branch = git_service.create_sim_branch(
+            workflow_slug="wf_1",
+            yaml_content=sim_yaml,
+            yaml_path="custom/workflows/wf_1.yaml",
+        ).branch
+
+        run_repo = Mock()
+        provider_repo = Mock()
+        provider_repo.list_all.return_value = []
+        workflow_repo = WorkflowRepository(base_path=str(repo))
+        svc = ExecutionService(
+            run_repo=run_repo,
+            workflow_repo=workflow_repo,
+            provider_repo=provider_repo,
+            git_service=git_service,
+        )
+
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
+            mock_wf = Mock()
+            mock_wf.run = AsyncMock()
+            mock_parse.return_value = mock_wf
+
+            await svc.launch_execution(
+                "run_branch_yaml",
+                "wf_1",
+                {"instruction": "execute simulation"},
+                branch=sim_branch,
+            )
+
+            mock_parse.assert_called_once()
+            assert mock_parse.call_args.args[0] == sim_yaml
+            assert mock_parse.call_args.args[0] != main_yaml
 
 
 # ---------------------------------------------------------------------------

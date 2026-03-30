@@ -137,7 +137,6 @@ describe("RunButton simulation behavior (RUN-423)", () => {
     expect(mocks.createSimulationSnapshot).toHaveBeenCalledTimes(1);
     expect(mocks.createSimulationSnapshot).toHaveBeenCalledWith("wf_1", {
       yaml: "workflow:\n  name: Test Flow\n",
-      canvas_state: mocks.persistedCanvasState,
     });
     expect(mocks.createSimulationSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.createRunMutate.mock.invocationCallOrder[0],
