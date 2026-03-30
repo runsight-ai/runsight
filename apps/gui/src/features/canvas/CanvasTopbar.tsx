@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
 import { Tabs, TabsList, TabsTrigger } from "@runsight/ui/tabs";
 import { Button } from "@runsight/ui/button";
@@ -49,6 +49,22 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
       setLastTerminalRunId(prevActiveRunId.current);
     }
   }, [trackedRun?.status]);
+
+  // Global Cmd+S / Ctrl+S shortcut for save
+  const handleKeyboardSave = useCallback(
+    (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        onSave?.();
+      }
+    },
+    [onSave],
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyboardSave);
+    return () => window.removeEventListener("keydown", handleKeyboardSave);
+  }, [handleKeyboardSave]);
 
   const workflowName = workflow?.name ?? "Untitled Workflow";
 

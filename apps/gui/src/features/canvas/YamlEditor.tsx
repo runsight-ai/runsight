@@ -3,6 +3,7 @@ import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
 import { LazyMonacoEditor } from "./LazyMonacoEditor";
 import { defineYamlTheme } from "./yamlTheme";
 import { useYamlValidation, type ValidationState } from "./useYamlValidation";
+import { useCanvasStore } from "@/store/canvas";
 
 interface YamlEditorProps {
   workflowId: string;
@@ -57,6 +58,7 @@ export function YamlEditor({ workflowId, onDirtyChange, onValidation }: YamlEdit
     contentRef.current = value ?? "";
     setIsDirty(true);
     validate(contentRef.current);
+    useCanvasStore.getState().setYamlContent(contentRef.current);
   }
 
   return (

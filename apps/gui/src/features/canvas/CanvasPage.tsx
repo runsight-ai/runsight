@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useParams, useBlocker } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Layout } from "lucide-react";
@@ -30,7 +30,6 @@ export function Component() {
   const [saveAndRun, setSaveAndRun] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const yamlRef = useRef("");
   const updateWorkflow = useUpdateWorkflow();
   const createRun = useCreateRun();
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
@@ -47,22 +46,12 @@ export function Component() {
   }, []);
 
   const handleSave = useCallback(() => {
+    const yamlContent = useCanvasStore.getState().yamlContent;
     updateWorkflow.mutate(
-      { id: id!, data: { yaml: yamlRef.current } },
+      { id: id!, data: { yaml: yamlContent } },
       { onSuccess: () => setIsDirty(false) },
     );
   }, [id, updateWorkflow]);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-        e.preventDefault();
-        handleSave();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleSave]);
 
   const handleOpenApiKeyModal = useCallback(() => {
     setSaveAndRun(false);

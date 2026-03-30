@@ -31,6 +31,8 @@ interface CanvasState {
   hasValidationErrors: boolean;
   activeRunId: string | null;
   runCost: number;
+  yamlContent: string;
+  blockCount: number;
   setNodes: (nodes: Node[], markDirty?: boolean) => void;
   setEdges: (edges: Edge[], markDirty?: boolean) => void;
   onNodesChange: (changes: NodeChange[]) => void;
@@ -41,6 +43,7 @@ interface CanvasState {
   setValidationErrors: (errors: string[]) => void;
   setActiveRunId: (runId: string | null) => void;
   setRunCost: (cost: number) => void;
+  setYamlContent: (content: string) => void;
   setNodeStatus: (nodeId: string, status: RunStatus) => void;
   resetNodeStatuses: () => void;
   hydrateFromPersisted: (state: PersistedCanvasState | null | undefined) => void;
@@ -62,6 +65,8 @@ const initialState = {
   hasValidationErrors: false,
   activeRunId: null as string | null,
   runCost: 0,
+  yamlContent: "",
+  blockCount: 0,
 };
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -86,6 +91,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ validationErrors: errors, hasValidationErrors: errors.length > 0 }),
   setActiveRunId: (runId) => set({ activeRunId: runId }),
   setRunCost: (cost) => set({ runCost: cost }),
+  setYamlContent: (content) => {
+    // Parse blocks from YAML content — count top-level "steps:" entries
+    const blockMatches = content.match(/^[ ]{2}\w/gm);
+    set({ yamlContent: content, blockCount: blockMatches ? blockMatches.length : 0 });
+  },
   setNodeStatus: (nodeId, status) =>
     set((state) => ({
       nodes: state.nodes.map((node) =>
