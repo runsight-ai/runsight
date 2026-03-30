@@ -245,6 +245,15 @@ def parse_workflow_yaml(
             wrapper.stateful = inner.stateful
             built_blocks[block_id] = wrapper
 
+    # Step 6.5b: Bridge block-owned assertions onto the final runtime blocks
+    for block_id, block_def in file_def.blocks.items():
+        if block_id in built_blocks:
+            built_blocks[block_id].assertions = (
+                [dict(assertion) for assertion in block_def.assertions]
+                if block_def.assertions is not None
+                else None
+            )
+
     # Step 6.6: Validate and resolve tools per soul
     # 6.6a: Validate tool sources exist in BUILTIN_TOOL_CATALOG
     for tool_key, tool_def in file_def.tools.items():
