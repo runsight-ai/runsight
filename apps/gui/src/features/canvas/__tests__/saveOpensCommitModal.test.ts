@@ -43,7 +43,7 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("react", async () => {
-  const actual = await vi.importActual<typeof import("react")>("react");
+  const actual = await vi.importActual<typeof React>("react");
 
   return {
     ...actual,
