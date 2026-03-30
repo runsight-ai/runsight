@@ -1,9 +1,12 @@
+import subprocess
 from unittest.mock import Mock
 
 import pytest
 
+from runsight_api.data.filesystem.soul_repo import SoulRepository
 from runsight_api.domain.errors import SoulAlreadyExists, SoulInUse, SoulNotFound
 from runsight_api.domain.value_objects import SoulEntity, WorkflowEntity
+from runsight_api.logic.services.git_service import GitService
 from runsight_api.logic.services.soul_service import SoulService
 
 
@@ -16,6 +19,17 @@ def make_service() -> tuple[Mock, Mock, SoulService]:
     git_service = Mock()
     service = SoulService(soul_repo, git_service=git_service)
     return soul_repo, git_service, service
+
+
+def git(repo, *args: str) -> str:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.strip()
 
 
 # --- list_souls ---
@@ -193,6 +207,28 @@ def test_get_soul_usages_for_missing_soul_raises_not_found():
     assert "missing" in str(exc_info.value)
 
 
+def test_get_soul_usages_empty_when_unreferenced():
+    soul_repo = Mock()
+    workflow_repo = Mock()
+    soul_repo.get_by_id.return_value = SoulEntity(id="researcher", role="Researcher")
+    workflow_repo.list_all.return_value = [
+        workflow_entity(
+            "wf_1",
+            "Review Flow",
+            """
+souls:
+  reviewer:
+    id: reviewer
+""",
+        )
+    ]
+    service = SoulService(soul_repo)
+
+    usages = service.get_soul_usages("researcher", workflow_repo)
+
+    assert usages == []
+
+
 def test_compute_workflow_counts_skips_missing_sections_and_bad_yaml():
     workflow_repo = Mock()
     souls = [
@@ -278,6 +314,35 @@ def test_create_soul_missing_id_auto_generates():
     assert call_args["id"].startswith("soul_")
     assert len(call_args["id"]) == len("soul_") + 8
     assert call_args["role"] == "Auto Soul"
+
+
+def test_create_soul_real_git_commit_uses_custom_souls_path(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-b", "main")
+    git(repo, "config", "user.email", "test@test.com")
+    git(repo, "config", "user.name", "Test")
+    (repo / "README.md").write_text("# repo")
+    git(repo, "add", "README.md")
+    git(repo, "commit", "-m", "initial commit")
+
+    soul_repo = SoulRepository(base_path=str(repo))
+    git_service = GitService(repo_path=str(repo))
+    service = SoulService(soul_repo, git_service=git_service)
+
+    created = service.create_soul(
+        {
+            "id": "researcher",
+            "role": "Researcher",
+            "system_prompt": "Research the topic",
+        }
+    )
+
+    assert created.id == "researcher"
+    assert (repo / "custom" / "souls" / "researcher.yaml").exists()
+    assert git(repo, "log", "-1", "--format=%s") == "Create researcher.yaml"
+    tracked = git(repo, "ls-files", "--", "custom/souls/researcher.yaml")
+    assert tracked == "custom/souls/researcher.yaml"
 
 
 # --- update_soul ---

@@ -173,36 +173,38 @@ class TestSoulCreateCommit:
     def test_create_soul_calls_git_commit(self, soul_repo, git_service):
         from runsight_api.logic.services.soul_service import SoulService
 
-        created = SoulEntity(id="soul_abc123", name="Reviewer")
+        created = SoulEntity(id="soul_abc123", role="Reviewer")
+        soul_repo.get_by_id.return_value = None
         soul_repo.create.return_value = created
 
         svc = SoulService(soul_repo, git_service=git_service)
-        svc.create_soul({"id": "soul_abc123", "name": "Reviewer"})
+        svc.create_soul({"id": "soul_abc123", "role": "Reviewer"})
 
         git_service.commit_to_branch.assert_called_once()
 
     def test_create_soul_commit_message(self, soul_repo, git_service):
-        """Commit message: 'Create soul: {id}'."""
+        """Commit message: 'Create {id}.yaml'."""
         from runsight_api.logic.services.soul_service import SoulService
 
-        created = SoulEntity(id="soul_abc123", name="Reviewer")
+        created = SoulEntity(id="soul_abc123", role="Reviewer")
+        soul_repo.get_by_id.return_value = None
         soul_repo.create.return_value = created
 
         svc = SoulService(soul_repo, git_service=git_service)
-        svc.create_soul({"id": "soul_abc123", "name": "Reviewer"})
+        svc.create_soul({"id": "soul_abc123", "role": "Reviewer"})
 
         args, kwargs = git_service.commit_to_branch.call_args
         all_args = list(args) + [kwargs.get("message", "")]
         commit_msg = None
         for a in all_args:
-            if isinstance(a, str) and "Create soul" in a:
+            if isinstance(a, str) and "Create" in a:
                 commit_msg = a
                 break
         if commit_msg is None and "message" in kwargs:
             commit_msg = kwargs["message"]
 
-        assert commit_msg is not None, "Expected commit message with 'Create soul'"
-        assert "soul_abc123" in commit_msg
+        assert commit_msg == "Create soul_abc123.yaml"
+        assert args[1] == ["custom/souls/soul_abc123.yaml"]
 
 
 class TestSoulUpdateCommit:
@@ -211,38 +213,38 @@ class TestSoulUpdateCommit:
     def test_update_soul_calls_git_commit(self, soul_repo, git_service):
         from runsight_api.logic.services.soul_service import SoulService
 
-        existing = SoulEntity(id="soul_x", name="Old Name")
+        existing = SoulEntity(id="soul_x", role="Old Name")
         soul_repo.get_by_id.return_value = existing
-        soul_repo.update.return_value = SoulEntity(id="soul_x", name="New Name")
+        soul_repo.update.return_value = SoulEntity(id="soul_x", role="New Name")
 
         svc = SoulService(soul_repo, git_service=git_service)
-        svc.update_soul("soul_x", {"name": "New Name"})
+        svc.update_soul("soul_x", {"role": "New Name"})
 
         git_service.commit_to_branch.assert_called_once()
 
     def test_update_soul_commit_message(self, soul_repo, git_service):
-        """Commit message: 'Update soul: {id}'."""
+        """Commit message: 'Update {id}.yaml'."""
         from runsight_api.logic.services.soul_service import SoulService
 
-        existing = SoulEntity(id="soul_x", name="Old")
+        existing = SoulEntity(id="soul_x", role="Old")
         soul_repo.get_by_id.return_value = existing
-        soul_repo.update.return_value = SoulEntity(id="soul_x", name="New")
+        soul_repo.update.return_value = SoulEntity(id="soul_x", role="New")
 
         svc = SoulService(soul_repo, git_service=git_service)
-        svc.update_soul("soul_x", {"name": "New"})
+        svc.update_soul("soul_x", {"role": "New"})
 
         args, kwargs = git_service.commit_to_branch.call_args
         all_args = list(args) + [kwargs.get("message", "")]
         commit_msg = None
         for a in all_args:
-            if isinstance(a, str) and "Update soul" in a:
+            if isinstance(a, str) and "Update" in a:
                 commit_msg = a
                 break
         if commit_msg is None and "message" in kwargs:
             commit_msg = kwargs["message"]
 
-        assert commit_msg is not None, "Expected commit message with 'Update soul'"
-        assert "soul_x" in commit_msg
+        assert commit_msg == "Update soul_x.yaml"
+        assert args[1] == ["custom/souls/soul_x.yaml"]
 
 
 class TestSoulDeleteCommit:
@@ -251,6 +253,7 @@ class TestSoulDeleteCommit:
     def test_delete_soul_calls_git_commit(self, soul_repo, git_service):
         from runsight_api.logic.services.soul_service import SoulService
 
+        soul_repo.get_by_id.return_value = SoulEntity(id="soul_gone", role="Gone")
         soul_repo.delete.return_value = True
 
         svc = SoulService(soul_repo, git_service=git_service)
@@ -259,9 +262,10 @@ class TestSoulDeleteCommit:
         git_service.commit_to_branch.assert_called_once()
 
     def test_delete_soul_commit_message(self, soul_repo, git_service):
-        """Commit message: 'Delete soul: {id}'."""
+        """Commit message: 'Delete {id}.yaml'."""
         from runsight_api.logic.services.soul_service import SoulService
 
+        soul_repo.get_by_id.return_value = SoulEntity(id="soul_gone", role="Gone")
         soul_repo.delete.return_value = True
 
         svc = SoulService(soul_repo, git_service=git_service)
@@ -271,14 +275,14 @@ class TestSoulDeleteCommit:
         all_args = list(args) + [kwargs.get("message", "")]
         commit_msg = None
         for a in all_args:
-            if isinstance(a, str) and "Delete soul" in a:
+            if isinstance(a, str) and "Delete" in a:
                 commit_msg = a
                 break
         if commit_msg is None and "message" in kwargs:
             commit_msg = kwargs["message"]
 
-        assert commit_msg is not None, "Expected commit message with 'Delete soul'"
-        assert "soul_gone" in commit_msg
+        assert commit_msg == "Delete soul_gone.yaml"
+        assert args[1] == ["custom/souls/soul_gone.yaml"]
 
 
 # ---------------------------------------------------------------------------
@@ -310,13 +314,13 @@ class TestNoEmptyCommits:
         """When soul update produces no diff, git commit must NOT be called."""
         from runsight_api.logic.services.soul_service import SoulService
 
-        existing = SoulEntity(id="soul_x", name="Same")
+        existing = SoulEntity(id="soul_x", role="Same")
         soul_repo.get_by_id.return_value = existing
-        soul_repo.update.return_value = SoulEntity(id="soul_x", name="Same")
+        soul_repo.update.return_value = SoulEntity(id="soul_x", role="Same")
         git_service.is_clean.return_value = True
 
         svc = SoulService(soul_repo, git_service=git_service)
-        svc.update_soul("soul_x", {"name": "Same"})
+        svc.update_soul("soul_x", {"role": "Same"})
 
         git_service.commit_to_branch.assert_not_called()
 

@@ -93,11 +93,27 @@ def test_souls_post():
     app.dependency_overrides.clear()
 
 
-def test_souls_post_requires_role_and_system_prompt():
+def test_souls_post_requires_role():
     mock_service = Mock()
     mock_service.create_soul.return_value = SoulEntity(id="unexpected", name="Unexpected")
     app.dependency_overrides[get_soul_service] = lambda: mock_service
-    response = client.post("/api/souls", json={"id": "missing-fields"})
+    response = client.post(
+        "/api/souls",
+        json={"id": "missing-role", "system_prompt": "Create the soul"},
+    )
+    assert response.status_code == 422
+    mock_service.create_soul.assert_not_called()
+    app.dependency_overrides.clear()
+
+
+def test_souls_post_requires_system_prompt():
+    mock_service = Mock()
+    mock_service.create_soul.return_value = SoulEntity(id="unexpected", role="Unexpected")
+    app.dependency_overrides[get_soul_service] = lambda: mock_service
+    response = client.post(
+        "/api/souls",
+        json={"id": "missing-system-prompt", "role": "New Soul"},
+    )
     assert response.status_code == 422
     mock_service.create_soul.assert_not_called()
     app.dependency_overrides.clear()
