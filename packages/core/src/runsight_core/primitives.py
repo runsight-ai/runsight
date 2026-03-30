@@ -30,9 +30,6 @@ class Soul(BaseModel):
     model_name: Optional[str] = Field(
         default=None, description="Optional model override (uses runner default if None)"
     )
-    assertions: Optional[List[Dict[str, Any]]] = Field(
-        default=None, description="Optional list of assertion configs for eval"
-    )
     resolved_tools: Optional[List[Any]] = Field(
         default=None,
         exclude=True,
