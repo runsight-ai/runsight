@@ -33,6 +33,7 @@ interface CanvasState {
   runCost: number;
   yamlContent: string;
   blockCount: number;
+  edgeCount: number;
   setNodes: (nodes: Node[], markDirty?: boolean) => void;
   setEdges: (edges: Edge[], markDirty?: boolean) => void;
   onNodesChange: (changes: NodeChange[]) => void;
@@ -67,6 +68,7 @@ const initialState = {
   runCost: 0,
   yamlContent: "",
   blockCount: 0,
+  edgeCount: 0,
 };
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -94,7 +96,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setYamlContent: (content) => {
     // Parse blocks from YAML content — count top-level "steps:" entries
     const blockMatches = content.match(/^[ ]{2}\w/gm);
-    set({ yamlContent: content, blockCount: blockMatches ? blockMatches.length : 0 });
+    // Parse edge count from YAML — count transition entries (lines with "target:" under transitions blocks)
+    const transitionMatches = content.match(/^\s+target\s*:/gm);
+    const edgeCount = transitionMatches ? transitionMatches.length : 0;
+    set({ yamlContent: content, blockCount: blockMatches ? blockMatches.length : 0, edgeCount });
   },
   setNodeStatus: (nodeId, status) =>
     set((state) => ({

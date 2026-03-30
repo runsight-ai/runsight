@@ -33,6 +33,8 @@ export function Component() {
   const updateWorkflow = useUpdateWorkflow();
   const createRun = useCreateRun();
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
+  const blockCount = useCanvasStore((s) => s.blockCount);
+  const edgeCount = useCanvasStore((s) => s.edgeCount);
 
   const blocker = useBlocker(isDirty);
 
@@ -126,7 +128,7 @@ export function Component() {
 
       <FirstTimeTooltip />
       <CanvasBottomPanel />
-      <CanvasStatusBar activeTab={activeTab} />
+      <CanvasStatusBar activeTab={activeTab} blockCount={blockCount} edgeCount={edgeCount} />
 
       {/* Unsaved changes dialog */}
       <Dialog open={blocker.state === "blocked"}>
