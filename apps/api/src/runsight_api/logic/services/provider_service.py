@@ -110,6 +110,9 @@ class ProviderService:
         return self.repo.update(provider_id, update_data)
 
     def delete_provider(self, provider_id: str) -> bool:
+        provider = self.repo.get_by_id(provider_id)
+        if provider and provider.api_key:
+            self.secrets.remove_key(provider.api_key)
         return self.repo.delete(provider_id)
 
     async def test_connection(self, provider_id: str) -> dict:

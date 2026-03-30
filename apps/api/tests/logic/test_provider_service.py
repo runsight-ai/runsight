@@ -241,6 +241,45 @@ def test_delete_provider_not_found_returns_false():
     assert result is False
 
 
+def test_delete_provider_removes_managed_secret_before_delete():
+    repo = Mock()
+    secrets = Mock()
+    repo.get_by_id.return_value = ProviderEntity(
+        id="openai",
+        name="OpenAI",
+        type="openai",
+        api_key="${OPENAI_API_KEY}",
+    )
+    repo.delete.return_value = True
+
+    service = ProviderService(repo, secrets)
+    result = service.delete_provider("openai")
+
+    assert result is True
+    repo.get_by_id.assert_called_once_with("openai")
+    secrets.remove_key.assert_called_once_with("${OPENAI_API_KEY}")
+    repo.delete.assert_called_once_with("openai")
+
+
+def test_delete_provider_skips_secret_cleanup_without_api_key_reference():
+    repo = Mock()
+    secrets = Mock()
+    repo.get_by_id.return_value = ProviderEntity(
+        id="ollama",
+        name="Ollama",
+        type="ollama",
+        api_key=None,
+    )
+    repo.delete.return_value = True
+
+    service = ProviderService(repo, secrets)
+    result = service.delete_provider("ollama")
+
+    assert result is True
+    secrets.remove_key.assert_not_called()
+    repo.delete.assert_called_once_with("ollama")
+
+
 # --- test_connection ---
 
 
