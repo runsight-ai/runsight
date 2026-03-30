@@ -45,6 +45,12 @@ class ModelDefaultOut(BaseModel):
     is_default: bool = False
 
 
+class ModelDefaultUpdate(BaseModel):
+    model_name: str | None = None
+    is_default: bool | None = None
+    fallback_chain: list[str] | None = None
+
+
 class BudgetOut(BaseModel):
     id: str
     name: str
@@ -154,8 +160,17 @@ async def list_model_defaults(
 
 
 @router.put("/models/{model_id}")
-async def update_model_default(model_id: str):
-    return {"id": model_id}
+async def update_model_default(
+    model_id: str,
+    data: ModelDefaultUpdate,
+    service: SettingsService = Depends(get_settings_service),
+):
+    return service.update_model_default(
+        provider_id=model_id,
+        model_name=data.model_name,
+        is_default=data.is_default,
+        fallback_chain=data.fallback_chain,
+    )
 
 
 @router.get("/budgets")
