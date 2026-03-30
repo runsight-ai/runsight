@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   XCircle,
   Server,
+  AlertCircle,
+  RotateCcw,
 } from "lucide-react";
 import { AddProviderDialog } from "./AddProviderDialog";
 import type { EditingProvider } from "@/components/provider/ProviderSetup";
@@ -289,11 +291,12 @@ function toEditing(p: Provider): EditingProvider {
 }
 
 export function ProvidersTab() {
-  const { data, isLoading } = useProviders();
+  const { data, isLoading, error, refetch } = useProviders();
   const deleteProvider = useDeleteProvider();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EditingProvider | undefined>(undefined);
   const [itemToDelete, setItemToDelete] = useState<Provider | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const providers = data?.items || [];
 
@@ -318,6 +321,15 @@ export function ProvidersTab() {
     setItemToDelete(provider);
   };
 
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-4xl">
       {/* Page Header */}
@@ -340,6 +352,28 @@ export function ProvidersTab() {
               className="h-32 animate-pulse rounded-lg border border-border-default bg-surface-secondary"
             />
           ))}
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center rounded-lg border border-border-default bg-surface-secondary p-8">
+          <div className="max-w-md text-center">
+            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-danger" />
+            <h3 className="mb-2 text-lg font-medium text-primary">
+              Failed to load providers
+            </h3>
+            <p className="mb-4 text-sm text-muted">
+              {error instanceof Error
+                ? error.message
+                : "An error occurred while fetching providers."}
+            </p>
+            <Button
+              onClick={handleRetry}
+              variant="secondary"
+              disabled={isRetrying}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {isRetrying ? "Retrying..." : "Retry"}
+            </Button>
+          </div>
         </div>
       ) : providers.length === 0 ? (
         <EmptyProvidersState onAdd={handleAdd} />

@@ -16,7 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@runsight/ui/select";
-import { Bot, Check, X, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  Bot,
+  Check,
+  X,
+  ChevronUp,
+  ChevronDown,
+  AlertCircle,
+  RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { ModelDefault } from "@/api/settings";
 
@@ -214,11 +222,12 @@ function FallbackChainSection({
 }
 
 export function ModelsTab() {
-  const { data, isLoading } = useModelDefaults();
+  const { data, isLoading, error, refetch } = useModelDefaults();
   const { data: providersData } = useProviders();
   const { data: appSettings } = useAppSettings();
   const updateModelDefault = useUpdateModelDefault();
   const updateAppSettings = useUpdateAppSettings();
+  const [isRetrying, setIsRetrying] = useState(false);
   const modelDefaults = data?.items ?? [];
   const providers = useMemo(() => providersData?.items ?? [], [providersData?.items]);
   const fallbackChainEnabled = appSettings?.fallback_chain_enabled ?? true;
@@ -255,6 +264,15 @@ export function ModelsTab() {
     [updateModelDefault]
   );
 
+  const handleRetry = useCallback(async () => {
+    setIsRetrying(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [refetch]);
+
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
@@ -271,6 +289,28 @@ export function ModelsTab() {
               className="h-40 animate-pulse rounded-lg border border-border-default bg-surface-secondary"
             />
           ))}
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center rounded-lg border border-border-default bg-surface-secondary p-8">
+          <div className="max-w-md text-center">
+            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-danger" />
+            <h3 className="mb-2 text-lg font-medium text-primary">
+              Failed to load model defaults
+            </h3>
+            <p className="mb-4 text-sm text-muted">
+              {error instanceof Error
+                ? error.message
+                : "An error occurred while fetching model defaults."}
+            </p>
+            <Button
+              onClick={handleRetry}
+              variant="secondary"
+              disabled={isRetrying}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {isRetrying ? "Retrying..." : "Retry"}
+            </Button>
+          </div>
         </div>
       ) : modelDefaults.length === 0 ? (
         <div className="rounded-lg border border-border-default bg-surface-secondary p-8">
