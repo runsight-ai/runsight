@@ -119,12 +119,45 @@ def test_settings_providers_test():
 
 
 def test_settings_models_list():
-    app.dependency_overrides.clear()
-    response = client.get("/api/settings/models")
-    assert response.status_code == 200
-    data = response.json()
-    assert "items" in data
-    assert "total" in data
+    import runsight_api.transport.deps as deps_module
+
+    assert hasattr(deps_module, "get_settings_service"), (
+        "deps.get_settings_service must exist so /api/settings/models can be wired "
+        "to SettingsService"
+    )
+
+    mock_service = Mock()
+    mock_service.get_model_defaults.return_value = [
+        {
+            "id": "openai",
+            "provider_id": "openai",
+            "provider_name": "OpenAI",
+            "model_name": "gpt-4o",
+            "is_default": True,
+            "fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"],
+        }
+    ]
+    app.dependency_overrides[getattr(deps_module, "get_settings_service")] = lambda: mock_service
+
+    try:
+        response = client.get("/api/settings/models")
+        assert response.status_code == 200
+        assert response.json() == {
+            "items": [
+                {
+                    "id": "openai",
+                    "provider_id": "openai",
+                    "provider_name": "OpenAI",
+                    "model_name": "gpt-4o",
+                    "is_default": True,
+                    "fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"],
+                }
+            ],
+            "total": 1,
+        }
+        mock_service.get_model_defaults.assert_called_once_with()
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_settings_budgets_list():
