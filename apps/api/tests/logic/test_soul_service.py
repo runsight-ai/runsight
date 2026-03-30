@@ -109,20 +109,23 @@ def test_list_souls_with_workflow_repo_enriches_workflow_counts():
             "wf_1",
             "Research Flow",
             """
-souls:
-  step_1:
-    id: researcher
-  step_2:
-    id: reviewer
+blocks:
+  research:
+    type: linear
+    soul_ref: researcher
+  review:
+    type: linear
+    soul_ref: reviewer
 """,
         ),
         workflow_entity(
             "wf_2",
             "Review Flow",
             """
-souls:
-  approver:
-    id: reviewer
+blocks:
+  approve:
+    type: linear
+    soul_ref: reviewer
 """,
         ),
     ]
@@ -164,9 +167,10 @@ def test_get_soul_usages_returns_matching_workflows_and_skips_bad_yaml():
             "wf_1",
             "Research Flow",
             """
-souls:
+blocks:
   draft:
-    id: researcher
+    type: linear
+    soul_ref: researcher
 """,
         ),
         workflow_entity("wf_2", "Broken Flow", "souls: [broken"),
@@ -174,17 +178,32 @@ souls:
             "wf_3",
             "Wrong Shape",
             """
-souls:
-  - id: researcher
+blocks:
+  - soul_ref: researcher
 """,
         ),
         workflow_entity(
             "wf_4",
             "Review Flow",
             """
-souls:
+blocks:
   review:
-    id: reviewer
+    type: linear
+    soul_ref: reviewer
+""",
+        ),
+        workflow_entity(
+            "wf_5",
+            "Fanout Flow",
+            """
+blocks:
+  route:
+    type: fanout
+    exits:
+      - id: research
+        label: Research
+        soul_ref: researcher
+        task: Research it
 """,
         ),
     ]
@@ -192,7 +211,10 @@ souls:
 
     usages = service.get_soul_usages("researcher", workflow_repo)
 
-    assert usages == [{"workflow_id": "wf_1", "workflow_name": "Research Flow"}]
+    assert usages == [
+        {"workflow_id": "wf_1", "workflow_name": "Research Flow"},
+        {"workflow_id": "wf_5", "workflow_name": "Fanout Flow"},
+    ]
 
 
 def test_get_soul_usages_for_missing_soul_raises_not_found():
@@ -214,11 +236,15 @@ def test_get_soul_usages_empty_when_unreferenced():
     workflow_repo.list_all.return_value = [
         workflow_entity(
             "wf_1",
-            "Review Flow",
+            "Declared But Unused",
             """
 souls:
-  reviewer:
-    id: reviewer
+  researcher:
+    id: researcher
+blocks:
+  review:
+    type: linear
+    soul_ref: reviewer
 """,
         )
     ]
@@ -250,13 +276,15 @@ workflow:
             "wf_ok",
             "Valid",
             """
-souls:
+blocks:
   first:
-    id: researcher
+    type: linear
+    soul_ref: researcher
   second:
-    id: reviewer
+    type: linear
+    soul_ref: reviewer
   ignored:
-    key: nope
+    type: linear
 """,
         ),
     ]
