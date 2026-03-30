@@ -114,10 +114,10 @@ describe("Commit link navigates to commit flow (AC5)", () => {
     expect(source).toMatch(/Commit/);
   });
 
-  it("has a link or navigation element for commit", () => {
+  it("has a clickable element for commit action", () => {
     const source = readSource(BANNER_PATH);
-    // Should use Link, <a>, or navigate for commit action
-    expect(source).toMatch(/Link|<a\s|navigate|href/);
+    // Should use a button with onClick callback for commit action (RUN-422)
+    expect(source).toMatch(/<button[^>]*onClick|onCommit/);
   });
 });
 
