@@ -97,6 +97,77 @@ def test_runs_post():
     app.dependency_overrides.clear()
 
 
+def test_runs_post_passes_source_and_branch_to_services():
+    """POST /api/runs should pass branch and source to both service calls."""
+    mock_service = Mock()
+    mock_run = _make_mock_run("run_branch_source")
+    mock_run.source = "webhook"
+    mock_service.create_run.return_value = mock_run
+    mock_exec_service = Mock()
+    mock_exec_service.launch_execution = AsyncMock()
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
+
+    payload = {
+        "workflow_id": "wf_1",
+        "task_data": {"instruction": "go"},
+        "branch": "sim/wf_1/20260330/abc12",
+        "source": "webhook",
+    }
+    response = client.post("/api/runs", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["id"] == "run_branch_source"
+    mock_service.create_run.assert_called_once_with(
+        "wf_1",
+        {"instruction": "go"},
+        source="webhook",
+        branch="sim/wf_1/20260330/abc12",
+    )
+    mock_exec_service.launch_execution.assert_called_once_with(
+        "run_branch_source",
+        "wf_1",
+        {"instruction": "go"},
+        source="webhook",
+        branch="sim/wf_1/20260330/abc12",
+    )
+    app.dependency_overrides.clear()
+
+
+def test_runs_post_defaults_branch_to_main_for_existing_callers():
+    """POST /api/runs without branch should still pass branch='main' and source='manual'."""
+    mock_service = Mock()
+    mock_run = _make_mock_run("run_main_default")
+    mock_run.source = "manual"
+    mock_service.create_run.return_value = mock_run
+    mock_exec_service = Mock()
+    mock_exec_service.launch_execution = AsyncMock()
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
+
+    response = client.post(
+        "/api/runs",
+        json={"workflow_id": "wf_1", "task_data": {"instruction": "go"}},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == "run_main_default"
+    mock_service.create_run.assert_called_once_with(
+        "wf_1",
+        {"instruction": "go"},
+        source="manual",
+        branch="main",
+    )
+    mock_exec_service.launch_execution.assert_called_once_with(
+        "run_main_default",
+        "wf_1",
+        {"instruction": "go"},
+        source="manual",
+        branch="main",
+    )
+    app.dependency_overrides.clear()
+
+
 def test_runs_post_422():
     mock_exec_service = Mock()
     mock_exec_service.launch_execution = AsyncMock()

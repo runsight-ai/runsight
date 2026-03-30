@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 from fastapi.testclient import TestClient
@@ -134,4 +135,27 @@ def test_workflows_delete():
     response = client.delete("/api/workflows/wf_1")
     assert response.status_code == 200
     assert response.json()["deleted"] is True
+    app.dependency_overrides.clear()
+
+
+def test_workflows_post_simulations():
+    """POST /api/workflows/{id}/simulations should delegate and return branch + commit_sha."""
+    mock_service = Mock()
+    mock_service.create_simulation.return_value = SimpleNamespace(
+        branch="sim/wf_123/20260330/abc12",
+        sha="1234567890abcdef1234567890abcdef12345678",
+        commit_sha="1234567890abcdef1234567890abcdef12345678",
+    )
+    app.dependency_overrides[get_workflow_service] = lambda: mock_service
+
+    response = client.post(
+        "/api/workflows/wf_123/simulations",
+        json={"yaml_content": "name: sim\n"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["branch"] == "sim/wf_123/20260330/abc12"
+    assert body["commit_sha"] == "1234567890abcdef1234567890abcdef12345678"
+    mock_service.create_simulation.assert_called_once_with("wf_123", "name: sim\n")
     app.dependency_overrides.clear()
