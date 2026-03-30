@@ -62,20 +62,25 @@ def test_create_run_workflow_not_found(run_service, workflow_repo):
 
 
 def test_create_run_accepts_branch_and_source(run_service, run_repo, workflow_repo):
-    """create_run should accept caller-provided branch while preserving source."""
-    workflow_repo.get_by_id.return_value = Mock(id="wf_1")
+    """create_run should preserve the canonical simulation branch/source pair."""
+    workflow = Mock()
+    workflow.id = "wf_1"
+    workflow.name = "Simulation Flow"
+    workflow_repo.get_by_id.return_value = workflow
     run_repo.create_run.return_value = None
 
     run = run_service.create_run(
         "wf_1",
         {"instruction": "go"},
-        source="webhook",
+        source="simulation",
         branch="sim/wf_1/20260330/abc12",
     )
 
-    assert run.source == "webhook"
+    assert run.source == "simulation"
     assert run.branch == "sim/wf_1/20260330/abc12"
-    run_repo.create_run.assert_called_once()
+    stored_run = run_repo.create_run.call_args[0][0]
+    assert stored_run.source == "simulation"
+    assert stored_run.branch == "sim/wf_1/20260330/abc12"
 
 
 def test_create_run_empty_task_data(run_service, run_repo, workflow_repo):
