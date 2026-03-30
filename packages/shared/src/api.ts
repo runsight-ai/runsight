@@ -963,10 +963,12 @@ export interface components {
             max_tool_iterations: number;
             /** Model Name */
             model_name?: string | null;
-            /** Assertions */
-            assertions?: {
-                [key: string]: unknown;
-            }[] | null;
+            /** Provider */
+            provider?: string | null;
+            /** Temperature */
+            temperature?: number | null;
+            /** Max Tokens */
+            max_tokens?: number | null;
             /** Avatar Color */
             avatar_color?: string | null;
         };
@@ -1001,10 +1003,12 @@ export interface components {
             max_tool_iterations: number;
             /** Model Name */
             model_name?: string | null;
-            /** Assertions */
-            assertions?: {
-                [key: string]: unknown;
-            }[] | null;
+            /** Provider */
+            provider?: string | null;
+            /** Temperature */
+            temperature?: number | null;
+            /** Max Tokens */
+            max_tokens?: number | null;
             /** Avatar Color */
             avatar_color?: string | null;
             /**
@@ -1025,10 +1029,12 @@ export interface components {
             max_tool_iterations?: number | null;
             /** Model Name */
             model_name?: string | null;
-            /** Assertions */
-            assertions?: {
-                [key: string]: unknown;
-            }[] | null;
+            /** Provider */
+            provider?: string | null;
+            /** Temperature */
+            temperature?: number | null;
+            /** Max Tokens */
+            max_tokens?: number | null;
             /** Avatar Color */
             avatar_color?: string | null;
             /**

@@ -3264,20 +3264,38 @@
             ],
             "title": "Model Name"
           },
-          "assertions": {
+          "provider": {
             "anyOf": [
               {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "array"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Assertions"
+            "title": "Provider"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "max_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tokens"
           },
           "avatar_color": {
             "anyOf": [
@@ -3291,6 +3309,7 @@
             "title": "Avatar Color"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "role",
@@ -3398,20 +3417,38 @@
             ],
             "title": "Model Name"
           },
-          "assertions": {
+          "provider": {
             "anyOf": [
               {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "array"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Assertions"
+            "title": "Provider"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "max_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tokens"
           },
           "avatar_color": {
             "anyOf": [
@@ -3496,20 +3533,38 @@
             ],
             "title": "Model Name"
           },
-          "assertions": {
+          "provider": {
             "anyOf": [
               {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "array"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Assertions"
+            "title": "Provider"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "max_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tokens"
           },
           "avatar_color": {
             "anyOf": [
@@ -3528,6 +3583,7 @@
             "default": false
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "SoulUpdate"
       },

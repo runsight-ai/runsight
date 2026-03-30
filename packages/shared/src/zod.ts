@@ -240,7 +240,9 @@ export const SoulCreateSchema = z.object({
   tools: z.array(z.string()).nullable().optional(),
   max_tool_iterations: z.number().optional().default(5),
   model_name: z.string().nullable().optional(),
-  assertions: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+  provider: z.string().nullable().optional(),
+  temperature: z.number().nullable().optional(),
+  max_tokens: z.number().nullable().optional(),
   avatar_color: z.string().nullable().optional(),
 });
 export type SoulCreate = z.infer<typeof SoulCreateSchema>;
@@ -268,7 +270,9 @@ export const SoulResponseSchema = z.object({
   tools: z.array(z.string()).nullable().optional(),
   max_tool_iterations: z.number().optional().default(5),
   model_name: z.string().nullable().optional(),
-  assertions: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+  provider: z.string().nullable().optional(),
+  temperature: z.number().nullable().optional(),
+  max_tokens: z.number().nullable().optional(),
   avatar_color: z.string().nullable().optional(),
   workflow_count: z.number().optional().default(0),
 });
@@ -286,7 +290,9 @@ export const SoulUpdateSchema = z.object({
   tools: z.array(z.string()).nullable().optional(),
   max_tool_iterations: z.number().nullable().optional(),
   model_name: z.string().nullable().optional(),
-  assertions: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+  provider: z.string().nullable().optional(),
+  temperature: z.number().nullable().optional(),
+  max_tokens: z.number().nullable().optional(),
   avatar_color: z.string().nullable().optional(),
   copy_on_edit: z.boolean().optional().default(false),
 });
