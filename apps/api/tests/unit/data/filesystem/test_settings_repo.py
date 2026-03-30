@@ -74,6 +74,11 @@ class TestMissingFileDefaults:
         result = repo.get_settings()
         assert result.onboarding_completed is False
 
+    def test_default_settings_enable_fallback_chain(self, repo):
+        """Default AppSettingsConfig must enable fallback chains for old YAML files."""
+        result = repo.get_settings()
+        assert result.fallback_chain_enabled is True
+
     def test_get_fallback_chain_returns_empty_when_no_file(self, repo):
         """get_fallback_chain must return an empty list when no file exists."""
         result = repo.get_fallback_chain()
@@ -166,6 +171,7 @@ class TestUpdateSettingsPartialMerge:
                 "default_provider": "google",
                 "auto_save": False,
                 "onboarding_completed": True,
+                "fallback_chain_enabled": False,
             }
         )
 
@@ -173,6 +179,7 @@ class TestUpdateSettingsPartialMerge:
         assert result.default_provider == "google"
         assert result.auto_save is False
         assert result.onboarding_completed is True
+        assert result.fallback_chain_enabled is False
 
     def test_update_with_empty_dict_changes_nothing(self, repo):
         """An empty update dict must leave settings unchanged."""
@@ -250,6 +257,16 @@ class TestFallbackChain:
         result = repo.get_fallback_chain()
         assert result[0].provider_id == "openai"
         assert result[0].model_id == "gpt-4o"
+
+    def test_fallback_chain_entry_enabled_defaults_true(self, repo):
+        """FallbackChainEntry.enabled must default to True for older YAML."""
+        chain = [
+            FallbackChainEntry(provider_id="openai", model_id="gpt-4o"),
+        ]
+        repo.update_fallback_chain(chain)
+
+        result = repo.get_fallback_chain()
+        assert result[0].enabled is True
 
 
 class TestFallbackChainFullReplacement:
@@ -525,11 +542,12 @@ class TestYamlSchema:
                 "default_provider": "openai",
                 "auto_save": True,
                 "onboarding_completed": True,
+                "fallback_chain_enabled": False,
             }
         )
         repo.update_fallback_chain(
             [
-                FallbackChainEntry(provider_id="openai", model_id="gpt-4o"),
+                FallbackChainEntry(provider_id="openai", model_id="gpt-4o", enabled=False),
                 FallbackChainEntry(provider_id="anthropic", model_id="claude-sonnet-4-20250514"),
             ]
         )
@@ -544,12 +562,14 @@ class TestYamlSchema:
         assert on_disk["default_provider"] == "openai"
         assert on_disk["auto_save"] is True
         assert on_disk["onboarding_completed"] is True
+        assert on_disk["fallback_chain_enabled"] is False
 
         # Fallback chain
         assert "fallback_chain" in on_disk
         assert len(on_disk["fallback_chain"]) == 2
         assert on_disk["fallback_chain"][0]["provider_id"] == "openai"
         assert on_disk["fallback_chain"][0]["model_id"] == "gpt-4o"
+        assert on_disk["fallback_chain"][0]["enabled"] is False
 
         # Model defaults
         assert "model_defaults" in on_disk
@@ -572,6 +592,7 @@ class TestRoundTrip:
                 "default_provider": "openai",
                 "auto_save": True,
                 "onboarding_completed": False,
+                "fallback_chain_enabled": False,
             }
         )
 
@@ -579,12 +600,17 @@ class TestRoundTrip:
         assert result.default_provider == "openai"
         assert result.auto_save is True
         assert result.onboarding_completed is False
+        assert result.fallback_chain_enabled is False
 
     def test_fallback_chain_round_trip(self, repo):
         """Fallback chain must survive update -> get round trip."""
         chain = [
             FallbackChainEntry(provider_id="openai", model_id="gpt-4o"),
-            FallbackChainEntry(provider_id="anthropic", model_id="claude-sonnet-4-20250514"),
+            FallbackChainEntry(
+                provider_id="anthropic",
+                model_id="claude-sonnet-4-20250514",
+                enabled=False,
+            ),
         ]
         repo.update_fallback_chain(chain)
 
@@ -592,8 +618,10 @@ class TestRoundTrip:
         assert len(result) == 2
         assert result[0].provider_id == "openai"
         assert result[0].model_id == "gpt-4o"
+        assert result[0].enabled is True
         assert result[1].provider_id == "anthropic"
         assert result[1].model_id == "claude-sonnet-4-20250514"
+        assert result[1].enabled is False
 
     def test_model_defaults_round_trip(self, repo):
         """Model defaults must survive set -> list round trip."""
@@ -646,9 +674,14 @@ class TestHandAuthoredYaml:
                     "default_provider": "anthropic",
                     "auto_save": False,
                     "onboarding_completed": True,
+                    "fallback_chain_enabled": False,
                     "fallback_chain": [
                         {"provider_id": "openai", "model_id": "gpt-4o"},
-                        {"provider_id": "anthropic", "model_id": "claude-sonnet-4-20250514"},
+                        {
+                            "provider_id": "anthropic",
+                            "model_id": "claude-sonnet-4-20250514",
+                            "enabled": False,
+                        },
                     ],
                     "model_defaults": [
                         {"provider_id": "openai", "model_id": "gpt-4o", "is_default": True},
@@ -661,10 +694,13 @@ class TestHandAuthoredYaml:
         assert settings.default_provider == "anthropic"
         assert settings.auto_save is False
         assert settings.onboarding_completed is True
+        assert settings.fallback_chain_enabled is False
 
         chain = repo.get_fallback_chain()
         assert len(chain) == 2
         assert chain[0].provider_id == "openai"
+        assert chain[0].enabled is True
+        assert chain[1].enabled is False
 
         defaults = repo.list_model_defaults()
         assert len(defaults) == 1
@@ -679,6 +715,7 @@ class TestHandAuthoredYaml:
         assert settings.default_provider == "openai"
         assert settings.auto_save is None
         assert settings.onboarding_completed is False
+        assert settings.fallback_chain_enabled is True
 
         # Missing sections default to empty lists
         assert repo.get_fallback_chain() == []
@@ -711,12 +748,14 @@ class TestPydanticModels:
         assert hasattr(config, "default_provider")
         assert hasattr(config, "auto_save")
         assert hasattr(config, "onboarding_completed")
+        assert hasattr(config, "fallback_chain_enabled")
 
     def test_fallback_chain_entry_fields(self):
         """FallbackChainEntry must have provider_id and model_id."""
         entry = FallbackChainEntry(provider_id="openai", model_id="gpt-4o")
         assert entry.provider_id == "openai"
         assert entry.model_id == "gpt-4o"
+        assert entry.enabled is True
 
     def test_model_default_entry_fields(self):
         """ModelDefaultEntry must have provider_id, model_id, and is_default."""

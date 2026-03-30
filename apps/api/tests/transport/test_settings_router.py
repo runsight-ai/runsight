@@ -2,10 +2,12 @@ from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
 
+from runsight_api.data.filesystem.settings_repo import FileSystemSettingsRepo
+from runsight_api.domain.entities.settings import AppSettingsConfig
 from runsight_api.main import app
 from runsight_api.transport.deps import (
     get_provider_service,
-    get_session,
+    get_settings_repo,
     get_settings_service,
 )
 
@@ -256,56 +258,28 @@ def test_settings_budgets_list():
 
 
 def test_settings_app_get():
-    import tempfile
-
-    from sqlmodel import Session, SQLModel, create_engine
-
-    # File-based DB so all connections share schema (unlike :memory:)
-    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
-        db_path = f.name
-    engine = create_engine(
-        f"sqlite:///{db_path}",
-        connect_args={"check_same_thread": False},
-    )
-    SQLModel.metadata.create_all(engine)
     try:
-
-        def _get_session():
-            with Session(engine) as session:
-                yield session
-
-        app.dependency_overrides[get_session] = _get_session
+        repo = Mock(spec=FileSystemSettingsRepo)
+        repo.get_settings.return_value = AppSettingsConfig(
+            default_provider="openai",
+            fallback_chain_enabled=False,
+        )
+        app.dependency_overrides[get_settings_repo] = lambda: repo
         response = client.get("/api/settings/app")
         assert response.status_code == 200
+        assert response.json()["fallback_chain_enabled"] is False
     finally:
         app.dependency_overrides.clear()
-        import os
-
-        os.unlink(db_path)
 
 
 def test_settings_app_put():
-    import os
-    import tempfile
-
-    from sqlmodel import Session, SQLModel, create_engine
-
-    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
-        db_path = f.name
-    engine = create_engine(
-        f"sqlite:///{db_path}",
-        connect_args={"check_same_thread": False},
-    )
-    SQLModel.metadata.create_all(engine)
     try:
-
-        def _get_session():
-            with Session(engine) as session:
-                yield session
-
-        app.dependency_overrides[get_session] = _get_session
-        response = client.put("/api/settings/app", json={"theme": "dark"})
+        repo = Mock(spec=FileSystemSettingsRepo)
+        repo.update_settings.return_value = AppSettingsConfig(fallback_chain_enabled=False)
+        app.dependency_overrides[get_settings_repo] = lambda: repo
+        response = client.put("/api/settings/app", json={"fallback_chain_enabled": False})
         assert response.status_code == 200
+        assert response.json()["fallback_chain_enabled"] is False
+        repo.update_settings.assert_called_once_with({"fallback_chain_enabled": False})
     finally:
         app.dependency_overrides.clear()
-        os.unlink(db_path)
