@@ -148,7 +148,7 @@ describe("RunButton simulation behavior (RUN-423)", () => {
     expect(mocks.createRunMutate).toHaveBeenCalledTimes(1);
     expect(mocks.createRunMutate.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        workflow_id: "wf_1",
+        workflow_id: "wf_live_42",
         source: "simulation",
         branch: "sim/test-flow/20260330/abc12",
       }),
