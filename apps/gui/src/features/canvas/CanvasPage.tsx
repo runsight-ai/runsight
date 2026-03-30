@@ -11,6 +11,7 @@ import { PaletteSidebar } from "./PaletteSidebar";
 import { ExploreBanner } from "./ExploreBanner";
 import { CommitDialog } from "@/features/git/CommitDialog";
 import { ApiKeyModal } from "@/features/setup/ApiKeyModal";
+import { gitApi } from "@/api/git";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { YamlEditor } from "./YamlEditor";
 import { useUpdateWorkflow } from "@/queries/workflows";
@@ -67,12 +68,21 @@ export function Component() {
     setApiKeyModalOpen(true);
   }, []);
 
-  const handleRun = useCallback(() => {
-    createRun.mutate(
-      { workflow_id: id!, source: "manual" },
-      { onSuccess: (result) => setActiveRunId(result.id) },
-    );
-  }, [id, createRun, setActiveRunId]);
+  const handleRun = useCallback(async () => {
+    if (isDirty) {
+      const yamlContent = useCanvasStore.getState().yamlContent;
+      const simResult = await gitApi.createSimBranch(id!, yamlContent);
+      createRun.mutate(
+        { workflow_id: id!, source: "sim", branch: simResult.branch },
+        { onSuccess: (result) => setActiveRunId(result.id) },
+      );
+    } else {
+      createRun.mutate(
+        { workflow_id: id!, source: "manual", branch: "main" },
+        { onSuccess: (result) => setActiveRunId(result.id) },
+      );
+    }
+  }, [id, isDirty, createRun, setActiveRunId]);
 
   const handleApiKeyModalClose = useCallback(
     (open: boolean) => {
