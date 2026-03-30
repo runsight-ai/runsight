@@ -5,7 +5,7 @@ import {
   useTestProviderConnection,
   useUpdateProvider,
 } from "@/queries/settings";
-import { StatusBadge } from "@/components/shared";
+import { DeleteConfirmDialog, StatusBadge } from "@/components/shared";
 import { Button } from "@runsight/ui/button";
 import { Switch } from "@runsight/ui/switch";
 import {
@@ -96,7 +96,7 @@ function ProviderCard({
 }: {
   provider: Provider;
   onEdit: (provider: Provider) => void;
-  onDelete: (id: string) => void;
+  onDelete: (provider: Provider) => void;
 }) {
   const testConnection = useTestProviderConnection();
   const updateProvider = useUpdateProvider();
@@ -234,7 +234,7 @@ function ProviderCard({
             <Button
               variant="icon-only"
               size="sm"
-              onClick={() => onDelete(provider.id)}
+              onClick={() => onDelete(provider)}
               className="text-[var(--danger-9)] hover:text-[var(--danger-9)]"
               title="Remove provider"
             >
@@ -286,6 +286,7 @@ export function ProvidersTab() {
   const deleteProvider = useDeleteProvider();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EditingProvider | undefined>(undefined);
+  const [itemToDelete, setItemToDelete] = useState<Provider | null>(null);
 
   const providers = data?.items || [];
 
@@ -306,10 +307,8 @@ export function ProvidersTab() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to remove this provider?")) {
-      deleteProvider.mutate(id);
-    }
+  const handleDelete = (provider: Provider) => {
+    setItemToDelete(provider);
   };
 
   return (
@@ -354,6 +353,20 @@ export function ProvidersTab() {
         open={dialogOpen}
         onOpenChange={handleCloseDialog}
         editing={editing}
+      />
+
+      <DeleteConfirmDialog
+        open={!!itemToDelete}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={() => {
+          if (!itemToDelete) return;
+          deleteProvider.mutate(itemToDelete.id, {
+            onSuccess: () => setItemToDelete(null),
+          });
+        }}
+        isPending={deleteProvider.isPending}
+        resourceName="Provider"
+        itemName={itemToDelete ? itemToDelete.name : undefined}
       />
     </div>
   );
