@@ -96,6 +96,20 @@ class SoulNotFound(RunsightError):
     status_code: int = 404
 
 
+class SoulAlreadyExists(RunsightError):
+    """Raised when attempting to create a soul that already exists."""
+
+    error_code: str = "SOUL_ALREADY_EXISTS"
+    status_code: int = 409
+
+
+class SoulInUse(RunsightError):
+    """Raised when attempting to delete or replace a soul that is still referenced."""
+
+    error_code: str = "SOUL_IN_USE"
+    status_code: int = 409
+
+
 class TaskNotFound(RunsightError):
     """Raised when a task cannot be found."""
 

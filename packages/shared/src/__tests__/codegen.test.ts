@@ -53,6 +53,8 @@ function extractSchemaFieldNames(source: string, schemaName: string): string[] {
 function buildFreshSchemaSnapshot(): {
   runCreate: SchemaFieldSnapshot;
   runResponse: SchemaFieldSnapshot;
+  soulCreate: SchemaFieldSnapshot;
+  soulResponse: SchemaFieldSnapshot;
 } {
   const workdir = mkdtempSync(join(tmpdir(), "runsight-zod-"));
   const openapiPath = resolve(workdir, "openapi.json");
@@ -95,6 +97,14 @@ function buildFreshSchemaSnapshot(): {
       runResponse: {
         fresh: extractSchemaFieldNames(freshZod, "RunResponse"),
         committed: extractSchemaFieldNames(committedZod, "RunResponse"),
+      },
+      soulCreate: {
+        fresh: extractSchemaFieldNames(freshZod, "SoulCreate"),
+        committed: extractSchemaFieldNames(committedZod, "SoulCreate"),
+      },
+      soulResponse: {
+        fresh: extractSchemaFieldNames(freshZod, "SoulResponse"),
+        committed: extractSchemaFieldNames(committedZod, "SoulResponse"),
       },
     };
   } finally {
@@ -211,6 +221,8 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
   let snapshot: {
     runCreate: SchemaFieldSnapshot;
     runResponse: SchemaFieldSnapshot;
+    soulCreate: SchemaFieldSnapshot;
+    soulResponse: SchemaFieldSnapshot;
   };
 
   beforeAll(() => {
@@ -227,6 +239,24 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
       expect.arrayContaining(["branch", "source", "commit_sha"]),
     );
     expect(snapshot.runResponse.committed).toEqual(snapshot.runResponse.fresh);
+  });
+
+  it("SoulCreateSchema includes role and model_name, not legacy name/models", () => {
+    expect(snapshot.soulCreate.fresh).toEqual(
+      expect.arrayContaining(["id", "role", "system_prompt", "model_name"]),
+    );
+    expect(snapshot.soulCreate.fresh).not.toContain("name");
+    expect(snapshot.soulCreate.fresh).not.toContain("models");
+    expect(snapshot.soulCreate.committed).toEqual(snapshot.soulCreate.fresh);
+  });
+
+  it("SoulResponseSchema includes role, model_name, and workflow_count", () => {
+    expect(snapshot.soulResponse.fresh).toEqual(
+      expect.arrayContaining(["id", "role", "system_prompt", "model_name", "workflow_count"]),
+    );
+    expect(snapshot.soulResponse.fresh).not.toContain("name");
+    expect(snapshot.soulResponse.fresh).not.toContain("models");
+    expect(snapshot.soulResponse.committed).toEqual(snapshot.soulResponse.fresh);
   });
 });
 

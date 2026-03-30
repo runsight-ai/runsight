@@ -497,6 +497,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/git/sim-branch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Sim Branch */
+        post: operations["create_sim_branch_api_git_sim_branch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/models": {
         parameters: {
             query?: never;
@@ -807,6 +824,11 @@ export interface components {
              * @default manual
              */
             source: string | null;
+            /**
+             * Branch
+             * @default main
+             */
+            branch: string;
         };
         /** RunEvalResponse */
         RunEvalResponse: {
@@ -893,16 +915,43 @@ export interface components {
             commit_sha?: string | null;
             node_summary?: components["schemas"]["NodeSummary"] | null;
         };
+        /** SimBranchRequest */
+        SimBranchRequest: {
+            /** Workflow Id */
+            workflow_id: string;
+            /** Yaml Content */
+            yaml_content: string;
+        };
+        /** SimBranchResponse */
+        SimBranchResponse: {
+            /** Branch */
+            branch: string;
+            /** Commit Sha */
+            commit_sha: string;
+        };
         /** SoulCreate */
         SoulCreate: {
             /** Id */
             id?: string | null;
-            /** Name */
-            name?: string | null;
+            /** Role */
+            role: string;
             /** System Prompt */
-            system_prompt?: string | null;
-            /** Models */
-            models?: string[] | null;
+            system_prompt: string;
+            /** Tools */
+            tools?: string[] | null;
+            /**
+             * Max Tool Iterations
+             * @default 5
+             */
+            max_tool_iterations: number;
+            /** Model Name */
+            model_name?: string | null;
+            /** Assertions */
+            assertions?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Avatar Color */
+            avatar_color?: string | null;
         };
         /** SoulEvalHistoryResponse */
         SoulEvalHistoryResponse: {
@@ -922,21 +971,49 @@ export interface components {
         SoulResponse: {
             /** Id */
             id: string;
-            /** Name */
-            name?: string | null;
+            /** Role */
+            role?: string | null;
             /** System Prompt */
             system_prompt?: string | null;
-            /** Models */
-            models?: string[] | null;
+            /** Tools */
+            tools?: string[] | null;
+            /**
+             * Max Tool Iterations
+             * @default 5
+             */
+            max_tool_iterations: number;
+            /** Model Name */
+            model_name?: string | null;
+            /** Assertions */
+            assertions?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Avatar Color */
+            avatar_color?: string | null;
+            /**
+             * Workflow Count
+             * @default 0
+             */
+            workflow_count: number;
         };
         /** SoulUpdate */
         SoulUpdate: {
-            /** Name */
-            name?: string | null;
+            /** Role */
+            role?: string | null;
             /** System Prompt */
             system_prompt?: string | null;
-            /** Models */
-            models?: string[] | null;
+            /** Tools */
+            tools?: string[] | null;
+            /** Max Tool Iterations */
+            max_tool_iterations?: number | null;
+            /** Model Name */
+            model_name?: string | null;
+            /** Assertions */
+            assertions?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Avatar Color */
+            avatar_color?: string | null;
             /**
              * Copy On Edit
              * @default false
@@ -1235,6 +1312,8 @@ export interface operations {
             query?: {
                 status?: string[] | null;
                 workflow_id?: string | null;
+                source?: string[] | null;
+                branch?: string | null;
                 offset?: number;
                 limit?: number;
             };
@@ -2521,6 +2600,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["runsight_api__transport__routers__git__LogResponse"];
+                };
+            };
+        };
+    };
+    create_sim_branch_api_git_sim_branch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimBranchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimBranchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

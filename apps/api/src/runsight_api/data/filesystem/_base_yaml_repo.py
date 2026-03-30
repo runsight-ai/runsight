@@ -19,19 +19,21 @@ class BaseYamlRepository(Generic[T]):
 
     Subclasses must set:
         entity_type: the Pydantic model class
-        subdir: directory name under .runsight/
+        subdir: directory name under root_dir/
+        root_dir: storage root under base_path
         not_found_error: exception class for missing entities
         entity_label: human-readable name for error messages
     """
 
     entity_type: Type[T]
     subdir: str
+    root_dir: str = ".runsight"
     not_found_error: Type[RunsightError]
     entity_label: str
 
     def __init__(self, base_path: str = "."):
         self.base_path = Path(base_path)
-        self.entity_dir = self.base_path / ".runsight" / self.subdir
+        self.entity_dir = self.base_path / self.root_dir / self.subdir
         self.entity_dir.mkdir(parents=True, exist_ok=True)
 
     def _validate_id(self, id: str) -> None:

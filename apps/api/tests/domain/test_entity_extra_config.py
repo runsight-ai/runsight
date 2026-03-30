@@ -17,18 +17,27 @@ from runsight_api.domain.value_objects import (
 
 class TestSoulEntityIgnoresExtraFields:
     def test_unknown_field_is_ignored(self):
-        soul = SoulEntity(id="s1", name="Alpha", bogus_field="oops")
+        soul = SoulEntity(id="s1", role="Alpha", bogus_field="oops")
         assert not hasattr(soul, "bogus_field")
 
     def test_typo_field_is_not_stored(self):
         soul = SoulEntity(id="s1", naem="typo")
         assert not hasattr(soul, "naem")
-        assert soul.name is None  # default kept
+        assert soul.role is None  # default kept
 
     def test_known_fields_work(self):
-        soul = SoulEntity(id="s1", name="Alpha")
+        soul = SoulEntity(
+            id="s1",
+            role="Alpha",
+            system_prompt="Prompt",
+            model_name="gpt-4o",
+            max_tool_iterations=7,
+        )
         assert soul.id == "s1"
-        assert soul.name == "Alpha"
+        assert soul.role == "Alpha"
+        assert soul.system_prompt == "Prompt"
+        assert soul.model_name == "gpt-4o"
+        assert soul.max_tool_iterations == 7
 
 
 # ── TaskEntity ──────────────────────────────────────────────────────

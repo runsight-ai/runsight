@@ -16,9 +16,7 @@ class SoulService:
         if query:
             query = query.lower()
             souls = [
-                s
-                for s in souls
-                if query in s.id.lower() or (getattr(s, "name", "") and query in s.name.lower())
+                s for s in souls if query in s.id.lower() or (s.role and query in s.role.lower())
             ]
         return souls
 

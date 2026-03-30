@@ -172,6 +172,41 @@
             }
           },
           {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "branch",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Branch"
+            }
+          },
+          {
             "name": "offset",
             "in": "query",
             "required": false,
@@ -1882,6 +1917,47 @@
         }
       }
     },
+    "/api/git/sim-branch": {
+      "post": {
+        "tags": [
+          "Git"
+        ],
+        "summary": "Create Sim Branch",
+        "operationId": "create_sim_branch_api_git_sim_branch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimBranchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimBranchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/models": {
       "get": {
         "tags": [
@@ -2758,6 +2834,11 @@
             ],
             "title": "Source",
             "default": "manual"
+          },
+          "branch": {
+            "type": "string",
+            "title": "Branch",
+            "default": "main"
           }
         },
         "type": "object",
@@ -3044,6 +3125,42 @@
         ],
         "title": "RunResponse"
       },
+      "SimBranchRequest": {
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "yaml_content": {
+            "type": "string",
+            "title": "Yaml Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workflow_id",
+          "yaml_content"
+        ],
+        "title": "SimBranchRequest"
+      },
+      "SimBranchResponse": {
+        "properties": {
+          "branch": {
+            "type": "string",
+            "title": "Branch"
+          },
+          "commit_sha": {
+            "type": "string",
+            "title": "Commit Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "branch",
+          "commit_sha"
+        ],
+        "title": "SimBranchResponse"
+      },
       "SoulCreate": {
         "properties": {
           "id": {
@@ -3057,29 +3174,15 @@
             ],
             "title": "Id"
           },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
+          "role": {
+            "type": "string",
+            "title": "Role"
           },
           "system_prompt": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "System Prompt"
           },
-          "models": {
+          "tools": {
             "anyOf": [
               {
                 "items": {
@@ -3091,10 +3194,56 @@
                 "type": "null"
               }
             ],
-            "title": "Models"
+            "title": "Tools"
+          },
+          "max_tool_iterations": {
+            "type": "integer",
+            "title": "Max Tool Iterations",
+            "default": 5
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "assertions": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assertions"
+          },
+          "avatar_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Color"
           }
         },
         "type": "object",
+        "required": [
+          "role",
+          "system_prompt"
+        ],
         "title": "SoulCreate"
       },
       "SoulEvalHistoryResponse": {
@@ -3145,7 +3294,7 @@
             "type": "string",
             "title": "Id"
           },
-          "name": {
+          "role": {
             "anyOf": [
               {
                 "type": "string"
@@ -3154,7 +3303,7 @@
                 "type": "null"
               }
             ],
-            "title": "Name"
+            "title": "Role"
           },
           "system_prompt": {
             "anyOf": [
@@ -3167,7 +3316,7 @@
             ],
             "title": "System Prompt"
           },
-          "models": {
+          "tools": {
             "anyOf": [
               {
                 "items": {
@@ -3179,7 +3328,54 @@
                 "type": "null"
               }
             ],
-            "title": "Models"
+            "title": "Tools"
+          },
+          "max_tool_iterations": {
+            "type": "integer",
+            "title": "Max Tool Iterations",
+            "default": 5
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "assertions": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assertions"
+          },
+          "avatar_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Color"
+          },
+          "workflow_count": {
+            "type": "integer",
+            "title": "Workflow Count",
+            "default": 0
           }
         },
         "type": "object",
@@ -3190,7 +3386,7 @@
       },
       "SoulUpdate": {
         "properties": {
-          "name": {
+          "role": {
             "anyOf": [
               {
                 "type": "string"
@@ -3199,7 +3395,7 @@
                 "type": "null"
               }
             ],
-            "title": "Name"
+            "title": "Role"
           },
           "system_prompt": {
             "anyOf": [
@@ -3212,7 +3408,7 @@
             ],
             "title": "System Prompt"
           },
-          "models": {
+          "tools": {
             "anyOf": [
               {
                 "items": {
@@ -3224,7 +3420,55 @@
                 "type": "null"
               }
             ],
-            "title": "Models"
+            "title": "Tools"
+          },
+          "max_tool_iterations": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tool Iterations"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "assertions": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assertions"
+          },
+          "avatar_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Color"
           },
           "copy_on_edit": {
             "type": "boolean",
