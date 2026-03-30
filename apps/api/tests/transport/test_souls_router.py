@@ -12,7 +12,6 @@ client = TestClient(app)
 
 def test_souls_list():
     mock_service = Mock()
-    mock_workflow_repo = Mock()
     mock_soul = SoulEntity(
         id="sl_1",
         role="Test Soul",
@@ -22,7 +21,6 @@ def test_souls_list():
     )
     mock_service.list_souls.return_value = [mock_soul]
     app.dependency_overrides[get_soul_service] = lambda: mock_service
-    app.dependency_overrides[get_workflow_repo] = lambda: mock_workflow_repo
 
     response = client.get("/api/souls")
     assert response.status_code == 200
@@ -33,7 +31,7 @@ def test_souls_list():
     assert data["items"][0]["id"] == "sl_1"
     assert data["items"][0]["role"] == "Test Soul"
     assert data["items"][0]["workflow_count"] == 2
-    mock_service.list_souls.assert_called_once_with(query=None, workflow_repo=mock_workflow_repo)
+    mock_service.list_souls.assert_called_once_with(query=None)
     app.dependency_overrides.clear()
 
 
@@ -214,12 +212,10 @@ def test_souls_delete_missing_returns_404():
 
 def test_souls_get_usages():
     mock_service = Mock()
-    mock_workflow_repo = Mock()
     mock_service.get_soul_usages.return_value = [
         {"workflow_id": "wf-1", "workflow_name": "Research Flow"}
     ]
     app.dependency_overrides[get_soul_service] = lambda: mock_service
-    app.dependency_overrides[get_workflow_repo] = lambda: mock_workflow_repo
 
     response = client.get("/api/souls/researcher/usages")
     assert response.status_code == 200
@@ -228,7 +224,7 @@ def test_souls_get_usages():
         "usages": [{"workflow_id": "wf-1", "workflow_name": "Research Flow"}],
         "total": 1,
     }
-    mock_service.get_soul_usages.assert_called_once_with("researcher", mock_workflow_repo)
+    mock_service.get_soul_usages.assert_called_once_with("researcher")
     app.dependency_overrides.clear()
 
 
