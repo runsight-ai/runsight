@@ -158,3 +158,131 @@ class TestGetModelDefaults:
                 "fallback_chain": ["gpt-4o", "claude-3-5-sonnet"],
             },
         ]
+
+
+class TestUpdateModelDefault:
+    def test_raises_provider_not_found_for_missing_provider(self):
+        from runsight_api.domain.errors import ProviderNotFound
+
+        SettingsService = _load_settings_service()
+        settings_repo = Mock(spec=FileSystemSettingsRepo)
+        provider_repo = Mock(spec=FileSystemProviderRepo)
+        provider_repo.get_by_id.return_value = None
+
+        service = SettingsService(settings_repo, provider_repo)
+
+        try:
+            service.update_model_default(
+                provider_id="missing",
+                model_name="gpt-4.1",
+                is_default=True,
+                fallback_chain=None,
+            )
+        except ProviderNotFound as exc:
+            assert "missing" in str(exc)
+        else:
+            raise AssertionError("Expected ProviderNotFound for unknown provider")
+
+    def test_persists_model_name_for_existing_provider_even_without_known_models(self):
+        SettingsService = _load_settings_service()
+        settings_repo = Mock(spec=FileSystemSettingsRepo)
+        provider_repo = Mock(spec=FileSystemProviderRepo)
+        provider_repo.get_by_id.return_value = _provider(
+            provider_id="untested",
+            name="Untested",
+            models=[],
+        )
+        provider_repo.list_all.return_value = [provider_repo.get_by_id.return_value]
+        settings_repo.get_fallback_chain.return_value = []
+
+        service = SettingsService(settings_repo, provider_repo)
+        result = service.update_model_default(
+            provider_id="untested",
+            model_name="future-model",
+            is_default=True,
+            fallback_chain=None,
+        )
+
+        settings_repo.set_model_default.assert_called_once_with(
+            ModelDefaultEntry(
+                provider_id="untested",
+                model_id="future-model",
+                is_default=True,
+            )
+        )
+        assert result == {
+            "id": "untested",
+            "provider_id": "untested",
+            "provider_name": "Untested",
+            "model_name": "future-model",
+            "is_default": True,
+            "fallback_chain": [],
+        }
+
+    def test_updates_fallback_chain_using_first_matching_provider_for_ambiguous_model_names(self):
+        SettingsService = _load_settings_service()
+        settings_repo = Mock(spec=FileSystemSettingsRepo)
+        provider_repo = Mock(spec=FileSystemProviderRepo)
+        provider_repo.get_by_id.return_value = _provider(
+            provider_id="openai",
+            name="OpenAI",
+            models=["gpt-4.1"],
+        )
+        provider_repo.list_all.return_value = [
+            _provider(provider_id="openai", name="OpenAI", models=["gpt-4.1", "shared-model"]),
+            _provider(
+                provider_id="anthropic",
+                name="Anthropic",
+                models=["shared-model", "claude-3-5-sonnet"],
+            ),
+        ]
+        settings_repo.get_fallback_chain.return_value = []
+
+        service = SettingsService(settings_repo, provider_repo)
+        result = service.update_model_default(
+            provider_id="openai",
+            model_name="gpt-4.1",
+            is_default=True,
+            fallback_chain=["shared-model", "claude-3-5-sonnet"],
+        )
+
+        settings_repo.update_fallback_chain.assert_called_once_with(
+            [
+                FallbackChainEntry(provider_id="openai", model_id="shared-model"),
+                FallbackChainEntry(provider_id="anthropic", model_id="claude-3-5-sonnet"),
+            ]
+        )
+        assert result["fallback_chain"] == ["shared-model", "claude-3-5-sonnet"]
+
+    def test_clears_fallback_chain_when_empty_list_is_provided(self):
+        SettingsService = _load_settings_service()
+        settings_repo = Mock(spec=FileSystemSettingsRepo)
+        provider_repo = Mock(spec=FileSystemProviderRepo)
+        provider_repo.get_by_id.return_value = _provider(
+            provider_id="openai",
+            name="OpenAI",
+            models=["gpt-4.1"],
+        )
+        provider_repo.list_all.return_value = [provider_repo.get_by_id.return_value]
+        settings_repo.list_model_defaults.return_value = [
+            ModelDefaultEntry(provider_id="openai", model_id="gpt-4.1", is_default=True)
+        ]
+        settings_repo.get_fallback_chain.return_value = []
+
+        service = SettingsService(settings_repo, provider_repo)
+        result = service.update_model_default(
+            provider_id="openai",
+            model_name=None,
+            is_default=None,
+            fallback_chain=[],
+        )
+
+        settings_repo.update_fallback_chain.assert_called_once_with([])
+        assert result == {
+            "id": "openai",
+            "provider_id": "openai",
+            "provider_name": "OpenAI",
+            "model_name": "gpt-4.1",
+            "is_default": True,
+            "fallback_chain": [],
+        }

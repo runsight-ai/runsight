@@ -3,7 +3,11 @@ from unittest.mock import AsyncMock, Mock
 from fastapi.testclient import TestClient
 
 from runsight_api.main import app
-from runsight_api.transport.deps import get_provider_service, get_session
+from runsight_api.transport.deps import (
+    get_provider_service,
+    get_session,
+    get_settings_service,
+)
 
 client = TestClient(app)
 
@@ -156,6 +160,88 @@ def test_settings_models_list():
             "total": 1,
         }
         mock_service.get_model_defaults.assert_called_once_with()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_settings_models_put_updates_model_name():
+    mock_service = Mock()
+    mock_service.update_model_default.return_value = {
+        "id": "openai",
+        "provider_id": "openai",
+        "provider_name": "OpenAI",
+        "model_name": "gpt-4.1",
+        "is_default": True,
+        "fallback_chain": ["gpt-4o-mini"],
+    }
+    app.dependency_overrides[get_settings_service] = lambda: mock_service
+
+    try:
+        response = client.put(
+            "/api/settings/models/openai",
+            json={"model_name": "gpt-4.1", "is_default": True},
+        )
+        assert response.status_code == 200
+        assert response.json() == {
+            "id": "openai",
+            "provider_id": "openai",
+            "provider_name": "OpenAI",
+            "model_name": "gpt-4.1",
+            "is_default": True,
+            "fallback_chain": ["gpt-4o-mini"],
+        }
+        mock_service.update_model_default.assert_called_once_with(
+            provider_id="openai",
+            model_name="gpt-4.1",
+            is_default=True,
+            fallback_chain=None,
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_settings_models_put_updates_fallback_chain():
+    mock_service = Mock()
+    mock_service.update_model_default.return_value = {
+        "id": "openai",
+        "provider_id": "openai",
+        "provider_name": "OpenAI",
+        "model_name": "gpt-4.1",
+        "is_default": True,
+        "fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"],
+    }
+    app.dependency_overrides[get_settings_service] = lambda: mock_service
+
+    try:
+        response = client.put(
+            "/api/settings/models/openai",
+            json={"fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"]},
+        )
+        assert response.status_code == 200
+        assert response.json()["fallback_chain"] == ["gpt-4o-mini", "claude-3-5-sonnet"]
+        mock_service.update_model_default.assert_called_once_with(
+            provider_id="openai",
+            model_name=None,
+            is_default=None,
+            fallback_chain=["gpt-4o-mini", "claude-3-5-sonnet"],
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_settings_models_put_404():
+    from runsight_api.domain.errors import ProviderNotFound
+
+    mock_service = Mock()
+    mock_service.update_model_default.side_effect = ProviderNotFound("Provider missing not found")
+    app.dependency_overrides[get_settings_service] = lambda: mock_service
+
+    try:
+        response = client.put(
+            "/api/settings/models/missing",
+            json={"model_name": "gpt-4.1"},
+        )
+        assert response.status_code == 404
     finally:
         app.dependency_overrides.clear()
 
