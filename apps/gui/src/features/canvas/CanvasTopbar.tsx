@@ -6,8 +6,7 @@ import { RunButton } from "./RunButton";
 import { ExecutionMetrics } from "./ExecutionMetrics";
 import { useCanvasStore } from "@/store/canvas";
 import { useRun } from "@/queries/runs";
-import { CheckCircle, AlertTriangle } from "lucide-react";
-import { GitBadge } from "@/features/git/GitBadge";
+import { Save } from "lucide-react";
 
 interface CanvasTopbarProps {
   workflowId: string;
@@ -20,7 +19,7 @@ interface CanvasTopbarProps {
   onAddApiKey?: () => void;
 }
 
-export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid = true, errorCount = 0, onAddApiKey }: CanvasTopbarProps) {
+export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid: _yamlValid = true, errorCount: _errorCount = 0, onAddApiKey }: CanvasTopbarProps) {
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
 
@@ -112,21 +111,13 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
 
       {/* Right: actions */}
       <div className="flex items-center gap-2 flex-1 justify-end">
-        {yamlValid ? (
-          <CheckCircle className="w-4 h-4 text-success-9" aria-label="YAML valid" />
-        ) : (
-          <span className="flex items-center gap-1">
-            <AlertTriangle className="w-4 h-4 text-warning-9" aria-label="YAML errors" />
-            <span className="text-xs text-warning-9">{errorCount} {errorCount === 1 ? "error" : "errors"}</span>
-          </span>
-        )}
-        <GitBadge />
         {isDirty && <span className="h-2 w-2 rounded-full bg-interactive-default" aria-label="unsaved indicator" />}
         <Button
           variant={isDirty ? "primary" : "ghost"}
           size="sm"
           onClick={onSave}
         >
+          <Save className="w-4 h-4" />
           Save
         </Button>
         <ExecutionMetrics runId={lastTerminalRunId} />

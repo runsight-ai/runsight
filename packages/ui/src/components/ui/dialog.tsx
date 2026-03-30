@@ -18,8 +18,8 @@ const dialogContentVariants = cva(
   [
     "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
     "z-[calc(var(--z-modal)+1)]",
-    "bg-(--elevation-overlay-surface)",
-    "border border-(--elevation-border-raised)",
+    "bg-[var(--elevation-overlay-surface)]",
+    "border border-[var(--elevation-border-raised)]",
     "rounded-[var(--radius-xl)]",
     "shadow-[var(--elevation-overlay-shadow)]",
     "flex flex-col max-h-[85vh]",
@@ -28,9 +28,9 @@ const dialogContentVariants = cva(
   {
     variants: {
       size: {
-        sm: "w-(--overlay-width-sm)",
-        md: "w-(--overlay-width-md)",
-        lg: "w-(--overlay-width-lg)",
+        sm: "w-[var(--overlay-width-sm)]",
+        md: "w-[var(--overlay-width-md)]",
+        lg: "w-[var(--overlay-width-lg)]",
       },
     },
     defaultVariants: {
@@ -118,7 +118,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         "flex items-center justify-between flex-shrink-0",
         "px-5 py-4",
-        "border-b border-(--border-subtle)",
+        "border-b border-[var(--border-subtle)]",
         className
       )}
       {...props}
@@ -140,7 +140,7 @@ function DialogFooter({
       className={cn(
         "flex items-center justify-end gap-2 flex-shrink-0",
         "px-5 py-3",
-        "border-t border-(--border-subtle)",
+        "border-t border-[var(--border-subtle)]",
         className
       )}
       {...props}
@@ -160,7 +160,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "text-lg font-semibold text-(--text-heading)",
+        "text-lg font-semibold text-[var(--text-heading)]",
         className
       )}
       {...props}

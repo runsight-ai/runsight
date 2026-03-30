@@ -21,7 +21,7 @@ export function ExploreBanner({ onAddApiKey }: { onAddApiKey?: () => void }) {
 
   return (
     <div
-      className="absolute top-3 left-3 right-3 flex items-center gap-2 px-3 py-2 text-sm bg-info-3 border border-info-7 rounded-md text-info-11 z-10"
+      className="flex items-center gap-2 mx-3 mt-3 px-3 py-2 text-sm bg-info-3 border border-info-7 rounded-md text-info-11"
       role="status"
     >
       <Info className="size-4 shrink-0" />

@@ -28,6 +28,7 @@ export function Component() {
   const [errorCount, setErrorCount] = useState(0);
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const [saveAndRun, setSaveAndRun] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const yamlRef = useRef("");
   const updateWorkflow = useUpdateWorkflow();
@@ -103,7 +104,7 @@ export function Component() {
       className="grid h-full"
       style={{
         gridTemplateRows: "var(--header-height) 1fr 37px var(--status-bar-height)",
-        gridTemplateColumns: "240px 1fr",
+        gridTemplateColumns: sidebarCollapsed ? "48px 1fr" : "240px 1fr",
       }}
     >
       <CanvasTopbar
@@ -116,7 +117,7 @@ export function Component() {
         errorCount={errorCount}
         onAddApiKey={handleOpenApiKeyModal}
       />
-      <PaletteSidebar />
+      <PaletteSidebar onCollapse={setSidebarCollapsed} />
       <div className="relative flex flex-col overflow-hidden" style={{ gridColumn: "2", gridRow: "2" }}>
         <ExploreBanner onAddApiKey={() => setApiKeyModalOpen(true)} />
         <UncommittedBanner />

@@ -17,7 +17,7 @@ const BLOCK_TYPES = [
   { label: "FileWriter", icon: FileOutput },
 ] as const;
 
-export function PaletteSidebar() {
+export function PaletteSidebar({ onCollapse }: { onCollapse?: (collapsed: boolean) => void }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [search, setSearch] = useState("");
   const { data: souls } = useSouls();
@@ -34,7 +34,11 @@ export function PaletteSidebar() {
   );
 
   function handleToggleCollapse() {
-    setIsCollapsed((prev) => !prev);
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      onCollapse?.(next);
+      return next;
+    });
     setSearch("");
   }
 

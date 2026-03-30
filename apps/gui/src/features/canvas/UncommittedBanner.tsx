@@ -15,8 +15,7 @@ export function UncommittedBanner() {
 
   return (
     <div
-      className="absolute left-3 right-3 flex items-center gap-2 px-3 py-2 bg-warning-3 border border-warning-7 rounded-md text-sm text-warning-11 z-[11]"
-      style={{ top: "calc(var(--space-3) + 44px + var(--space-2))" }}
+      className="flex items-center gap-2 mx-3 mt-2 px-3 py-2 bg-warning-3 border border-warning-7 rounded-md text-sm text-warning-11"
       role="status"
     >
       <AlertTriangle className="h-4 w-4 shrink-0 text-warning-9" />
