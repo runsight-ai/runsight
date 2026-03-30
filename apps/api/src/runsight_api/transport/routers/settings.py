@@ -30,6 +30,7 @@ class ProviderOut(BaseModel):
     api_key_env: Optional[str] = None  # Return "configured" or "" - never the real key
     base_url: Optional[str] = None
     models: list[str] = []
+    model_count: int = 0
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -60,13 +61,15 @@ class AppSettingsOut(BaseModel):
 
 
 def _provider_to_out(p) -> ProviderOut:
+    models = p.models if p.models else []
     return ProviderOut(
         id=p.id,
         name=p.name,
         status=p.status or "unknown",
         api_key_env="configured" if p.api_key else "",
         base_url=p.base_url,
-        models=p.models if p.models else [],
+        models=models,
+        model_count=len(models),
         created_at=str(p.created_at) if hasattr(p, "created_at") and p.created_at else None,
         updated_at=str(p.updated_at) if hasattr(p, "updated_at") and p.updated_at else None,
     )
