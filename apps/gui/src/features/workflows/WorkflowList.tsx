@@ -154,7 +154,7 @@ export function Component() {
   }, [workflows, searchQuery, statusFilter, sortBy]);
 
   const handleRowClick = (workflow: WorkflowResponse) => {
-    navigate(`/workflows/${workflow.id}`);
+    navigate(`/workflows/${workflow.id}/edit`);
   };
 
   const handleDelete = async () => {
