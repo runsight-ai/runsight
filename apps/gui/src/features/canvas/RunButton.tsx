@@ -15,6 +15,7 @@ export function RunButton({ workflowId, onAddApiKey }: RunButtonProps) {
   const activeRunId = useCanvasStore((s) => s.activeRunId);
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const nodes = useCanvasStore((s) => s.nodes);
+  const blockCount = useCanvasStore((s) => s.blockCount);
 
   const { data: providers } = useProviders();
   const items = providers?.items ?? [];
@@ -37,7 +38,7 @@ export function RunButton({ workflowId, onAddApiKey }: RunButtonProps) {
     }
   }, [activeRunId, status, setActiveRunId]);
 
-  const isEmpty = !nodes.length;
+  const isEmpty = !nodes.length && !blockCount;
   const isPending = createRun.isPending || cancelRun.isPending;
 
   function handleClick() {
