@@ -9,6 +9,7 @@ import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { FirstTimeTooltip } from "./FirstTimeTooltip";
 import { PaletteSidebar } from "./PaletteSidebar";
 import { ExploreBanner } from "./ExploreBanner";
+import { CommitDialog } from "@/features/git/CommitDialog";
 import { ApiKeyModal } from "@/features/setup/ApiKeyModal";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { YamlEditor } from "./YamlEditor";
@@ -28,6 +29,7 @@ export function Component() {
   const [errorCount, setErrorCount] = useState(0);
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const [saveAndRun, setSaveAndRun] = useState(false);
+  const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const updateWorkflow = useUpdateWorkflow();
@@ -111,7 +113,7 @@ export function Component() {
       <PaletteSidebar onCollapse={setSidebarCollapsed} />
       <div className="relative flex flex-col overflow-hidden" style={{ gridColumn: "2", gridRow: "2" }}>
         <ExploreBanner onAddApiKey={() => setApiKeyModalOpen(true)} />
-        <UncommittedBanner />
+        <UncommittedBanner onCommit={() => setCommitDialogOpen(true)} />
         {activeTab === "canvas" ? (
           <EmptyState
             icon={Layout}
@@ -163,6 +165,8 @@ export function Component() {
         onSaveSuccess={handleSaveSuccess}
         saveAndRun={saveAndRun}
       />
+
+      <CommitDialog open={commitDialogOpen} onOpenChange={setCommitDialogOpen} files={[]} />
     </div>
   );
 }

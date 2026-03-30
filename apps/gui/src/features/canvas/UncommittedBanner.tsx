@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Link } from "react-router";
 import { AlertTriangle, X } from "lucide-react";
 import { useGitStatus } from "@/queries/git";
 
-export function UncommittedBanner() {
+interface UncommittedBannerProps {
+  onCommit?: () => void;
+}
+
+export function UncommittedBanner({ onCommit }: UncommittedBannerProps) {
   const [dismissed, setDismissed] = useState(false);
   const { data: gitStatus } = useGitStatus();
 
@@ -22,12 +25,13 @@ export function UncommittedBanner() {
       <span className="text-warning-11">
         {fileCount} uncommitted {fileCount === 1 ? "change" : "changes"}
       </span>
-      <Link
-        to="/settings"
-        className="ml-1 font-medium underline underline-offset-2 text-warning-11 hover:text-heading"
+      <button
+        type="button"
+        onClick={() => onCommit?.()}
+        className="ml-1 font-medium underline underline-offset-2 text-warning-11 hover:text-heading bg-transparent border-none cursor-pointer"
       >
         Commit
-      </Link>
+      </button>
       <button
         type="button"
         onClick={() => setDismissed(true)}
