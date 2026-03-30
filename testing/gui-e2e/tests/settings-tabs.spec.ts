@@ -5,6 +5,7 @@ test.describe("Settings tabs", () => {
     page,
   }) => {
     await page.goto("/settings");
+    await expect(page).toHaveURL(/\/settings$/);
 
     const visibleAddProviderButton = page.locator("button:visible", {
       hasText: "Add Provider",
@@ -26,23 +27,34 @@ test.describe("Settings tabs", () => {
     await modelsTab.click();
 
     await expect(modelsTab).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(/\/settings$/);
     await expect(page.getByRole("heading", { name: "Models" })).toBeVisible();
     await expect(visibleAddProviderButton).toHaveCount(0);
   });
 
-  test("supports arrow-key tab navigation", async ({ page }) => {
+  test("supports tab and arrow-key tab navigation", async ({ page }) => {
     await page.goto("/settings");
 
     const providersTab = page.getByRole("tab", { name: "Providers" });
     const modelsTab = page.getByRole("tab", { name: "Models" });
 
+    for (let index = 0; index < 25; index += 1) {
+      await page.keyboard.press("Tab");
+      if (await providersTab.evaluate((element) => element === document.activeElement)) {
+        break;
+      }
+    }
+    await expect(providersTab).toBeFocused();
+
     await providersTab.focus();
     await page.keyboard.press("ArrowRight");
 
     await expect(modelsTab).toBeFocused();
+    await expect(page).toHaveURL(/\/settings$/);
 
     await page.keyboard.press("ArrowLeft");
 
     await expect(providersTab).toBeFocused();
+    await expect(page).toHaveURL(/\/settings$/);
   });
 });
