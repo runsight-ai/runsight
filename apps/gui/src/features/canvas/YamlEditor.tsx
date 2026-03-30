@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
+import { useState, useEffect, useRef } from "react";
+import { useWorkflow } from "@/queries/workflows";
 import { LazyMonacoEditor } from "./LazyMonacoEditor";
 import { defineYamlTheme } from "./yamlTheme";
 import { useYamlValidation, type ValidationState } from "./useYamlValidation";
@@ -13,7 +13,6 @@ interface YamlEditorProps {
 
 export function YamlEditor({ workflowId, onDirtyChange, onValidation }: YamlEditorProps) {
   const { data: workflow } = useWorkflow(workflowId);
-  const updateWorkflow = useUpdateWorkflow();
   const [isDirty, setIsDirty] = useState(false);
   const contentRef = useRef(workflow?.yaml ?? "");
   const { validate, setEditorRefs } = useYamlValidation(onValidation);
@@ -21,30 +20,14 @@ export function YamlEditor({ workflowId, onDirtyChange, onValidation }: YamlEdit
   useEffect(() => {
     if (workflow?.yaml != null) {
       contentRef.current = workflow.yaml;
+      setIsDirty(false);
+      useCanvasStore.getState().setYamlContent(workflow.yaml);
     }
   }, [workflow?.yaml]);
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
-
-  const handleSave = useCallback(() => {
-    updateWorkflow.mutate(
-      { id: workflowId, data: { yaml: contentRef.current } },
-      { onSuccess: () => setIsDirty(false) },
-    );
-  }, [workflowId, updateWorkflow]);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-        e.preventDefault();
-        handleSave();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleSave]);
 
   function handleEditorMount(monaco: unknown) {
     defineYamlTheme(monaco as Parameters<typeof defineYamlTheme>[0]);
