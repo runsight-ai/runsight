@@ -73,7 +73,7 @@ export function Component() {
       const yamlContent = useCanvasStore.getState().yamlContent;
       const simResult = await gitApi.createSimBranch(id!, yamlContent);
       createRun.mutate(
-        { workflow_id: id!, source: "sim", branch: simResult.branch },
+        { workflow_id: id!, source: "simulation", branch: simResult.branch },
         { onSuccess: (result) => setActiveRunId(result.id) },
       );
     } else {

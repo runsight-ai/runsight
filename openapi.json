@@ -172,6 +172,41 @@
             }
           },
           {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "branch",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Branch"
+            }
+          },
+          {
             "name": "offset",
             "in": "query",
             "required": false,
@@ -628,6 +663,58 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workflows/{id}/simulations": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "summary": "Create Workflow Simulation",
+        "operationId": "create_workflow_simulation_api_workflows__id__simulations_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowSimulationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowSimulationResponse"
+                }
               }
             }
           },
@@ -1882,6 +1969,47 @@
         }
       }
     },
+    "/api/git/sim-branch": {
+      "post": {
+        "tags": [
+          "Git"
+        ],
+        "summary": "Create Sim Branch",
+        "operationId": "create_sim_branch_api_git_sim_branch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimBranchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimBranchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/models": {
       "get": {
         "tags": [
@@ -2758,6 +2886,11 @@
             ],
             "title": "Source",
             "default": "manual"
+          },
+          "branch": {
+            "type": "string",
+            "title": "Branch",
+            "default": "main"
           }
         },
         "type": "object",
@@ -3043,6 +3176,42 @@
           "created_at"
         ],
         "title": "RunResponse"
+      },
+      "SimBranchRequest": {
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "yaml_content": {
+            "type": "string",
+            "title": "Yaml Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workflow_id",
+          "yaml_content"
+        ],
+        "title": "SimBranchRequest"
+      },
+      "SimBranchResponse": {
+        "properties": {
+          "branch": {
+            "type": "string",
+            "title": "Branch"
+          },
+          "commit_sha": {
+            "type": "string",
+            "title": "Commit Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "branch",
+          "commit_sha"
+        ],
+        "title": "SimBranchResponse"
       },
       "SoulCreate": {
         "properties": {
@@ -3842,6 +4011,37 @@
           "id"
         ],
         "title": "WorkflowResponse"
+      },
+      "WorkflowSimulationCreate": {
+        "properties": {
+          "yaml": {
+            "type": "string",
+            "title": "Yaml"
+          }
+        },
+        "type": "object",
+        "required": [
+          "yaml"
+        ],
+        "title": "WorkflowSimulationCreate"
+      },
+      "WorkflowSimulationResponse": {
+        "properties": {
+          "branch": {
+            "type": "string",
+            "title": "Branch"
+          },
+          "commit_sha": {
+            "type": "string",
+            "title": "Commit Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "branch",
+          "commit_sha"
+        ],
+        "title": "WorkflowSimulationResponse"
       },
       "WorkflowUpdate": {
         "properties": {

@@ -8,6 +8,8 @@ from ..schemas.workflows import (
     WorkflowCreate,
     WorkflowListResponse,
     WorkflowResponse,
+    WorkflowSimulationCreate,
+    WorkflowSimulationResponse,
     WorkflowUpdate,
 )
 
@@ -52,6 +54,16 @@ async def update_workflow(
     data = body.model_dump(exclude_unset=True)
     w = service.update_workflow(id, data)
     return WorkflowResponse(**w.model_dump())
+
+
+@router.post("/{id}/simulations", response_model=WorkflowSimulationResponse)
+async def create_workflow_simulation(
+    id: str,
+    body: WorkflowSimulationCreate,
+    service: WorkflowService = Depends(get_workflow_service),
+):
+    result = service.create_simulation(workflow_id=id, yaml=body.yaml)
+    return WorkflowSimulationResponse(**result)
 
 
 @router.delete("/{id}")

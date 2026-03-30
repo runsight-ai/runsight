@@ -34,6 +34,18 @@ class WorkflowService:
         self._auto_commit(f"Update workflow: {result.name}", [result.id])
         return result
 
+    def create_simulation(self, workflow_id: str, yaml: str) -> Dict[str, str]:
+        if self.git_service is None:
+            raise RuntimeError("Git service not configured")
+
+        yaml_path = f"custom/workflows/{workflow_id}.yaml"
+        result = self.git_service.create_sim_branch(
+            workflow_slug=workflow_id,
+            yaml_content=yaml,
+            yaml_path=yaml_path,
+        )
+        return {"branch": result.branch, "commit_sha": result.sha}
+
     def _auto_commit(self, message: str, files: list) -> None:
         if not self.git_service:
             return

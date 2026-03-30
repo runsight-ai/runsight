@@ -161,6 +161,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workflows/{id}/simulations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Workflow Simulation */
+        post: operations["create_workflow_simulation_api_workflows__id__simulations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/souls": {
         parameters: {
             query?: never;
@@ -497,6 +514,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/git/sim-branch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Sim Branch */
+        post: operations["create_sim_branch_api_git_sim_branch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/models": {
         parameters: {
             query?: never;
@@ -807,6 +841,11 @@ export interface components {
              * @default manual
              */
             source: string | null;
+            /**
+             * Branch
+             * @default main
+             */
+            branch: string;
         };
         /** RunEvalResponse */
         RunEvalResponse: {
@@ -892,6 +931,20 @@ export interface components {
             /** Commit Sha */
             commit_sha?: string | null;
             node_summary?: components["schemas"]["NodeSummary"] | null;
+        };
+        /** SimBranchRequest */
+        SimBranchRequest: {
+            /** Workflow Id */
+            workflow_id: string;
+            /** Yaml Content */
+            yaml_content: string;
+        };
+        /** SimBranchResponse */
+        SimBranchResponse: {
+            /** Branch */
+            branch: string;
+            /** Commit Sha */
+            commit_sha: string;
         };
         /** SoulCreate */
         SoulCreate: {
@@ -1129,6 +1182,18 @@ export interface components {
             /** Validation Error */
             validation_error?: string | null;
         };
+        /** WorkflowSimulationCreate */
+        WorkflowSimulationCreate: {
+            /** Yaml */
+            yaml: string;
+        };
+        /** WorkflowSimulationResponse */
+        WorkflowSimulationResponse: {
+            /** Branch */
+            branch: string;
+            /** Commit Sha */
+            commit_sha: string;
+        };
         /** WorkflowUpdate */
         WorkflowUpdate: {
             /** Name */
@@ -1235,6 +1300,8 @@ export interface operations {
             query?: {
                 status?: string[] | null;
                 workflow_id?: string | null;
+                source?: string[] | null;
+                branch?: string | null;
                 offset?: number;
                 limit?: number;
             };
@@ -1574,6 +1641,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_workflow_simulation_api_workflows__id__simulations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowSimulationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowSimulationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2521,6 +2623,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["runsight_api__transport__routers__git__LogResponse"];
+                };
+            };
+        };
+    };
+    create_sim_branch_api_git_sim_branch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimBranchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimBranchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

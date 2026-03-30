@@ -44,3 +44,12 @@ class WorkflowUpdate(BaseModel):
     description: Optional[str] = None
     yaml: Optional[str] = None
     canvas_state: Optional[WorkflowCanvasState] = None
+
+
+class WorkflowSimulationCreate(BaseModel):
+    yaml: str
+
+
+class WorkflowSimulationResponse(BaseModel):
+    branch: str
+    commit_sha: str

@@ -50,7 +50,7 @@ export function RunButton({ workflowId, onAddApiKey }: RunButtonProps) {
     } else if (isDirty) {
       const simResult = await gitApi.createSimBranch(workflowId, yamlContent);
       createRun.mutate(
-        { workflow_id: workflowId, source: "sim", branch: simResult.branch },
+        { workflow_id: workflowId, source: "simulation", branch: simResult.branch },
         { onSuccess: (result) => setActiveRunId(result.id) },
       );
     } else {

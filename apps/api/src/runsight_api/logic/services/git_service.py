@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
+import tempfile
 import uuid
 from dataclasses import dataclass
 from datetime import date
@@ -24,14 +26,31 @@ class GitService:
     def __init__(self, repo_path: str | Path) -> None:
         self.repo_path = Path(repo_path)
 
-    def _run(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+    def _run(
+        self,
+        *args: str,
+        check: bool = True,
+        input_text: Optional[str] = None,
+        env: Optional[dict[str, str]] = None,
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             ["git", *args],
             cwd=str(self.repo_path),
             capture_output=True,
             text=True,
             check=check,
+            input=input_text,
+            env=env,
         )
+
+    def _normalize_repo_path(self, path: str | Path) -> str:
+        candidate = Path(path)
+        if candidate.is_absolute():
+            try:
+                return candidate.resolve().relative_to(self.repo_path.resolve()).as_posix()
+            except ValueError:
+                return candidate.as_posix()
+        return candidate.as_posix()
 
     def current_branch(self) -> str:
         result = self._run("rev-parse", "--abbrev-ref", "HEAD")
@@ -48,11 +67,13 @@ class GitService:
         self._run("branch", "-D", name)
 
     def read_file(self, path: str, branch: str) -> str:
-        result = self._run("show", f"{branch}:{path}")
+        repo_path = self._normalize_repo_path(path)
+        result = self._run("show", f"{branch}:{repo_path}")
         return result.stdout
 
     def get_sha(self, branch: str, path: str) -> Optional[str]:
-        result = self._run("log", "-1", "--format=%H", branch, "--", path, check=False)
+        repo_path = self._normalize_repo_path(path)
+        result = self._run("log", "-1", "--format=%H", branch, "--", repo_path, check=False)
         sha = result.stdout.strip()
         return sha if sha else None
 
@@ -63,27 +84,27 @@ class GitService:
         short_id = uuid.uuid4().hex[:5]
         today = date.today().strftime("%Y%m%d")
         branch_name = f"sim/{workflow_slug}/{today}/{short_id}"
+        repo_yaml_path = self._normalize_repo_path(yaml_path)
+        base_commit = self._run("rev-parse", "HEAD").stdout.strip()
+        blob_sha = self._run("hash-object", "-w", "--stdin", input_text=yaml_content).stdout.strip()
 
-        original = self.current_branch()
-        self._run("branch", branch_name)
-        try:
-            self._run("checkout", branch_name)
-            full_path = self.repo_path / yaml_path
-            full_path.parent.mkdir(parents=True, exist_ok=True)
-            full_path.write_text(yaml_content)
-            self._run("add", "--", yaml_path)
-            self._run("commit", "-m", f"Simulation snapshot: {workflow_slug}")
-            sha = self._run("rev-parse", "HEAD").stdout.strip()
-        finally:
-            self._run("checkout", original)
-            # Clean up the yaml file from working tree if it exists
-            if full_path.exists():
-                full_path.unlink()
-                # Remove parent dir if empty
-                try:
-                    full_path.parent.rmdir()
-                except OSError:
-                    pass
+        with tempfile.NamedTemporaryFile() as tmp_index:
+            env = {**os.environ, "GIT_INDEX_FILE": tmp_index.name}
+            self._run("read-tree", base_commit, env=env)
+            self._run(
+                "update-index", "--add", "--cacheinfo", "100644", blob_sha, repo_yaml_path, env=env
+            )
+            tree_sha = self._run("write-tree", env=env).stdout.strip()
+
+        sha = self._run(
+            "commit-tree",
+            tree_sha,
+            "-p",
+            base_commit,
+            "-m",
+            f"Simulation snapshot: {workflow_slug}",
+        ).stdout.strip()
+        self._run("branch", branch_name, sha)
 
         return SimBranchResult(branch=branch_name, sha=sha)
 
