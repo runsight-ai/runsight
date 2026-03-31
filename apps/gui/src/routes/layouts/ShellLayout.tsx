@@ -3,16 +3,25 @@ import { RouteErrorBoundary } from "@/components/shared/ErrorBoundary";
 import {
   LayoutDashboard,
   Workflow,
+  Activity,
   Bot,
   Settings,
 } from "lucide-react";
 import { cn } from "@/utils/helpers";
+
+const RUNS_NAV_LABEL = "Runs";
 
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Home", end: true },
   { to: "/flows", icon: Workflow, label: "Flows" },
   { to: "/souls", icon: Bot, label: "Souls" },
 ] as const;
+
+const RUNS_NAV_ITEM = {
+  icon: Activity,
+  to: "/runs",
+  label: RUNS_NAV_LABEL,
+} as const;
 
 const BOTTOM_NAV = [
   { to: "/settings", icon: Settings, label: "Settings" },
@@ -100,7 +109,7 @@ export function ShellLayout() {
 
         {/* Main nav */}
         <nav className="flex-1 py-2 px-2 overflow-y-auto">
-          {NAV_ITEMS.map(({ to, icon: Icon, label, ...rest }) => (
+          {[...NAV_ITEMS, RUNS_NAV_ITEM].map(({ to, icon: Icon, label, ...rest }) => (
             <NavLink
               key={to}
               to={to}

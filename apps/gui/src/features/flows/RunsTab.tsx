@@ -199,11 +199,7 @@ const RUN_COLUMNS: Array<{ key: SortColumn; label: string }> = [
   { key: "started", label: "Started" },
 ];
 
-interface RunsTabProps {
-  onGoToWorkflows: () => void;
-}
-
-export function Component({ onGoToWorkflows }: RunsTabProps) {
+export function Component() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("production");
@@ -256,6 +252,10 @@ export function Component({ onGoToWorkflows }: RunsTabProps) {
 
   const getAriaSort = (column: SortColumn) =>
     column === sortColumn ? sortDirection : "none";
+
+  const openRun = (runId: string) => {
+    navigate(`/runs/${runId}`);
+  };
 
   const openWorkflow = (workflowId: string) => {
     navigate(`/workflows/${workflowId}/edit`);
@@ -324,7 +324,7 @@ export function Component({ onGoToWorkflows }: RunsTabProps) {
             icon={EmptyIcon}
             title="No runs yet"
             description="Run a workflow to see execution history here."
-            action={{ label: "Go to Workflows", onClick: onGoToWorkflows }}
+            action={{ label: "Go to Workflows", onClick: () => navigate("/flows") }}
           />
         ) : filteredRuns.length === 0 ? (
           <EmptyState
@@ -358,11 +358,11 @@ export function Component({ onGoToWorkflows }: RunsTabProps) {
                         : "cursor-pointer"
                     }
                     tabIndex={0}
-                    onClick={() => openWorkflow(run.workflow_id)}
+                    onClick={() => openRun(run.id)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        openWorkflow(run.workflow_id);
+                        openRun(run.id);
                       }
                     }}
                   >
@@ -372,7 +372,19 @@ export function Component({ onGoToWorkflows }: RunsTabProps) {
                         {run.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{run.workflow_name}</TableCell>
+                    <TableCell>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-auto p-0 font-medium text-primary hover:bg-transparent hover:text-primary"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openWorkflow(run.workflow_id);
+                        }}
+                      >
+                        {run.workflow_name}
+                      </Button>
+                    </TableCell>
                     <TableCell data-type="data">{formatRunNumber(run.run_number)}</TableCell>
                     <TableCell data-type="id">
                       {formatCommit(run.commit_sha) ? (

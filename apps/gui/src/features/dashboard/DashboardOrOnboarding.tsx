@@ -143,7 +143,7 @@ export function Component() {
           icon={Play}
           title="No runs yet"
           description="Run a workflow to see eval results, cost tracking, and regression detection here."
-          action={{ label: "Open Flows", onClick: () => navigate("/workflows") }}
+          action={{ label: "Open Flows", onClick: () => navigate("/flows") }}
         />
         <div className="flex-1" />
       </div>
