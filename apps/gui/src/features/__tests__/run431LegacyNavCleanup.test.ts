@@ -155,7 +155,7 @@ describe("RUN-431 dashboard list-navigation cleanup", () => {
     expect(screen.getByText("location:/flows")).toBeTruthy();
   });
 
-  it('sends the attention overflow "see all" action directly to /flows?tab=runs', async () => {
+  it('sends the attention overflow "see all" action directly to /runs', async () => {
     mocks.dashboardKpis.data = {
       runs_today: 4,
       cost_today_usd: 1.25,
@@ -176,23 +176,23 @@ describe("RUN-431 dashboard list-navigation cleanup", () => {
     await user.click(await screen.findByRole("button", { name: /see all/i }));
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/flows");
-      expect(router.state.location.search).toBe("?tab=runs");
+      expect(router.state.location.pathname).toBe("/runs");
+      expect(router.state.location.search).toBe("");
     });
-    expect(screen.getByText("location:/flows?tab=runs")).toBeTruthy();
+    expect(screen.getByText("location:/runs")).toBeTruthy();
   });
 });
 
 describe("RUN-431 run detail list-navigation cleanup", () => {
-  it('links the "Back to runs" affordance to /flows?tab=runs', async () => {
+  it('links the "Back to runs" affordance to /runs', async () => {
     const { router, user } = await renderRunDetailHeader();
 
     await user.click(await screen.findByRole("button", { name: "Back to runs" }));
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/flows");
-      expect(router.state.location.search).toBe("?tab=runs");
+      expect(router.state.location.pathname).toBe("/runs");
+      expect(router.state.location.search).toBe("");
     });
-    expect(screen.getByText("location:/flows?tab=runs")).toBeTruthy();
+    expect(screen.getByText("location:/runs")).toBeTruthy();
   });
 });

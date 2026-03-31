@@ -61,7 +61,7 @@ vi.mock("@/features/canvas/CanvasPage", () => ({
 }));
 
 vi.mock("@/features/runs/RunList", () => ({
-  Component: () => React.createElement(RouteEcho, { label: "legacy-runs" }),
+  Component: () => React.createElement(RouteEcho, { label: "canonical-runs" }),
 }));
 
 vi.mock("@/features/runs/RunDetail", () => ({
@@ -122,15 +122,14 @@ describe("RUN-431 legacy list route cleanup", () => {
     expect(screen.queryByText("legacy-workflows:/workflows")).toBeNull();
   });
 
-  it("redirects /runs to /flows?tab=runs", async () => {
+  it("keeps /runs as the canonical runs page", async () => {
     await renderAppAt("/runs");
 
-    expect(await screen.findByText("flows:/flows?tab=runs")).toBeTruthy();
+    expect(await screen.findByText("canonical-runs:/runs")).toBeTruthy();
     await waitFor(() => {
-      expect(window.location.pathname).toBe("/flows");
-      expect(window.location.search).toBe("?tab=runs");
+      expect(window.location.pathname).toBe("/runs");
+      expect(window.location.search).toBe("");
     });
-    expect(screen.queryByText("legacy-runs:/runs")).toBeNull();
   });
 
   it.each([
@@ -161,7 +160,6 @@ describe("RUN-431 stale list-page files are deleted", () => {
   const removedFiles = [
     "features/workflows/WorkflowList.tsx",
     "features/workflows/NewWorkflowModal.tsx",
-    "features/runs/RunList.tsx",
     "features/sidebar/TaskList.tsx",
     "features/sidebar/StepList.tsx",
   ];

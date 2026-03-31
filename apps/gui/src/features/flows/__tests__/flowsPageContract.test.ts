@@ -616,29 +616,26 @@ describe("RUN-426 FlowsPage tabs", () => {
 
     expect(view.html).toContain("Flows");
     expect(view.html).toContain("Workflows");
-    expect(view.html).toContain("Runs");
-    expect(view.html).not.toContain("Coming soon");
+    expect(view.html).not.toContain("Runs");
 
     const workflowsTab = view.tabTriggers.find((tab) => tab.value === "workflows");
     const runsTab = view.tabTriggers.find((tab) => tab.value === "runs");
 
     expect(workflowsTab?.active).toBe(true);
-    expect(runsTab?.active).toBe(false);
-    expect(runsTab?.disabled).toBe(false);
+    expect(runsTab).toBeUndefined();
     expect(view.html).not.toContain("Runs tab shell");
   });
 
-  it("renders the Runs tab shell from /flows?tab=runs and hides the workflows header action", async () => {
+  it("keeps /flows workflow-only even when tab=runs is present in the URL", async () => {
     const view = await renderFlowsPage("tab=runs");
 
     const workflowsTab = view.tabTriggers.find((tab) => tab.value === "workflows");
     const runsTab = view.tabTriggers.find((tab) => tab.value === "runs");
 
-    expect(workflowsTab?.active).toBe(false);
-    expect(runsTab?.active).toBe(true);
-    expect(runsTab?.disabled).toBe(false);
-    expect(view.html).toContain("Runs tab shell");
-    expect(view.html).not.toContain("New Workflow");
+    expect(workflowsTab?.active).toBe(true);
+    expect(runsTab).toBeUndefined();
+    expect(view.html).not.toContain("Runs tab shell");
+    expect(view.html).toContain("New Workflow");
   });
 
   it("keeps the header visible while the workflows tab shows loading placeholders", async () => {
