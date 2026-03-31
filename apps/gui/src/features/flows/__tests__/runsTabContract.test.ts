@@ -7,7 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 
 const mocks = vi.hoisted(() => ({
-  runs: [
+  productionRuns: [
     {
       id: "run_research_7",
       workflow_id: "wf_research",
@@ -60,6 +60,23 @@ const mocks = vi.hoisted(() => ({
       created_at: 1_774_407_199,
     },
   ],
+  simulationRun: {
+    id: "run_research_sim_8",
+    workflow_id: "wf_research",
+    workflow_name: "Research & Review",
+    run_number: 8,
+    status: "running",
+    commit_sha: "9c1deaf77777777",
+    source: "simulation",
+    branch: "sim/research-review/20260331/abc12",
+    started_at: 1_774_416_200,
+    completed_at: null,
+    duration_seconds: 4.8,
+    total_cost_usd: 0.01,
+    total_tokens: 320,
+    eval_pass_pct: null,
+    created_at: 1_774_416_199,
+  },
   refetchRuns: vi.fn(),
   createWorkflow: vi.fn(),
   createWorkflowAsync: vi.fn(),
@@ -85,6 +102,32 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+function normalizeSources(params: unknown): string[] {
+  if (params instanceof URLSearchParams) {
+    return params.getAll("source").sort();
+  }
+
+  if (
+    params &&
+    typeof params === "object" &&
+    "source" in params &&
+    Array.isArray((params as { source?: unknown }).source)
+  ) {
+    return [...((params as { source: string[] }).source)].sort();
+  }
+
+  return [];
+}
+
+function buildRunList(items: Array<Record<string, unknown>>) {
+  return {
+    items,
+    total: items.length,
+    offset: 0,
+    limit: 20,
+  };
+}
+
 vi.mock("@/queries/workflows", () => ({
   useCreateWorkflow: () => ({
     mutate: mocks.createWorkflow,
@@ -106,9 +149,14 @@ vi.mock("@/queries/workflows", () => ({
 vi.mock("@/queries/runs", () => ({
   useRuns: (params?: unknown) => {
     mocks.runsQueryCalls.push(params);
+    const requestedSources = normalizeSources(params);
+    const items =
+      requestedSources.length === 0
+        ? [...mocks.productionRuns, mocks.simulationRun]
+        : [...mocks.productionRuns];
 
     return {
-      data: mocks.runsQueryState.data,
+      data: mocks.runsQueryState.data ?? buildRunList(items),
       isLoading: mocks.runsQueryState.isLoading,
       error: mocks.runsQueryState.error,
       refetch: mocks.refetchRuns,
@@ -118,23 +166,6 @@ vi.mock("@/queries/runs", () => ({
 
 function loadFlowsPage() {
   return import("../FlowsPage").then((module) => module.Component ?? module.FlowsPage);
-}
-
-function normalizeSources(params: unknown): string[] {
-  if (params instanceof URLSearchParams) {
-    return params.getAll("source").sort();
-  }
-
-  if (
-    params &&
-    typeof params === "object" &&
-    "source" in params &&
-    Array.isArray((params as { source?: unknown }).source)
-  ) {
-    return [...((params as { source: string[] }).source)].sort();
-  }
-
-  return [];
 }
 
 async function renderFlowsPage(initialEntry: string) {
@@ -166,12 +197,7 @@ beforeEach(() => {
   mocks.createWorkflowAsync.mockReset();
   mocks.deleteWorkflow.mockReset();
   mocks.runsQueryCalls.length = 0;
-  mocks.runsQueryState.data = {
-    items: mocks.runs,
-    total: mocks.runs.length,
-    offset: 0,
-    limit: 20,
-  };
+  mocks.runsQueryState.data = null as unknown as typeof mocks.runsQueryState.data;
   mocks.runsQueryState.isLoading = false;
   mocks.runsQueryState.error = null;
   mocks.workflowsQueryState.data = {
@@ -316,5 +342,106 @@ describe("RUN-427 FlowsPage runs tab", () => {
       screen.getByText("Run a workflow to see execution history here."),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Go to Workflows" })).toBeTruthy();
+  });
+});
+
+describe("RUN-416 Runs source filter", () => {
+  it("shows an accessible Production runs filter in the runs toolbar and hides the Source column by default", async () => {
+    await renderFlowsPage("/flows?tab=runs");
+
+    const searchbox = await screen.findByRole("searchbox", { name: "Search runs" });
+    const sourceFilter = screen.getByLabelText("Filter runs by source");
+
+    expect(sourceFilter.textContent).toContain("Production runs");
+    expect(
+      searchbox.compareDocumentPosition(sourceFilter) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([
+      "manual",
+      "schedule",
+      "webhook",
+    ]);
+
+    const table = await screen.findByRole("table");
+    expect(within(table).queryByRole("columnheader", { name: "Source" })).toBeNull();
+    expect(screen.queryByText("simulation")).toBeNull();
+  });
+
+  it("switches to All runs with no source filter, shows the Source column, and keeps search client-side on the returned set", async () => {
+    const { user } = await renderFlowsPage("/flows?tab=runs");
+
+    await user.click(screen.getByLabelText("Filter runs by source"));
+    await user.click(await screen.findByText("All runs"));
+
+    await waitFor(() => {
+      expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([]);
+    });
+
+    const table = await screen.findByRole("table");
+    expect(within(table).getByRole("columnheader", { name: "Source" })).toBeTruthy();
+    expect(screen.getByText("manual")).toBeTruthy();
+    expect(screen.getByText("webhook")).toBeTruthy();
+    expect(screen.getByText("schedule")).toBeTruthy();
+    expect(screen.getByText("simulation")).toBeTruthy();
+
+    await user.clear(screen.getByRole("searchbox", { name: "Search runs" }));
+    await user.type(screen.getByRole("searchbox", { name: "Search runs" }), "content");
+
+    expect(screen.queryByText("Research & Review")).toBeNull();
+    expect(screen.getByText("Content Pipeline")).toBeTruthy();
+    expect(screen.queryByText("Daily Digest")).toBeNull();
+    expect(screen.queryByText("simulation")).toBeNull();
+  });
+
+  it("renders source badges for manual, webhook, schedule, and simulation, and visually distinguishes simulation rows in all-runs view", async () => {
+    const { user } = await renderFlowsPage("/flows?tab=runs");
+
+    await user.click(screen.getByLabelText("Filter runs by source"));
+    await user.click(await screen.findByText("All runs"));
+
+    const manualBadge = await screen.findByText("manual");
+    const webhookBadge = screen.getByText("webhook");
+    const scheduleBadge = screen.getByText("schedule");
+    const simulationBadge = screen.getByText("simulation");
+
+    for (const badge of [manualBadge, webhookBadge, scheduleBadge, simulationBadge]) {
+      expect(badge.getAttribute("data-slot")).toBe("badge");
+      expect(String(badge.className)).not.toBe("");
+    }
+
+    const simulationRow = simulationBadge.closest("tr");
+    const manualRow = manualBadge.closest("tr");
+
+    expect(simulationRow, "Expected simulation row to render in All runs view").toBeTruthy();
+    expect(manualRow, "Expected production row to render in All runs view").toBeTruthy();
+    expect(String(simulationRow?.className)).toMatch(/muted|opacity|secondary|tertiary/i);
+    expect(simulationRow?.className).not.toBe(manualRow?.className);
+  });
+
+  it("keeps the source filter ephemeral when leaving and re-entering the Runs tab", async () => {
+    const { user } = await renderFlowsPage("/flows?tab=runs");
+
+    await user.click(screen.getByLabelText("Filter runs by source"));
+    await user.click(await screen.findByText("All runs"));
+
+    await waitFor(() => {
+      expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([]);
+    });
+
+    await user.click(screen.getByRole("tab", { name: "Workflows" }));
+    await user.click(screen.getByRole("tab", { name: /^Runs$/i }));
+
+    await waitFor(() => {
+      expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([
+        "manual",
+        "schedule",
+        "webhook",
+      ]);
+    });
+
+    expect(screen.getByLabelText("Filter runs by source").textContent).toContain(
+      "Production runs",
+    );
+    expect(screen.queryByRole("columnheader", { name: "Source" })).toBeNull();
   });
 });
