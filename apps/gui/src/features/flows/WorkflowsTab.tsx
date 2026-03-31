@@ -27,11 +27,16 @@ function WorkflowSkeletonRow() {
   });
 }
 
-export function Component() {
+interface WorkflowsTabProps {
+  onCreateWorkflow?: () => void;
+}
+
+export function Component({ onCreateWorkflow }: WorkflowsTabProps) {
   const { data, isLoading, error, refetch } = useWorkflows();
   const deleteWorkflow = useDeleteWorkflow();
   const [searchQuery, setSearchQuery] = useState("");
   const [workflowToDelete, setWorkflowToDelete] = useState<WorkflowResponse | null>(null);
+  const handleCreateWorkflow = onCreateWorkflow ?? (() => {});
 
   const workflows = data?.items ?? [];
   const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -86,7 +91,7 @@ export function Component() {
       icon: EmptyIcon,
       title: "No workflows yet",
       description: "Create your first workflow to start orchestrating AI agents.",
-      action: { label: "Create Workflow", onClick: () => {} },
+      action: { label: "Create Workflow", onClick: handleCreateWorkflow },
     });
   } else if (filteredWorkflows.length === 0) {
     content = jsx(EmptyState, {

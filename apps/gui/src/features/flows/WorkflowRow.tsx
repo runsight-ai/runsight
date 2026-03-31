@@ -159,9 +159,12 @@ export function Component({ workflow, onDelete }: WorkflowRowProps) {
         type: "button",
         "aria-label": `Delete ${name} workflow`,
         className:
-          "shrink-0 rounded-md p-2 text-muted transition-colors hover:bg-surface-hover hover:text-primary",
+          "shrink-0 rounded-md p-2 text-muted opacity-0 pointer-events-none transition-all hover:bg-surface-hover hover:text-primary group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100",
         onClick: handleDeleteClick,
-        children: "Delete",
+        children: jsx("span", {
+          "aria-hidden": true,
+          children: "🗑",
+        }),
       }),
     ],
   });
