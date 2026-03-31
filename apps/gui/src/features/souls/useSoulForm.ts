@@ -107,8 +107,7 @@ export function useSoulForm({
       tools: values.tools.length > 0 ? values.tools : null,
       temperature: values.temperature !== 0.7 ? values.temperature : null,
       max_tokens: values.maxTokens,
-      max_tool_iterations:
-        values.maxToolIterations !== 5 ? values.maxToolIterations : null,
+      max_tool_iterations: values.maxToolIterations,
       avatar_color: values.avatarColor,
     };
 

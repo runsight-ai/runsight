@@ -27,6 +27,7 @@ class ProviderUpdate(BaseModel):
 class ProviderOut(BaseModel):
     id: str
     name: str
+    type: Optional[str] = None
     status: str
     api_key_env: Optional[str] = None  # Return "configured" or "" - never the real key
     base_url: Optional[str] = None
@@ -73,6 +74,7 @@ def _provider_to_out(p) -> ProviderOut:
     return ProviderOut(
         id=p.id,
         name=p.name,
+        type=p.type,
         status=p.status or "unknown",
         api_key_env="configured" if p.api_key else "",
         base_url=p.base_url,

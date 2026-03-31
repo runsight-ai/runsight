@@ -85,6 +85,11 @@ describe("useSoulForm behavior contract (RUN-447)", () => {
     expect(source).not.toMatch(/\bname:\s*values\.name/);
   });
 
+  it("never writes max_tool_iterations as null into the submit payload", () => {
+    const source = read(HOOK_PATH);
+    expect(source).not.toMatch(/max_tool_iterations:\s*[^,\n]*null/);
+  });
+
   it("clears modelId and mirrors provider when provider selection changes", () => {
     const source = read(HOOK_PATH);
     expect(source).toMatch(/providerId/);

@@ -1,4 +1,5 @@
 import uuid
+import logging
 from typing import Any, Dict, List, Optional
 
 import yaml
@@ -6,6 +7,8 @@ import yaml
 from ...data.filesystem.soul_repo import SoulRepository
 from ...domain.errors import SoulAlreadyExists, SoulInUse, SoulNotFound
 from ...domain.value_objects import SoulEntity, WorkflowEntity
+
+logger = logging.getLogger(__name__)
 
 
 class SoulService:
@@ -57,6 +60,13 @@ class SoulService:
     def _resolve_workflow_repo(self, workflow_repo=None):
         return workflow_repo or self.workflow_repo
 
+    @staticmethod
+    def _normalize_soul_payload(data: Dict[str, Any]) -> Dict[str, Any]:
+        normalized = dict(data)
+        if normalized.get("max_tool_iterations") is None:
+            normalized["max_tool_iterations"] = 5
+        return normalized
+
     def list_souls(self, query: Optional[str] = None, workflow_repo=None) -> List[SoulEntity]:
         souls = self.soul_repo.list_all()
         if query:
@@ -107,6 +117,7 @@ class SoulService:
         return counts
 
     def create_soul(self, data: Dict[str, Any]) -> SoulEntity:
+        data = self._normalize_soul_payload(data)
         if "id" not in data or not data["id"]:
             data["id"] = f"soul_{uuid.uuid4().hex[:8]}"
         if self.soul_repo.get_by_id(data["id"]):
@@ -116,6 +127,7 @@ class SoulService:
         return result
 
     def update_soul(self, id: str, data: Dict[str, Any], copy_on_edit: bool = False) -> SoulEntity:
+        data = self._normalize_soul_payload(data)
         existing = self.soul_repo.get_by_id(id)
         if not existing:
             raise SoulNotFound(f"Soul {id} not found")
@@ -157,6 +169,22 @@ class SoulService:
     def _auto_commit(self, message: str, files: list) -> None:
         if not self.git_service:
             return
-        if self.git_service.is_clean():
-            return  # nothing changed, skip empty commit
-        self.git_service.commit_to_branch("main", files, message)
+        try:
+            if self.git_service.is_clean():
+                return  # nothing changed, skip empty commit
+            current_branch = self.git_service.current_branch()
+            if not isinstance(current_branch, str) or not current_branch:
+                current_branch = "main"
+            if current_branch != "main":
+                logger.info(
+                    "Skipping soul auto-commit outside main branch",
+                    extra={"current_branch": current_branch, "files": files},
+                )
+                return
+            self.git_service.commit_to_branch("main", files, message)
+        except Exception:
+            logger.warning(
+                "Soul auto-commit failed; keeping filesystem changes without git commit",
+                exc_info=True,
+                extra={"files": files, "message": message},
+            )

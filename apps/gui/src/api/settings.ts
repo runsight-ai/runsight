@@ -9,6 +9,7 @@ import type { ModelResponse, ProviderSummary } from "@runsight/shared/zod";
 const ProviderSchema = z.object({
   id: z.string(),
   name: z.string(),
+  type: z.string().nullable().optional(),
   status: z.string().optional().default("connected"),
   api_key_env: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
