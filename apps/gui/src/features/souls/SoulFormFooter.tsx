@@ -29,7 +29,7 @@ export function SoulFormFooter({
 
   return (
     <footer className="sticky bottom-0 border-t border-[var(--border-subtle)] bg-[var(--surface-primary)]">
-      <div className="mx-auto flex max-w-2xl items-center justify-end gap-3 px-6 py-4">
+      <div className="mx-auto flex w-full max-w-4xl items-center justify-end gap-3 px-6 py-4">
         <Button variant="ghost" onClick={onCancel} disabled={isSubmitting}>
           Cancel
         </Button>

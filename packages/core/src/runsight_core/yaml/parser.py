@@ -27,12 +27,14 @@ from runsight_core.yaml.schema import (
     InputRef,
     RunsightTaskFile,
     RunsightWorkflowFile,
+    ToolDef,
 )
 
 # Supported schema versions.  When a future version bump is needed:
 # 1. Add the new version string here.
 # 2. Gate migration logic on ``file_def.version`` before the block-building loop.
 SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
+USER_ASSIGNABLE_SOUL_TOOL_SOURCES: frozenset[str] = frozenset({"runsight/http", "runsight/file-io"})
 
 
 def _resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
@@ -65,6 +67,19 @@ def _convert_condition_group(group_def: ConditionGroupDef) -> ConditionGroup:
         conditions=[_convert_condition(c) for c in group_def.conditions],
         combinator=group_def.combinator,
     )
+
+
+def _resolve_soul_tool_definition(
+    tool_ref: str, workflow_tools: Dict[str, ToolDef]
+) -> ToolDef | None:
+    """Resolve a soul tool ref from either the workflow tool map or direct built-ins."""
+    if tool_ref in workflow_tools:
+        return workflow_tools[tool_ref]
+
+    if tool_ref in USER_ASSIGNABLE_SOUL_TOOL_SOURCES:
+        return ToolDef(type="builtin", source=tool_ref)
+
+    return None
 
 
 # Trigger auto-discovery of co-located blocks and rebuild the discriminated
@@ -289,10 +304,17 @@ def parse_workflow_yaml(
     for soul_key, soul_def in file_def.souls.items():
         if soul_def.tools:
             for tool_name in soul_def.tools:
-                if tool_name not in file_def.tools:
+                tool_def = _resolve_soul_tool_definition(tool_name, file_def.tools)
+                if tool_def is None:
+                    if tool_name in BUILTIN_TOOL_CATALOG:
+                        raise ValueError(
+                            f"Soul '{soul_key}' cannot directly assign system tool "
+                            f"'{tool_name}'. Assign it through workflow or block mechanics instead."
+                        )
                     raise ValueError(
                         f"Soul '{soul_key}' references undeclared tool '{tool_name}'. "
-                        f"Declared tools: {sorted(file_def.tools.keys())}"
+                        f"Declared tools: {sorted(file_def.tools.keys())}. "
+                        f"Direct soul tools: {sorted(USER_ASSIGNABLE_SOUL_TOOL_SOURCES)}"
                     )
 
     # 6.6c: Resolve ToolInstance objects per soul
@@ -302,7 +324,9 @@ def parse_workflow_yaml(
 
         resolved_tools = []
         for tool_name in soul_def.tools:
-            tool_def = file_def.tools[tool_name]
+            tool_def = _resolve_soul_tool_definition(tool_name, file_def.tools)
+            if tool_def is None:
+                continue
 
             if tool_def.source == "runsight/delegate":
                 # Find the block that references this soul via soul_ref

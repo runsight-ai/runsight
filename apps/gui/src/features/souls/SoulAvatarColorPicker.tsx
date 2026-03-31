@@ -1,4 +1,4 @@
-import { Radio, RadioGroup } from "@runsight/ui/radio";
+import { cn } from "@/lib/utils";
 
 const AVATAR_COLOR_OPTIONS = [
   { value: "accent", swatchClassName: "bg-accent-3" },
@@ -16,19 +16,36 @@ interface SoulAvatarColorPickerProps {
 
 export function SoulAvatarColorPicker({ value, onChange }: SoulAvatarColorPickerProps) {
   return (
-    <RadioGroup orientation="horizontal" className="gap-3">
+    <div
+      role="group"
+      aria-label="Avatar color"
+      className="flex flex-wrap items-center gap-3"
+    >
       {AVATAR_COLOR_OPTIONS.map((option) => (
-        <label key={option.value} className="inline-flex items-center gap-2 cursor-pointer">
-          <Radio
-            checked={value === option.value}
-            onChange={() => onChange(option.value)}
-            value={option.value}
-            aria-label={`${option.value} avatar color`}
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          aria-label={`${option.value} avatar color`}
+          aria-pressed={value === option.value}
+          className={cn(
+            "flex size-9 items-center justify-center rounded-full border transition",
+            value === option.value
+              ? "border-accent-8 bg-accent-3/30 shadow-[0_0_0_1px_var(--accent-8)]"
+              : "border-border-default bg-surface-secondary hover:border-border-strong",
+          )}
+        >
+          <span
+            className={cn(
+              "size-5 rounded-full border border-white/10 shadow-sm",
+              option.swatchClassName,
+            )}
           />
-          <span className={`size-5 rounded-full border border-border-default ${option.swatchClassName}`} />
-        </label>
+          <span className="sr-only">{option.value}</span>
+        </button>
+        
       ))}
-    </RadioGroup>
+    </div>
   );
 }
 

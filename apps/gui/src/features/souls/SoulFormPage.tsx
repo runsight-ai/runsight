@@ -39,7 +39,7 @@ function SoulFormLoadingState({ returnUrl }: { returnUrl: string | null }) {
       />
 
       <div className="flex-1 overflow-y-auto pb-24">
-        <div className="mx-auto flex max-w-2xl flex-col gap-4 px-6 pb-8">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-6 pb-8">
           {[1, 2, 3, 4].map((section) => (
             <div
               key={section}
@@ -56,7 +56,7 @@ function SoulFormLoadingState({ returnUrl }: { returnUrl: string | null }) {
       </div>
 
       <footer className="sticky bottom-0 border-t border-[var(--border-subtle)] bg-[var(--surface-primary)]">
-        <div className="mx-auto flex max-w-2xl items-center justify-end gap-3 px-6 py-4">
+        <div className="mx-auto flex w-full max-w-4xl items-center justify-end gap-3 px-6 py-4">
           <div className="h-10 w-24 animate-pulse rounded bg-border-default" />
           <div className="h-10 w-32 animate-pulse rounded bg-border-default" />
         </div>
@@ -129,7 +129,7 @@ export function Component() {
       />
 
       <div className="flex-1 overflow-y-auto pb-24">
-        <div className="mx-auto flex max-w-2xl flex-col gap-4 px-6 pb-8">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-6 pb-8">
           <SoulFormBody values={values} setField={setField} />
         </div>
       </div>

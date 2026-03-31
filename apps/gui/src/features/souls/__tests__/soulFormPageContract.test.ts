@@ -91,4 +91,9 @@ describe("SoulFormPage contract (RUN-449)", () => {
     expect(source).toMatch(/subtitle=\s*["']Loading\.\.\.["']/);
     expect(source).not.toMatch(/Loading soul…|Loading soul\.\.\./);
   });
+
+  it("uses a wider desktop form shell while keeping the sticky footer aligned to the same content width", () => {
+    const source = read(PAGE_PATH);
+    expect(source).toMatch(/max-w-4xl|max-w-5xl/);
+  });
 });

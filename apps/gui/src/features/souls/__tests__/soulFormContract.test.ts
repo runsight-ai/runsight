@@ -27,10 +27,10 @@ describe("SoulAvatarColorPicker contract (RUN-447)", () => {
     expect(source).toMatch(/export\s+(function|const)\s+SoulAvatarColorPicker/);
   });
 
-  it("renders a six-preset radio group for avatar colors", () => {
+  it("renders six clickable color swatches for avatar colors", () => {
     const source = read(PICKER_PATH);
-    expect(source).toMatch(/RadioGroup|role=["']radiogroup["']/);
-    expect(source).toMatch(/Radio|role=["']radio["']/);
+    expect(source).toMatch(/button/);
+    expect(source).toMatch(/aria-label=.*avatar color/);
     const swatchMatches = source.match(/value:\s*["'][^"']+["']/g) ?? [];
     expect(swatchMatches.length).toBeGreaterThanOrEqual(6);
   });

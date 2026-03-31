@@ -160,6 +160,34 @@ souls:
         assert "http_request" in resolved_names
         assert "file_io" in resolved_names
 
+    def test_direct_builtin_soul_tools_resolve_without_workflow_tool_map(self):
+        """Soul-level built-ins like runsight/http and runsight/file-io resolve directly."""
+        yaml_str = _make_yaml(
+            souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - runsight/http
+      - runsight/file-io""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+
+        workflow = parse_workflow_yaml(yaml_str)
+        soul = workflow.blocks["my_block"].soul
+
+        assert soul.resolved_tools is not None
+        resolved_names = {t.name for t in soul.resolved_tools}
+        assert resolved_names == {"http_request", "file_io"}
+
 
 # ===========================================================================
 # AC2: Soul references undeclared tool -> ValueError at parse time
@@ -226,6 +254,34 @@ souls:
         )
 
         with pytest.raises(ValueError, match="researcher_agent"):
+            parse_workflow_yaml(yaml_str)
+
+    def test_direct_system_tool_source_still_rejected_for_soul_level_assignment(self):
+        """System-owned tools like runsight/delegate must not be directly assignable on souls."""
+        yaml_str = _make_yaml(
+            souls="""\
+souls:
+  gate_agent:
+    id: gate_1
+    role: Gate Agent
+    system_prompt: Evaluate and delegate.
+    tools:
+      - runsight/delegate""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: gate_agent
+    exits:
+      - id: approve
+        label: Approve
+      - id: reject
+        label: Reject""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+
+        with pytest.raises(ValueError, match="runsight/delegate"):
             parse_workflow_yaml(yaml_str)
 
 
