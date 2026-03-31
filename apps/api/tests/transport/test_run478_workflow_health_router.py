@@ -9,6 +9,7 @@ from unittest.mock import Mock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 
 if "structlog" not in sys.modules:
     structlog = types.ModuleType("structlog")
@@ -65,6 +66,7 @@ def _make_workflow(
     modified_at: float = 1711900000.0,
     enabled: bool = True,
     commit_sha: str = "abc123def456",
+    health: dict | None = None,
 ) -> WorkflowEntity:
     return WorkflowEntity(
         id=workflow_id,
@@ -77,7 +79,9 @@ def _make_workflow(
         modified_at=modified_at,
         enabled=enabled,
         commit_sha=commit_sha,
-        health={
+        health=health
+        if health is not None
+        else {
             "eval_health": "healthy",
             "run_count": 2,
             "eval_pass_pct": 50.0,
@@ -170,6 +174,50 @@ class TestWorkflowsListResponse:
         assert health["eval_pass_pct"] == 50.0
         assert health["total_cost_usd"] == 0.30
         assert health["regression_count"] == 1
+
+    @pytest.mark.parametrize(
+        ("health", "expected_run_count"),
+        [
+            (
+                {
+                    "eval_health": None,
+                    "run_count": 0,
+                    "eval_pass_pct": None,
+                    "total_cost_usd": 0.0,
+                    "regression_count": 0,
+                },
+                0,
+            ),
+            (
+                {
+                    "eval_health": None,
+                    "run_count": 1,
+                    "eval_pass_pct": None,
+                    "total_cost_usd": 0.25,
+                    "regression_count": 0,
+                },
+                1,
+            ),
+        ],
+    )
+    def test_list_workflows_serializes_null_eval_health_for_empty_and_no_eval_cases(
+        self,
+        health,
+        expected_run_count,
+    ):
+        """GET /api/workflows should serialize null eval fields for empty and no-eval workflows."""
+        workflow = _make_workflow(health=health)
+        app.dependency_overrides[get_workflow_service] = lambda: _stub_workflow_service([workflow])
+
+        response = client.get("/api/workflows")
+        assert response.status_code == 200
+
+        item = response.json()["items"][0]
+        health = item.get("health")
+        assert health is not None, "Expected nested workflow health data in list response"
+        assert health["run_count"] == expected_run_count
+        assert health["eval_health"] is None
+        assert health["eval_pass_pct"] is None
 
     def test_list_workflows_keeps_backward_compatible_canvas_fields(self):
         """Legacy workflow fields must still be exposed alongside the new health data."""

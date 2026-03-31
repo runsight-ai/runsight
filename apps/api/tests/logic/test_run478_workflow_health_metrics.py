@@ -142,7 +142,7 @@ class TestWorkflowHealthAggregation:
 
         health = _workflow_health(result[0])
         assert _health_value(health, "run_count") == 0
-        assert _health_value(health, "eval_health") is not None
+        assert _health_value(health, "eval_health") is None
         assert _health_value(health, "eval_pass_pct") is None
         assert _health_value(health, "total_cost_usd") == 0.0
         assert _health_value(health, "regression_count") == 0
@@ -165,7 +165,7 @@ class TestWorkflowHealthAggregation:
 
         health = _workflow_health(result[0])
         assert _health_value(health, "run_count") == 1
-        assert _health_value(health, "eval_health") is not None
+        assert _health_value(health, "eval_health") is None
         assert _health_value(health, "eval_pass_pct") is None
         assert _health_value(health, "total_cost_usd") == pytest.approx(0.25)
         assert _health_value(health, "regression_count") == 0
