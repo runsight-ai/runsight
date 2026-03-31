@@ -32,6 +32,13 @@ export const router = createBrowserRouter([
           })),
       },
       {
+        path: "flows",
+        lazy: () =>
+          import("@/features/flows/FlowsPage").then((m) => ({
+            Component: m.Component,
+          })),
+      },
+      {
         path: "workflows/:id",
         lazy: () =>
           import("@/features/canvas/WorkflowCanvas").then((m) => ({

@@ -10,7 +10,7 @@ import { cn } from "@/utils/helpers";
 
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Home", end: true },
-  { to: "/workflows", icon: Workflow, label: "Flows" },
+  { to: "/flows", icon: Workflow, label: "Flows" },
   { to: "/souls", icon: Bot, label: "Souls" },
 ] as const;
 
