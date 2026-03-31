@@ -4,6 +4,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createMemoryRouter, RouterProvider } from "react-router";
 
 const mocks = vi.hoisted(() => ({
   workflows: [
@@ -61,6 +62,7 @@ const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
   deleteWorkflow: vi.fn(),
   setWorkflowEnabled: vi.fn(),
+  createWorkflow: vi.fn(),
 }));
 
 vi.mock("@/queries/workflows", () => ({
@@ -76,6 +78,10 @@ vi.mock("@/queries/workflows", () => ({
   }),
   useSetWorkflowEnabled: () => ({
     mutateAsync: mocks.setWorkflowEnabled,
+    isPending: false,
+  }),
+  useCreateWorkflow: () => ({
+    mutate: mocks.createWorkflow,
     isPending: false,
   }),
 }));
@@ -103,6 +109,7 @@ beforeEach(() => {
   mocks.refetch.mockReset();
   mocks.deleteWorkflow.mockReset();
   mocks.setWorkflowEnabled.mockReset();
+  mocks.createWorkflow.mockReset();
 });
 
 async function renderWorkflowsTab() {
@@ -110,6 +117,26 @@ async function renderWorkflowsTab() {
   const user = userEvent.setup();
   render(React.createElement(WorkflowsTab, { onCreateWorkflow: vi.fn() }));
   return { user };
+}
+
+async function renderFlowsRoute(initialPath = "/flows") {
+  const { FlowsPage } = await import("../FlowsPage");
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/flows",
+        element: React.createElement(FlowsPage),
+      },
+      {
+        path: "/runs",
+        element: React.createElement("div", null, "Runs stub"),
+      },
+    ],
+    { initialEntries: [initialPath] },
+  );
+  const user = userEvent.setup();
+  render(React.createElement(RouterProvider, { router }));
+  return { router, user };
 }
 
 describe("RUN-430 /flows search polish", () => {
@@ -130,5 +157,29 @@ describe("RUN-430 /flows search polish", () => {
     expect(screen.getByText("Research & Review")).toBeTruthy();
     expect(screen.queryByText("Ops + Alerts")).toBeNull();
     expect(screen.queryByText("Docs [Beta]")).toBeNull();
+  });
+
+  it("resets flows search after leaving and re-entering the page", async () => {
+    const { router, user } = await renderFlowsRoute("/flows");
+    const searchInput = await screen.findByRole("searchbox", {
+      name: "Search workflows",
+    });
+
+    await user.type(searchInput, "ops");
+    expect((searchInput as HTMLInputElement).value).toBe("ops");
+    expect(screen.getByText("Ops + Alerts")).toBeTruthy();
+    expect(screen.queryByText("Research & Review")).toBeNull();
+
+    await router.navigate("/runs");
+    await screen.findByText("Runs stub");
+
+    await router.navigate("/flows");
+    const restoredSearchInput = await screen.findByRole("searchbox", {
+      name: "Search workflows",
+    });
+
+    expect((restoredSearchInput as HTMLInputElement).value).toBe("");
+    expect(screen.getByText("Research & Review")).toBeTruthy();
+    expect(screen.getByText("Ops + Alerts")).toBeTruthy();
   });
 });

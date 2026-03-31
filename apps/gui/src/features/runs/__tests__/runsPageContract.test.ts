@@ -307,6 +307,18 @@ describe("RUN-487 canonical /runs page", () => {
     expect(screen.getByText("Content Pipeline")).toBeTruthy();
   });
 
+  it("treats special characters literally in runs search", async () => {
+    const { user } = await renderRunsRoute("/runs");
+    const searchInput = await screen.findByRole("searchbox", { name: "Search runs" });
+
+    await user.type(searchInput, "&");
+
+    expect(screen.getByText("Research & Review")).toBeTruthy();
+    expect(screen.queryByText("Content Pipeline")).toBeNull();
+    expect(screen.queryByText("Daily Digest")).toBeNull();
+    expect(getSearchParam(mocks.runsQueryCalls.at(-1))).toBeNull();
+  });
+
   it("keeps null eval values sorted last in both ascending and descending eval sorts", async () => {
     const { user } = await renderRunsRoute("/runs");
     const evalHeader = await screen.findByRole("columnheader", { name: "Eval" });
