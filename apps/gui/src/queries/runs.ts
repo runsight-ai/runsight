@@ -1,11 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { runsApi } from "../api/runs";
+import { runsApi, type RunQueryParams } from "../api/runs";
 import { queryKeys } from "./keys";
 
 export function useRuns(
-  params?: Record<string, string>,
+  params?: RunQueryParams,
   options?: { refetchInterval?: number | false }
 ) {
   return useQuery({
