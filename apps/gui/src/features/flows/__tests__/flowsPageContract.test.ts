@@ -616,7 +616,6 @@ describe("RUN-426 FlowsPage tabs", () => {
 
     expect(view.html).toContain("Flows");
     expect(view.html).toContain("Workflows");
-    expect(view.html).not.toContain("Runs");
 
     const workflowsTab = view.tabTriggers.find((tab) => tab.value === "workflows");
     const runsTab = view.tabTriggers.find((tab) => tab.value === "runs");
@@ -635,6 +634,7 @@ describe("RUN-426 FlowsPage tabs", () => {
     expect(workflowsTab?.active).toBe(true);
     expect(runsTab).toBeUndefined();
     expect(view.html).not.toContain("Runs tab shell");
+    expect(view.html).not.toContain("Go to Workflows");
     expect(view.html).toContain("New Workflow");
   });
 
