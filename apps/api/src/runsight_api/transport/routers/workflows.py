@@ -8,6 +8,7 @@ from ..schemas.workflows import (
     WorkflowCommitCreate,
     WorkflowCommitResponse,
     WorkflowCreate,
+    WorkflowDeleteResponse,
     WorkflowEnabledUpdate,
     WorkflowListResponse,
     WorkflowResponse,
@@ -90,7 +91,10 @@ async def create_workflow_simulation(
     return WorkflowSimulationResponse(**result)
 
 
-@router.delete("/{id}")
-async def delete_workflow(id: str, service: WorkflowService = Depends(get_workflow_service)):
-    success = service.delete_workflow(id)
-    return {"id": id, "deleted": success}
+@router.delete("/{id}", response_model=WorkflowDeleteResponse)
+async def delete_workflow(
+    id: str,
+    force: bool = False,
+    service: WorkflowService = Depends(get_workflow_service),
+):
+    return service.delete_workflow(id, force=force)

@@ -83,3 +83,9 @@ class WorkflowSimulationCreate(BaseModel):
 class WorkflowSimulationResponse(BaseModel):
     branch: str
     commit_sha: str
+
+
+class WorkflowDeleteResponse(BaseModel):
+    id: str
+    deleted: bool
+    runs_deleted: int

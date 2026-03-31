@@ -1,15 +1,41 @@
 from typing import Any, List, Optional
 
 from sqlalchemy import case
-from sqlmodel import Session, func, select
+from sqlmodel import Session, delete, func, select
 
 from ...domain.entities.log import LogEntry
-from ...domain.entities.run import BaselineStats, Run, RunNode
+from ...domain.entities.run import BaselineStats, Run, RunNode, RunStatus
+from ...domain.errors import WorkflowHasActiveRuns
 
 
 class RunRepository:
     def __init__(self, session: Session):
         self.session = session
+
+    def delete_runs_for_workflow(self, workflow_id: str, force: bool = False) -> int:
+        run_ids = list(
+            self.session.exec(select(Run.id).where(Run.workflow_id == workflow_id)).all()
+        )
+        if not run_ids:
+            return 0
+
+        if not force:
+            active_run = self.session.exec(
+                select(Run.id)
+                .where(
+                    Run.workflow_id == workflow_id,
+                    Run.status.in_([RunStatus.pending, RunStatus.running]),
+                )
+                .limit(1)
+            ).first()
+            if active_run is not None:
+                raise WorkflowHasActiveRuns(f"Workflow {workflow_id} has active runs")
+
+        self.session.exec(delete(LogEntry).where(LogEntry.run_id.in_(run_ids)))
+        self.session.exec(delete(RunNode).where(RunNode.run_id.in_(run_ids)))
+        self.session.exec(delete(Run).where(Run.id.in_(run_ids)))
+        self.session.commit()
+        return len(run_ids)
 
     # Run
     def create_run(self, run: Run) -> Run:

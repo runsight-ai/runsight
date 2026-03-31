@@ -68,6 +68,13 @@ class WorkflowNotFound(RunsightError):
     status_code: int = 404
 
 
+class WorkflowHasActiveRuns(RunsightError):
+    """Raised when a workflow cannot be deleted because active runs still exist."""
+
+    error_code: str = "WORKFLOW_HAS_ACTIVE_RUNS"
+    status_code: int = 409
+
+
 class RunNotFound(RunsightError):
     """Raised when a run cannot be found."""
 
