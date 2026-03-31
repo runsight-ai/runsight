@@ -4,7 +4,7 @@
  * These tests keep the contract focused on build outcomes first:
  * 1. The GUI build should complete cleanly.
  * 2. Story/test files should be outside the app TypeScript build graph.
- * 3. The live workflow surface must stop reading phantom fields that do not exist on WorkflowResponse.
+ * 3. WorkflowList must stop reading phantom fields that do not exist on WorkflowResponse.
  * 4. The shared Button contract must keep support for size="icon-sm".
  * 5. Dialog stories must use only valid button variants.
  */
@@ -21,18 +21,17 @@ const GUI_ROOT = resolve(SRC_DIR, "..");
 const REPO_ROOT = resolve(GUI_ROOT, "..", "..");
 const PACKAGES_ROOT = resolve(REPO_ROOT, "packages");
 
-const WORKFLOW_ROW_PATH = resolve(SRC_DIR, "features", "flows", "WorkflowRow.tsx");
-const RUN_DETAIL_HEADER_PATH = resolve(SRC_DIR, "features", "runs", "RunDetailHeader.tsx");
+const WORKFLOW_LIST_PATH = resolve(SRC_DIR, "features", "workflows", "WorkflowList.tsx");
 const BUTTON_PATH = resolve(PACKAGES_ROOT, "ui", "src", "components", "ui", "button.tsx");
 const DIALOG_STORY_PATH = resolve(PACKAGES_ROOT, "ui", "src", "stories", "Dialog.stories.tsx");
 const ZOD_TYPES_PATH = resolve(PACKAGES_ROOT, "shared", "src", "zod.ts");
 const TSCONFIG_PATH = resolve(GUI_ROOT, "tsconfig.json");
-const RUNS_PAGE_CONTRACT_TEST_PATH = resolve(
+const WORKFLOW_LIST_TEST_PATH = resolve(
   SRC_DIR,
   "features",
-  "runs",
+  "workflows",
   "__tests__",
-  "runsPageContract.test.ts",
+  "WorkflowList.test.ts",
 );
 
 function readSource(filePath: string): string {
@@ -96,11 +95,11 @@ describe("RUN-407: GUI build contracts", () => {
 
     expect(rootFileNames).not.toContain(resolve(DIALOG_STORY_PATH));
     expect(rootFileNames).not.toContain(resolve(__filename));
-    expect(rootFileNames).not.toContain(resolve(RUNS_PAGE_CONTRACT_TEST_PATH));
+    expect(rootFileNames).not.toContain(resolve(WORKFLOW_LIST_TEST_PATH));
   });
 });
 
-describe("RUN-407: live workflow surfaces use WorkflowResponse safely", () => {
+describe("RUN-407: WorkflowList build-safe WorkflowResponse usage", () => {
   const phantomFields = [
     "status",
     "updated_at",
@@ -129,8 +128,8 @@ describe("RUN-407: live workflow surfaces use WorkflowResponse safely", () => {
     }
   });
 
-  it("WorkflowRow.tsx does not read phantom workflow fields", () => {
-    const source = readSource(WORKFLOW_ROW_PATH);
+  it("WorkflowList.tsx does not read phantom workflow fields", () => {
+    const source = readSource(WORKFLOW_LIST_PATH);
 
     for (const field of phantomFields) {
       expect(source).not.toMatch(new RegExp(`workflow\\.${field}\\b|w\\.${field}\\b|a\\.${field}\\b|b\\.${field}\\b`));
@@ -146,9 +145,9 @@ describe('RUN-407: Button shared contract keeps size "icon-sm"', () => {
   });
 
   it("keeps at least one real GUI call site using size=\"icon-sm\"", () => {
-    const runDetailHeaderSource = readSource(RUN_DETAIL_HEADER_PATH);
+    const workflowListSource = readSource(WORKFLOW_LIST_PATH);
 
-    expect(runDetailHeaderSource).toMatch(/size="icon-sm"/);
+    expect(workflowListSource).toMatch(/size="icon-sm"/);
   });
 });
 

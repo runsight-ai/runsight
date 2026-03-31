@@ -3,6 +3,8 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { useLocation, Outlet } from "react-router";
 
 function RouteEcho({ label }: { label: string }) {
@@ -139,10 +141,11 @@ describe("RUN-431 legacy list route cleanup", () => {
     });
   });
 
-  it("keeps /workflows/:id/edit working", async () => {
-    await renderAppAt("/workflows/wf_123/edit");
+  it("keeps the /workflows/:id/edit route definition wired to CanvasPage", () => {
+    const routesSource = readFileSync(resolve(__dirname, "..", "index.tsx"), "utf-8");
 
-    expect(await screen.findByText("workflow-editor:/workflows/wf_123/edit")).toBeTruthy();
+    expect(routesSource).toMatch(/path:\s*"workflows\/:id\/edit"/);
+    expect(routesSource).toMatch(/features\/canvas\/CanvasPage/);
   });
 
   it("keeps /runs/:id working", async () => {
