@@ -160,4 +160,32 @@ describe("RUN-429 WorkflowRow enabled toggle", () => {
 
     errorSpy.mockRestore();
   });
+
+  it("reverts an optimistic turn-off when the server update fails without navigating the row", async () => {
+    const deferred = createDeferred<void>();
+    const onToggleEnabled = vi.fn().mockImplementation(() => deferred.promise);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { user } = await renderWorkflowRow({
+      workflow: buildWorkflow({ enabled: true }),
+      onToggleEnabled,
+    });
+
+    const toggle = screen.getByRole("switch", {
+      name: "Enable Research & Review workflow",
+    });
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(mocks.navigate).not.toHaveBeenCalled();
+
+    deferred.reject(new Error("workflow toggle failed"));
+
+    await waitFor(() => {
+      expect(toggle).toHaveAttribute("aria-checked", "true");
+    });
+
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
 });
