@@ -4,6 +4,13 @@ import { soulsApi } from "../api/souls";
 import { queryKeys } from "./keys";
 import type { SoulCreate, SoulUpdate } from "@runsight/shared/zod";
 
+type DeleteSoulVariables =
+  | string
+  | {
+      id: string;
+      force?: boolean;
+    };
+
 export function useSouls() {
   return useQuery({
     queryKey: queryKeys.souls.all,
@@ -60,7 +67,13 @@ export function useUpdateSoul() {
 export function useDeleteSoul() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => soulsApi.deleteSoul(id),
+    mutationFn: (variables: DeleteSoulVariables) => {
+      if (typeof variables === "string") {
+        return soulsApi.deleteSoul(variables);
+      }
+
+      return soulsApi.deleteSoul(variables.id, variables.force ?? false);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.souls.all });
       toast.success("Soul deleted");

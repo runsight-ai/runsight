@@ -38,8 +38,12 @@ export const soulsApi = {
     return SoulResponseSchema.parse(res);
   },
 
-  deleteSoul: async (id: string): Promise<{ id: string; deleted: boolean }> => {
-    const res = await api.delete<{ id: string; deleted: boolean }>(`/souls/${id}`);
+  deleteSoul: async (
+    id: string,
+    force = false,
+  ): Promise<{ id: string; deleted: boolean }> => {
+    const query = force ? "?force=true" : "";
+    const res = await api.delete<{ id: string; deleted: boolean }>(`/souls/${id}${query}`);
     return res;
   },
 };

@@ -17,6 +17,7 @@ export interface Column {
   width?: string;
   sortable?: boolean;
   render?: (row: Record<string, unknown>) => React.ReactNode;
+  sortValue?: (row: Record<string, unknown>) => string | number | null | undefined;
 }
 
 interface DataTableProps {
@@ -60,18 +61,33 @@ export function DataTable({
   const sortedData = useMemo(() => {
     if (!sortable || !sortKey) return filteredData;
 
+    const sortColumn = columns.find((column) => column.key === sortKey);
+
+    if (!sortColumn) return filteredData;
+
+    const getSortValue = (row: Record<string, unknown>) =>
+      sortColumn.sortValue ? sortColumn.sortValue(row) : row[sortKey];
+
+    const sampleValue = filteredData
+      .map((row) => getSortValue(row))
+      .find((value) => value != null);
+    const isNumericSort = typeof sampleValue === "number";
+
     return [...filteredData].sort((a, b) => {
-      const aVal = a[sortKey];
-      const bVal = b[sortKey];
+      const aVal = getSortValue(a);
+      const bVal = getSortValue(b);
 
       if (aVal == null && bVal == null) return 0;
       if (aVal == null) return sortDirection === "asc" ? -1 : 1;
       if (bVal == null) return sortDirection === "asc" ? 1 : -1;
 
-      const comparison = String(aVal).localeCompare(String(bVal));
+      const comparison =
+        isNumericSort && typeof aVal === "number" && typeof bVal === "number"
+          ? aVal - bVal
+          : String(aVal).localeCompare(String(bVal));
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [filteredData, sortKey, sortDirection, sortable]);
+  }, [columns, filteredData, sortKey, sortDirection, sortable]);
 
   const handleSort = (key: string) => {
     if (!sortable) return;
