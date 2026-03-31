@@ -328,6 +328,43 @@ describe("RUN-487 canonical /runs page", () => {
     });
   });
 
+  it("resets search, filter, and sort state after leaving and re-entering the runs page", async () => {
+    const { router, user } = await renderRunsRoute("/runs");
+
+    await user.click(await screen.findByLabelText("Filter runs by source"));
+    await user.click(await screen.findByText("All runs"));
+    await user.type(screen.getByRole("searchbox", { name: "Search runs" }), "content");
+    await user.click(screen.getByRole("columnheader", { name: "Eval" }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/runs");
+      expect(screen.getByRole("columnheader", { name: "Eval" }).getAttribute("aria-sort")).toBe(
+        "ascending",
+      );
+      expect(screen.getByLabelText("Filter runs by source").textContent).toContain("All runs");
+    });
+
+    await router.navigate("/runs/run_research_7");
+    await screen.findByText("run-detail:/runs/run_research_7");
+
+    await router.navigate("/runs");
+    await screen.findByRole("heading", { name: "Runs" });
+
+    expect(
+      (
+        screen.getByRole("searchbox", {
+          name: "Search runs",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("");
+    expect(screen.getByLabelText("Filter runs by source").textContent).toContain(
+      "Production runs",
+    );
+    expect(screen.getByRole("columnheader", { name: "Started" }).getAttribute("aria-sort")).toBe(
+      "descending",
+    );
+  });
+
   it("opens /runs/:id when the user activates a run row", async () => {
     const { router, user } = await renderRunsRoute("/runs");
     const researchRow = await waitFor(() => {
