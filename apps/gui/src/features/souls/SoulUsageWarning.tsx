@@ -52,16 +52,22 @@ export function SoulUsageWarning({
         <AlertTriangle className="h-4 w-4" />
         <span>This soul is currently used in active workflows.</span>
       </div>
-      <div className="mt-3 flex items-center gap-2">
-        <Badge variant="warning">{total} workflows</Badge>
-      </div>
+      <div className="mt-3 text-sm font-medium text-primary">{total} workflows</div>
       <div className="mt-3 flex flex-wrap gap-2">
         {visibleUsages.map((usage) => (
-          <Badge key={usage.workflow_id} variant="neutral">
+          <Badge
+            key={usage.workflow_id}
+            variant="neutral"
+            className="bg-surface-primary"
+          >
             {usage.workflow_name}
           </Badge>
         ))}
-        {remainingCount > 0 ? <Badge variant="outline">+{remainingCount} more</Badge> : null}
+        {remainingCount > 0 ? (
+          <Badge variant="outline">
+            +{remainingCount} more
+          </Badge>
+        ) : null}
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import {
 } from "@runsight/ui/dialog";
 import { Plus, Pencil } from "lucide-react";
 import type { SoulResponse } from "@runsight/shared/zod";
+import { SoulDeleteDialog } from "@/features/souls/SoulDeleteDialog";
 
 const AVAILABLE_MODELS = [
   { value: "gpt-4o", label: "GPT-4o" },
@@ -167,12 +168,17 @@ export function EditSoulModal({ item: soul, open, onClose }: EditSoulModalProps)
   const [systemPrompt, setSystemPrompt] = useState("");
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     if (soul && open) {
       setName(soul.role || "");
       setSystemPrompt(soul.system_prompt || "");
       setSelectedModels(soul.model_name ? [soul.model_name] : []);
+    }
+
+    if (!open) {
+      setShowDeleteDialog(false);
     }
   }, [soul, open]);
 
@@ -233,6 +239,16 @@ export function EditSoulModal({ item: soul, open, onClose }: EditSoulModalProps)
           </div>
         </div>
         <DialogFooter className="h-16 px-4 border-t border-[var(--border-default)] flex items-center justify-end gap-2 shrink-0">
+          {soul ? (
+            <Button
+              variant="ghost"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={isSubmitting}
+              className="mr-auto h-9 px-4 text-danger hover:bg-[var(--surface-raised)]"
+            >
+              Delete Soul
+            </Button>
+          ) : null}
           <Button variant="secondary" onClick={handleCancel} disabled={isSubmitting} className="h-9 px-4 border-[var(--border-default)] bg-transparent hover:bg-[var(--surface-raised)] text-primary">Cancel</Button>
           <Button onClick={handleSubmit} disabled={isSubmitting} className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent disabled:opacity-40">
             {isSubmitting ? (
@@ -249,6 +265,12 @@ export function EditSoulModal({ item: soul, open, onClose }: EditSoulModalProps)
           </Button>
         </DialogFooter>
       </DialogContent>
+      <SoulDeleteDialog
+        open={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onDeleted={onClose}
+        soul={soul}
+      />
     </Dialog>
   );
 }
