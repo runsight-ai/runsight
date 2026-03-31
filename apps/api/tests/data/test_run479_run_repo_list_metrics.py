@@ -165,3 +165,43 @@ class TestRunRepositoryListMetrics:
         assert [run.id for run in items] == ["run_keep"]
         assert items[0].run_number == 1
         assert items[0].eval_pass_pct == pytest.approx(100.0)
+
+    def test_list_runs_paginated_keeps_simulation_runs_when_no_source_filter_is_provided(
+        self,
+        db_session: Session,
+    ):
+        """Unfiltered lists must keep simulation runs instead of excluding them by default."""
+        RunRepository = _import_run_repository()
+
+        _seed_run(
+            db_session,
+            "run_manual",
+            workflow_id="wf_alpha",
+            workflow_name="Alpha",
+            created_at=100.0,
+            source="manual",
+        )
+        _seed_node(db_session, "run_manual", "node_1", eval_passed=True)
+
+        _seed_run(
+            db_session,
+            "run_sim",
+            workflow_id="wf_alpha",
+            workflow_name="Alpha",
+            created_at=200.0,
+            source="simulation",
+        )
+        _seed_node(db_session, "run_sim", "node_1", eval_passed=False)
+        db_session.commit()
+
+        repo = RunRepository(db_session)
+        items, total = repo.list_runs_paginated(offset=0, limit=10)
+
+        assert total == 2
+        assert [run.id for run in items] == ["run_sim", "run_manual"]
+        assert items[0].source == "simulation"
+        assert items[0].run_number == 2
+        assert items[0].eval_pass_pct == pytest.approx(0.0)
+        assert items[1].source == "manual"
+        assert items[1].run_number == 1
+        assert items[1].eval_pass_pct == pytest.approx(100.0)
