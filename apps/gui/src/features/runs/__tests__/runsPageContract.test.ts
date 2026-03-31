@@ -232,7 +232,26 @@ function findRunRow(workflowName: string) {
     .find((row) => within(row).queryByText(workflowName));
 }
 
+function getVisibleWorkflowOrder() {
+  const table = screen.getByRole("table");
+  return within(table)
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => {
+      const workflowButton = within(row).getByRole("button");
+      return workflowButton.textContent ?? "";
+    });
+}
+
 describe("RUN-487 canonical /runs page", () => {
+  it("autofocuses the Search runs input when the runs page loads", async () => {
+    await renderRunsRoute("/runs");
+
+    const searchInput = await screen.findByRole("searchbox", { name: "Search runs" });
+
+    expect(document.activeElement).toBe(searchInput);
+  });
+
   it("renders the canonical runs page at /runs with Production runs selected by default", async () => {
     await renderRunsRoute("/runs");
 
@@ -286,6 +305,27 @@ describe("RUN-487 canonical /runs page", () => {
     expect(getSearchParam(finalRequest)).toBeNull();
     expect(screen.queryByText("Research & Review")).toBeNull();
     expect(screen.getByText("Content Pipeline")).toBeTruthy();
+  });
+
+  it("keeps null eval values sorted last in both ascending and descending eval sorts", async () => {
+    const { user } = await renderRunsRoute("/runs");
+    const evalHeader = await screen.findByRole("columnheader", { name: "Eval" });
+
+    await user.click(evalHeader);
+    const ascendingOrder = getVisibleWorkflowOrder();
+
+    await user.click(screen.getByRole("columnheader", { name: "Eval" }));
+    const descendingOrder = getVisibleWorkflowOrder();
+
+    const nullEvalWorkflow = "Daily Digest";
+
+    expect({
+      ascendingLast: ascendingOrder.at(-1) === nullEvalWorkflow,
+      descendingLast: descendingOrder.at(-1) === nullEvalWorkflow,
+    }).toEqual({
+      ascendingLast: true,
+      descendingLast: true,
+    });
   });
 
   it("opens /runs/:id when the user activates a run row", async () => {
