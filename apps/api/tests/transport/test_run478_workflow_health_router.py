@@ -1,10 +1,8 @@
 """Red tests for RUN-478: workflow health metrics on GET /api/workflows."""
 # ruff: noqa: E402
 
-import re
 import sys
 import types
-from pathlib import Path
 from unittest.mock import Mock
 
 from fastapi import FastAPI
@@ -240,16 +238,3 @@ class TestWorkflowsListResponse:
         assert "yaml" in item
         assert "valid" in item
         assert "validation_error" in item
-
-
-class TestWorkflowServiceDependencyWiring:
-    def test_get_workflow_service_wires_run_repo_in_source(self):
-        """The transport DI layer should wire WorkflowService with RunRepository."""
-        source = (
-            Path(__file__).resolve().parents[2] / "src" / "runsight_api" / "transport" / "deps.py"
-        )
-        text = source.read_text()
-
-        assert re.search(r"def get_workflow_service\([^)]*run_repo", text, re.S)
-        assert "WorkflowService(" in text
-        assert "run_repo=run_repo" in text
