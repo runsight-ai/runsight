@@ -46,6 +46,29 @@ class BaseYamlRepository(Generic[T]):
         self._validate_id(id)
         return self.entity_dir / f"{id}.yaml"
 
+    def _resolve_existing_path(self, id: str) -> Path:
+        """Resolve an entity path by filename first, then by embedded YAML id.
+
+        Some hand-authored assets may have a filename that does not match the
+        entity id stored inside the YAML. We still want detail/update/delete
+        operations to work against those files.
+        """
+        direct_path = self._get_path(id)
+        if direct_path.exists():
+            return direct_path
+
+        for file_path in self.entity_dir.glob("*.yaml"):
+            try:
+                with open(file_path, "r") as f:
+                    data = yaml.safe_load(f) or {}
+            except Exception:
+                continue
+
+            if data.get("id") == id:
+                return file_path
+
+        return direct_path
+
     def list_all(self) -> List[T]:
         entities: List[T] = []
         for file in self.entity_dir.glob("*.yaml"):
@@ -60,7 +83,7 @@ class BaseYamlRepository(Generic[T]):
         return entities
 
     def get_by_id(self, id: str) -> Optional[T]:
-        file_path = self._get_path(id)
+        file_path = self._resolve_existing_path(id)
         if not file_path.exists():
             return None
         with open(file_path, "r") as f:
@@ -79,7 +102,7 @@ class BaseYamlRepository(Generic[T]):
         return self.entity_type(**data)
 
     def update(self, id: str, data: Dict[str, Any]) -> T:
-        file_path = self._get_path(id)
+        file_path = self._resolve_existing_path(id)
         if not file_path.exists():
             raise self.not_found_error(f"{self.entity_label} {id} not found")
         data["id"] = id
@@ -88,7 +111,7 @@ class BaseYamlRepository(Generic[T]):
         return self.entity_type(**data)
 
     def delete(self, id: str) -> bool:
-        file_path = self._get_path(id)
+        file_path = self._resolve_existing_path(id)
         if file_path.exists():
             file_path.unlink()
             return True
