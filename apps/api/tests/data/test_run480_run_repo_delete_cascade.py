@@ -204,3 +204,36 @@ class TestRunRepositoryDeleteRunsForWorkflow:
         assert db_session.exec(select(Run).where(Run.workflow_id == "wf_target")).all() == []
         assert db_session.exec(select(RunNode).where(RunNode.run_id == "run_running")).all() == []
         assert db_session.exec(select(LogEntry).where(LogEntry.run_id == "run_running")).all() == []
+
+    def test_delete_runs_for_workflow_raises_when_running_runs_exist_without_force(
+        self,
+        db_session: Session,
+    ):
+        """A running workflow run should also block delete until force=True is used."""
+        RunRepository = _import_run_repository()
+        from runsight_api.domain.errors import WorkflowHasActiveRuns
+
+        _seed_run(
+            db_session,
+            "run_running",
+            workflow_id="wf_target",
+            workflow_name="Target Flow",
+            status=RunStatus.running,
+        )
+        _seed_run(
+            db_session,
+            "run_completed",
+            workflow_id="wf_target",
+            workflow_name="Target Flow",
+            status=RunStatus.completed,
+            created_at=200.0,
+        )
+        db_session.commit()
+
+        repo = RunRepository(db_session)
+
+        with pytest.raises(WorkflowHasActiveRuns):
+            repo.delete_runs_for_workflow("wf_target", force=False)
+
+        remaining_runs = db_session.exec(select(Run).where(Run.workflow_id == "wf_target")).all()
+        assert {run.id for run in remaining_runs} == {"run_running", "run_completed"}
