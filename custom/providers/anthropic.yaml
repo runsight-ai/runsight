@@ -1,0 +1,18 @@
+name: Anthropic
+type: anthropic
+api_key: ${ANTHROPIC_API_KEY}
+base_url: null
+status: connected
+is_active: true
+models:
+- claude-3-haiku-20240307
+- claude-haiku-4-5-20251001
+- claude-opus-4-1-20250805
+- claude-opus-4-20250514
+- claude-opus-4-5-20251101
+- claude-opus-4-6
+- claude-sonnet-4-20250514
+- claude-sonnet-4-5-20250929
+- claude-sonnet-4-6
+last_status_check: 1774989908.624782
+updated_at: 1774989908.624783

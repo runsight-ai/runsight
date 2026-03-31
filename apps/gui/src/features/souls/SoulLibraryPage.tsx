@@ -17,12 +17,12 @@ function normalizeSoulData(data: SoulListResponse | SoulResponse[] | undefined):
 }
 
 const AVATAR_COLOR_CLASSES: Record<string, string> = {
-  accent: "bg-accent-3",
-  info: "bg-info-3",
-  success: "bg-success-3",
-  warning: "bg-warning-3",
-  danger: "bg-danger-3",
-  neutral: "bg-neutral-3",
+  accent: "bg-accent-8 text-on-accent",
+  info: "bg-info-9 text-on-accent",
+  success: "bg-success-9 text-on-accent",
+  warning: "bg-warning-9 text-on-accent",
+  danger: "bg-danger-9 text-on-accent",
+  neutral: "bg-neutral-8 text-on-accent",
 };
 
 const TOOL_META: Record<
@@ -40,14 +40,20 @@ const columns: Column[] = [
     sortable: true,
     render: (row) => {
       const avatarColor = row.avatar_color as string | null;
+      const role = (row.role as string | null) || "Unnamed Soul";
+      const soulInitial = role.trim().charAt(0).toUpperCase() || "S";
       return (
         <div className="flex items-center gap-3">
           <span
-            className={`size-3 rounded-full border border-border-default ${
-              avatarColor ? AVATAR_COLOR_CLASSES[avatarColor] ?? "bg-surface-tertiary" : "bg-surface-tertiary"
+            className={`inline-flex size-6 items-center justify-center rounded-full border border-border-default text-[10px] font-semibold leading-none ${
+              avatarColor
+                ? AVATAR_COLOR_CLASSES[avatarColor] ?? "bg-surface-tertiary text-primary"
+                : "bg-surface-tertiary text-primary"
             }`}
-          />
-          <span>{(row.role as string | null) || "Unnamed Soul"}</span>
+          >
+            {soulInitial}
+          </span>
+          <span>{role}</span>
         </div>
       );
     },

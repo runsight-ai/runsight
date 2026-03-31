@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router";
 import { RouteErrorBoundary } from "@/components/shared/ErrorBoundary";
 import {
   LayoutDashboard,
+  Play,
   Workflow,
   Bot,
   Settings,
@@ -10,6 +11,7 @@ import { cn } from "@/utils/helpers";
 
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Home", end: true },
+  { to: "/runs", icon: Play, label: "Runs" },
   { to: "/workflows", icon: Workflow, label: "Flows" },
   { to: "/souls", icon: Bot, label: "Souls" },
 ] as const;
@@ -91,7 +93,7 @@ export function ShellLayout() {
             />
           </svg>
           <span
-            className="text-lg font-bold tracking-tight text-primary"
+            className="text-lg font-bold tracking-tight text-heading"
             style={{ fontFamily: "'Geist', sans-serif" }}
           >
             Runsight

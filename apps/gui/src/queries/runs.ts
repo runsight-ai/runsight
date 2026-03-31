@@ -5,11 +5,13 @@ import { runsApi } from "../api/runs";
 import { queryKeys } from "./keys";
 
 export function useRuns(
-  params?: Record<string, string>,
+  params?: Record<string, string> | URLSearchParams,
   options?: { refetchInterval?: number | false }
 ) {
+  const queryParamsKey = params instanceof URLSearchParams ? params.toString() : params;
+
   return useQuery({
-    queryKey: [...queryKeys.runs.all, params],
+    queryKey: [...queryKeys.runs.all, queryParamsKey],
     queryFn: () => runsApi.listRuns(params),
     refetchInterval: options?.refetchInterval,
   });
@@ -95,13 +97,21 @@ export function useRunLogs(id: string, params?: Record<string, string>, options?
 
 export function useActiveRuns() {
   const queryClient = useQueryClient();
+  const productionSources = ["manual", "webhook", "schedule"] as const;
 
   const query = useQuery({
-    queryKey: [...queryKeys.runs.all, { status: ["running", "pending"] }],
+    queryKey: [
+      ...queryKeys.runs.all,
+      { status: ["running", "pending"], source: productionSources, branch: "main" },
+    ],
     queryFn: () => {
       const params = new URLSearchParams();
       params.append("status", "running");
       params.append("status", "pending");
+      for (const source of productionSources) {
+        params.append("source", source);
+      }
+      params.append("branch", "main");
       return runsApi.listRuns(params);
     },
     refetchInterval: 5000,

@@ -12,6 +12,7 @@ const ProviderSchema = z.object({
   type: z.string().nullable().optional(),
   status: z.string().optional().default("connected"),
   api_key_env: z.string().nullable().optional(),
+  api_key_preview: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
   models: z.array(z.string()).optional(),
   model_count: z.number().optional(),
@@ -25,6 +26,13 @@ export type Provider = z.infer<typeof ProviderSchema>;
 export type CreateProvider = Pick<Provider, "name" | "api_key_env" | "base_url">;
 export type UpdateProvider = Partial<CreateProvider> & {
   is_active?: boolean;
+};
+export type ProviderCredentialTest = {
+  provider_id?: string;
+  provider_type?: string;
+  name?: string;
+  api_key_env?: string;
+  base_url?: string;
 };
 
 const ModelDefaultSchema = z.object({
@@ -85,6 +93,10 @@ export const settingsApi = {
   },
   testProviderConnection: async (id: string): Promise<{ success: boolean; message?: string; models?: string[] }> => {
     const res = await api.post<{ success: boolean; message?: string; models?: string[] }>(`/settings/providers/${id}/test`);
+    return res;
+  },
+  testProviderCredentials: async (data: ProviderCredentialTest): Promise<{ success: boolean; message?: string; models?: string[] }> => {
+    const res = await api.post<{ success: boolean; message?: string; models?: string[] }>(`/settings/providers/test`, data);
     return res;
   },
 

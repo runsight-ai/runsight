@@ -115,21 +115,20 @@ class ProviderService:
             self.secrets.remove_key(provider.api_key)
         return self.repo.delete(provider_id)
 
-    async def test_connection(self, provider_id: str) -> dict:
-        provider = self.repo.get_by_id(provider_id)
-        if not provider:
-            return {"success": False, "message": "Provider not found"}
-
-        has_key = provider.api_key and self.secrets.is_configured(provider.api_key)
-        if not has_key and provider.type != "ollama":
+    async def _execute_connection_test(
+        self,
+        *,
+        provider_type: str,
+        api_key: Optional[str],
+        base_url: Optional[str],
+    ) -> dict:
+        if not api_key and provider_type != "ollama":
             return {"success": False, "message": "No API key configured"}
 
-        api_key = self.secrets.resolve(provider.api_key) if provider.api_key else None
-        allow_private = provider.type == "ollama"
-
+        allow_private = provider_type == "ollama"
         try:
-            if provider.type in ("openai", "azure_openai"):
-                base = provider.base_url or "https://api.openai.com/v1"
+            if provider_type in ("openai", "azure_openai"):
+                base = base_url or "https://api.openai.com/v1"
                 url = f"{base}/models"
                 await validate_ssrf(url, allow_private=allow_private)
                 async with httpx.AsyncClient() as client:
@@ -138,7 +137,7 @@ class ProviderService:
                         headers={"Authorization": f"Bearer {api_key}"},
                         timeout=10,
                     )
-            elif provider.type == "anthropic":
+            elif provider_type == "anthropic":
                 url = "https://api.anthropic.com/v1/models"
                 await validate_ssrf(url, allow_private=allow_private)
                 async with httpx.AsyncClient() as client:
@@ -150,7 +149,7 @@ class ProviderService:
                         },
                         timeout=10,
                     )
-            elif provider.type == "google":
+            elif provider_type == "google":
                 url = "https://generativelanguage.googleapis.com/v1beta/models"
                 await validate_ssrf(url, allow_private=allow_private)
                 async with httpx.AsyncClient() as client:
@@ -159,14 +158,14 @@ class ProviderService:
                         headers={"x-goog-api-key": api_key},
                         timeout=10,
                     )
-            elif provider.type == "ollama":
-                base = provider.base_url or "http://localhost:11434"
+            elif provider_type == "ollama":
+                base = base_url or "http://localhost:11434"
                 url = f"{base}/api/tags"
                 await validate_ssrf(url, allow_private=allow_private)
                 async with httpx.AsyncClient() as client:
                     resp = await client.get(url, timeout=10)
             else:
-                base = provider.base_url or "https://api.openai.com/v1"
+                base = base_url or "https://api.openai.com/v1"
                 url = f"{base}/models"
                 await validate_ssrf(url, allow_private=allow_private)
                 async with httpx.AsyncClient() as client:
@@ -179,15 +178,7 @@ class ProviderService:
             success = resp.status_code == 200
             models: list[str] = []
             if success:
-                models = _parse_models(resp.json(), provider.type)
-
-            update_data = {
-                "status": "connected" if success else "error",
-                "models": models,
-                "last_status_check": time.time(),
-                "updated_at": time.time(),
-            }
-            self.repo.update(provider_id, update_data)
+                models = _parse_models(resp.json(), provider_type)
 
             msg = (
                 f"Connected — {len(models)} models available"
@@ -198,10 +189,59 @@ class ProviderService:
         except SSRFError as e:
             return {"success": False, "message": f"SSRF blocked: {str(e)}"}
         except Exception as e:
-            update_data = {
-                "status": "error",
-                "last_status_check": time.time(),
-                "updated_at": time.time(),
-            }
-            self.repo.update(provider_id, update_data)
             return {"success": False, "message": f"Connection failed: {str(e)}"}
+
+    async def test_credentials(
+        self,
+        *,
+        provider_id: Optional[str] = None,
+        provider_type: Optional[str] = None,
+        name: Optional[str] = None,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ) -> dict:
+        existing_provider: Optional[ProviderEntity] = None
+        if provider_id:
+            existing_provider = self.repo.get_by_id(provider_id)
+            if not existing_provider:
+                return {"success": False, "message": "Provider not found"}
+
+        resolved_provider_type = provider_type
+        if not resolved_provider_type and existing_provider:
+            resolved_provider_type = existing_provider.type
+        if not resolved_provider_type and name:
+            resolved_provider_type = _infer_provider_type(name)
+        if not resolved_provider_type:
+            return {"success": False, "message": "Provider type is required"}
+
+        resolved_api_key = api_key
+        if not resolved_api_key and existing_provider and existing_provider.api_key:
+            resolved_api_key = self.secrets.resolve(existing_provider.api_key)
+
+        resolved_base_url = base_url
+        if resolved_base_url is None and existing_provider:
+            resolved_base_url = existing_provider.base_url
+
+        return await self._execute_connection_test(
+            provider_type=resolved_provider_type,
+            api_key=resolved_api_key,
+            base_url=resolved_base_url,
+        )
+
+    async def test_connection(self, provider_id: str) -> dict:
+        provider = self.repo.get_by_id(provider_id)
+        if not provider:
+            return {"success": False, "message": "Provider not found"}
+
+        result = await self.test_credentials(provider_id=provider_id)
+        if result.get("message") == "No API key configured":
+            return result
+
+        update_data = {
+            "status": "connected" if result.get("success") else "error",
+            "models": result.get("models", []),
+            "last_status_check": time.time(),
+            "updated_at": time.time(),
+        }
+        self.repo.update(provider_id, update_data)
+        return result

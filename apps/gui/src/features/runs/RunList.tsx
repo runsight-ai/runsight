@@ -1,7 +1,9 @@
-import { Fragment, useMemo, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router";
+import { useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
+import { PageHeader } from "@/components/shared";
 import { useRuns } from "@/queries/runs";
-import type { RunResponse } from "@runsight/shared/zod";
+import { useAttentionItems } from "@/queries/dashboard";
+import type { AttentionItem, RunResponse } from "@runsight/shared/zod";
 import {
   Table,
   TableBody,
@@ -11,6 +13,7 @@ import {
   TableRow,
 } from "@runsight/ui/table";
 import { Badge } from "@runsight/ui/badge";
+import { EmptyState } from "@runsight/ui/empty-state";
 import { Input } from "@runsight/ui/input";
 import { Button } from "@runsight/ui/button";
 import {
@@ -20,380 +23,101 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@runsight/ui/select";
-import { Workflow, Search, X, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import {
+  Workflow,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  Activity,
+} from "lucide-react";
 import { cn } from "@/utils/helpers";
-import { formatDuration, formatCost, formatTimestamp } from "@/utils/formatting";
+import { formatCost, formatDuration, formatTimestamp } from "@/utils/formatting";
 
-// Status badge component matching design spec
-function StatusBadge({ status }: { status: string }) {
+type StatusFilter = "all" | "active" | "running" | "pending" | "completed" | "failed";
+type RangeFilter = "24h" | "7d" | "14d" | "30d" | "all";
+
+const RANGE_TO_SECONDS: Record<Exclude<RangeFilter, "all">, number> = {
+  "24h": 24 * 3600,
+  "7d": 7 * 24 * 3600,
+  "14d": 14 * 24 * 3600,
+  "30d": 30 * 24 * 3600,
+};
+
+function formatAttentionType(type: AttentionItem["type"]): string {
+  return type.replaceAll("_", " ");
+}
+
+function formatStatusLabel(status: string): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function getStatusVariant(status: string): { bg: string; text: string; dot: string; animate?: boolean } {
   const normalizedStatus = status.toLowerCase();
-
-  type VariantDef = { bg: string; text: string; dot: string; animate?: boolean };
-
-  const variants: Record<string, VariantDef> = {
+  const variants = {
     running: {
       bg: "bg-info-3",
       text: "text-info-11",
       dot: "bg-info-9",
       animate: true,
     },
-    paused: {
-      bg: "bg-warning/12",
-      text: "text-warning",
-      dot: "bg-warning",
-    },
-    completed: {
-      bg: "bg-success/12",
-      text: "text-success",
-      dot: "bg-success",
-    },
-    success: {
-      bg: "bg-success/12",
-      text: "text-success",
-      dot: "bg-success",
-    },
-    failed: {
-      bg: "bg-danger/12",
-      text: "text-danger-11",
-      dot: "bg-danger",
-    },
-    killed: {
-      bg: "bg-danger/12",
-      text: "text-danger-11",
-      dot: "bg-danger",
-    },
-    stalled: {
-      bg: "bg-warning/12",
-      text: "text-warning",
-      dot: "bg-warning",
-    },
-    partial: {
-      bg: "bg-warning/12",
-      text: "text-warning",
-      dot: "bg-warning",
-    },
     pending: {
-      bg: "bg-neutral-9/12",
+      bg: "bg-neutral-3",
       text: "text-muted",
       dot: "bg-neutral-9",
     },
-  };
+    completed: {
+      bg: "bg-success-3",
+      text: "text-success-11",
+      dot: "bg-success-9",
+    },
+    failed: {
+      bg: "bg-danger-3",
+      text: "text-danger-11",
+      dot: "bg-danger-9",
+    },
+  } as const;
 
-  const variant: VariantDef = variants[normalizedStatus] ?? (variants.pending as VariantDef);
+  return variants[normalizedStatus as keyof typeof variants] ?? variants.pending;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const variant = getStatusVariant(status);
 
   return (
     <Badge
       variant="outline"
       className={cn(
-        "h-[22px] px-2 gap-1.5 border-0 font-medium text-xs uppercase tracking-wide",
+        "h-[22px] gap-1.5 border-0 px-2 text-xs font-medium uppercase tracking-wide",
         variant.bg,
-        variant.text
+        variant.text,
       )}
     >
       <span
         className={cn(
-          "w-1.5 h-1.5 rounded-full",
+          "h-1.5 w-1.5 rounded-full",
           variant.dot,
-          variant.animate && "animate-pulse"
+          variant.animate && "animate-pulse",
         )}
       />
-      {status}
+      {formatStatusLabel(status)}
     </Badge>
   );
 }
 
-// Count agents from node_summary
-function countAgents(nodeSummary: RunResponse["node_summary"]): string {
-  if (!nodeSummary) return "—";
-  const total = nodeSummary.total ?? 0;
-  return total === 1 ? "1 agent" : `${total} agents`;
+function matchesStatusFilter(status: string, filter: StatusFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "active") return status === "running" || status === "pending";
+  return status === filter;
 }
 
-// Tab button component
-function TabButton({
-  active,
-  children,
-  onClick,
-  "aria-label": ariaLabel,
-}: {
-  active: boolean;
-  children: React.ReactNode;
-  onClick: () => void;
-  "aria-label"?: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      aria-label={ariaLabel}
-      onClick={onClick}
-      className={cn(
-        "h-10 px-4 text-sm font-medium transition-all border-b-2 -mb-px",
-        active
-          ? "text-primary border-primary"
-          : "text-muted border-transparent hover:text-primary"
-      )}
-    >
-      {children}
-    </button>
-  );
+function inRange(run: RunResponse, range: RangeFilter): boolean {
+  if (range === "all") return true;
+  const cutoff = Date.now() / 1000 - RANGE_TO_SECONDS[range];
+  return run.created_at >= cutoff;
 }
 
-// Empty state component
-function EmptyState({ heading, message }: { heading: string; message: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-16 h-16 rounded-full bg-surface-tertiary flex items-center justify-center mb-4">
-        <Workflow className="w-8 h-8 text-muted" strokeWidth={1.5} />
-      </div>
-      <h3 className="text-base font-medium text-primary mb-1">{heading}</h3>
-      <p className="text-sm text-muted max-w-xs">{message}</p>
-    </div>
-  );
-}
-
-// Table row component for Active tab
-function RunTableRow({
-  run,
-  onClick,
-}: {
-  run: RunResponse;
-  onClick: () => void;
-}) {
-  return (
-    <TableRow
-      onClick={onClick}
-      className="cursor-pointer hover:bg-surface-tertiary/80 border-b border-border-default"
-    >
-      <TableCell className="py-4">
-        <div className="flex items-center gap-3">
-          <Workflow
-            className="w-4 h-4 text-primary shrink-0"
-            strokeWidth={1.5}
-          />
-          <div>
-            <div className="text-sm font-medium text-primary">
-              {run.workflow_name}
-            </div>
-            <div className="text-xs text-muted font-mono">
-              {run.id}
-            </div>
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <StatusBadge status={run.status} />
-      </TableCell>
-      <TableCell className="text-sm text-muted">
-        {formatDuration(run.duration_seconds)}
-      </TableCell>
-      <TableCell className="text-sm font-mono text-muted">
-        {formatCost(run.total_cost_usd)}
-      </TableCell>
-      <TableCell className="text-sm text-muted">
-        {countAgents(run.node_summary)}
-      </TableCell>
-    </TableRow>
-  );
-}
-
-// History table row component with Completed At column
-function HistoryTableRow({
-  run,
-  onClick,
-}: {
-  run: RunResponse;
-  onClick: () => void;
-}) {
-  return (
-    <TableRow
-      onClick={onClick}
-      className="cursor-pointer hover:bg-surface-tertiary/80 border-b border-border-default"
-    >
-      <TableCell className="py-4">
-        <div className="flex items-center gap-3">
-          <Workflow
-            className="w-4 h-4 text-primary shrink-0"
-            strokeWidth={1.5}
-          />
-          <div>
-            <div className="text-sm font-medium text-primary">
-              {run.workflow_name}
-            </div>
-            <div className="text-xs text-muted font-mono">
-              {run.id}
-            </div>
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <StatusBadge status={run.status} />
-      </TableCell>
-      <TableCell className="text-sm text-muted">
-        {formatDuration(run.duration_seconds)}
-      </TableCell>
-      <TableCell className="text-sm font-mono text-muted">
-        {formatCost(run.total_cost_usd)}
-      </TableCell>
-      <TableCell className="text-sm text-muted">
-        {formatTimestamp(run.completed_at)}
-      </TableCell>
-    </TableRow>
-  );
-}
-
-// Filter bar component for History tab
-type FilterState = {
-  status: string;
-  dateFrom: string;
-  dateTo: string;
-  workflow: string;
-  search: string;
-};
-
-function HistoryFilterBar({
-  filters,
-  onFiltersChange,
-  workflowOptions,
-}: {
-  filters: FilterState;
-  onFiltersChange: (filters: FilterState) => void;
-  workflowOptions: string[];
-}) {
-  const handleStatusChange = (value: string | null) => {
-    if (value) onFiltersChange({ ...filters, status: value });
-  };
-
-  const handleWorkflowChange = (value: string | null) => {
-    if (value) onFiltersChange({ ...filters, workflow: value });
-  };
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onFiltersChange({ ...filters, search: e.target.value });
-  };
-
-  const handleDateFromChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onFiltersChange({ ...filters, dateFrom: e.target.value });
-  };
-
-  const handleDateToChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onFiltersChange({ ...filters, dateTo: e.target.value });
-  };
-
-  const clearFilters = () => {
-    onFiltersChange({
-      status: "all",
-      dateFrom: "",
-      dateTo: "",
-      workflow: "all",
-      search: "",
-    });
-  };
-
-  const hasActiveFilters =
-    filters.status !== "all" ||
-    filters.workflow !== "all" ||
-    filters.search ||
-    filters.dateFrom ||
-    filters.dateTo;
-
-  return (
-    <div className="flex items-center gap-3 px-4 py-3 bg-surface-secondary border-b border-border-default min-h-[48px] flex-wrap">
-      {/* Status filter */}
-      <Select value={filters.status} onValueChange={handleStatusChange}>
-        <SelectTrigger className="w-[140px] h-8 text-sm">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
-          <SelectItem value="completed">Success</SelectItem>
-          <SelectItem value="failed">Failed</SelectItem>
-          <SelectItem value="partial">Partial</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {/* Workflow filter */}
-      <Select value={filters.workflow} onValueChange={handleWorkflowChange}>
-        <SelectTrigger className="w-[160px] h-8 text-sm">
-          <SelectValue placeholder="Workflow" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Workflows</SelectItem>
-          {workflowOptions.map((wf) => (
-            <SelectItem key={wf} value={wf}>
-              {wf}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* Date range filter */}
-      <div className="flex items-center gap-2">
-        <div className="relative">
-          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
-          <Input
-            type="date"
-            placeholder="From"
-            value={filters.dateFrom}
-            onChange={handleDateFromChange}
-            className="h-8 w-[140px] pl-7 text-sm"
-          />
-        </div>
-        <span className="text-muted text-sm">to</span>
-        <div className="relative">
-          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
-          <Input
-            type="date"
-            placeholder="To"
-            value={filters.dateTo}
-            onChange={handleDateToChange}
-            className="h-8 w-[140px] pl-7 text-sm"
-          />
-        </div>
-      </div>
-
-      {/* Search input */}
-      <div className="relative flex-1 min-w-[200px] max-w-xs">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-        <Input
-          type="text"
-          placeholder="Search runs..."
-          value={filters.search}
-          onChange={handleSearchChange}
-          className="h-8 pl-9 text-sm"
-        />
-        {filters.search && (
-          <button
-            type="button"
-            onClick={() => onFiltersChange({ ...filters, search: "" })}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
-            aria-label="Clear search"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
-
-      <div className="flex-1" />
-
-      {/* Clear filters button */}
-      {hasActiveFilters && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={clearFilters}
-          className="h-8 text-xs"
-        >
-          <X className="w-3.5 h-3.5 mr-1" />
-          Clear filters
-        </Button>
-      )}
-    </div>
-  );
-}
-
-// Pagination component
 type PaginationProps = {
   currentPage: number;
   totalPages: number;
@@ -411,7 +135,7 @@ function Pagination({
   onPageChange,
   onPageSizeChange,
 }: PaginationProps) {
-  const startItem = (currentPage - 1) * pageSize + 1;
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
   const getPageNumbers = () => {
@@ -422,46 +146,41 @@ function Pagination({
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
       }
+    } else if (currentPage <= 3) {
+      for (let i = 1; i <= 4; i++) pages.push(i);
+      pages.push("...");
+      pages.push(totalPages);
+    } else if (currentPage >= totalPages - 2) {
+      pages.push(1);
+      pages.push("...");
+      for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
     } else {
-      if (currentPage <= 3) {
-        for (let i = 1; i <= 4; i++) pages.push(i);
-        pages.push("...");
-        pages.push(totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1);
-        pages.push("...");
-        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
-      } else {
-        pages.push(1);
-        pages.push("...");
-        for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
-        pages.push("...");
-        pages.push(totalPages);
-      }
+      pages.push(1);
+      pages.push("...");
+      for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
+      pages.push("...");
+      pages.push(totalPages);
     }
+
     return pages;
   };
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-border-default bg-surface-secondary">
+    <div className="flex items-center justify-between border-t border-border-default bg-surface-secondary px-4 py-3">
       <div className="flex items-center gap-4">
         <span className="text-sm text-muted">
           Showing {startItem}–{endItem} of {totalItems} runs
         </span>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted">Show:</span>
-          <Select
-            value={String(pageSize)}
-            onValueChange={(v) => onPageSizeChange(Number(v))}
-          >
-            <SelectTrigger className="w-[70px] h-7 text-sm">
+          <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+            <SelectTrigger className="h-7 w-[70px] text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="10">10</SelectItem>
               <SelectItem value="25">25</SelectItem>
               <SelectItem value="50">50</SelectItem>
-              <SelectItem value="100">100</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -476,12 +195,12 @@ function Pagination({
           disabled={currentPage <= 1}
           aria-label="Previous page"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="h-4 w-4" />
         </Button>
 
-          <div className="flex items-center gap-1">
-            {getPageNumbers().map((page, idx) => (
-            <Fragment key={idx}>
+        <div className="flex items-center gap-1">
+          {getPageNumbers().map((page, idx) => (
+            <div key={`${page}-${idx}`}>
               {page === "..." ? (
                 <span className="px-2 text-muted">...</span>
               ) : (
@@ -494,7 +213,7 @@ function Pagination({
                   {page}
                 </Button>
               )}
-            </Fragment>
+            </div>
           ))}
         </div>
 
@@ -506,7 +225,7 @@ function Pagination({
           disabled={currentPage >= totalPages}
           aria-label="Next page"
         >
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </div>
@@ -514,299 +233,368 @@ function Pagination({
 }
 
 export function Component() {
-  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const tab = searchParams.get("tab") || "active";
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // History tab filters state
-  const [filters, setFilters] = useState<FilterState>({
-    status: "all",
-    dateFrom: "",
-    dateTo: "",
-    workflow: "all",
-    search: "",
-  });
-
-  // Pagination state for history tab
+  const initialStatus = (searchParams.get("status") as StatusFilter | null) ?? "all";
+  const initialAttentionOnly = searchParams.get("attention") === "only";
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatus);
+  const [workflowFilter, setWorkflowFilter] = useState("all");
+  const [rangeFilter, setRangeFilter] = useState<RangeFilter>("7d");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [attentionOnly, setAttentionOnly] = useState(initialAttentionOnly);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Reset pagination when filters change
-  const handleFiltersChange = (newFilters: FilterState) => {
-    setFilters(newFilters);
-    setCurrentPage(1);
-  };
+  const runQueryParams = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("limit", "100");
+    return params;
+  }, []);
 
-  // Fetch runs based on tab - history uses completed,failed status
-  const { data, isLoading, error } = useRuns(
-    tab === "active" ? { status: "active" } : { status: "completed,failed" },
-    {
-      refetchInterval: tab === "active" ? 5000 : false,
-    }
-  );
-
+  const { data, isLoading, error } = useRuns(runQueryParams, { refetchInterval: 5000 });
+  const { data: attentionData } = useAttentionItems(100);
   const runs = useMemo(() => data?.items ?? [], [data?.items]);
-  const totalCount = data?.total ?? 0;
+  const attentionItems = attentionData?.items ?? [];
 
-  // Extract unique workflow names for filter dropdown
+  const attentionByRunId = useMemo(() => {
+    const map = new Map<string, AttentionItem[]>();
+    for (const item of attentionItems) {
+      const existing = map.get(item.run_id) ?? [];
+      existing.push(item);
+      map.set(item.run_id, existing);
+    }
+    return map;
+  }, [attentionItems]);
+
   const workflowOptions = useMemo(() => {
     const workflows = new Set<string>();
     runs.forEach((run) => workflows.add(run.workflow_name));
     return Array.from(workflows).sort();
   }, [runs]);
 
-  // Filter runs for history tab
   const filteredRuns = useMemo(() => {
-    if (tab !== "history") return runs;
+    const query = searchQuery.trim().toLowerCase();
+    return runs
+      .filter((run) => matchesStatusFilter(run.status, statusFilter))
+      .filter((run) => (workflowFilter === "all" ? true : run.workflow_name === workflowFilter))
+      .filter((run) => inRange(run, rangeFilter))
+      .filter((run) => (attentionOnly ? (attentionByRunId.get(run.id)?.length ?? 0) > 0 : true))
+      .filter((run) => {
+        if (!query) return true;
+        return (
+          run.workflow_name.toLowerCase().includes(query) ||
+          run.id.toLowerCase().includes(query)
+        );
+      })
+      .sort((a, b) => {
+        const aIsActive = a.status === "running" || a.status === "pending";
+        const bIsActive = b.status === "running" || b.status === "pending";
+        if (aIsActive !== bIsActive) return aIsActive ? -1 : 1;
 
-    return runs.filter((run) => {
-      // Status filter
-      if (filters.status !== "all") {
-        const normalizedStatus = run.status.toLowerCase();
-        if (filters.status === "completed" && normalizedStatus !== "completed" && normalizedStatus !== "success") {
-          return false;
-        }
-        if (filters.status === "failed" && normalizedStatus !== "failed") {
-          return false;
-        }
-        if (filters.status === "partial" && normalizedStatus !== "partial") {
-          return false;
-        }
-      }
+        const aAttention = attentionByRunId.get(a.id)?.length ?? 0;
+        const bAttention = attentionByRunId.get(b.id)?.length ?? 0;
+        if (aAttention !== bAttention) return bAttention - aAttention;
 
-      // Workflow filter
-      if (filters.workflow !== "all" && run.workflow_name !== filters.workflow) {
-        return false;
-      }
+        return b.created_at - a.created_at;
+      });
+  }, [
+    attentionByRunId,
+    attentionOnly,
+    rangeFilter,
+    runs,
+    searchQuery,
+    statusFilter,
+    workflowFilter,
+  ]);
 
-      // Search filter (workflow name or run id)
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const matchesWorkflow = run.workflow_name.toLowerCase().includes(searchLower);
-        const matchesId = run.id.toLowerCase().includes(searchLower);
-        if (!matchesWorkflow && !matchesId) {
-          return false;
-        }
-      }
+  const totalAttentionRuns = useMemo(() => {
+    return new Set(attentionItems.map((item) => item.run_id)).size;
+  }, [attentionItems]);
 
-      // Date range filter (simplified - filters by completed_at)
-      if (filters.dateFrom && run.completed_at) {
-        const fromDate = new Date(filters.dateFrom).getTime() / 1000;
-        if (run.completed_at < fromDate) return false;
-      }
-      if (filters.dateTo && run.completed_at) {
-        const toDate = new Date(filters.dateTo).getTime() / 1000 + 86400; // End of day
-        if (run.completed_at > toDate) return false;
-      }
-
-      return true;
-    });
-  }, [runs, filters, tab]);
-
-  // Paginated runs for history tab
   const paginatedRuns = useMemo(() => {
-    if (tab !== "history") return filteredRuns;
     const start = (currentPage - 1) * pageSize;
-    const end = start + pageSize;
-    return filteredRuns.slice(start, end);
-  }, [filteredRuns, currentPage, pageSize, tab]);
+    return filteredRuns.slice(start, start + pageSize);
+  }, [currentPage, filteredRuns, pageSize]);
 
-  const totalPages = Math.ceil(filteredRuns.length / pageSize);
+  const totalPages = Math.max(1, Math.ceil(filteredRuns.length / pageSize));
 
-  const handleTabChange = (newTab: string) => {
-    setSearchParams({ tab: newTab });
-  };
-
-  const handleRowClick = (runId: string) => {
-    navigate(`/runs/${runId}`);
-  };
-
-  const activeCount = tab === "active" ? totalCount : 0;
-  const historyCount = tab === "history" ? filteredRuns.length : 0;
-
-  // Determine empty state message for history
-  const getHistoryEmptyMessage = () => {
-    if (runs.length === 0) {
-      return {
-        heading: "No runs in history",
-        message: "Completed and failed workflows will appear here.",
-      };
+  const syncSearchParams = (nextStatus: StatusFilter, nextAttentionOnly: boolean) => {
+    const next = new URLSearchParams(searchParams);
+    if (nextStatus === "all") {
+      next.delete("status");
+    } else {
+      next.set("status", nextStatus);
     }
-    if (filteredRuns.length === 0) {
-      return {
-        heading: "No runs match filters",
-        message: "Try adjusting your filter criteria to see more results.",
-      };
+
+    if (nextAttentionOnly) {
+      next.set("attention", "only");
+    } else {
+      next.delete("attention");
     }
-    return null;
+    setSearchParams(next, { replace: true });
   };
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setWorkflowFilter("all");
+    setRangeFilter("7d");
+    setSearchQuery("");
+    setAttentionOnly(false);
+    setCurrentPage(1);
+    setSearchParams({}, { replace: true });
+  };
+
+  const hasActiveFilters =
+    statusFilter !== "all" ||
+    workflowFilter !== "all" ||
+    rangeFilter !== "7d" ||
+    searchQuery.trim().length > 0 ||
+    attentionOnly;
 
   return (
-    <div className="h-full flex flex-col bg-surface-primary">
-      {/* Tab bar */}
-      <div className="flex items-center px-4 border-b border-border-default bg-surface-secondary" role="tablist">
-        <TabButton
-          active={tab === "active"}
-          onClick={() => handleTabChange("active")}
-          aria-label="Active runs"
-        >
-          Active
-          {activeCount > 0 && (
-            <span className="ml-2 text-xs text-muted">
-              ({activeCount})
-            </span>
-          )}
-        </TabButton>
-        <TabButton
-          active={tab === "history"}
-          onClick={() => handleTabChange("history")}
-          aria-label="Run history"
-        >
-          History
-          {historyCount > 0 && (
-            <span className="ml-2 text-xs text-muted">
-              ({historyCount})
-            </span>
-          )}
-        </TabButton>
-      </div>
+    <div className="flex h-full flex-col">
+      <PageHeader title="Runs" />
 
-      {/* Filter bar - only for History tab */}
-      {tab === "history" && (
-        <HistoryFilterBar
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          workflowOptions={workflowOptions}
-        />
-      )}
+      <main className="flex flex-1 min-h-0 flex-col bg-surface-primary p-6">
+        <div className="mb-4 grid grid-cols-1 gap-4 rounded-lg border border-border-default bg-surface-secondary p-4 xl:grid-cols-[minmax(220px,1.2fr)_180px_180px_auto_auto]">
+          <div className="space-y-2">
+            <label className="text-xs font-medium uppercase tracking-wide text-muted">
+              Search
+            </label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search workflow or run id"
+                className="pl-9"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
 
-      {/* Content area */}
-      <div className="flex-1 overflow-auto p-6">
+          <div className="space-y-2">
+            <label className="text-xs font-medium uppercase tracking-wide text-muted">
+              Status
+            </label>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                const nextStatus = value as StatusFilter;
+                setStatusFilter(nextStatus);
+                setCurrentPage(1);
+                syncSearchParams(nextStatus, attentionOnly);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="running">Running</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium uppercase tracking-wide text-muted">
+              Workflow
+            </label>
+            <Select
+              value={workflowFilter}
+              onValueChange={(value) => {
+                setWorkflowFilter(value ?? "all");
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All workflows</SelectItem>
+                {workflowOptions.map((workflow) => (
+                  <SelectItem key={workflow} value={workflow}>
+                    {workflow}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium uppercase tracking-wide text-muted">
+              Range
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {(["24h", "7d", "14d", "30d", "all"] as const).map((range) => (
+                <Button
+                  key={range}
+                  variant={rangeFilter === range ? "primary" : "secondary"}
+                  size="sm"
+                  onClick={() => {
+                    setRangeFilter(range);
+                    setCurrentPage(1);
+                  }}
+                >
+                  {range}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-end justify-between gap-3 xl:justify-end">
+            <Button
+              variant={attentionOnly ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => {
+                const next = !attentionOnly;
+                setAttentionOnly(next);
+                setCurrentPage(1);
+                syncSearchParams(statusFilter, next);
+              }}
+            >
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              Attention Only
+              {totalAttentionRuns > 0 && (
+                <span className="ml-2 rounded-full bg-warning-3 px-1.5 py-0.5 text-[10px] text-warning-11">
+                  {totalAttentionRuns}
+                </span>
+              )}
+            </Button>
+
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="mr-2 h-4 w-4" />
+                Clear filters
+              </Button>
+            )}
+          </div>
+        </div>
+
         {isLoading ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex flex-1 items-center justify-center rounded-lg border border-border-default bg-surface-secondary">
             <div className="text-sm text-muted">Loading runs...</div>
           </div>
         ) : error ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-sm text-danger-11">
-              Error loading runs: {error.message}
-            </div>
+          <div className="flex flex-1 items-center justify-center rounded-lg border border-border-default bg-surface-secondary">
+            <div className="text-sm text-danger-11">Error loading runs: {error.message}</div>
           </div>
-        ) : tab === "active" ? (
-          // Active tab content
-          runs.length === 0 ? (
+        ) : filteredRuns.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center rounded-lg border border-border-default bg-surface-secondary">
             <EmptyState
-              heading="No active runs"
-              message="There are no workflows currently running. Start a workflow to see it here."
+              icon={attentionOnly ? AlertTriangle : Workflow}
+              title={attentionOnly ? "No runs need attention" : "No runs found"}
+              description={
+                attentionOnly
+                  ? "Recent production runs with regressions, cost spikes, quality drops, or new baselines will appear here."
+                  : "Try adjusting your filters to see more runs."
+              }
             />
-          ) : (
-            <div className="rounded-lg border border-border-default overflow-hidden bg-surface-secondary">
+          </div>
+        ) : (
+          <div className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-lg border border-border-default bg-surface-secondary">
+            <div className="flex-1 min-h-0 overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-border-default bg-surface-tertiary/50 hover:bg-surface-tertiary/50">
-                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
-                      Workflow
-                    </TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
-                      Status
-                    </TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
-                      Duration
-                    </TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
-                      Cost
-                    </TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
-                      Agents
-                    </TableHead>
+                    <TableHead>Workflow</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Attention</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Cost</TableHead>
+                    <TableHead>Completed At</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {runs.map((run) => (
-                    <RunTableRow
-                      key={run.id}
-                      run={run}
-                      onClick={() => handleRowClick(run.id)}
-                    />
-                  ))}
+                  {paginatedRuns.map((run) => {
+                    const runAttention = attentionByRunId.get(run.id) ?? [];
+                    const primaryAttention = runAttention[0];
+                    return (
+                      <TableRow
+                        key={run.id}
+                        className="cursor-pointer border-b border-border-default hover:bg-surface-tertiary/50"
+                        onClick={() => navigate(`/runs/${run.id}`)}
+                      >
+                        <TableCell className="py-4">
+                          <div className="flex items-center gap-3">
+                            <Workflow className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.5} />
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-primary">
+                                {run.workflow_name}
+                              </div>
+                              <div className="font-mono text-xs text-muted">{run.id}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={run.status} />
+                        </TableCell>
+                        <TableCell>
+                          {runAttention.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant={primaryAttention?.severity === "info" ? "info" : "warning"}>
+                                {formatAttentionType(primaryAttention?.type ?? "assertion_regression")}
+                              </Badge>
+                              {runAttention.length > 1 && (
+                                <span className="text-xs text-muted">+{runAttention.length - 1} more</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted">
+                          {formatDuration(run.duration_seconds)}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm text-muted">
+                          {formatCost(run.total_cost_usd)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted">
+                          {run.completed_at ? formatTimestamp(run.completed_at) : (
+                            <div className="inline-flex items-center gap-2 text-info-11">
+                              <Activity className="h-3.5 w-3.5" />
+                              In progress
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
-          )
-        ) : (
-          // History tab content
-          (() => {
-            const emptyState = getHistoryEmptyMessage();
-            if (emptyState) {
-              return (
-                <EmptyState
-                  heading={emptyState.heading}
-                  message={emptyState.message}
-                />
-              );
-            }
-            return (
-              <div className="flex flex-col rounded-lg border border-border-default overflow-hidden bg-surface-secondary">
-                <div className="flex-1 overflow-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-b border-border-default bg-surface-tertiary/50 hover:bg-surface-tertiary/50">
-                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
-                          Workflow Name
-                        </TableHead>
-                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
-                          Status
-                        </TableHead>
-                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
-                          Duration
-                        </TableHead>
-                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
-                          Total Cost
-                        </TableHead>
-                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted py-3">
-                          Completed At
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedRuns.map((run) => (
-                        <HistoryTableRow
-                          key={run.id}
-                          run={run}
-                          onClick={() => handleRowClick(run.id)}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  pageSize={pageSize}
-                  totalItems={filteredRuns.length}
-                  onPageChange={setCurrentPage}
-                  onPageSizeChange={(size) => {
-                    setPageSize(size);
-                    setCurrentPage(1);
-                  }}
-                />
-              </div>
-            );
-          })()
-        )}
 
-        {/* Footer info - only for active tab (history has pagination footer) */}
-        {!isLoading && !error && tab === "active" && (
-          <div className="mt-4 flex items-center justify-between text-xs text-muted">
-            <span>
-              {`Showing ${runs.length} active run${runs.length !== 1 ? "s" : ""}`}
-            </span>
-            <span>
-              {"Auto-updating every 5 seconds"}
-            </span>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filteredRuns.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+            />
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

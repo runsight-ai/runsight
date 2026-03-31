@@ -38,6 +38,8 @@ export interface StatCardProps
   value: React.ReactNode
   /** Optional delta/change/trend indicator (positive or negative) */
   delta?: React.ReactNode
+  /** Optional semantic tone override for delta text */
+  deltaTone?: "positive" | "negative" | "neutral"
   /** Optional icon displayed alongside the value */
   icon?: React.ReactNode
 }
@@ -46,6 +48,7 @@ export function StatCard({
   label,
   value,
   delta,
+  deltaTone,
   variant = "default",
   icon,
   className,
@@ -55,6 +58,8 @@ export function StatCard({
     typeof delta === "string" && (delta.startsWith("+") || delta.startsWith("↑"))
   const isNegativeDelta =
     typeof delta === "string" && (delta.startsWith("-") || delta.startsWith("↓"))
+  const resolvedDeltaTone =
+    deltaTone ?? (isPositiveDelta ? "positive" : isNegativeDelta ? "negative" : "neutral")
 
   return (
     <div
@@ -90,8 +95,9 @@ export function StatCard({
           data-slot="stat-card-delta"
           className={cn(
             "font-mono text-xs flex items-center gap-1",
-            isPositiveDelta && "text-success-11",
-            isNegativeDelta && "text-danger-11",
+            resolvedDeltaTone === "positive" && "text-success-11",
+            resolvedDeltaTone === "negative" && "text-danger-11",
+            resolvedDeltaTone === "neutral" && "text-muted",
           )}
         >
           {delta}

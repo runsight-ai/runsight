@@ -24,12 +24,21 @@ class ProviderUpdate(BaseModel):
     base_url: Optional[str] = None
 
 
+class ProviderTestIn(BaseModel):
+    provider_id: Optional[str] = None
+    provider_type: Optional[str] = None
+    name: Optional[str] = None
+    api_key_env: Optional[str] = None
+    base_url: Optional[str] = None
+
+
 class ProviderOut(BaseModel):
     id: str
     name: str
     type: Optional[str] = None
     status: str
-    api_key_env: Optional[str] = None  # Return "configured" or "" - never the real key
+    api_key_env: Optional[str] = None
+    api_key_preview: Optional[str] = None
     base_url: Optional[str] = None
     models: list[str] = []
     model_count: int = 0
@@ -69,14 +78,30 @@ class AppSettingsOut(BaseModel):
     fallback_chain_enabled: Optional[bool] = None
 
 
-def _provider_to_out(p) -> ProviderOut:
+def _preview_api_key(secret: Optional[str]) -> Optional[str]:
+    if not secret:
+        return None
+    if len(secret) <= 8:
+        return "•" * len(secret)
+    return f"{secret[:6]}...{secret[-4:]}"
+
+
+def _provider_to_out(p, service: ProviderService) -> ProviderOut:
     models = p.models if p.models else []
+    api_key_preview = None
+    if p.api_key:
+        secrets = getattr(service, "secrets", None)
+        resolved_secret = secrets.resolve(p.api_key) if secrets else None
+        api_key_preview = _preview_api_key(
+            resolved_secret if isinstance(resolved_secret, str) else None
+        )
     return ProviderOut(
         id=p.id,
         name=p.name,
         type=p.type,
         status=p.status or "unknown",
-        api_key_env="configured" if p.api_key else "",
+        api_key_env=p.api_key,
+        api_key_preview=api_key_preview,
         base_url=p.base_url,
         models=models,
         model_count=len(models),
@@ -90,7 +115,7 @@ async def list_providers(
     service: ProviderService = Depends(get_provider_service),
 ):
     providers = service.list_providers()
-    items = [_provider_to_out(p) for p in providers]
+    items = [_provider_to_out(p, service) for p in providers]
     return {"items": items, "total": len(items)}
 
 
@@ -102,7 +127,7 @@ async def get_provider(
     provider = service.get_provider(provider_id)
     if not provider:
         raise ProviderNotFound(f"Provider {provider_id} not found")
-    return _provider_to_out(provider)
+    return _provider_to_out(provider, service)
 
 
 @router.post("/providers")
@@ -115,7 +140,7 @@ async def create_provider(
         api_key=data.api_key_env,
         base_url=data.base_url,
     )
-    return _provider_to_out(provider)
+    return _provider_to_out(provider, service)
 
 
 @router.put("/providers/{provider_id}")
@@ -132,7 +157,7 @@ async def update_provider(
     )
     if not provider:
         raise ProviderNotFound(f"Provider {provider_id} not found")
-    return _provider_to_out(provider)
+    return _provider_to_out(provider, service)
 
 
 @router.delete("/providers/{provider_id}")
@@ -152,6 +177,20 @@ async def test_provider(
     service: ProviderService = Depends(get_provider_service),
 ):
     return await service.test_connection(provider_id)
+
+
+@router.post("/providers/test")
+async def test_provider_credentials(
+    data: ProviderTestIn,
+    service: ProviderService = Depends(get_provider_service),
+):
+    return await service.test_credentials(
+        provider_id=data.provider_id,
+        provider_type=data.provider_type,
+        name=data.name,
+        api_key=data.api_key_env,
+        base_url=data.base_url,
+    )
 
 
 @router.get("/models")

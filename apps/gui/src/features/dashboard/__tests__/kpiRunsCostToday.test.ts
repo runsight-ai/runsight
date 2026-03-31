@@ -5,7 +5,7 @@
  * as strings and asserting observable structural properties:
  *
  * AC1: Dashboard imports and renders StatCard components
- * AC2: 4 StatCards render with correct labels (runs today, eval pass, spent today, regressions)
+ * AC2: 4 StatCards render with correct labels (runs today, eval pass rate, cost today, regressions)
  * AC3: useDashboardKPIs hook exists and calls /dashboard
  * AC4: Null eval fields display as "—"
  * AC5: Uses generated Zod schema (DashboardKPIsResponseSchema)
@@ -73,14 +73,14 @@ describe("4 StatCards with correct labels (AC2)", () => {
     expect(source).toMatch(/label\s*=\s*["']runs today["']/i);
   });
 
-  it('has a StatCard with label "eval pass"', () => {
+  it('has a StatCard with label "eval pass rate"', () => {
     const source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/label\s*=\s*["']eval pass["']/i);
+    expect(source).toMatch(/label\s*=\s*["']eval pass rate["']/i);
   });
 
-  it('has a StatCard with label "spent today"', () => {
+  it('has a StatCard with label "cost today"', () => {
     const source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/label\s*=\s*["']spent today["']/i);
+    expect(source).toMatch(/label\s*=\s*["']cost today["']/i);
   });
 
   it('has a StatCard with label containing "regressions"', () => {

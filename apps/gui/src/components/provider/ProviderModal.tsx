@@ -22,6 +22,11 @@ import { ALL_PROVIDERS } from "./ProviderSetup";
 import type { EditingProvider, ProviderDef } from "./ProviderSetup";
 import { ConnectionFeedback } from "@/features/setup/components/ConnectionFeedback";
 import { useApiKeyAutoTest } from "@/features/setup/hooks/useApiKeyAutoTest";
+import {
+  useCreateProvider,
+  useTestProviderConnection,
+  useUpdateProvider,
+} from "@/queries/settings";
 
 export interface ProviderModalProps {
   mode: "settings-add" | "settings-edit" | "canvas";
@@ -47,6 +52,20 @@ const PROVIDER_DOCS_URLS: Record<string, string> = {
   custom: "https://platform.openai.com/docs/api-reference",
 };
 
+const API_KEY_PLACEHOLDERS: Record<string, string> = {
+  openai: "sk-proj-...",
+  anthropic: "sk-ant-...",
+  google: "AIza...",
+  azure_openai: "Paste your Azure API key",
+  aws_bedrock: "Paste your AWS Bedrock API key",
+  mistral: "Paste your Mistral API key",
+  cohere: "Paste your Cohere API key",
+  groq: "gsk_...",
+  together: "Paste your Together API key",
+  ollama: "No API key required",
+  custom: "Paste your provider API key",
+};
+
 function getDocsUrl(provider: ProviderDef): string {
   return PROVIDER_DOCS_URLS[provider.id] ?? "";
 }
@@ -58,6 +77,9 @@ export function ProviderModal({
   editing,
   onSaveSuccess,
 }: ProviderModalProps) {
+  const createProvider = useCreateProvider();
+  const updateProvider = useUpdateProvider();
+  const testConnection = useTestProviderConnection();
   const initialProviderId = editing?.type ?? "openai";
   const [selectedProviderId, setSelectedProviderId] = useState(initialProviderId);
   const [apiKey, setApiKey] = useState("");
@@ -82,7 +104,7 @@ export function ProviderModal({
   const showBaseUrl = isCustomProvider || isOllama;
   const isEditMode = mode === "settings-edit";
 
-  const { cleanup, models, providerId, reset, testMessage, testStatus } =
+  const { cleanup, models, reset, testMessage, testStatus } =
     useApiKeyAutoTest({
       providerType: selectedProviderId,
       providerName: provider.name,
@@ -92,6 +114,9 @@ export function ProviderModal({
     });
 
   const helperUrl = getDocsUrl(provider);
+  const apiKeyPlaceholder = isEditMode
+    ? "Leave empty to keep existing key"
+    : API_KEY_PLACEHOLDERS[provider.id] ?? "Paste your API key";
   const title =
     mode === "canvas"
       ? "Add API Key"
@@ -99,6 +124,10 @@ export function ProviderModal({
         ? `Edit ${editing.name}`
         : "Add Provider";
   const saveLabel = mode === "canvas" ? "Save & Run" : "Save";
+  const isSaving =
+    createProvider.isPending ||
+    updateProvider.isPending ||
+    testConnection.isPending;
 
   const handleProviderChange = useCallback(
     (value: string | null) => {
@@ -122,12 +151,40 @@ export function ProviderModal({
     onOpenChange(false);
   }, [cleanup, editing?.baseUrl, editing?.type, onOpenChange]);
 
-  const handleSave = useCallback(() => {
-    if (testStatus !== "success" || !providerId) return;
-    onSaveSuccess?.(providerId);
-    reset();
-    onOpenChange(false);
-  }, [onOpenChange, onSaveSuccess, providerId, reset, testStatus]);
+  async function handleSave() {
+    if (testStatus !== "success") return;
+
+    const payload = {
+      api_key_env: apiKey.trim() || undefined,
+      base_url: showBaseUrl ? baseUrl.trim() || undefined : undefined,
+    };
+
+    try {
+      let savedProviderId = editing?.id ?? "";
+
+      if (isEditMode && editing) {
+        const updated = await updateProvider.mutateAsync({
+          id: editing.id,
+          data: payload,
+        });
+        savedProviderId = updated.id;
+      } else {
+        const created = await createProvider.mutateAsync({
+          name: provider.name,
+          api_key_env: payload.api_key_env,
+          base_url: payload.base_url,
+        });
+        savedProviderId = created.id;
+      }
+
+      await testConnection.mutateAsync(savedProviderId);
+      onSaveSuccess?.(savedProviderId);
+      reset();
+      onOpenChange(false);
+    } catch {
+      // Query hooks surface user-facing toasts.
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen ? handleClose() : onOpenChange(nextOpen)}>
@@ -165,7 +222,7 @@ export function ProviderModal({
             <div className="relative">
               <Input
                 type={showApiKey ? "text" : "password"}
-                placeholder={isEditMode ? "Leave empty to keep existing key" : "sk-..."}
+                placeholder={apiKeyPlaceholder}
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
                 className="pr-8 font-mono"
@@ -225,7 +282,12 @@ export function ProviderModal({
           <Button variant="secondary" size="sm" onClick={handleClose}>
             Cancel
           </Button>
-          <Button size="sm" disabled={testStatus !== "success"} onClick={handleSave}>
+          <Button
+            size="sm"
+            disabled={testStatus !== "success"}
+            loading={isSaving}
+            onClick={handleSave}
+          >
             {saveLabel}
           </Button>
         </DialogFooter>

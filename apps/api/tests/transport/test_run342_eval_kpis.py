@@ -260,9 +260,18 @@ class TestRegressionsComputed:
     def test_regression_detected_when_node_fails_with_passing_baseline(self):
         """A node that fails eval when baseline passed = 1 regression."""
         now = time.time()
+        previous_run = _make_mock_run("run_0", RunStatus.completed, 0.4, now - 7200)
         run = _make_mock_run("run_1", RunStatus.completed, 0.5, now - 3600)
 
-        # Node fails eval, but has a soul_id/version for baseline lookup
+        previous_node = _make_mock_node(
+            "n1",
+            "run_0",
+            eval_passed=True,
+            eval_score=0.9,
+            soul_id="soul_a",
+            soul_version="v1",
+            created_at=now - 7200,
+        )
         node = _make_mock_node(
             "n1",
             "run_1",
@@ -274,13 +283,14 @@ class TestRegressionsComputed:
         )
 
         mock_service = Mock()
-        mock_service.list_runs.return_value = [run]
-        mock_service.get_run_nodes.return_value = [node]
+        mock_service.list_runs.return_value = [run, previous_run]
+        mock_service.get_run_nodes.side_effect = lambda rid: (
+            [previous_node] if rid == "run_0" else [node]
+        )
         app.dependency_overrides[get_run_service] = lambda: mock_service
 
         data = client.get("/api/dashboard").json()
-        assert data["regressions"] is not None
-        assert data["regressions"] >= 1
+        assert data["regressions"] == 1
 
     def test_zero_regressions_when_all_evals_pass(self):
         """When all RunNodes pass eval, regressions should be 0."""
@@ -305,8 +315,29 @@ class TestRegressionsComputed:
     def test_multiple_regressions_counted(self):
         """Multiple failing nodes each count as a regression."""
         now = time.time()
+        previous_run = _make_mock_run("run_0", RunStatus.completed, 0.4, now - 7200)
         run = _make_mock_run("run_1", RunStatus.completed, 0.5, now - 3600)
 
+        previous_nodes = [
+            _make_mock_node(
+                "n1",
+                "run_0",
+                eval_passed=True,
+                eval_score=0.9,
+                soul_id="soul_a",
+                soul_version="v1",
+                created_at=now - 7200,
+            ),
+            _make_mock_node(
+                "n2",
+                "run_0",
+                eval_passed=True,
+                eval_score=0.88,
+                soul_id="soul_b",
+                soul_version="v1",
+                created_at=now - 7200,
+            ),
+        ]
         nodes = [
             _make_mock_node(
                 "n1",
@@ -330,13 +361,14 @@ class TestRegressionsComputed:
         ]
 
         mock_service = Mock()
-        mock_service.list_runs.return_value = [run]
-        mock_service.get_run_nodes.return_value = nodes
+        mock_service.list_runs.return_value = [run, previous_run]
+        mock_service.get_run_nodes.side_effect = lambda rid: (
+            previous_nodes if rid == "run_0" else nodes
+        )
         app.dependency_overrides[get_run_service] = lambda: mock_service
 
         data = client.get("/api/dashboard").json()
-        assert data["regressions"] is not None
-        assert data["regressions"] >= 2
+        assert data["regressions"] == 2
 
     def test_regressions_excludes_old_runs(self):
         """Regressions are only counted from runs within the 24h window."""
@@ -370,6 +402,41 @@ class TestRegressionsComputed:
 
         data = client.get("/api/dashboard").json()
         # Only recent run counted; it has 0 regressions
+        assert data["regressions"] == 0
+
+    def test_no_regression_when_version_changed(self):
+        """A failed node on a new version is not a regression yet."""
+        now = time.time()
+        previous_run = _make_mock_run("run_0", RunStatus.completed, 0.4, now - 7200)
+        run = _make_mock_run("run_1", RunStatus.completed, 0.5, now - 3600)
+
+        previous_node = _make_mock_node(
+            "n1",
+            "run_0",
+            eval_passed=True,
+            eval_score=0.9,
+            soul_id="soul_a",
+            soul_version="v1",
+            created_at=now - 7200,
+        )
+        node = _make_mock_node(
+            "n1",
+            "run_1",
+            eval_passed=False,
+            eval_score=0.3,
+            soul_id="soul_a",
+            soul_version="v2",
+            created_at=now - 3600,
+        )
+
+        mock_service = Mock()
+        mock_service.list_runs.return_value = [run, previous_run]
+        mock_service.get_run_nodes.side_effect = lambda rid: (
+            [previous_node] if rid == "run_0" else [node]
+        )
+        app.dependency_overrides[get_run_service] = lambda: mock_service
+
+        data = client.get("/api/dashboard").json()
         assert data["regressions"] == 0
 
 

@@ -6,6 +6,7 @@ import {
   useUpdateProvider,
 } from "@/queries/settings";
 import { DeleteConfirmDialog, StatusBadge } from "@/components/shared";
+import { EmptyState } from "@runsight/ui/empty-state";
 import { Button } from "@runsight/ui/button";
 import { Switch } from "@runsight/ui/switch";
 import {
@@ -125,13 +126,6 @@ function ProviderCard({
     });
   };
 
-  // Mask API key - show last 4 chars
-  const maskApiKey = (key: string | null | undefined) => {
-    if (!key) return "(none configured)";
-    const last4 = key.slice(-4);
-    return `••••••••••••••••${last4}`;
-  };
-
   const isEnabled =
     provider.status !== "offline" && provider.status !== "error";
 
@@ -162,13 +156,17 @@ function ProviderCard({
                 <span className="w-20 text-xs uppercase tracking-wider text-muted">
                   API Key
                 </span>
-                {provider.api_key_env?.startsWith("$") ? (
+                {provider.api_key_preview ? (
+                  <span className="font-mono text-muted">
+                    {provider.api_key_preview}
+                  </span>
+                ) : provider.api_key_env?.startsWith("$") ? (
                   <span className="font-mono text-muted">
                     Configured via {provider.api_key_env}
                   </span>
                 ) : (
                   <span className="font-mono text-muted">
-                    {maskApiKey(provider.api_key_env)}
+                    (none configured)
                   </span>
                 )}
               </div>
@@ -232,7 +230,7 @@ function ProviderCard({
             </Button>
             <Button
               variant="icon-only"
-              size="sm"
+              size="md"
               onClick={() => onEdit(provider)}
               title="Edit provider"
               aria-label={`Edit ${provider.name} provider`}
@@ -241,7 +239,7 @@ function ProviderCard({
             </Button>
             <Button
               variant="icon-only"
-              size="sm"
+              size="md"
               onClick={() => onDelete(provider)}
               className="text-[var(--danger-9)] hover:text-[var(--danger-9)]"
               title="Remove provider"
@@ -252,30 +250,6 @@ function ProviderCard({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// Empty State Component
-function EmptyProvidersState({ onAdd }: { onAdd: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border-default bg-surface-secondary/50 p-12 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-surface-tertiary">
-        <Server className="h-6 w-6 text-muted" />
-      </div>
-      <div className="flex flex-col gap-1">
-        <h3 className="text-sm font-medium text-primary">
-          No providers configured
-        </h3>
-        <p className="max-w-xs text-xs text-muted">
-          Add an AI provider to start using Runsight with models like GPT-4,
-          Claude, or local Ollama instances.
-        </p>
-      </div>
-      <Button onClick={onAdd} size="sm">
-        <Plus className="mr-1 h-4 w-4" />
-        Add Provider
-      </Button>
     </div>
   );
 }
@@ -331,7 +305,7 @@ export function ProvidersTab() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="w-full">
       {/* Page Header */}
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-2xl font-semibold tracking-tight text-primary">
@@ -376,7 +350,14 @@ export function ProvidersTab() {
           </div>
         </div>
       ) : providers.length === 0 ? (
-        <EmptyProvidersState onAdd={handleAdd} />
+        <div className="rounded-lg border border-border-default bg-surface-secondary p-8">
+          <EmptyState
+            icon={Server}
+            title="No providers configured"
+            description="Add an AI provider to start using Runsight with models like GPT-4, Claude, or local Ollama instances."
+            action={{ label: "Add Provider", onClick: handleAdd }}
+          />
+        </div>
       ) : (
         <div className="space-y-4">
           {providers.map((provider) => (

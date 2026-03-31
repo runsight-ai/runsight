@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 
 const AVATAR_COLOR_OPTIONS = [
-  { value: "accent", swatchClassName: "bg-accent-3" },
-  { value: "info", swatchClassName: "bg-info-3" },
-  { value: "success", swatchClassName: "bg-success-3" },
-  { value: "warning", swatchClassName: "bg-warning-3" },
-  { value: "danger", swatchClassName: "bg-danger-3" },
-  { value: "neutral", swatchClassName: "bg-neutral-3" },
+  { value: "accent", swatchClassName: "bg-accent-8" },
+  { value: "info", swatchClassName: "bg-info-9" },
+  { value: "success", swatchClassName: "bg-success-9" },
+  { value: "warning", swatchClassName: "bg-warning-9" },
+  { value: "danger", swatchClassName: "bg-danger-9" },
+  { value: "neutral", swatchClassName: "bg-neutral-8" },
 ];
 
 interface SoulAvatarColorPickerProps {

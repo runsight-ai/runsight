@@ -142,6 +142,22 @@ def test_create_workflow_without_id(workflow_service, workflow_repo):
     workflow_repo.create.assert_called_once_with(data)
 
 
+def test_create_workflow_does_not_fail_when_auto_commit_errors(workflow_repo):
+    """Workflow creation should succeed even if the convenience git auto-commit cannot run."""
+    git_service = Mock()
+    git_service.is_clean.return_value = False
+    git_service.commit_to_branch.side_effect = RuntimeError("checkout main failed")
+    created = WorkflowEntity(id="wf_new", name="New Workflow")
+    workflow_repo.create.return_value = created
+    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+
+    result = workflow_service.create_workflow({"name": "New Workflow"})
+
+    assert result == created
+    workflow_repo.create.assert_called_once_with({"name": "New Workflow"})
+    git_service.commit_to_branch.assert_called_once()
+
+
 # --- update_workflow ---
 
 

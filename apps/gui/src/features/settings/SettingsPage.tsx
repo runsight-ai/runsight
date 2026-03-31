@@ -19,29 +19,27 @@ export function Component() {
       <PageHeader title="Settings" />
 
       <main className="flex-1 overflow-auto bg-surface-primary p-6">
-        <div className="mx-auto max-w-4xl">
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => setActiveTab(v as TabValue)}
-            className="w-full"
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as TabValue)}
+          className="w-full"
+        >
+          <TabsList
+            className="mb-6"
+            aria-label="Settings sections"
+            activateOnFocus={false}
           >
-            <TabsList
-              className="mb-6"
-              aria-label="Settings sections"
-              activateOnFocus={false}
-            >
-              <TabsTrigger value="providers">Providers</TabsTrigger>
-              <TabsTrigger value="models">Models</TabsTrigger>
-            </TabsList>
+            <TabsTrigger value="providers">Providers</TabsTrigger>
+            <TabsTrigger value="models">Models</TabsTrigger>
+          </TabsList>
 
-            <TabsContent value="providers" className="mt-0">
-              <ProvidersTab />
-            </TabsContent>
-            <TabsContent value="models" className="mt-0">
-              <ModelsTab />
-            </TabsContent>
-          </Tabs>
-        </div>
+          <TabsContent value="providers" className="mt-0">
+            <ProvidersTab />
+          </TabsContent>
+          <TabsContent value="models" className="mt-0">
+            <ModelsTab />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

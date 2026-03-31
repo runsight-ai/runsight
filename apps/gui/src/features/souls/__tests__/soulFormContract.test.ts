@@ -33,6 +33,7 @@ describe("SoulAvatarColorPicker contract (RUN-447)", () => {
     expect(source).toMatch(/aria-label=.*avatar color/);
     const swatchMatches = source.match(/value:\s*["'][^"']+["']/g) ?? [];
     expect(swatchMatches.length).toBeGreaterThanOrEqual(6);
+    expect(source).toMatch(/bg-accent-8|bg-info-9|bg-success-9|bg-warning-9|bg-danger-9|bg-neutral-8/);
   });
 });
 

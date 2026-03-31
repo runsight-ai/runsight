@@ -8,6 +8,7 @@ export const AppSettingsOutSchema = z.object({
   default_provider: z.string().nullable().optional(),
   auto_save: z.boolean().nullable().optional(),
   onboarding_completed: z.boolean().nullable().optional(),
+  fallback_chain_enabled: z.boolean().nullable().optional(),
 });
 export type AppSettingsOut = z.infer<typeof AppSettingsOutSchema>;
 
@@ -58,6 +59,10 @@ export const DashboardKPIsResponseSchema = z.object({
   cost_today_usd: z.number(),
   eval_pass_rate: z.number().nullable(),
   regressions: z.number().nullable(),
+  runs_previous_period: z.number().optional().default(0),
+  cost_previous_period_usd: z.number().optional().default(0.0),
+  eval_pass_rate_previous_period: z.number().nullable().optional(),
+  regressions_previous_period: z.number().nullable().optional(),
   period_hours: z.number().optional().default(24),
 });
 export type DashboardKPIsResponse = z.infer<typeof DashboardKPIsResponseSchema>;
@@ -88,6 +93,13 @@ export const HTTPValidationErrorSchema = z.object({
   detail: z.array(ValidationErrorSchema).optional(),
 });
 export type HTTPValidationError = z.infer<typeof HTTPValidationErrorSchema>;
+
+export const ModelDefaultUpdateSchema = z.object({
+  model_name: z.string().nullable().optional(),
+  is_default: z.boolean().nullable().optional(),
+  fallback_chain: z.array(z.string()).nullable().optional(),
+});
+export type ModelDefaultUpdate = z.infer<typeof ModelDefaultUpdateSchema>;
 
 export const ModelResponseSchema = z.object({
   provider: z.string(),
@@ -392,6 +404,21 @@ export const WorkflowCanvasStateSchema = z.object({
   canvas_mode: z.string().optional().default("dag"),
 });
 export type WorkflowCanvasState = z.infer<typeof WorkflowCanvasStateSchema>;
+
+export const WorkflowCommitCreateSchema = z.object({
+  name: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  yaml: z.string().nullable().optional(),
+  canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
+  message: z.string(),
+});
+export type WorkflowCommitCreate = z.infer<typeof WorkflowCommitCreateSchema>;
+
+export const WorkflowCommitResponseSchema = z.object({
+  hash: z.string(),
+  message: z.string(),
+});
+export type WorkflowCommitResponse = z.infer<typeof WorkflowCommitResponseSchema>;
 
 export const WorkflowCreateSchema = z.object({
   name: z.string().nullable().optional(),

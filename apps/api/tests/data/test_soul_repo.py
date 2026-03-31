@@ -1,6 +1,7 @@
 import tempfile
 
 import pytest
+import yaml
 
 from runsight_api.data.filesystem.soul_repo import SoulRepository
 from runsight_api.domain.errors import SoulNotFound
@@ -54,3 +55,44 @@ def test_soul_repo():
         # Test not found
         with pytest.raises(SoulNotFound):
             repo.update("missing", {"role": "Does not exist"})
+
+
+def test_soul_repo_resolves_embedded_id_when_filename_differs():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = SoulRepository(base_path=tmpdir)
+        legacy_path = repo.souls_dir / "gate_evaluator.yaml"
+        legacy_path.write_text(
+            yaml.safe_dump(
+                {
+                    "id": "gate_eval_1",
+                    "role": "Quality Gate Evaluator",
+                    "system_prompt": "Check quality",
+                },
+                sort_keys=False,
+            )
+        )
+
+        fetched = repo.get_by_id("gate_eval_1")
+        assert fetched is not None
+        assert fetched.id == "gate_eval_1"
+        assert fetched.role == "Quality Gate Evaluator"
+
+        updated = repo.update(
+            "gate_eval_1",
+            {
+                "role": "Updated Gate",
+                "system_prompt": "Updated prompt",
+            },
+        )
+        assert updated.id == "gate_eval_1"
+        assert updated.role == "Updated Gate"
+        assert legacy_path.exists()
+        assert not (repo.souls_dir / "gate_eval_1.yaml").exists()
+
+        with open(legacy_path, "r") as f:
+            on_disk = yaml.safe_load(f)
+        assert on_disk["id"] == "gate_eval_1"
+        assert on_disk["role"] == "Updated Gate"
+
+        assert repo.delete("gate_eval_1") is True
+        assert not legacy_path.exists()

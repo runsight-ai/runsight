@@ -679,6 +679,58 @@
         }
       }
     },
+    "/api/workflows/{id}/commits": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "summary": "Commit Workflow",
+        "operationId": "commit_workflow_api_workflows__id__commits_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowCommitCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowCommitResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/workflows/{id}/simulations": {
       "post": {
         "tags": [
@@ -1756,6 +1808,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelDefaultUpdate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2303,6 +2365,17 @@
               }
             ],
             "title": "Onboarding Completed"
+          },
+          "fallback_chain_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Chain Enabled"
           }
         },
         "type": "object",
@@ -2498,6 +2571,38 @@
             ],
             "title": "Regressions"
           },
+          "runs_previous_period": {
+            "type": "integer",
+            "title": "Runs Previous Period",
+            "default": 0
+          },
+          "cost_previous_period_usd": {
+            "type": "number",
+            "title": "Cost Previous Period Usd",
+            "default": 0.0
+          },
+          "eval_pass_rate_previous_period": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Pass Rate Previous Period"
+          },
+          "regressions_previous_period": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regressions Previous Period"
+          },
           "period_hours": {
             "type": "integer",
             "title": "Period Hours",
@@ -2573,6 +2678,48 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ModelDefaultUpdate": {
+        "properties": {
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "is_default": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Default"
+          },
+          "fallback_chain": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Chain"
+          }
+        },
+        "type": "object",
+        "title": "ModelDefaultUpdate"
       },
       "ModelResponse": {
         "properties": {
@@ -4148,6 +4295,81 @@
         },
         "type": "object",
         "title": "WorkflowCanvasState"
+      },
+      "WorkflowCommitCreate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "yaml": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yaml"
+          },
+          "canvas_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowCanvasState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "WorkflowCommitCreate"
+      },
+      "WorkflowCommitResponse": {
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Hash"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hash",
+          "message"
+        ],
+        "title": "WorkflowCommitResponse"
       },
       "WorkflowCreate": {
         "properties": {

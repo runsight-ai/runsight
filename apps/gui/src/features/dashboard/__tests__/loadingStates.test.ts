@@ -182,7 +182,7 @@ describe("Active runs section shows skeleton rows while loading (AC3)", () => {
     // The skeleton rows should be near the "ACTIVE RUNS" section heading.
     // Look for Skeleton usage in proximity to the ACTIVE RUNS section.
     const activeRunsSection = source.match(
-      /ACTIVE RUNS[\s\S]*?(?:<\/div>\s*<\/div>)/,
+      /ACTIVE RUNS[\s\S]*?(?:<\/section>|<\/Card>|<\/TableBody>)/,
     );
     expect(activeRunsSection).not.toBeNull();
     if (activeRunsSection) {

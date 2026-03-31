@@ -60,6 +60,14 @@ describe("useActiveRuns hook (AC3: queries with status filter)", () => {
     expect(source).toMatch(/pending/);
   });
 
+  it("useActiveRuns filters to production sources (manual, webhook, schedule)", () => {
+    source = readSource(RUNS_QUERIES_PATH);
+    expect(source).toMatch(/source/);
+    expect(source).toMatch(/manual/);
+    expect(source).toMatch(/webhook/);
+    expect(source).toMatch(/schedule/);
+  });
+
   it("useActiveRuns uses a polling interval (refetchInterval)", () => {
     source = readSource(RUNS_QUERIES_PATH);
     // The hook should poll at an interval (e.g. 5000ms)

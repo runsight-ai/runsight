@@ -68,8 +68,8 @@ function ModelRow({
           <div className="flex items-center gap-1">
             <Button
               variant="icon-only"
-              size="sm"
-              className="h-8 w-8 text-[var(--success-9)] hover:text-[var(--success-9)]"
+              size="md"
+              className="text-[var(--success-9)] hover:text-[var(--success-9)]"
               onClick={() => onSave(model.id, selectedModel)}
               aria-label={`Save ${model.provider_name} default model`}
             >
@@ -77,8 +77,8 @@ function ModelRow({
             </Button>
             <Button
               variant="icon-only"
-              size="sm"
-              className="h-8 w-8 text-muted"
+              size="md"
+              className="text-muted"
               onClick={onCancel}
               aria-label={`Cancel ${model.provider_name} model change`}
             >
@@ -231,6 +231,8 @@ export function ModelsTab() {
   const modelDefaults = data?.items ?? [];
   const providers = useMemo(() => providersData?.items ?? [], [providersData?.items]);
   const fallbackChainEnabled = appSettings?.fallback_chain_enabled ?? true;
+  const showFallbackChain =
+    modelDefaults.filter((model) => model.model_name.trim().length > 0).length > 1;
 
   const getProviderModels = useCallback(
     (providerId: string) => {
@@ -274,7 +276,7 @@ export function ModelsTab() {
   }, [refetch]);
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="w-full">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-2xl font-semibold tracking-tight text-primary">
           Models
@@ -344,32 +346,34 @@ export function ModelsTab() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border-default bg-surface-secondary p-5">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-base font-medium text-primary">
-                  Fallback Chain
-                </h3>
-                <p className="mt-1 text-sm text-muted">
-                  When the primary model fails (rate limit, error), the system
-                  retries with the next model in chain.
-                </p>
+          {showFallbackChain ? (
+            <section className="rounded-lg border border-border-default bg-surface-secondary p-5">
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-medium text-primary">
+                    Fallback Chain
+                  </h3>
+                  <p className="mt-1 text-sm text-muted">
+                    When the primary model fails (rate limit, error), the system
+                    retries with the next model in chain.
+                  </p>
+                </div>
+                <Switch
+                  checked={fallbackChainEnabled}
+                  onCheckedChange={(checked) =>
+                    updateAppSettings.mutateAsync({ fallback_chain_enabled: checked })
+                  }
+                  aria-label="Enable fallback chain"
+                  disabled={updateAppSettings.isPending}
+                />
               </div>
-              <Switch
-                checked={fallbackChainEnabled}
-                onCheckedChange={(checked) =>
-                  updateAppSettings.mutateAsync({ fallback_chain_enabled: checked })
-                }
-                aria-label="Enable fallback chain"
-                disabled={updateAppSettings.isPending}
+              <FallbackChainSection
+                enabled={fallbackChainEnabled}
+                modelDefaults={modelDefaults}
+                onReorder={handleReorderChain}
               />
-            </div>
-            <FallbackChainSection
-              enabled={fallbackChainEnabled}
-              modelDefaults={modelDefaults}
-              onReorder={handleReorderChain}
-            />
-          </section>
+            </section>
+          ) : null}
         </div>
       )}
     </div>

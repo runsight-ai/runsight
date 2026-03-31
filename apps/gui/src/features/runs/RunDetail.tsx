@@ -14,13 +14,17 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { useRun, useRunNodes, useRunLogs } from "@/queries/runs";
+import { useAttentionItems } from "@/queries/dashboard";
 import { CanvasErrorBoundary } from "@/components/shared/ErrorBoundary";
+import { Card } from "@runsight/ui/card";
+import { Badge } from "@runsight/ui/badge";
 import { RunCanvasNode, CanvasNodeComponent, nodeTypes } from "./RunCanvasNode";
 import type { RunNodeData } from "./RunCanvasNode";
 import { RunInspectorPanel } from "./RunInspectorPanel";
 import { RunBottomPanel } from "./RunBottomPanel";
 import { RunDetailHeader } from "./RunDetailHeader";
 import { getIconForBlockType, mapRunStatus } from "./runDetailUtils";
+import { AlertTriangle, Activity } from "lucide-react";
 
 // Re-export RunCanvasNode for external consumers
 export { RunCanvasNode };
@@ -49,6 +53,7 @@ function RunDetailInner() {
 
   const { data: runNodes, isLoading: isLoadingNodes } = useRunNodes(id || "");
   const { data: runLogs } = useRunLogs(id || "", undefined, { refetchInterval: undefined });
+  const { data: attentionData } = useAttentionItems(100);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<RunNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -96,6 +101,10 @@ function RunDetailInner() {
   const onPaneClick = useCallback(() => { setSelectedNode(null); }, []);
 
   const logs = useMemo(() => runLogs?.items || [], [runLogs]);
+  const attentionItems = useMemo(
+    () => (attentionData?.items ?? []).filter((item) => item.run_id === run?.id),
+    [attentionData?.items, run?.id],
+  );
 
   if (isLoadingRun || isLoadingNodes) {
     return (
@@ -126,6 +135,41 @@ function RunDetailInner() {
           totalCostUsd={run.total_cost_usd}
           totalTokens={run.total_tokens}
         />
+        {attentionItems.length > 0 && (
+          <div className="border-b border-border-default bg-surface-secondary px-4 py-3">
+            <div className="mb-3 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-warning-11" />
+              <h2 className="font-mono text-xs uppercase tracking-wider text-muted">
+                Attention
+              </h2>
+            </div>
+            <div className="space-y-2">
+              {attentionItems.map((item) => {
+                const isInfo = item.severity === "info";
+                return (
+                  <Card key={`${item.run_id}-${item.type}`} className="px-3 py-3">
+                    <div className="flex items-start gap-3">
+                      <div className={isInfo ? "mt-0.5 text-info-11" : "mt-0.5 text-warning-11"}>
+                        {isInfo ? <Activity className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium leading-5 text-heading">{item.title}</p>
+                            <p className="mt-1 text-sm leading-5 text-secondary">{item.description}</p>
+                          </div>
+                          <Badge variant={isInfo ? "info" : "warning"} className="w-fit">
+                            {item.type.replaceAll("_", " ")}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 relative">
