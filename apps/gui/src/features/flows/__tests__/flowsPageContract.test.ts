@@ -537,6 +537,22 @@ describe("RUN-426 WorkflowsTab behavior", () => {
     expect(hasSemanticList).toBe(true);
   });
 
+  it("filters rows by workflow name case-insensitively and keeps only matching names visible", async () => {
+    const firstView = await renderWorkflowsTab();
+
+    expect(firstView.html).toContain("Research &amp; Review");
+    expect(firstView.html).toContain("Content Pipeline");
+    expect(firstView.html).toContain("Daily Digest");
+
+    firstView.input?.onChange?.({ target: { value: "reSeArCh" } });
+
+    const filteredView = await renderWorkflowsTab();
+
+    expect(filteredView.html).toContain("Research &amp; Review");
+    expect(filteredView.html).not.toContain("Content Pipeline");
+    expect(filteredView.html).not.toContain("Daily Digest");
+  });
+
   it("filters rows by workflow name and ignores description-only matches", async () => {
     const firstView = await renderWorkflowsTab();
 
