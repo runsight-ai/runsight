@@ -1,3 +1,24 @@
+import { expect } from "vitest";
+
+expect.extend({
+  toHaveAttribute(
+    received: Element,
+    name: string,
+    expected?: string,
+  ) {
+    const actual = received.getAttribute(name);
+    const pass = expected === undefined ? actual !== null : actual === expected;
+
+    return {
+      pass,
+      message: () =>
+        expected === undefined
+          ? `expected element ${pass ? "not " : ""}to have attribute "${name}"`
+          : `expected attribute "${name}" ${pass ? "not " : ""}to be "${expected}", received "${actual}"`,
+    };
+  },
+});
+
 const NativeRequest = globalThis.Request;
 if (NativeRequest) {
   class RequestWithCompatibleSignal extends NativeRequest {

@@ -358,6 +358,22 @@ class WorkflowRepository:
         canvas_state = self._read_canvas_sidecar(workflow_id)
         return self._build_entity(parsed_data, workflow_id, canvas_state, raw_yaml=yaml_content)
 
+    def set_enabled(self, workflow_id: str, enabled: bool) -> WorkflowEntity:
+        """Update only the enabled flag in an existing workflow YAML file."""
+        yaml_path = self._get_path(workflow_id)
+        if not yaml_path.exists():
+            raise WorkflowNotFound(f"Workflow {workflow_id} not found")
+
+        with open(yaml_path, "r") as f:
+            data = yaml_mod.safe_load(f) or {}
+
+        data["enabled"] = enabled
+        yaml_content = yaml_mod.safe_dump(data, sort_keys=False, default_flow_style=False)
+        self._atomic_write(yaml_path, yaml_content)
+
+        canvas_state = self._read_canvas_sidecar(workflow_id)
+        return self._build_entity(data, workflow_id, canvas_state, raw_yaml=yaml_content)
+
     def delete(self, workflow_id: str) -> bool:
         """Delete a workflow and its canvas sidecar."""
         yaml_path = self._get_path(workflow_id)

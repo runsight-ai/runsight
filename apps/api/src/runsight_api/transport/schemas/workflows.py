@@ -59,6 +59,10 @@ class WorkflowUpdate(BaseModel):
     canvas_state: Optional[WorkflowCanvasState] = None
 
 
+class WorkflowEnabledUpdate(BaseModel):
+    enabled: bool
+
+
 class WorkflowCommitCreate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None

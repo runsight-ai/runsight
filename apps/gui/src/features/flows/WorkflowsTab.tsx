@@ -1,5 +1,9 @@
 import { DeleteConfirmDialog } from "@/components/shared/DeleteConfirmDialog";
-import { useDeleteWorkflow, useWorkflows } from "@/queries/workflows";
+import {
+  useDeleteWorkflow,
+  useSetWorkflowEnabled,
+  useWorkflows,
+} from "@/queries/workflows";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { Input } from "@runsight/ui/input";
 import type { WorkflowResponse } from "@runsight/shared/zod";
@@ -34,6 +38,7 @@ interface WorkflowsTabProps {
 export function Component({ onCreateWorkflow }: WorkflowsTabProps) {
   const { data, isLoading, error, refetch } = useWorkflows();
   const deleteWorkflow = useDeleteWorkflow();
+  const setWorkflowEnabled = useSetWorkflowEnabled();
   const [searchQuery, setSearchQuery] = useState("");
   const [workflowToDelete, setWorkflowToDelete] = useState<WorkflowResponse | null>(null);
 
@@ -108,6 +113,8 @@ export function Component({ onCreateWorkflow }: WorkflowsTabProps) {
           {
             workflow,
             onDelete: setWorkflowToDelete,
+            onToggleEnabled: (enabled: boolean) =>
+              setWorkflowEnabled.mutateAsync({ id: workflow.id, enabled }),
           },
           workflow.id,
         ),
