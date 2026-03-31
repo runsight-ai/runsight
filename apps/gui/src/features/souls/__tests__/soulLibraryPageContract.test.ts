@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
         role: "Researcher",
         model_name: "gpt-4o",
         provider: "openai",
+        avatar_color: "info",
+        tools: ["runsight/http"],
         workflow_count: 10,
       },
       {
@@ -21,6 +23,8 @@ const mocks = vi.hoisted(() => ({
         role: "Analyst",
         model_name: "claude-3-5-sonnet",
         provider: "anthropic",
+        avatar_color: "success",
+        tools: ["runsight/file-io"],
         workflow_count: 2,
       },
     ],
@@ -74,7 +78,7 @@ beforeEach(() => {
 });
 
 describe("RUN-452 SoulLibraryPage behavior", () => {
-  it("builds the page from PageHeader and DataTable directly, with current-contract columns only", async () => {
+  it("builds the page from PageHeader and DataTable directly, with color and tools visible in the current-contract columns", async () => {
     const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
 
     renderToStaticMarkup(
@@ -91,11 +95,17 @@ describe("RUN-452 SoulLibraryPage behavior", () => {
     };
 
     expect(tableProps.columns.map((column) => column.header)).toEqual(
-      expect.arrayContaining(["Name", "Model", "Provider", "Used In"]),
+      expect.arrayContaining(["Name", "Model", "Provider", "Tools", "Used In"]),
     );
     expect(tableProps.columns.some((column) => /Last Modified/i.test(column.header))).toBe(false);
     expect(tableProps.columns.some((column) => column.header === "Used In")).toBe(true);
     expect(tableProps.data).toEqual(mocks.soulsQuery.data);
+    expect(String(tableProps.columns.find((column) => column.header === "Name")?.render)).toMatch(
+      /avatar_color|bg-/,
+    );
+    expect(String(tableProps.columns.find((column) => column.header === "Tools")?.render)).toMatch(
+      /TOOL_META|HTTP|Files|Icon/,
+    );
   });
 
   it("navigates to /souls/new from the create action and /souls/:id/edit from row selection", async () => {

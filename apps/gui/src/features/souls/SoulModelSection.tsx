@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@runsight/ui/select";
 
-import { useModelProviders, useModelsForProvider } from "@/queries/settings";
+import { useModelsForProvider, useProviders } from "@/queries/settings";
 
 import { SoulFormSection } from "./SoulFormSection";
 
@@ -30,8 +30,15 @@ export function SoulModelSection({
   onProviderChange,
   onModelChange,
 }: SoulModelSectionProps) {
-  const providersQuery = useModelProviders();
+  const providersQuery = useProviders();
   const modelsQuery = useModelsForProvider(provider);
+  const configuredProviders = providersQuery.data?.items ?? [];
+  const selectedProvider = configuredProviders.find(
+    (providerSummary) =>
+      providerSummary.id === providerId ||
+      ((providerSummary.type ?? providerSummary.id) === provider && provider !== null),
+  );
+  const selectedProviderValue = selectedProvider?.id ?? providerId ?? undefined;
 
   return (
     <SoulFormSection title="Model">
@@ -39,14 +46,22 @@ export function SoulModelSection({
         <div className="space-y-2">
           <Label>Provider</Label>
           <Select
-            value={providerId ?? undefined}
-            onValueChange={(value) => onProviderChange(value, value)}
+            value={selectedProviderValue}
+            onValueChange={(value) => {
+              const nextProvider = configuredProviders.find(
+                (providerSummary) => providerSummary.id === value,
+              );
+              onProviderChange(
+                value,
+                nextProvider?.type ?? nextProvider?.id ?? value,
+              );
+            }}
           >
             <SelectTrigger aria-label="Select provider">
               <SelectValue placeholder="Select provider" />
             </SelectTrigger>
             <SelectContent>
-              {(providersQuery.data ?? []).map((providerSummary) => (
+              {configuredProviders.map((providerSummary) => (
                 <SelectItem key={providerSummary.id} value={providerSummary.id}>
                   {providerSummary.name}
                 </SelectItem>
@@ -54,16 +69,6 @@ export function SoulModelSection({
             </SelectContent>
           </Select>
           {providerError ? <p className="text-sm text-danger">{providerError}</p> : null}
-          {(providersQuery.data ?? []).map((providerSummary) =>
-            providerSummary.id === providerId && providerSummary.is_configured === false ? (
-              <p
-                key={`${providerSummary.id}-warning`}
-                className="text-sm text-[var(--warning-11)]"
-              >
-                {providerSummary.name} is not configured yet.
-              </p>
-            ) : null,
-          )}
         </div>
 
         <div className="space-y-2">

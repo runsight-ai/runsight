@@ -1,8 +1,10 @@
 import { useNavigate } from "react-router";
+import { Globe, FileText } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useSouls } from "@/queries/souls";
+import { Badge } from "@runsight/ui/badge";
 import { Button } from "@runsight/ui/button";
 import type { SoulListResponse, SoulResponse } from "@runsight/shared/zod";
 
@@ -14,12 +16,41 @@ function normalizeSoulData(data: SoulListResponse | SoulResponse[] | undefined):
   return Array.isArray(data) ? data : data.items;
 }
 
+const AVATAR_COLOR_CLASSES: Record<string, string> = {
+  accent: "bg-accent-3",
+  info: "bg-info-3",
+  success: "bg-success-3",
+  warning: "bg-warning-3",
+  danger: "bg-danger-3",
+  neutral: "bg-neutral-3",
+};
+
+const TOOL_META: Record<
+  string,
+  { label: string; icon: typeof Globe }
+> = {
+  "runsight/http": { label: "HTTP", icon: Globe },
+  "runsight/file-io": { label: "Files", icon: FileText },
+};
+
 const columns: Column[] = [
   {
     key: "role",
     header: "Name",
     sortable: true,
-    render: (row) => (row.role as string | null) || "Unnamed Soul",
+    render: (row) => {
+      const avatarColor = row.avatar_color as string | null;
+      return (
+        <div className="flex items-center gap-3">
+          <span
+            className={`size-3 rounded-full border border-border-default ${
+              avatarColor ? AVATAR_COLOR_CLASSES[avatarColor] ?? "bg-surface-tertiary" : "bg-surface-tertiary"
+            }`}
+          />
+          <span>{(row.role as string | null) || "Unnamed Soul"}</span>
+        </div>
+      );
+    },
   },
   {
     key: "model_name",
@@ -32,6 +63,34 @@ const columns: Column[] = [
     header: "Provider",
     sortable: true,
     render: (row) => (row.provider as string | null) || "—",
+  },
+  {
+    key: "tools",
+    header: "Tools",
+    sortable: false,
+    render: (row) => {
+      const tools = Array.isArray(row.tools) ? (row.tools as string[]) : [];
+      const visibleTools = tools.filter((tool) => tool in TOOL_META);
+
+      if (visibleTools.length === 0) {
+        return "—";
+      }
+
+      return (
+        <div className="flex flex-wrap gap-2">
+          {visibleTools.map((tool) => {
+            const meta = TOOL_META[tool];
+            const Icon = meta.icon;
+            return (
+              <Badge key={tool} variant="outline" className="gap-1.5">
+                <Icon className="h-3 w-3" />
+                {meta.label}
+              </Badge>
+            );
+          })}
+        </div>
+      );
+    },
   },
   {
     key: "workflow_count",

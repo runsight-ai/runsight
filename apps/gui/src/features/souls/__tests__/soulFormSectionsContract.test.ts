@@ -60,10 +60,10 @@ describe("SoulIdentitySection contract (RUN-448)", () => {
 });
 
 describe("SoulModelSection contract (RUN-448)", () => {
-  it("uses model-provider and model-catalog hooks to drive provider and model selects", () => {
+  it("uses configured providers plus the model catalog to drive provider and model selects", () => {
     const source = read(SECTION_PATHS.model);
     expect(source).toMatch(/export\s+(function|const)\s+SoulModelSection/);
-    expect(source).toMatch(/useModelProviders/);
+    expect(source).toMatch(/useProviders/);
     expect(source).toMatch(/useModelsForProvider/);
     expect(source).toMatch(/Select/);
     expect(source).toMatch(/providerId:\s*string\s*\|\s*null/);
@@ -71,7 +71,7 @@ describe("SoulModelSection contract (RUN-448)", () => {
     expect(source).toMatch(/provider:\s*string\s*\|\s*null/);
     expect(source).toMatch(/onProviderChange/);
     expect(source).toMatch(/onModelChange/);
-    expect(source).toMatch(/is_configured/);
+    expect(source).toMatch(/type/);
   });
 
   it("filters the models request by provider and shows provider-derived model ids", () => {
@@ -105,6 +105,7 @@ describe("SoulToolsSection contract (RUN-448)", () => {
     expect(source).toMatch(/delegate/i);
     expect(source).toMatch(/automatically|block/i);
     expect(source).not.toMatch(/value:\s*["']runsight\/delegate["']/);
+    expect(source).toMatch(/This soul has no tools enabled yet|This soul does not have any tools enabled yet/);
   });
 });
 
