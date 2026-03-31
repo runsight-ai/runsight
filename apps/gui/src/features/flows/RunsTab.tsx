@@ -3,12 +3,12 @@ import { Input } from "@runsight/ui/input";
 import { Button } from "@runsight/ui/button";
 import { Badge, BadgeDot } from "@runsight/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@runsight/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@runsight/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@runsight/ui/table";
 import type { RunResponse } from "@runsight/shared/zod";
+import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useRuns } from "@/queries/runs";
@@ -102,11 +103,11 @@ function formatStartedAt(startedAt: number | null | undefined) {
 function getSourceVariant(source: RunResponse["source"]) {
   switch (source) {
     case "manual":
-      return "accent";
+      return "neutral";
     case "webhook":
       return "info";
     case "schedule":
-      return "neutral";
+      return "accent";
     case "simulation":
       return "warning";
     default:
@@ -269,25 +270,32 @@ export function Component({ onGoToWorkflows }: RunsTabProps) {
             onChange={(event) => setSearchQuery(event.target.value)}
           />
         </div>
-        <Select
-          value={sourceFilter}
-          onValueChange={(value) => setSourceFilter(value as SourceFilter)}
-        >
-          <SelectTrigger
-            aria-label="Filter runs by source"
-            className="w-full md:w-48"
-          >
-            <SelectValue>{SOURCE_FILTER_LABELS[sourceFilter]}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="production">
-              <span>Production runs</span>
-            </SelectItem>
-            <SelectItem value="all">
-              <span>All runs</span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="secondary"
+                aria-label="Filter runs by source"
+                className="w-full justify-between md:w-48"
+              >
+                {SOURCE_FILTER_LABELS[sourceFilter]}
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuRadioGroup
+              value={sourceFilter}
+              onValueChange={(value) => setSourceFilter(value as SourceFilter)}
+            >
+              <DropdownMenuRadioItem value="production">
+                Production runs
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="all">All runs</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex-1 pt-4">
