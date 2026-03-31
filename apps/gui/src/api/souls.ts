@@ -2,12 +2,14 @@ import { api } from "./client";
 import {
   SoulListResponseSchema,
   SoulResponseSchema,
+  SoulUsageResponseSchema,
 } from "@runsight/shared/zod";
 import type {
   SoulCreate,
   SoulListResponse,
   SoulResponse,
   SoulUpdate,
+  SoulUsageResponse,
 } from "@runsight/shared/zod";
 
 export const soulsApi = {
@@ -19,6 +21,11 @@ export const soulsApi = {
   getSoul: async (id: string): Promise<SoulResponse> => {
     const res = await api.get(`/souls/${id}`);
     return SoulResponseSchema.parse(res);
+  },
+
+  getSoulUsages: async (id: string): Promise<SoulUsageResponse> => {
+    const res = await api.get(`/souls/${id}/usages`);
+    return SoulUsageResponseSchema.parse(res);
   },
 
   createSoul: async (data: SoulCreate): Promise<SoulResponse> => {

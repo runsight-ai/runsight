@@ -19,6 +19,14 @@ export function useSoul(id: string) {
   });
 }
 
+export function useSoulUsages(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.souls.usages(id!),
+    queryFn: () => soulsApi.getSoulUsages(id!),
+    enabled: !!id,
+  });
+}
+
 export function useCreateSoul() {
   const queryClient = useQueryClient();
   return useMutation({

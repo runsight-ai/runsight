@@ -8,9 +8,14 @@ export const queryKeys = {
     detail: (id: string) => ["runs", id] as const,
     logs: (id: string) => ["runs", id, "logs"] as const,
   },
+  models: {
+    providers: ["models", "providers"] as const,
+    byProvider: (provider: string | null) => ["models", provider ?? "__none__"] as const,
+  },
   souls: {
     all: ["souls"] as const,
     detail: (id: string) => ["souls", id] as const,
+    usages: (id: string) => ["souls", id, "usages"] as const,
   },
   steps: {
     all: ["steps"] as const,
