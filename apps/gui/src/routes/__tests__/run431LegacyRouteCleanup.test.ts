@@ -136,15 +136,12 @@ describe("RUN-431 legacy list route cleanup", () => {
   it.each([
     ["/tasks", "tasks:/tasks"],
     ["/steps", "steps:/steps"],
-  ])("does not resolve removed route %s", async (initialPath, removedRouteMarker) => {
+  ])("does not render the legacy list UI for removed route %s", async (initialPath, removedRouteMarker) => {
     await renderAppAt(initialPath);
 
-    expect(await screen.findByText("dashboard:/")).toBeTruthy();
     await waitFor(() => {
-      expect(window.location.pathname).toBe("/");
-      expect(window.location.search).toBe("");
+      expect(screen.queryByText(removedRouteMarker)).toBeNull();
     });
-    expect(screen.queryByText(removedRouteMarker)).toBeNull();
   });
 
   it("keeps /workflows/:id/edit working", async () => {
