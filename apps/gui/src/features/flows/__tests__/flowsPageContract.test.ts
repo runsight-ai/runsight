@@ -1,5 +1,6 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type * as ReactJsxRuntime from "react/jsx-runtime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -54,6 +55,7 @@ const mocks = vi.hoisted(() => ({
   stateCursor: 0,
   navigate: vi.fn(),
   refetch: vi.fn(),
+  createWorkflow: vi.fn(),
   deleteWorkflow: vi.fn(),
   queryState: {
     data: {
@@ -63,6 +65,7 @@ const mocks = vi.hoisted(() => ({
     isLoading: false,
     error: null as Error | null,
   },
+  createPending: false,
   deletePending: false,
   inputProps: [] as Array<Record<string, unknown>>,
   buttonProps: [] as Array<Record<string, unknown>>,
@@ -100,7 +103,7 @@ vi.mock("react", async () => {
 });
 
 vi.mock("react/jsx-runtime", async () => {
-  const actual = await vi.importActual<typeof import("react/jsx-runtime")>(
+  const actual = await vi.importActual<typeof ReactJsxRuntime>(
     "react/jsx-runtime",
   );
 
@@ -145,6 +148,10 @@ vi.mock("@/queries/workflows", () => ({
     isLoading: mocks.queryState.isLoading,
     error: mocks.queryState.error,
     refetch: mocks.refetch,
+  }),
+  useCreateWorkflow: () => ({
+    mutate: mocks.createWorkflow,
+    isPending: mocks.createPending,
   }),
   useDeleteWorkflow: () => ({
     mutateAsync: mocks.deleteWorkflow,
@@ -424,6 +431,7 @@ async function renderFlowsPage() {
   return {
     html,
     input: mocks.inputProps.at(-1) as { onChange?: (event: { target: { value: string } }) => void } | undefined,
+    buttonProps: [...mocks.buttonProps],
     tabTriggers: [...mocks.tabTriggers],
     rowActions: [...mocks.rowActions],
     rowProps: [...mocks.rowProps],
@@ -441,7 +449,9 @@ async function renderWorkflowsTab() {
   mocks.jsxElements.length = 0;
 
   const WorkflowsTab = await loadWorkflowsTabComponent();
-  const html = renderToStaticMarkup(React.createElement(WorkflowsTab));
+  const html = renderToStaticMarkup(
+    React.createElement(WorkflowsTab, { onCreateWorkflow: vi.fn() }),
+  );
 
   return {
     html,
@@ -475,8 +485,18 @@ beforeEach(() => {
   mocks.stateCursor = 0;
   mocks.navigate.mockReset();
   mocks.refetch.mockReset();
+  mocks.createWorkflow.mockReset();
   mocks.deleteWorkflow.mockReset();
+  mocks.createWorkflow.mockImplementation(
+    (
+      _payload: unknown,
+      options?: { onSuccess?: (workflow: { id: string }) => void },
+    ) => {
+      options?.onSuccess?.({ id: "wf_created" });
+    },
+  );
   mocks.deleteWorkflow.mockResolvedValue({ id: "wf_research", deleted: true });
+  mocks.createPending = false;
   mocks.deletePending = false;
   mocks.queryState.data = {
     items: mocks.workflows,
@@ -498,6 +518,29 @@ describe("RUN-426 FlowsPage tabs", () => {
     const view = await renderFlowsPage();
 
     expect(view.html).toContain("New Workflow");
+  });
+
+  it("creates an empty workflow and navigates to edit when the header action is clicked", async () => {
+    const view = await renderFlowsPage();
+    const headerAction = view.buttonProps.find((props) => props.children === "New Workflow") as
+      | { onClick?: () => void }
+      | undefined;
+
+    headerAction?.onClick?.();
+
+    expect(mocks.createWorkflow).toHaveBeenCalledWith(
+      {
+        canvas_state: {
+          nodes: [],
+          edges: [],
+          viewport: { x: 0, y: 0, zoom: 1 },
+          selected_node_id: null,
+          canvas_mode: "dag",
+        },
+      },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+    expect(mocks.navigate).toHaveBeenCalledWith("/workflows/wf_created/edit");
   });
 
   it("renders Flows with the Workflows tab active and the Runs tab as a disabled placeholder", async () => {

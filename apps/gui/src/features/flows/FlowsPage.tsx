@@ -1,26 +1,46 @@
 import { PageHeader } from "@/components/shared";
+import { useCreateWorkflow } from "@/queries/workflows";
 import { Button } from "@runsight/ui/button";
+import type { WorkflowCreate } from "@runsight/shared/zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@runsight/ui/tabs";
-import { Suspense, lazy, useState } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router";
 import { WorkflowsTab } from "./WorkflowsTab";
 
 type FlowTab = "workflows" | "runs";
-const NewWorkflowModal = lazy(() =>
-  import("../workflows/NewWorkflowModal").then((module) => ({
-    default: module.NewWorkflowModal,
-  })),
-);
+const EMPTY_WORKFLOW_CREATE: WorkflowCreate = {
+  canvas_state: {
+    nodes: [],
+    edges: [],
+    viewport: { x: 0, y: 0, zoom: 1 },
+    selected_node_id: null,
+    canvas_mode: "dag",
+  },
+};
 
 export function Component() {
+  const navigate = useNavigate();
+  const createWorkflow = useCreateWorkflow();
   const [activeTab, setActiveTab] = useState<FlowTab>("workflows");
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const handleCreateWorkflow = () => {
+    createWorkflow.mutate(EMPTY_WORKFLOW_CREATE, {
+      onSuccess: (workflow) => {
+        navigate(`/workflows/${workflow.id}/edit`);
+      },
+    });
+  };
 
   return (
     <div className="flex h-full flex-col bg-surface-primary">
       <PageHeader
         title="Flows"
         actions={
-          <Button type="button" onClick={() => setIsCreateModalOpen(true)}>
+          <Button
+            type="button"
+            onClick={handleCreateWorkflow}
+            disabled={createWorkflow.isPending}
+          >
             New Workflow
           </Button>
         }
@@ -43,19 +63,10 @@ export function Component() {
           </div>
 
           <TabsContent value="workflows" className="mt-0 flex-1">
-            <WorkflowsTab onCreateWorkflow={() => setIsCreateModalOpen(true)} />
+            <WorkflowsTab onCreateWorkflow={handleCreateWorkflow} />
           </TabsContent>
         </Tabs>
       </main>
-
-      {isCreateModalOpen ? (
-        <Suspense fallback={null}>
-          <NewWorkflowModal
-            open={isCreateModalOpen}
-            onClose={() => setIsCreateModalOpen(false)}
-          />
-        </Suspense>
-      ) : null}
     </div>
   );
 }
