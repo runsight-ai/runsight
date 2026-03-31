@@ -1,7 +1,7 @@
 /**
  * RED-TEAM tests for RUN-242: CrudListPage<T> Generic Component.
  *
- * The three CRUD list pages (SoulList, StepList, TaskList) share ~95% identical
+ * The CRUD list pages share ~95% identical
  * code — search, create/edit modals, delete confirmation, loading/error/empty
  * states. This ticket extracts the pattern into a config-driven generic
  * CrudListPage<T> and a reusable DeleteConfirmDialog.
@@ -9,7 +9,7 @@
  * These tests MUST FAIL until the Green Team implements:
  *  - CrudListPage.tsx: generic config-driven component
  *  - DeleteConfirmDialog.tsx: reusable delete confirmation dialog
- *  - SoulList, StepList, TaskList refactored to use CrudListPage (each < 100 lines)
+ *  - list surfaces refactored to use CrudListPage where they still exist
  *
  * Environment: Vitest + Node (no DOM). Tests verify source code structure only.
  */
@@ -206,100 +206,6 @@ describe("SoulList migration", () => {
     // Should not import Dialog directly — DeleteConfirmDialog handles that
     expect(source).not.toMatch(
       /import.*\{[^}]*Dialog[^}]*\}.*from.*["'](@runsight\/ui\/dialog|@\/components\/ui\/dialog)["']/
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 4. StepList migration (AC1-2)
-// ---------------------------------------------------------------------------
-
-describe("StepList migration", () => {
-  let source: string;
-
-  it("StepList.tsx is under 100 lines", () => {
-    source = readSource(SIDEBAR_DIR, "StepList.tsx");
-    const lines = countLines(source);
-    expect(lines).toBeLessThanOrEqual(100);
-  });
-
-  it("imports and uses CrudListPage", () => {
-    source = readSource(SIDEBAR_DIR, "StepList.tsx");
-    expect(source).toMatch(/import.*CrudListPage.*from/);
-  });
-
-  it("renders CrudListPage in its return", () => {
-    source = readSource(SIDEBAR_DIR, "StepList.tsx");
-    expect(source).toMatch(/<CrudListPage/);
-  });
-
-  it("passes a config object with resourceName", () => {
-    source = readSource(SIDEBAR_DIR, "StepList.tsx");
-    expect(source).toMatch(/resourceName.*["']Step["']/i);
-  });
-
-  it("does not have local useState for searchQuery", () => {
-    source = readSource(SIDEBAR_DIR, "StepList.tsx");
-    expect(source).not.toMatch(/useState.*searchQuery|searchQuery.*useState/);
-    expect(source).not.toMatch(/setSearchQuery/);
-  });
-
-  it("does not have local useMemo for filtering", () => {
-    source = readSource(SIDEBAR_DIR, "StepList.tsx");
-    expect(source).not.toMatch(/useMemo/);
-  });
-
-  it("does not have inline delete confirmation dialog", () => {
-    source = readSource(SIDEBAR_DIR, "StepList.tsx");
-    expect(source).not.toMatch(
-      /import.*\{[^}]*Dialog[^}]*\}.*from.*["']@\/components\/ui\/dialog["']/
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 5. TaskList migration (AC1-2)
-// ---------------------------------------------------------------------------
-
-describe("TaskList migration", () => {
-  let source: string;
-
-  it("TaskList.tsx is under 100 lines", () => {
-    source = readSource(SIDEBAR_DIR, "TaskList.tsx");
-    const lines = countLines(source);
-    expect(lines).toBeLessThanOrEqual(100);
-  });
-
-  it("imports and uses CrudListPage", () => {
-    source = readSource(SIDEBAR_DIR, "TaskList.tsx");
-    expect(source).toMatch(/import.*CrudListPage.*from/);
-  });
-
-  it("renders CrudListPage in its return", () => {
-    source = readSource(SIDEBAR_DIR, "TaskList.tsx");
-    expect(source).toMatch(/<CrudListPage/);
-  });
-
-  it("passes a config object with resourceName", () => {
-    source = readSource(SIDEBAR_DIR, "TaskList.tsx");
-    expect(source).toMatch(/resourceName.*["']Task["']/i);
-  });
-
-  it("does not have local useState for searchQuery", () => {
-    source = readSource(SIDEBAR_DIR, "TaskList.tsx");
-    expect(source).not.toMatch(/useState.*searchQuery|searchQuery.*useState/);
-    expect(source).not.toMatch(/setSearchQuery/);
-  });
-
-  it("does not have local useMemo for filtering", () => {
-    source = readSource(SIDEBAR_DIR, "TaskList.tsx");
-    expect(source).not.toMatch(/useMemo/);
-  });
-
-  it("does not have inline delete confirmation dialog", () => {
-    source = readSource(SIDEBAR_DIR, "TaskList.tsx");
-    expect(source).not.toMatch(
-      /import.*\{[^}]*Dialog[^}]*\}.*from.*["']@\/components\/ui\/dialog["']/
     );
   });
 });

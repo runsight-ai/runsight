@@ -56,7 +56,7 @@ vi.mock("@/features/canvas/CanvasPage", () => ({
   Component: () => React.createElement(RouteEcho, { label: "workflow-editor" }),
 }));
 
-vi.mock("@/features/runs/RunList", () => ({
+vi.mock("@/features/runs/RunsPage", () => ({
   Component: () => React.createElement(RouteEcho, { label: "canonical-runs" }),
 }));
 

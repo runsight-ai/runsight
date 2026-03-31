@@ -207,11 +207,9 @@ const SHARED_COMPONENTS = [
 const PROVIDER_COMPONENTS = ["components/provider/ProviderSetup.tsx"];
 
 const SIDEBAR_FEATURES = [
-  "features/sidebar/StepList.tsx",
   "features/sidebar/StepModals.tsx",
   "features/sidebar/SoulList.tsx",
   "features/sidebar/SoulModals.tsx",
-  "features/sidebar/TaskList.tsx",
   "features/sidebar/TaskModals.tsx",
 ];
 
@@ -228,7 +226,6 @@ const RUNS_FEATURES = [
   "features/runs/RunDetail.tsx",
   "features/runs/RunDetailHeader.tsx",
   "features/runs/RunInspectorPanel.tsx",
-  "features/runs/RunList.tsx",
 ];
 
 const SETTINGS_FEATURES = [
@@ -244,7 +241,6 @@ const OTHER_FEATURES = [
 
 const WORKFLOW_FEATURES = [
   "features/workflows/NewWorkflowModal.tsx",
-  "features/workflows/WorkflowList.tsx",
 ];
 
 const LAYOUTS = ["routes/layouts/ShellLayout.tsx"];
@@ -265,7 +261,7 @@ const ALL_FILES = [
 ];
 
 // ===========================================================================
-// 1. All 37 files exist and are readable
+// 1. Tracked screen files exist and are readable
 // ===========================================================================
 
 describe("Screen files exist", () => {
