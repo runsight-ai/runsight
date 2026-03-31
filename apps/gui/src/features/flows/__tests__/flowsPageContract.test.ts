@@ -54,6 +54,7 @@ const mocks = vi.hoisted(() => ({
   stateCursor: 0,
   navigate: vi.fn(),
   refetch: vi.fn(),
+  createWorkflow: vi.fn(),
   deleteWorkflow: vi.fn(),
   queryState: {
     data: {
@@ -64,6 +65,7 @@ const mocks = vi.hoisted(() => ({
     error: null as Error | null,
   },
   deletePending: false,
+  createPending: false,
   inputProps: [] as Array<Record<string, unknown>>,
   buttonProps: [] as Array<Record<string, unknown>>,
   rowProps: [] as Array<Record<string, unknown>>,
@@ -145,6 +147,10 @@ vi.mock("@/queries/workflows", () => ({
     isLoading: mocks.queryState.isLoading,
     error: mocks.queryState.error,
     refetch: mocks.refetch,
+  }),
+  useCreateWorkflow: () => ({
+    mutate: mocks.createWorkflow,
+    isPending: mocks.createPending,
   }),
   useDeleteWorkflow: () => ({
     mutateAsync: mocks.deleteWorkflow,
@@ -475,9 +481,19 @@ beforeEach(() => {
   mocks.stateCursor = 0;
   mocks.navigate.mockReset();
   mocks.refetch.mockReset();
+  mocks.createWorkflow.mockReset();
   mocks.deleteWorkflow.mockReset();
+  mocks.createWorkflow.mockImplementation(
+    (
+      _payload: unknown,
+      options?: { onSuccess?: (workflow: { id: string }) => void },
+    ) => {
+      options?.onSuccess?.({ id: "wf_new" });
+    },
+  );
   mocks.deleteWorkflow.mockResolvedValue({ id: "wf_research", deleted: true });
   mocks.deletePending = false;
+  mocks.createPending = false;
   mocks.queryState.data = {
     items: mocks.workflows,
     total: mocks.workflows.length,
@@ -498,6 +514,32 @@ describe("RUN-426 FlowsPage tabs", () => {
     const view = await renderFlowsPage();
 
     expect(view.html).toContain("New Workflow");
+  });
+
+  it("creates an empty workflow and navigates to /workflows/:id/edit from the header action", async () => {
+    await renderFlowsPage();
+
+    const headerAction = mocks.buttonProps.find((props) =>
+      React.Children.toArray(props.children).includes("New Workflow"),
+    ) as { onClick?: () => void } | undefined;
+
+    headerAction?.onClick?.();
+
+    expect(mocks.createWorkflow).toHaveBeenCalledWith(
+      {
+        canvas_state: {
+          nodes: [],
+          edges: [],
+          viewport: { x: 0, y: 0, zoom: 1 },
+          selected_node_id: null,
+          canvas_mode: "dag",
+        },
+      },
+      expect.objectContaining({
+        onSuccess: expect.any(Function),
+      }),
+    );
+    expect(mocks.navigate).toHaveBeenCalledWith("/workflows/wf_new/edit");
   });
 
   it("renders Flows with the Workflows tab active and the Runs tab as a disabled placeholder", async () => {
