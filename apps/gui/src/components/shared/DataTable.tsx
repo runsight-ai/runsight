@@ -11,12 +11,18 @@ import {
 } from "@runsight/ui/table";
 import { ChevronUp, ChevronDown, Search } from "lucide-react";
 
+const sortStateByColumns = new WeakMap<
+  Column[],
+  { sortKey: string | null; sortDirection: "asc" | "desc" }
+>();
+
 export interface Column {
   key: string;
   header: string;
   width?: string;
   sortable?: boolean;
   render?: (row: Record<string, unknown>) => React.ReactNode;
+  sortValue?: (row: Record<string, unknown>) => string | number | null | undefined;
 }
 
 interface DataTableProps {
@@ -40,9 +46,12 @@ export function DataTable({
   emptyState,
   onRowClick,
 }: DataTableProps) {
+  const cachedSortState = sortStateByColumns.get(columns);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [sortKey, setSortKey] = useState<string | null>(cachedSortState?.sortKey ?? null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(
+    cachedSortState?.sortDirection ?? "asc"
+  );
 
   const filteredData = useMemo(() => {
     if (!searchable || !searchQuery) return data;
@@ -60,27 +69,37 @@ export function DataTable({
   const sortedData = useMemo(() => {
     if (!sortable || !sortKey) return filteredData;
 
+    const sortColumn = columns.find((column) => column.key === sortKey);
+
     return [...filteredData].sort((a, b) => {
-      const aVal = a[sortKey];
-      const bVal = b[sortKey];
+      const aVal = sortColumn?.sortValue ? sortColumn.sortValue(a) : a[sortKey];
+      const bVal = sortColumn?.sortValue ? sortColumn.sortValue(b) : b[sortKey];
 
       if (aVal == null && bVal == null) return 0;
       if (aVal == null) return sortDirection === "asc" ? -1 : 1;
       if (bVal == null) return sortDirection === "asc" ? 1 : -1;
 
-      const comparison = String(aVal).localeCompare(String(bVal));
+      const comparison =
+        typeof aVal === "number" && typeof bVal === "number"
+          ? aVal - bVal
+          : String(aVal).localeCompare(String(bVal));
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [filteredData, sortKey, sortDirection, sortable]);
+  }, [columns, filteredData, sortKey, sortDirection, sortable]);
 
   const handleSort = (key: string) => {
     if (!sortable) return;
 
     if (sortKey === key) {
-      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      setSortDirection((prev) => {
+        const nextDirection = prev === "asc" ? "desc" : "asc";
+        sortStateByColumns.set(columns, { sortKey: key, sortDirection: nextDirection });
+        return nextDirection;
+      });
     } else {
       setSortKey(key);
       setSortDirection("asc");
+      sortStateByColumns.set(columns, { sortKey: key, sortDirection: "asc" });
     }
   };
 

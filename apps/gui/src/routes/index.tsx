@@ -62,7 +62,7 @@ export const router = createBrowserRouter([
       {
         path: "souls",
         lazy: () =>
-          import("@/features/sidebar/SoulList").then((m) => ({
+          import("@/features/souls/SoulLibraryPage").then((m) => ({
             Component: m.Component,
           })),
       },
