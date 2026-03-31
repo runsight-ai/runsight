@@ -91,6 +91,12 @@ export function useTestProviderConnection() {
   });
 }
 
+export function useTestProviderCredentials() {
+  return useMutation({
+    mutationFn: settingsApi.testProviderCredentials,
+  });
+}
+
 export function useModelDefaults() {
   return useQuery({
     queryKey: queryKeys.settings.modelDefaults,
