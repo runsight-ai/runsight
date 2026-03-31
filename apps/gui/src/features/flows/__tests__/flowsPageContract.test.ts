@@ -54,6 +54,8 @@ const mocks = vi.hoisted(() => ({
   stateValues: [] as unknown[],
   stateCursor: 0,
   navigate: vi.fn(),
+  searchParams: new URLSearchParams(),
+  setSearchParams: vi.fn(),
   refetch: vi.fn(),
   createWorkflow: vi.fn(),
   createWorkflowAsync: vi.fn(),
@@ -141,6 +143,20 @@ vi.mock("react/jsx-runtime", async () => {
 
 vi.mock("react-router", () => ({
   useNavigate: () => mocks.navigate,
+  useSearchParams: () => [
+    mocks.searchParams,
+    (next: string | URLSearchParams | Record<string, string>) => {
+      const params =
+        typeof next === "string"
+          ? new URLSearchParams(next)
+          : next instanceof URLSearchParams
+            ? new URLSearchParams(next)
+            : new URLSearchParams(Object.entries(next));
+
+      mocks.searchParams = params;
+      mocks.setSearchParams(params);
+    },
+  ],
 }));
 
 vi.mock("@/queries/workflows", () => ({
@@ -393,6 +409,22 @@ vi.mock("../WorkflowRow", () => ({
     React.createElement("div", null, JSON.stringify(props)),
 }));
 
+vi.mock("../RunsTab", () => ({
+  RunsTab: ({ onGoToWorkflows }: { onGoToWorkflows?: () => void }) =>
+    React.createElement("section", { "data-testid": "runs-tab-shell" }, [
+      React.createElement("h2", { key: "title" }, "Runs tab shell"),
+      React.createElement(
+        "button",
+        {
+          key: "go-to-workflows",
+          type: "button",
+          onClick: onGoToWorkflows,
+        },
+        "Go to Workflows",
+      ),
+    ]),
+}));
+
 vi.mock("lucide-react", () => {
   const icon = (name: string) =>
     function Icon() {
@@ -417,7 +449,7 @@ async function loadWorkflowsTabComponent() {
   return (module.Component ?? (module as Record<string, unknown>).WorkflowsTab) as React.ComponentType;
 }
 
-async function renderFlowsPage() {
+async function renderFlowsPage(search = "") {
   mocks.stateCursor = 0;
   mocks.inputProps.length = 0;
   mocks.buttonProps.length = 0;
@@ -426,6 +458,7 @@ async function renderFlowsPage() {
   mocks.tabTriggers.length = 0;
   mocks.deleteDialogs.length = 0;
   mocks.jsxElements.length = 0;
+  mocks.searchParams = new URLSearchParams(search);
 
   const FlowsPage = await loadFlowsPageComponent();
   const html = renderToStaticMarkup(React.createElement(FlowsPage));
@@ -483,6 +516,8 @@ beforeEach(() => {
   mocks.stateValues.length = 0;
   mocks.stateCursor = 0;
   mocks.navigate.mockReset();
+  mocks.searchParams = new URLSearchParams();
+  mocks.setSearchParams.mockReset();
   mocks.refetch.mockReset();
   mocks.createWorkflow.mockReset();
   mocks.createWorkflowAsync.mockReset();
@@ -515,7 +550,7 @@ beforeEach(() => {
 });
 
 describe("RUN-426 FlowsPage tabs", () => {
-  it("renders the New Workflow header action on the /flows page", async () => {
+  it("renders the New Workflow header action on /flows while the workflows tab is active", async () => {
     const view = await renderFlowsPage();
 
     expect(view.html).toContain("New Workflow");
@@ -537,20 +572,34 @@ describe("RUN-426 FlowsPage tabs", () => {
     expect(mocks.navigate).toHaveBeenCalledWith("/workflows/wf_new/edit");
   });
 
-  it("renders Flows with the Workflows tab active and the Runs tab as a disabled placeholder", async () => {
+  it("renders Flows with the Workflows tab active by default on /flows", async () => {
     const view = await renderFlowsPage();
 
     expect(view.html).toContain("Flows");
     expect(view.html).toContain("Workflows");
     expect(view.html).toContain("Runs");
-    expect(view.html).toContain("Coming soon");
+    expect(view.html).not.toContain("Coming soon");
 
     const workflowsTab = view.tabTriggers.find((tab) => tab.value === "workflows");
     const runsTab = view.tabTriggers.find((tab) => tab.value === "runs");
 
     expect(workflowsTab?.active).toBe(true);
     expect(runsTab?.active).toBe(false);
-    expect(runsTab?.disabled).toBe(true);
+    expect(runsTab?.disabled).toBe(false);
+    expect(view.html).not.toContain("Runs tab shell");
+  });
+
+  it("renders the Runs tab shell from /flows?tab=runs and hides the workflows header action", async () => {
+    const view = await renderFlowsPage("tab=runs");
+
+    const workflowsTab = view.tabTriggers.find((tab) => tab.value === "workflows");
+    const runsTab = view.tabTriggers.find((tab) => tab.value === "runs");
+
+    expect(workflowsTab?.active).toBe(false);
+    expect(runsTab?.active).toBe(true);
+    expect(runsTab?.disabled).toBe(false);
+    expect(view.html).toContain("Runs tab shell");
+    expect(view.html).not.toContain("New Workflow");
   });
 
   it("keeps the header visible while the workflows tab shows loading placeholders", async () => {
