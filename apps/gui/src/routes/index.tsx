@@ -52,7 +52,7 @@ export const router = createBrowserRouter([
       {
         path: "runs",
         lazy: () =>
-          import("@/features/runs/RunList").then((m) => ({
+          import("@/features/runs/RunsPage").then((m) => ({
             Component: m.Component,
           })),
       },
