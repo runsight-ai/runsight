@@ -494,6 +494,12 @@ beforeEach(() => {
 });
 
 describe("RUN-426 FlowsPage tabs", () => {
+  it("renders the New Workflow header action on the /flows page", async () => {
+    const view = await renderFlowsPage();
+
+    expect(view.html).toContain("New Workflow");
+  });
+
   it("renders Flows with the Workflows tab active and the Runs tab as a disabled placeholder", async () => {
     const view = await renderFlowsPage();
 
