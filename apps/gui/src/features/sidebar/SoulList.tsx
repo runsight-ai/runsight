@@ -9,8 +9,8 @@ import { NewSoulModal, EditSoulModal } from "./SoulModals";
 
 const columns: Column[] = [
   {
-    key: "name",
-    header: "Name",
+    key: "role",
+    header: "Role",
     width: "1.5fr",
     render: (row) => {
       const soul = row as SoulResponse;
@@ -20,7 +20,7 @@ const columns: Column[] = [
             <Sparkles className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-medium text-primary truncate">{soul.name || "Unnamed Soul"}</div>
+            <div className="text-sm font-medium text-primary truncate">{soul.role || "Unnamed Soul"}</div>
           </div>
         </div>
       );
@@ -40,22 +40,20 @@ const columns: Column[] = [
     },
   },
   {
-    key: "models",
-    header: "Models",
+    key: "model_name",
+    header: "Model",
     width: "2fr",
     render: (row) => {
       const soul = row as SoulResponse;
-      const models = soul.models || [];
+      const modelName = soul.model_name;
       return (
         <div className="flex flex-wrap gap-1">
-          {models.length === 0 ? (
+          {!modelName ? (
             <span className="text-sm text-muted">—</span>
           ) : (
-            models.map((model) => (
-              <Badge key={model} variant="neutral" className="bg-[var(--accent-3)] text-[var(--interactive-default)] border-none text-xs">
-                {model}
-              </Badge>
-            ))
+            <Badge variant="neutral" className="bg-[var(--accent-3)] text-[var(--interactive-default)] border-none text-xs">
+              {modelName}
+            </Badge>
           )}
         </div>
       );
@@ -70,8 +68,8 @@ const soulConfig: CrudListPageConfig<SoulResponse> = {
   useList: useSouls,
   useDelete: useDeleteSoul,
   columns,
-  searchKeys: ["name", "system_prompt"],
-  getItemName: (soul) => soul.name || "Unnamed Soul",
+  searchKeys: ["role", "system_prompt"],
+  getItemName: (soul) => soul.role || "Unnamed Soul",
   getItemId: (soul) => soul.id,
   CreateModal: NewSoulModal,
   EditModal: EditSoulModal,

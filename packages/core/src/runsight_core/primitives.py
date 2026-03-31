@@ -30,6 +30,21 @@ class Soul(BaseModel):
     model_name: Optional[str] = Field(
         default=None, description="Optional model override (uses runner default if None)"
     )
+    provider: Optional[str] = Field(
+        default=None, description="Optional provider override for the selected model"
+    )
+    temperature: Optional[float] = Field(
+        default=None, description="Optional sampling temperature override"
+    )
+    max_tokens: Optional[int] = Field(
+        default=None, description="Optional output token limit override"
+    )
+    avatar_color: Optional[str] = Field(
+        default=None, description="Optional UI color hint for displaying the soul"
+    )
+    assertions: Optional[List[Dict[str, Any]]] = Field(
+        default=None, description="Optional list of assertion configs for eval"
+    )
     resolved_tools: Optional[List[Any]] = Field(
         default=None,
         exclude=True,

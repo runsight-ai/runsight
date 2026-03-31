@@ -196,6 +196,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/souls/{id}/usages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Soul Usages */
+        get: operations["get_soul_usages_api_souls__id__usages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/souls/{id}": {
         parameters: {
             query?: never;
@@ -950,12 +967,27 @@ export interface components {
         SoulCreate: {
             /** Id */
             id?: string | null;
-            /** Name */
-            name?: string | null;
+            /** Role */
+            role: string;
             /** System Prompt */
-            system_prompt?: string | null;
-            /** Models */
-            models?: string[] | null;
+            system_prompt: string;
+            /** Tools */
+            tools?: string[] | null;
+            /**
+             * Max Tool Iterations
+             * @default 5
+             */
+            max_tool_iterations: number;
+            /** Model Name */
+            model_name?: string | null;
+            /** Provider */
+            provider?: string | null;
+            /** Temperature */
+            temperature?: number | null;
+            /** Max Tokens */
+            max_tokens?: number | null;
+            /** Avatar Color */
+            avatar_color?: string | null;
         };
         /** SoulEvalHistoryResponse */
         SoulEvalHistoryResponse: {
@@ -975,26 +1007,74 @@ export interface components {
         SoulResponse: {
             /** Id */
             id: string;
-            /** Name */
-            name?: string | null;
+            /** Role */
+            role?: string | null;
             /** System Prompt */
             system_prompt?: string | null;
-            /** Models */
-            models?: string[] | null;
+            /** Tools */
+            tools?: string[] | null;
+            /**
+             * Max Tool Iterations
+             * @default 5
+             */
+            max_tool_iterations: number;
+            /** Model Name */
+            model_name?: string | null;
+            /** Provider */
+            provider?: string | null;
+            /** Temperature */
+            temperature?: number | null;
+            /** Max Tokens */
+            max_tokens?: number | null;
+            /** Avatar Color */
+            avatar_color?: string | null;
+            /**
+             * Workflow Count
+             * @default 0
+             */
+            workflow_count: number;
         };
         /** SoulUpdate */
         SoulUpdate: {
-            /** Name */
-            name?: string | null;
+            /** Role */
+            role?: string | null;
             /** System Prompt */
             system_prompt?: string | null;
-            /** Models */
-            models?: string[] | null;
+            /** Tools */
+            tools?: string[] | null;
+            /** Max Tool Iterations */
+            max_tool_iterations?: number | null;
+            /** Model Name */
+            model_name?: string | null;
+            /** Provider */
+            provider?: string | null;
+            /** Temperature */
+            temperature?: number | null;
+            /** Max Tokens */
+            max_tokens?: number | null;
+            /** Avatar Color */
+            avatar_color?: string | null;
             /**
              * Copy On Edit
              * @default false
              */
             copy_on_edit: boolean;
+        };
+        /** SoulUsageEntry */
+        SoulUsageEntry: {
+            /** Workflow Id */
+            workflow_id: string;
+            /** Workflow Name */
+            workflow_name: string;
+        };
+        /** SoulUsageResponse */
+        SoulUsageResponse: {
+            /** Soul Id */
+            soul_id: string;
+            /** Usages */
+            usages: components["schemas"]["SoulUsageEntry"][];
+            /** Total */
+            total: number;
         };
         /** SoulVersionEntry */
         SoulVersionEntry: {
@@ -1755,6 +1835,37 @@ export interface operations {
             };
         };
     };
+    get_soul_usages_api_souls__id__usages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoulUsageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_soul_api_souls__id__get: {
         parameters: {
             query?: never;
@@ -1823,7 +1934,9 @@ export interface operations {
     };
     delete_soul_api_souls__id__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                force?: boolean;
+            };
             header?: never;
             path: {
                 id: string;

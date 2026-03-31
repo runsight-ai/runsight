@@ -28,6 +28,26 @@ type SchemaFieldSnapshot = {
   committed: string[];
 };
 
+function extractApiComponentFieldNames(source: string, componentName: string): string[] {
+  const pattern = new RegExp(
+    `${componentName}: \\{([\\s\\S]*?)\\n\\s+\\};`,
+  );
+  const match = source.match(pattern);
+  if (!match) {
+    throw new Error(`Could not find ${componentName} component in generated api.ts output`);
+  }
+
+  return match[1]
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const fieldMatch = line.match(/^([A-Za-z0-9_]+)\??:/);
+      return fieldMatch?.[1] ?? null;
+    })
+    .filter((field): field is string => field !== null);
+}
+
 function extractSchemaFieldNames(source: string, schemaName: string): string[] {
   const pattern = new RegExp(
     `export const ${schemaName}Schema = z\\.object\\(\\{([\\s\\S]*?)\\n\\}\\);`,
@@ -53,6 +73,9 @@ function extractSchemaFieldNames(source: string, schemaName: string): string[] {
 function buildFreshSchemaSnapshot(): {
   runCreate: SchemaFieldSnapshot;
   runResponse: SchemaFieldSnapshot;
+  soulCreate: SchemaFieldSnapshot;
+  soulResponse: SchemaFieldSnapshot;
+  soulUpdate: SchemaFieldSnapshot;
 } {
   const workdir = mkdtempSync(join(tmpdir(), "runsight-zod-"));
   const openapiPath = resolve(workdir, "openapi.json");
@@ -95,6 +118,18 @@ function buildFreshSchemaSnapshot(): {
       runResponse: {
         fresh: extractSchemaFieldNames(freshZod, "RunResponse"),
         committed: extractSchemaFieldNames(committedZod, "RunResponse"),
+      },
+      soulCreate: {
+        fresh: extractSchemaFieldNames(freshZod, "SoulCreate"),
+        committed: extractSchemaFieldNames(committedZod, "SoulCreate"),
+      },
+      soulResponse: {
+        fresh: extractSchemaFieldNames(freshZod, "SoulResponse"),
+        committed: extractSchemaFieldNames(committedZod, "SoulResponse"),
+      },
+      soulUpdate: {
+        fresh: extractSchemaFieldNames(freshZod, "SoulUpdate"),
+        committed: extractSchemaFieldNames(committedZod, "SoulUpdate"),
       },
     };
   } finally {
@@ -211,6 +246,8 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
   let snapshot: {
     runCreate: SchemaFieldSnapshot;
     runResponse: SchemaFieldSnapshot;
+    soulCreate: SchemaFieldSnapshot;
+    soulResponse: SchemaFieldSnapshot;
   };
 
   beforeAll(() => {
@@ -227,6 +264,85 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
       expect.arrayContaining(["branch", "source", "commit_sha"]),
     );
     expect(snapshot.runResponse.committed).toEqual(snapshot.runResponse.fresh);
+  });
+
+  it("SoulCreateSchema includes role and model_name, not legacy name/models", () => {
+    expect(snapshot.soulCreate.fresh).toEqual(
+      expect.arrayContaining(["id", "role", "system_prompt", "model_name"]),
+    );
+    expect(snapshot.soulCreate.fresh).not.toContain("name");
+    expect(snapshot.soulCreate.fresh).not.toContain("models");
+    expect(snapshot.soulCreate.committed).toEqual(snapshot.soulCreate.fresh);
+  });
+
+  it("SoulCreateSchema includes provider, temperature, and max_tokens but not assertions", () => {
+    expect(snapshot.soulCreate.fresh).toEqual(
+      expect.arrayContaining(["provider", "temperature", "max_tokens", "avatar_color"]),
+    );
+    expect(snapshot.soulCreate.fresh).not.toContain("assertions");
+    expect(snapshot.soulCreate.committed).toEqual(snapshot.soulCreate.fresh);
+  });
+
+  it("SoulResponseSchema includes role, model_name, and workflow_count", () => {
+    expect(snapshot.soulResponse.fresh).toEqual(
+      expect.arrayContaining(["id", "role", "system_prompt", "model_name", "workflow_count"]),
+    );
+    expect(snapshot.soulResponse.fresh).not.toContain("name");
+    expect(snapshot.soulResponse.fresh).not.toContain("models");
+    expect(snapshot.soulResponse.committed).toEqual(snapshot.soulResponse.fresh);
+  });
+
+  it("SoulResponseSchema includes provider, temperature, and max_tokens but not assertions", () => {
+    expect(snapshot.soulResponse.fresh).toEqual(
+      expect.arrayContaining(["provider", "temperature", "max_tokens", "avatar_color"]),
+    );
+    expect(snapshot.soulResponse.fresh).not.toContain("assertions");
+    expect(snapshot.soulResponse.committed).toEqual(snapshot.soulResponse.fresh);
+  });
+
+  it("SoulUpdateSchema includes provider, temperature, and max_tokens but not assertions", () => {
+    expect(snapshot.soulUpdate.fresh).toEqual(
+      expect.arrayContaining(["provider", "temperature", "max_tokens", "copy_on_edit"]),
+    );
+    expect(snapshot.soulUpdate.fresh).not.toContain("assertions");
+    expect(snapshot.soulUpdate.committed).toEqual(snapshot.soulUpdate.fresh);
+  });
+});
+
+describe("RUN-477: generated API types stay aligned for soul contracts", () => {
+  const apiSource = readFileSync(resolve(GENERATED_DIR, "api.ts"), "utf8");
+
+  it("SoulCreate component includes provider, temperature, and max_tokens but not assertions", () => {
+    const fields = extractApiComponentFieldNames(apiSource, "SoulCreate");
+    expect(fields).toEqual(
+      expect.arrayContaining(["role", "system_prompt", "provider", "temperature", "max_tokens", "avatar_color"]),
+    );
+    expect(fields).not.toContain("assertions");
+  });
+
+  it("SoulResponse component includes provider, temperature, and max_tokens but not assertions", () => {
+    const fields = extractApiComponentFieldNames(apiSource, "SoulResponse");
+    expect(fields).toEqual(
+      expect.arrayContaining([
+        "id",
+        "role",
+        "system_prompt",
+        "provider",
+        "temperature",
+        "max_tokens",
+        "avatar_color",
+        "workflow_count",
+      ]),
+    );
+    expect(fields).not.toContain("assertions");
+  });
+
+  it("SoulUpdate component includes provider, temperature, and max_tokens but not assertions", () => {
+    const fields = extractApiComponentFieldNames(apiSource, "SoulUpdate");
+    expect(fields).toEqual(
+      expect.arrayContaining(["provider", "temperature", "max_tokens", "avatar_color", "copy_on_edit"]),
+    );
+    expect(fields).not.toContain("assertions");
   });
 });
 

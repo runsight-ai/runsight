@@ -1,35 +1,118 @@
 import uuid
 from typing import Any, Dict, List, Optional
 
+import yaml
+
 from ...data.filesystem.soul_repo import SoulRepository
-from ...domain.errors import SoulNotFound
-from ...domain.value_objects import SoulEntity
+from ...domain.errors import SoulAlreadyExists, SoulInUse, SoulNotFound
+from ...domain.value_objects import SoulEntity, WorkflowEntity
 
 
 class SoulService:
-    def __init__(self, soul_repo: SoulRepository, git_service=None):
+    def __init__(self, soul_repo: SoulRepository, git_service=None, workflow_repo=None):
         self.soul_repo = soul_repo
         self.git_service = git_service
+        self.workflow_repo = workflow_repo
 
-    def list_souls(self, query: Optional[str] = None) -> List[SoulEntity]:
+    @staticmethod
+    def _soul_file_path(id: str) -> str:
+        return f"custom/souls/{id}.yaml"
+
+    @staticmethod
+    def _extract_workflow_soul_ids(workflow: WorkflowEntity) -> List[str]:
+        if not workflow.yaml:
+            return []
+        try:
+            data = yaml.safe_load(workflow.yaml) or {}
+        except Exception:
+            return []
+
+        blocks_section = data.get("blocks", {}) or {}
+        if not isinstance(blocks_section, dict):
+            return []
+
+        soul_ids: List[str] = []
+        seen: set[str] = set()
+        for value in blocks_section.values():
+            if not isinstance(value, dict):
+                continue
+
+            soul_ref = value.get("soul_ref")
+            if isinstance(soul_ref, str) and soul_ref not in seen:
+                seen.add(soul_ref)
+                soul_ids.append(soul_ref)
+
+            exits = value.get("exits", []) or []
+            if not isinstance(exits, list):
+                continue
+            for exit_def in exits:
+                if not isinstance(exit_def, dict):
+                    continue
+                exit_soul_ref = exit_def.get("soul_ref")
+                if isinstance(exit_soul_ref, str) and exit_soul_ref not in seen:
+                    seen.add(exit_soul_ref)
+                    soul_ids.append(exit_soul_ref)
+        return soul_ids
+
+    def _resolve_workflow_repo(self, workflow_repo=None):
+        return workflow_repo or self.workflow_repo
+
+    def list_souls(self, query: Optional[str] = None, workflow_repo=None) -> List[SoulEntity]:
         souls = self.soul_repo.list_all()
         if query:
             query = query.lower()
             souls = [
-                s
-                for s in souls
-                if query in s.id.lower() or (getattr(s, "name", "") and query in s.name.lower())
+                s for s in souls if query in s.id.lower() or (s.role and query in s.role.lower())
+            ]
+        workflow_repo = self._resolve_workflow_repo(workflow_repo)
+        if workflow_repo:
+            counts = self._compute_workflow_counts(souls, workflow_repo)
+            souls = [
+                soul.model_copy(update={"workflow_count": counts.get(soul.id, 0)}) for soul in souls
             ]
         return souls
 
     def get_soul(self, id: str) -> Optional[SoulEntity]:
         return self.soul_repo.get_by_id(id)
 
+    def get_soul_usages(self, id: str, workflow_repo=None) -> List[Dict[str, Optional[str]]]:
+        soul = self.get_soul(id)
+        if not soul:
+            raise SoulNotFound(f"Soul {id} not found")
+        workflow_repo = self._resolve_workflow_repo(workflow_repo)
+        return self._get_workflow_soul_refs(id, workflow_repo)
+
+    def _get_workflow_soul_refs(
+        self, soul_id: str, workflow_repo
+    ) -> List[Dict[str, Optional[str]]]:
+        usages: List[Dict[str, Optional[str]]] = []
+        if not workflow_repo:
+            return usages
+        for workflow in workflow_repo.list_all():
+            if soul_id in self._extract_workflow_soul_ids(workflow):
+                usages.append({"workflow_id": workflow.id, "workflow_name": workflow.name})
+        return usages
+
+    def _compute_workflow_counts(self, souls: List[SoulEntity], workflow_repo) -> Dict[str, int]:
+        counts = {soul.id: 0 for soul in souls}
+        if not counts:
+            return counts
+        if not workflow_repo:
+            return counts
+
+        for workflow in workflow_repo.list_all():
+            for soul_id in self._extract_workflow_soul_ids(workflow):
+                if soul_id in counts:
+                    counts[soul_id] += 1
+        return counts
+
     def create_soul(self, data: Dict[str, Any]) -> SoulEntity:
         if "id" not in data or not data["id"]:
             data["id"] = f"soul_{uuid.uuid4().hex[:8]}"
+        if self.soul_repo.get_by_id(data["id"]):
+            raise SoulAlreadyExists(f"Soul {data['id']} already exists")
         result = self.soul_repo.create(data)
-        self._auto_commit(f"Create soul: {result.id}", [result.id])
+        self._auto_commit(f"Create {result.id}.yaml", [self._soul_file_path(result.id)])
         return result
 
     def update_soul(self, id: str, data: Dict[str, Any], copy_on_edit: bool = False) -> SoulEntity:
@@ -41,17 +124,34 @@ class SoulService:
             # Create a new soul with a new ID
             new_id = f"{id}_copy_{uuid.uuid4().hex[:4]}"
             data["id"] = new_id
-            return self.soul_repo.create(data)
+            result = self.soul_repo.create(data)
+            self._auto_commit(f"Create {result.id}.yaml", [self._soul_file_path(result.id)])
+            return result
 
-        result = self.soul_repo.update(id, data)
-        self._auto_commit(f"Update soul: {id}", [result.id])
+        merged = existing.model_dump(exclude={"workflow_count"})
+        merged.update(data)
+        result = self.soul_repo.update(id, merged)
+        self._auto_commit(f"Update {id}.yaml", [self._soul_file_path(id)])
         return result
 
-    def delete_soul(self, id: str) -> bool:
+    def delete_soul(self, id: str, force: bool = False, workflow_repo=None) -> bool:
+        soul = self.get_soul(id)
+        if not soul:
+            raise SoulNotFound(f"Soul {id} not found")
+
+        workflow_repo = self._resolve_workflow_repo(workflow_repo)
+        if workflow_repo and not force:
+            usages = self._get_workflow_soul_refs(id, workflow_repo)
+            if usages:
+                raise SoulInUse(
+                    f"Soul {id!r} is referenced by {len(usages)} workflow(s)",
+                    details={"usages": usages},
+                )
+
         success = self.soul_repo.delete(id)
         if not success:
             raise SoulNotFound(f"Soul {id} not found")
-        self._auto_commit(f"Delete soul: {id}", [id])
+        self._auto_commit(f"Delete {id}.yaml", [self._soul_file_path(id)])
         return True
 
     def _auto_commit(self, message: str, files: list) -> None:

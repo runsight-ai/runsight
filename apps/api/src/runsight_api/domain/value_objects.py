@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class NodeTokens(BaseModel):
@@ -39,14 +39,18 @@ class WorkflowEntity(BaseModel):
 
 class SoulEntity(BaseModel):
     id: str
-    name: Optional[str] = None
     role: Optional[str] = None
     system_prompt: Optional[str] = None
+    tools: Optional[List[str]] = None
+    max_tool_iterations: int = Field(default=5)
     model_name: Optional[str] = None
-    models: Optional[list[str]] = None
-    tools: Optional[list[str]] = None
-    max_tool_iterations: Optional[int] = None
-    model_config = {"extra": "ignore"}
+    assertions: Optional[List[Dict[str, Any]]] = None
+    provider: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    avatar_color: Optional[str] = None
+    workflow_count: int = Field(default=0)
+    model_config = {"extra": "allow"}
 
 
 class TaskEntity(BaseModel):

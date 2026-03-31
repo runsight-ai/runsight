@@ -235,9 +235,15 @@ export type SimBranchResponse = z.infer<typeof SimBranchResponseSchema>;
 
 export const SoulCreateSchema = z.object({
   id: z.string().nullable().optional(),
-  name: z.string().nullable().optional(),
-  system_prompt: z.string().nullable().optional(),
-  models: z.array(z.string()).nullable().optional(),
+  role: z.string(),
+  system_prompt: z.string(),
+  tools: z.array(z.string()).nullable().optional(),
+  max_tool_iterations: z.number().optional().default(5),
+  model_name: z.string().nullable().optional(),
+  provider: z.string().nullable().optional(),
+  temperature: z.number().nullable().optional(),
+  max_tokens: z.number().nullable().optional(),
+  avatar_color: z.string().nullable().optional(),
 });
 export type SoulCreate = z.infer<typeof SoulCreateSchema>;
 
@@ -259,9 +265,16 @@ export type SoulEvalHistoryResponse = z.infer<typeof SoulEvalHistoryResponseSche
 
 export const SoulResponseSchema = z.object({
   id: z.string(),
-  name: z.string().nullable().optional(),
+  role: z.string().nullable().optional(),
   system_prompt: z.string().nullable().optional(),
-  models: z.array(z.string()).nullable().optional(),
+  tools: z.array(z.string()).nullable().optional(),
+  max_tool_iterations: z.number().optional().default(5),
+  model_name: z.string().nullable().optional(),
+  provider: z.string().nullable().optional(),
+  temperature: z.number().nullable().optional(),
+  max_tokens: z.number().nullable().optional(),
+  avatar_color: z.string().nullable().optional(),
+  workflow_count: z.number().optional().default(0),
 });
 export type SoulResponse = z.infer<typeof SoulResponseSchema>;
 
@@ -272,12 +285,31 @@ export const SoulListResponseSchema = z.object({
 export type SoulListResponse = z.infer<typeof SoulListResponseSchema>;
 
 export const SoulUpdateSchema = z.object({
-  name: z.string().nullable().optional(),
+  role: z.string().nullable().optional(),
   system_prompt: z.string().nullable().optional(),
-  models: z.array(z.string()).nullable().optional(),
+  tools: z.array(z.string()).nullable().optional(),
+  max_tool_iterations: z.number().nullable().optional(),
+  model_name: z.string().nullable().optional(),
+  provider: z.string().nullable().optional(),
+  temperature: z.number().nullable().optional(),
+  max_tokens: z.number().nullable().optional(),
+  avatar_color: z.string().nullable().optional(),
   copy_on_edit: z.boolean().optional().default(false),
 });
 export type SoulUpdate = z.infer<typeof SoulUpdateSchema>;
+
+export const SoulUsageEntrySchema = z.object({
+  workflow_id: z.string(),
+  workflow_name: z.string(),
+});
+export type SoulUsageEntry = z.infer<typeof SoulUsageEntrySchema>;
+
+export const SoulUsageResponseSchema = z.object({
+  soul_id: z.string(),
+  usages: z.array(SoulUsageEntrySchema),
+  total: z.number(),
+});
+export type SoulUsageResponse = z.infer<typeof SoulUsageResponseSchema>;
 
 export const UncommittedFileSchema = z.object({
   path: z.string(),

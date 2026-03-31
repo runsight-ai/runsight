@@ -93,18 +93,18 @@ def test_soul_repository():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = SoulRepository(base_path=tmpdir)
 
-        soul_data = {"id": "sl-1", "name": "Test Soul"}
+        soul_data = {"id": "sl-1", "role": "Test Soul"}
         entity = repo.create(soul_data)
         assert entity.id == "sl-1"
-        assert entity.name == "Test Soul"
+        assert entity.role == "Test Soul"
 
         fetched = repo.get_by_id("sl-1")
         assert fetched is not None
-        assert fetched.name == "Test Soul"
+        assert fetched.role == "Test Soul"
 
-        updated_data = {"id": "sl-1", "name": "Updated Soul"}
+        updated_data = {"id": "sl-1", "role": "Updated Soul"}
         repo.update("sl-1", updated_data)
-        assert repo.get_by_id("sl-1").name == "Updated Soul"
+        assert repo.get_by_id("sl-1").role == "Updated Soul"
 
         assert len(repo.list_all()) == 1
         assert repo.delete("sl-1") is True

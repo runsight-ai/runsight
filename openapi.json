@@ -839,6 +839,48 @@
         }
       }
     },
+    "/api/souls/{id}/usages": {
+      "get": {
+        "tags": [
+          "Souls"
+        ],
+        "summary": "Get Soul Usages",
+        "operationId": "get_soul_usages_api_souls__id__usages_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoulUsageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/souls/{id}": {
       "get": {
         "tags": [
@@ -944,6 +986,16 @@
             "schema": {
               "type": "string",
               "title": "Id"
+            }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Force"
             }
           }
         ],
@@ -3226,29 +3278,15 @@
             ],
             "title": "Id"
           },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
+          "role": {
+            "type": "string",
+            "title": "Role"
           },
           "system_prompt": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "System Prompt"
           },
-          "models": {
+          "tools": {
             "anyOf": [
               {
                 "items": {
@@ -3260,10 +3298,75 @@
                 "type": "null"
               }
             ],
-            "title": "Models"
+            "title": "Tools"
+          },
+          "max_tool_iterations": {
+            "type": "integer",
+            "title": "Max Tool Iterations",
+            "default": 5
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "max_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tokens"
+          },
+          "avatar_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Color"
           }
         },
+        "additionalProperties": false,
         "type": "object",
+        "required": [
+          "role",
+          "system_prompt"
+        ],
         "title": "SoulCreate"
       },
       "SoulEvalHistoryResponse": {
@@ -3314,7 +3417,7 @@
             "type": "string",
             "title": "Id"
           },
-          "name": {
+          "role": {
             "anyOf": [
               {
                 "type": "string"
@@ -3323,7 +3426,7 @@
                 "type": "null"
               }
             ],
-            "title": "Name"
+            "title": "Role"
           },
           "system_prompt": {
             "anyOf": [
@@ -3336,7 +3439,7 @@
             ],
             "title": "System Prompt"
           },
-          "models": {
+          "tools": {
             "anyOf": [
               {
                 "items": {
@@ -3348,7 +3451,72 @@
                 "type": "null"
               }
             ],
-            "title": "Models"
+            "title": "Tools"
+          },
+          "max_tool_iterations": {
+            "type": "integer",
+            "title": "Max Tool Iterations",
+            "default": 5
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "max_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tokens"
+          },
+          "avatar_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Color"
+          },
+          "workflow_count": {
+            "type": "integer",
+            "title": "Workflow Count",
+            "default": 0
           }
         },
         "type": "object",
@@ -3359,7 +3527,7 @@
       },
       "SoulUpdate": {
         "properties": {
-          "name": {
+          "role": {
             "anyOf": [
               {
                 "type": "string"
@@ -3368,7 +3536,7 @@
                 "type": "null"
               }
             ],
-            "title": "Name"
+            "title": "Role"
           },
           "system_prompt": {
             "anyOf": [
@@ -3381,7 +3549,7 @@
             ],
             "title": "System Prompt"
           },
-          "models": {
+          "tools": {
             "anyOf": [
               {
                 "items": {
@@ -3393,7 +3561,73 @@
                 "type": "null"
               }
             ],
-            "title": "Models"
+            "title": "Tools"
+          },
+          "max_tool_iterations": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tool Iterations"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "max_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tokens"
+          },
+          "avatar_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Color"
           },
           "copy_on_edit": {
             "type": "boolean",
@@ -3401,8 +3635,53 @@
             "default": false
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "SoulUpdate"
+      },
+      "SoulUsageEntry": {
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "workflow_name": {
+            "type": "string",
+            "title": "Workflow Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workflow_id",
+          "workflow_name"
+        ],
+        "title": "SoulUsageEntry"
+      },
+      "SoulUsageResponse": {
+        "properties": {
+          "soul_id": {
+            "type": "string",
+            "title": "Soul Id"
+          },
+          "usages": {
+            "items": {
+              "$ref": "#/components/schemas/SoulUsageEntry"
+            },
+            "type": "array",
+            "title": "Usages"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "soul_id",
+          "usages",
+          "total"
+        ],
+        "title": "SoulUsageResponse"
       },
       "SoulVersionEntry": {
         "properties": {

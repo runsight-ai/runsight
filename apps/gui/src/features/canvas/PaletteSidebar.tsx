@@ -30,7 +30,7 @@ export function PaletteSidebar({ onCollapse }: { onCollapse?: (collapsed: boolea
   );
 
   const filteredSouls = soulItems.filter((soul) =>
-    (soul.name ?? "").toLowerCase().includes(search.toLowerCase()),
+    (soul.role ?? "").toLowerCase().includes(search.toLowerCase()),
   );
 
   function handleToggleCollapse() {
@@ -145,14 +145,14 @@ export function PaletteSidebar({ onCollapse }: { onCollapse?: (collapsed: boolea
                     e.dataTransfer.effectAllowed = "copy";
                     e.dataTransfer.setData(
                       "application/runsight-soul",
-                      JSON.stringify({ type: "soul", label: soul.name }),
+                      JSON.stringify({ type: "soul", label: soul.role ?? soul.id }),
                     );
                   }}
                   className="flex items-center justify-center h-9 w-full rounded-md text-primary hover:bg-surface-hover cursor-grab"
                 >
                   <User size={18} className="shrink-0" />
                 </TooltipTrigger>
-                <TooltipContent side="right">{soul.name}</TooltipContent>
+                <TooltipContent side="right">{soul.role ?? soul.id}</TooltipContent>
               </Tooltip>
             ) : (
               <div
@@ -162,13 +162,13 @@ export function PaletteSidebar({ onCollapse }: { onCollapse?: (collapsed: boolea
                   e.dataTransfer.effectAllowed = "copy";
                   e.dataTransfer.setData(
                     "application/runsight-soul",
-                    JSON.stringify({ type: "soul", label: soul.name }),
+                    JSON.stringify({ type: "soul", label: soul.role ?? soul.id }),
                   );
                 }}
                 className="flex items-center gap-2 h-11 px-3 mx-1 rounded-md text-sm text-primary hover:bg-surface-hover cursor-grab"
               >
                 <User size={18} className="shrink-0" />
-                <span>{soul.name}</span>
+                <span>{soul.role ?? soul.id}</span>
               </div>
             ),
           )}
