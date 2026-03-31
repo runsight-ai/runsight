@@ -49,16 +49,17 @@ export function Component() {
       navigate("/souls");
     },
   });
+  const { isDirty, isSubmitting, reset, setField, submit, values } = form;
 
   useEffect(() => {
     if (mode === "edit" && soulQuery.data) {
-      form.reset(soulQuery.data);
+      reset(soulQuery.data);
     }
-  }, [form, mode, soulQuery.data]);
+  }, [mode, reset, soulQuery.data]);
 
-  const blocker = useBlocker(form.isDirty && !form.isSubmitting);
+  const blocker = useBlocker(isDirty && !isSubmitting);
   const isValid =
-    form.values.name.trim().length > 0 && form.values.systemPrompt.trim().length > 0;
+    values.name.trim().length > 0 && values.systemPrompt.trim().length > 0;
 
   if (mode === "edit" && soulQuery.isLoading) {
     return <div className="p-6 text-sm text-muted">Loading soul…</div>;
@@ -92,19 +93,19 @@ export function Component() {
 
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="mx-auto flex max-w-2xl flex-col gap-4 px-6 pb-8">
-          <SoulFormBody values={form.values} setField={form.setField} />
+          <SoulFormBody values={values} setField={setField} />
         </div>
       </div>
 
       <SoulFormFooter
         mode={mode}
         returnUrl={returnUrl}
-        isDirty={form.isDirty}
-        isSubmitting={form.isSubmitting}
+        isDirty={isDirty}
+        isSubmitting={isSubmitting}
         isValid={isValid}
         onCancel={() => navigate(returnUrl ?? "/souls")}
         onSubmit={() => {
-          void form.submit();
+          void submit();
         }}
       />
 

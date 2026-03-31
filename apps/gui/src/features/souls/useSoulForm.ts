@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { useCreateSoul, useUpdateSoul } from "@/queries/souls";
 import type { SoulResponse } from "@runsight/shared/zod";
@@ -77,7 +77,7 @@ export function useSoulForm({
 
   const isDirty = JSON.stringify(values) !== JSON.stringify(initialValuesRef.current);
 
-  function setField<K extends keyof SoulFormValues>(field: K, value: SoulFormValues[K]) {
+  const setField = useCallback(<K extends keyof SoulFormValues>(field: K, value: SoulFormValues[K]) => {
     setValues((current) => {
       if (field === "providerId") {
         return {
@@ -90,15 +90,15 @@ export function useSoulForm({
 
       return { ...current, [field]: value };
     });
-  }
+  }, []);
 
-  function reset(soul?: SoulResponse | null) {
+  const reset = useCallback((soul?: SoulResponse | null) => {
     const nextValues = toFormValues(soul ?? initial ?? null);
     initialValuesRef.current = nextValues;
     setValues(nextValues);
-  }
+  }, [initial]);
 
-  async function submit() {
+  const submit = useCallback(async () => {
     const payload = {
       role: values.name,
       system_prompt: values.systemPrompt,
@@ -127,7 +127,7 @@ export function useSoulForm({
     setValues(initialValuesRef.current);
     onSuccess?.(result);
     return result;
-  }
+  }, [createSoul, mode, onSuccess, soulId, updateSoul, values]);
 
   return {
     values,
