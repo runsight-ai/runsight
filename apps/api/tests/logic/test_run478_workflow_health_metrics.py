@@ -99,8 +99,7 @@ class TestWorkflowHealthAggregation:
             )
         }
 
-        service = WorkflowService(workflow_repo)
-        service.run_repo = run_repo
+        service = WorkflowService(workflow_repo, run_repo)
 
         result = service.list_workflows()
 
@@ -130,8 +129,7 @@ class TestWorkflowHealthAggregation:
             )
         }
 
-        service = WorkflowService(workflow_repo)
-        service.run_repo = run_repo
+        service = WorkflowService(workflow_repo, run_repo)
 
         result = service.list_workflows()
 
@@ -161,8 +159,7 @@ class TestWorkflowHealthAggregation:
             )
         }
 
-        service = WorkflowService(workflow_repo)
-        service.run_repo = run_repo
+        service = WorkflowService(workflow_repo, run_repo)
 
         result = service.list_workflows()
 

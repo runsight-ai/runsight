@@ -1,5 +1,6 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 
+from sqlalchemy import case
 from sqlmodel import Session, func, select
 
 from ...domain.entities.log import LogEntry
@@ -56,6 +57,80 @@ class RunRepository:
         total = self.session.exec(count_statement).one()
         items = list(self.session.exec(statement.offset(offset).limit(limit)).all())
         return items, total
+
+    @staticmethod
+    def _eval_health(eval_pass_pct: float | None) -> str | None:
+        if eval_pass_pct is None:
+            return None
+        if eval_pass_pct >= 90:
+            return "success"
+        if eval_pass_pct >= 75:
+            return "warning"
+        return "danger"
+
+    def get_workflow_health_metrics(self, workflow_ids: list[str]) -> dict[str, dict[str, Any]]:
+        if not workflow_ids:
+            return {}
+
+        run_totals = (
+            select(
+                Run.workflow_id.label("workflow_id"),
+                func.count(Run.id).label("run_count"),
+                func.coalesce(func.sum(Run.total_cost_usd), 0.0).label("total_cost_usd"),
+            )
+            .where(Run.workflow_id.in_(workflow_ids), Run.source != "simulation")
+            .group_by(Run.workflow_id)
+            .subquery()
+        )
+        eval_totals = (
+            select(
+                Run.workflow_id.label("workflow_id"),
+                func.coalesce(
+                    func.sum(case((RunNode.eval_passed.is_(True), 1), else_=0)),
+                    0,
+                ).label("eval_pass_count"),
+                func.coalesce(
+                    func.sum(case((RunNode.eval_passed.is_not(None), 1), else_=0)),
+                    0,
+                ).label("eval_total_count"),
+                func.coalesce(
+                    func.sum(case((RunNode.eval_passed.is_(False), 1), else_=0)),
+                    0,
+                ).label("regression_count"),
+            )
+            .select_from(Run)
+            .join(RunNode, RunNode.run_id == Run.id, isouter=True)
+            .where(Run.workflow_id.in_(workflow_ids), Run.source != "simulation")
+            .group_by(Run.workflow_id)
+            .subquery()
+        )
+        statement = select(
+            run_totals.c.workflow_id,
+            run_totals.c.run_count,
+            run_totals.c.total_cost_usd,
+            func.coalesce(eval_totals.c.eval_pass_count, 0).label("eval_pass_count"),
+            func.coalesce(eval_totals.c.eval_total_count, 0).label("eval_total_count"),
+            func.coalesce(eval_totals.c.regression_count, 0).label("regression_count"),
+        ).select_from(
+            run_totals.outerjoin(eval_totals, eval_totals.c.workflow_id == run_totals.c.workflow_id)
+        )
+
+        metrics: dict[str, dict[str, Any]] = {}
+        for row in self.session.exec(statement):
+            eval_total_count = int(row.eval_total_count or 0)
+            eval_pass_pct = None
+            if eval_total_count > 0:
+                eval_pass_pct = float(row.eval_pass_count) / eval_total_count * 100
+
+            metrics[row.workflow_id] = {
+                "run_count": int(row.run_count or 0),
+                "eval_pass_pct": eval_pass_pct,
+                "eval_health": self._eval_health(eval_pass_pct),
+                "total_cost_usd": float(row.total_cost_usd or 0.0),
+                "regression_count": int(row.regression_count or 0),
+            }
+
+        return metrics
 
     def update_run(self, run: Run) -> Run:
         self.session.add(run)

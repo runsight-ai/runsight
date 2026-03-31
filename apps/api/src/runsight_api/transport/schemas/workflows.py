@@ -17,6 +17,14 @@ class WorkflowCanvasState(BaseModel):
     canvas_mode: Literal["dag", "state-machine"] = "dag"
 
 
+class WorkflowHealthMetrics(BaseModel):
+    run_count: int = 0
+    eval_pass_pct: float | None = None
+    eval_health: Literal["success", "warning", "danger"] | None = None
+    total_cost_usd: float = 0.0
+    regression_count: int = 0
+
+
 class WorkflowResponse(BaseModel):
     id: str
     name: Optional[str] = None
@@ -25,6 +33,11 @@ class WorkflowResponse(BaseModel):
     canvas_state: Optional[WorkflowCanvasState] = None
     valid: bool = True
     validation_error: Optional[str] = None
+    block_count: int = 0
+    modified_at: float | None = None
+    enabled: bool = False
+    commit_sha: str | None = None
+    health: WorkflowHealthMetrics = Field(default_factory=WorkflowHealthMetrics)
 
 
 class WorkflowListResponse(BaseModel):

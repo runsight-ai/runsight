@@ -20,8 +20,13 @@ def workflow_repo():
 
 
 @pytest.fixture
-def workflow_service(workflow_repo):
-    return WorkflowService(workflow_repo)
+def run_repo():
+    return Mock()
+
+
+@pytest.fixture
+def workflow_service(workflow_repo, run_repo):
+    return WorkflowService(workflow_repo, run_repo)
 
 
 # --- list_workflows ---
@@ -189,7 +194,7 @@ def test_commit_workflow_writes_current_state_and_returns_commit_metadata(workfl
     )
     workflow_repo.update.return_value = saved
 
-    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+    workflow_service = WorkflowService(workflow_repo, Mock(), git_service=git_service)
 
     draft = {
         "yaml": "workflow:\n  name: Updated Flow\n",
@@ -222,7 +227,7 @@ def test_commit_workflow_stages_only_workflow_owned_files(workflow_repo):
     git_service.commit_to_branch.return_value = "abc123def456"
     workflow_repo.update.return_value = WorkflowEntity(id="wf_1", name="Updated Flow")
 
-    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+    workflow_service = WorkflowService(workflow_repo, Mock(), git_service=git_service)
 
     workflow_service.commit_workflow(
         "wf_1",
@@ -246,7 +251,7 @@ def test_commit_workflow_does_not_attempt_git_commit_when_persisting_the_draft_f
     )
     workflow_repo.update.side_effect = OSError("disk full")
 
-    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+    workflow_service = WorkflowService(workflow_repo, Mock(), git_service=git_service)
 
     with pytest.raises(OSError, match="disk full"):
         workflow_service.commit_workflow(
@@ -285,7 +290,7 @@ def test_commit_workflow_restores_the_previous_workflow_if_git_commit_to_main_fa
         previous,
     ]
 
-    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+    workflow_service = WorkflowService(workflow_repo, Mock(), git_service=git_service)
     draft = {
         "yaml": "workflow:\n  name: Updated Flow\n",
         "canvas_state": {

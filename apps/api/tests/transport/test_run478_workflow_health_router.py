@@ -38,6 +38,7 @@ if "runsight_core" not in sys.modules:
     sys.modules["runsight_core.yaml"] = yaml_pkg
     sys.modules["runsight_core.yaml.schema"] = schema_pkg
 
+original_deps = sys.modules.get("runsight_api.transport.deps")
 fake_deps = types.ModuleType("runsight_api.transport.deps")
 fake_deps.get_workflow_service = lambda: None
 sys.modules["runsight_api.transport.deps"] = fake_deps
@@ -46,6 +47,11 @@ from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.transport.deps import get_workflow_service
 from runsight_api.transport.routers.workflows import router
 from runsight_api.transport.schemas.workflows import WorkflowResponse
+
+if original_deps is not None:
+    sys.modules["runsight_api.transport.deps"] = original_deps
+else:
+    del sys.modules["runsight_api.transport.deps"]
 
 app = FastAPI()
 app.include_router(router, prefix="/api")
