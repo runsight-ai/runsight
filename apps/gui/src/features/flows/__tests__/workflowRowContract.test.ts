@@ -150,16 +150,25 @@ describe("RUN-426 WorkflowRow behavior", () => {
     expect(mocks.navigate).toHaveBeenCalledWith("/workflows/wf_research/edit");
   });
 
-  it("exposes an accessible trash control", async () => {
+  it("keeps the accessible trash control available on keyboard focus", async () => {
     await renderWorkflowRow({
       workflow: fixtures.populatedWorkflow,
       onDelete: (workflow: unknown) => mocks.deleteRequests.push(workflow),
     });
 
-    expect(
-      screen.getByRole("button", {
-        name: "Delete Research & Review workflow",
-      }),
-    ).toBeTruthy();
+    const row = screen.getByRole("listitem", {
+      name: "Open Research & Review workflow",
+    });
+    const deleteButton = screen.getByRole("button", {
+      name: "Delete Research & Review workflow",
+    });
+
+    row.focus();
+
+    expect(document.activeElement).toBe(row);
+
+    deleteButton.focus();
+
+    expect(document.activeElement).toBe(deleteButton);
   });
 });
