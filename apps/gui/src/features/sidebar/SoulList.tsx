@@ -4,8 +4,13 @@ import { type Column } from "@/components/shared/DataTable";
 import { Badge } from "@runsight/ui/badge";
 import { Sparkles } from "lucide-react";
 import type { SoulResponse } from "@runsight/shared/zod";
+import type { UseMutationResult } from "@tanstack/react-query";
 import { truncateText } from "@/utils/formatting";
 import { NewSoulModal, EditSoulModal } from "./SoulModals";
+
+function useDeleteSoulList(): UseMutationResult<unknown, Error, string> {
+  return useDeleteSoul() as UseMutationResult<unknown, Error, string>;
+}
 
 const columns: Column[] = [
   {
@@ -66,7 +71,7 @@ const soulConfig: CrudListPageConfig<SoulResponse> = {
   resourceNamePlural: "Souls",
   icon: Sparkles,
   useList: useSouls,
-  useDelete: useDeleteSoul,
+  useDelete: useDeleteSoulList,
   columns,
   searchKeys: ["role", "system_prompt"],
   getItemName: (soul) => soul.role || "Unnamed Soul",
