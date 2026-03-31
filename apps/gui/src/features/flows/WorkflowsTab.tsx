@@ -6,6 +6,7 @@ import {
 } from "@/queries/workflows";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { Input } from "@runsight/ui/input";
+import { Skeleton } from "@runsight/ui/skeleton";
 import type { WorkflowResponse } from "@runsight/shared/zod";
 import { useState } from "react";
 import { jsx, jsxs } from "react/jsx-runtime";
@@ -16,18 +17,13 @@ function EmptyIcon() {
 }
 
 function WorkflowSkeletonRow() {
-  return jsxs("li", {
+  return jsx("li", {
     "data-testid": "workflow-skeleton-row",
     "aria-label": "Loading workflow row",
     className: "rounded-md border border-border-subtle bg-surface-secondary px-4 py-3",
-    children: [
-      jsx("div", {
-        className: "h-4 w-40 animate-pulse rounded bg-border-default",
-      }),
-      jsx("div", {
-        className: "mt-2 h-4 w-72 animate-pulse rounded bg-border-default",
-      }),
-    ],
+    children: jsx(Skeleton, {
+      className: "h-10 w-full",
+    }),
   });
 }
 
@@ -102,6 +98,7 @@ export function Component({ onCreateWorkflow }: WorkflowsTabProps) {
       icon: EmptyIcon,
       title: "No workflows match your search",
       description: `No results found for "${searchQuery}".`,
+      action: { label: "Clear search", onClick: () => setSearchQuery("") },
     });
   } else {
     content = jsx("ul", {

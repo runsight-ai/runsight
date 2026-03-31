@@ -2,6 +2,7 @@ import { EmptyState } from "@runsight/ui/empty-state";
 import { Input } from "@runsight/ui/input";
 import { Button } from "@runsight/ui/button";
 import { Badge, BadgeDot } from "@runsight/ui/badge";
+import { Skeleton } from "@runsight/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,7 +71,7 @@ function RunSkeletonRow({ index }: { index: number }) {
   return (
     <tr key={index} aria-label="Loading run row">
       <td colSpan={8} className="border-b border-border-subtle px-3 py-3">
-        <div className="h-4 w-full animate-pulse rounded bg-border-default" />
+        <Skeleton className="w-full" />
       </td>
     </tr>
   );
