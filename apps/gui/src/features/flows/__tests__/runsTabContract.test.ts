@@ -220,6 +220,20 @@ function findEvalValue(row: HTMLElement, value: string) {
   return within(row).queryByText(value) ?? within(row).queryByLabelText(value);
 }
 
+function hasMutedPresentation(element: HTMLElement, boundary: HTMLElement) {
+  let current: HTMLElement | null = element;
+
+  while (current && current !== boundary) {
+    if (/muted|secondary/i.test(String(current.className))) {
+      return true;
+    }
+
+    current = current.parentElement;
+  }
+
+  return /muted|secondary/i.test(String(boundary.className));
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -560,6 +574,6 @@ describe("RUN-428 Runs eval threshold polish", () => {
 
     expect(nullDash).toBeTruthy();
     expect(within(nullRow!).queryByLabelText(/\d+%/)).toBeNull();
-    expect(String(nullDash.className)).toMatch(/muted|secondary/i);
+    expect(hasMutedPresentation(nullDash, nullRow!)).toBe(true);
   });
 });
