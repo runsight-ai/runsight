@@ -128,6 +128,28 @@ function buildRunList(items: Array<Record<string, unknown>>) {
   };
 }
 
+function getSearchParam(params: unknown): string | null {
+  if (params instanceof URLSearchParams) {
+    return params.get("search") ?? params.get("query");
+  }
+
+  if (params && typeof params === "object") {
+    const record = params as Record<string, unknown>;
+    const search = record.search;
+    const query = record.query;
+
+    if (typeof search === "string") {
+      return search;
+    }
+
+    if (typeof query === "string") {
+      return query;
+    }
+  }
+
+  return null;
+}
+
 vi.mock("@/queries/workflows", () => ({
   useCreateWorkflow: () => ({
     mutate: mocks.createWorkflow,
@@ -387,6 +409,10 @@ describe("RUN-416 Runs source filter", () => {
     await user.clear(screen.getByRole("searchbox", { name: "Search runs" }));
     await user.type(screen.getByRole("searchbox", { name: "Search runs" }), "content");
 
+    const finalRequest = mocks.runsQueryCalls.at(-1);
+
+    expect(normalizeSources(finalRequest)).toEqual([]);
+    expect(getSearchParam(finalRequest)).toBeNull();
     expect(screen.queryByText("Research & Review")).toBeNull();
     expect(screen.getByText("Content Pipeline")).toBeTruthy();
     expect(screen.queryByText("Daily Digest")).toBeNull();
