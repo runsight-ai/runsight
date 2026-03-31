@@ -59,32 +59,19 @@ export function DataTable({
   }, [data, searchQuery, searchable, columns]);
 
   const sortedData = useMemo(() => {
-    if (!sortable) return filteredData;
+    if (!sortable || !sortKey) return filteredData;
 
-    const sortableColumns = columns.filter((column) => column.sortable);
-    const fallbackColumn =
-      sortKey == null && sortableColumns.length === 1 ? sortableColumns[0] : null;
-    const activeSortKey = sortKey ?? fallbackColumn?.key ?? null;
-
-    if (!activeSortKey) return filteredData;
-
-    const sortColumn = columns.find((column) => column.key === activeSortKey);
+    const sortColumn = columns.find((column) => column.key === sortKey);
 
     if (!sortColumn) return filteredData;
 
     const getSortValue = (row: Record<string, unknown>) =>
-      sortColumn.sortValue ? sortColumn.sortValue(row) : row[activeSortKey];
+      sortColumn.sortValue ? sortColumn.sortValue(row) : row[sortKey];
 
     const sampleValue = filteredData
       .map((row) => getSortValue(row))
       .find((value) => value != null);
-    const isNumericSort =
-      typeof sampleValue === "number" ||
-      (fallbackColumn != null &&
-        filteredData.every((row) => {
-          const value = getSortValue(row);
-          return value == null || typeof value === "number";
-        }));
+    const isNumericSort = typeof sampleValue === "number";
 
     return [...filteredData].sort((a, b) => {
       const aVal = getSortValue(a);
