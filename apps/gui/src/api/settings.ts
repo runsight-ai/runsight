@@ -1,5 +1,10 @@
 import { api } from "./client";
 import { z } from "zod";
+import {
+  ModelResponseSchema,
+  ProviderSummarySchema,
+} from "@runsight/shared/zod";
+import type { ModelResponse, ProviderSummary } from "@runsight/shared/zod";
 
 const ProviderSchema = z.object({
   id: z.string(),
@@ -80,6 +85,16 @@ export const settingsApi = {
   testProviderConnection: async (id: string): Promise<{ success: boolean; message?: string; models?: string[] }> => {
     const res = await api.post<{ success: boolean; message?: string; models?: string[] }>(`/settings/providers/${id}/test`);
     return res;
+  },
+
+  listModelProviders: async (): Promise<ProviderSummary[]> => {
+    const res = await api.get(`/models/providers`);
+    return z.array(ProviderSummarySchema).parse(res);
+  },
+
+  listModelsForProvider: async (provider: string): Promise<ModelResponse[]> => {
+    const res = await api.get(`/models?provider=${encodeURIComponent(provider)}`);
+    return z.array(ModelResponseSchema).parse(res);
   },
 
   listModelDefaults: async (): Promise<{ items: ModelDefault[]; total: number }> => {

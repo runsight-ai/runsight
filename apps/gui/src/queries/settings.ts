@@ -18,6 +18,21 @@ export function useProvider(id: string) {
   });
 }
 
+export function useModelProviders() {
+  return useQuery({
+    queryKey: queryKeys.models.providers,
+    queryFn: () => settingsApi.listModelProviders(),
+  });
+}
+
+export function useModelsForProvider(provider: string | null) {
+  return useQuery({
+    queryKey: queryKeys.models.byProvider(provider),
+    queryFn: () => settingsApi.listModelsForProvider(provider!),
+    enabled: !!provider,
+  });
+}
+
 export function useCreateProvider() {
   const queryClient = useQueryClient();
   return useMutation({
