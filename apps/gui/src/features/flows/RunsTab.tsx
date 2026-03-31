@@ -91,17 +91,23 @@ function EvalCell({ evalPassPct }: { evalPassPct: number | null | undefined }) {
     return <>—</>;
   }
 
+  const formattedEval = formatEval(evalPassPct);
+
   if (evalPassPct >= 90) {
-    return <Badge variant="success">{formatEval(evalPassPct)}</Badge>;
+    return <Badge variant="success">{formattedEval}</Badge>;
   }
 
   return (
     <Badge
       variant="warning"
-      aria-label={formatEval(evalPassPct)}
-      title={formatEval(evalPassPct)}
+      aria-label={formattedEval}
+      title={formattedEval}
     >
-      Needs review
+      <span
+        aria-hidden="true"
+        className="before:content-[attr(data-eval)]"
+        data-eval={formattedEval}
+      />
     </Badge>
   );
 }
