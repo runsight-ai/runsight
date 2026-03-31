@@ -1,58 +1,268 @@
-import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const FEATURE_DIR = resolve(__dirname, "..");
+const fixtures = {
+  populatedWorkflow: {
+    id: "wf_research",
+    name: "Research & Review",
+    description: "Customer interviews and synthesis",
+    block_count: 3,
+    modified_at: Date.parse("2026-03-31T10:00:00Z") / 1000,
+    commit_sha: "f078f13deadbeef",
+    health: {
+      run_count: 12,
+      eval_pass_pct: 92,
+      eval_health: "success",
+      total_cost_usd: 0.42,
+      regression_count: 0,
+    },
+  },
+  partialWorkflow: {
+    id: "wf_partial",
+    name: "New Draft",
+    description: "Fresh workflow with no runs",
+    block_count: 2,
+    modified_at: Date.parse("2026-03-28T12:00:00Z") / 1000,
+    commit_sha: null,
+    health: {
+      run_count: 0,
+      eval_pass_pct: null,
+      eval_health: null,
+      total_cost_usd: 0,
+      regression_count: 0,
+    },
+  },
+};
 
-function readFeatureSource(fileName: string): string {
-  const filePath = resolve(FEATURE_DIR, fileName);
+const mocks = vi.hoisted(() => ({
+  stateValues: [] as unknown[],
+  stateCursor: 0,
+  navigate: vi.fn(),
+  deleteRequests: [] as Array<unknown>,
+  jsxElements: [] as Array<{ type: unknown; props: Record<string, unknown> }>,
+}));
 
-  expect(
-    existsSync(filePath),
-    `Expected RUN-426 to add ${fileName} under apps/gui/src/features/flows`,
-  ).toBe(true);
+vi.mock("react", async () => {
+  const actual = await vi.importActual<typeof React>("react");
 
-  return readFileSync(filePath, "utf-8");
+  return {
+    ...actual,
+    useState: <T,>(initial: T | (() => T)) => {
+      const index = mocks.stateCursor++;
+
+      if (!(index in mocks.stateValues)) {
+        mocks.stateValues[index] =
+          typeof initial === "function" ? (initial as () => T)() : initial;
+      }
+
+      const setState = (value: T | ((previous: T) => T)) => {
+        const previous = mocks.stateValues[index] as T;
+        mocks.stateValues[index] =
+          typeof value === "function"
+            ? (value as (previous: T) => T)(previous)
+            : value;
+      };
+
+      return [mocks.stateValues[index] as T, setState] as const;
+    },
+  };
+});
+
+vi.mock("react/jsx-runtime", async () => {
+  const actual = await vi.importActual<typeof import("react/jsx-runtime")>(
+    "react/jsx-runtime",
+  );
+
+  function record(
+    factory: typeof actual.jsx,
+    type: Parameters<typeof actual.jsx>[0],
+    props: Parameters<typeof actual.jsx>[1],
+    key?: Parameters<typeof actual.jsx>[2],
+  ) {
+    if (typeof type === "string") {
+      mocks.jsxElements.push({
+        type,
+        props: (props ?? {}) as Record<string, unknown>,
+      });
+    }
+
+    return factory(type, props, key);
+  }
+
+  return {
+    ...actual,
+    jsx: (
+      type: Parameters<typeof actual.jsx>[0],
+      props: Parameters<typeof actual.jsx>[1],
+      key?: Parameters<typeof actual.jsx>[2],
+    ) => record(actual.jsx, type, props, key),
+    jsxs: (
+      type: Parameters<typeof actual.jsxs>[0],
+      props: Parameters<typeof actual.jsxs>[1],
+      key?: Parameters<typeof actual.jsxs>[2],
+    ) => record(actual.jsxs, type, props, key),
+  };
+});
+
+vi.mock("react-router", () => ({
+  useNavigate: () => mocks.navigate,
+}));
+
+vi.mock("@runsight/ui/button", () => ({
+  Button: (props: Record<string, unknown>) =>
+    React.createElement(
+      "button",
+      {
+        type: "button",
+        ...props,
+      },
+      props.children,
+    ),
+}));
+
+vi.mock("lucide-react", () => {
+  const icon = (name: string) =>
+    function Icon() {
+      return React.createElement("svg", { "data-icon": name });
+    };
+
+  return new Proxy(
+    {},
+    {
+      get: (_target, key) => icon(String(key)),
+    },
+  );
+});
+
+async function loadWorkflowRowComponent() {
+  const module = await import("../WorkflowRow");
+  return (module.Component ??
+    (module as Record<string, unknown>).WorkflowRow) as React.ComponentType<Record<string, unknown>>;
 }
 
-describe("RUN-426 workflow row contract", () => {
-  it("adds a WorkflowRow component for the two-line /flows list", () => {
-    readFeatureSource("WorkflowRow.tsx");
+async function renderWorkflowRow(props: Record<string, unknown>) {
+  mocks.stateCursor = 0;
+  mocks.jsxElements.length = 0;
+
+  const WorkflowRow = await loadWorkflowRowComponent();
+  const html = renderToStaticMarkup(React.createElement(WorkflowRow, props));
+
+  return {
+    html,
+    elements: [...mocks.jsxElements],
+  };
+}
+
+function findInteractiveRow(elements: Array<{ type: unknown; props: Record<string, unknown> }>) {
+  return elements.find(({ props }) => {
+    const ariaLabel = String(props["aria-label"] ?? "");
+
+    return (
+      typeof props.onClick === "function" &&
+      typeof props.onKeyDown === "function" &&
+      !ariaLabel.startsWith("Delete ")
+    );
+  });
+}
+
+function findDeleteButton(elements: Array<{ type: unknown; props: Record<string, unknown> }>) {
+  return elements.find(({ type, props }) => {
+    if (type !== "button") {
+      return false;
+    }
+
+    return String(props["aria-label"] ?? "").startsWith("Delete ");
+  });
+}
+
+beforeEach(() => {
+  vi.resetModules();
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-03-31T12:00:00Z"));
+  mocks.stateValues.length = 0;
+  mocks.stateCursor = 0;
+  mocks.navigate.mockReset();
+  mocks.deleteRequests.length = 0;
+  mocks.jsxElements.length = 0;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("RUN-426 WorkflowRow behavior", () => {
+  it("renders the two-line workflow content from the enhanced workflow payload", async () => {
+    const view = await renderWorkflowRow({
+      workflow: fixtures.populatedWorkflow,
+      onDelete: (workflow: unknown) => mocks.deleteRequests.push(workflow),
+    });
+
+    expect(view.html).toContain("Research &amp; Review");
+    expect(view.html).toMatch(/3 blocks?|3 block/);
+    expect(view.html).toContain("f078f13");
+    expect(view.html).toMatch(/12 runs?|12 run/);
+    expect(view.html).toMatch(/92.*eval/);
+    expect(view.html).toMatch(/\$0\.42|0\.42/);
+    expect(view.html).toMatch(/0 regressions?|0 regression/);
   });
 
-  it("renders line-one workflow metadata from the RUN-478/RUN-482 payload", () => {
-    const source = readFeatureSource("WorkflowRow.tsx");
+  it("uses partial-state fallbacks for workflows with no runs yet", async () => {
+    const view = await renderWorkflowRow({
+      workflow: fixtures.partialWorkflow,
+      onDelete: (workflow: unknown) => mocks.deleteRequests.push(workflow),
+    });
 
-    expect(source).toMatch(/workflow\.name|name/);
-    expect(source).toMatch(/workflow\.block_count|block_count/);
-    expect(source).toMatch(/workflow\.commit_sha|commit_sha/);
-    expect(source).toMatch(/workflow\.modified_at|modified_at/);
+    expect(view.html).toContain("New Draft");
+    expect(view.html).toMatch(/0 runs?|0 run/);
+    expect(view.html).toMatch(/No runs yet|—/);
+    expect(view.html).toMatch(/uncommitted|Uncommitted/);
   });
 
-  it("renders line-two health metrics from workflow.health", () => {
-    const source = readFeatureSource("WorkflowRow.tsx");
+  it("opens /workflows/:id/edit when the row is activated by click or keyboard", async () => {
+    const firstView = await renderWorkflowRow({
+      workflow: fixtures.populatedWorkflow,
+      onDelete: (workflow: unknown) => mocks.deleteRequests.push(workflow),
+    });
+    const interactiveRow = findInteractiveRow(firstView.elements);
 
-    expect(source).toMatch(/workflow\.health\?\.run_count|health\?\.run_count/);
-    expect(source).toMatch(/workflow\.health\?\.eval_pass_pct|health\?\.eval_pass_pct/);
-    expect(source).toMatch(/workflow\.health\?\.total_cost_usd|health\?\.total_cost_usd/);
-    expect(source).toMatch(/workflow\.health\?\.regression_count|health\?\.regression_count/);
+    interactiveRow?.props.onClick?.({ preventDefault: vi.fn() });
+
+    expect(mocks.navigate).toHaveBeenCalledWith("/workflows/wf_research/edit");
+
+    mocks.navigate.mockClear();
+
+    interactiveRow?.props.onKeyDown?.({
+      key: "Enter",
+      preventDefault: vi.fn(),
+    });
+
+    expect(mocks.navigate).toHaveBeenCalledWith("/workflows/wf_research/edit");
   });
 
-  it("handles partial-state workflows with no runs yet using zero and dash fallbacks", () => {
-    const source = readFeatureSource("WorkflowRow.tsx");
+  it("exposes an accessible trash control and keeps it available on focus", async () => {
+    const firstView = await renderWorkflowRow({
+      workflow: fixtures.populatedWorkflow,
+      onDelete: (workflow: unknown) => mocks.deleteRequests.push(workflow),
+    });
+    const interactiveRow = findInteractiveRow(firstView.elements);
+    let deleteButton = findDeleteButton(firstView.elements);
 
-    expect(source).toMatch(/run_count[\s\S]*===?\s*0|!\s*workflow\.health\?\.run_count/);
-    expect(source).toMatch(/No runs yet|no runs yet|["']—["']/);
-    expect(source).toMatch(/uncommitted|commit_sha[\s\S]*\?\?/);
-  });
+    if (!deleteButton) {
+      interactiveRow?.props.onFocus?.({ preventDefault: vi.fn() });
+      interactiveRow?.props.onMouseEnter?.({ preventDefault: vi.fn() });
 
-  it("keeps rows keyboard reachable and gives the trash action a descriptive aria-label", () => {
-    const source = readFeatureSource("WorkflowRow.tsx");
+      const focusedView = await renderWorkflowRow({
+        workflow: fixtures.populatedWorkflow,
+        onDelete: (workflow: unknown) => mocks.deleteRequests.push(workflow),
+      });
 
-    expect(source).toMatch(/role=["']listitem["']|<li\b/);
-    expect(source).toMatch(/tabIndex=\{0\}|<button[\s\S]*onClick/);
-    expect(source).toMatch(/onKeyDown/);
-    expect(source).toMatch(/Enter|["'] ["']|Space/);
-    expect(source).toMatch(/aria-label=\{`Delete \$\{workflow\.name \|\| "Untitled"\} workflow`\}|aria-label=["']Delete workflow["']/);
+      deleteButton = findDeleteButton(focusedView.elements);
+    }
+
+    expect(deleteButton).toBeDefined();
+    expect(String(deleteButton?.props["aria-label"] ?? "")).toContain(
+      "Delete Research & Review workflow",
+    );
   });
 });
