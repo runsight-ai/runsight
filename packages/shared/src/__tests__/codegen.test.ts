@@ -220,8 +220,30 @@ describe("RUN-134: Generated Zod schemas are valid", () => {
       name: "Test Workflow",
       yaml: "steps: []",
       valid: true,
+      block_count: 3,
+      modified_at: 1711900000.0,
+      enabled: true,
+      commit_sha: "deadbeefcafebabe",
+      health: {
+        run_count: 2,
+        eval_pass_pct: 95.0,
+        eval_health: "success",
+        total_cost_usd: 0.3,
+        regression_count: 0,
+      },
     });
     expect(result.success).toBe(true);
+  });
+
+  it("WorkflowResponseSchema exposes RUN-478 workflow health fields", async () => {
+    const mod = await import("../zod");
+    const shape = mod.WorkflowResponseSchema.shape;
+
+    expect(shape).toHaveProperty("block_count");
+    expect(shape).toHaveProperty("modified_at");
+    expect(shape).toHaveProperty("enabled");
+    expect(shape).toHaveProperty("commit_sha");
+    expect(shape).toHaveProperty("health");
   });
 
   it("RunResponseSchema parses a valid run object", async () => {

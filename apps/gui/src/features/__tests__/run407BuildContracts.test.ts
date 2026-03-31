@@ -108,14 +108,23 @@ describe("RUN-407: WorkflowList build-safe WorkflowResponse usage", () => {
     "last_run_cost_usd",
     "last_run_completed_at",
     "step_count",
-    "block_count",
   ] as const;
+
+  const run478Fields = ["block_count", "modified_at", "enabled", "commit_sha", "health"] as const;
 
   it("generated WorkflowResponse contract does not contain the old phantom fields", () => {
     const workflowResponseFields = extractWorkflowResponseFields();
 
     for (const field of phantomFields) {
       expect(workflowResponseFields).not.toContain(field);
+    }
+  });
+
+  it("generated WorkflowResponse contract includes the RUN-478 workflow fields", () => {
+    const workflowResponseFields = extractWorkflowResponseFields();
+
+    for (const field of run478Fields) {
+      expect(workflowResponseFields).toContain(field);
     }
   });
 

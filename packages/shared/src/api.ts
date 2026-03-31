@@ -161,6 +161,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workflows/{id}/commits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit Workflow */
+        post: operations["commit_workflow_api_workflows__id__commits_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workflows/{id}/simulations": {
         parameters: {
             query?: never;
@@ -633,6 +650,8 @@ export interface components {
             auto_save?: boolean | null;
             /** Onboarding Completed */
             onboarding_completed?: boolean | null;
+            /** Fallback Chain Enabled */
+            fallback_chain_enabled?: boolean | null;
         };
         /** AttentionItem */
         AttentionItem: {
@@ -739,6 +758,15 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ModelDefaultUpdate */
+        ModelDefaultUpdate: {
+            /** Model Name */
+            model_name?: string | null;
+            /** Is Default */
+            is_default?: boolean | null;
+            /** Fallback Chain */
+            fallback_chain?: string[] | null;
         };
         /** ModelResponse */
         ModelResponse: {
@@ -1226,6 +1254,25 @@ export interface components {
              */
             canvas_mode: "dag" | "state-machine";
         };
+        /** WorkflowCommitCreate */
+        WorkflowCommitCreate: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Yaml */
+            yaml?: string | null;
+            canvas_state?: components["schemas"]["WorkflowCanvasState"] | null;
+            /** Message */
+            message: string;
+        };
+        /** WorkflowCommitResponse */
+        WorkflowCommitResponse: {
+            /** Hash */
+            hash: string;
+            /** Message */
+            message: string;
+        };
         /** WorkflowCreate */
         WorkflowCreate: {
             /** Name */
@@ -1235,6 +1282,28 @@ export interface components {
             /** Yaml */
             yaml?: string | null;
             canvas_state?: components["schemas"]["WorkflowCanvasState"] | null;
+        };
+        /** WorkflowHealthMetrics */
+        WorkflowHealthMetrics: {
+            /**
+             * Run Count
+             * @default 0
+             */
+            run_count: number;
+            /** Eval Pass Pct */
+            eval_pass_pct?: number | null;
+            /** Eval Health */
+            eval_health?: ("success" | "warning" | "danger") | null;
+            /**
+             * Total Cost Usd
+             * @default 0
+             */
+            total_cost_usd: number;
+            /**
+             * Regression Count
+             * @default 0
+             */
+            regression_count: number;
         };
         /** WorkflowListResponse */
         WorkflowListResponse: {
@@ -1261,6 +1330,21 @@ export interface components {
             valid: boolean;
             /** Validation Error */
             validation_error?: string | null;
+            /**
+             * Block Count
+             * @default 0
+             */
+            block_count: number;
+            /** Modified At */
+            modified_at?: number | null;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Commit Sha */
+            commit_sha?: string | null;
+            health?: components["schemas"]["WorkflowHealthMetrics"];
         };
         /** WorkflowSimulationCreate */
         WorkflowSimulationCreate: {
@@ -1721,6 +1805,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    commit_workflow_api_workflows__id__commits_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowCommitCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowCommitResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2501,7 +2620,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelDefaultUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
