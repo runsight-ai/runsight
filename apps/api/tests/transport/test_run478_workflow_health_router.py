@@ -80,9 +80,9 @@ def _make_workflow(
         health=health
         if health is not None
         else {
-            "eval_health": "healthy",
+            "eval_health": "success",
             "run_count": 2,
-            "eval_pass_pct": 50.0,
+            "eval_pass_pct": 95.0,
             "total_cost_usd": 0.30,
             "regression_count": 1,
         },
@@ -169,7 +169,7 @@ class TestWorkflowsListResponse:
         assert health is not None, "Expected nested workflow health data in list response"
         assert health["eval_health"] is not None
         assert health["run_count"] == 2
-        assert health["eval_pass_pct"] == 50.0
+        assert health["eval_pass_pct"] == 95.0
         assert health["total_cost_usd"] == 0.30
         assert health["regression_count"] == 1
 

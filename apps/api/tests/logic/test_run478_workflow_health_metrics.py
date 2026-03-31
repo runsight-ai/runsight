@@ -91,7 +91,7 @@ class TestWorkflowHealthAggregation:
         run_repo = Mock()
         run_repo.get_workflow_health_metrics.return_value = {
             "wf_1": _make_workflow_health(
-                eval_health="warning",
+                eval_health="danger",
                 run_count=2,
                 eval_pass_pct=50.0,
                 total_cost_usd=0.30,
@@ -109,7 +109,7 @@ class TestWorkflowHealthAggregation:
 
         health = _workflow_health(result[0])
         assert _health_value(health, "run_count") == 2
-        assert _health_value(health, "eval_health") is not None
+        assert _health_value(health, "eval_health") == "danger"
         assert _health_value(health, "eval_pass_pct") == 50.0
         assert _health_value(health, "total_cost_usd") == pytest.approx(0.30)
         assert _health_value(health, "regression_count") == 1

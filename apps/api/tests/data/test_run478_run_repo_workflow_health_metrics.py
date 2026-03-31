@@ -102,6 +102,6 @@ class TestWorkflowHealthMetricsRepository:
 
         assert _metric_value(metric, "run_count") == 2
         assert _metric_value(metric, "eval_pass_pct") == pytest.approx(50.0)
-        assert _metric_value(metric, "eval_health") == "warning"
+        assert _metric_value(metric, "eval_health") == "danger"
         assert _metric_value(metric, "total_cost_usd") == pytest.approx(0.30)
         assert _metric_value(metric, "regression_count") == 1
