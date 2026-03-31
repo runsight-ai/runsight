@@ -121,7 +121,7 @@ function SourceBadge({ source }: { source: RunResponse["source"] }) {
 
 function EvalCell({ evalPassPct }: { evalPassPct: number | null | undefined }) {
   if (typeof evalPassPct !== "number") {
-    return <>—</>;
+    return <span className="text-muted">—</span>;
   }
 
   const formattedEval = formatEval(evalPassPct);
@@ -130,9 +130,11 @@ function EvalCell({ evalPassPct }: { evalPassPct: number | null | undefined }) {
     return <Badge variant="success">{formattedEval}</Badge>;
   }
 
+  const variant = evalPassPct >= 75 ? "warning" : "danger";
+
   return (
     <Badge
-      variant="warning"
+      variant={variant}
       aria-label={formattedEval}
       title={formattedEval}
     >
