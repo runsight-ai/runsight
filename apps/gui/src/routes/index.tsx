@@ -67,6 +67,20 @@ export const router = createBrowserRouter([
           })),
       },
       {
+        path: "souls/new",
+        lazy: () =>
+          import("@/features/souls/SoulFormPage").then((m) => ({
+            Component: m.Component,
+          })),
+      },
+      {
+        path: "souls/:id/edit",
+        lazy: () =>
+          import("@/features/souls/SoulFormPage").then((m) => ({
+            Component: m.Component,
+          })),
+      },
+      {
         path: "tasks",
         lazy: () =>
           import("@/features/sidebar/TaskList").then((m) => ({
