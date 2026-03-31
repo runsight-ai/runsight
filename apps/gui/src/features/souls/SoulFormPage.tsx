@@ -28,6 +28,43 @@ function buildBreadcrumbLabel(mode: "create" | "edit", role?: string | null) {
   return `Souls > ${role ?? "Soul"} > Edit`;
 }
 
+function SoulFormLoadingState({ returnUrl }: { returnUrl: string | null }) {
+  return (
+    <div className="flex h-full flex-col">
+      <PageHeader
+        title="Edit Soul"
+        subtitle="Loading..."
+        breadcrumbs="Souls > Edit"
+        backHref={returnUrl ?? "/souls"}
+      />
+
+      <div className="flex-1 overflow-y-auto pb-24">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-6 pb-8">
+          {[1, 2, 3, 4].map((section) => (
+            <div
+              key={section}
+              className="rounded-xl border border-border-default bg-surface-secondary p-5"
+            >
+              <div className="mb-4 h-5 w-32 animate-pulse rounded bg-border-default" />
+              <div className="space-y-3">
+                <div className="h-10 w-full animate-pulse rounded bg-border-default" />
+                <div className="h-10 w-2/3 animate-pulse rounded bg-border-default" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <footer className="sticky bottom-0 border-t border-[var(--border-subtle)] bg-[var(--surface-primary)]">
+        <div className="mx-auto flex w-full max-w-4xl items-center justify-end gap-3 px-6 py-4">
+          <div className="h-10 w-24 animate-pulse rounded bg-border-default" />
+          <div className="h-10 w-32 animate-pulse rounded bg-border-default" />
+        </div>
+      </footer>
+    </div>
+  );
+}
+
 export function Component() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -62,7 +99,7 @@ export function Component() {
     values.name.trim().length > 0 && values.systemPrompt.trim().length > 0;
 
   if (mode === "edit" && soulQuery.isLoading) {
-    return <div className="p-6 text-sm text-muted">Loading soul…</div>;
+    return <SoulFormLoadingState returnUrl={returnUrl} />;
   }
 
   if (mode === "edit" && soulQuery.isError) {
@@ -92,7 +129,7 @@ export function Component() {
       />
 
       <div className="flex-1 overflow-y-auto pb-24">
-        <div className="mx-auto flex max-w-2xl flex-col gap-4 px-6 pb-8">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-6 pb-8">
           <SoulFormBody values={values} setField={setField} />
         </div>
       </div>

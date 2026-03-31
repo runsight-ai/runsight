@@ -84,4 +84,16 @@ describe("SoulFormPage contract (RUN-449)", () => {
     expect(source).toMatch(/blocker\.proceed|proceed\?/);
     expect(source).toMatch(/blocker\.reset|reset\?/);
   });
+
+  it("renders a full-page loading shell for edit mode instead of inline loading copy", () => {
+    const source = read(PAGE_PATH);
+    expect(source).toMatch(/SoulFormLoadingState/);
+    expect(source).toMatch(/subtitle=\s*["']Loading\.\.\.["']/);
+    expect(source).not.toMatch(/Loading soul…|Loading soul\.\.\./);
+  });
+
+  it("uses a wider desktop form shell while keeping the sticky footer aligned to the same content width", () => {
+    const source = read(PAGE_PATH);
+    expect(source).toMatch(/max-w-4xl|max-w-5xl/);
+  });
 });

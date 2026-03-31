@@ -93,14 +93,18 @@ describe("SoulPromptSection contract (RUN-448)", () => {
 });
 
 describe("SoulToolsSection contract (RUN-448)", () => {
-  it("wraps a single TagInput in a collapsed Tools section", () => {
+  it("renders a collapsed Tools section with assignable tool options and hides system-owned tools", () => {
     const source = read(SECTION_PATHS.tools);
     expect(source).toMatch(/export\s+(function|const)\s+SoulToolsSection/);
-    expect(source).toMatch(/TagInput/);
     expect(source).toMatch(/title=\{?["']Tools["']/);
     expect(source).toMatch(/defaultOpen=\{false\}|defaultOpen=\{?false\}?/);
     expect(source).toMatch(/tools:\s*string\[\]/);
     expect(source).toMatch(/onToolsChange/);
+    expect(source).toMatch(/runsight\/http/);
+    expect(source).toMatch(/runsight\/file-io/);
+    expect(source).toMatch(/delegate/i);
+    expect(source).toMatch(/automatically|block/i);
+    expect(source).not.toMatch(/value:\s*["']runsight\/delegate["']/);
   });
 });
 
