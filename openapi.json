@@ -2571,6 +2571,38 @@
             ],
             "title": "Regressions"
           },
+          "runs_previous_period": {
+            "type": "integer",
+            "title": "Runs Previous Period",
+            "default": 0
+          },
+          "cost_previous_period_usd": {
+            "type": "number",
+            "title": "Cost Previous Period Usd",
+            "default": 0.0
+          },
+          "eval_pass_rate_previous_period": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Pass Rate Previous Period"
+          },
+          "regressions_previous_period": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regressions Previous Period"
+          },
           "period_hours": {
             "type": "integer",
             "title": "Period Hours",

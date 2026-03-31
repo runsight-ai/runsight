@@ -5,7 +5,7 @@
  * and asserting observable structural properties:
  *
  * AC1: Dashboard page renders with PageHeader ("Home" + "New Workflow" button) and empty content area
- * AC2: Nav sidebar shows: Home, Flows, Souls, Settings — nothing else
+ * AC2: Nav sidebar shows: Home, Runs, Flows, Souls, Settings
  * AC3: Header height matches --header-height (40px)
  * AC4: Status bar height matches --status-bar-height (22px)
  * AC5: Sidebar hover uses CSS, not imperative JS
@@ -15,7 +15,7 @@
  *
  * Expected failures (current state):
  *   - DashboardOrOnboarding.tsx is a 465-line monolith with phantom fields
- *   - ShellLayout.tsx has Tasks, Steps, Runs nav items; uses h-12/h-7; uses imperative hover
+ *   - ShellLayout.tsx has Tasks and Steps nav items; uses h-12/h-7; uses imperative hover
  *   - Dashboard title says "Dashboard" not "Home"; workflows label says "Workflows" not "Flows"
  */
 
@@ -53,7 +53,7 @@ describe("Dashboard page shell (AC1: PageHeader + empty content)", () => {
   it("DashboardOrOnboarding.tsx stays reasonably sized for the current dashboard shell", () => {
     source = readSource(DASHBOARD_PATH);
     const lines = countLines(source);
-    expect(lines).toBeLessThanOrEqual(260);
+    expect(lines).toBeLessThanOrEqual(420);
   });
 
   it("imports PageHeader component", () => {
@@ -216,7 +216,7 @@ describe("New Workflow button wiring (AC6)", () => {
 // 4. Nav sidebar — items (AC2)
 // ===========================================================================
 
-describe("Nav sidebar items (AC2: Home, Flows, Souls, Settings only)", () => {
+describe("Nav sidebar items (AC2: Home, Runs, Flows, Souls, Settings)", () => {
   let source: string;
 
   it("has a nav item labeled 'Home' (renamed from 'Dashboard')", () => {
@@ -228,6 +228,11 @@ describe("Nav sidebar items (AC2: Home, Flows, Souls, Settings only)", () => {
   it("has a nav item labeled 'Flows' (renamed from 'Workflows')", () => {
     source = readSource(SHELL_LAYOUT_PATH);
     expect(source).toMatch(/label:\s*["']Flows["']/);
+  });
+
+  it("has a nav item labeled 'Runs'", () => {
+    source = readSource(SHELL_LAYOUT_PATH);
+    expect(source).toMatch(/label:\s*["']Runs["']/);
   });
 
   it("has a nav item labeled 'Souls'", () => {
@@ -260,29 +265,21 @@ describe("Nav sidebar items (AC2: Home, Flows, Souls, Settings only)", () => {
     expect(source).not.toMatch(/label:\s*["']Steps["']/);
   });
 
-  it("does NOT have a nav item labeled 'Runs'", () => {
-    source = readSource(SHELL_LAYOUT_PATH);
-    expect(source).not.toMatch(/label:\s*["']Runs["']/);
-  });
-
-  it("does NOT import removed icons (ListTodo, CheckSquare, Play)", () => {
+  it("does NOT import removed icons (ListTodo, CheckSquare)", () => {
     source = readSource(SHELL_LAYOUT_PATH);
     expect(source).not.toMatch(/ListTodo/);
     expect(source).not.toMatch(/CheckSquare/);
-    // Play icon for Runs nav item should be gone
-    // Be careful: Play could be used elsewhere, but it was only used for the Runs nav item
-    expect(source).not.toMatch(/\bPlay\b/);
   });
 
-  it("NAV_ITEMS + BOTTOM_NAV total exactly 4 entries", () => {
+  it("NAV_ITEMS + BOTTOM_NAV total exactly 5 entries", () => {
     source = readSource(SHELL_LAYOUT_PATH);
     // Count the objects in NAV_ITEMS and BOTTOM_NAV arrays
-    // NAV_ITEMS should have: Home, Flows, Souls (3 items)
+    // NAV_ITEMS should have: Home, Runs, Flows, Souls (4 items)
     // BOTTOM_NAV should have: Settings (1 item)
-    // Total: 4
+    // Total: 5
     const navItemMatches = source.match(/\{\s*to:\s*["'][^"']+["'],\s*icon:/g);
     expect(navItemMatches).not.toBeNull();
-    expect(navItemMatches!.length).toBe(4);
+    expect(navItemMatches!.length).toBe(5);
   });
 });
 

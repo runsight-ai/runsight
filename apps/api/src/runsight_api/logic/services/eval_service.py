@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from statistics import mean
+import time
 
 from ...data.repositories.run_repo import RunRepository
 from ...transport.schemas.dashboard import AttentionItem
@@ -91,72 +92,120 @@ class EvalService:
         return SoulEvalHistoryResponse(soul_id=soul_id, versions=versions)
 
     def get_attention_items(self) -> list[AttentionItem]:
-        """Scan recent run nodes for attention-worthy conditions."""
-        items: list[AttentionItem] = []
-        runs = self.run_repo.list_runs()
+        """Scan recent production run nodes for attention-worthy conditions."""
+        cutoff = time.time() - 24 * 3600
+        items: list[tuple[float, AttentionItem]] = []
+        previous_by_key: dict[tuple[str, str, str], object] = {}
+        severity_rank = {"warning": 1, "info": 0}
+
+        runs = [
+            run
+            for run in self.run_repo.list_runs()
+            if (
+                getattr(run, "branch", "main")
+                if isinstance(getattr(run, "branch", "main"), str)
+                else "main"
+            )
+            == "main"
+            and (
+                getattr(run, "source", "manual")
+                if isinstance(getattr(run, "source", "manual"), str)
+                else "manual"
+            )
+            in {"manual", "webhook", "schedule"}
+        ]
+        runs.sort(key=lambda run: run.created_at)
 
         for run in runs:
-            nodes = self.run_repo.list_nodes_for_run(run.id)
+            nodes = sorted(
+                self.run_repo.list_nodes_for_run(run.id), key=lambda node: node.created_at
+            )
             for node in nodes:
-                if node.eval_score is None:
-                    continue
+                previous_node = None
+                key = None
+                if node.soul_version is not None:
+                    key = (run.workflow_id, node.node_id, node.soul_version)
+                    previous_node = previous_by_key.get(key)
 
-                delta = self._compute_delta(node)
+                if run.created_at > cutoff and node.soul_version is not None:
+                    title = f"{run.workflow_name} · {node.node_id}"
 
-                if delta is None:
-                    # New baseline — no previous data to compare against
-                    items.append(
-                        AttentionItem(
-                            type="new_baseline",
-                            title="New prompt version detected",
-                            description=f"Soul '{node.soul_id}' — first run of version {node.soul_version}",
-                            run_id=run.id,
-                            workflow_id=run.workflow_id,
-                            severity="info",
+                    if previous_node is None:
+                        items.append(
+                            (
+                                node.created_at,
+                                AttentionItem(
+                                    type="new_baseline",
+                                    title=title,
+                                    description="First production run for this version on main.",
+                                    run_id=run.id,
+                                    workflow_id=run.workflow_id,
+                                    severity="info",
+                                ),
+                            )
                         )
-                    )
-                    continue
+                    else:
+                        if node.eval_passed is False and previous_node.eval_passed is True:
+                            items.append(
+                                (
+                                    node.created_at,
+                                    AttentionItem(
+                                        type="assertion_regression",
+                                        title=title,
+                                        description="Eval passed on the previous production run and failed on this one.",
+                                        run_id=run.id,
+                                        workflow_id=run.workflow_id,
+                                        severity="warning",
+                                    ),
+                                )
+                            )
 
-                # Assertion regression
-                if node.eval_passed is False:
-                    items.append(
-                        AttentionItem(
-                            type="assertion_regression",
-                            title="Assertion failed",
-                            description=f"Workflow '{run.workflow_id}' — run {run.id}",
-                            run_id=run.id,
-                            workflow_id=run.workflow_id,
-                            severity="warning",
-                        )
-                    )
+                        if previous_node.cost_usd > 0:
+                            cost_pct = (
+                                (node.cost_usd - previous_node.cost_usd)
+                                / previous_node.cost_usd
+                                * 100
+                            )
+                            if cost_pct > 20:
+                                items.append(
+                                    (
+                                        node.created_at,
+                                        AttentionItem(
+                                            type="cost_spike",
+                                            title=title,
+                                            description=f"Cost increased {cost_pct:.0f}% vs the previous production run.",
+                                            run_id=run.id,
+                                            workflow_id=run.workflow_id,
+                                            severity="warning",
+                                        ),
+                                    )
+                                )
 
-                # Cost spike
-                if delta.cost_pct > 20:
-                    items.append(
-                        AttentionItem(
-                            type="cost_spike",
-                            title=f"Cost +{delta.cost_pct:.0f}% after prompt change",
-                            description=f"Soul '{node.soul_id}' — workflow '{run.workflow_id}'",
-                            run_id=run.id,
-                            workflow_id=run.workflow_id,
-                            severity="warning",
-                        )
-                    )
+                        if node.eval_score is not None and previous_node.eval_score is not None:
+                            score_delta = node.eval_score - previous_node.eval_score
+                            if score_delta < -0.1:
+                                items.append(
+                                    (
+                                        node.created_at,
+                                        AttentionItem(
+                                            type="quality_drop",
+                                            title=title,
+                                            description=f"Eval score dropped {abs(score_delta):.2f} vs the previous production run.",
+                                            run_id=run.id,
+                                            workflow_id=run.workflow_id,
+                                            severity="warning",
+                                        ),
+                                    )
+                                )
 
-                # Quality drop
-                if delta.score_delta is not None and delta.score_delta < -0.1:
-                    items.append(
-                        AttentionItem(
-                            type="quality_drop",
-                            title=f"Quality score dropped {abs(delta.score_delta):.2f}",
-                            description=f"Soul '{node.soul_id}' — workflow '{run.workflow_id}'",
-                            run_id=run.id,
-                            workflow_id=run.workflow_id,
-                            severity="warning",
-                        )
-                    )
+                if key is not None:
+                    previous_by_key[key] = node
 
-        return items
+        items.sort(
+            key=lambda item: (severity_rank.get(item[1].severity, 0), item[0]),
+            reverse=True,
+        )
+        return [item for _, item in items]
 
     def _compute_delta(self, node) -> EvalDelta | None:
         if node.soul_id is None or node.soul_version is None:

@@ -106,7 +106,7 @@ describe("Section hidden when no attention items (AC2)", () => {
     // The ATTENTION section must be guarded by a condition checking for items
     // Look for pattern like: {items.length > 0 && ( ... ATTENTION ... )}
     const hasGuardedAttention =
-      /\.length\s*[>!][\s\S]{0,100}ATTENTION|&&[\s\S]{0,200}ATTENTION/.test(
+      /attentionItems\.length\s*>\s*0[\s\S]{0,400}ATTENTION|attentionItems\.length\s*&&[\s\S]{0,400}ATTENTION/.test(
         source,
       );
     expect(
@@ -196,7 +196,7 @@ describe("Uses Card + Badge composition (AC4)", () => {
 // 5. Click navigates to relevant run/canvas (AC5)
 // ===========================================================================
 
-describe("Click navigates to relevant run/canvas (AC5)", () => {
+describe("Click navigates to relevant run detail (AC5)", () => {
   it("attention items have onClick handler", () => {
     const source = readSource(DASHBOARD_PATH);
     // Near the attention section, there should be an onClick
@@ -211,30 +211,28 @@ describe("Click navigates to relevant run/canvas (AC5)", () => {
     ).toBe(true);
   });
 
-  it("navigates using workflow_id from attention item", () => {
+  it("navigates using run_id from attention item", () => {
     const source = readSource(DASHBOARD_PATH);
-    // Should navigate to /workflows/${item.workflow_id}/edit specifically from attention items
-    // The attention section must wire item.workflow_id into navigation
+    // Attention items should deep-link to the specific run for investigation.
     const hasAttentionNav =
-      /attention[\s\S]{0,800}workflow_id[\s\S]{0,100}\/edit|ATTENTION[\s\S]{0,800}workflow_id[\s\S]{0,100}\/edit/.test(
+      /\/runs\/\$\{item\.run_id\}|navigate\(\s*`\/runs\/\$\{item\.run_id\}`/.test(
         source,
       );
     expect(
       hasAttentionNav,
-      "Expected attention item navigation using workflow_id to /edit",
+      "Expected attention item navigation using run_id to /runs/:id",
     ).toBe(true);
   });
 
-  it("passes run context when navigating from attention item", () => {
+  it("uses run_id context when navigating from attention item", () => {
     const source = readSource(DASHBOARD_PATH);
-    // Navigation should include run_id context (e.g., in state or query params)
     const hasRunContext =
-      /run_id[\s\S]{0,200}navigate|navigate[\s\S]{0,200}run_id|state.*run_id|runId/.test(
+      /run_id[\s\S]{0,200}navigate|navigate[\s\S]{0,200}run_id|\/runs\/\$\{item\.run_id\}|\/runs\/\$\{.*run_id/.test(
         source,
       );
     expect(
       hasRunContext,
-      "Expected run_id context passed during attention item navigation",
+      "Expected run_id context used during attention item navigation",
     ).toBe(true);
   });
 });
@@ -248,7 +246,7 @@ describe("new_baseline items styled as informational (AC6)", () => {
     const source = readSource(DASHBOARD_PATH);
     // Should have conditional styling: new_baseline → info/neutral, others → warning
     const hasInfoVariant =
-      /new_baseline[\s\S]{0,200}info|new_baseline[\s\S]{0,200}neutral/.test(
+      /item\.type\s*===\s*["']new_baseline["'][\s\S]{0,200}["']info["']|isInfo[\s\S]{0,120}["']info["']/.test(
         source,
       );
     expect(
@@ -283,7 +281,7 @@ describe("useAttentionItems hook exists and is wired (AC7)", () => {
 
   it("useAttentionItems calls /dashboard/attention endpoint", () => {
     const source = readSource(QUERIES_DASHBOARD_PATH);
-    expect(source).toMatch(/\/dashboard\/attention/);
+    expect(source).toMatch(/dashboardApi\.getAttentionItems/);
   });
 
   it("Dashboard page imports useAttentionItems", () => {

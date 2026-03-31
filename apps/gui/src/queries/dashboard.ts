@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "./keys";
 import { api } from "../api/client";
+import { dashboardApi } from "../api/dashboard";
 import type { DashboardKPIsResponse } from "@runsight/shared/zod";
 import type { RunResponse } from "@runsight/shared/zod";
 import {
   DashboardKPIsResponseSchema,
-  AttentionItemsResponseSchema,
 } from "@runsight/shared/zod";
 import type { AttentionItemsResponse } from "@runsight/shared/zod";
 
@@ -33,12 +33,11 @@ export function useRecentRuns(limit: number = 10) {
   });
 }
 
-export function useAttentionItems() {
+export function useAttentionItems(limit?: number) {
   return useQuery({
-    queryKey: queryKeys.dashboard.attention,
+    queryKey: [...queryKeys.dashboard.attention, limit ?? "default"],
     queryFn: async (): Promise<AttentionItemsResponse> => {
-      const res = await api.get("/dashboard/attention");
-      return AttentionItemsResponseSchema.parse(res);
+      return dashboardApi.getAttentionItems(limit);
     },
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,

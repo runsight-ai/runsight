@@ -101,7 +101,7 @@ describe("RUN-452 SoulLibraryPage behavior", () => {
     expect(tableProps.columns.some((column) => column.header === "Used In")).toBe(true);
     expect(tableProps.data).toEqual(mocks.soulsQuery.data);
     expect(String(tableProps.columns.find((column) => column.header === "Name")?.render)).toMatch(
-      /avatar_color|bg-/,
+      /avatar_color|bg-|charAt|toUpperCase|text-on-accent/,
     );
     expect(String(tableProps.columns.find((column) => column.header === "Tools")?.render)).toMatch(
       /TOOL_META|HTTP|Files|Icon/,

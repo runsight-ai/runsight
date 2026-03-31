@@ -104,13 +104,11 @@ describe("Regressions StatCard variant logic (AC2)", () => {
 describe("Eval Pass StatCard uses success variant for high pass rate (AC3)", () => {
   it('Eval Pass card has variant logic (not always "default")', () => {
     const source = readSource(DASHBOARD_PATH);
-    // The Eval Pass StatCard should have a variant prop that is conditionally set
-    // Currently: <StatCard label="Eval Pass" value={evalPassDisplay} />
-    // Expected: <StatCard label="Eval Pass" value={evalPassDisplay} variant={...} />
+    // The Eval Pass Rate StatCard should have a variant prop that is conditionally set.
     //
-    // Find the Eval Pass StatCard and check it has a variant prop
+    // Find the Eval Pass Rate StatCard and check it has a variant prop.
     const evalPassCardMatch = source.match(
-      /label\s*=\s*["']Eval Pass["'][^>]*>/,
+      /label\s*=\s*["']Eval Pass Rate["'][^>]*>/,
     );
     expect(evalPassCardMatch).not.toBeNull();
 

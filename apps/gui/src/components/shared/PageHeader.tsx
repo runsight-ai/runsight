@@ -26,7 +26,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "flex items-start justify-between px-6 py-6",
+        "flex items-start justify-between px-6 py-5",
         className
       )}
     >
@@ -50,7 +50,7 @@ export function PageHeader({
           {breadcrumbs && (
             <div className="text-xs text-muted mb-1">{breadcrumbs}</div>
           )}
-          <h1 className="text-lg font-semibold leading-tight text-primary">
+          <h1 className="text-2xl font-bold tracking-tight leading-tight text-heading">
             {title}
           </h1>
           {subtitle && (

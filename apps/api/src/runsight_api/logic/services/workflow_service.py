@@ -1,9 +1,12 @@
 from typing import Any, Dict, List, Optional
+import logging
 
 from ...data.filesystem.workflow_repo import WorkflowRepository
 from ...data.repositories.run_repo import RunRepository
 from ...domain.errors import WorkflowNotFound
 from ...domain.value_objects import WorkflowEntity
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowService:
@@ -122,7 +125,12 @@ class WorkflowService:
             return
         if self.git_service.is_clean():
             return  # nothing changed, skip empty commit
-        self.git_service.commit_to_branch("main", files, message)
+        try:
+            self.git_service.commit_to_branch("main", files, message)
+        except Exception:
+            # Creating a workflow should still succeed even when local git state
+            # prevents the convenience auto-commit from completing.
+            logger.warning("Skipping workflow auto-commit after create", exc_info=True)
 
     def _get_workflow_commit_sha(self, path: str) -> str | None:
         if self.git_service is None:

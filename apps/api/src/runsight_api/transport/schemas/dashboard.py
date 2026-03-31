@@ -8,6 +8,10 @@ class DashboardKPIsResponse(BaseModel):
     cost_today_usd: float
     eval_pass_rate: float | None
     regressions: int | None
+    runs_previous_period: int = 0
+    cost_previous_period_usd: float = 0.0
+    eval_pass_rate_previous_period: float | None = None
+    regressions_previous_period: int | None = None
     period_hours: int = 24
 
 

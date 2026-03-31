@@ -733,6 +733,20 @@ export interface components {
             /** Regressions */
             regressions: number | null;
             /**
+             * Runs Previous Period
+             * @default 0
+             */
+            runs_previous_period: number;
+            /**
+             * Cost Previous Period Usd
+             * @default 0
+             */
+            cost_previous_period_usd: number;
+            /** Eval Pass Rate Previous Period */
+            eval_pass_rate_previous_period?: number | null;
+            /** Regressions Previous Period */
+            regressions_previous_period?: number | null;
+            /**
              * Period Hours
              * @default 24
              */

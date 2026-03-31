@@ -13,8 +13,9 @@ export const dashboardApi = {
     const res = await api.get(`/dashboard`);
     return DashboardKPIsResponseSchema.parse(res);
   },
-  getAttentionItems: async (): Promise<AttentionItemsResponse> => {
-    const res = await api.get(`/dashboard/attention`);
+  getAttentionItems: async (limit?: number): Promise<AttentionItemsResponse> => {
+    const qs = limit != null ? `?limit=${limit}` : "";
+    const res = await api.get(`/dashboard/attention${qs}`);
     return AttentionItemsResponseSchema.parse(res);
   },
 };

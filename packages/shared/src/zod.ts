@@ -59,6 +59,10 @@ export const DashboardKPIsResponseSchema = z.object({
   cost_today_usd: z.number(),
   eval_pass_rate: z.number().nullable(),
   regressions: z.number().nullable(),
+  runs_previous_period: z.number().optional().default(0),
+  cost_previous_period_usd: z.number().optional().default(0.0),
+  eval_pass_rate_previous_period: z.number().nullable().optional(),
+  regressions_previous_period: z.number().nullable().optional(),
   period_hours: z.number().optional().default(24),
 });
 export type DashboardKPIsResponse = z.infer<typeof DashboardKPIsResponseSchema>;
