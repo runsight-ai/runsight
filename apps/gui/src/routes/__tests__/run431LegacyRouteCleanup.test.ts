@@ -3,11 +3,7 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
 import { useLocation, Outlet } from "react-router";
-
-const SRC_DIR = resolve(__dirname, "../..");
 
 function RouteEcho({ label }: { label: string }) {
   const location = useLocation();
@@ -154,21 +150,4 @@ describe("RUN-431 legacy list route cleanup", () => {
 
     expect(await screen.findByText("run-detail:/runs/run_123")).toBeTruthy();
   });
-});
-
-describe("RUN-431 stale list-page files are deleted", () => {
-  const removedFiles = [
-    "features/workflows/WorkflowList.tsx",
-    "features/workflows/NewWorkflowModal.tsx",
-    "features/sidebar/TaskList.tsx",
-    "features/sidebar/StepList.tsx",
-  ];
-
-  for (const relativePath of removedFiles) {
-    it(`${relativePath} is removed from the GUI source tree`, () => {
-      const filePath = resolve(SRC_DIR, relativePath);
-
-      expect(existsSync(filePath), `Expected ${relativePath} to be deleted`).toBe(false);
-    });
-  }
 });

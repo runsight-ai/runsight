@@ -4,7 +4,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { Outlet, useLocation } from "react-router";
 
 const mocks = vi.hoisted(() => ({
   productionRuns: [
@@ -164,8 +164,43 @@ vi.mock("@runsight/ui/skeleton", () => ({
     }),
 }));
 
+vi.mock("../../../routes/guards", () => ({
+  createSetupGuardLoader: () => async () => null,
+  createReverseGuardLoader: () => async () => null,
+}));
+
+vi.mock("../../../routes/layouts/ShellLayout", () => ({
+  ShellLayout: () => React.createElement(Outlet),
+}));
+
+vi.mock("@/lib/queryClient", () => ({
+  queryClient: {},
+}));
+
+function RouteEcho({ label }: { label: string }) {
+  const location = useLocation();
+  return React.createElement(
+    "div",
+    null,
+    `${label}:${location.pathname}${location.search}`,
+  );
+}
+
+vi.mock("@/features/runs/RunDetail", () => ({
+  Component: () => React.createElement(RouteEcho, { label: "run-detail" }),
+}));
+
+vi.mock("@/features/canvas/CanvasPage", () => ({
+  Component: () => React.createElement(RouteEcho, { label: "workflow-editor" }),
+}));
+
+let activeRouter: { dispose?: () => void; state?: { location: Location } } | null = null;
+
 afterEach(() => {
   cleanup();
+  activeRouter?.dispose?.();
+  activeRouter = null;
+  window.history.pushState({}, "", "/");
 });
 
 beforeEach(() => {
@@ -176,20 +211,14 @@ beforeEach(() => {
   mocks.runsQueryState.error = null;
 });
 
-async function renderRunsPage(initialEntry = "/runs") {
-  const { Component: RunList } = await import("../RunList");
-  const router = createMemoryRouter(
-    [
-      { path: "/runs", element: React.createElement(RunList) },
-      { path: "/runs/:id", element: React.createElement("div", null, "Run detail") },
-      {
-        path: "/workflows/:id/edit",
-        element: React.createElement("div", null, "Workflow editor"),
-      },
-    ],
-    { initialEntries: [initialEntry] },
-  );
+async function renderRunsRoute(initialPath = "/runs") {
+  vi.resetModules();
+  window.history.pushState({}, "", initialPath);
 
+  const { RouterProvider } = await import("react-router");
+  const { router } = await import("../../../routes");
+
+  activeRouter = router;
   const user = userEvent.setup();
   render(React.createElement(RouterProvider, { router }));
 
@@ -204,8 +233,8 @@ function findRunRow(workflowName: string) {
 }
 
 describe("RUN-487 canonical /runs page", () => {
-  it("renders the canonical runs page at /runs with the production-only source filter by default", async () => {
-    await renderRunsPage("/runs");
+  it("renders the canonical runs page at /runs with Production runs selected by default", async () => {
+    await renderRunsRoute("/runs");
 
     expect(await screen.findByRole("heading", { name: "Runs" })).toBeTruthy();
     expect(screen.queryByRole("tab", { name: /runs/i })).toBeNull();
@@ -220,10 +249,11 @@ describe("RUN-487 canonical /runs page", () => {
 
     const table = await screen.findByRole("table");
     expect(within(table).queryByRole("columnheader", { name: "Source" })).toBeNull();
+    expect(screen.queryByText("simulation")).toBeNull();
   });
 
-  it("switches to All runs without a source filter and reveals the Source column", async () => {
-    const { user } = await renderRunsPage("/runs");
+  it("switches to All runs, removes the source filter, and reveals simulation rows", async () => {
+    const { user } = await renderRunsRoute("/runs");
 
     await user.click(await screen.findByLabelText("Filter runs by source"));
     await user.click(await screen.findByText("All runs"));
@@ -237,8 +267,8 @@ describe("RUN-487 canonical /runs page", () => {
     expect(screen.getByText("simulation")).toBeTruthy();
   });
 
-  it("keeps search client-side on the canonical /runs page", async () => {
-    const { user } = await renderRunsPage("/runs");
+  it("keeps search client-side after switching to All runs", async () => {
+    const { user } = await renderRunsRoute("/runs");
 
     await user.click(await screen.findByLabelText("Filter runs by source"));
     await user.click(await screen.findByText("All runs"));
@@ -259,7 +289,7 @@ describe("RUN-487 canonical /runs page", () => {
   });
 
   it("opens /runs/:id when the user activates a run row", async () => {
-    const { router, user } = await renderRunsPage("/runs");
+    const { router, user } = await renderRunsRoute("/runs");
     const researchRow = await waitFor(() => {
       const row = findRunRow("Research & Review");
       expect(row).toBeTruthy();
@@ -274,7 +304,7 @@ describe("RUN-487 canonical /runs page", () => {
   });
 
   it("opens /workflows/:id/edit when the user activates the workflow name", async () => {
-    const { router, user } = await renderRunsPage("/runs");
+    const { router, user } = await renderRunsRoute("/runs");
     const researchRow = await waitFor(() => {
       const row = findRunRow("Research & Review");
       expect(row).toBeTruthy();
