@@ -3,6 +3,13 @@ import { Input } from "@runsight/ui/input";
 import { Button } from "@runsight/ui/button";
 import { Badge, BadgeDot } from "@runsight/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@runsight/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -21,13 +28,19 @@ type SortColumn =
   | "workflow"
   | "run"
   | "commit"
+  | "source"
   | "duration"
   | "cost"
   | "eval"
   | "started";
 type SortDirection = "ascending" | "descending";
+type SourceFilter = "production" | "all";
 
 const PRODUCTION_RUN_SOURCES = ["manual", "webhook", "schedule"] as const;
+const SOURCE_FILTER_LABELS: Record<SourceFilter, string> = {
+  production: "Production runs",
+  all: "All runs",
+};
 
 function getRunStatusVariant(status: string) {
   switch (status.toLowerCase()) {
@@ -86,6 +99,25 @@ function formatStartedAt(startedAt: number | null | undefined) {
   return getTimeAgo(new Date(startedAt * 1000).toISOString());
 }
 
+function getSourceVariant(source: RunResponse["source"]) {
+  switch (source) {
+    case "manual":
+      return "accent";
+    case "webhook":
+      return "info";
+    case "schedule":
+      return "neutral";
+    case "simulation":
+      return "warning";
+    default:
+      return "neutral";
+  }
+}
+
+function SourceBadge({ source }: { source: RunResponse["source"] }) {
+  return <Badge variant={getSourceVariant(source)}>{source}</Badge>;
+}
+
 function EvalCell({ evalPassPct }: { evalPassPct: number | null | undefined }) {
   if (typeof evalPassPct !== "number") {
     return <>—</>;
@@ -138,6 +170,8 @@ function getSortValue(run: RunResponse, column: SortColumn) {
       return run.run_number ?? 0;
     case "commit":
       return formatCommit(run.commit_sha);
+    case "source":
+      return run.source;
     case "duration":
       return run.duration_seconds ?? -1;
     case "cost":
@@ -154,6 +188,7 @@ const RUN_COLUMNS: Array<{ key: SortColumn; label: string }> = [
   { key: "workflow", label: "Workflow" },
   { key: "run", label: "Run" },
   { key: "commit", label: "Commit" },
+  { key: "source", label: "Source" },
   { key: "duration", label: "Duration" },
   { key: "cost", label: "Cost" },
   { key: "eval", label: "Eval" },
@@ -167,14 +202,25 @@ interface RunsTabProps {
 export function Component({ onGoToWorkflows }: RunsTabProps) {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("production");
   const [sortColumn, setSortColumn] = useState<SortColumn>("started");
   const [sortDirection, setSortDirection] = useState<SortDirection>("descending");
 
   const queryParams = useMemo(
-    () => ({ source: [...PRODUCTION_RUN_SOURCES] }),
-    [],
+    () =>
+      sourceFilter === "all"
+        ? undefined
+        : { source: [...PRODUCTION_RUN_SOURCES] },
+    [sourceFilter],
   );
   const { data, isLoading, error, refetch } = useRuns(queryParams);
+  const visibleColumns = useMemo(
+    () =>
+      sourceFilter === "all"
+        ? RUN_COLUMNS
+        : RUN_COLUMNS.filter((column) => column.key !== "source"),
+    [sourceFilter],
+  );
 
   const runs = useMemo(() => data?.items ?? [], [data?.items]);
   const filteredRuns = useMemo(() => {
@@ -213,14 +259,35 @@ export function Component({ onGoToWorkflows }: RunsTabProps) {
 
   return (
     <section className="flex h-full flex-col py-4">
-      <div className="max-w-md">
-        <Input
-          type="search"
-          aria-label="Search runs"
-          placeholder="Search runs..."
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-        />
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="max-w-md flex-1">
+          <Input
+            type="search"
+            aria-label="Search runs"
+            placeholder="Search runs..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
+        </div>
+        <Select
+          value={sourceFilter}
+          onValueChange={(value) => setSourceFilter(value as SourceFilter)}
+        >
+          <SelectTrigger
+            aria-label="Filter runs by source"
+            className="w-full md:w-48"
+          >
+            <SelectValue>{SOURCE_FILTER_LABELS[sourceFilter]}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="production">
+              <span>Production runs</span>
+            </SelectItem>
+            <SelectItem value="all">
+              <span>All runs</span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex-1 pt-4">
@@ -259,7 +326,7 @@ export function Component({ onGoToWorkflows }: RunsTabProps) {
             <Table>
               <TableHeader>
                 <TableRow className="bg-surface-primary hover:bg-surface-primary">
-                  {RUN_COLUMNS.map((column) => (
+                  {visibleColumns.map((column) => (
                     <TableHead
                       key={column.key}
                       aria-sort={getAriaSort(column.key)}
@@ -274,7 +341,11 @@ export function Component({ onGoToWorkflows }: RunsTabProps) {
                 {filteredRuns.map((run) => (
                   <TableRow
                     key={run.id}
-                    className="cursor-pointer"
+                    className={
+                      run.source === "simulation"
+                        ? "cursor-pointer bg-surface-secondary text-muted"
+                        : "cursor-pointer"
+                    }
                     tabIndex={0}
                     onClick={() => openWorkflow(run.workflow_id)}
                     onKeyDown={(event) => {
@@ -304,6 +375,11 @@ export function Component({ onGoToWorkflows }: RunsTabProps) {
                         <span className="italic text-muted">uncommitted</span>
                       )}
                     </TableCell>
+                    {sourceFilter === "all" ? (
+                      <TableCell data-type="data">
+                        <SourceBadge source={run.source} />
+                      </TableCell>
+                    ) : null}
                     <TableCell data-type="metric">{formatDuration(run.duration_seconds)}</TableCell>
                     <TableCell data-type="metric">{formatCost(run.total_cost_usd)}</TableCell>
                     <TableCell data-type="metric">
