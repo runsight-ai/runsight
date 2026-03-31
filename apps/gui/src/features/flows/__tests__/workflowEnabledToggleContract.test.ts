@@ -114,6 +114,26 @@ describe("RUN-429 WorkflowRow enabled toggle", () => {
     expect(toggle).toHaveAttribute("aria-checked", "true");
   });
 
+  it("turns a workflow off optimistically without navigating the workflow row", async () => {
+    const onToggleEnabled = vi.fn().mockResolvedValue(undefined);
+    const { user } = await renderWorkflowRow({
+      workflow: buildWorkflow({ enabled: true }),
+      onToggleEnabled,
+    });
+
+    const toggle = screen.getByRole("switch", {
+      name: "Enable Research & Review workflow",
+    });
+
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+
+    await user.click(toggle);
+
+    expect(onToggleEnabled).toHaveBeenCalledTimes(1);
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+  });
+
   it("reverts the optimistic toggle state when the server update fails", async () => {
     const deferred = createDeferred<void>();
     const onToggleEnabled = vi.fn().mockImplementation(() => deferred.promise);
