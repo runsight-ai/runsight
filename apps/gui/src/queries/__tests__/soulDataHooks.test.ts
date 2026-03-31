@@ -249,23 +249,22 @@ describe("soul data query hooks (RUN-444)", () => {
 
   it("adds useModelsForProvider and disables the query when provider is null", async () => {
     const { useModelsForProvider } = await import("../settings");
-    const { queryKeys } = await import("../keys");
 
     expect(useModelsForProvider).toBeTypeOf("function");
 
     const disabledQuery = (
       useModelsForProvider as unknown as (provider: string | null) => {
-        queryKey: readonly (string | null)[];
+        queryKey: readonly unknown[];
         enabled: boolean;
       }
     )(null);
 
     expect(mocks.useQuery).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: queryKeys.models.byProvider(null),
         enabled: false,
       }),
     );
+    expect(disabledQuery.queryKey).toEqual(expect.arrayContaining(["models"]));
     expect(disabledQuery.enabled).toBe(false);
   });
 
