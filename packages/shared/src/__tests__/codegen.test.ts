@@ -281,9 +281,15 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
     expect(snapshot.runCreate.committed).toEqual(snapshot.runCreate.fresh);
   });
 
-  it("RunResponseSchema includes branch, source, and commit_sha in the generated output", () => {
+  it("RunResponseSchema includes branch, source, commit_sha, and RUN-479 run metrics", () => {
     expect(snapshot.runResponse.fresh).toEqual(
-      expect.arrayContaining(["branch", "source", "commit_sha"]),
+      expect.arrayContaining([
+        "branch",
+        "source",
+        "commit_sha",
+        "run_number",
+        "eval_pass_pct",
+      ]),
     );
     expect(snapshot.runResponse.committed).toEqual(snapshot.runResponse.fresh);
   });

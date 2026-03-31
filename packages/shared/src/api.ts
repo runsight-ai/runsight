@@ -975,6 +975,10 @@ export interface components {
             source: string;
             /** Commit Sha */
             commit_sha?: string | null;
+            /** Run Number */
+            run_number?: number | null;
+            /** Eval Pass Pct */
+            eval_pass_pct?: number | null;
             node_summary?: components["schemas"]["NodeSummary"] | null;
         };
         /** SimBranchRequest */

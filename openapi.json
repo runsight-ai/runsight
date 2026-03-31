@@ -3318,6 +3318,28 @@
             ],
             "title": "Commit Sha"
           },
+          "run_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Number"
+          },
+          "eval_pass_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Pass Pct"
+          },
           "node_summary": {
             "anyOf": [
               {

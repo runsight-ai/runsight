@@ -202,6 +202,8 @@ export const RunResponseSchema = z.object({
   branch: z.string().optional().default("main"),
   source: z.string().optional().default("manual"),
   commit_sha: z.string().nullable().optional(),
+  run_number: z.number().nullable().optional(),
+  eval_pass_pct: z.number().nullable().optional(),
   node_summary: NodeSummarySchema.nullable().optional(),
 });
 export type RunResponse = z.infer<typeof RunResponseSchema>;
