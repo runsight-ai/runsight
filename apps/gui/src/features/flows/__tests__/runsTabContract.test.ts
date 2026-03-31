@@ -265,7 +265,14 @@ describe("RUN-427 FlowsPage runs tab", () => {
   it("opens the workflow editor when a runs-table row is activated", async () => {
     const { router, user } = await renderFlowsPage("/flows?tab=runs");
 
-    await user.click(await screen.findByText("Research & Review"));
+    const table = await screen.findByRole("table");
+    const researchRow = within(table)
+      .getAllByRole("row")
+      .find((row) => within(row).queryByText("Research & Review"));
+
+    expect(researchRow, "Expected a runs-table row for Research & Review").toBeTruthy();
+
+    await user.click(researchRow!);
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
