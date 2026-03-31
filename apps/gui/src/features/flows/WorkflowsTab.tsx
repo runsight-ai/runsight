@@ -126,6 +126,7 @@ export function Component({ onCreateWorkflow }: WorkflowsTabProps) {
         className: "max-w-md",
         children: jsx(Input, {
           type: "search",
+          autoFocus: true,
           value: searchQuery,
           placeholder: "Search workflows...",
           "aria-label": "Search workflows",

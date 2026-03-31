@@ -150,6 +150,18 @@ function compareValues(
   right: string | number | null | undefined,
   direction: SortDirection,
 ) {
+  if (left == null && right == null) {
+    return 0;
+  }
+
+  if (left == null) {
+    return 1;
+  }
+
+  if (right == null) {
+    return -1;
+  }
+
   const multiplier = direction === "ascending" ? 1 : -1;
 
   if (typeof left === "number" && typeof right === "number") {
@@ -178,7 +190,7 @@ function getSortValue(run: RunResponse, column: SortColumn) {
     case "cost":
       return run.total_cost_usd ?? -1;
     case "eval":
-      return run.eval_pass_pct ?? -1;
+      return run.eval_pass_pct;
     case "started":
       return run.started_at ?? -1;
   }
@@ -268,6 +280,7 @@ export function Component() {
             <div className="max-w-md flex-1">
               <Input
                 type="search"
+                autoFocus
                 aria-label="Search runs"
                 placeholder="Search runs..."
                 value={searchQuery}
