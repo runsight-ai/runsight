@@ -209,6 +209,17 @@ async function renderFlowsPage(initialEntry: string) {
   return { router, user };
 }
 
+function findRunRow(workflowName: string) {
+  const table = screen.getByRole("table");
+  return within(table)
+    .getAllByRole("row")
+    .find((row) => within(row).queryByText(workflowName));
+}
+
+function findEvalValue(row: HTMLElement, value: string) {
+  return within(row).queryByText(value) ?? within(row).queryByLabelText(value);
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -469,5 +480,86 @@ describe("RUN-416 Runs source filter", () => {
       "Production runs",
     );
     expect(screen.queryByRole("columnheader", { name: "Source" })).toBeNull();
+  });
+});
+
+describe("RUN-428 Runs eval threshold polish", () => {
+  it("keeps numeric eval values visible and styles 90 as success, 75 as warning, and 74 as danger", async () => {
+    mocks.runsQueryState.data = buildRunList([
+      {
+        ...mocks.productionRuns[0],
+        id: "run_success_90",
+        workflow_id: "wf_success",
+        workflow_name: "Success Boundary",
+        eval_pass_pct: 90,
+      },
+      {
+        ...mocks.productionRuns[1],
+        id: "run_warning_75",
+        workflow_id: "wf_warning",
+        workflow_name: "Warning Boundary",
+        eval_pass_pct: 75,
+      },
+      {
+        ...mocks.productionRuns[2],
+        id: "run_danger_74",
+        workflow_id: "wf_danger",
+        workflow_name: "Danger Threshold",
+        eval_pass_pct: 74,
+      },
+      {
+        ...mocks.productionRuns[2],
+        id: "run_null_eval",
+        workflow_id: "wf_none",
+        workflow_name: "No Eval Yet",
+        eval_pass_pct: null,
+      },
+    ]);
+
+    await renderFlowsPage("/flows?tab=runs");
+
+    const successRow = findRunRow("Success Boundary");
+    const warningRow = findRunRow("Warning Boundary");
+    const dangerRow = findRunRow("Danger Threshold");
+
+    expect(successRow, "Expected a row for the 90% eval boundary").toBeTruthy();
+    expect(warningRow, "Expected a row for the 75% eval boundary").toBeTruthy();
+    expect(dangerRow, "Expected a row for the 74% eval threshold").toBeTruthy();
+
+    const successEval = findEvalValue(successRow!, "90%");
+    const warningEval = findEvalValue(warningRow!, "75%");
+    const dangerEval = findEvalValue(dangerRow!, "74%");
+
+    expect(successEval, "Expected 90% to stay visible in the eval cell").toBeTruthy();
+    expect(warningEval, "Expected 75% to stay visible in the eval cell").toBeTruthy();
+    expect(dangerEval, "Expected 74% to stay visible in the eval cell").toBeTruthy();
+
+    expect(String(successEval?.className)).toMatch(/success/i);
+    expect(String(warningEval?.className)).toMatch(/warning/i);
+    expect(String(dangerEval?.className)).toMatch(/danger/i);
+  });
+
+  it("keeps null eval values as a muted dash instead of a numeric badge", async () => {
+    mocks.runsQueryState.data = buildRunList([
+      {
+        ...mocks.productionRuns[2],
+        id: "run_null_eval_only",
+        workflow_id: "wf_none",
+        workflow_name: "No Eval Yet",
+        eval_pass_pct: null,
+      },
+    ]);
+
+    await renderFlowsPage("/flows?tab=runs");
+
+    const nullRow = findRunRow("No Eval Yet");
+
+    expect(nullRow, "Expected a row for the null-eval case").toBeTruthy();
+
+    const nullDash = within(nullRow!).getByText("—");
+
+    expect(nullDash).toBeTruthy();
+    expect(within(nullRow!).queryByLabelText(/\d+%/)).toBeNull();
+    expect(String(nullDash.closest("td")?.className)).toMatch(/muted|secondary/i);
   });
 });
