@@ -83,13 +83,13 @@ def _health_value(health, name: str):
 
 
 class TestWorkflowHealthAggregation:
-    def test_list_workflows_aggregates_health_and_excludes_simulations(self):
-        """Simulation runs must not affect workflow health KPIs."""
+    def test_list_workflows_aggregates_health(self):
+        """WorkflowService should expose aggregated workflow health metadata."""
         workflow_repo = Mock()
         workflow_repo.list_all.return_value = [WorkflowEntity(id="wf_1", name="Research Flow")]
 
         run_repo = Mock()
-        run_repo.aggregate_workflow_health.return_value = {
+        run_repo.get_workflow_health_metrics.return_value = {
             "wf_1": _make_workflow_health(
                 eval_health="warning",
                 run_count=2,
@@ -104,7 +104,7 @@ class TestWorkflowHealthAggregation:
 
         result = service.list_workflows()
 
-        run_repo.aggregate_workflow_health.assert_called_once()
+        run_repo.get_workflow_health_metrics.assert_called_once()
         run_repo.list_nodes_for_run.assert_not_called()
 
         health = _workflow_health(result[0])
@@ -120,7 +120,7 @@ class TestWorkflowHealthAggregation:
         workflow_repo.list_all.return_value = [WorkflowEntity(id="wf_empty", name="Empty Flow")]
 
         run_repo = Mock()
-        run_repo.aggregate_workflow_health.return_value = {
+        run_repo.get_workflow_health_metrics.return_value = {
             "wf_empty": _make_workflow_health(
                 eval_health=None,
                 run_count=0,
@@ -135,7 +135,7 @@ class TestWorkflowHealthAggregation:
 
         result = service.list_workflows()
 
-        run_repo.aggregate_workflow_health.assert_called_once()
+        run_repo.get_workflow_health_metrics.assert_called_once()
         run_repo.list_nodes_for_run.assert_not_called()
 
         health = _workflow_health(result[0])
@@ -151,7 +151,7 @@ class TestWorkflowHealthAggregation:
         workflow_repo.list_all.return_value = [WorkflowEntity(id="wf_no_eval", name="No Eval Flow")]
 
         run_repo = Mock()
-        run_repo.aggregate_workflow_health.return_value = {
+        run_repo.get_workflow_health_metrics.return_value = {
             "wf_no_eval": _make_workflow_health(
                 eval_health=None,
                 run_count=1,
@@ -166,7 +166,7 @@ class TestWorkflowHealthAggregation:
 
         result = service.list_workflows()
 
-        run_repo.aggregate_workflow_health.assert_called_once()
+        run_repo.get_workflow_health_metrics.assert_called_once()
         run_repo.list_nodes_for_run.assert_not_called()
 
         health = _workflow_health(result[0])

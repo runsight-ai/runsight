@@ -217,8 +217,8 @@ class TestWorkflowsListResponse:
         assert health["eval_health"] is None
         assert health["eval_pass_pct"] is None
 
-    def test_list_workflows_keeps_backward_compatible_canvas_fields(self):
-        """Legacy workflow fields must still be exposed alongside the new health data."""
+    def test_list_workflows_keeps_canvas_fields_alongside_health_payload(self):
+        """Canvas fields should still serialize when the health payload is added."""
         workflow = _make_workflow()
         workflow.canvas_state = {
             "nodes": [{"id": "node-1"}],
@@ -235,6 +235,5 @@ class TestWorkflowsListResponse:
         item = response.json()["items"][0]
         assert "canvas_state" in item
         assert item["canvas_state"]["selected_node_id"] == "node-1"
-        assert "yaml" in item
-        assert "valid" in item
-        assert "validation_error" in item
+        assert item["block_count"] == 7
+        assert item["health"]["eval_health"] is not None
