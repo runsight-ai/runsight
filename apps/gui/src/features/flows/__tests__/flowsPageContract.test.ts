@@ -1,5 +1,6 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type * as ReactJsxRuntime from "react/jsx-runtime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -103,7 +104,7 @@ vi.mock("react", async () => {
 });
 
 vi.mock("react/jsx-runtime", async () => {
-  const actual = await vi.importActual<typeof import("react/jsx-runtime")>(
+  const actual = await vi.importActual<typeof ReactJsxRuntime>(
     "react/jsx-runtime",
   );
 
