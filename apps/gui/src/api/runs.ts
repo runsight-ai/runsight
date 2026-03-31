@@ -17,36 +17,43 @@ const STATUS_ALIASES: Record<string, string[]> = {
   active: ["running", "pending"],
 };
 
-function buildQueryString(params: Record<string, string> | URLSearchParams): string {
+export type RunQueryParams = Record<string, string | string[]> | URLSearchParams;
+
+function buildQueryString(params: RunQueryParams): string {
   if (params instanceof URLSearchParams) {
     return params.toString();
   }
 
   const sp = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
+    const values = Array.isArray(value) ? value : [value];
+
     if (key === "status") {
-      const aliases = STATUS_ALIASES[value];
-      // Resolve aliases (e.g. "active" → ["running", "pending"])
-      if (aliases) {
-        for (const v of aliases) {
-          sp.append(key, v);
+      for (const statusValue of values) {
+        const aliases = STATUS_ALIASES[statusValue];
+        if (aliases) {
+          for (const v of aliases) {
+            sp.append(key, v);
+          }
+          continue;
         }
-        continue;
-      }
-      // Split comma-separated values (e.g. "completed,failed" → two params)
-      const parts = value.split(",");
-      for (const part of parts) {
-        sp.append(key, part);
+
+        const parts = statusValue.split(",");
+        for (const part of parts) {
+          sp.append(key, part);
+        }
       }
     } else {
-      sp.append(key, value);
+      for (const entry of values) {
+        sp.append(key, entry);
+      }
     }
   }
   return sp.toString();
 }
 
 export const runsApi = {
-  listRuns: async (params?: Record<string, string> | URLSearchParams): Promise<RunListResponse> => {
+  listRuns: async (params?: RunQueryParams): Promise<RunListResponse> => {
     const qs = params ? `?${buildQueryString(params)}` : "";
     const res = await api.get(`/runs${qs}`);
     return RunListResponseSchema.parse(res);

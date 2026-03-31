@@ -1,13 +1,20 @@
 from typing import Any, Dict, List, Optional
 
 from ...data.filesystem.workflow_repo import WorkflowRepository
+from ...data.repositories.run_repo import RunRepository
 from ...domain.errors import WorkflowNotFound
 from ...domain.value_objects import WorkflowEntity
 
 
 class WorkflowService:
-    def __init__(self, workflow_repo: WorkflowRepository, git_service=None):
+    def __init__(
+        self,
+        workflow_repo: WorkflowRepository,
+        run_repo: RunRepository,
+        git_service=None,
+    ):
         self.workflow_repo = workflow_repo
+        self.run_repo = run_repo
         self.git_service = git_service
 
     def list_workflows(self, query: Optional[str] = None) -> List[WorkflowEntity]:
@@ -19,7 +26,34 @@ class WorkflowService:
                 for w in workflows
                 if query in w.id.lower() or (getattr(w, "name", "") and query in w.name.lower())
             ]
-        return workflows
+
+        health_by_workflow = self.run_repo.get_workflow_health_metrics([w.id for w in workflows])
+        enriched_workflows: list[WorkflowEntity] = []
+
+        for workflow in workflows:
+            yaml_path = f"custom/workflows/{workflow.id}.yaml"
+            enriched_workflows.append(
+                workflow.model_copy(
+                    update={
+                        "block_count": self.workflow_repo.get_block_count(workflow.id),
+                        "modified_at": self.workflow_repo.get_file_mtime(workflow.id),
+                        "enabled": bool(getattr(workflow, "enabled", False)),
+                        "commit_sha": self._get_workflow_commit_sha(yaml_path),
+                        "health": health_by_workflow.get(
+                            workflow.id,
+                            {
+                                "run_count": 0,
+                                "eval_pass_pct": None,
+                                "eval_health": None,
+                                "total_cost_usd": 0.0,
+                                "regression_count": 0,
+                            },
+                        ),
+                    }
+                )
+            )
+
+        return enriched_workflows
 
     def get_workflow(self, id: str) -> Optional[WorkflowEntity]:
         return self.workflow_repo.get_by_id(id)
@@ -31,6 +65,15 @@ class WorkflowService:
 
     def update_workflow(self, id: str, data: Dict[str, Any]) -> WorkflowEntity:
         return self.workflow_repo.update(id, data)
+
+    def set_workflow_enabled(self, id: str, enabled: bool) -> WorkflowEntity:
+        result = self.workflow_repo.set_enabled(id, enabled)
+        action = "Enable" if enabled else "Disable"
+        self._auto_commit(
+            f"{action} workflow: {result.name}",
+            [f"custom/workflows/{result.id}.yaml"],
+        )
+        return result
 
     def commit_workflow(
         self,
@@ -81,8 +124,29 @@ class WorkflowService:
             return  # nothing changed, skip empty commit
         self.git_service.commit_to_branch("main", files, message)
 
-    def delete_workflow(self, id: str) -> bool:
+    def _get_workflow_commit_sha(self, path: str) -> str | None:
+        if self.git_service is None:
+            return None
+        try:
+            branch = self.git_service.current_branch()
+        except Exception:
+            branch = "main"
+        return self.git_service.get_sha(branch, path)
+
+    def delete_workflow(self, id: str, force: bool = False) -> dict[str, Any]:
+        workflow = self.workflow_repo.get_by_id(id)
+        if workflow is None:
+            raise WorkflowNotFound(f"Workflow {id} not found")
+
+        runs_deleted = self.run_repo.delete_runs_for_workflow(id, force=force)
         success = self.workflow_repo.delete(id)
         if not success:
             raise WorkflowNotFound(f"Workflow {id} not found")
-        return success
+        self._auto_commit(
+            f"Delete workflow: {workflow.name if workflow and workflow.name else id}",
+            [
+                f"custom/workflows/{id}.yaml",
+                f"custom/workflows/.canvas/{id}.canvas.json",
+            ],
+        )
+        return {"id": id, "deleted": True, "runs_deleted": runs_deleted}

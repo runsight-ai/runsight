@@ -75,9 +75,10 @@ def get_git_service() -> GitService:
 
 def get_workflow_service(
     workflow_repo: WorkflowRepository = Depends(get_workflow_repo),
+    run_repo: RunRepository = Depends(get_run_repo),
     git_service: GitService = Depends(get_git_service),
 ) -> WorkflowService:
-    return WorkflowService(workflow_repo, git_service=git_service)
+    return WorkflowService(workflow_repo, run_repo, git_service=git_service)
 
 
 def get_run_service(

@@ -170,15 +170,15 @@ describe("No-runs state: zero KPIs + EmptyState with 'Open Flows' CTA (AC3)", ()
     expect(source).toMatch(/["']Open Flows["']/);
   });
 
-  it('"Open Flows" CTA navigates to /workflows', () => {
+  it('"Open Flows" CTA navigates to /flows', () => {
     const source = readSource(DASHBOARD_PATH);
-    // The action onClick should navigate to /workflows
-    // Pattern: navigate("/workflows") or navigate(`/workflows`)
-    const hasNavigateToWorkflows =
-      /navigate\s*\(\s*["'`]\/workflows["'`]\s*\)/.test(source);
+    // The action onClick should navigate to /flows
+    // Pattern: navigate("/flows") or navigate(`/flows`)
+    const hasNavigateToFlows =
+      /navigate\s*\(\s*["'`]\/flows["'`]\s*\)/.test(source);
     expect(
-      hasNavigateToWorkflows,
-      'Expected navigate("/workflows") call for Open Flows CTA',
+      hasNavigateToFlows,
+      'Expected navigate("/flows") call for Open Flows CTA',
     ).toBe(true);
   });
 

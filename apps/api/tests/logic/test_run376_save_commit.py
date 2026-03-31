@@ -12,11 +12,72 @@ git add + git commit via GitService.  Tests verify that:
 
 from __future__ import annotations
 
+import sys
+import types
 from unittest.mock import Mock
 
 import pytest
 
 from runsight_api.domain.value_objects import SoulEntity, WorkflowEntity
+
+runsight_core = sys.modules.get("runsight_core")
+if runsight_core is None:
+    runsight_core = types.ModuleType("runsight_core")
+    runsight_core.__path__ = []
+    sys.modules["runsight_core"] = runsight_core
+
+llm_pkg = sys.modules.get("runsight_core.llm")
+if llm_pkg is None:
+    llm_pkg = types.ModuleType("runsight_core.llm")
+    llm_pkg.__path__ = []
+    sys.modules["runsight_core.llm"] = llm_pkg
+    runsight_core.llm = llm_pkg
+
+model_catalog_pkg = sys.modules.get("runsight_core.llm.model_catalog")
+if model_catalog_pkg is None:
+    model_catalog_pkg = types.ModuleType("runsight_core.llm.model_catalog")
+
+    class _LiteLLMModelCatalog:
+        pass
+
+    class _ModelCatalogPort:
+        pass
+
+    model_catalog_pkg.LiteLLMModelCatalog = _LiteLLMModelCatalog
+    model_catalog_pkg.ModelCatalogPort = _ModelCatalogPort
+    sys.modules["runsight_core.llm.model_catalog"] = model_catalog_pkg
+
+llm_pkg.model_catalog = model_catalog_pkg
+runsight_core.llm = llm_pkg
+
+observer_pkg = sys.modules.get("runsight_core.observer")
+if observer_pkg is None:
+    observer_pkg = types.ModuleType("runsight_core.observer")
+
+    class _CompositeObserver:
+        pass
+
+    class _LoggingObserver:
+        pass
+
+    observer_pkg.CompositeObserver = _CompositeObserver
+    observer_pkg.LoggingObserver = _LoggingObserver
+    sys.modules["runsight_core.observer"] = observer_pkg
+
+yaml_pkg = sys.modules.get("runsight_core.yaml")
+if yaml_pkg is None:
+    yaml_pkg = types.ModuleType("runsight_core.yaml")
+    yaml_pkg.__path__ = []
+    sys.modules["runsight_core.yaml"] = yaml_pkg
+    runsight_core.yaml = yaml_pkg
+
+parser_pkg = sys.modules.get("runsight_core.yaml.parser")
+if parser_pkg is None:
+    parser_pkg = types.ModuleType("runsight_core.yaml.parser")
+    parser_pkg.parse_workflow_yaml = lambda *args, **kwargs: None
+    sys.modules["runsight_core.yaml.parser"] = parser_pkg
+
+yaml_pkg.parser = parser_pkg
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -56,7 +117,7 @@ class TestWorkflowCreateCommit:
         created = WorkflowEntity(id="onboarding-abc12", name="Onboarding Flow")
         workflow_repo.create.return_value = created
 
-        svc = WorkflowService(workflow_repo, git_service=git_service)
+        svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
         svc.create_workflow({"name": "Onboarding Flow"})
 
         # GitService must have been called to commit
@@ -69,7 +130,7 @@ class TestWorkflowCreateCommit:
         created = WorkflowEntity(id="onboarding-abc12", name="Onboarding Flow")
         workflow_repo.create.return_value = created
 
-        svc = WorkflowService(workflow_repo, git_service=git_service)
+        svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
         svc.create_workflow({"name": "Onboarding Flow"})
 
         _, kwargs = git_service.commit_to_branch.call_args
@@ -97,7 +158,7 @@ class TestWorkflowCreateCommit:
         created = WorkflowEntity(id="test-wf", name="Test")
         workflow_repo.create.return_value = created
 
-        svc = WorkflowService(workflow_repo, git_service=git_service)
+        svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
         svc.create_workflow({"name": "Test"})
 
         args, kwargs = git_service.commit_to_branch.call_args
@@ -120,7 +181,7 @@ class TestWorkflowUpdateCommit:
         updated = WorkflowEntity(id="wf-1", name="Updated Flow")
         workflow_repo.update.return_value = updated
 
-        svc = WorkflowService(workflow_repo, git_service=git_service)
+        svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
         svc.update_workflow("wf-1", {"name": "Updated Flow"})
 
         git_service.commit_to_branch.assert_not_called()
@@ -132,7 +193,7 @@ class TestWorkflowUpdateCommit:
         updated = WorkflowEntity(id="wf-1", name="My Cool Flow")
         workflow_repo.update.return_value = updated
 
-        svc = WorkflowService(workflow_repo, git_service=git_service)
+        svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
         svc.update_workflow("wf-1", {"name": "My Cool Flow"})
 
         workflow_repo.update.assert_called_once_with("wf-1", {"name": "My Cool Flow"})
@@ -279,7 +340,7 @@ class TestNoEmptyCommits:
         workflow_repo.update.return_value = updated
         git_service.is_clean.return_value = True
 
-        svc = WorkflowService(workflow_repo, git_service=git_service)
+        svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
         svc.update_workflow("wf-1", {"name": "Same"})
 
         # If nothing changed on disk, commit_to_branch should NOT be called
@@ -313,7 +374,7 @@ class TestGitServiceInjection:
     def test_workflow_service_accepts_git_service(self, workflow_repo, git_service):
         from runsight_api.logic.services.workflow_service import WorkflowService
 
-        svc = WorkflowService(workflow_repo, git_service=git_service)
+        svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
         assert svc.git_service is git_service
 
     def test_soul_service_accepts_git_service(self, soul_repo, git_service):
@@ -326,7 +387,7 @@ class TestGitServiceInjection:
         """Without git_service kwarg, it should default to None (backward compat)."""
         from runsight_api.logic.services.workflow_service import WorkflowService
 
-        svc = WorkflowService(workflow_repo)
+        svc = WorkflowService(workflow_repo, Mock())
         assert svc.git_service is None
 
     def test_soul_service_git_service_defaults_none(self, soul_repo):
@@ -347,12 +408,19 @@ class TestDepsWiring:
 
     def test_get_workflow_service_includes_git_service(self):
         """get_workflow_service must inject a GitService instance."""
-        import inspect
+        import ast
+        from pathlib import Path
 
-        from runsight_api.transport.deps import get_workflow_service
-
-        sig = inspect.signature(get_workflow_service)
-        param_names = list(sig.parameters.keys())
+        deps_path = (
+            Path(__file__).resolve().parents[2] / "src" / "runsight_api" / "transport" / "deps.py"
+        )
+        module = ast.parse(deps_path.read_text())
+        func = next(
+            node
+            for node in module.body
+            if isinstance(node, ast.FunctionDef) and node.name == "get_workflow_service"
+        )
+        param_names = [arg.arg for arg in func.args.args]
         # Should have a git_service parameter (via Depends)
         assert "git_service" in param_names, (
             f"get_workflow_service missing 'git_service' param. Has: {param_names}"
@@ -360,12 +428,19 @@ class TestDepsWiring:
 
     def test_get_soul_service_includes_git_service(self):
         """get_soul_service must inject a GitService instance."""
-        import inspect
+        import ast
+        from pathlib import Path
 
-        from runsight_api.transport.deps import get_soul_service
-
-        sig = inspect.signature(get_soul_service)
-        param_names = list(sig.parameters.keys())
+        deps_path = (
+            Path(__file__).resolve().parents[2] / "src" / "runsight_api" / "transport" / "deps.py"
+        )
+        module = ast.parse(deps_path.read_text())
+        func = next(
+            node
+            for node in module.body
+            if isinstance(node, ast.FunctionDef) and node.name == "get_soul_service"
+        )
+        param_names = [arg.arg for arg in func.args.args]
         assert "git_service" in param_names, (
             f"get_soul_service missing 'git_service' param. Has: {param_names}"
         )

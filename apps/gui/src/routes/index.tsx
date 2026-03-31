@@ -25,9 +25,9 @@ export const router = createBrowserRouter([
           })),
       },
       {
-        path: "workflows",
+        path: "flows",
         lazy: () =>
-          import("@/features/workflows/WorkflowList").then((m) => ({
+          import("@/features/flows/FlowsPage").then((m) => ({
             Component: m.Component,
           })),
       },
@@ -46,9 +46,13 @@ export const router = createBrowserRouter([
           })),
       },
       {
+        path: "workflows",
+        element: <Navigate to="/flows" replace />,
+      },
+      {
         path: "runs",
         lazy: () =>
-          import("@/features/runs/RunList").then((m) => ({
+          import("@/features/runs/RunsPage").then((m) => ({
             Component: m.Component,
           })),
       },
@@ -77,20 +81,6 @@ export const router = createBrowserRouter([
         path: "souls/:id/edit",
         lazy: () =>
           import("@/features/souls/SoulFormPage").then((m) => ({
-            Component: m.Component,
-          })),
-      },
-      {
-        path: "tasks",
-        lazy: () =>
-          import("@/features/sidebar/TaskList").then((m) => ({
-            Component: m.Component,
-          })),
-      },
-      {
-        path: "steps",
-        lazy: () =>
-          import("@/features/sidebar/StepList").then((m) => ({
             Component: m.Component,
           })),
       },

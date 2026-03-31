@@ -366,15 +366,13 @@ describe("API dashboard cleanup", () => {
 });
 
 // ===========================================================================
-// 9. Flows route stays at /workflows (AC2 detail)
+// 9. Flows nav points at the canonical /flows route
 // ===========================================================================
 
 describe("Flows route path preserved", () => {
-  it("'Flows' nav item routes to /workflows (route unchanged)", () => {
+  it("'Flows' nav item routes to /flows", () => {
     const source = readSource(SHELL_LAYOUT_PATH);
-    // The nav item labeled "Flows" should still route to "/workflows"
-    // Pattern: { to: "/workflows", ..., label: "Flows" }
-    expect(source).toMatch(/to:\s*["']\/workflows["']/);
+    expect(source).toMatch(/to:\s*["']\/flows["']/);
     expect(source).toMatch(/label:\s*["']Flows["']/);
   });
 });

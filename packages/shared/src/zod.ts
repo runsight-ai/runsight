@@ -8,6 +8,7 @@ export const AppSettingsOutSchema = z.object({
   default_provider: z.string().nullable().optional(),
   auto_save: z.boolean().nullable().optional(),
   onboarding_completed: z.boolean().nullable().optional(),
+  fallback_chain_enabled: z.boolean().nullable().optional(),
 });
 export type AppSettingsOut = z.infer<typeof AppSettingsOutSchema>;
 
@@ -88,6 +89,13 @@ export const HTTPValidationErrorSchema = z.object({
   detail: z.array(ValidationErrorSchema).optional(),
 });
 export type HTTPValidationError = z.infer<typeof HTTPValidationErrorSchema>;
+
+export const ModelDefaultUpdateSchema = z.object({
+  model_name: z.string().nullable().optional(),
+  is_default: z.boolean().nullable().optional(),
+  fallback_chain: z.array(z.string()).nullable().optional(),
+});
+export type ModelDefaultUpdate = z.infer<typeof ModelDefaultUpdateSchema>;
 
 export const ModelResponseSchema = z.object({
   provider: z.string(),
@@ -194,6 +202,8 @@ export const RunResponseSchema = z.object({
   branch: z.string().optional().default("main"),
   source: z.string().optional().default("manual"),
   commit_sha: z.string().nullable().optional(),
+  run_number: z.number().nullable().optional(),
+  eval_pass_pct: z.number().nullable().optional(),
   node_summary: NodeSummarySchema.nullable().optional(),
 });
 export type RunResponse = z.infer<typeof RunResponseSchema>;
@@ -393,6 +403,21 @@ export const WorkflowCanvasStateSchema = z.object({
 });
 export type WorkflowCanvasState = z.infer<typeof WorkflowCanvasStateSchema>;
 
+export const WorkflowCommitCreateSchema = z.object({
+  name: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  yaml: z.string().nullable().optional(),
+  canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
+  message: z.string(),
+});
+export type WorkflowCommitCreate = z.infer<typeof WorkflowCommitCreateSchema>;
+
+export const WorkflowCommitResponseSchema = z.object({
+  hash: z.string(),
+  message: z.string(),
+});
+export type WorkflowCommitResponse = z.infer<typeof WorkflowCommitResponseSchema>;
+
 export const WorkflowCreateSchema = z.object({
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
@@ -400,6 +425,15 @@ export const WorkflowCreateSchema = z.object({
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
 });
 export type WorkflowCreate = z.infer<typeof WorkflowCreateSchema>;
+
+export const WorkflowHealthMetricsSchema = z.object({
+  run_count: z.number().optional().default(0),
+  eval_pass_pct: z.number().nullable().optional(),
+  eval_health: z.string().nullable().optional(),
+  total_cost_usd: z.number().optional().default(0.0),
+  regression_count: z.number().optional().default(0),
+});
+export type WorkflowHealthMetrics = z.infer<typeof WorkflowHealthMetricsSchema>;
 
 export const WorkflowResponseSchema = z.object({
   id: z.string(),
@@ -409,6 +443,11 @@ export const WorkflowResponseSchema = z.object({
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
   valid: z.boolean().optional().default(true),
   validation_error: z.string().nullable().optional(),
+  block_count: z.number().optional().default(0),
+  modified_at: z.number().nullable().optional(),
+  enabled: z.boolean().optional().default(false),
+  commit_sha: z.string().nullable().optional(),
+  health: WorkflowHealthMetricsSchema.optional(),
 });
 export type WorkflowResponse = z.infer<typeof WorkflowResponseSchema>;
 

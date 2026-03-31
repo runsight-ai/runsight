@@ -32,6 +32,8 @@ class RunResponse(BaseModel):
     branch: str = "main"
     source: str = "manual"
     commit_sha: Optional[str] = None
+    run_number: Optional[int] = None
+    eval_pass_pct: Optional[float] = None
     node_summary: Optional[NodeSummary] = None
 
 

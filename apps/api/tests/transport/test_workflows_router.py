@@ -186,12 +186,49 @@ def test_workflows_post_commit_requires_commit_message():
 
 def test_workflows_delete():
     mock_service = Mock()
-    mock_service.delete_workflow.return_value = True
+    mock_service.delete_workflow.return_value = {
+        "id": "wf_1",
+        "deleted": True,
+        "runs_deleted": 2,
+    }
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
     response = client.delete("/api/workflows/wf_1")
     assert response.status_code == 200
     assert response.json()["deleted"] is True
+    assert response.json()["runs_deleted"] == 2
+    mock_service.delete_workflow.assert_called_once_with("wf_1", force=False)
+    app.dependency_overrides.clear()
+
+
+def test_workflows_delete_force_true_forwards_and_returns_runs_deleted():
+    mock_service = Mock()
+    mock_service.delete_workflow.return_value = {
+        "id": "wf_1",
+        "deleted": True,
+        "runs_deleted": 4,
+    }
+    app.dependency_overrides[get_workflow_service] = lambda: mock_service
+
+    response = client.delete("/api/workflows/wf_1?force=true")
+    assert response.status_code == 200
+    assert response.json() == {"id": "wf_1", "deleted": True, "runs_deleted": 4}
+    mock_service.delete_workflow.assert_called_once_with("wf_1", force=True)
+    app.dependency_overrides.clear()
+
+
+def test_workflows_delete_active_runs_returns_409():
+    from runsight_api.domain.errors import WorkflowHasActiveRuns
+
+    mock_service = Mock()
+    mock_service.delete_workflow.side_effect = WorkflowHasActiveRuns(
+        "Workflow wf_1 has active runs"
+    )
+    app.dependency_overrides[get_workflow_service] = lambda: mock_service
+
+    response = client.delete("/api/workflows/wf_1")
+    assert response.status_code == 409
+    assert response.json()["error_code"] == "WORKFLOW_HAS_ACTIVE_RUNS"
     app.dependency_overrides.clear()
 
 
