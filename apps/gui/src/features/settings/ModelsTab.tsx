@@ -1,11 +1,14 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import {
+  useAppSettings,
   useModelDefaults,
   useProviders,
+  useUpdateAppSettings,
   useUpdateModelDefault,
 } from "@/queries/settings";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { Button } from "@runsight/ui/button";
+import { Switch } from "@runsight/ui/switch";
 import {
   Select,
   SelectContent,
@@ -13,7 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@runsight/ui/select";
-import { Bot, Check, X, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  Bot,
+  Check,
+  X,
+  ChevronUp,
+  ChevronDown,
+  AlertCircle,
+  RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { ModelDefault } from "@/api/settings";
 
@@ -60,6 +71,7 @@ function ModelRow({
               size="sm"
               className="h-8 w-8 text-[var(--success-9)] hover:text-[var(--success-9)]"
               onClick={() => onSave(model.id, selectedModel)}
+              aria-label={`Save ${model.provider_name} default model`}
             >
               <Check className="h-4 w-4" />
             </Button>
@@ -68,6 +80,7 @@ function ModelRow({
               size="sm"
               className="h-8 w-8 text-muted"
               onClick={onCancel}
+              aria-label={`Cancel ${model.provider_name} model change`}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -79,9 +92,11 @@ function ModelRow({
 }
 
 function FallbackChainSection({
+  enabled,
   modelDefaults,
   onReorder,
 }: {
+  enabled: boolean;
   modelDefaults: ModelDefault[];
   onReorder: (id: string, chain: string[]) => void;
 }) {
@@ -100,6 +115,7 @@ function FallbackChainSection({
   }, [primary, primaryFallbackChain, hasChanges]);
 
   const move = (index: number, direction: 1 | -1) => {
+    if (!enabled) return;
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= localChain.length) return;
     const next = [...localChain];
@@ -147,6 +163,7 @@ function FallbackChainSection({
               size="sm"
               className="h-7 text-xs"
               onClick={handleSave}
+              disabled={!enabled}
             >
               Save order
             </Button>
@@ -155,13 +172,20 @@ function FallbackChainSection({
               size="sm"
               className="h-7 text-xs"
               onClick={handleCancel}
+              disabled={!enabled}
             >
               Cancel
             </Button>
           </div>
         )}
       </div>
-      <ul className="space-y-2">
+      <ul
+        className={
+          enabled
+            ? "space-y-2"
+            : "space-y-2 opacity-50 pointer-events-none"
+        }
+      >
         {localChain.map((name, i) => (
           <li
             key={`${name}-${i}`}
@@ -173,7 +197,8 @@ function FallbackChainSection({
                 size="sm"
                 className="h-6 w-6"
                 onClick={() => move(i, -1)}
-                disabled={i === 0}
+                disabled={!enabled || i === 0}
+                aria-label={`Move ${name} up`}
               >
                 <ChevronUp className="h-3.5 w-3.5" />
               </Button>
@@ -182,7 +207,8 @@ function FallbackChainSection({
                 size="sm"
                 className="h-6 w-6"
                 onClick={() => move(i, 1)}
-                disabled={i === localChain.length - 1}
+                disabled={!enabled || i === localChain.length - 1}
+                aria-label={`Move ${name} down`}
               >
                 <ChevronDown className="h-3.5 w-3.5" />
               </Button>
@@ -196,11 +222,15 @@ function FallbackChainSection({
 }
 
 export function ModelsTab() {
-  const { data, isLoading } = useModelDefaults();
+  const { data, isLoading, error, refetch } = useModelDefaults();
   const { data: providersData } = useProviders();
+  const { data: appSettings } = useAppSettings();
   const updateModelDefault = useUpdateModelDefault();
+  const updateAppSettings = useUpdateAppSettings();
+  const [isRetrying, setIsRetrying] = useState(false);
   const modelDefaults = data?.items ?? [];
   const providers = useMemo(() => providersData?.items ?? [], [providersData?.items]);
+  const fallbackChainEnabled = appSettings?.fallback_chain_enabled ?? true;
 
   const getProviderModels = useCallback(
     (providerId: string) => {
@@ -234,6 +264,15 @@ export function ModelsTab() {
     [updateModelDefault]
   );
 
+  const handleRetry = useCallback(async () => {
+    setIsRetrying(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [refetch]);
+
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
@@ -250,6 +289,28 @@ export function ModelsTab() {
               className="h-40 animate-pulse rounded-lg border border-border-default bg-surface-secondary"
             />
           ))}
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center rounded-lg border border-border-default bg-surface-secondary p-8">
+          <div className="max-w-md text-center">
+            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-danger" />
+            <h3 className="mb-2 text-lg font-medium text-primary">
+              Failed to load model defaults
+            </h3>
+            <p className="mb-4 text-sm text-muted">
+              {error instanceof Error
+                ? error.message
+                : "An error occurred while fetching model defaults."}
+            </p>
+            <Button
+              onClick={handleRetry}
+              variant="secondary"
+              disabled={isRetrying}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {isRetrying ? "Retrying..." : "Retry"}
+            </Button>
+          </div>
         </div>
       ) : modelDefaults.length === 0 ? (
         <div className="rounded-lg border border-border-default bg-surface-secondary p-8">
@@ -284,16 +345,27 @@ export function ModelsTab() {
           </section>
 
           <section className="rounded-lg border border-border-default bg-surface-secondary p-5">
-            <div className="mb-4">
-              <h3 className="text-base font-medium text-primary">
-                Fallback Chain
-              </h3>
-              <p className="mt-1 text-sm text-muted">
-                When the primary model fails (rate limit, error), the system
-                retries with the next model in chain.
-              </p>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-medium text-primary">
+                  Fallback Chain
+                </h3>
+                <p className="mt-1 text-sm text-muted">
+                  When the primary model fails (rate limit, error), the system
+                  retries with the next model in chain.
+                </p>
+              </div>
+              <Switch
+                checked={fallbackChainEnabled}
+                onCheckedChange={(checked) =>
+                  updateAppSettings.mutateAsync({ fallback_chain_enabled: checked })
+                }
+                aria-label="Enable fallback chain"
+                disabled={updateAppSettings.isPending}
+              />
             </div>
             <FallbackChainSection
+              enabled={fallbackChainEnabled}
               modelDefaults={modelDefaults}
               onReorder={handleReorderChain}
             />

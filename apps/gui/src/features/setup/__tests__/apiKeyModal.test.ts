@@ -297,17 +297,19 @@ describe("useApiKeyAutoTest hook", () => {
 
   it("imports useCreateProvider from queries/settings", () => {
     const source = readSource(AUTO_TEST_HOOK_PATH);
-    expect(source).toMatch(/import.*useCreateProvider.*from.*queries\/settings/);
+    expect(source).toMatch(/import[\s\S]*useCreateProvider[\s\S]*from.*queries\/settings/);
   });
 
   it("imports useTestProviderConnection from queries/settings", () => {
     const source = readSource(AUTO_TEST_HOOK_PATH);
-    expect(source).toMatch(/import.*useTestProviderConnection.*from.*queries\/settings/);
+    expect(source).toMatch(
+      /import[\s\S]*useTestProviderConnection[\s\S]*from.*queries\/settings/,
+    );
   });
 
   it("imports useDeleteProvider for cleanup on cancel", () => {
     const source = readSource(AUTO_TEST_HOOK_PATH);
-    expect(source).toMatch(/import.*useDeleteProvider.*from.*queries\/settings/);
+    expect(source).toMatch(/import[\s\S]*useDeleteProvider[\s\S]*from.*queries\/settings/);
   });
 
   it("has debounce logic with ~1000ms delay (AC3)", () => {

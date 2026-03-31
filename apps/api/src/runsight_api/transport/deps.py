@@ -21,6 +21,7 @@ from ..logic.services.model_service import ModelService
 from ..logic.services.provider_service import ProviderService
 from ..logic.services.registry_service import RegistryService
 from ..logic.services.run_service import RunService
+from ..logic.services.settings_service import SettingsService
 from ..logic.services.soul_service import SoulService
 from ..logic.services.workflow_service import WorkflowService
 
@@ -51,6 +52,13 @@ def get_provider_service(
     secrets: SecretsEnvLoader = Depends(get_secrets_loader),
 ) -> ProviderService:
     return ProviderService(repo, secrets)
+
+
+def get_settings_service(
+    settings_repo: FileSystemSettingsRepo = Depends(get_settings_repo),
+    provider_repo: FileSystemProviderRepo = Depends(get_provider_repo),
+) -> SettingsService:
+    return SettingsService(settings_repo=settings_repo, provider_repo=provider_repo)
 
 
 def get_workflow_repo() -> WorkflowRepository:

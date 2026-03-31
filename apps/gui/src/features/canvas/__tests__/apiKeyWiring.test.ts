@@ -1,10 +1,11 @@
 /**
- * RED-TEAM tests for RUN-355: Wire API key modal to canvas topbar trigger.
+ * RED-TEAM tests for RUN-355 / RUN-460: wire the shared provider modal to the
+ * canvas topbar trigger.
  *
  * Source-reading pattern: verify structural properties by reading source files.
  *
  * Current state (all tests expected to FAIL):
- *   - CanvasPage does NOT import or render ApiKeyModal
+ *   - CanvasPage does NOT import or render the shared ProviderModal
  *   - CanvasPage has no apiKeyModalOpen state
  *   - CanvasPage does NOT pass onAddApiKey to ExploreBanner
  *   - RunButton navigates to /settings instead of calling an onAddApiKey callback
@@ -41,35 +42,35 @@ const RUN_BUTTON_PATH = "features/canvas/RunButton.tsx";
 const EXPLORE_BANNER_PATH = "features/canvas/ExploreBanner.tsx";
 
 // ===========================================================================
-// 1. CanvasPage imports and renders ApiKeyModal (AC1, AC2)
+// 1. CanvasPage imports and renders ProviderModal (AC1, AC2)
 // ===========================================================================
 
-describe("CanvasPage imports and renders ApiKeyModal (RUN-355)", () => {
-  it("imports ApiKeyModal from features/setup/ApiKeyModal", () => {
+describe("CanvasPage imports and renders ProviderModal (RUN-355 / RUN-460)", () => {
+  it("imports ProviderModal from components/provider/ProviderModal", () => {
     const source = readSource(CANVAS_PAGE_PATH);
     expect(source).toMatch(
-      /import.*ApiKeyModal.*from.*features\/setup\/ApiKeyModal|@\/features\/setup\/ApiKeyModal/,
+      /import.*ProviderModal.*from.*components\/provider\/ProviderModal|@\/components\/provider\/ProviderModal/,
     );
   });
 
-  it("renders <ApiKeyModal in JSX", () => {
+  it("renders <ProviderModal in JSX", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<ApiKeyModal\b/);
+    expect(source).toMatch(/<ProviderModal\b/);
   });
 
-  it("passes open prop to ApiKeyModal", () => {
+  it("passes open prop to ProviderModal", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<ApiKeyModal[\s\S]*?\bopen[=\s{]/);
+    expect(source).toMatch(/<ProviderModal[\s\S]*?\bopen[=\s{]/);
   });
 
-  it("passes onOpenChange prop to ApiKeyModal", () => {
+  it("passes onOpenChange prop to ProviderModal", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<ApiKeyModal[\s\S]*?onOpenChange/);
+    expect(source).toMatch(/<ProviderModal[\s\S]*?onOpenChange/);
   });
 
-  it("passes onSaveSuccess callback to ApiKeyModal", () => {
+  it("passes onSaveSuccess callback to ProviderModal", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<ApiKeyModal[\s\S]*?onSaveSuccess/);
+    expect(source).toMatch(/<ProviderModal[\s\S]*?onSaveSuccess/);
   });
 });
 
@@ -246,8 +247,8 @@ describe("RunButton swaps to Run when providers exist (RUN-355 AC3)", () => {
     ).toBe(true);
   });
 
-  it("ApiKeyModal.onSaveSuccess triggers query invalidation so RunButton re-renders", () => {
-    // ApiKeyModal calls onSaveSuccess, CanvasPage's handler should invalidate
+  it("ProviderModal.onSaveSuccess triggers query invalidation so RunButton re-renders", () => {
+    // ProviderModal calls onSaveSuccess, CanvasPage's handler should invalidate
     // provider queries — causing useProviders() in RunButton to refetch
     const source = readSource(CANVAS_PAGE_PATH);
     const hasInvalidation =
@@ -266,9 +267,9 @@ describe("RunButton swaps to Run when providers exist (RUN-355 AC3)", () => {
 // ===========================================================================
 
 describe("Save & Run triggers workflow execution (RUN-355 AC4)", () => {
-  it("ApiKeyModal receives saveAndRun prop from CanvasPage", () => {
+  it("ProviderModal receives canvas mode from CanvasPage", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<ApiKeyModal[\s\S]*?saveAndRun/);
+    expect(source).toMatch(/<ProviderModal[\s\S]*?mode=["']canvas["']/);
   });
 
   it("save success handler triggers run when saveAndRun is true", () => {

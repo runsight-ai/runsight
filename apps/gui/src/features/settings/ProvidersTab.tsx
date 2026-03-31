@@ -5,7 +5,7 @@ import {
   useTestProviderConnection,
   useUpdateProvider,
 } from "@/queries/settings";
-import { StatusBadge } from "@/components/shared";
+import { DeleteConfirmDialog, StatusBadge } from "@/components/shared";
 import { Button } from "@runsight/ui/button";
 import { Switch } from "@runsight/ui/switch";
 import {
@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   XCircle,
   Server,
+  AlertCircle,
+  RotateCcw,
 } from "lucide-react";
 import { AddProviderDialog } from "./AddProviderDialog";
 import type { EditingProvider } from "@/components/provider/ProviderSetup";
@@ -96,7 +98,7 @@ function ProviderCard({
 }: {
   provider: Provider;
   onEdit: (provider: Provider) => void;
-  onDelete: (id: string) => void;
+  onDelete: (provider: Provider) => void;
 }) {
   const testConnection = useTestProviderConnection();
   const updateProvider = useUpdateProvider();
@@ -145,10 +147,14 @@ function ProviderCard({
               <h3 className="text-base font-medium text-primary">
                 {provider.name}
               </h3>
-              <StatusBadge
-                status={getStatusVariant(provider.status)}
-                label={getStatusLabel(provider.status)}
-              />
+              <div
+                aria-label={`Provider ${provider.name} status ${getStatusLabel(provider.status)}`}
+              >
+                <StatusBadge
+                  status={getStatusVariant(provider.status)}
+                  label={getStatusLabel(provider.status)}
+                />
+              </div>
             </div>
 
             <div className="space-y-2 text-sm">
@@ -197,7 +203,7 @@ function ProviderCard({
           <Switch
             checked={isEnabled}
             onCheckedChange={handleToggle}
-            aria-label={`Toggle ${provider.name}`}
+            aria-label={`Enable ${provider.name} provider`}
           />
           <div className="flex items-center gap-1">
             <Button
@@ -206,6 +212,7 @@ function ProviderCard({
               onClick={handleTest}
               disabled={testStatus === "testing"}
               className="text-xs"
+              aria-label={`Test ${provider.name} connection`}
             >
               {testStatus === "testing" ? (
                 "Testing..."
@@ -228,15 +235,17 @@ function ProviderCard({
               size="sm"
               onClick={() => onEdit(provider)}
               title="Edit provider"
+              aria-label={`Edit ${provider.name} provider`}
             >
               <Pencil className="h-4 w-4" />
             </Button>
             <Button
               variant="icon-only"
               size="sm"
-              onClick={() => onDelete(provider.id)}
+              onClick={() => onDelete(provider)}
               className="text-[var(--danger-9)] hover:text-[var(--danger-9)]"
               title="Remove provider"
+              aria-label={`Delete ${provider.name} provider`}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -282,10 +291,12 @@ function toEditing(p: Provider): EditingProvider {
 }
 
 export function ProvidersTab() {
-  const { data, isLoading } = useProviders();
+  const { data, isLoading, error, refetch } = useProviders();
   const deleteProvider = useDeleteProvider();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EditingProvider | undefined>(undefined);
+  const [itemToDelete, setItemToDelete] = useState<Provider | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const providers = data?.items || [];
 
@@ -306,9 +317,16 @@ export function ProvidersTab() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to remove this provider?")) {
-      deleteProvider.mutate(id);
+  const handleDelete = (provider: Provider) => {
+    setItemToDelete(provider);
+  };
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRetrying(false);
     }
   };
 
@@ -335,6 +353,28 @@ export function ProvidersTab() {
             />
           ))}
         </div>
+      ) : error ? (
+        <div className="flex items-center justify-center rounded-lg border border-border-default bg-surface-secondary p-8">
+          <div className="max-w-md text-center">
+            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-danger" />
+            <h3 className="mb-2 text-lg font-medium text-primary">
+              Failed to load providers
+            </h3>
+            <p className="mb-4 text-sm text-muted">
+              {error instanceof Error
+                ? error.message
+                : "An error occurred while fetching providers."}
+            </p>
+            <Button
+              onClick={handleRetry}
+              variant="secondary"
+              disabled={isRetrying}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {isRetrying ? "Retrying..." : "Retry"}
+            </Button>
+          </div>
+        </div>
       ) : providers.length === 0 ? (
         <EmptyProvidersState onAdd={handleAdd} />
       ) : (
@@ -354,6 +394,20 @@ export function ProvidersTab() {
         open={dialogOpen}
         onOpenChange={handleCloseDialog}
         editing={editing}
+      />
+
+      <DeleteConfirmDialog
+        open={!!itemToDelete}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={() => {
+          if (!itemToDelete) return;
+          deleteProvider.mutate(itemToDelete.id, {
+            onSuccess: () => setItemToDelete(null),
+          });
+        }}
+        isPending={deleteProvider.isPending}
+        resourceName="Provider"
+        itemName={itemToDelete ? itemToDelete.name : undefined}
       />
     </div>
   );

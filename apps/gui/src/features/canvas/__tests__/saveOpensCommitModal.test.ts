@@ -146,8 +146,8 @@ vi.mock("../ExploreBanner", () => ({
   ExploreBanner: () => React.createElement("div", null, "Explore"),
 }));
 
-vi.mock("@/features/setup/ApiKeyModal", () => ({
-  ApiKeyModal: () => React.createElement("div", null, "API Key Modal"),
+vi.mock("@/components/provider/ProviderModal", () => ({
+  ProviderModal: () => React.createElement("div", null, "Provider Modal"),
 }));
 
 vi.mock("@/api/git", () => ({

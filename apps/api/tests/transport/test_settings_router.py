@@ -2,15 +2,45 @@ from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
 
+from runsight_api.data.filesystem.settings_repo import FileSystemSettingsRepo
+from runsight_api.domain.entities.settings import AppSettingsConfig
 from runsight_api.main import app
-from runsight_api.transport.deps import get_provider_service, get_session
+from runsight_api.transport.deps import (
+    get_provider_service,
+    get_settings_repo,
+    get_settings_service,
+)
 
 client = TestClient(app)
 
 
+def _mock_provider(*, provider_id: str, name: str, models: list[str]):
+    provider = Mock()
+    provider.id = provider_id
+    provider.name = name
+    provider.status = "active"
+    provider.api_key = "configured-key"
+    provider.base_url = None
+    provider.models = models
+    provider.created_at = None
+    provider.updated_at = None
+    return provider
+
+
 def test_settings_providers_list():
     mock_service = Mock()
-    mock_service.list_providers.return_value = []
+    mock_service.list_providers.return_value = [
+        _mock_provider(
+            provider_id="openai",
+            name="OpenAI",
+            models=["gpt-4.1", "gpt-4o"],
+        ),
+        _mock_provider(
+            provider_id="empty-provider",
+            name="Empty Provider",
+            models=[],
+        ),
+    ]
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
     response = client.get("/api/settings/providers")
@@ -18,6 +48,9 @@ def test_settings_providers_list():
     data = response.json()
     assert "items" in data
     assert "total" in data
+    assert data["total"] == 2
+    assert data["items"][0]["model_count"] == 2
+    assert data["items"][1]["model_count"] == 0
     app.dependency_overrides.clear()
 
 
@@ -33,15 +66,11 @@ def test_settings_providers_get_404():
 
 def test_settings_providers_post():
     mock_service = Mock()
-    mock_provider = Mock()
-    mock_provider.id = "openai"
-    mock_provider.name = "OpenAI"
-    mock_provider.status = "active"
-    mock_provider.api_key_encrypted = True
-    mock_provider.base_url = None
-    mock_provider.models = []
-    mock_provider.created_at = None
-    mock_provider.updated_at = None
+    mock_provider = _mock_provider(
+        provider_id="openai",
+        name="OpenAI",
+        models=[],
+    )
     mock_service.create_provider.return_value = mock_provider
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
@@ -52,6 +81,7 @@ def test_settings_providers_post():
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "openai"
+    assert data["model_count"] == 0
     app.dependency_overrides.clear()
 
 
@@ -95,12 +125,127 @@ def test_settings_providers_test():
 
 
 def test_settings_models_list():
-    app.dependency_overrides.clear()
-    response = client.get("/api/settings/models")
-    assert response.status_code == 200
-    data = response.json()
-    assert "items" in data
-    assert "total" in data
+    import runsight_api.transport.deps as deps_module
+
+    assert hasattr(deps_module, "get_settings_service"), (
+        "deps.get_settings_service must exist so /api/settings/models can be wired "
+        "to SettingsService"
+    )
+
+    mock_service = Mock()
+    mock_service.get_model_defaults.return_value = [
+        {
+            "id": "openai",
+            "provider_id": "openai",
+            "provider_name": "OpenAI",
+            "model_name": "gpt-4o",
+            "is_default": True,
+            "fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"],
+        }
+    ]
+    app.dependency_overrides[getattr(deps_module, "get_settings_service")] = lambda: mock_service
+
+    try:
+        response = client.get("/api/settings/models")
+        assert response.status_code == 200
+        assert response.json() == {
+            "items": [
+                {
+                    "id": "openai",
+                    "provider_id": "openai",
+                    "provider_name": "OpenAI",
+                    "model_name": "gpt-4o",
+                    "is_default": True,
+                    "fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"],
+                }
+            ],
+            "total": 1,
+        }
+        mock_service.get_model_defaults.assert_called_once_with()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_settings_models_put_updates_model_name():
+    mock_service = Mock()
+    mock_service.update_model_default.return_value = {
+        "id": "openai",
+        "provider_id": "openai",
+        "provider_name": "OpenAI",
+        "model_name": "gpt-4.1",
+        "is_default": True,
+        "fallback_chain": ["gpt-4o-mini"],
+    }
+    app.dependency_overrides[get_settings_service] = lambda: mock_service
+
+    try:
+        response = client.put(
+            "/api/settings/models/openai",
+            json={"model_name": "gpt-4.1", "is_default": True},
+        )
+        assert response.status_code == 200
+        assert response.json() == {
+            "id": "openai",
+            "provider_id": "openai",
+            "provider_name": "OpenAI",
+            "model_name": "gpt-4.1",
+            "is_default": True,
+            "fallback_chain": ["gpt-4o-mini"],
+        }
+        mock_service.update_model_default.assert_called_once_with(
+            provider_id="openai",
+            model_name="gpt-4.1",
+            is_default=True,
+            fallback_chain=None,
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_settings_models_put_updates_fallback_chain():
+    mock_service = Mock()
+    mock_service.update_model_default.return_value = {
+        "id": "openai",
+        "provider_id": "openai",
+        "provider_name": "OpenAI",
+        "model_name": "gpt-4.1",
+        "is_default": True,
+        "fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"],
+    }
+    app.dependency_overrides[get_settings_service] = lambda: mock_service
+
+    try:
+        response = client.put(
+            "/api/settings/models/openai",
+            json={"fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"]},
+        )
+        assert response.status_code == 200
+        assert response.json()["fallback_chain"] == ["gpt-4o-mini", "claude-3-5-sonnet"]
+        mock_service.update_model_default.assert_called_once_with(
+            provider_id="openai",
+            model_name=None,
+            is_default=None,
+            fallback_chain=["gpt-4o-mini", "claude-3-5-sonnet"],
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_settings_models_put_404():
+    from runsight_api.domain.errors import ProviderNotFound
+
+    mock_service = Mock()
+    mock_service.update_model_default.side_effect = ProviderNotFound("Provider missing not found")
+    app.dependency_overrides[get_settings_service] = lambda: mock_service
+
+    try:
+        response = client.put(
+            "/api/settings/models/missing",
+            json={"model_name": "gpt-4.1"},
+        )
+        assert response.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_settings_budgets_list():
@@ -113,56 +258,28 @@ def test_settings_budgets_list():
 
 
 def test_settings_app_get():
-    import tempfile
-
-    from sqlmodel import Session, SQLModel, create_engine
-
-    # File-based DB so all connections share schema (unlike :memory:)
-    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
-        db_path = f.name
-    engine = create_engine(
-        f"sqlite:///{db_path}",
-        connect_args={"check_same_thread": False},
-    )
-    SQLModel.metadata.create_all(engine)
     try:
-
-        def _get_session():
-            with Session(engine) as session:
-                yield session
-
-        app.dependency_overrides[get_session] = _get_session
+        repo = Mock(spec=FileSystemSettingsRepo)
+        repo.get_settings.return_value = AppSettingsConfig(
+            default_provider="openai",
+            fallback_chain_enabled=False,
+        )
+        app.dependency_overrides[get_settings_repo] = lambda: repo
         response = client.get("/api/settings/app")
         assert response.status_code == 200
+        assert response.json()["fallback_chain_enabled"] is False
     finally:
         app.dependency_overrides.clear()
-        import os
-
-        os.unlink(db_path)
 
 
 def test_settings_app_put():
-    import os
-    import tempfile
-
-    from sqlmodel import Session, SQLModel, create_engine
-
-    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
-        db_path = f.name
-    engine = create_engine(
-        f"sqlite:///{db_path}",
-        connect_args={"check_same_thread": False},
-    )
-    SQLModel.metadata.create_all(engine)
     try:
-
-        def _get_session():
-            with Session(engine) as session:
-                yield session
-
-        app.dependency_overrides[get_session] = _get_session
-        response = client.put("/api/settings/app", json={"theme": "dark"})
+        repo = Mock(spec=FileSystemSettingsRepo)
+        repo.update_settings.return_value = AppSettingsConfig(fallback_chain_enabled=False)
+        app.dependency_overrides[get_settings_repo] = lambda: repo
+        response = client.put("/api/settings/app", json={"fallback_chain_enabled": False})
         assert response.status_code == 200
+        assert response.json()["fallback_chain_enabled"] is False
+        repo.update_settings.assert_called_once_with({"fallback_chain_enabled": False})
     finally:
         app.dependency_overrides.clear()
-        os.unlink(db_path)

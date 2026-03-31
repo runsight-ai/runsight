@@ -6,7 +6,8 @@ from pydantic import BaseModel
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
 from ...domain.errors import ProviderNotFound
 from ...logic.services.provider_service import ProviderService
-from ..deps import get_provider_service, get_settings_repo
+from ...logic.services.settings_service import SettingsService
+from ..deps import get_provider_service, get_settings_repo, get_settings_service
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -30,6 +31,7 @@ class ProviderOut(BaseModel):
     api_key_env: Optional[str] = None  # Return "configured" or "" - never the real key
     base_url: Optional[str] = None
     models: list[str] = []
+    model_count: int = 0
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -41,6 +43,12 @@ class ModelDefaultOut(BaseModel):
     provider_name: str
     fallback_chain: list[str] = []
     is_default: bool = False
+
+
+class ModelDefaultUpdate(BaseModel):
+    model_name: str | None = None
+    is_default: bool | None = None
+    fallback_chain: list[str] | None = None
 
 
 class BudgetOut(BaseModel):
@@ -57,16 +65,19 @@ class AppSettingsOut(BaseModel):
     default_provider: Optional[str] = None
     auto_save: Optional[bool] = None
     onboarding_completed: Optional[bool] = None
+    fallback_chain_enabled: Optional[bool] = None
 
 
 def _provider_to_out(p) -> ProviderOut:
+    models = p.models if p.models else []
     return ProviderOut(
         id=p.id,
         name=p.name,
         status=p.status or "unknown",
         api_key_env="configured" if p.api_key else "",
         base_url=p.base_url,
-        models=p.models if p.models else [],
+        models=models,
+        model_count=len(models),
         created_at=str(p.created_at) if hasattr(p, "created_at") and p.created_at else None,
         updated_at=str(p.updated_at) if hasattr(p, "updated_at") and p.updated_at else None,
     )
@@ -142,13 +153,25 @@ async def test_provider(
 
 
 @router.get("/models")
-async def list_model_defaults():
-    return {"items": [], "total": 0}
+async def list_model_defaults(
+    service: SettingsService = Depends(get_settings_service),
+):
+    items = service.get_model_defaults()
+    return {"items": items, "total": len(items)}
 
 
 @router.put("/models/{model_id}")
-async def update_model_default(model_id: str):
-    return {"id": model_id}
+async def update_model_default(
+    model_id: str,
+    data: ModelDefaultUpdate,
+    service: SettingsService = Depends(get_settings_service),
+):
+    return service.update_model_default(
+        provider_id=model_id,
+        model_name=data.model_name,
+        is_default=data.is_default,
+        fallback_chain=data.fallback_chain,
+    )
 
 
 @router.get("/budgets")
