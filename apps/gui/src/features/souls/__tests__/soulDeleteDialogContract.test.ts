@@ -63,8 +63,15 @@ const mocks = vi.hoisted(() => {
         mocks.mutateCalls.push({ variables, callbacks });
 
         if (mocks.deleteState.outcome === "success") {
-          const id = typeof variables === "string" ? variables : (variables as { id?: string }).id;
-          const result = mocks.api.deleteSoul(id);
+          const id =
+            typeof variables === "string" ? variables : (variables as { id?: string }).id;
+          const force =
+            typeof variables === "object" &&
+            variables !== null &&
+            "force" in variables
+              ? Boolean((variables as { force?: boolean }).force)
+              : undefined;
+          const result = mocks.api.deleteSoul(id, force);
           callbacks?.onSuccess?.(result, variables, undefined);
           return result;
         }
