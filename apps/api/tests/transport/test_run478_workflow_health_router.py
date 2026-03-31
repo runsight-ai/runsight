@@ -78,6 +78,7 @@ def _make_workflow(
         enabled=enabled,
         commit_sha=commit_sha,
         health={
+            "eval_health": "healthy",
             "run_count": 2,
             "eval_pass_pct": 50.0,
             "total_cost_usd": 0.30,
@@ -90,6 +91,20 @@ def _stub_workflow_service(workflows):
     mock_service = Mock()
     mock_service.list_workflows.return_value = workflows
     return mock_service
+
+
+def _workflow_health_model_fields():
+    health_annotation = WorkflowResponse.model_fields["health"].annotation
+    health_model_fields = getattr(health_annotation, "model_fields", None)
+    if health_model_fields is not None:
+        return health_model_fields
+
+    for candidate in getattr(health_annotation, "__args__", ()):
+        health_model_fields = getattr(candidate, "model_fields", None)
+        if health_model_fields is not None:
+            return health_model_fields
+
+    raise AssertionError("WorkflowResponse.health must be a structured model")
 
 
 class TestWorkflowResponseModelShape:
@@ -112,6 +127,8 @@ class TestWorkflowResponseModelShape:
             "health",
         ):
             assert field_name in fields, f"Missing workflow response field: {field_name}"
+
+        assert "eval_health" in _workflow_health_model_fields()
 
 
 class TestWorkflowsListResponse:
@@ -148,6 +165,7 @@ class TestWorkflowsListResponse:
 
         health = item.get("health")
         assert health is not None, "Expected nested workflow health data in list response"
+        assert health["eval_health"] is not None
         assert health["run_count"] == 2
         assert health["eval_pass_pct"] == 50.0
         assert health["total_cost_usd"] == 0.30
