@@ -560,6 +560,6 @@ describe("RUN-428 Runs eval threshold polish", () => {
 
     expect(nullDash).toBeTruthy();
     expect(within(nullRow!).queryByLabelText(/\d+%/)).toBeNull();
-    expect(String(nullDash.closest("td")?.className)).toMatch(/muted|secondary/i);
+    expect(String(nullDash.className)).toMatch(/muted|secondary/i);
   });
 });
