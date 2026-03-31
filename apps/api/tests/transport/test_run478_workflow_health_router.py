@@ -1,140 +1,56 @@
-"""Red tests for RUN-478: workflow health metrics on GET /api/workflows.
+"""Red tests for RUN-478: workflow health metrics on GET /api/workflows."""
+# ruff: noqa: E402
 
-These tests cover the response contract exposed by the workflows router:
-  - new workflow health response fields
-  - backward compatibility of existing workflow fields
-  - GET /api/workflows should serialize health metadata
-  - dependency wiring for the workflows service
-
-All tests are expected to fail until the implementation is added.
-"""
-
-import inspect
+import re
 import sys
 import types
+from pathlib import Path
 from unittest.mock import Mock
 
-import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-# The API package imports a handful of third-party modules at import time.
-# The current local uv environment does not have all of them available, so we
-# provide minimal stubs to let the red tests collect and reach the intended
-# assertions.
 if "structlog" not in sys.modules:
     structlog = types.ModuleType("structlog")
-    structlog.types = types.SimpleNamespace(Processor=object)
     structlog.contextvars = types.SimpleNamespace(
         bind_contextvars=lambda **kwargs: None,
         unbind_contextvars=lambda *args, **kwargs: None,
-        merge_contextvars=lambda *args, **kwargs: None,
     )
-    structlog.stdlib = types.SimpleNamespace(
-        add_log_level=lambda *args, **kwargs: None,
-        add_logger_name=lambda *args, **kwargs: None,
-        LoggerFactory=lambda *args, **kwargs: None,
-        BoundLogger=object,
-        ProcessorFormatter=type(
-            "ProcessorFormatter",
-            (),
-            {
-                "__init__": lambda self, *args, **kwargs: None,
-                "wrap_for_formatter": staticmethod(lambda *args, **kwargs: None),
-                "remove_processors_meta": staticmethod(lambda *args, **kwargs: None),
-            },
-        ),
-    )
-    structlog.processors = types.SimpleNamespace(
-        TimeStamper=lambda *args, **kwargs: None,
-        StackInfoRenderer=lambda *args, **kwargs: None,
-        format_exc_info=lambda *args, **kwargs: None,
-        JSONRenderer=lambda *args, **kwargs: None,
-    )
-    structlog.dev = types.SimpleNamespace(ConsoleRenderer=lambda *args, **kwargs: None)
-    structlog.configure = lambda *args, **kwargs: None
     sys.modules["structlog"] = structlog
-    sys.modules["structlog.types"] = structlog.types
     sys.modules["structlog.contextvars"] = structlog.contextvars
-    sys.modules["structlog.stdlib"] = structlog.stdlib
-    sys.modules["structlog.processors"] = structlog.processors
-    sys.modules["structlog.dev"] = structlog.dev
 
 if "runsight_core" not in sys.modules:
     runsight_core = types.ModuleType("runsight_core")
     runsight_core.__path__ = []
 
-    observer_pkg = types.ModuleType("runsight_core.observer")
-    observer_pkg.__path__ = []
-    observer_pkg.CompositeObserver = type("CompositeObserver", (), {})
-    observer_pkg.LoggingObserver = type("LoggingObserver", (), {})
-
     yaml_pkg = types.ModuleType("runsight_core.yaml")
     yaml_pkg.__path__ = []
-    yaml_schema_pkg = types.ModuleType("runsight_core.yaml.schema")
-    yaml_parser_pkg = types.ModuleType("runsight_core.yaml.parser")
+    schema_pkg = types.ModuleType("runsight_core.yaml.schema")
 
     class _RunsightWorkflowFile:
         @classmethod
         def model_validate(cls, data):
             return data
 
-    yaml_schema_pkg.RunsightWorkflowFile = _RunsightWorkflowFile
-    yaml_parser_pkg.parse_workflow_yaml = lambda *args, **kwargs: {}
-    yaml_pkg.schema = yaml_schema_pkg
-    yaml_pkg.parser = yaml_parser_pkg
-
-    llm_pkg = types.ModuleType("runsight_core.llm")
-    llm_pkg.__path__ = []
-    llm_model_catalog_pkg = types.ModuleType("runsight_core.llm.model_catalog")
-    llm_model_catalog_pkg.LiteLLMModelCatalog = type("LiteLLMModelCatalog", (), {})
-    llm_model_catalog_pkg.ModelCatalogPort = type("ModelCatalogPort", (), {})
-    llm_pkg.model_catalog = llm_model_catalog_pkg
-
-    runsight_core.observer = observer_pkg
+    schema_pkg.RunsightWorkflowFile = _RunsightWorkflowFile
+    yaml_pkg.schema = schema_pkg
     runsight_core.yaml = yaml_pkg
-    runsight_core.llm = llm_pkg
-
     sys.modules["runsight_core"] = runsight_core
-    sys.modules["runsight_core.observer"] = observer_pkg
     sys.modules["runsight_core.yaml"] = yaml_pkg
-    sys.modules["runsight_core.yaml.schema"] = yaml_schema_pkg
-    sys.modules["runsight_core.yaml.parser"] = yaml_parser_pkg
-    sys.modules["runsight_core.llm"] = llm_pkg
-    sys.modules["runsight_core.llm.model_catalog"] = llm_model_catalog_pkg
+    sys.modules["runsight_core.yaml.schema"] = schema_pkg
 
-if "sqlmodel" not in sys.modules:
-    sqlmodel = types.ModuleType("sqlmodel")
-
-    def _field(*args, **kwargs):
-        default_factory = kwargs.get("default_factory")
-        if callable(default_factory):
-            return default_factory()
-        return kwargs.get("default")
-
-    class _SQLModel:
-        def __init_subclass__(cls, **kwargs):
-            return super().__init_subclass__()
-
-    class _Session:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def close(self):
-            return None
-
-    sqlmodel.Session = _Session
-    sqlmodel.select = lambda *args, **kwargs: None
-    sqlmodel.create_engine = lambda *args, **kwargs: None
-    sqlmodel.func = types.SimpleNamespace(count=lambda *args, **kwargs: None)
-    sqlmodel.Field = _field
-    sqlmodel.Column = lambda *args, **kwargs: None
-    sqlmodel.JSON = object()
-    sqlmodel.SQLModel = _SQLModel
-    sys.modules["sqlmodel"] = sqlmodel
+fake_deps = types.ModuleType("runsight_api.transport.deps")
+fake_deps.get_workflow_service = lambda: None
+sys.modules["runsight_api.transport.deps"] = fake_deps
 
 from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.transport.deps import get_workflow_service
-from runsight_api.transport.routers.workflows import list_workflows
+from runsight_api.transport.routers.workflows import router
 from runsight_api.transport.schemas.workflows import WorkflowResponse
+
+app = FastAPI()
+app.include_router(router, prefix="/api")
+client = TestClient(app)
 
 
 def _make_workflow(
@@ -149,7 +65,6 @@ def _make_workflow(
     modified_at: float = 1711900000.0,
     enabled: bool = True,
     commit_sha: str = "abc123def456",
-    health_metrics: dict | None = None,
 ) -> WorkflowEntity:
     return WorkflowEntity(
         id=workflow_id,
@@ -162,11 +77,11 @@ def _make_workflow(
         modified_at=modified_at,
         enabled=enabled,
         commit_sha=commit_sha,
-        health_metrics=health_metrics
-        or {
+        health={
             "run_count": 2,
-            "eval_health": 0.5,
-            "eval_health_threshold": 0.75,
+            "eval_pass_pct": 50.0,
+            "total_cost_usd": 0.30,
+            "regression_count": 1,
         },
     )
 
@@ -194,17 +109,16 @@ class TestWorkflowResponseModelShape:
             "modified_at",
             "enabled",
             "commit_sha",
+            "health",
         ):
             assert field_name in fields, f"Missing workflow response field: {field_name}"
 
-        assert any(name in fields for name in ("health", "health_metrics")), (
-            f"Expected a nested health field, got: {list(fields.keys())}"
-        )
-
 
 class TestWorkflowsListResponse:
-    @pytest.mark.asyncio
-    async def test_list_workflows_serializes_health_metadata_and_existing_fields(self):
+    def teardown_method(self):
+        app.dependency_overrides.clear()
+
+    def test_list_workflows_serializes_health_metadata_and_existing_fields(self):
         """GET /api/workflows should return the new health fields without losing old ones."""
         workflow = _make_workflow(
             workflow_id="wf_1",
@@ -215,9 +129,12 @@ class TestWorkflowsListResponse:
             enabled=False,
             commit_sha="deadbeefcafebabe",
         )
-        response = await list_workflows(service=_stub_workflow_service([workflow]))
+        app.dependency_overrides[get_workflow_service] = lambda: _stub_workflow_service([workflow])
 
-        item = response.model_dump()["items"][0]
+        response = client.get("/api/workflows")
+        assert response.status_code == 200
+
+        item = response.json()["items"][0]
         assert item["id"] == "wf_1"
         assert item["name"] == "Research Flow"
         assert item["description"] == "Research workflow"
@@ -229,14 +146,14 @@ class TestWorkflowsListResponse:
         assert item["enabled"] is False
         assert item["commit_sha"] == "deadbeefcafebabe"
 
-        health = item.get("health") or item.get("health_metrics")
+        health = item.get("health")
         assert health is not None, "Expected nested workflow health data in list response"
         assert health["run_count"] == 2
-        assert health["eval_health"] == 0.5
-        assert health["eval_health_threshold"] == 0.75
+        assert health["eval_pass_pct"] == 50.0
+        assert health["total_cost_usd"] == 0.30
+        assert health["regression_count"] == 1
 
-    @pytest.mark.asyncio
-    async def test_list_workflows_keeps_backward_compatible_canvas_fields(self):
+    def test_list_workflows_keeps_backward_compatible_canvas_fields(self):
         """Legacy workflow fields must still be exposed alongside the new health data."""
         workflow = _make_workflow()
         workflow.canvas_state = {
@@ -246,10 +163,12 @@ class TestWorkflowsListResponse:
             "selected_node_id": "node-1",
             "canvas_mode": "dag",
         }
+        app.dependency_overrides[get_workflow_service] = lambda: _stub_workflow_service([workflow])
 
-        response = await list_workflows(service=_stub_workflow_service([workflow]))
-        item = response.model_dump()["items"][0]
+        response = client.get("/api/workflows")
+        assert response.status_code == 200
 
+        item = response.json()["items"][0]
         assert "canvas_state" in item
         assert item["canvas_state"]["selected_node_id"] == "node-1"
         assert "yaml" in item
@@ -258,9 +177,13 @@ class TestWorkflowsListResponse:
 
 
 class TestWorkflowServiceDependencyWiring:
-    def test_get_workflow_service_signature_includes_run_repo(self):
-        """The dependency provider must wire a RunRepository into WorkflowService."""
-        sig = inspect.signature(get_workflow_service)
-        assert "run_repo" in sig.parameters, (
-            f"get_workflow_service is missing run_repo wiring: {list(sig.parameters)}"
+    def test_get_workflow_service_wires_run_repo_in_source(self):
+        """The transport DI layer should wire WorkflowService with RunRepository."""
+        source = (
+            Path(__file__).resolve().parents[2] / "src" / "runsight_api" / "transport" / "deps.py"
         )
+        text = source.read_text()
+
+        assert re.search(r"def get_workflow_service\([^)]*run_repo", text, re.S)
+        assert "WorkflowService(" in text
+        assert "run_repo=run_repo" in text
