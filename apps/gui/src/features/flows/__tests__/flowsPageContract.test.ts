@@ -366,7 +366,7 @@ vi.mock("../WorkflowRow", () => ({
       });
     }
 
-    return React.createElement("div", { role: "listitem" }, [
+    return React.createElement("div", null, [
       React.createElement("span", { key: "name" }, workflow?.name ?? "Untitled"),
       React.createElement(
         "button",
@@ -523,6 +523,20 @@ describe("RUN-426 FlowsPage tabs", () => {
 });
 
 describe("RUN-426 WorkflowsTab behavior", () => {
+  it("renders the workflows collection inside a semantic list container", async () => {
+    const view = await renderWorkflowsTab();
+
+    const hasSemanticList = view.jsxElements.some(({ type, props }) => {
+      if (type === "ul" || type === "ol") {
+        return true;
+      }
+
+      return props.role === "list";
+    });
+
+    expect(hasSemanticList).toBe(true);
+  });
+
   it("filters rows by workflow name and ignores description-only matches", async () => {
     const firstView = await renderWorkflowsTab();
 
@@ -551,5 +565,32 @@ describe("RUN-426 WorkflowsTab behavior", () => {
     expect(afterDeleteClick.html).toContain("Delete Workflow");
     expect(afterDeleteClick.html).toContain("Research &amp; Review");
     expect(afterDeleteClick.html).toContain("This action cannot be undone");
+  });
+
+  it("renders the spec error state with retry guidance", async () => {
+    mocks.queryState.error = new Error("permission denied");
+    mocks.queryState.data = undefined as unknown as typeof mocks.queryState.data;
+
+    const view = await renderWorkflowsTab();
+
+    expect(view.html).toContain(
+      "Couldn&#39;t load workflows. Check file permissions on custom/workflows/.",
+    );
+    expect(view.html).toContain("Retry");
+  });
+
+  it("renders the empty state with the create workflow CTA", async () => {
+    mocks.queryState.data = {
+      items: [],
+      total: 0,
+    };
+
+    const view = await renderWorkflowsTab();
+
+    expect(view.html).toContain("No workflows yet");
+    expect(view.html).toContain(
+      "Create your first workflow to start orchestrating AI agents.",
+    );
+    expect(view.html).toContain("Create Workflow");
   });
 });

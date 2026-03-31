@@ -219,6 +219,23 @@ describe("RUN-426 WorkflowRow behavior", () => {
     expect(view.html).toMatch(/uncommitted|Uncommitted/);
   });
 
+  it("renders each workflow as a semantic list item", async () => {
+    const view = await renderWorkflowRow({
+      workflow: fixtures.populatedWorkflow,
+      onDelete: (workflow: unknown) => mocks.deleteRequests.push(workflow),
+    });
+
+    const hasSemanticListItem = view.elements.some(({ type, props }) => {
+      if (type === "li") {
+        return true;
+      }
+
+      return props.role === "listitem";
+    });
+
+    expect(hasSemanticListItem).toBe(true);
+  });
+
   it("opens /workflows/:id/edit when the row is activated by click or keyboard", async () => {
     const firstView = await renderWorkflowRow({
       workflow: fixtures.populatedWorkflow,
