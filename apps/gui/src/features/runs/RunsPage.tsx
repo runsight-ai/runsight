@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@runsight/ui/table";
 import type { RunResponse } from "@runsight/shared/zod";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Play } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useRuns } from "@/queries/runs";
@@ -62,10 +62,6 @@ function getRunStatusVariant(status: string) {
     default:
       return "neutral";
   }
-}
-
-function EmptyIcon() {
-  return null;
 }
 
 function RunSkeletonRow({ index }: { index: number }) {
@@ -326,14 +322,14 @@ export function Component() {
               </section>
             ) : runs.length === 0 ? (
               <EmptyState
-                icon={EmptyIcon}
+                icon={Play}
                 title="No runs yet"
                 description="Run a workflow to see execution history here."
                 action={{ label: "Go to Workflows", onClick: () => navigate("/flows") }}
               />
             ) : filteredRuns.length === 0 ? (
               <EmptyState
-                icon={EmptyIcon}
+                icon={Play}
                 title="No matching runs"
                 description="Try another workflow name."
               />

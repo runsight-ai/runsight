@@ -1,6 +1,15 @@
-import type { editor } from "monaco-editor";
-
 const THEME_NAME = "runsight-yaml";
+
+type MonacoThemeDefinition = {
+  base: string;
+  inherit: boolean;
+  rules: Array<{ token: string; foreground: string }>;
+  colors: Record<string, string>;
+};
+
+type MonacoThemeEditor = {
+  defineTheme: (name: string, theme: MonacoThemeDefinition) => void;
+};
 
 function getCssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -22,7 +31,7 @@ function toHex(color: string): string {
     .join("");
 }
 
-export function defineYamlTheme(monaco: { editor: typeof editor }) {
+export function defineYamlTheme(monaco: { editor: MonacoThemeEditor }) {
   const syntaxKey = toHex(getCssVar("--syntax-key"));
   const syntaxString = toHex(getCssVar("--syntax-string"));
   const syntaxValue = toHex(getCssVar("--syntax-value"));
