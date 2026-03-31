@@ -74,6 +74,8 @@ const mocks = vi.hoisted(() => ({
   inputProps: [] as Array<Record<string, unknown>>,
   buttonProps: [] as Array<Record<string, unknown>>,
   rowProps: [] as Array<Record<string, unknown>>,
+  emptyStateActions: [] as Array<{ label: string; onClick?: () => void }>,
+  skeletonProps: [] as Array<Record<string, unknown>>,
   rowActions: [] as Array<{ workflow: { id: string; name?: string | null }; deleteRow?: () => void }>,
   tabTriggers: [] as Array<{ value: string; disabled: boolean; active: boolean; onClick?: () => void }>,
   deleteDialogs: [] as Array<Record<string, unknown>>,
@@ -267,8 +269,12 @@ vi.mock("@runsight/ui/empty-state", () => ({
     title: string;
     description?: string;
     action?: { label: string; onClick?: () => void };
-  }) =>
-    React.createElement("section", null, [
+  }) => {
+    if (action) {
+      mocks.emptyStateActions.push(action);
+    }
+
+    return React.createElement("section", null, [
       React.createElement("h2", { key: "title" }, title),
       description ? React.createElement("p", { key: "description" }, description) : null,
       action
@@ -282,7 +288,20 @@ vi.mock("@runsight/ui/empty-state", () => ({
             action.label,
           )
         : null,
-    ]),
+    ]);
+  },
+}));
+
+vi.mock("@runsight/ui/skeleton", () => ({
+  Skeleton: (props: Record<string, unknown>) => {
+    mocks.skeletonProps.push(props);
+
+    return React.createElement("div", {
+      ...props,
+      "data-testid": "shared-skeleton",
+      "data-slot": "skeleton",
+    });
+  },
 }));
 
 vi.mock("@runsight/ui/tabs", async () => {
@@ -459,6 +478,8 @@ async function renderFlowsPage(search = "") {
   mocks.inputProps.length = 0;
   mocks.buttonProps.length = 0;
   mocks.rowProps.length = 0;
+  mocks.emptyStateActions.length = 0;
+  mocks.skeletonProps.length = 0;
   mocks.rowActions.length = 0;
   mocks.tabTriggers.length = 0;
   mocks.deleteDialogs.length = 0;
@@ -474,6 +495,8 @@ async function renderFlowsPage(search = "") {
     tabTriggers: [...mocks.tabTriggers],
     rowActions: [...mocks.rowActions],
     rowProps: [...mocks.rowProps],
+    emptyStateActions: [...mocks.emptyStateActions],
+    skeletonProps: [...mocks.skeletonProps],
     jsxElements: [...mocks.jsxElements],
   };
 }
@@ -483,6 +506,8 @@ async function renderWorkflowsTab() {
   mocks.inputProps.length = 0;
   mocks.buttonProps.length = 0;
   mocks.rowProps.length = 0;
+  mocks.emptyStateActions.length = 0;
+  mocks.skeletonProps.length = 0;
   mocks.rowActions.length = 0;
   mocks.deleteDialogs.length = 0;
   mocks.jsxElements.length = 0;
@@ -495,6 +520,8 @@ async function renderWorkflowsTab() {
     input: mocks.inputProps.at(-1) as { onChange?: (event: { target: { value: string } }) => void } | undefined,
     rowActions: [...mocks.rowActions],
     rowProps: [...mocks.rowProps],
+    emptyStateActions: [...mocks.emptyStateActions],
+    skeletonProps: [...mocks.skeletonProps],
     jsxElements: [...mocks.jsxElements],
   };
 }
@@ -553,6 +580,8 @@ beforeEach(() => {
   mocks.inputProps.length = 0;
   mocks.buttonProps.length = 0;
   mocks.rowProps.length = 0;
+  mocks.emptyStateActions.length = 0;
+  mocks.skeletonProps.length = 0;
   mocks.rowActions.length = 0;
   mocks.tabTriggers.length = 0;
   mocks.deleteDialogs.length = 0;
@@ -619,7 +648,7 @@ describe("RUN-426 FlowsPage tabs", () => {
     const view = await renderFlowsPage();
 
     expect(view.html).toContain("Flows");
-    expect(countLoadingPlaceholders(view.jsxElements)).toBeGreaterThanOrEqual(3);
+    expect(view.skeletonProps).toHaveLength(3);
     expect(view.rowProps).toHaveLength(0);
   });
 });
@@ -670,6 +699,26 @@ describe("RUN-426 WorkflowsTab behavior", () => {
     expect(filteredView.html).not.toContain("Content Pipeline");
     expect(filteredView.html).not.toContain("Daily Digest");
     expect(filteredView.html).toContain("No workflows match your search");
+  });
+
+  it("shows a Clear search action for no-results and clears the workflow query when used", async () => {
+    const firstView = await renderWorkflowsTab();
+
+    firstView.input?.onChange?.({ target: { value: "schema" } });
+
+    const filteredView = await renderWorkflowsTab();
+    const clearSearchAction = filteredView.emptyStateActions.at(-1);
+
+    expect(filteredView.html).toContain("No workflows match your search");
+    expect(filteredView.html).toContain("Clear search");
+
+    clearSearchAction?.onClick?.();
+
+    const resetView = await renderWorkflowsTab();
+
+    expect(resetView.html).toContain("Research &amp; Review");
+    expect(resetView.html).toContain("Content Pipeline");
+    expect(resetView.html).toContain("Daily Digest");
   });
 
   it("opens a workflow-specific delete confirmation dialog from the row action", async () => {

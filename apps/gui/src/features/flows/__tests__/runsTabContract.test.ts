@@ -173,6 +173,15 @@ vi.mock("@/queries/workflows", () => ({
   }),
 }));
 
+vi.mock("@runsight/ui/skeleton", () => ({
+  Skeleton: (props: Record<string, unknown>) =>
+    React.createElement("div", {
+      ...props,
+      "data-testid": "shared-skeleton",
+      "data-slot": "skeleton",
+    }),
+}));
+
 vi.mock("@/queries/runs", () => ({
   useRuns: (params?: unknown) => {
     mocks.runsQueryCalls.push(params);
@@ -367,6 +376,7 @@ describe("RUN-427 FlowsPage runs tab", () => {
     expect(await screen.findByRole("heading", { name: "Flows" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "New Workflow" })).toBeNull();
     expect(screen.getAllByLabelText("Loading run row")).toHaveLength(5);
+    expect(screen.getAllByTestId("shared-skeleton")).toHaveLength(5);
   });
 
   it("renders the runs error state with retry guidance", async () => {
