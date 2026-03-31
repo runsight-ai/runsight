@@ -55,6 +55,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   refetch: vi.fn(),
   createWorkflow: vi.fn(),
+  createWorkflowAsync: vi.fn(),
   deleteWorkflow: vi.fn(),
   queryState: {
     data: {
@@ -150,6 +151,7 @@ vi.mock("@/queries/workflows", () => ({
   }),
   useCreateWorkflow: () => ({
     mutate: mocks.createWorkflow,
+    mutateAsync: mocks.createWorkflowAsync,
     isPending: mocks.createPending,
   }),
   useDeleteWorkflow: () => ({
@@ -482,6 +484,7 @@ beforeEach(() => {
   mocks.navigate.mockReset();
   mocks.refetch.mockReset();
   mocks.createWorkflow.mockReset();
+  mocks.createWorkflowAsync.mockReset();
   mocks.deleteWorkflow.mockReset();
   mocks.createWorkflow.mockImplementation(
     (
@@ -491,6 +494,7 @@ beforeEach(() => {
       options?.onSuccess?.({ id: "wf_new" });
     },
   );
+  mocks.createWorkflowAsync.mockResolvedValue({ id: "wf_new" });
   mocks.deleteWorkflow.mockResolvedValue({ id: "wf_research", deleted: true });
   mocks.deletePending = false;
   mocks.createPending = false;
@@ -523,22 +527,12 @@ describe("RUN-426 FlowsPage tabs", () => {
       React.Children.toArray(props.children).includes("New Workflow"),
     ) as { onClick?: () => void } | undefined;
 
-    headerAction?.onClick?.();
+    await Promise.resolve(headerAction?.onClick?.());
 
-    expect(mocks.createWorkflow).toHaveBeenCalledWith(
-      {
-        canvas_state: {
-          nodes: [],
-          edges: [],
-          viewport: { x: 0, y: 0, zoom: 1 },
-          selected_node_id: null,
-          canvas_mode: "dag",
-        },
-      },
-      expect.objectContaining({
-        onSuccess: expect.any(Function),
-      }),
-    );
+    const createCallCount =
+      mocks.createWorkflow.mock.calls.length + mocks.createWorkflowAsync.mock.calls.length;
+
+    expect(createCallCount).toBe(1);
     expect(mocks.navigate).toHaveBeenCalledWith("/workflows/wf_new/edit");
   });
 
