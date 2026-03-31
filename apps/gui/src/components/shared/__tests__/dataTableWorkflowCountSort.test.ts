@@ -118,6 +118,13 @@ function findElement(
   return undefined;
 }
 
+function bodyMarkup(markup: string): string {
+  const start = markup.indexOf("<tbody");
+  const end = markup.indexOf("</tbody>");
+
+  return start >= 0 && end >= 0 ? markup.slice(start, end) : markup;
+}
+
 function readBodyRows(tree: React.ReactNode): string[][] {
   const tbody = findElement(tree, (element) => element.type === "tbody");
 
@@ -138,7 +145,8 @@ beforeEach(() => {
 describe("RUN-452 Used In numeric ordering", () => {
   it("sorts workflow_count numerically after the Used In header is activated", () => {
     const columns = [
-      { key: "role", header: "Name" },
+      { key: "role", header: "Name", sortable: true },
+      { key: "model_name", header: "Model", sortable: true },
       { key: "workflow_count", header: "Used In", sortable: true },
     ];
     const data = [
@@ -146,11 +154,16 @@ describe("RUN-452 Used In numeric ordering", () => {
       { role: "Alpha", workflow_count: 2 },
     ];
 
-    renderToStaticMarkup(React.createElement(DataTable as React.ComponentType<Record<string, unknown>>, {
+    mocks.stateCursor = 0;
+    const firstMarkup = renderToStaticMarkup(
+      React.createElement(DataTable as React.ComponentType<Record<string, unknown>>, {
       columns,
       data,
       sortable: true,
     }));
+
+    const firstBody = bodyMarkup(firstMarkup);
+    expect(firstBody.indexOf(">Beta<")).toBeLessThan(firstBody.indexOf(">Alpha<"));
 
     const usedInHead = mocks.tableHeadProps.find((props) =>
       textContent(props.children).includes("Used In"),
@@ -159,16 +172,15 @@ describe("RUN-452 Used In numeric ordering", () => {
     expect(usedInHead?.onClick).toBeTypeOf("function");
     usedInHead?.onClick?.();
 
-    renderToStaticMarkup(React.createElement(DataTable as React.ComponentType<Record<string, unknown>>, {
+    mocks.stateCursor = 0;
+    const secondMarkup = renderToStaticMarkup(
+      React.createElement(DataTable as React.ComponentType<Record<string, unknown>>, {
       columns,
       data,
       sortable: true,
     }));
 
-    const rows = mocks.tableRowProps.slice(-2).map((props) =>
-      React.Children.toArray(props.children).map((cell) => textContent(cell)),
-    );
-
-    expect(rows.map((row) => row[1])).toEqual(["2", "10"]);
+    const secondBody = bodyMarkup(secondMarkup);
+    expect(secondBody.indexOf(">Alpha<")).toBeLessThan(secondBody.indexOf(">Beta<"));
   });
 });
