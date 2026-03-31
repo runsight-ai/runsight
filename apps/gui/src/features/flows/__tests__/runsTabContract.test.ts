@@ -81,6 +81,7 @@ const mocks = vi.hoisted(() => ({
   createWorkflow: vi.fn(),
   createWorkflowAsync: vi.fn(),
   deleteWorkflow: vi.fn(),
+  setWorkflowEnabled: vi.fn(),
   runsQueryCalls: [] as unknown[],
   runsQueryState: {
     data: {
@@ -166,6 +167,10 @@ vi.mock("@/queries/workflows", () => ({
     mutateAsync: mocks.deleteWorkflow,
     isPending: false,
   }),
+  useSetWorkflowEnabled: () => ({
+    mutateAsync: mocks.setWorkflowEnabled,
+    isPending: false,
+  }),
 }));
 
 vi.mock("@/queries/runs", () => ({
@@ -243,6 +248,7 @@ beforeEach(() => {
   mocks.createWorkflow.mockReset();
   mocks.createWorkflowAsync.mockReset();
   mocks.deleteWorkflow.mockReset();
+  mocks.setWorkflowEnabled.mockReset();
   mocks.runsQueryCalls.length = 0;
   mocks.runsQueryState.data = null as unknown as typeof mocks.runsQueryState.data;
   mocks.runsQueryState.isLoading = false;

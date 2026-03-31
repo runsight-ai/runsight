@@ -60,6 +60,7 @@ const mocks = vi.hoisted(() => ({
   createWorkflow: vi.fn(),
   createWorkflowAsync: vi.fn(),
   deleteWorkflow: vi.fn(),
+  setWorkflowEnabled: vi.fn(),
   queryState: {
     data: {
       items: [] as Array<Record<string, unknown>>,
@@ -174,6 +175,10 @@ vi.mock("@/queries/workflows", () => ({
   useDeleteWorkflow: () => ({
     mutateAsync: mocks.deleteWorkflow,
     isPending: mocks.deletePending,
+  }),
+  useSetWorkflowEnabled: () => ({
+    mutateAsync: mocks.setWorkflowEnabled,
+    isPending: false,
   }),
 }));
 
@@ -522,6 +527,7 @@ beforeEach(() => {
   mocks.createWorkflow.mockReset();
   mocks.createWorkflowAsync.mockReset();
   mocks.deleteWorkflow.mockReset();
+  mocks.setWorkflowEnabled.mockReset();
   mocks.createWorkflow.mockImplementation(
     (
       _payload: unknown,
@@ -532,6 +538,10 @@ beforeEach(() => {
   );
   mocks.createWorkflowAsync.mockResolvedValue({ id: "wf_new" });
   mocks.deleteWorkflow.mockResolvedValue({ id: "wf_research", deleted: true });
+  mocks.setWorkflowEnabled.mockResolvedValue({
+    id: "wf_research",
+    enabled: true,
+  });
   mocks.deletePending = false;
   mocks.createPending = false;
   mocks.queryState.data = {
