@@ -1,4 +1,5 @@
 import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type WorkflowUsage = {
@@ -19,57 +20,125 @@ type SoulLike = {
 };
 
 const mocks = vi.hoisted(() => {
-  const deleteMutate = vi.fn(
-    (
-      variables: unknown,
-      options?: {
-        onSuccess?: () => void;
-        onError?: (error: Error) => void;
-      },
-    ) => {
-      mocks.deleteCalls.push({ variables, options });
+  const queryState = {
+    data: undefined as
+      | undefined
+      | {
+          soul_id: string;
+          usages: WorkflowUsage[];
+          total: number;
+        },
+    isLoading: false,
+    isError: false,
+    error: undefined as Error | undefined,
+  };
 
-      if (mocks.deleteOutcome === "success") {
-        mocks.deleteError = undefined;
-        options?.onSuccess?.();
-        return;
-      }
+  const deleteState = {
+    outcome: "success" as "success" | "error",
+    error: undefined as Error | undefined,
+  };
 
-      const error = new Error("Delete failed");
-      mocks.deleteError = error;
-      options?.onError?.(error);
-    },
-  );
+  const api = {
+    getSoulUsages: vi.fn(),
+    deleteSoul: vi.fn(),
+  };
 
   return {
     stateValues: [] as unknown[],
     stateCursor: 0,
     dialogOpenChange: undefined as undefined | ((open: boolean) => void),
     onClose: vi.fn(),
-    useSoulUsages: vi.fn(),
-    usageState: {
-      data: undefined as
-        | undefined
-        | {
-            soul_id: string;
-            usages: WorkflowUsage[];
-            total: number;
-          },
-      isLoading: false,
-      isError: false,
-      error: undefined as Error | undefined,
-    },
-    deleteCalls: [] as Array<{
+    useSoulUsages: vi.fn((id: string | undefined) => {
+      mocks.queryCalls.push({ id });
+      return mocks.queryState;
+    }),
+    useDeleteSoul: vi.fn(() => ({
+      mutate: (
+        variables: unknown,
+        callbacks?: {
+          onSuccess?: (data: unknown, variables: unknown, context: unknown) => void;
+          onError?: (error: Error, variables: unknown, context: unknown) => void;
+        },
+      ) => {
+        mocks.mutateCalls.push({ variables, callbacks });
+
+        if (mocks.deleteState.outcome === "success") {
+          const id = typeof variables === "string" ? variables : (variables as { id?: string }).id;
+          const result = mocks.api.deleteSoul(id);
+          callbacks?.onSuccess?.(result, variables, undefined);
+          return result;
+        }
+
+        const error = mocks.deleteState.error ?? new Error("Delete failed");
+        callbacks?.onError?.(error, variables, undefined);
+        return undefined;
+      },
+      isPending: false,
+      error: mocks.deleteState.error,
+    })),
+    queryCalls: [] as Array<Record<string, unknown>>,
+    mutationCalls: [] as Array<Record<string, unknown>>,
+    mutateCalls: [] as Array<{
       variables: unknown;
-      options?: {
-        onSuccess?: () => void;
-        onError?: (error: Error) => void;
+      callbacks?: {
+        onSuccess?: (data: unknown, variables: unknown, context: unknown) => void;
+        onError?: (error: Error, variables: unknown, context: unknown) => void;
       };
     }>,
-    deleteOutcome: "success" as "success" | "error",
-    deleteError: undefined as Error | undefined,
-    deleteMutate,
-    useDeleteSoul: vi.fn(),
+    queryState,
+    deleteState,
+    api,
+    invalidateQueries: vi.fn(),
+    toastSuccess: vi.fn(),
+    toastError: vi.fn(),
+    useQuery: vi.fn((options: Record<string, unknown>) => {
+      mocks.queryCalls.push(options);
+      return mocks.queryState;
+    }),
+    useMutation: vi.fn((options: Record<string, unknown>) => {
+      mocks.mutationCalls.push(options);
+
+      return {
+        mutate: (
+          variables: unknown,
+          callbacks?: {
+            onSuccess?: (data: unknown, variables: unknown, context: unknown) => void;
+            onError?: (error: Error, variables: unknown, context: unknown) => void;
+          },
+        ) => {
+          mocks.mutateCalls.push({ variables, callbacks });
+
+          if (mocks.deleteState.outcome === "success") {
+            const result = (options.mutationFn as (value: unknown) => unknown)(variables);
+            (options.onSuccess as
+              | undefined
+              | ((data: unknown, variables: unknown, context: unknown) => void))?.(
+              result,
+              variables,
+              undefined,
+            );
+            callbacks?.onSuccess?.(result, variables, undefined);
+            return result;
+          }
+
+          const error = mocks.deleteState.error ?? new Error("Delete failed");
+          (options.onError as
+            | undefined
+            | ((error: Error, variables: unknown, context: unknown) => void))?.(
+            error,
+            variables,
+            undefined,
+          );
+          callbacks?.onError?.(error, variables, undefined);
+          return undefined;
+        },
+        isPending: false,
+        error: mocks.deleteState.error,
+      };
+    }),
+    useQueryClient: vi.fn(() => ({
+      invalidateQueries: mocks.invalidateQueries,
+    })),
   };
 });
 
@@ -105,9 +174,9 @@ vi.mock("react", async () => {
   };
 });
 
-vi.mock("@base-ui/react/dialog", () => ({
-  Dialog: {
-    Root: ({
+function createRunsightDialogModule() {
+  return {
+    Dialog: ({
       open,
       onOpenChange,
       children,
@@ -120,10 +189,51 @@ vi.mock("@base-ui/react/dialog", () => ({
       mocks.dialogOpenChange = onOpenChange;
       return React.createElement("dialog-root", { "data-open": String(Boolean(open)), ...props }, children);
     },
-    Trigger: ({ children, ...props }: { children?: React.ReactNode }) =>
-      React.createElement("dialog-trigger", props, children),
-    Portal: ({ children }: { children?: React.ReactNode }) => React.createElement(React.Fragment, null, children),
-    Close: ({
+    DialogContent: ({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode;
+    }) => React.createElement("dialog-content", props, children),
+    DialogHeader: ({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode;
+    }) => React.createElement("dialog-header", props, children),
+    DialogFooter: ({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode;
+    }) => React.createElement("dialog-footer", props, children),
+    DialogTitle: ({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode;
+    }) => React.createElement("h2", props, children),
+    DialogDescription: ({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode;
+    }) => React.createElement("p", props, children),
+    DialogBody: ({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode;
+    }) => React.createElement("dialog-body", props, children),
+    DialogOverlay: ({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode;
+    }) => React.createElement("dialog-overlay", props, children),
+    DialogPortal: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children),
+    DialogClose: ({
       render,
       children,
       ...props
@@ -136,27 +246,46 @@ vi.mock("@base-ui/react/dialog", () => ({
       };
 
       if (React.isValidElement(render)) {
-        return React.cloneElement(render, {
-          ...render.props,
-          ...props,
-          onClick,
-        }, children);
+        return React.cloneElement(
+          render,
+          {
+            ...render.props,
+            ...props,
+            onClick,
+          },
+          children,
+        );
       }
 
       return React.createElement("button", { type: "button", ...props, onClick }, children);
     },
-    Backdrop: ({ children, ...props }: { children?: React.ReactNode }) =>
-      React.createElement("dialog-backdrop", props, children),
-    Popup: ({ children, ...props }: { children?: React.ReactNode }) =>
-      React.createElement("dialog-popup", props, children),
-    Title: ({ children, ...props }: { children?: React.ReactNode }) =>
-      React.createElement("h2", props, children),
-    Description: ({ children, ...props }: { children?: React.ReactNode }) =>
-      React.createElement("p", props, children),
+    DialogTrigger: ({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode;
+    }) => React.createElement("button", props, children),
+  };
+}
+
+const runsightDialog = createRunsightDialogModule();
+
+vi.mock("@base-ui/react/dialog", () => ({
+  Dialog: {
+    Root: runsightDialog.Dialog,
+    Trigger: runsightDialog.DialogTrigger,
+    Portal: runsightDialog.DialogPortal,
+    Close: runsightDialog.DialogClose,
+    Backdrop: runsightDialog.DialogOverlay,
+    Popup: runsightDialog.DialogContent,
+    Title: runsightDialog.DialogTitle,
+    Description: runsightDialog.DialogDescription,
   },
 }));
 
-vi.mock("@base-ui/react/button", () => ({
+vi.mock("@runsight/ui/dialog", () => runsightDialog);
+
+vi.mock("@runsight/ui/button", () => ({
   Button: ({ children, ...props }: { children?: React.ReactNode }) =>
     React.createElement("button", { type: "button", ...props }, children),
 }));
@@ -173,27 +302,14 @@ vi.mock("lucide-react", () => ({
     React.createElement("svg", { ...props, "data-icon": "Loader2" }),
   Trash2: (props: Record<string, unknown>) =>
     React.createElement("svg", { ...props, "data-icon": "Trash2" }),
+  X: (props: Record<string, unknown>) => React.createElement("svg", { ...props, "data-icon": "X" }),
   XIcon: (props: Record<string, unknown>) =>
     React.createElement("svg", { ...props, "data-icon": "XIcon" }),
-  X: (props: Record<string, unknown>) => React.createElement("svg", { ...props, "data-icon": "X" }),
 }));
 
 vi.mock("@/queries/souls", () => ({
-  useSoulUsages: (id: string | undefined) => {
-    mocks.useSoulUsages(id);
-    return mocks.usageState;
-  },
-  useDeleteSoul: () => {
-    mocks.useDeleteSoul();
-    return {
-      mutate: mocks.deleteMutate,
-      mutateAsync: async (variables: unknown) => {
-        mocks.deleteMutate(variables, undefined);
-      },
-      isPending: false,
-      error: mocks.deleteError,
-    };
-  },
+  useSoulUsages: mocks.useSoulUsages,
+  useDeleteSoul: mocks.useDeleteSoul,
 }));
 
 function makeSoul(overrides: Partial<SoulLike> = {}): SoulLike {
@@ -225,6 +341,10 @@ function textContent(node: React.ReactNode): string {
   }
 
   return React.Children.toArray(node.props.children).map(textContent).join("");
+}
+
+function markup(node: React.ReactNode): string {
+  return renderToStaticMarkup(React.createElement(React.Fragment, null, node));
 }
 
 function findElement(
@@ -289,19 +409,22 @@ function setUsageState({
   error?: Error;
   usages?: WorkflowUsage[];
 }) {
-  mocks.usageState = {
-    data:
-      usages === undefined
-        ? undefined
-        : {
-            soul_id: "soul_123",
-            usages,
-            total: usages.length,
-          },
-    isLoading,
-    isError,
-    error,
-  };
+  mocks.queryState.data =
+    usages === undefined
+      ? undefined
+      : {
+          soul_id: "soul_123",
+          usages,
+          total: usages.length,
+        };
+  mocks.queryState.isLoading = isLoading;
+  mocks.queryState.isError = isError;
+  mocks.queryState.error = error;
+}
+
+function setDeleteOutcome(outcome: "success" | "error", error?: Error) {
+  mocks.deleteState.outcome = outcome;
+  mocks.deleteState.error = error;
 }
 
 beforeEach(() => {
@@ -311,11 +434,13 @@ beforeEach(() => {
   mocks.onClose.mockReset();
   mocks.useSoulUsages.mockReset();
   mocks.useDeleteSoul.mockReset();
-  mocks.deleteCalls.length = 0;
-  mocks.deleteOutcome = "success";
-  mocks.deleteError = undefined;
-  mocks.deleteMutate.mockClear();
+  mocks.queryCalls.length = 0;
+  mocks.mutateCalls.length = 0;
+  mocks.api.getSoulUsages.mockReset();
+  mocks.api.deleteSoul.mockReset();
+  mocks.invalidateQueries.mockReset();
   setUsageState({ usages: [] });
+  setDeleteOutcome("success");
 });
 
 describe("SoulDeleteDialog behavior (RUN-451)", () => {
@@ -342,8 +467,9 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
 
     const tree = await renderDialog();
     const deleteButton = findButton(tree, /Delete/);
+    const html = markup(tree);
 
-    expect(textContent(tree)).toContain("Checking workflow usage");
+    expect(html).toContain("Checking workflow usage");
     expect(deleteButton?.props.disabled).toBe(true);
   });
 
@@ -352,10 +478,11 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
 
     const tree = await renderDialog();
     const deleteButton = findButton(tree, "Delete");
+    const html = markup(tree);
 
-    expect(textContent(tree)).toContain("Are you sure you want to delete");
-    expect(textContent(tree)).toContain("Researcher");
-    expect(textContent(tree)).not.toContain("Delete anyway");
+    expect(html).toContain("Are you sure you want to delete");
+    expect(html).toContain("Researcher");
+    expect(html).not.toContain("Delete anyway");
     expect(deleteButton?.props.disabled).toBe(false);
   });
 
@@ -370,11 +497,12 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
 
     const tree = await renderDialog();
     const deleteButton = findButton(tree, /Delete anyway/);
+    const html = markup(tree);
 
-    expect(textContent(tree)).toContain("Research Flow");
-    expect(textContent(tree)).toContain("Review Flow");
-    expect(textContent(tree)).toContain("Deploy Flow");
-    expect(textContent(tree)).toContain("3 workflows");
+    expect(html).toContain("Research Flow");
+    expect(html).toContain("Review Flow");
+    expect(html).toContain("Deploy Flow");
+    expect(html).toContain("3 workflows");
     expect(deleteButton?.props.disabled).toBe(false);
   });
 
@@ -392,15 +520,16 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
     });
 
     const tree = await renderDialog();
+    const html = markup(tree);
 
-    expect(textContent(tree)).toContain("Workflow 1");
-    expect(textContent(tree)).toContain("Workflow 2");
-    expect(textContent(tree)).toContain("Workflow 3");
-    expect(textContent(tree)).toContain("Workflow 4");
-    expect(textContent(tree)).toContain("Workflow 5");
-    expect(textContent(tree)).toContain("+2 more");
-    expect(textContent(tree)).not.toContain("Workflow 6");
-    expect(textContent(tree)).not.toContain("Workflow 7");
+    expect(html).toContain("Workflow 1");
+    expect(html).toContain("Workflow 2");
+    expect(html).toContain("Workflow 3");
+    expect(html).toContain("Workflow 4");
+    expect(html).toContain("Workflow 5");
+    expect(html).toContain("+2 more");
+    expect(html).not.toContain("Workflow 6");
+    expect(html).not.toContain("Workflow 7");
   });
 
   it("shows a caution warning and keeps delete enabled when usage lookup fails", async () => {
@@ -411,8 +540,10 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
 
     const tree = await renderDialog();
     const deleteButton = findButton(tree, /Delete/);
+    const html = markup(tree);
 
-    expect(textContent(tree)).toContain("Could not check workflow usage");
+    expect(html).toContain("Could not check workflow usage");
+    expect(html).toContain("Network down");
     expect(deleteButton?.props.disabled).toBe(false);
   });
 
@@ -425,7 +556,7 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
     closeButton?.props.onClick?.();
 
     expect(mocks.onClose).toHaveBeenCalledTimes(1);
-    expect(mocks.deleteMutate).not.toHaveBeenCalled();
+    expect(mocks.api.deleteSoul).not.toHaveBeenCalled();
   });
 
   it("closes without deleting when the dialog requests Escape close", async () => {
@@ -435,7 +566,7 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
     mocks.dialogOpenChange?.(false);
 
     expect(mocks.onClose).toHaveBeenCalledTimes(1);
-    expect(mocks.deleteMutate).not.toHaveBeenCalled();
+    expect(mocks.api.deleteSoul).not.toHaveBeenCalled();
   });
 
   it("uses force-delete plumbing and closes on a successful confirm", async () => {
@@ -446,20 +577,18 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
         { workflow_id: "wf_3", workflow_name: "Deploy Flow" },
       ],
     });
-    mocks.deleteOutcome = "success";
+    setDeleteOutcome("success");
 
     const tree = await renderDialog();
     const confirmButton = findButton(tree, "Delete anyway");
 
     confirmButton?.props.onClick?.();
 
-    expect(mocks.deleteMutate).toHaveBeenCalledWith(
-      { id: "soul_123", force: true },
-      expect.objectContaining({
-        onSuccess: expect.any(Function),
-        onError: expect.any(Function),
-      }),
-    );
+    expect(mocks.mutateCalls[0]?.variables).toEqual({
+      id: "soul_123",
+      force: true,
+    });
+    expect(mocks.api.deleteSoul).toHaveBeenCalledWith("soul_123", true);
     expect(mocks.onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -471,15 +600,16 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
         { workflow_id: "wf_3", workflow_name: "Deploy Flow" },
       ],
     });
-    mocks.deleteOutcome = "error";
+    setDeleteOutcome("error", new Error("Delete failed"));
 
     let tree = await renderDialog();
     const confirmButton = findButton(tree, "Delete anyway");
 
     confirmButton?.props.onClick?.();
     tree = await renderDialog();
+    const html = markup(tree);
 
-    expect(textContent(tree)).toContain("Delete failed");
+    expect(html).toContain("Delete failed");
     expect(mocks.onClose).not.toHaveBeenCalled();
   });
 });
