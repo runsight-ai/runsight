@@ -106,11 +106,7 @@ export function SoulToolsSection({ tools, onToolsChange }: SoulToolsSectionProps
               ))}
             </div>
           </div>
-        ) : (
-          <div className="rounded-md border border-dashed border-border-default bg-surface-secondary px-4 py-3 text-sm text-muted">
-            This soul has no tools enabled yet.
-          </div>
-        )}
+        ) : null}
       </div>
     </SoulFormSection>
   );

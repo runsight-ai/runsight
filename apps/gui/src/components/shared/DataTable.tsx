@@ -119,7 +119,7 @@ export function DataTable({
         </div>
       )}
 
-      <div className="rounded-lg border border-border-default">
+      <div className="overflow-hidden rounded-lg border border-border-default">
         <Table>
           <TableHeader>
             <TableRow className="border-b border-border-default hover:bg-transparent">

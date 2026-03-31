@@ -33,6 +33,7 @@ export function SoulModelSection({
   const providersQuery = useProviders();
   const modelsQuery = useModelsForProvider(provider);
   const configuredProviders = providersQuery.data?.items ?? [];
+  const hasConfiguredProviders = configuredProviders.length > 0;
   const selectedProvider = configuredProviders.find(
     (providerSummary) =>
       providerSummary.id === providerId ||
@@ -47,6 +48,7 @@ export function SoulModelSection({
           <Label>Provider</Label>
           <Select
             value={selectedProviderValue}
+            disabled={!hasConfiguredProviders}
             onValueChange={(value) => {
               const nextProvider = configuredProviders.find(
                 (providerSummary) => providerSummary.id === value,
@@ -58,7 +60,11 @@ export function SoulModelSection({
             }}
           >
             <SelectTrigger aria-label="Select provider">
-              <SelectValue placeholder="Select provider" />
+              <SelectValue
+                placeholder={
+                  hasConfiguredProviders ? "Select provider" : "No providers configured"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {configuredProviders.map((providerSummary) => (
@@ -68,6 +74,11 @@ export function SoulModelSection({
               ))}
             </SelectContent>
           </Select>
+          {!hasConfiguredProviders ? (
+            <p className="text-sm text-muted">
+              Add a provider in Settings before selecting a model.
+            </p>
+          ) : null}
           {providerError ? <p className="text-sm text-danger">{providerError}</p> : null}
         </div>
 
@@ -76,7 +87,7 @@ export function SoulModelSection({
           <Select
             value={modelId ?? undefined}
             onValueChange={(value) => onModelChange(value)}
-            disabled={!provider}
+            disabled={!provider || !hasConfiguredProviders}
           >
             <SelectTrigger aria-label="Select model">
               <SelectValue placeholder="Select model" />

@@ -80,6 +80,14 @@ describe("SoulModelSection contract (RUN-448)", () => {
     expect(source).toMatch(/model_id/);
     expect(source).toMatch(/provider_name|name/);
   });
+
+  it("disables the provider picker cleanly when no providers are configured", () => {
+    const source = read(SECTION_PATHS.model);
+    expect(source).toMatch(/hasConfiguredProviders/);
+    expect(source).toMatch(/disabled=\{!hasConfiguredProviders\}/);
+    expect(source).toMatch(/No providers configured/);
+    expect(source).toMatch(/Add a provider in Settings before selecting a model/);
+  });
 });
 
 describe("SoulPromptSection contract (RUN-448)", () => {
@@ -105,7 +113,7 @@ describe("SoulToolsSection contract (RUN-448)", () => {
     expect(source).toMatch(/delegate/i);
     expect(source).toMatch(/automatically|block/i);
     expect(source).not.toMatch(/value:\s*["']runsight\/delegate["']/);
-    expect(source).toMatch(/This soul has no tools enabled yet|This soul does not have any tools enabled yet/);
+    expect(source).not.toMatch(/This soul has no tools enabled yet|This soul does not have any tools enabled yet/);
   });
 });
 
