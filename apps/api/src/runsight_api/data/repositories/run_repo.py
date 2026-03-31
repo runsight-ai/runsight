@@ -35,27 +35,70 @@ class RunRepository:
         branch: str | None = None,
     ) -> tuple:
         """Return a page of runs and the total count using SQL LIMIT/OFFSET."""
+        filters = []
         count_statement = select(func.count()).select_from(Run)
-        statement = select(Run).order_by(Run.created_at.desc())
 
         if status:
-            count_statement = count_statement.where(Run.status.in_(status))
-            statement = statement.where(Run.status.in_(status))
+            filters.append(Run.status.in_(status))
 
         if workflow_id:
-            count_statement = count_statement.where(Run.workflow_id == workflow_id)
-            statement = statement.where(Run.workflow_id == workflow_id)
+            filters.append(Run.workflow_id == workflow_id)
 
         if source:
-            count_statement = count_statement.where(Run.source.in_(source))
-            statement = statement.where(Run.source.in_(source))
+            filters.append(Run.source.in_(source))
 
         if branch:
-            count_statement = count_statement.where(Run.branch == branch)
-            statement = statement.where(Run.branch == branch)
+            filters.append(Run.branch == branch)
+
+        if filters:
+            count_statement = count_statement.where(*filters)
+
+        eval_totals = (
+            select(
+                RunNode.run_id.label("run_id"),
+                func.coalesce(
+                    func.sum(case((RunNode.eval_passed.is_(True), 1), else_=0)),
+                    0,
+                ).label("eval_pass_count"),
+                func.coalesce(
+                    func.sum(case((RunNode.eval_passed.is_not(None), 1), else_=0)),
+                    0,
+                ).label("eval_total_count"),
+            )
+            .group_by(RunNode.run_id)
+            .subquery()
+        )
+        statement = (
+            select(
+                Run,
+                func.row_number()
+                .over(partition_by=Run.workflow_id, order_by=Run.created_at.asc())
+                .label("run_number"),
+                func.coalesce(eval_totals.c.eval_pass_count, 0).label("eval_pass_count"),
+                func.coalesce(eval_totals.c.eval_total_count, 0).label("eval_total_count"),
+            )
+            .select_from(Run)
+            .outerjoin(eval_totals, eval_totals.c.run_id == Run.id)
+            .order_by(Run.created_at.desc())
+        )
+
+        if filters:
+            statement = statement.where(*filters)
 
         total = self.session.exec(count_statement).one()
-        items = list(self.session.exec(statement.offset(offset).limit(limit)).all())
+        rows = self.session.exec(statement.offset(offset).limit(limit)).all()
+
+        items = []
+        for run, run_number, eval_pass_count, eval_total_count in rows:
+            eval_total = int(eval_total_count or 0)
+            eval_pass_pct = None
+            if eval_total > 0:
+                eval_pass_pct = float(eval_pass_count or 0) / eval_total * 100
+
+            run.__dict__["run_number"] = int(run_number or 0)
+            run.__dict__["eval_pass_pct"] = eval_pass_pct
+            items.append(run)
+
         return items, total
 
     @staticmethod

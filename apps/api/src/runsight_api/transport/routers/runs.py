@@ -31,6 +31,16 @@ def _run_response_field(run, field: str, default):
     return value
 
 
+def _run_metric_field(run, field: str):
+    """Read optional list metrics while rejecting mock/default placeholder values."""
+    value = getattr(run, field, None)
+    if field == "run_number":
+        return value if isinstance(value, int) else None
+    if field == "eval_pass_pct":
+        return float(value) if isinstance(value, int | float) else None
+    return None
+
+
 @router.post("", response_model=RunResponse)
 async def create_run(
     body: RunCreate,
@@ -69,6 +79,8 @@ async def create_run(
         branch=_run_response_field(run, "branch", "main"),
         source=_run_response_field(run, "source", "manual"),
         commit_sha=_run_response_field(run, "commit_sha", None),
+        run_number=_run_metric_field(run, "run_number"),
+        eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
         node_summary=NodeSummary(total=0, completed=0, running=0, pending=0, failed=0),
     )
 
@@ -150,6 +162,8 @@ async def list_runs(
                 branch=_run_response_field(run, "branch", "main"),
                 source=_run_response_field(run, "source", "manual"),
                 commit_sha=_run_response_field(run, "commit_sha", None),
+                run_number=_run_metric_field(run, "run_number"),
+                eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
                 node_summary=NodeSummary(
                     total=summaries.get("total", 0),
                     completed=summaries.get("completed", 0),
@@ -185,6 +199,8 @@ async def get_run(run_id: str, run_service: RunService = Depends(get_run_service
         branch=_run_response_field(run, "branch", "main"),
         source=_run_response_field(run, "source", "manual"),
         commit_sha=_run_response_field(run, "commit_sha", None),
+        run_number=_run_metric_field(run, "run_number"),
+        eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
         node_summary=NodeSummary(
             total=summaries["total"],
             completed=summaries["completed"],
