@@ -1,58 +1,125 @@
-import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const SRC_DIR = resolve(__dirname, "../../..");
-const FEATURE_DIR = resolve(SRC_DIR, "features", "souls");
-const PAGE_PATH = resolve(FEATURE_DIR, "SoulLibraryPage.tsx");
-const PAGE_SOURCE = existsSync(PAGE_PATH) ? readFileSync(PAGE_PATH, "utf-8") : "";
+const mocks = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  pageHeaderProps: [] as Array<Record<string, unknown>>,
+  dataTableProps: [] as Array<Record<string, unknown>>,
+  buttonProps: [] as Array<Record<string, unknown>>,
+  soulsQuery: {
+    data: [
+      {
+        id: "soul_alpha",
+        role: "Researcher",
+        model_name: "gpt-4o",
+        provider: "openai",
+        workflow_count: 10,
+      },
+      {
+        id: "soul_beta",
+        role: "Analyst",
+        model_name: "claude-3-5-sonnet",
+        provider: "anthropic",
+        workflow_count: 2,
+      },
+    ],
+    isLoading: false,
+    isError: false,
+  } as {
+    data: Array<Record<string, unknown>>;
+    isLoading: boolean;
+    isError: boolean;
+  },
+}));
 
-function readPageSource(): string {
-  return PAGE_SOURCE;
+vi.mock("react-router", () => ({
+  useNavigate: () => mocks.navigate,
+}));
+
+vi.mock("@/queries/souls", () => ({
+  useSouls: () => mocks.soulsQuery,
+}));
+
+vi.mock("@/components/shared/PageHeader", () => ({
+  PageHeader: (props: Record<string, unknown>) => {
+    mocks.pageHeaderProps.push(props);
+    return React.createElement("page-header", null, props.actions, props.children);
+  },
+}));
+
+vi.mock("@/components/shared/DataTable", () => ({
+  DataTable: (props: Record<string, unknown>) => {
+    mocks.dataTableProps.push(props);
+    return React.createElement("data-table", null);
+  },
+}));
+
+vi.mock("@runsight/ui/button", () => ({
+  Button: (props: Record<string, unknown>) => {
+    mocks.buttonProps.push(props);
+    return React.createElement("button", { type: "button", ...props }, props.children);
+  },
+}));
+
+function resetMocks() {
+  mocks.navigate.mockReset();
+  mocks.pageHeaderProps.length = 0;
+  mocks.dataTableProps.length = 0;
+  mocks.buttonProps.length = 0;
 }
 
-describe("RUN-452 file creation", () => {
-  it("creates features/souls/SoulLibraryPage.tsx", () => {
-    expect(existsSync(PAGE_PATH)).toBe(true);
-  });
+beforeEach(() => {
+  resetMocks();
 });
 
-describe("RUN-452 SoulLibraryPage contract", () => {
-  it("builds the page from PageHeader and DataTable directly, without CrudListPage or SoulModals", () => {
-    const source = readPageSource();
+describe("RUN-452 SoulLibraryPage behavior", () => {
+  it("builds the page from PageHeader and DataTable directly, with current-contract columns only", async () => {
+    const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
 
-    expect(source).toMatch(/export\s+(function|const)\s+(Component|SoulLibraryPage)/);
-    expect(source).toMatch(/PageHeader/);
-    expect(source).toMatch(/DataTable/);
-    expect(source).not.toMatch(/CrudListPage/);
-    expect(source).not.toMatch(/SoulModals/);
-    expect(source).not.toMatch(/SoulList/);
+    renderToStaticMarkup(
+      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
+    );
+
+    expect(mocks.pageHeaderProps).toHaveLength(1);
+    expect(mocks.dataTableProps).toHaveLength(1);
+
+    const tableProps = mocks.dataTableProps[0] as {
+      columns: Array<{ key: string; header: string; sortable?: boolean }>;
+      data: Array<Record<string, unknown>>;
+      onRowClick?: (row: Record<string, unknown>) => void;
+    };
+
+    expect(tableProps.columns.map((column) => column.header)).toEqual(
+      expect.arrayContaining(["Name", "Model", "Provider", "Used In"]),
+    );
+    expect(tableProps.columns.some((column) => /Last Modified/i.test(column.header))).toBe(false);
+    expect(tableProps.columns.some((column) => column.header === "Used In")).toBe(true);
+    expect(tableProps.data).toEqual(mocks.soulsQuery.data);
   });
 
-  it("renders only the current contract columns and omits Last Modified", () => {
-    const source = readPageSource();
+  it("navigates to /souls/new from the create action and /souls/:id/edit from row selection", async () => {
+    const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
 
-    expect(source).toMatch(/Name|role/);
-    expect(source).toMatch(/Model/);
-    expect(source).toMatch(/Provider/);
-    expect(source).toMatch(/Used In/);
-    expect(source).not.toMatch(/Last Modified/);
-  });
+    renderToStaticMarkup(
+      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
+    );
 
-  it("wires create and edit actions to /souls/new and /souls/:id/edit", () => {
-    const source = readPageSource();
+    const createButton = mocks.buttonProps.find(
+      (props) => typeof props.onClick === "function",
+    ) as { onClick?: () => void } | undefined;
 
-    expect(source).toMatch(/\/souls\/new/);
-    expect(source).toMatch(/\/souls\/:id\/edit/);
-    expect(source).toMatch(/navigate\([^)]*\/souls\/new/);
-    expect(source).toMatch(/navigate\([^)]*\/souls\/:id\/edit/);
-  });
+    expect(createButton).toBeDefined();
+    createButton?.onClick?.();
+    expect(mocks.navigate).toHaveBeenCalledWith("/souls/new");
 
-  it("handles Used In ordering intentionally with a numeric comparator or equivalent sort step", () => {
-    const source = readPageSource();
+    const tableProps = mocks.dataTableProps[0] as {
+      onRowClick?: (row: Record<string, unknown>) => void;
+      data: Array<Record<string, unknown>>;
+    };
 
-    expect(source).toMatch(/workflow_count|workflowCount/);
-    expect(source).toMatch(/sort|sorted|toSorted|compare/);
-    expect(source).toMatch(/Number\(|parseInt|numeric:\s*true|workflow_count\s*-\s*workflow_count/);
+    expect(tableProps.onRowClick).toBeTypeOf("function");
+    tableProps.onRowClick?.(tableProps.data[0]);
+    expect(mocks.navigate).toHaveBeenCalledWith("/souls/soul_alpha/edit");
   });
 });
