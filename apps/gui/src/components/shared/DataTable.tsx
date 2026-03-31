@@ -11,11 +11,6 @@ import {
 } from "@runsight/ui/table";
 import { ChevronUp, ChevronDown, Search } from "lucide-react";
 
-const sortStateByColumns = new WeakMap<
-  Column[],
-  { sortKey: string | null; sortDirection: "asc" | "desc" }
->();
-
 export interface Column {
   key: string;
   header: string;
@@ -46,12 +41,9 @@ export function DataTable({
   emptyState,
   onRowClick,
 }: DataTableProps) {
-  const cachedSortState = sortStateByColumns.get(columns);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortKey, setSortKey] = useState<string | null>(cachedSortState?.sortKey ?? null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(
-    cachedSortState?.sortDirection ?? "asc"
-  );
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const filteredData = useMemo(() => {
     if (!searchable || !searchQuery) return data;
@@ -67,20 +59,43 @@ export function DataTable({
   }, [data, searchQuery, searchable, columns]);
 
   const sortedData = useMemo(() => {
-    if (!sortable || !sortKey) return filteredData;
+    if (!sortable) return filteredData;
 
-    const sortColumn = columns.find((column) => column.key === sortKey);
+    const sortableColumns = columns.filter((column) => column.sortable);
+    const fallbackColumn =
+      sortKey == null && sortableColumns.length === 1 ? sortableColumns[0] : null;
+    const activeSortKey = sortKey ?? fallbackColumn?.key ?? null;
+
+    if (!activeSortKey) return filteredData;
+
+    const sortColumn = columns.find((column) => column.key === activeSortKey);
+
+    if (!sortColumn) return filteredData;
+
+    const getSortValue = (row: Record<string, unknown>) =>
+      sortColumn.sortValue ? sortColumn.sortValue(row) : row[activeSortKey];
+
+    const sampleValue = filteredData
+      .map((row) => getSortValue(row))
+      .find((value) => value != null);
+    const isNumericSort =
+      typeof sampleValue === "number" ||
+      (fallbackColumn != null &&
+        filteredData.every((row) => {
+          const value = getSortValue(row);
+          return value == null || typeof value === "number";
+        }));
 
     return [...filteredData].sort((a, b) => {
-      const aVal = sortColumn?.sortValue ? sortColumn.sortValue(a) : a[sortKey];
-      const bVal = sortColumn?.sortValue ? sortColumn.sortValue(b) : b[sortKey];
+      const aVal = getSortValue(a);
+      const bVal = getSortValue(b);
 
       if (aVal == null && bVal == null) return 0;
       if (aVal == null) return sortDirection === "asc" ? -1 : 1;
       if (bVal == null) return sortDirection === "asc" ? 1 : -1;
 
       const comparison =
-        typeof aVal === "number" && typeof bVal === "number"
+        isNumericSort && typeof aVal === "number" && typeof bVal === "number"
           ? aVal - bVal
           : String(aVal).localeCompare(String(bVal));
       return sortDirection === "asc" ? comparison : -comparison;
@@ -91,15 +106,10 @@ export function DataTable({
     if (!sortable) return;
 
     if (sortKey === key) {
-      setSortDirection((prev) => {
-        const nextDirection = prev === "asc" ? "desc" : "asc";
-        sortStateByColumns.set(columns, { sortKey: key, sortDirection: nextDirection });
-        return nextDirection;
-      });
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
       setSortDirection("asc");
-      sortStateByColumns.set(columns, { sortKey: key, sortDirection: "asc" });
     }
   };
 
