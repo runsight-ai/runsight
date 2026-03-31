@@ -134,7 +134,10 @@ class WorkflowService:
         return self.git_service.get_sha(branch, path)
 
     def delete_workflow(self, id: str, force: bool = False) -> dict[str, Any]:
-        workflow = self.workflow_repo.get_by_id(id) if self.git_service else None
+        workflow = self.workflow_repo.get_by_id(id)
+        if workflow is None:
+            raise WorkflowNotFound(f"Workflow {id} not found")
+
         runs_deleted = self.run_repo.delete_runs_for_workflow(id, force=force)
         success = self.workflow_repo.delete(id)
         if not success:
