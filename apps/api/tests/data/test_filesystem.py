@@ -1,3 +1,4 @@
+import json
 import tempfile
 
 import pytest
@@ -119,6 +120,86 @@ def test_workflow_list_includes_hand_authored_files():
         assert len(all_wfs) == 1
         assert all_wfs[0].id == "my-hand-authored"
         assert all_wfs[0].name == "Hand Authored"
+
+
+def test_workflow_get_returns_invalid_entity_for_malformed_yaml():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+        yaml_path = repo.workflows_dir / "broken-workflow.yaml"
+        yaml_path.write_text("not: valid: yaml: {{{}}")
+
+        entity = repo.get_by_id("broken-workflow")
+
+        assert entity is not None
+        assert entity.id == "broken-workflow"
+        assert entity.yaml == "not: valid: yaml: {{{}}"
+        assert entity.valid is False
+        assert entity.validation_error
+
+
+def test_workflow_list_keeps_malformed_yaml_recoverable():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+        (repo.workflows_dir / "legacy-broken.yaml").write_text("not: valid: yaml: {{{}}")
+
+        workflows = repo.list_all()
+
+        assert len(workflows) == 1
+        assert workflows[0].id == "legacy-broken"
+        assert workflows[0].valid is False
+        assert workflows[0].validation_error
+
+
+def test_workflow_list_materializes_orphan_canvas_sidecar_once():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+        canvas_path = repo.canvas_dir / "legacy-orphan.canvas.json"
+        canvas_path.write_text(
+            json.dumps(
+                {
+                    "nodes": [],
+                    "edges": [],
+                    "viewport": {"x": 0.0, "y": 0.0, "zoom": 1.0},
+                    "selected_node_id": None,
+                    "canvas_mode": "dag",
+                }
+            )
+        )
+
+        workflows = repo.list_all()
+
+        assert (repo.workflows_dir / "legacy-orphan.yaml").exists()
+        assert (repo.workflows_dir / "legacy-orphan.yaml").read_text() == ""
+        assert len(workflows) == 1
+        assert workflows[0].id == "legacy-orphan"
+        assert workflows[0].yaml == ""
+        assert workflows[0].canvas_state["canvas_mode"] == "dag"
+        assert workflows[0].valid is False
+
+
+def test_workflow_get_materializes_orphan_canvas_sidecar():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+        canvas_path = repo.canvas_dir / "legacy-get.canvas.json"
+        canvas_path.write_text(
+            json.dumps(
+                {
+                    "nodes": [],
+                    "edges": [],
+                    "viewport": {"x": 0.0, "y": 0.0, "zoom": 1.0},
+                    "selected_node_id": "node-1",
+                    "canvas_mode": "state-machine",
+                }
+            )
+        )
+
+        entity = repo.get_by_id("legacy-get")
+
+        assert entity is not None
+        assert (repo.workflows_dir / "legacy-get.yaml").exists()
+        assert entity.yaml == ""
+        assert entity.canvas_state["selected_node_id"] == "node-1"
+        assert entity.valid is False
 
 
 def test_soul_repository():

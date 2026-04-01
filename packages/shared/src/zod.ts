@@ -178,6 +178,15 @@ export const ProviderTestInSchema = z.object({
 });
 export type ProviderTestIn = z.infer<typeof ProviderTestInSchema>;
 
+export const ProviderTestOutSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  models: z.array(z.string()).optional(),
+  model_count: z.number().optional().default(0),
+  latency_ms: z.number().optional().default(0.0),
+});
+export type ProviderTestOut = z.infer<typeof ProviderTestOutSchema>;
+
 export const ProviderUpdateSchema = z.object({
   name: z.string().nullable().optional(),
   api_key_env: z.string().nullable().optional(),
@@ -472,7 +481,7 @@ export type WorkflowCanvasState = z.infer<typeof WorkflowCanvasStateSchema>;
 export const WorkflowCommitCreateSchema = z.object({
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  yaml: z.string().nullable().optional(),
+  yaml: z.string(),
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
   message: z.string(),
 });
@@ -487,7 +496,7 @@ export type WorkflowCommitResponse = z.infer<typeof WorkflowCommitResponseSchema
 export const WorkflowCreateSchema = z.object({
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  yaml: z.string().nullable().optional(),
+  yaml: z.string(),
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
 });
 export type WorkflowCreate = z.infer<typeof WorkflowCreateSchema>;
@@ -549,7 +558,7 @@ export type WorkflowSimulationResponse = z.infer<typeof WorkflowSimulationRespon
 export const WorkflowUpdateSchema = z.object({
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  yaml: z.string().nullable().optional(),
+  yaml: z.string(),
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
 });
 export type WorkflowUpdate = z.infer<typeof WorkflowUpdateSchema>;

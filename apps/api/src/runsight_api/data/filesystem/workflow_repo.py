@@ -118,6 +118,14 @@ class WorkflowRepository:
     def _canvas_path(self, stem: str) -> Path:
         return self.canvas_dir / f"{stem}.canvas.json"
 
+    def _materialize_orphan_canvas_sidecar(self, stem: str) -> Optional[Path]:
+        """Create a canonical raw-YAML file for a legacy canvas-only workflow once."""
+        yaml_path = self._get_path(stem)
+        if yaml_path.exists() or not self._canvas_path(stem).exists():
+            return None
+        self._atomic_write(yaml_path, "")
+        return yaml_path
+
     @staticmethod
     def _validate_yaml_content(raw_yaml: Optional[str]) -> Tuple[bool, Optional[str]]:
         """Validate raw YAML string against RunsightWorkflowFile schema.
@@ -227,28 +235,35 @@ class WorkflowRepository:
         Every .yaml file is included — the id is the filename stem (ADR D3).
         """
         workflows: List[WorkflowEntity] = []
+        for canvas_file in sorted(self.canvas_dir.glob("*.canvas.json")):
+            self._materialize_orphan_canvas_sidecar(canvas_file.name.replace(".canvas.json", ""))
         for file in sorted(self.workflows_dir.glob("*.yaml")):
+            raw_yaml = ""
             try:
                 raw_yaml = file.read_text()
                 data = yaml_mod.safe_load(raw_yaml) or {}
-                canvas_state = self._read_canvas_sidecar(file.stem)
-                workflows.append(self._build_entity(data, file.stem, canvas_state, raw_yaml))
             except Exception as e:
-                logger.warning("Failed to load workflow file %s: %s", file, e)
+                logger.warning("Failed to parse workflow file %s: %s", file, e)
+                data = {}
+            canvas_state = self._read_canvas_sidecar(file.stem)
+            workflows.append(self._build_entity(data, file.stem, canvas_state, raw_yaml))
         return workflows
 
     def get_by_id(self, workflow_id: str) -> Optional[WorkflowEntity]:
         """Retrieve a workflow by its id (= filename stem)."""
         yaml_path = self._get_path(workflow_id)
         if not yaml_path.exists():
+            yaml_path = self._materialize_orphan_canvas_sidecar(workflow_id) or yaml_path
+        if not yaml_path.exists():
             return None
 
+        raw_yaml = ""
         try:
             raw_yaml = yaml_path.read_text()
             data = yaml_mod.safe_load(raw_yaml) or {}
         except Exception as e:
-            logger.error("Failed to read workflow file %s: %s", yaml_path, e)
-            return None
+            logger.warning("Failed to parse workflow file %s: %s", yaml_path, e)
+            data = {}
 
         canvas_state = self._read_canvas_sidecar(workflow_id)
         return self._build_entity(data, workflow_id, canvas_state, raw_yaml)

@@ -925,6 +925,28 @@ export interface components {
             /** Base Url */
             base_url?: string | null;
         };
+        /** ProviderTestOut */
+        ProviderTestOut: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+            /**
+             * Models
+             * @default []
+             */
+            models: string[];
+            /**
+             * Model Count
+             * @default 0
+             */
+            model_count: number;
+            /**
+             * Latency Ms
+             * @default 0
+             */
+            latency_ms: number;
+        };
         /** ProviderUpdate */
         ProviderUpdate: {
             /** Name */
@@ -1414,7 +1436,7 @@ export interface components {
             /** Description */
             description?: string | null;
             /** Yaml */
-            yaml?: string | null;
+            yaml: string;
             canvas_state?: components["schemas"]["WorkflowCanvasState"] | null;
             /** Message */
             message: string;
@@ -1433,7 +1455,7 @@ export interface components {
             /** Description */
             description?: string | null;
             /** Yaml */
-            yaml?: string | null;
+            yaml: string;
             canvas_state?: components["schemas"]["WorkflowCanvasState"] | null;
         };
         /** WorkflowDeleteResponse */
@@ -1532,7 +1554,7 @@ export interface components {
             /** Description */
             description?: string | null;
             /** Yaml */
-            yaml?: string | null;
+            yaml: string;
             canvas_state?: components["schemas"]["WorkflowCanvasState"] | null;
         };
         /** LogResponse */
@@ -2781,7 +2803,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProviderTestOut"];
                 };
             };
             /** @description Validation Error */
@@ -2814,7 +2836,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProviderTestOut"];
                 };
             };
             /** @description Validation Error */

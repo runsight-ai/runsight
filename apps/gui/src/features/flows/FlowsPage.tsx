@@ -7,6 +7,7 @@ import { useNavigate } from "react-router";
 import { WorkflowsTab } from "./WorkflowsTab";
 
 const EMPTY_WORKFLOW_CREATE: WorkflowCreate = {
+  yaml: "",
   canvas_state: {
     nodes: [],
     edges: [],

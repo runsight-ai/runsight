@@ -127,7 +127,7 @@ export function Component() {
   }, [activeRuns, subscribeToRunStream]);
 
   async function handleNewWorkflow() {
-    const result = await createWorkflow.mutateAsync({});
+    const result = await createWorkflow.mutateAsync({ yaml: "" });
     navigate(`/workflows/${result.id}/edit`);
   }
 

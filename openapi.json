@@ -1826,7 +1826,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderTestOut"
+                }
               }
             }
           },
@@ -1865,7 +1867,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderTestOut"
+                }
               }
             }
           },
@@ -3205,6 +3209,42 @@
         },
         "type": "object",
         "title": "ProviderTestIn"
+      },
+      "ProviderTestOut": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Models",
+            "default": []
+          },
+          "model_count": {
+            "type": "integer",
+            "title": "Model Count",
+            "default": 0
+          },
+          "latency_ms": {
+            "type": "number",
+            "title": "Latency Ms",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "ProviderTestOut"
       },
       "ProviderUpdate": {
         "properties": {
@@ -4775,14 +4815,7 @@
             "title": "Description"
           },
           "yaml": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Yaml"
           },
           "canvas_state": {
@@ -4803,6 +4836,7 @@
         },
         "type": "object",
         "required": [
+          "yaml",
           "message"
         ],
         "title": "WorkflowCommitCreate"
@@ -4850,14 +4884,7 @@
             "title": "Description"
           },
           "yaml": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Yaml"
           },
           "canvas_state": {
@@ -4872,6 +4899,9 @@
           }
         },
         "type": "object",
+        "required": [
+          "yaml"
+        ],
         "title": "WorkflowCreate"
       },
       "WorkflowDeleteResponse": {
@@ -5142,14 +5172,7 @@
             "title": "Description"
           },
           "yaml": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Yaml"
           },
           "canvas_state": {
@@ -5164,6 +5187,9 @@
           }
         },
         "type": "object",
+        "required": [
+          "yaml"
+        ],
         "title": "WorkflowUpdate"
       },
       "runsight_api__transport__routers__git__LogResponse": {
