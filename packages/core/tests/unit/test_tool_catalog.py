@@ -353,3 +353,59 @@ class TestResolveTool:
             assert received_kwargs.get("api_key") == "secret123"
         finally:
             BUILTIN_TOOL_CATALOG.pop(source, None)
+
+
+class TestResolveToolTypedDispatch:
+    """RUN-524: resolve_tool dispatches by ToolDef variant type."""
+
+    def test_resolve_tool_builtin_variant_still_returns_toolinstance(self):
+        """BuiltinToolDef should continue resolving through the builtin catalog unchanged."""
+        from runsight_core.tools import (
+            BUILTIN_TOOL_CATALOG,
+            ToolInstance,
+            register_builtin,
+            resolve_tool,
+        )
+        from runsight_core.yaml.schema import BuiltinToolDef
+
+        source = "test/typed_builtin_dispatch"
+
+        def factory(**kwargs):
+            return ToolInstance(
+                name="typed_builtin_tool",
+                description="Resolved from a BuiltinToolDef",
+                parameters={"type": "object", "properties": {}},
+                execute=_dummy_execute,
+            )
+
+        BUILTIN_TOOL_CATALOG.pop(source, None)
+        try:
+            register_builtin(source, factory)
+            tool_def = BuiltinToolDef(type="builtin", source=source)
+
+            result = resolve_tool(tool_def)
+
+            assert isinstance(result, ToolInstance)
+            assert result.name == "typed_builtin_tool"
+        finally:
+            BUILTIN_TOOL_CATALOG.pop(source, None)
+
+    def test_resolve_tool_custom_variant_raises_notimplementederror_stub(self):
+        """CustomToolDef should dispatch to a stub path that raises NotImplementedError for now."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml.schema import CustomToolDef
+
+        tool_def = CustomToolDef(type="custom", source="custom/tools/github.py")
+
+        with pytest.raises(NotImplementedError):
+            resolve_tool(tool_def, workspace_root="/tmp/project")
+
+    def test_resolve_tool_http_variant_raises_notimplementederror_stub(self):
+        """HTTPToolDef should dispatch to a stub path that raises NotImplementedError for now."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml.schema import HTTPToolDef
+
+        tool_def = HTTPToolDef(type="http", source="http_tool")
+
+        with pytest.raises(NotImplementedError):
+            resolve_tool(tool_def, api_key="secret123")
