@@ -7,7 +7,6 @@ interface SoulFormValues {
   name: string;
   avatarColor: string;
   providerId: string | null;
-  provider: string | null;
   modelId: string | null;
   systemPrompt: string;
   tools: string[];
@@ -36,7 +35,6 @@ const DEFAULT_VALUES: SoulFormValues = {
   name: "",
   avatarColor: "accent",
   providerId: null,
-  provider: null,
   modelId: null,
   systemPrompt: "",
   tools: [],
@@ -54,7 +52,6 @@ function toFormValues(soul?: SoulResponse | null): SoulFormValues {
     name: soul.role ?? "",
     avatarColor: soul.avatar_color ?? "accent",
     providerId: soul.provider ?? null,
-    provider: soul.provider ?? null,
     modelId: soul.model_name ?? null,
     systemPrompt: soul.system_prompt ?? "",
     tools: soul.tools ?? [],
@@ -83,7 +80,6 @@ export function useSoulForm({
         return {
           ...current,
           providerId: value as string | null,
-          provider: value as string | null,
           modelId: null,
         };
       }
@@ -103,7 +99,7 @@ export function useSoulForm({
       role: values.name,
       system_prompt: values.systemPrompt,
       model_name: values.modelId,
-      provider: values.provider,
+      provider: values.providerId,
       tools: values.tools.length > 0 ? values.tools : null,
       temperature: values.temperature !== 0.7 ? values.temperature : null,
       max_tokens: values.maxTokens,

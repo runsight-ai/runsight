@@ -14,7 +14,7 @@ interface SoulFormBodyProps {
   workflowTools?: WorkflowToolContext[];
   availableTools?: AvailableTool[];
   setField: <K extends keyof SoulFormValues>(field: K, value: SoulFormValues[K]) => void;
-  errors?: Partial<Record<keyof SoulFormValues, string>>;
+  errors?: Partial<Record<keyof SoulFormValues | "provider", string>>;
 }
 
 export function SoulFormBody({
@@ -40,13 +40,9 @@ export function SoulFormBody({
       <SoulModelSection
         providerId={values.providerId}
         modelId={values.modelId}
-        provider={values.provider}
         providerError={errors?.provider}
         modelError={errors?.modelId}
-        onProviderChange={(id, providerStr) => {
-          setField("providerId", id);
-          setField("provider", providerStr);
-        }}
+        onProviderChange={(id) => setField("providerId", id)}
         onModelChange={(id) => setField("modelId", id)}
       />
       <SoulPromptSection

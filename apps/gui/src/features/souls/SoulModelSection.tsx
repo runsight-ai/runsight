@@ -14,30 +14,26 @@ import { SoulFormSection } from "./SoulFormSection";
 interface SoulModelSectionProps {
   providerId: string | null;
   modelId: string | null;
-  provider: string | null;
   providerError?: string;
   modelError?: string;
-  onProviderChange: (id: string | null, providerStr: string | null) => void;
+  onProviderChange: (id: string | null) => void;
   onModelChange: (id: string | null) => void;
 }
 
 export function SoulModelSection({
   providerId,
   modelId,
-  provider,
   providerError,
   modelError,
   onProviderChange,
   onModelChange,
 }: SoulModelSectionProps) {
   const providersQuery = useProviders();
-  const modelsQuery = useModelsForProvider(provider);
+  const modelsQuery = useModelsForProvider(providerId);
   const configuredProviders = providersQuery.data?.items ?? [];
   const hasConfiguredProviders = configuredProviders.length > 0;
   const selectedProvider = configuredProviders.find(
-    (providerSummary) =>
-      providerSummary.id === providerId ||
-      ((providerSummary.type ?? providerSummary.id) === provider && provider !== null),
+    (providerSummary) => providerSummary.id === providerId,
   );
   const selectedProviderValue = selectedProvider?.id ?? providerId ?? undefined;
 
@@ -49,15 +45,7 @@ export function SoulModelSection({
           <Select
             value={selectedProviderValue}
             disabled={!hasConfiguredProviders}
-            onValueChange={(value) => {
-              const nextProvider = configuredProviders.find(
-                (providerSummary) => providerSummary.id === value,
-              );
-              onProviderChange(
-                value,
-                nextProvider?.type ?? nextProvider?.id ?? value,
-              );
-            }}
+            onValueChange={(value) => onProviderChange(value)}
           >
             <SelectTrigger aria-label="Select provider">
               <SelectValue
@@ -87,7 +75,7 @@ export function SoulModelSection({
           <Select
             value={modelId ?? undefined}
             onValueChange={(value) => onModelChange(value)}
-            disabled={!provider || !hasConfiguredProviders}
+            disabled={!providerId || !hasConfiguredProviders}
           >
             <SelectTrigger aria-label="Select model">
               <SelectValue placeholder="Select model" />
