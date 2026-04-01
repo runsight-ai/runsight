@@ -4,6 +4,7 @@ import {
   CommitResponseSchema,
   DiffResponseSchema,
   StatusResponseSchema,
+  WorkflowCommitResponseSchema,
 } from "@runsight/shared/zod";
 import type {
   CommitEntry,
@@ -82,13 +83,11 @@ export const gitApi = {
     const { api } = await import("./client");
     const request = WorkflowCommitPayloadSchema.parse(payload);
     const res = await api.post(`/workflows/${workflowId}/commits`, request);
-    const parsed = CommitResponseSchema.safeParse(res);
+    const parsed = WorkflowCommitResponseSchema.safeParse(res);
     if (parsed.success) {
       return parsed.data;
     }
-    return {
-      hash: "",
-      message: request.message,
-    };
+
+    throw new Error("Commit response contract invalid");
   },
 };

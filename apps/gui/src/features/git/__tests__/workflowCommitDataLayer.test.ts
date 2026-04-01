@@ -166,6 +166,11 @@ describe("workflow commit data layer (RUN-424)", () => {
   });
 
   it("invalidates workflow and git queries after a successful production workflow save", async () => {
+    mocks.apiPost.mockResolvedValue({
+      hash: "abc123def456",
+      message: "Save workflow to main",
+    });
+
     const { queryKeys } = await import("../../../queries/keys");
     const { useCommitWorkflow } = await import("../../../queries/git");
 
