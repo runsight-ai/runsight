@@ -115,7 +115,7 @@ def test_runs_get_serializes_commit_sha_as_null_when_unset():
         app.dependency_overrides.clear()
 
 
-def test_runs_get_uses_legacy_workflow_commit_sha_for_old_records():
+def test_runs_get_does_not_use_legacy_workflow_commit_sha_for_old_records():
     mock_run = _make_mock_run(
         run_id="run_413_legacy",
         branch="main",
@@ -130,6 +130,7 @@ def test_runs_get_uses_legacy_workflow_commit_sha_for_old_records():
         response = client.get("/api/runs/run_413_legacy")
         assert response.status_code == 200
         body = response.json()
-        assert body["commit_sha"] == "legacysha413"
+        assert body["commit_sha"] is None
+        assert "workflow_commit_sha" not in body
     finally:
         app.dependency_overrides.clear()

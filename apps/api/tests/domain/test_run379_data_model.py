@@ -163,28 +163,23 @@ class TestRunCommitShaField:
 
 
 # ---------------------------------------------------------------------------
-# 4. Backward compat — workflow_commit_sha still exists
+# 4. Backward compat removed — workflow_commit_sha and effective_commit_sha are gone
 # ---------------------------------------------------------------------------
 
 
-class TestWorkflowCommitShaStillExists:
-    def test_workflow_commit_sha_field_still_present(self):
-        """Deprecated workflow_commit_sha field still exists on Run."""
-        run = _make_run()
-        assert hasattr(run, "workflow_commit_sha")
+class TestWorkflowCommitShaRemoved:
+    def test_workflow_commit_sha_field_is_removed(self):
+        """Run no longer exposes a workflow_commit_sha field."""
+        from runsight_api.domain.entities.run import Run
 
-    def test_workflow_commit_sha_still_defaults_to_none(self):
         run = _make_run()
-        assert run.workflow_commit_sha is None
+        assert "workflow_commit_sha" not in Run.model_fields
+        assert not hasattr(run, "workflow_commit_sha")
 
-    def test_both_sha_fields_can_coexist(self):
-        """Both commit_sha and workflow_commit_sha can be set independently."""
-        run = _make_run(
-            commit_sha="new_sha_1234567890123456789012345678901234",
-            workflow_commit_sha="old_sha_1234567890123456789012345678901234",
-        )
-        assert run.commit_sha == "new_sha_1234567890123456789012345678901234"
-        assert run.workflow_commit_sha == "old_sha_1234567890123456789012345678901234"
+    def test_workflow_commit_sha_accessor_is_removed(self):
+        """Run no longer exposes an effective_commit_sha compatibility accessor."""
+        run = _make_run()
+        assert not hasattr(run, "effective_commit_sha")
 
 
 # ---------------------------------------------------------------------------
@@ -329,44 +324,14 @@ class TestCreateRunPopulatesNewFields:
 
 
 # ---------------------------------------------------------------------------
-# 8. commit_sha fallback to workflow_commit_sha for old runs
+# 8. commit_sha does not fallback to workflow_commit_sha for old runs
 # ---------------------------------------------------------------------------
 
 
 class TestCommitShaFallback:
-    def test_effective_commit_sha_prefers_commit_sha(self):
-        """When both commit_sha and workflow_commit_sha are set, commit_sha wins."""
-        run = _make_run(
-            commit_sha="new_sha",
-            workflow_commit_sha="old_sha",
-        )
-        # The entity should expose an effective_commit_sha property or
-        # the commit_sha getter should handle fallback.
-        effective = run.commit_sha if run.commit_sha is not None else run.workflow_commit_sha
-        assert effective == "new_sha"
-
-    def test_effective_commit_sha_falls_back_to_workflow_commit_sha(self):
-        """When commit_sha is None, falls back to workflow_commit_sha."""
-        run = _make_run(
-            commit_sha=None,
-            workflow_commit_sha="old_sha_fallback",
-        )
-        effective = run.commit_sha if run.commit_sha is not None else run.workflow_commit_sha
-        assert effective == "old_sha_fallback"
-
-    def test_run_entity_has_effective_commit_sha_property(self):
-        """Run entity has an effective_commit_sha property for backward compat."""
-        run = _make_run(workflow_commit_sha="legacy_sha")
-        # Property should exist and perform the fallback
-        assert hasattr(run, "effective_commit_sha")
-        assert run.effective_commit_sha == "legacy_sha"
-
-    def test_effective_commit_sha_none_when_both_none(self):
-        """effective_commit_sha returns None when both fields are None."""
-        run = _make_run()
-        assert run.effective_commit_sha is None
-
-    def test_effective_commit_sha_prefers_new_field(self):
-        """effective_commit_sha returns commit_sha when set, ignoring legacy."""
-        run = _make_run(commit_sha="new", workflow_commit_sha="old")
-        assert run.effective_commit_sha == "new"
+    def test_commit_sha_does_not_fall_back_to_workflow_commit_sha(self):
+        """Run no longer derives a commit SHA from workflow_commit_sha."""
+        run = _make_run(commit_sha=None, workflow_commit_sha="old_sha_fallback")
+        assert run.commit_sha is None
+        assert not hasattr(run, "workflow_commit_sha")
+        assert not hasattr(run, "effective_commit_sha")
