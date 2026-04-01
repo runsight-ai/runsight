@@ -16,6 +16,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Any
 
+from runsight_core.isolation import ipc as isolation_ipc
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     HeartbeatMessage,
@@ -29,6 +30,7 @@ from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.tools import ToolInstance
 
 # ---------------------------------------------------------------------------
 # Public helper functions (importable by tests)
@@ -40,7 +42,11 @@ def parse_context_envelope(json_str: str) -> ContextEnvelope:
     return ContextEnvelope.model_validate_json(json_str)
 
 
-def reconstruct_soul(soul_envelope: SoulEnvelope) -> Soul:
+def reconstruct_soul(
+    soul_envelope: SoulEnvelope,
+    *,
+    resolved_tools: list[ToolInstance] | None = None,
+) -> Soul:
     """Convert a SoulEnvelope into a runsight_core.primitives.Soul."""
     return Soul(
         id=soul_envelope.id,
@@ -48,6 +54,7 @@ def reconstruct_soul(soul_envelope: SoulEnvelope) -> Soul:
         system_prompt=soul_envelope.system_prompt,
         model_name=soul_envelope.model_name,
         max_tool_iterations=soul_envelope.max_tool_iterations,
+        resolved_tools=resolved_tools,
     )
 
 
@@ -64,20 +71,30 @@ def create_runner(model_name: str, api_key: str) -> RunsightTeamRunner:
 def create_tool_stubs(
     tool_envelopes: list[ToolDefEnvelope],
     socket_path: str,
-) -> list:
+) -> list[ToolInstance]:
     """Convert ToolDefEnvelope list into IPC-backed callable tool stubs."""
-    stubs = []
+    client = isolation_ipc.IPCClient(socket_path=socket_path)
+    stubs: list[ToolInstance] = []
     for tool_def in tool_envelopes:
 
-        def _make_stub(td: ToolDefEnvelope):
-            def stub(**kwargs: Any) -> Any:
-                raise NotImplementedError(
-                    f"IPC tool stub for '{td.source}' — requires active IPC connection"
-                )
+        async def _execute(args: dict[str, Any], *, td: ToolDefEnvelope = tool_def) -> str:
+            result = await client.request(
+                "tool_call",
+                name=td.name,
+                arguments=args,
+            )
+            if "error" in result:
+                return f"Error: {result['error']}"
+            return str(result.get("output", ""))
 
-            return stub
-
-        stubs.append(_make_stub(tool_def))
+        stubs.append(
+            ToolInstance(
+                name=tool_def.name,
+                description=tool_def.description,
+                parameters=tool_def.parameters,
+                execute=_execute,
+            )
+        )
     return stubs
 
 
@@ -265,7 +282,8 @@ def main() -> None:
 
         # Reconstruct primitives
         _heartbeat_phase = "setup"
-        soul = reconstruct_soul(envelope.soul)
+        resolved_tools = create_tool_stubs(envelope.tools, socket_path=ipc_socket)
+        soul = reconstruct_soul(envelope.soul, resolved_tools=resolved_tools)
         runner = create_runner(
             model_name=envelope.soul.model_name,
             api_key=api_key,
