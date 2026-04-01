@@ -17,12 +17,20 @@ function readWorkspaceFile(...segments: string[]) {
   return fs.readFileSync(workspacePath(...segments), "utf8");
 }
 
-function readPackageScripts() {
-  const packageJson = JSON.parse(readWorkspaceFile("package.json")) as {
-    scripts?: Record<string, string>;
-  };
+function hasConfiguredPath(config: string, configKey: string, filePath: string) {
+  const escapedPath = filePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const configPattern = new RegExp(
+    `${configKey}\\s*:\\s*["'\`](?:\\./)?${escapedPath}["'\`]`
+  );
 
-  return Object.values(packageJson.scripts ?? {});
+  return configPattern.test(config);
+}
+
+function hasAnyConfiguredPath(config: string, filePath: string) {
+  const escapedPath = filePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const configPattern = new RegExp(`:\\s*["'\`](?:\\./)?${escapedPath}["'\`]`);
+
+  return configPattern.test(config);
 }
 
 test.describe("Playwright harness surface", () => {
@@ -35,7 +43,7 @@ test.describe("Playwright harness surface", () => {
     ]
       .filter(
         ([file, configKey]) =>
-          workspaceFileExists(file) && !config.includes(configKey)
+          workspaceFileExists(file) && !hasConfiguredPath(config, configKey, file)
       )
       .map(
         ([file, configKey]) =>
@@ -47,21 +55,16 @@ test.describe("Playwright harness surface", () => {
 
   test("review screenshot helpers do not remain without an active entrypoint", () => {
     const config = readWorkspaceFile("playwright.config.ts");
-    const packageScripts = readPackageScripts();
 
     const dormantScreenshotHelpers = [
       "scripts/screenshot.cjs",
       "scripts/screenshot-impl.cjs",
     ]
       .filter((file) => workspaceFileExists(file))
-      .filter(
-        (file) =>
-          !config.includes(file) &&
-          !packageScripts.some((command) => command.includes(file))
-      )
+      .filter((file) => !hasAnyConfiguredPath(config, file))
       .map(
         (file) =>
-          `${file} exists without a Playwright config reference or package.json script`
+          `${file} exists without a Playwright config reference`
       );
 
     expect(dormantScreenshotHelpers).toEqual([]);
@@ -70,7 +73,6 @@ test.describe("Playwright harness surface", () => {
   test("README only documents retained harness entrypoints", () => {
     const readme = readWorkspaceFile("README.md");
     const config = readWorkspaceFile("playwright.config.ts");
-    const packageScripts = readPackageScripts();
     const scriptFiles = workspaceFileExists("scripts")
       ? fs.readdirSync(workspacePath("scripts")).map((file) => `scripts/${file}`)
       : [];
@@ -80,21 +82,19 @@ test.describe("Playwright harness surface", () => {
         "`global-setup.ts`",
         readme.includes("`global-setup.ts`") &&
           workspaceFileExists("global-setup.ts") &&
-          !config.includes("globalSetup"),
+          !hasConfiguredPath(config, "globalSetup", "global-setup.ts"),
       ],
       [
         "`global-teardown.ts`",
         readme.includes("`global-teardown.ts`") &&
           workspaceFileExists("global-teardown.ts") &&
-          !config.includes("globalTeardown"),
+          !hasConfiguredPath(config, "globalTeardown", "global-teardown.ts"),
       ],
       [
         "`scripts/`",
         readme.includes("`scripts/`") &&
           scriptFiles.length > 0 &&
-          scriptFiles.every(
-            (file) => !packageScripts.some((command) => command.includes(file))
-          ),
+          scriptFiles.every((file) => !hasAnyConfiguredPath(config, file)),
       ],
     ]
       .filter(([, isMisleading]) => isMisleading)
