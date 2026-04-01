@@ -3,6 +3,15 @@ import { ShellLayout } from "./layouts/ShellLayout";
 import { createSetupGuardLoader, createReverseGuardLoader } from "./guards";
 import { queryClient } from "@/lib/queryClient";
 
+const RETIRED_DIRECT_ENTRY_PATHS = new Set(["/health", "/test-components"]);
+
+if (
+  typeof window !== "undefined" &&
+  RETIRED_DIRECT_ENTRY_PATHS.has(window.location.pathname)
+) {
+  window.history.replaceState(null, "", "/");
+}
+
 export const router = createBrowserRouter([
   {
     path: "setup/start",
