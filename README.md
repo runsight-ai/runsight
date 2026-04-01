@@ -50,6 +50,47 @@ pip install -e .
 runsight ui start
 ```
 
+## Code Indexing With Codebones
+
+Runsight contributors use `codebones` for local code search and structural lookups.
+Use the `uv` tool install flow so each checkout picks up the fixed indexer behavior:
+
+```bash
+uv tool install codebones
+# or, if you already have it installed
+uv tool upgrade codebones
+```
+
+Verify the CLI that your current checkout will use before relying on the local index:
+
+```bash
+uv tool list
+codebones --version
+```
+
+Indexes are local cache artifacts, not shared repo state. Rebuild or reindex from the
+root of the checkout, clone, or worktree you are actively using:
+
+```bash
+codebones index .
+```
+
+Run `codebones index .` again after pulling large changes, switching branches, or
+deleting or moving files. Reindexing should rebuild search results so removed files no
+longer appear in named searches or in `codebones search ""`.
+
+The cache lives in a local `codebones.db` file for that checkout/worktree/clone. If an
+older cache breaks after an upgrade or starts returning stale data, delete the cache and
+rebuild it in place:
+
+```bash
+rm -f codebones.db
+codebones index .
+```
+
+If you keep multiple worktrees open, repeat that reset in each one separately because
+each checkout has its own `codebones.db`.
+
 ## 📄 License & Open Core
 
 Runsight operates on an **Open-Core** model. 
