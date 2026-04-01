@@ -7,17 +7,18 @@ Examples:
 - Playwright specs
 - E2E fixtures
 - browser test helpers
-- screenshot harness utilities used only for E2E
 
 This workspace now owns:
 
 - Playwright config
 - E2E specs
-- E2E setup/teardown helpers
-- screenshot utilities used only for E2E/review flows
 
 Current layout:
 
+- `playwright.config.ts` for the active Playwright harness configuration
 - `tests/` for the browser specs
-- `global-setup.ts` and `global-teardown.ts` for workspace-level helpers
-- `scripts/` for E2E-only utility scripts
+
+The retained harness surface is intentionally small:
+
+- Playwright starts the GUI dev server through `webServer`
+- Specs assume the API is already available on `http://localhost:8000`
