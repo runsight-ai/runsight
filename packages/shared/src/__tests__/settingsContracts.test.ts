@@ -37,6 +37,33 @@ async function findSchemaCandidate(
 }
 
 describe("RUN-512 shared settings transport contracts", () => {
+  it("exports an app-settings schema that preserves the shared settings adapter surface", async () => {
+    const appSettingsSample = {
+      base_path: "/workspace",
+      default_provider: "openai",
+      auto_save: true,
+      onboarding_completed: true,
+      fallback_chain_enabled: false,
+    };
+
+    const appSettingsSchema = await findSchemaCandidate(
+      /AppSettings.*Schema/i,
+      appSettingsSample,
+      (parsed) =>
+        isRecord(parsed) &&
+        parsed.base_path === appSettingsSample.base_path &&
+        parsed.default_provider === appSettingsSample.default_provider &&
+        parsed.auto_save === appSettingsSample.auto_save &&
+        parsed.onboarding_completed === appSettingsSample.onboarding_completed &&
+        parsed.fallback_chain_enabled === appSettingsSample.fallback_chain_enabled,
+    );
+
+    expect(
+      appSettingsSchema.name,
+      `Expected a shared app-settings schema. Saw app-settings exports: ${appSettingsSchema.available.join(", ") || "(none)"}`,
+    ).not.toBeNull();
+  });
+
   it("exports a provider item schema and list schema that preserve the full settings provider response", async () => {
     const providerSample = {
       id: "openai",

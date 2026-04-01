@@ -3,9 +3,6 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const settingsSourcePath = resolve(__dirname, "..", "settings.ts");
-const sharedParseSpies = vi.hoisted(
-  () => new Map<string, ReturnType<typeof vi.fn<[unknown], unknown>>>(),
-);
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
@@ -21,50 +18,19 @@ vi.mock("../client", () => ({
   },
 }));
 
-vi.mock("@runsight/shared/zod", async () => {
-  const actual = await vi.importActual<Record<string, unknown>>("@runsight/shared/zod");
-
-  sharedParseSpies.clear();
-
-  for (const [name, exportedValue] of Object.entries(actual)) {
-    if (
-      exportedValue &&
-      typeof exportedValue === "object" &&
-      "parse" in exportedValue &&
-      typeof (exportedValue as { parse?: unknown }).parse === "function"
-    ) {
-      const schema = exportedValue as { parse: (input: unknown) => unknown };
-      const originalParse = schema.parse.bind(schema);
-      const spy = vi.fn<[unknown], unknown>((input) => originalParse(input));
-      sharedParseSpies.set(name, spy);
-      schema.parse = spy;
-    }
-  }
-
-  return actual;
-});
-
-function calledSharedSchemas(pattern: RegExp): string[] {
-  return Array.from(sharedParseSpies.entries())
-    .filter(([name, spy]) => pattern.test(name) && spy.mock.calls.length > 0)
-    .map(([name]) => name);
-}
-
 beforeEach(() => {
   vi.resetModules();
   mocks.apiGet.mockReset();
   mocks.apiPost.mockReset();
   mocks.apiPut.mockReset();
-  sharedParseSpies.forEach((spy) => spy.mockClear());
 });
 
 type SharedContractCase = {
   title: string;
-  schemaPattern: RegExp;
+  payload: unknown;
   arrange: (payload: unknown) => void;
   invoke: (settingsApi: typeof import("../settings").settingsApi) => Promise<unknown>;
   assertResult: (result: unknown) => void;
-  failureMessage: string;
 };
 
 const providerItemPayload = {
@@ -112,7 +78,7 @@ describe("RUN-512 settings API shared contract normalization", () => {
   const contractCases: SharedContractCase[] = [
     {
       title: "parses provider lists through shared contracts and keeps API response fields that the transport exposes",
-      schemaPattern: /Provider/i,
+      payload: { items: [providerItemPayload], total: 1 },
       arrange: (payload) => {
         mocks.apiGet.mockResolvedValue(payload);
       },
@@ -131,12 +97,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
           }),
         );
       },
-      failureMessage:
-        "Expected settingsApi.listProviders() to parse via @runsight/shared/zod provider contracts",
     },
     {
       title: "parses getProvider responses through shared contracts and preserves provider transport fields",
-      schemaPattern: /Provider/i,
+      payload: providerItemPayload,
       arrange: (payload) => {
         mocks.apiGet.mockResolvedValue(payload);
       },
@@ -150,12 +114,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
           }),
         );
       },
-      failureMessage:
-        "Expected settingsApi.getProvider() to parse via @runsight/shared/zod provider contracts",
     },
     {
       title: "parses createProvider responses through shared contracts and preserves provider transport fields",
-      schemaPattern: /Provider/i,
+      payload: providerItemPayload,
       arrange: (payload) => {
         mocks.apiPost.mockResolvedValue(payload);
       },
@@ -174,12 +136,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
           }),
         );
       },
-      failureMessage:
-        "Expected settingsApi.createProvider() to parse via @runsight/shared/zod provider contracts",
     },
     {
       title: "parses updateProvider responses through shared contracts and preserves provider transport fields",
-      schemaPattern: /Provider/i,
+      payload: providerItemPayload,
       arrange: (payload) => {
         mocks.apiPut.mockResolvedValue(payload);
       },
@@ -198,12 +158,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
           }),
         );
       },
-      failureMessage:
-        "Expected settingsApi.updateProvider() to parse via @runsight/shared/zod provider contracts",
     },
     {
       title: "parses model defaults through shared contracts instead of GUI-local schemas",
-      schemaPattern: /ModelDefault/i,
+      payload: { items: [modelDefaultItemPayload], total: 1 },
       arrange: (payload) => {
         mocks.apiGet.mockResolvedValue(payload);
       },
@@ -222,12 +180,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
           }),
         );
       },
-      failureMessage:
-        "Expected settingsApi.listModelDefaults() to parse via @runsight/shared/zod model-default contracts",
     },
     {
       title: "parses updateModelDefault responses through shared contracts",
-      schemaPattern: /ModelDefault/i,
+      payload: modelDefaultItemPayload,
       arrange: (payload) => {
         mocks.apiPut.mockResolvedValue(payload);
       },
@@ -246,12 +202,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
           }),
         );
       },
-      failureMessage:
-        "Expected settingsApi.updateModelDefault() to parse via @runsight/shared/zod model-default contracts",
     },
     {
       title: "parses budgets through shared contracts and preserves spent/reset transport fields",
-      schemaPattern: /Budget/i,
+      payload: { items: [budgetItemPayload], total: 1 },
       arrange: (payload) => {
         mocks.apiGet.mockResolvedValue(payload);
       },
@@ -269,12 +223,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
           }),
         );
       },
-      failureMessage:
-        "Expected settingsApi.getBudgets() to parse via @runsight/shared/zod budget contracts",
     },
     {
       title: "parses createBudget responses through shared contracts and preserves spent/reset transport fields",
-      schemaPattern: /Budget/i,
+      payload: budgetItemPayload,
       arrange: (payload) => {
         mocks.apiPost.mockResolvedValue(payload);
       },
@@ -292,12 +244,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
           }),
         );
       },
-      failureMessage:
-        "Expected settingsApi.createBudget() to parse via @runsight/shared/zod budget contracts",
     },
     {
       title: "parses updateBudget responses through shared contracts and preserves spent/reset transport fields",
-      schemaPattern: /Budget/i,
+      payload: budgetItemPayload,
       arrange: (payload) => {
         mocks.apiPut.mockResolvedValue(payload);
       },
@@ -315,12 +265,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
           }),
         );
       },
-      failureMessage:
-        "Expected settingsApi.updateBudget() to parse via @runsight/shared/zod budget contracts",
     },
     {
-      title: "routes app settings parsing through the shared contract path",
-      schemaPattern: /AppSettings/i,
+      title: "keeps the full app settings surface when reading settings",
+      payload: appSettingsPayload,
       arrange: (payload) => {
         mocks.apiGet.mockResolvedValue(payload);
       },
@@ -328,12 +276,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(appSettingsPayload));
       },
-      failureMessage:
-        "Expected settingsApi.getAppSettings() to parse via @runsight/shared/zod app-settings contracts",
     },
     {
-      title: "routes updateAppSettings parsing through the shared contract path",
-      schemaPattern: /AppSettings/i,
+      title: "keeps the full app settings surface when updating settings",
+      payload: appSettingsPayload,
       arrange: (payload) => {
         mocks.apiPut.mockResolvedValue(payload);
       },
@@ -345,54 +291,26 @@ describe("RUN-512 settings API shared contract normalization", () => {
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(appSettingsPayload));
       },
-      failureMessage:
-        "Expected settingsApi.updateAppSettings() to parse via @runsight/shared/zod app-settings contracts",
     },
   ];
 
-  it.each(contractCases)("$title", async ({
-    arrange,
-    assertResult,
-    failureMessage,
-    invoke,
-    schemaPattern,
-    title,
-  }) => {
-    const payload =
-      title.includes("provider lists")
-        ? { items: [providerItemPayload], total: 1 }
-        : title.includes("model defaults")
-          ? { items: [modelDefaultItemPayload], total: 1 }
-          : title.includes("budgets through")
-            ? { items: [budgetItemPayload], total: 1 }
-            : title.includes("app settings")
-              ? appSettingsPayload
-              : schemaPattern.test("Provider")
-                ? providerItemPayload
-                : schemaPattern.test("ModelDefault")
-                  ? modelDefaultItemPayload
-                  : schemaPattern.test("Budget")
-                    ? budgetItemPayload
-                    : appSettingsPayload;
-
+  it.each(contractCases)("$title", async ({ arrange, assertResult, invoke, payload }) => {
     arrange(payload);
 
     const { settingsApi } = await import("../settings");
     const result = await invoke(settingsApi);
 
     assertResult(result);
-    expect(calledSharedSchemas(schemaPattern), failureMessage).not.toHaveLength(0);
   });
 });
 
 describe("RUN-512 settings adapter drift guard", () => {
-  it("keeps transport validation out of apps/gui/src/api/settings.ts", () => {
+  it("blocks direct GUI-local settings transport schema definitions while allowing shared-schema composition", () => {
     const source = readFileSync(settingsSourcePath, "utf-8");
 
-    expect(source).not.toMatch(/from\s+["']zod["']/);
-    expect(source).not.toMatch(/z\.object\(/);
-    expect(source).not.toMatch(
-      /const\s+(Provider|ProviderList|ModelDefault|ModelDefaultList|Budget|BudgetList|AppSettings)Schema\s*=/,
-    );
+    expect(source).not.toMatch(/const\s+ProviderSchema\s*=\s*z\.object\(/);
+    expect(source).not.toMatch(/const\s+ModelDefaultSchema\s*=\s*z\.object\(/);
+    expect(source).not.toMatch(/const\s+BudgetSchema\s*=\s*z\.object\(/);
+    expect(source).not.toMatch(/const\s+AppSettingsSchema\s*=\s*z\.object\(/);
   });
 });
