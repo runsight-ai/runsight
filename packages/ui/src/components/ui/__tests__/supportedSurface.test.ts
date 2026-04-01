@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 
 const UI_ROOT = resolve(__dirname, "..", "..", "..", "..");
 const PACKAGE_JSON_PATH = resolve(UI_ROOT, "package.json");
@@ -16,6 +16,10 @@ function readPackageJson(): {
   exports?: Record<string, string | { import?: string; default?: string }>;
 } {
   return JSON.parse(readFile(PACKAGE_JSON_PATH));
+}
+
+function escapeForRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function walkFiles(directory: string): string[] {
@@ -67,12 +71,18 @@ function hasStoryCoverage(componentSubpath: string) {
 
 function hasUiTestCoverage(componentSubpath: string) {
   const componentName = componentSubpath.slice(2);
-  const componentToken = componentName.replace(/-/g, "[_-]?");
-  const coveragePattern = new RegExp(`\\b${componentToken}\\b|\\b${componentName.split("-").map((part) => part[0]?.toUpperCase() + part.slice(1)).join("")}\\b`, "i");
+  const componentFilename = `${componentName}.tsx`;
+  const exactCoveragePatterns = [
+    new RegExp(`from\\s+["'][^"']*${escapeForRegExp(componentName)}["']`),
+    new RegExp(`readComponent\\(["']${escapeForRegExp(componentFilename)}["']\\)`),
+    new RegExp(`componentExists\\(["']${escapeForRegExp(componentFilename)}["']\\)`),
+    new RegExp(`readShared\\(["']${escapeForRegExp(componentFilename)}["']\\)`),
+    new RegExp(`resolve\\([^\\n]*["']${escapeForRegExp(componentFilename)}["']`),
+  ];
 
   return walkFiles(UI_TESTS_DIR)
     .filter((filePath) => /\.(ts|tsx)$/.test(filePath))
-    .some((filePath) => coveragePattern.test(readFile(filePath)));
+    .some((filePath) => exactCoveragePatterns.some((pattern) => pattern.test(readFile(filePath))));
 }
 
 describe("RUN-514 explicit design-system surface", () => {
