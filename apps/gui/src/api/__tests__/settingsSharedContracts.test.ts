@@ -18,35 +18,157 @@ type SharedContractCase = {
   assertResult: (result: unknown) => void;
 };
 
+type CanonicalImportBindings = {
+  named: Map<string, string[]>;
+  namespaces: string[];
+};
+
+type LocalSchemaConstruction = {
+  binding: string;
+  body: string;
+  statement: string;
+};
+
 function escapeForRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function collectImportedSpecifiers(source: string, modulePath: string) {
+function collectCanonicalImportBindings(source: string, modulePath: string): CanonicalImportBindings {
   const modulePattern = escapeForRegExp(modulePath);
-  const importPattern = new RegExp(
+  const namedImportPattern = new RegExp(
     `import\\s*{([^;]*?)}\\s*from\\s*[\"']${modulePattern}[\"'];`,
     "g",
   );
-
-  return [...source.matchAll(importPattern)].flatMap((match) =>
-    match[1]
-      .split(",")
-      .map((specifier) => specifier.trim())
-      .filter(Boolean)
-      .map((specifier) => specifier.split(/\s+as\s+/)[0]?.trim() ?? specifier),
+  const namespaceImportPattern = new RegExp(
+    `import\\s*\\*\\s*as\\s*(\\w+)\\s*from\\s*[\"']${modulePattern}[\"'];`,
+    "g",
   );
+  const named = new Map<string, string[]>();
+  const namespaces = [...source.matchAll(namespaceImportPattern)].map((match) => match[1] ?? "");
+
+  for (const match of source.matchAll(namedImportPattern)) {
+    for (const specifier of match[1]
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean)) {
+      const [importedName, localName = importedName] = specifier.split(/\s+as\s+/).map((entry) => entry.trim());
+      const existing = named.get(importedName) ?? [];
+
+      existing.push(localName);
+      named.set(importedName, existing);
+    }
+  }
+
+  return { named, namespaces };
 }
 
-function countIdentifierReferences(source: string, identifier: string) {
-  return [...source.matchAll(new RegExp(`\\b${escapeForRegExp(identifier)}\\b`, "g"))].length;
+function getCanonicalSchemaReferences(
+  importBindings: CanonicalImportBindings,
+  exportedSchemaName: string,
+) {
+  return [
+    ...(importBindings.named.get(exportedSchemaName) ?? []),
+    ...importBindings.namespaces.map((namespaceImport) => `${namespaceImport}.${exportedSchemaName}`),
+  ];
 }
 
-function collectLocalSettingsSchemaDeclarations(source: string) {
-  const localSchemaPattern =
-    /^const\s+((?:\w*Provider\w*Schema|\w*ModelDefault\w*Schema|\w*Budget\w*Schema|AppSettings\w*Schema))\s*=/gm;
+function extractParseTarget(source: string, methodName: string) {
+  const parsePattern = new RegExp(
+    `${methodName}:\\s*async[\\s\\S]*?return\\s+([^;]+?)\\.parse\\(res\\);`,
+    "m",
+  );
+  const match = source.match(parsePattern);
 
-  return [...source.matchAll(localSchemaPattern)].map((match) => match[1] ?? "");
+  return match?.[1]?.trim() ?? null;
+}
+
+function collectLocalZObjectConstructions(source: string): LocalSchemaConstruction[] {
+  const constructions: LocalSchemaConstruction[] = [];
+  const constructionPattern = /^const\s+(\w+)\s*=\s*(?:\w+)\.object\s*\(\s*\{/gm;
+
+  for (const match of source.matchAll(constructionPattern)) {
+    const [matchedText, binding] = match;
+    const startIndex = match.index ?? 0;
+    const bodyStart = startIndex + matchedText.lastIndexOf("{");
+    let depth = 0;
+    let bodyEnd = -1;
+
+    for (let index = bodyStart; index < source.length; index += 1) {
+      const char = source[index];
+
+      if (char === "{") {
+        depth += 1;
+        continue;
+      }
+
+      if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          bodyEnd = index;
+          break;
+        }
+      }
+    }
+
+    if (bodyEnd === -1) {
+      continue;
+    }
+
+    const statementEnd = source.indexOf(";", bodyEnd);
+    const statement = source.slice(startIndex, statementEnd === -1 ? source.length : statementEnd + 1);
+
+    constructions.push({
+      binding,
+      body: source.slice(bodyStart + 1, bodyEnd),
+      statement,
+    });
+  }
+
+  return constructions;
+}
+
+function matchesAllPatterns(body: string, patterns: RegExp[]) {
+  return patterns.every((pattern) => pattern.test(body));
+}
+
+function collectLocalConcernBindings(source: string) {
+  const constructions = collectLocalZObjectConstructions(source);
+  const concernDefinitions = [
+    {
+      concern: "provider",
+      fieldPatterns: [/api_key_env\s*:/, /api_key_preview\s*:/, /model_count\s*:/, /is_configured\s*:/],
+    },
+    {
+      concern: "model-default",
+      fieldPatterns: [/provider_id\s*:/, /provider_name\s*:/, /model_name\s*:/, /fallback_chain\s*:/],
+    },
+    {
+      concern: "budget",
+      fieldPatterns: [/\bname\s*:/, /limit_usd\s*:/, /period\s*:/],
+    },
+    {
+      concern: "app-settings",
+      fieldPatterns: [/onboarding_completed\s*:/, /fallback_chain_enabled\s*:/],
+    },
+  ];
+
+  return concernDefinitions.flatMap(({ concern, fieldPatterns }) => {
+    const itemBindings = constructions
+      .filter((construction) => matchesAllPatterns(construction.body, fieldPatterns))
+      .map((construction) => construction.binding);
+    const listBindings = constructions
+      .filter(
+        (construction) =>
+          /items\s*:/.test(construction.body) &&
+          /total\s*:/.test(construction.body) &&
+          itemBindings.some((binding) =>
+            new RegExp(`\\bz\\.array\\(\\s*${escapeForRegExp(binding)}\\s*\\)`).test(construction.statement),
+          ),
+      )
+      .map((construction) => construction.binding);
+
+    return [...itemBindings, ...listBindings].map((binding) => ({ binding, concern }));
+  });
 }
 
 vi.mock("../client", () => ({
@@ -108,41 +230,79 @@ const appSettingsPayload = {
 };
 
 describe("RUN-512 settings API canonical shared contracts", () => {
-  it("imports and references the canonical settings schemas from @runsight/shared/zod", () => {
-    const expectedSchemas = [
-      "SettingsProviderResponseSchema",
-      "SettingsProviderListResponseSchema",
-      "SettingsModelDefaultResponseSchema",
-      "SettingsModelDefaultListResponseSchema",
-      "SettingsBudgetResponseSchema",
-      "SettingsBudgetListResponseSchema",
-      "AppSettingsOutSchema",
+  it("sources settings-surface parse calls from the canonical @runsight/shared/zod path", () => {
+    const importBindings = collectCanonicalImportBindings(settingsSource, "@runsight/shared/zod");
+    const parseExpectations = [
+      { methodName: "listProviders", exportedSchemaName: "SettingsProviderListResponseSchema" },
+      { methodName: "getProvider", exportedSchemaName: "SettingsProviderResponseSchema" },
+      { methodName: "createProvider", exportedSchemaName: "SettingsProviderResponseSchema" },
+      { methodName: "updateProvider", exportedSchemaName: "SettingsProviderResponseSchema" },
+      { methodName: "listModelDefaults", exportedSchemaName: "SettingsModelDefaultListResponseSchema" },
+      { methodName: "updateModelDefault", exportedSchemaName: "SettingsModelDefaultResponseSchema" },
+      { methodName: "getBudgets", exportedSchemaName: "SettingsBudgetListResponseSchema" },
+      { methodName: "createBudget", exportedSchemaName: "SettingsBudgetResponseSchema" },
+      { methodName: "updateBudget", exportedSchemaName: "SettingsBudgetResponseSchema" },
+      { methodName: "getAppSettings", exportedSchemaName: "AppSettingsOutSchema" },
+      { methodName: "updateAppSettings", exportedSchemaName: "AppSettingsOutSchema" },
     ];
-    const importedSchemas = collectImportedSpecifiers(settingsSource, "@runsight/shared/zod");
 
     expect(
-      importedSchemas,
-      `Expected apps/gui/src/api/settings.ts to import the canonical settings transport schemas from @runsight/shared/zod`,
-    ).toEqual(expect.arrayContaining(expectedSchemas));
+      importBindings.named.size > 0 || importBindings.namespaces.length > 0,
+      "Expected apps/gui/src/api/settings.ts to value-import settings schemas from @runsight/shared/zod",
+    ).toBe(true);
 
-    for (const schemaName of expectedSchemas) {
+    for (const { methodName, exportedSchemaName } of parseExpectations) {
+      const canonicalReferences = getCanonicalSchemaReferences(importBindings, exportedSchemaName);
+      const parseTarget = extractParseTarget(settingsSource, methodName);
+
       expect(
-        countIdentifierReferences(settingsSource, schemaName),
-        `Expected apps/gui/src/api/settings.ts to reference ${schemaName} after importing it from @runsight/shared/zod`,
-      ).toBeGreaterThan(1);
+        canonicalReferences.length,
+        `Expected ${exportedSchemaName} to be sourced from @runsight/shared/zod using a named, aliased, or namespace import in apps/gui/src/api/settings.ts`,
+      ).toBeGreaterThan(0);
+      expect(
+        parseTarget,
+        `Expected ${methodName} to parse through a schema sourced from @runsight/shared/zod`,
+      ).toBeTruthy();
+      expect(
+        canonicalReferences,
+        `Expected ${methodName} to parse with a symbol originating from @runsight/shared/zod`,
+      ).toContain(parseTarget);
     }
   });
 
-  it("does not keep GUI-local provider, model-default, budget, or app-settings transport schemas", () => {
-    const localSchemaDeclarations = collectLocalSettingsSchemaDeclarations(settingsSource);
+  it("does not locally construct or parse settings-surface transport schemas in settings.ts", () => {
+    const localConcernBindings = collectLocalConcernBindings(settingsSource);
+    const parseTargetsByMethod = [
+      "listProviders",
+      "getProvider",
+      "createProvider",
+      "updateProvider",
+      "listModelDefaults",
+      "updateModelDefault",
+      "getBudgets",
+      "createBudget",
+      "updateBudget",
+      "getAppSettings",
+      "updateAppSettings",
+    ].map((methodName) => ({
+      methodName,
+      parseTarget: extractParseTarget(settingsSource, methodName),
+    }));
 
     expect(
-      localSchemaDeclarations,
+      localConcernBindings,
       [
-        "Expected apps/gui/src/api/settings.ts to stop declaring GUI-local settings transport schemas once the canonical shared imports exist.",
-        `Found local declarations: ${localSchemaDeclarations.join(", ") || "(none)"}`,
+        "Expected apps/gui/src/api/settings.ts to stop locally constructing provider/model-default/budget/app-settings transport schemas.",
+        `Found local constructions: ${localConcernBindings.map(({ binding, concern }) => `${binding} (${concern})`).join(", ") || "(none)"}`,
       ].join("\n"),
     ).toEqual([]);
+
+    for (const { methodName, parseTarget } of parseTargetsByMethod) {
+      expect(
+        localConcernBindings.map(({ binding }) => binding),
+        `Expected ${methodName} to avoid parsing through a locally constructed settings transport schema`,
+      ).not.toContain(parseTarget);
+    }
   });
 
   const contractCases: SharedContractCase[] = [
