@@ -196,6 +196,7 @@ function renderPage() {
       open?: boolean;
       onOpenChange?: (open: boolean) => void;
       onCommitSuccess?: () => void;
+      onCommitError?: (error: Error) => void;
     },
   };
 }
@@ -291,8 +292,12 @@ describe("CanvasPage save flow (RUN-433)", () => {
     expect(mocks.blocker.proceed).not.toHaveBeenCalled();
 
     modalRender.commitDialog.onCommitSuccess?.();
+    modalRender.commitDialog.onCommitSuccess?.();
 
     expect(mocks.blocker.proceed).toHaveBeenCalledTimes(1);
+
+    const committedRender = renderPage();
+    expect(committedRender.commitDialog.open).toBe(false);
   });
 
   it("keeps the user on the current workflow when the commit dialog is cancelled", () => {
@@ -316,6 +321,31 @@ describe("CanvasPage save flow (RUN-433)", () => {
 
     expect(cancelledRender.topbar.isDirty).toBe(true);
     expect(cancelledRender.commitDialog.open).toBe(false);
+    expect(mocks.blocker.proceed).not.toHaveBeenCalled();
+    expect(mocks.updateWorkflowMutate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the user on the current workflow with unsaved state intact when the commit fails", () => {
+    const firstRender = renderPage();
+    firstRender.yamlEditor.onDirtyChange?.(true);
+    renderPage();
+
+    mocks.blocker.state = "blocked";
+    renderPage();
+
+    const saveAndLeaveButton = findButton("Save & Leave");
+    saveAndLeaveButton?.onClick?.();
+
+    const modalRender = renderPage();
+
+    expect(modalRender.commitDialog.open).toBe(true);
+
+    modalRender.commitDialog.onCommitError?.(new Error("Commit failed"));
+
+    const failedRender = renderPage();
+
+    expect(failedRender.topbar.isDirty).toBe(true);
+    expect(failedRender.commitDialog.open).toBe(true);
     expect(mocks.blocker.proceed).not.toHaveBeenCalled();
     expect(mocks.updateWorkflowMutate).not.toHaveBeenCalled();
   });
