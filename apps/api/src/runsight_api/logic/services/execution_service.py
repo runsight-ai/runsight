@@ -313,31 +313,8 @@ class ExecutionService:
         except Exception:
             logger.exception("Failed to update run %s status to %s", run_id, status)
 
-    def _store_workflow_commit_sha(self, run_id: str, commit_sha: Optional[str]) -> None:
-        """Persist the workflow commit SHA on the Run record."""
-        if self.engine is None:
-            return
-        try:
-            from sqlmodel import Session
-
-            from ...domain.entities.run import Run
-
-            with Session(self.engine) as session:
-                run = session.get(Run, run_id)
-                if run:
-                    run.workflow_commit_sha = commit_sha
-                    run.updated_at = time.time()
-                    session.add(run)
-                    session.commit()
-        except Exception:
-            logger.exception("Failed to store workflow_commit_sha for run %s", run_id)
-
     def _store_branch_and_sha(self, run_id: str, branch: str, commit_sha: Optional[str]) -> None:
-        """Persist branch and commit SHA on the Run record.
-
-        Keep the deprecated workflow_commit_sha field in sync until the
-        backward-compat cleanup removes it.
-        """
+        """Persist branch and the canonical commit SHA on the Run record."""
         if self.engine is None:
             return
         try:
@@ -350,7 +327,6 @@ class ExecutionService:
                 if run:
                     run.branch = branch
                     run.commit_sha = commit_sha
-                    run.workflow_commit_sha = commit_sha
                     run.updated_at = time.time()
                     session.add(run)
                     session.commit()

@@ -181,7 +181,7 @@ class TestGetWorkflowCommitSha:
 class TestLaunchExecutionStoresSha:
     @pytest.mark.asyncio
     async def test_launch_execution_stores_sha_on_run(self):
-        """launch_execution captures workflow commit SHA and stores it on the Run record."""
+        """launch_execution stores the SHA in the canonical commit_sha field."""
         from runsight_api.domain.entities.run import Run, RunStatus
         from runsight_api.logic.services.execution_service import ExecutionService
 
@@ -245,11 +245,12 @@ class TestLaunchExecutionStoresSha:
 
         with Session(db_engine) as session:
             updated = session.get(Run, run_id)
-            assert updated.workflow_commit_sha == fake_sha
+            assert updated.commit_sha == fake_sha
+            assert updated.workflow_commit_sha is None
 
     @pytest.mark.asyncio
     async def test_launch_execution_stores_none_when_no_git(self):
-        """launch_execution stores None for workflow_commit_sha when git is unavailable."""
+        """launch_execution leaves commit fields unset when git is unavailable."""
         from runsight_api.domain.entities.run import Run, RunStatus
         from runsight_api.logic.services.execution_service import ExecutionService
 
@@ -311,4 +312,5 @@ class TestLaunchExecutionStoresSha:
 
         with Session(db_engine) as session:
             updated = session.get(Run, run_id)
+            assert updated.commit_sha is None
             assert updated.workflow_commit_sha is None

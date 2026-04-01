@@ -27,6 +27,9 @@ def _run_response_field(run, field: str, default):
     if field in {"branch", "source"}:
         return value if isinstance(value, str) else default
     if field == "commit_sha":
+        if value is None:
+            legacy_value = getattr(run, "workflow_commit_sha", None)
+            return legacy_value if isinstance(legacy_value, str) else None
         return value if value is None or isinstance(value, str) else None
     return value
 
