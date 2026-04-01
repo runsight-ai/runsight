@@ -1,7 +1,7 @@
-"""Red tests for RUN-127: API key threading through LiteLLMClient, RunsightTeamRunner, and parse_workflow_yaml.
+"""Red tests for RUN-127: API key threading through LiteLLMClient and canonical parser/runner key maps.
 
-These tests verify that an api_key parameter can be threaded from the API layer
-down through the parser -> runner -> LLM client chain.
+These tests verify that direct LiteLLM API keys still thread correctly and that
+runner/parser credential flow now uses canonical provider-key maps.
 """
 
 from unittest.mock import AsyncMock, Mock, patch
@@ -78,41 +78,41 @@ class TestLiteLLMClientApiKey:
 
 
 # ---------------------------------------------------------------------------
-# 2. RunsightTeamRunner accepts and forwards api_key
+# 2. RunsightTeamRunner consumes canonical api_keys maps
 # ---------------------------------------------------------------------------
 
 
-class TestRunnerApiKey:
-    def test_init_accepts_api_key(self):
-        """RunsightTeamRunner.__init__() accepts an optional api_key parameter."""
+class TestRunnerApiKeys:
+    def test_init_accepts_api_keys(self):
+        """RunsightTeamRunner.__init__() accepts canonical provider-key maps."""
         from runsight_core.runner import RunsightTeamRunner
 
-        runner = RunsightTeamRunner(model_name="gpt-4o", api_key="sk-runner-key")
-        assert runner.api_key == "sk-runner-key"
+        runner = RunsightTeamRunner(model_name="gpt-4o", api_keys={"openai": "sk-runner-key"})
+        assert runner.api_keys == {"openai": "sk-runner-key"}
 
-    def test_init_api_key_defaults_to_none(self):
-        """RunsightTeamRunner.__init__() defaults api_key to None."""
+    def test_init_api_keys_defaults_to_none(self):
+        """RunsightTeamRunner.__init__() defaults api_keys to None."""
         from runsight_core.runner import RunsightTeamRunner
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        assert runner.api_key is None
+        assert runner.api_keys is None
 
-    def test_api_key_forwarded_to_llm_client(self):
-        """RunsightTeamRunner passes api_key to its LiteLLMClient instance."""
+    def test_api_keys_forwarded_to_llm_client(self):
+        """RunsightTeamRunner resolves the default client key from api_keys."""
         from runsight_core.runner import RunsightTeamRunner
 
-        runner = RunsightTeamRunner(model_name="gpt-4o", api_key="sk-forward-test")
+        runner = RunsightTeamRunner(model_name="gpt-4o", api_keys={"openai": "sk-forward-test"})
         assert runner.llm_client.api_key == "sk-forward-test"
 
 
 # ---------------------------------------------------------------------------
-# 3. parse_workflow_yaml accepts and forwards api_key
+# 3. parse_workflow_yaml accepts and forwards api_keys
 # ---------------------------------------------------------------------------
 
 
-class TestParserApiKey:
-    def test_parse_workflow_yaml_accepts_api_key(self):
-        """parse_workflow_yaml() accepts an optional api_key parameter."""
+class TestParserApiKeys:
+    def test_parse_workflow_yaml_accepts_api_keys(self):
+        """parse_workflow_yaml() accepts canonical api_keys."""
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_content = """
@@ -133,12 +133,11 @@ souls:
     system_prompt: You research things.
 config: {}
 """
-        # Should not raise — api_key is an accepted kwarg
-        wf = parse_workflow_yaml(yaml_content, api_key="sk-parse-test")
+        wf = parse_workflow_yaml(yaml_content, api_keys={"openai": "sk-parse-test"})
         assert wf is not None
 
-    def test_api_key_forwarded_to_runner(self):
-        """parse_workflow_yaml passes api_key to the RunsightTeamRunner it creates."""
+    def test_api_keys_forwarded_to_runner(self):
+        """parse_workflow_yaml passes api_keys to the RunsightTeamRunner it creates."""
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_content = """
@@ -162,19 +161,17 @@ config:
             mock_builder = Mock(return_value=mock_block)
             with patch("runsight_core.blocks._registry.get_builder", return_value=mock_builder):
                 try:
-                    parse_workflow_yaml(yaml_content, api_key="sk-fwd-test")
+                    parse_workflow_yaml(yaml_content, api_keys={"openai": "sk-fwd-test"})
                 except Exception:
                     pass  # Validation may fail with mocked runner, that's OK
 
-                # RunsightTeamRunner should have been called with api_key
+                # RunsightTeamRunner should have been called with api_keys
                 MockRunner.assert_called_once()
                 call_kwargs = MockRunner.call_args
-                assert call_kwargs.kwargs.get("api_key") == "sk-fwd-test" or (
-                    len(call_kwargs.args) > 1 and call_kwargs.args[1] == "sk-fwd-test"
-                )
+                assert call_kwargs.kwargs.get("api_keys") == {"openai": "sk-fwd-test"}
 
-    def test_api_key_forwarded_to_recursive_calls(self):
-        """When parse_workflow_yaml recurses for workflow blocks, api_key is forwarded."""
+    def test_api_keys_forwarded_to_recursive_calls(self):
+        """When parse_workflow_yaml recurses for workflow blocks, api_keys is forwarded."""
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         # This test verifies that the api_key parameter is passed in recursive calls
@@ -208,12 +205,12 @@ config: {}
                 parse_workflow_yaml(
                     parent_yaml,
                     workflow_registry=mock_registry,
-                    api_key="sk-recursive-test",
+                    api_keys={"openai": "sk-recursive-test"},
                 )
             except Exception:
                 pass  # May fail for other reasons
 
-            # The recursive call should also receive api_key
+            # The recursive call should also receive api_keys
             if spy.call_count > 1:
                 recursive_call = spy.call_args_list[1]
-                assert recursive_call.kwargs.get("api_key") == "sk-recursive-test"
+                assert recursive_call.kwargs.get("api_keys") == {"openai": "sk-recursive-test"}

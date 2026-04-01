@@ -90,10 +90,12 @@ class TestParserAcceptsApiKeysDict:
             assert "api_keys" in call_kwargs
             assert call_kwargs["api_keys"] == {"openai": "sk-openai", "anthropic": "sk-ant"}
 
-    def test_backward_compat_api_key_string_still_works(self):
-        """Legacy api_key='sk-xxx' still works with parse_workflow_yaml."""
-        wf = parse_workflow_yaml(MINIMAL_WORKFLOW_YAML, api_key="sk-legacy")
-        assert wf is not None
+    def test_parse_workflow_yaml_signature_excludes_api_key(self):
+        """parse_workflow_yaml no longer exposes the legacy api_key parameter."""
+        import inspect
+
+        sig = inspect.signature(parse_workflow_yaml)
+        assert "api_key" not in sig.parameters
 
     def test_multi_soul_workflow_with_api_keys(self):
         """A workflow with souls using different providers parses successfully with api_keys."""
@@ -103,3 +105,16 @@ class TestParserAcceptsApiKeysDict:
         )
         assert wf is not None
         assert wf.name == "multi-soul-test"
+
+    def test_parse_workflow_yaml_rejects_legacy_api_key_kwarg(self):
+        """Passing api_key to parse_workflow_yaml now fails fast at the boundary."""
+        with patch("runsight_core.yaml.parser.RunsightTeamRunner") as MockRunner:
+            MockRunner.return_value = MagicMock()
+            try:
+                parse_workflow_yaml(MINIMAL_WORKFLOW_YAML, api_key="sk-legacy")
+            except TypeError:
+                pass
+            else:
+                raise AssertionError(
+                    "Expected parse_workflow_yaml(..., api_key=...) to raise TypeError"
+                )

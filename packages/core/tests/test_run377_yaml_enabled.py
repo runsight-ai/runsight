@@ -88,7 +88,7 @@ class TestEnabledFieldParser:
               transitions: []
         """)
         # Should not raise — the parser must tolerate the `enabled` key.
-        wf = parse_workflow_yaml(yaml_str, api_key="fake-key")
+        wf = parse_workflow_yaml(yaml_str, api_keys={"openai": "fake-key"})
         assert wf is not None
 
     def test_yaml_without_enabled_parses(self) -> None:
@@ -111,7 +111,7 @@ class TestEnabledFieldParser:
               entry: start
               transitions: []
         """)
-        wf = parse_workflow_yaml(yaml_str, api_key="fake-key")
+        wf = parse_workflow_yaml(yaml_str, api_keys={"openai": "fake-key"})
         assert wf is not None
 
 

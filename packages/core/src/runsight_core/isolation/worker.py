@@ -29,7 +29,7 @@ from runsight_core.llm.client import LiteLLMClient
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.primitives import Soul, Task
-from runsight_core.runner import RunsightTeamRunner
+from runsight_core.runner import RunsightTeamRunner, _detect_provider
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.tools import ToolInstance
 
@@ -65,8 +65,9 @@ def create_llm_client(model_name: str, api_key: str) -> LiteLLMClient:
 
 
 def create_runner(model_name: str, api_key: str) -> RunsightTeamRunner:
-    """Create a RunsightTeamRunner with the given model and API key."""
-    return RunsightTeamRunner(model_name=model_name, api_key=api_key)
+    """Create a RunsightTeamRunner from a single worker key using the canonical provider-key shape."""
+    provider = _detect_provider(model_name)
+    return RunsightTeamRunner(model_name=model_name, api_keys={provider: api_key})
 
 
 def create_tool_stubs(

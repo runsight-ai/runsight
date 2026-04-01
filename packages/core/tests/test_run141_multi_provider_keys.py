@@ -30,11 +30,12 @@ class TestRunnerAcceptsApiKeysDict:
         assert runner.api_keys is None
 
     def test_runner_stores_api_keys_not_api_key(self):
-        """When api_keys is provided, it is stored as api_keys (not the old api_key field)."""
+        """When api_keys is provided, it is stored as api_keys and no legacy api_key attr is exposed."""
         keys = {"openai": "sk-openai", "anthropic": "sk-ant"}
         runner = RunsightTeamRunner(model_name="gpt-4o", api_keys=keys)
         assert hasattr(runner, "api_keys")
         assert runner.api_keys is keys
+        assert not hasattr(runner, "api_key")
 
 
 # ---------------------------------------------------------------------------
@@ -138,40 +139,15 @@ class TestMissingProviderKey:
 
 
 # ---------------------------------------------------------------------------
-# 4. Backward compat: single api_key string still works
+# 4. Legacy single-key runner path is retired
 # ---------------------------------------------------------------------------
 
 
-class TestBackwardCompatSingleApiKey:
-    def test_single_api_key_string_still_accepted(self):
-        """Old-style api_key='sk-xxx' still works for backward compat."""
-        runner = RunsightTeamRunner(model_name="gpt-4o", api_key="sk-legacy-key")
-        soul = Soul(id="s1", role="test", system_prompt="test")
-        client = runner._get_client(soul)
-        assert client.api_key == "sk-legacy-key"
-
-    def test_single_api_key_forwarded_to_override_clients(self):
-        """When using legacy api_key, soul model overrides still get that key."""
-        runner = RunsightTeamRunner(model_name="gpt-4o", api_key="sk-legacy")
-        soul = Soul(
-            id="s1",
-            role="test",
-            system_prompt="test",
-            model_name="claude-3-opus-20240229",
-        )
-        client = runner._get_client(soul)
-        assert client.api_key == "sk-legacy"
-
-    def test_api_keys_dict_takes_precedence_over_api_key(self):
-        """If both api_key and api_keys are provided, api_keys takes precedence."""
-        runner = RunsightTeamRunner(
-            model_name="gpt-4o",
-            api_key="sk-legacy-ignored",
-            api_keys={"openai": "sk-openai-wins"},
-        )
-        soul = Soul(id="s1", role="test", system_prompt="test")
-        client = runner._get_client(soul)
-        assert client.api_key == "sk-openai-wins"
+class TestNoLegacySingleApiKey:
+    def test_single_api_key_kwarg_is_rejected(self):
+        """The runner no longer accepts the legacy api_key kwarg."""
+        with pytest.raises(TypeError):
+            RunsightTeamRunner(model_name="gpt-4o", api_key="sk-legacy-key")
 
 
 # ---------------------------------------------------------------------------

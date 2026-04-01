@@ -48,14 +48,12 @@ class RunsightTeamRunner:
     def __init__(
         self,
         model_name: str = "gpt-4o",
-        api_key: str | None = None,
         api_keys: Optional[Dict[str, str]] = None,
     ):
         self.model_name = model_name
-        self.api_key = api_key
         self.api_keys = api_keys
-        # Resolve the default key for the runner's own model
-        default_key = self._resolve_key_for_model(model_name) if api_keys else api_key
+        # Resolve the default key for the runner's own model when canonical provider keys are available.
+        default_key = self._resolve_key_for_model(model_name) if api_keys else None
         self.llm_client = LiteLLMClient(model_name=model_name, api_key=default_key)
         self._clients: Dict[str, LiteLLMClient] = {}
 
@@ -95,12 +93,12 @@ class RunsightTeamRunner:
                 self._clients[cache_key] = LiteLLMClient(model_name=effective_model, api_key=key)
             return self._clients[cache_key]
 
-        # Legacy single api_key path
         override = soul.model_name
         if override is None or override == self.model_name:
             return self.llm_client
         if override not in self._clients:
-            self._clients[override] = LiteLLMClient(model_name=override, api_key=self.api_key)
+            key = self._resolve_key_for_model(override) if self.api_keys is not None else None
+            self._clients[override] = LiteLLMClient(model_name=override, api_key=key)
         return self._clients[override]
 
     async def execute_task(
