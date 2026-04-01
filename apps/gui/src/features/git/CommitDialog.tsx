@@ -28,6 +28,7 @@ interface CommitDialogProps {
     canvas_state?: Record<string, unknown>;
   };
   onCommitSuccess?: () => void;
+  onCommitError?: (error: Error) => void;
 }
 
 export function CommitDialog({
@@ -37,12 +38,15 @@ export function CommitDialog({
   workflowId,
   draft,
   onCommitSuccess,
+  onCommitError,
 }: CommitDialogProps) {
   const [message, setMessage] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const commitWorkflow = useCommitWorkflow();
 
   function handleSubmit() {
     if (!workflowId || !message.trim()) return;
+    setSubmitError(null);
     commitWorkflow.mutate(
       {
         workflowId,
@@ -52,17 +56,30 @@ export function CommitDialog({
         },
       },
       {
-      onSuccess: () => {
-        setMessage("");
-        onOpenChange(false);
-        onCommitSuccess?.();
-      },
+        onSuccess: () => {
+          setMessage("");
+          setSubmitError(null);
+          onOpenChange(false);
+          onCommitSuccess?.();
+        },
+        onError: (error: Error) => {
+          setSubmitError(error.message);
+          onCommitError?.(error);
+        },
       },
     );
   }
 
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
+      setSubmitError(null);
+    }
+
+    onOpenChange(nextOpen);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Commit Changes</DialogTitle>
@@ -108,9 +125,18 @@ export function CommitDialog({
               onChange={(e) => setMessage(e.target.value)}
             />
           </div>
+
+          {submitError ? (
+            <div
+              role="alert"
+              className="rounded-md border border-danger-7 bg-danger-3 px-3 py-2 text-sm text-danger-11"
+            >
+              {submitError}
+            </div>
+          ) : null}
         </DialogBody>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
           <Button
