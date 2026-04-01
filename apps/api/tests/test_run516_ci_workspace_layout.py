@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -73,6 +74,59 @@ def _pytest_commands() -> list[str]:
     return [command for command in _ci_run_commands() if re.search(r"(^|\s)pytest(\s|$)", command)]
 
 
+def _is_root_scoped_pytest(command: str) -> bool:
+    """Accept pytest only when it has no positional path arguments."""
+    tokens = shlex.split(command.replace("\n", " "))
+
+    try:
+        pytest_index = tokens.index("pytest")
+    except ValueError:
+        return False
+
+    option_takes_value = {
+        "-c",
+        "-k",
+        "-m",
+        "-o",
+        "--basetemp",
+        "--confcutdir",
+        "--deselect",
+        "--durations",
+        "--ignore",
+        "--ignore-glob",
+        "--junitxml",
+        "--log-level",
+        "--maxfail",
+        "--rootdir",
+    }
+
+    expects_value = False
+    positional_args: list[str] = []
+
+    for token in tokens[pytest_index + 1 :]:
+        if expects_value:
+            expects_value = False
+            continue
+
+        if token == "--":
+            positional_args.extend(tokens[pytest_index + 2 :])
+            break
+
+        if token.startswith("--") and "=" in token:
+            continue
+
+        if token in option_takes_value:
+            expects_value = True
+            continue
+
+        if token.startswith("-"):
+            continue
+
+        positional_args.append(token)
+
+    return positional_args == []
+
+
 def _covers_current_python_test_roots(commands: list[str]) -> bool:
     """Accept repo-root pytest or deliberate explicit coverage across commands."""
     mentioned_roots: set[str] = set()
@@ -87,7 +141,7 @@ def _covers_current_python_test_roots(commands: list[str]) -> bool:
             mentioned_roots.add("packages/core/tests")
 
         # Repo-root pytest is valid because pyproject.toml defines both testpaths.
-        if not mentions_api and not mentions_core:
+        if not mentions_api and not mentions_core and _is_root_scoped_pytest(command):
             return True
 
     return mentioned_roots == {"apps/api/tests", "packages/core/tests"}
