@@ -31,7 +31,7 @@ export function RunDetailHeader({ run }: RunDetailHeaderProps) {
 
   const handleOpenWorkflow = useCallback(() => {
     if (run.workflow_id) {
-      navigate(`/workflows/${run.workflow_id}`);
+      navigate(`/workflows/${run.workflow_id}/edit`);
     }
   }, [navigate, run.workflow_id]);
 
