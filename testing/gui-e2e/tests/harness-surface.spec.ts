@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const workspaceDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = path.resolve(workspaceDir, "../..");
 
 function workspacePath(...segments: string[]) {
   return path.join(workspaceDir, ...segments);
@@ -15,6 +16,31 @@ function workspaceFileExists(...segments: string[]) {
 
 function readWorkspaceFile(...segments: string[]) {
   return fs.readFileSync(workspacePath(...segments), "utf8");
+}
+
+function findFilesNamed(rootDir: string, fileName: string, matches: string[] = []) {
+  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
+    if (
+      entry.name === "node_modules" ||
+      entry.name === ".git" ||
+      entry.name === "playwright-report" ||
+      entry.name === "test-results"
+    ) {
+      continue;
+    }
+
+    const fullPath = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      findFilesNamed(fullPath, fileName, matches);
+      continue;
+    }
+
+    if (entry.isFile() && entry.name === fileName) {
+      matches.push(path.relative(repoRoot, fullPath));
+    }
+  }
+
+  return matches;
 }
 
 function hasConfiguredPath(config: string, configKey: string, filePath: string) {
@@ -101,5 +127,22 @@ test.describe("Playwright harness surface", () => {
       .map(([label]) => label);
 
     expect(misleadingClaims).toEqual([]);
+  });
+
+  test("Playwright harness entrypoints do not reappear outside testing/gui-e2e", () => {
+    const harnessEntrypoints = [
+      "global-setup.ts",
+      "global-teardown.ts",
+      "screenshot.cjs",
+      "screenshot-impl.cjs",
+    ];
+
+    const misplacedEntrypoints = harnessEntrypoints.flatMap((fileName) =>
+      findFilesNamed(repoRoot, fileName).filter(
+        (relativePath) => !relativePath.startsWith("testing/gui-e2e/")
+      )
+    );
+
+    expect(misplacedEntrypoints).toEqual([]);
   });
 });
