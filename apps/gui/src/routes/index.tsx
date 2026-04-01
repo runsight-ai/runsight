@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate } from "react-router";
 import { ShellLayout } from "./layouts/ShellLayout";
-import ComponentShowcase from "@/features/dev/ComponentShowcase";
 import { createSetupGuardLoader, createReverseGuardLoader } from "./guards";
 import { queryClient } from "@/lib/queryClient";
 
@@ -85,22 +84,11 @@ export const router = createBrowserRouter([
           })),
       },
       {
-        path: "health",
-        lazy: () =>
-          import("@/features/health/HealthPage").then((m) => ({
-            Component: m.Component,
-          })),
-      },
-      {
         path: "settings",
         lazy: () =>
           import("@/features/settings/SettingsPage").then((m) => ({
             Component: m.Component,
           })),
-      },
-      {
-        path: "test-components",
-        element: <ComponentShowcase />,
       },
       { path: "*", element: <Navigate to="/" replace /> },
     ],
