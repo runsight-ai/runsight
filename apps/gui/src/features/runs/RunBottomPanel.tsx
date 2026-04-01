@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { cn } from "@/utils/helpers";
+import { cn } from "@runsight/ui/utils";
 import { formatTimestamp, formatDuration } from "@/utils/formatting";
 import {
   CheckCircle,

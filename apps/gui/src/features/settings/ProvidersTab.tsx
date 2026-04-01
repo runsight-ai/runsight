@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { AddProviderDialog } from "./AddProviderDialog";
 import type { EditingProvider } from "@/components/provider/ProviderSetup";
-import { cn } from "@/utils/helpers";
+import { cn } from "@runsight/ui/utils";
 import type { Provider } from "@/api/settings";
 
 // Provider icon/logo component

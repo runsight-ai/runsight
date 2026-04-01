@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { Button } from "@runsight/ui/button";
-import { cn } from "@/utils/helpers";
+import { cn } from "@runsight/ui/utils";
 import {
   ChevronLeft,
   ArrowUpRight,

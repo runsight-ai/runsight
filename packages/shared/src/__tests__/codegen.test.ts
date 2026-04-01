@@ -172,20 +172,39 @@ describe("RUN-134: Generated type files exist", () => {
 // ---------------------------------------------------------------------------
 
 describe("RUN-134: Generated types export expected interfaces", () => {
-  // These tests will fail at import time until the files exist
-  it("exports WorkflowResponse type", async () => {
-    const mod = await import("../api");
-    expect(mod).toHaveProperty("components");
+  const apiSource = readFileSync(resolve(GENERATED_DIR, "api.ts"), "utf8");
+
+  it("declares WorkflowResponse in the generated API component namespace", () => {
+    const fields = extractApiComponentFieldNames(apiSource, "WorkflowResponse");
+    expect(fields).toEqual(
+      expect.arrayContaining(["id", "name", "yaml", "valid"]),
+    );
   });
 
-  it("exports RunResponse type", async () => {
-    const mod = await import("../api");
-    expect(mod).toHaveProperty("components");
+  it("declares RunResponse in the generated API component namespace", () => {
+    const fields = extractApiComponentFieldNames(apiSource, "RunResponse");
+    expect(fields).toEqual(
+      expect.arrayContaining(["id", "workflow_id", "status", "created_at"]),
+    );
   });
 
-  it("exports SoulResponse type", async () => {
-    const mod = await import("../api");
-    expect(mod).toHaveProperty("components");
+  it("declares SoulResponse in the generated API component namespace", () => {
+    const fields = extractApiComponentFieldNames(apiSource, "SoulResponse");
+    expect(fields).toEqual(
+      expect.arrayContaining(["id", "role", "system_prompt", "workflow_count"]),
+    );
+  });
+});
+
+describe("RUN-515: generated API wrapper cleanup stays concrete", () => {
+  it("generate-types script does not append a runtime components shim to api.ts", () => {
+    const scriptSource = readFileSync(resolve(REPO_ROOT, "tools", "generate-types.sh"), "utf8");
+    expect(scriptSource).not.toMatch(/export const components\s*=\s*\{\s*\};/);
+  });
+
+  it("committed generated api.ts output does not include a runtime components shim", () => {
+    const apiSource = readFileSync(resolve(GENERATED_DIR, "api.ts"), "utf8");
+    expect(apiSource).not.toMatch(/\bexport const components\s*=\s*\{\s*\};/);
   });
 });
 

@@ -15,9 +15,10 @@ describe("TagInput component file (RUN-446)", () => {
     expect(existsSync(COMPONENT_PATH)).toBe(true);
   });
 
-  it("is automatically exportable as @runsight/ui/tag-input via the package subpath wildcard", () => {
+  it("is publicly reachable as @runsight/ui/tag-input through an explicit retained package export", () => {
     const pkg = readFileSync(PACKAGE_JSON, "utf-8");
-    expect(pkg).toContain('"./*": "./src/components/ui/*.tsx"');
+    expect(pkg).toContain('"./tag-input": "./src/components/ui/tag-input.tsx"');
+    expect(pkg).not.toContain('"./*": "./src/components/ui/*.tsx"');
     expect(existsSync(COMPONENT_PATH)).toBe(true);
   });
 });

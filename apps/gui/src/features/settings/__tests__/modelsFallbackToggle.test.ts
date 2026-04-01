@@ -76,6 +76,8 @@ describe("Fallback chain persistence contracts", () => {
 
   it("declares fallback_chain_enabled in the app settings API schema", () => {
     const source = readSource(SETTINGS_API_PATH);
-    expect(source).toMatch(/fallback_chain_enabled:\s*z\.boolean\(\)\.optional\(\)/);
+    expect(source).toMatch(/AppSettingsOutSchema/);
+    expect(source).toMatch(/from\s+"@runsight\/shared\/zod"/);
+    expect(source).toMatch(/return AppSettingsOutSchema\.parse\(res\);/);
   });
 });

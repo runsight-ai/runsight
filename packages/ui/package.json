@@ -5,8 +5,27 @@
   "type": "module",
   "exports": {
     "./styles.css": "./src/styles/globals.css",
+    "./badge": "./src/components/ui/badge.tsx",
+    "./button": "./src/components/ui/button.tsx",
+    "./card": "./src/components/ui/card.tsx",
+    "./dialog": "./src/components/ui/dialog.tsx",
+    "./dropdown-menu": "./src/components/ui/dropdown-menu.tsx",
     "./empty-state": "./src/components/shared/EmptyState.tsx",
-    "./*": "./src/components/ui/*.tsx"
+    "./input": "./src/components/ui/input.tsx",
+    "./key-value": "./src/components/ui/key-value.tsx",
+    "./label": "./src/components/ui/label.tsx",
+    "./select": "./src/components/ui/select.tsx",
+    "./skeleton": "./src/components/ui/skeleton.tsx",
+    "./slider": "./src/components/ui/slider.tsx",
+    "./stat-card": "./src/components/ui/stat-card.tsx",
+    "./status-dot": "./src/components/ui/status-dot.tsx",
+    "./switch": "./src/components/ui/switch.tsx",
+    "./table": "./src/components/ui/table.tsx",
+    "./tag-input": "./src/components/ui/tag-input.tsx",
+    "./tabs": "./src/components/ui/tabs.tsx",
+    "./textarea": "./src/components/ui/textarea.tsx",
+    "./tooltip": "./src/components/ui/tooltip.tsx",
+    "./utils": "./src/utils/helpers.ts"
   },
   "scripts": {
     "lint": "pnpm --dir ../.. exec eslint packages/ui",

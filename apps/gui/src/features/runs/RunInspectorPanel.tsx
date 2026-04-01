@@ -3,7 +3,7 @@ import type { Node } from "@xyflow/react";
 
 import { Button } from "@runsight/ui/button";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { cn } from "@/utils/helpers";
+import { cn } from "@runsight/ui/utils";
 import { formatDuration } from "@/utils/formatting";
 import { CheckCircle, XCircle, Clock, X } from "lucide-react";
 import type { RunNodeData } from "./RunCanvasNode";

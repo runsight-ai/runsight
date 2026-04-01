@@ -169,6 +169,15 @@ export const ProviderSummarySchema = z.object({
 });
 export type ProviderSummary = z.infer<typeof ProviderSummarySchema>;
 
+export const ProviderTestInSchema = z.object({
+  provider_id: z.string().nullable().optional(),
+  provider_type: z.string().nullable().optional(),
+  name: z.string().nullable().optional(),
+  api_key_env: z.string().nullable().optional(),
+  base_url: z.string().nullable().optional(),
+});
+export type ProviderTestIn = z.infer<typeof ProviderTestInSchema>;
+
 export const ProviderUpdateSchema = z.object({
   name: z.string().nullable().optional(),
   api_key_env: z.string().nullable().optional(),
@@ -234,6 +243,59 @@ export const RunNodeResponseSchema = z.object({
   error: z.string().nullable(),
 });
 export type RunNodeResponse = z.infer<typeof RunNodeResponseSchema>;
+
+export const SettingsBudgetResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  limit_usd: z.number(),
+  spent_usd: z.number(),
+  period: z.string(),
+  reset_at: z.string().nullable().optional(),
+});
+export type SettingsBudgetResponse = z.infer<typeof SettingsBudgetResponseSchema>;
+
+export const SettingsBudgetListResponseSchema = z.object({
+  items: z.array(SettingsBudgetResponseSchema),
+  total: z.number(),
+});
+export type SettingsBudgetListResponse = z.infer<typeof SettingsBudgetListResponseSchema>;
+
+export const SettingsModelDefaultResponseSchema = z.object({
+  id: z.string(),
+  model_name: z.string(),
+  provider_id: z.string(),
+  provider_name: z.string(),
+  fallback_chain: z.array(z.string()).optional(),
+  is_default: z.boolean().optional().default(false),
+});
+export type SettingsModelDefaultResponse = z.infer<typeof SettingsModelDefaultResponseSchema>;
+
+export const SettingsModelDefaultListResponseSchema = z.object({
+  items: z.array(SettingsModelDefaultResponseSchema),
+  total: z.number(),
+});
+export type SettingsModelDefaultListResponse = z.infer<typeof SettingsModelDefaultListResponseSchema>;
+
+export const SettingsProviderResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.string().nullable().optional(),
+  status: z.string(),
+  api_key_env: z.string().nullable().optional(),
+  api_key_preview: z.string().nullable().optional(),
+  base_url: z.string().nullable().optional(),
+  models: z.array(z.string()).optional(),
+  model_count: z.number().optional().default(0),
+  created_at: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
+});
+export type SettingsProviderResponse = z.infer<typeof SettingsProviderResponseSchema>;
+
+export const SettingsProviderListResponseSchema = z.object({
+  items: z.array(SettingsProviderResponseSchema),
+  total: z.number(),
+});
+export type SettingsProviderListResponse = z.infer<typeof SettingsProviderListResponseSchema>;
 
 export const SimBranchRequestSchema = z.object({
   workflow_id: z.string(),
@@ -429,6 +491,18 @@ export const WorkflowCreateSchema = z.object({
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
 });
 export type WorkflowCreate = z.infer<typeof WorkflowCreateSchema>;
+
+export const WorkflowDeleteResponseSchema = z.object({
+  id: z.string(),
+  deleted: z.boolean(),
+  runs_deleted: z.number(),
+});
+export type WorkflowDeleteResponse = z.infer<typeof WorkflowDeleteResponseSchema>;
+
+export const WorkflowEnabledUpdateSchema = z.object({
+  enabled: z.boolean(),
+});
+export type WorkflowEnabledUpdate = z.infer<typeof WorkflowEnabledUpdateSchema>;
 
 export const WorkflowHealthMetricsSchema = z.object({
   run_count: z.number().optional().default(0),

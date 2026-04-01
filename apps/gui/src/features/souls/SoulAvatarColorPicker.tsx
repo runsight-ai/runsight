@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@runsight/ui/utils";
 
 const AVATAR_COLOR_OPTIONS = [
   { value: "accent", swatchClassName: "bg-accent-8" },

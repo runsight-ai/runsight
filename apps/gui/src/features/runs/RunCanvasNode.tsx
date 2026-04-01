@@ -2,7 +2,7 @@ import { memo } from "react";
 import type { NodeTypes } from "@xyflow/react";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { cn } from "@/utils/helpers";
+import { cn } from "@runsight/ui/utils";
 import {
   Server,
   Layers,
