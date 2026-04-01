@@ -199,6 +199,12 @@ souls:
 class TestWorkflowToolGovernanceHelpers:
     """Tool governance must be reusable outside parse_workflow_yaml()."""
 
+    def test_parser_no_longer_exports_user_assignable_bypass_constant(self):
+        """RUN-490: the obsolete direct-assignment bypass constant should be removed entirely."""
+        assert not hasattr(parser_module, "USER_ASSIGNABLE_SOUL_TOOL_SOURCES"), (
+            "Parser still exposes USER_ASSIGNABLE_SOUL_TOOL_SOURCES, leaving the bypass easy to resurrect"
+        )
+
     def test_resolve_soul_tool_definition_only_uses_workflow_tools(self):
         """RUN-490: _resolve_soul_tool_definition must not bypass workflow_tools for built-ins."""
         assert _resolve_soul_tool_definition("runsight/http", {}) is None
