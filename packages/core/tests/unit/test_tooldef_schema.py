@@ -45,11 +45,11 @@ class TestToolDef:
             ToolDef(source="runsight/http")  # type: ignore  # missing type
 
     def test_tooldef_rejects_invalid_type(self):
-        """ToolDef rejects type values other than 'builtin'."""
+        """ToolDef rejects unknown type values."""
         from runsight_core.yaml.schema import ToolDef
 
         with pytest.raises(ValidationError):
-            ToolDef(type="custom", source="runsight/http")
+            ToolDef(type="external", source="runsight/http")
 
     def test_tooldef_type_literal_builtin_only(self):
         """ToolDef type field is Literal['builtin'] — only 'builtin' accepted."""
@@ -86,6 +86,13 @@ class TestToolDefDiscriminatedUnion:
 
         with pytest.raises(ValidationError, match="bogus"):
             ToolDef(type="custom", source="custom/providers/github_tool.py", bogus=True)
+
+    def test_http_tooldef_rejects_unknown_fields(self):
+        """HTTPToolDef should also enforce extra='forbid'."""
+        from runsight_core.yaml.schema import ToolDef
+
+        with pytest.raises(ValidationError, match="bogus"):
+            ToolDef(type="http", source="http_tool", bogus=True)
 
     def test_tooldef_accepts_custom_variant(self):
         """CustomToolDef is accepted by the ToolDef discriminated union."""
