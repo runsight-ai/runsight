@@ -71,17 +71,11 @@ class Run(SQLModel, table=True):
     error: Optional[str] = None
     error_traceback: Optional[str] = None
     cancelled_reason: Optional[str] = None
-    workflow_commit_sha: Optional[str] = None  # DEPRECATED: use commit_sha
     branch: str = Field(default="main")
     source: str = Field(default="manual")
     commit_sha: Optional[str] = Field(default=None)
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
-
-    @property
-    def effective_commit_sha(self) -> Optional[str]:
-        """Return commit_sha if set, else fall back to workflow_commit_sha."""
-        return self.commit_sha if self.commit_sha is not None else self.workflow_commit_sha
 
 
 class RunNode(SQLModel, table=True):
