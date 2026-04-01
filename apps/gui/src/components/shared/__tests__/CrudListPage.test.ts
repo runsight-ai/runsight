@@ -1,182 +1,56 @@
-/**
- * RED-TEAM tests for RUN-242: CrudListPage<T> Generic Component.
- *
- * The CRUD list pages share ~95% identical
- * code — search, create/edit modals, delete confirmation, loading/error/empty
- * states. This ticket extracts the pattern into a config-driven generic
- * CrudListPage<T> and a reusable DeleteConfirmDialog.
- *
- * These tests MUST FAIL until the Green Team implements:
- *  - CrudListPage.tsx: generic config-driven component
- *  - DeleteConfirmDialog.tsx: reusable delete confirmation dialog
- *  - list surfaces refactored to use CrudListPage where they still exist
- *
- * Environment: Vitest + Node (no DOM). Tests verify source code structure only.
- */
-
-import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
+const SRC_DIR = resolve(__dirname, "../../..");
 const SHARED_DIR = resolve(__dirname, "..");
-function readSource(dir: string, filename: string): string {
-  return readFileSync(resolve(dir, filename), "utf-8");
+
+function readSource(relativePath: string): string {
+  return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
 }
 
-function countLines(source: string): number {
-  return source.split("\n").length;
+function sharedFileExists(filename: string): boolean {
+  return existsSync(resolve(SHARED_DIR, filename));
 }
 
-// ---------------------------------------------------------------------------
-// 1. CrudListPage module — exports and structure (AC2-5)
-// ---------------------------------------------------------------------------
-
-describe("CrudListPage module", () => {
-  let source: string;
-
-  it("CrudListPage.tsx exists and is readable", () => {
-    // This will throw if the file doesn't exist, causing the test to fail
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toBeDefined();
-    expect(source.length).toBeGreaterThan(0);
+describe("RUN-511 shared dead leaf cleanup", () => {
+  it("removes dead shared leaf component files from the shipped runtime tree", () => {
+    expect(sharedFileExists("CrudListPage.tsx")).toBe(false);
+    expect(sharedFileExists("NodeBadge.tsx")).toBe(false);
+    expect(sharedFileExists("CostDisplay.tsx")).toBe(false);
   });
 
-  it("exports CrudListPage", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/export\s+(function|const)\s+CrudListPage/);
-  });
+  it("removes stale shared barrel exports tied only to deleted shared leaves", () => {
+    const source = readSource("components/shared/index.ts");
 
-  it("uses a TypeScript generic type parameter", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    // Should have generic syntax like CrudListPage<T> or CrudListPageProps<T>
-    expect(source).toMatch(/<T[\s,>]/);
-  });
-
-  it("defines a config interface with resourceName", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/resourceName\s*[?:]?\s*:\s*string/);
-  });
-
-  it("defines a config interface with columns", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/columns\s*[?:]?\s*:/);
-  });
-
-  it("defines a config interface with useList hook reference", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/useList\s*[?:]?\s*:/);
-  });
-
-  it("defines a config interface with useDelete hook reference", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/useDelete\s*[?:]?\s*:/);
-  });
-
-  it("composes with DataTable component", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/import.*DataTable.*from/);
-  });
-
-  it("composes with PageHeader component", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/import.*PageHeader.*from/);
-  });
-
-  it("composes with EmptyState component", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/import.*EmptyState.*from/);
-  });
-
-  it("has search functionality", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    // Should have search state and filtering logic
-    expect(source).toMatch(/search/i);
-    expect(source).toMatch(/filter/i);
-  });
-
-  it("handles loading state", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/isLoading|loading/i);
-  });
-
-  it("handles error state", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    expect(source).toMatch(/error/i);
-  });
-
-  it("handles empty state", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    // Should render EmptyState when no items
-    expect(source).toMatch(/EmptyState/);
-    expect(source).toMatch(/\.length\s*===\s*0/);
+    expect(source).not.toMatch(/CrudListPage/);
+    expect(source).not.toMatch(/CrudListPageConfig/);
+    expect(source).not.toMatch(/NodeBadge/);
+    expect(source).not.toMatch(/NodeType/);
+    expect(source).not.toMatch(/CostDisplay/);
   });
 });
 
-// ---------------------------------------------------------------------------
-// 2. DeleteConfirmDialog module (AC3)
-// ---------------------------------------------------------------------------
+describe("RUN-511 shared protected boundaries", () => {
+  it("keeps DeleteConfirmDialog available for live workflow and provider screens", () => {
+    expect(sharedFileExists("DeleteConfirmDialog.tsx")).toBe(true);
 
-describe("DeleteConfirmDialog module", () => {
-  let source: string;
+    const workflowsTab = readSource("features/flows/WorkflowsTab.tsx");
+    const providersTab = readSource("features/settings/ProvidersTab.tsx");
 
-  it("DeleteConfirmDialog.tsx exists and is readable", () => {
-    source = readSource(SHARED_DIR, "DeleteConfirmDialog.tsx");
-    expect(source).toBeDefined();
-    expect(source.length).toBeGreaterThan(0);
+    expect(workflowsTab).toMatch(/DeleteConfirmDialog/);
+    expect(providersTab).toMatch(/DeleteConfirmDialog/);
   });
 
-  it("exports DeleteConfirmDialog", () => {
-    source = readSource(SHARED_DIR, "DeleteConfirmDialog.tsx");
-    expect(source).toMatch(/export\s+(function|const)\s+DeleteConfirmDialog/);
-  });
+  it("keeps StatusBadge available for live runs and provider screens", () => {
+    expect(sharedFileExists("StatusBadge.tsx")).toBe(true);
 
-  it("accepts a resourceName prop", () => {
-    source = readSource(SHARED_DIR, "DeleteConfirmDialog.tsx");
-    expect(source).toMatch(/resourceName\s*[?:]?\s*:\s*string/);
-  });
+    const runCanvasNode = readSource("features/runs/RunCanvasNode.tsx");
+    const runInspectorPanel = readSource("features/runs/RunInspectorPanel.tsx");
+    const providersTab = readSource("features/settings/ProvidersTab.tsx");
 
-  it("uses Dialog from shadcn", () => {
-    source = readSource(SHARED_DIR, "DeleteConfirmDialog.tsx");
-    expect(source).toMatch(/import.*Dialog.*from.*["'](@runsight\/ui\/dialog|@\/components\/ui\/dialog)["']/);
-  });
-
-  it("shows confirmation message with resource name", () => {
-    source = readSource(SHARED_DIR, "DeleteConfirmDialog.tsx");
-    // Should interpolate the resource name into a confirmation message
-    expect(source).toMatch(/resourceName|itemName/);
-    expect(source).toMatch(/cannot be undone|are you sure/i);
-  });
-
-  it("has cancel and confirm actions", () => {
-    source = readSource(SHARED_DIR, "DeleteConfirmDialog.tsx");
-    expect(source).toMatch(/Cancel/);
-    expect(source).toMatch(/Delete|Confirm/);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 3. CrudListPage stays reusable instead of binding to a retired sidebar list
-// ---------------------------------------------------------------------------
-
-describe("CrudListPage reuse boundary", () => {
-  let source: string;
-
-  it("does not import retired sidebar CRUD modules", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-
-    expect(source).not.toMatch(/features\/sidebar\//);
-    expect(source).not.toMatch(/SoulList|TaskList|StepList/);
-    expect(source).not.toMatch(/SoulModals|TaskModals|StepModals/);
-  });
-
-  it("stays reasonably small as a shared primitive", () => {
-    source = readSource(SHARED_DIR, "CrudListPage.tsx");
-    const lines = countLines(source);
-
-    expect(lines).toBeLessThanOrEqual(250);
+    expect(runCanvasNode).toMatch(/StatusBadge/);
+    expect(runInspectorPanel).toMatch(/StatusBadge/);
+    expect(providersTab).toMatch(/StatusBadge/);
   });
 });

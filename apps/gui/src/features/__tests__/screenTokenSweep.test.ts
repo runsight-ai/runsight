@@ -196,7 +196,6 @@ function findOldVarRefs(source: string): string[] {
 // ---------------------------------------------------------------------------
 
 const SHARED_COMPONENTS = [
-  "components/shared/CrudListPage.tsx",
   "components/shared/DataTable.tsx",
   "components/shared/DeleteConfirmDialog.tsx",
   "components/shared/ErrorBoundary.tsx",
@@ -229,11 +228,6 @@ const SETTINGS_FEATURES = [
 
 const OTHER_FEATURES = [
   "features/dashboard/DashboardOrOnboarding.tsx",
-  "features/health/HealthPage.tsx",
-];
-
-const WORKFLOW_FEATURES = [
-  "features/workflows/NewWorkflowModal.tsx",
 ];
 
 const LAYOUTS = ["routes/layouts/ShellLayout.tsx"];
@@ -247,10 +241,23 @@ const ALL_FILES = [
   ...RUNS_FEATURES,
   ...SETTINGS_FEATURES,
   ...OTHER_FEATURES,
-  ...WORKFLOW_FEATURES,
   ...LAYOUTS,
   ...UTILITIES,
 ];
+
+describe("RUN-511 dead leaf files are not treated as shipped screens", () => {
+  it("stops tracking deleted dead leaves in the token sweep", () => {
+    expect(SHARED_COMPONENTS).not.toContain("components/shared/CrudListPage.tsx");
+    expect(OTHER_FEATURES).not.toContain("features/health/HealthPage.tsx");
+    expect(ALL_FILES).not.toContain("features/workflows/NewWorkflowModal.tsx");
+  });
+
+  it("keeps protected live files in the token sweep", () => {
+    expect(SHARED_COMPONENTS).toContain("components/shared/DeleteConfirmDialog.tsx");
+    expect(SHARED_COMPONENTS).toContain("components/shared/StatusBadge.tsx");
+    expect(PROVIDER_COMPONENTS).toContain("components/provider/ProviderSetup.tsx");
+  });
+});
 
 // ===========================================================================
 // 1. Tracked screen files exist and are readable
@@ -427,31 +434,7 @@ describe("No old var() refs — other pages", () => {
 });
 
 // ===========================================================================
-// 10. Workflow features — no old tokens
-// ===========================================================================
-
-describe("No old Tailwind tokens — workflows", () => {
-  for (const filePath of WORKFLOW_FEATURES) {
-    it(`${filePath} contains no old shadcn Tailwind class tokens`, () => {
-      const source = readFile(filePath);
-      const found = findOldTailwindTokens(source);
-      expect(found, `Old tokens found: ${found.join(", ")}`).toEqual([]);
-    });
-  }
-});
-
-describe("No old var() refs — workflows", () => {
-  for (const filePath of WORKFLOW_FEATURES) {
-    it(`${filePath} contains no old CSS var() token references`, () => {
-      const source = readFile(filePath);
-      const found = findOldVarRefs(source);
-      expect(found, `Old var() refs found: ${found.join(", ")}`).toEqual([]);
-    });
-  }
-});
-
-// ===========================================================================
-// 11. Layouts — no old tokens
+// 10. Layouts — no old tokens
 // ===========================================================================
 
 describe("No old Tailwind tokens — layouts", () => {
@@ -475,7 +458,7 @@ describe("No old var() refs — layouts", () => {
 });
 
 // ===========================================================================
-// 12. Utilities — no old tokens
+// 11. Utilities — no old tokens
 // ===========================================================================
 
 describe("No old Tailwind tokens — utilities", () => {
@@ -499,7 +482,7 @@ describe("No old var() refs — utilities", () => {
 });
 
 // ===========================================================================
-// 13. Comprehensive cross-file sweep — each old Tailwind token absent in
+// 12. Comprehensive cross-file sweep — each old Tailwind token absent in
 //     ALL 37 files (grouped by token for clear failure messages)
 // ===========================================================================
 
