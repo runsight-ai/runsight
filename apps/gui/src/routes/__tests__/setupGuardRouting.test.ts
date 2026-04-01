@@ -52,6 +52,16 @@ afterEach(() => {
 });
 
 describe("RUN-496 routed setup guard fallback", () => {
+  it("allows protected-route navigation when onboarding_completed is explicitly true", async () => {
+    const { router } = renderGuardRouter("/", async () => ({
+      onboarding_completed: true,
+    }));
+
+    expect(await screen.findByText("Protected app")).toBeTruthy();
+    expect(screen.queryByText("Guard unavailable")).toBeNull();
+    expect(router.state.location.pathname).toBe("/");
+  });
+
   it("redirects protected-route navigation to /setup/unavailable when settings fetch fails", async () => {
     const { router } = renderGuardRouter("/", async () => {
       throw new Error("settings request failed");
@@ -75,6 +85,14 @@ describe("RUN-496 routed setup guard fallback", () => {
 
   it("treats a malformed settings payload as unavailable instead of first-run setup", async () => {
     const { router } = renderGuardRouter("/", async () => ({}));
+
+    expect(await screen.findByText("Guard unavailable")).toBeTruthy();
+    expect(screen.queryByText("Setup start")).toBeNull();
+    expect(router.state.location.pathname).toBe("/setup/unavailable");
+  });
+
+  it("treats a malformed settings payload as unavailable instead of setup-ready on the reverse guard", async () => {
+    const { router } = renderGuardRouter("/setup/start", async () => ({}));
 
     expect(await screen.findByText("Guard unavailable")).toBeTruthy();
     expect(screen.queryByText("Setup start")).toBeNull();
