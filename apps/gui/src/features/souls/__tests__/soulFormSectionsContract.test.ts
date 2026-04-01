@@ -60,7 +60,7 @@ describe("SoulIdentitySection contract (RUN-448)", () => {
 });
 
 describe("SoulModelSection contract (RUN-448)", () => {
-  it("uses configured providers plus the model catalog to drive provider and model selects", () => {
+  it("uses configured providers plus the model catalog to drive provider and model selects without a legacy provider mirror prop", () => {
     const source = read(SECTION_PATHS.model);
     expect(source).toMatch(/export\s+(function|const)\s+SoulModelSection/);
     expect(source).toMatch(/useProviders/);
@@ -68,15 +68,15 @@ describe("SoulModelSection contract (RUN-448)", () => {
     expect(source).toMatch(/Select/);
     expect(source).toMatch(/providerId:\s*string\s*\|\s*null/);
     expect(source).toMatch(/modelId:\s*string\s*\|\s*null/);
-    expect(source).toMatch(/provider:\s*string\s*\|\s*null/);
+    expect(source).not.toMatch(/provider:\s*string\s*\|\s*null/);
     expect(source).toMatch(/onProviderChange/);
     expect(source).toMatch(/onModelChange/);
-    expect(source).toMatch(/type/);
+    expect(source).not.toMatch(/providerSummary\.type/);
   });
 
-  it("filters the models request by provider and shows provider-derived model ids", () => {
+  it("filters the models request by providerId and shows provider-derived model ids", () => {
     const source = read(SECTION_PATHS.model);
-    expect(source).toMatch(/useModelsForProvider\(\s*provider\s*\)/);
+    expect(source).toMatch(/useModelsForProvider\(\s*providerId\s*\)/);
     expect(source).toMatch(/model_id/);
     expect(source).toMatch(/provider_name|name/);
   });
@@ -145,6 +145,7 @@ describe("SoulFormBody composition contract (RUN-448)", () => {
     expect(source).toMatch(/SoulPromptSection/);
     expect(source).toMatch(/SoulToolsSection/);
     expect(source).toMatch(/SoulAdvancedSection/);
+    expect(source).not.toMatch(/setField\("provider",/);
   });
 
   it("threads workflow tool context through to SoulToolsSection for workflow-origin editing", () => {

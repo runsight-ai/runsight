@@ -43,13 +43,13 @@ describe("useSoulForm public shape (RUN-447)", () => {
     expect(source).toMatch(/export\s+(function|const)\s+useSoulForm/);
   });
 
-  it("defines form values for name, avatarColor, providerId, provider, modelId, systemPrompt, tools, temperature, maxTokens, and maxToolIterations", () => {
+  it("defines form values for name, avatarColor, providerId, modelId, systemPrompt, tools, temperature, maxTokens, and maxToolIterations without a legacy provider mirror", () => {
     const source = read(HOOK_PATH);
     expect(source).toMatch(/interface\s+SoulFormValues|type\s+SoulFormValues/);
     expect(source).toMatch(/name:\s*string/);
     expect(source).toMatch(/avatarColor:\s*string/);
     expect(source).toMatch(/providerId:\s*string\s*\|\s*null/);
-    expect(source).toMatch(/provider:\s*string\s*\|\s*null/);
+    expect(source).not.toMatch(/provider:\s*string\s*\|\s*null/);
     expect(source).toMatch(/modelId:\s*string\s*\|\s*null/);
     expect(source).toMatch(/systemPrompt:\s*string/);
     expect(source).toMatch(/tools:\s*string\[\]/);
@@ -77,7 +77,8 @@ describe("useSoulForm behavior contract (RUN-447)", () => {
     expect(source).toMatch(/role:\s*values\.name/);
     expect(source).toMatch(/system_prompt:\s*values\.systemPrompt/);
     expect(source).toMatch(/model_name:\s*values\.modelId/);
-    expect(source).toMatch(/provider:\s*values\.provider/);
+    expect(source).toMatch(/provider:\s*values\.providerId/);
+    expect(source).not.toMatch(/provider:\s*values\.provider\b/);
     expect(source).toMatch(/tools:\s*values\.tools/);
     expect(source).toMatch(/temperature:\s*values\.temperature/);
     expect(source).toMatch(/max_tokens:\s*values\.maxTokens/);
@@ -91,16 +92,16 @@ describe("useSoulForm behavior contract (RUN-447)", () => {
     expect(source).not.toMatch(/max_tool_iterations:\s*[^,\n]*null/);
   });
 
-  it("clears modelId and mirrors provider when provider selection changes", () => {
+  it("clears modelId without maintaining a duplicate provider state when provider selection changes", () => {
     const source = read(HOOK_PATH);
     expect(source).toMatch(/providerId/);
-    expect(source).toMatch(/provider/);
     expect(source).toMatch(/modelId:\s*null|modelId\s*=\s*null/);
+    expect(source).not.toMatch(/provider:\s*value as string \| null/);
   });
 
-  it("prefers soul.provider for edit initialization and still references model-based fallback for legacy souls", () => {
+  it("initializes canonical providerId from soul.provider without carrying a separate provider field", () => {
     const source = read(HOOK_PATH);
     expect(source).toMatch(/soul\.provider/);
-    expect(source).toMatch(/soul\.model_name/);
+    expect(source).not.toMatch(/provider:\s*soul\.provider/);
   });
 });
