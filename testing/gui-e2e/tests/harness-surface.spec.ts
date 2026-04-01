@@ -52,13 +52,6 @@ function hasConfiguredPath(config: string, configKey: string, filePath: string) 
   return configPattern.test(config);
 }
 
-function hasAnyConfiguredPath(config: string, filePath: string) {
-  const escapedPath = filePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const configPattern = new RegExp(`:\\s*["'\`](?:\\./)?${escapedPath}["'\`]`);
-
-  return configPattern.test(config);
-}
-
 test.describe("Playwright harness surface", () => {
   test("global setup and teardown helpers are either wired in Playwright config or removed", () => {
     const config = readWorkspaceFile("playwright.config.ts");
@@ -80,18 +73,12 @@ test.describe("Playwright harness surface", () => {
   });
 
   test("review screenshot helpers do not remain without an active entrypoint", () => {
-    const config = readWorkspaceFile("playwright.config.ts");
-
     const dormantScreenshotHelpers = [
       "scripts/screenshot.cjs",
       "scripts/screenshot-impl.cjs",
     ]
       .filter((file) => workspaceFileExists(file))
-      .filter((file) => !hasAnyConfiguredPath(config, file))
-      .map(
-        (file) =>
-          `${file} exists without a Playwright config reference`
-      );
+      .map((file) => `${file} should be deleted`);
 
     expect(dormantScreenshotHelpers).toEqual([]);
   });
@@ -119,8 +106,7 @@ test.describe("Playwright harness surface", () => {
       [
         "`scripts/`",
         readme.includes("`scripts/`") &&
-          scriptFiles.length > 0 &&
-          scriptFiles.every((file) => !hasAnyConfiguredPath(config, file)),
+          scriptFiles.length > 0,
       ],
     ]
       .filter(([, isMisleading]) => isMisleading)
