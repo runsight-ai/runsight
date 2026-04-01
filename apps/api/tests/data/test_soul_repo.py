@@ -13,6 +13,7 @@ def test_soul_repo():
 
         assert repo.entity_dir.name == "souls"
         assert repo.entity_dir.parent.name == "custom"
+        assert not hasattr(repo, "souls_dir")
 
         # Test create
         created = repo.create(

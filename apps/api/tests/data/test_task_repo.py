@@ -9,6 +9,7 @@ from runsight_api.domain.errors import TaskNotFound
 def test_task_repo():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = TaskRepository(base_path=tmpdir)
+        assert not hasattr(repo, "tasks_dir")
 
         # Test create
         created = repo.create({"id": "test_task", "name": "Test Task"})

@@ -9,6 +9,7 @@ from runsight_api.domain.errors import StepNotFound
 def test_step_repo():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = StepRepository(base_path=tmpdir)
+        assert not hasattr(repo, "steps_dir")
 
         # Test create
         created = repo.create({"id": "test_step", "name": "Test Step"})
