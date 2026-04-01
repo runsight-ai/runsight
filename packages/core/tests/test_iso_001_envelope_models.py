@@ -90,6 +90,9 @@ class TestContextEnvelopeFields:
             max_tool_iterations=5,
         )
         tool = ToolDefEnvelope(
+            source="runsight/file-io",
+            config={"base_dir": "/tmp/workflow"},
+            exits=["done", "error"],
             name="file_io",
             description="Read and write workflow files.",
             parameters={"type": "object", "properties": {"path": {"type": "string"}}},
@@ -149,6 +152,9 @@ class TestContextEnvelopeFields:
         assert isinstance(env.tools, list)
         assert len(env.tools) == 1
         assert isinstance(env.tools[0], ToolDefEnvelope)
+        assert env.tools[0].source == "runsight/file-io"
+        assert env.tools[0].config == {"base_dir": "/tmp/workflow"}
+        assert env.tools[0].exits == ["done", "error"]
         assert env.tools[0].name == "file_io"
         assert env.tools[0].description == "Read and write workflow files."
         assert env.tools[0].parameters == {
@@ -223,6 +229,9 @@ class TestContextEnvelopeRoundTrip:
             ),
             tools=[
                 ToolDefEnvelope(
+                    source="custom/profile_lookup",
+                    config={"timeout_seconds": 15},
+                    exits=["ok"],
                     name="profile_lookup",
                     description="Fetch a profile by id.",
                     parameters={"type": "object", "properties": {"user_id": {"type": "string"}}},
@@ -246,6 +255,13 @@ class TestContextEnvelopeRoundTrip:
         assert restored.soul.id == original.soul.id
         assert restored.soul.model_name == original.soul.model_name
         assert len(restored.tools) == len(original.tools)
+        assert restored.tools[0].source == original.tools[0].source
+        assert restored.tools[0].config == original.tools[0].config
+        assert restored.tools[0].exits == original.tools[0].exits
+        assert restored.tools[0].name == original.tools[0].name
+        assert restored.tools[0].description == original.tools[0].description
+        assert restored.tools[0].parameters == original.tools[0].parameters
+        assert restored.tools[0].tool_type == original.tools[0].tool_type
         assert restored.task.id == original.task.id
         assert restored.scoped_results == original.scoped_results
         assert restored.scoped_shared_memory == original.scoped_shared_memory
