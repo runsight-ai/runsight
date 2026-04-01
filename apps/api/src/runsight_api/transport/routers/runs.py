@@ -94,7 +94,7 @@ def _fetch_paginated_runs(
     source: Optional[List[str]] = None,
     branch: Optional[str] = None,
 ):
-    """Fetch runs with SQL pagination, falling back to in-memory for compatibility."""
+    """Fetch runs with the canonical paginated contract."""
     paginated = run_service.list_runs_paginated
     kwargs = {"offset": offset, "limit": limit, "status": status}
     if "workflow_id" in inspect.signature(paginated).parameters:
@@ -105,10 +105,9 @@ def _fetch_paginated_runs(
     if "branch" in sig.parameters:
         kwargs["branch"] = branch
     result = paginated(**kwargs)
-    if isinstance(result, tuple):
-        return result
-    all_runs = run_service.list_runs()
-    return all_runs, len(all_runs)
+    if not isinstance(result, tuple) or len(result) != 2:
+        raise TypeError("run_service.list_runs_paginated must return (items, total)")
+    return result
 
 
 def _resolve_summaries(run_service: RunService, run_ids: list, raw_batch):
