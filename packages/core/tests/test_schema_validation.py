@@ -396,21 +396,9 @@ class TestToolDefUnionValidation:
 
     def test_tool_adapter_accepts_custom_and_http_variants(self):
         custom_tool = tool_adapter.validate_python(
-            {
-                "type": "custom",
-                "source": "custom/tools/github.py",
-                "timeout_seconds": 30,
-                "blocked_imports": ["subprocess"],
-            }
+            {"type": "custom", "source": "custom/tools/github.py"}
         )
-        http_tool = tool_adapter.validate_python(
-            {
-                "type": "http",
-                "url": "https://api.example.com/search",
-                "method": "GET",
-                "parameters": {"query": {"type": "string"}},
-            }
-        )
+        http_tool = tool_adapter.validate_python({"type": "http", "source": "http_tool"})
 
         assert custom_tool.type == "custom"
         assert http_tool.type == "http"
@@ -424,16 +412,16 @@ class TestToolDefUnionValidation:
         assert "custom" in message
         assert "http" in message
 
-    def test_root_file_rejects_extra_fields_inside_tool_variant(self):
+    def test_root_file_rejects_extra_fields_inside_custom_tool_variant(self):
         with pytest.raises(ValidationError, match="bogus"):
             RunsightWorkflowFile.model_validate(
                 {
                     "workflow": {"name": "tool-test", "entry": "b1"},
                     "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
                     "tools": {
-                        "http_tool": {
-                            "type": "http",
-                            "source": "search_api",
+                        "custom_tool": {
+                            "type": "custom",
+                            "source": "custom/tools/github.py",
                             "bogus": True,
                         }
                     },

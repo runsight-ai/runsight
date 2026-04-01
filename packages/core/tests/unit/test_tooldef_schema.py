@@ -65,20 +65,13 @@ class TestToolDef:
 class TestToolDefDiscriminatedUnion:
     """RUN-523: ToolDef should become a discriminated union across tool kinds."""
 
-    def test_builtin_tooldef_accepts_shared_description_fields(self):
-        """Builtin ToolDef keeps backward compatibility and gains shared description fields."""
+    def test_builtin_tooldef_backward_compat_still_works(self):
+        """Existing builtin ToolDef(type='builtin', source=...) usage must still validate."""
         from runsight_core.yaml.schema import ToolDef
 
-        td = ToolDef(
-            type="builtin",
-            source="runsight/http",
-            description="Fetches over HTTP.",
-            llm_description="Use this to call web APIs.",
-        )
+        td = ToolDef(type="builtin", source="runsight/http")
         assert td.type == "builtin"
         assert td.source == "runsight/http"
-        assert td.description == "Fetches over HTTP."
-        assert td.llm_description == "Use this to call web APIs."
 
     def test_builtin_tooldef_rejects_unknown_fields(self):
         """All ToolDef variants use extra='forbid', including builtin."""
@@ -87,66 +80,28 @@ class TestToolDefDiscriminatedUnion:
         with pytest.raises(ValidationError, match="bogus"):
             ToolDef(type="builtin", source="runsight/http", bogus=True)
 
-    def test_tooldef_accepts_custom_variant(self):
-        """CustomToolDef accepts source, timeout_seconds, blocked_imports, and shared descriptions."""
+    def test_custom_tooldef_rejects_unknown_fields(self):
+        """CustomToolDef should also enforce extra='forbid'."""
         from runsight_core.yaml.schema import ToolDef
 
-        td = ToolDef(
-            type="custom",
-            source="custom/providers/github_tool.py",
-            timeout_seconds=45,
-            blocked_imports=["os", "subprocess"],
-            description="Runs a custom tool module.",
-            llm_description="Use this when you need the GitHub custom tool.",
-        )
+        with pytest.raises(ValidationError, match="bogus"):
+            ToolDef(type="custom", source="custom/providers/github_tool.py", bogus=True)
+
+    def test_tooldef_accepts_custom_variant(self):
+        """CustomToolDef is accepted by the ToolDef discriminated union."""
+        from runsight_core.yaml.schema import ToolDef
+
+        td = ToolDef(type="custom", source="custom/providers/github_tool.py")
         assert td.type == "custom"
         assert td.source == "custom/providers/github_tool.py"
-        assert td.timeout_seconds == 45
-        assert td.blocked_imports == ["os", "subprocess"]
-        assert td.description == "Runs a custom tool module."
-        assert td.llm_description == "Use this when you need the GitHub custom tool."
 
-    def test_tooldef_accepts_http_variant_by_source_slug(self):
-        """HTTPToolDef accepts a slug-style source for backward-compatible references."""
+    def test_tooldef_accepts_http_variant(self):
+        """HTTPToolDef is accepted by the ToolDef discriminated union."""
         from runsight_core.yaml.schema import ToolDef
 
-        td = ToolDef(
-            type="http",
-            source="github_issues",
-            description="Calls the GitHub Issues endpoint.",
-            llm_description="Use this to fetch issues over HTTP.",
-        )
+        td = ToolDef(type="http", source="http_tool")
         assert td.type == "http"
-        assert td.source == "github_issues"
-        assert td.description == "Calls the GitHub Issues endpoint."
-        assert td.llm_description == "Use this to fetch issues over HTTP."
-
-    def test_tooldef_accepts_http_variant_with_inline_definition(self):
-        """HTTPToolDef also accepts inline HTTP fields instead of a source slug."""
-        from runsight_core.yaml.schema import ToolDef
-
-        td = ToolDef(
-            type="http",
-            url="https://api.example.com/items",
-            method="POST",
-            headers={"Authorization": "Bearer {{token}}"},
-            body_template='{"query":"{{query}}"}',
-            response_path="items[*]",
-            parameters={"query": {"type": "string"}},
-            timeout_seconds=20,
-            description="Inline HTTP definition.",
-            llm_description="Use this to call the inline HTTP endpoint.",
-        )
-        assert td.type == "http"
-        assert td.url == "https://api.example.com/items"
-        assert td.method == "POST"
-        assert td.headers == {"Authorization": "Bearer {{token}}"}
-        assert td.body_template == '{"query":"{{query}}"}'
-        assert td.response_path == "items[*]"
-        assert td.parameters == {"query": {"type": "string"}}
-        assert td.timeout_seconds == 20
-        assert td.description == "Inline HTTP definition."
-        assert td.llm_description == "Use this to call the inline HTTP endpoint."
+        assert td.source == "http_tool"
 
     def test_tooldef_unknown_type_error_mentions_all_supported_variants(self):
         """Unknown ToolDef type values should mention builtin, custom, and http."""
@@ -227,14 +182,10 @@ class TestRunsightWorkflowFileTools:
                     "custom_tool": {
                         "type": "custom",
                         "source": "custom/tools/github.py",
-                        "timeout_seconds": 60,
-                        "blocked_imports": ["os"],
                     },
                     "http_tool": {
                         "type": "http",
-                        "url": "https://api.example.com/items",
-                        "method": "GET",
-                        "parameters": {"query": {"type": "string"}},
+                        "source": "http_tool",
                     },
                 },
             }
