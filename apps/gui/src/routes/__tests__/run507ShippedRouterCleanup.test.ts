@@ -94,6 +94,23 @@ describe("RUN-507 shipped router route contract", () => {
   });
 });
 
+describe("RUN-507 shipped navigation contract", () => {
+  const shellLayoutSource = readFileSync(
+    resolve(__dirname, "..", "layouts", "ShellLayout.tsx"),
+    "utf-8",
+  );
+
+  it("keeps the product shell navigation free of /health links", () => {
+    expect(shellLayoutSource).not.toMatch(/to:\s*["']\/health["']/);
+    expect(shellLayoutSource).not.toMatch(/label:\s*["']Health["']/);
+  });
+
+  it("keeps the product shell navigation free of /test-components links", () => {
+    expect(shellLayoutSource).not.toMatch(/to:\s*["']\/test-components["']/);
+    expect(shellLayoutSource).not.toMatch(/label:\s*["'](?:Test Components|Component Showcase)["']/);
+  });
+});
+
 describe("RUN-507 retired route behavior", () => {
   it("keeps /setup/start reachable for onboarding", async () => {
     await renderAppAt("/setup/start");
