@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from runsight_core.isolation.envelope import (
@@ -133,22 +134,128 @@ class TestWorkerIPCToolStubs:
     def test_worker_creates_tool_stubs_from_envelope(self):
         """Worker converts ToolDefEnvelope list into IPC-backed tool stubs."""
         from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.tools import ToolInstance
 
         tool_defs = [
-            ToolDefEnvelope(source="http", config={"url": "https://example.com"}, exits=["done"]),
+            ToolDefEnvelope(
+                source="http",
+                config={"url": "https://example.com"},
+                exits=["done"],
+                name="http_lookup",
+                description="Look up a URL",
+                parameters={"type": "object", "properties": {"url": {"type": "string"}}},
+                tool_type="http",
+            ),
         ]
         stubs = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")
         assert len(stubs) == 1
+        assert isinstance(stubs[0], ToolInstance)
 
     def test_tool_stubs_are_callable(self):
         """Each tool stub must be callable (used as a tool function)."""
         from runsight_core.isolation.worker import create_tool_stubs
 
         tool_defs = [
-            ToolDefEnvelope(source="http", config={"url": "https://example.com"}, exits=["done"]),
+            ToolDefEnvelope(
+                source="http",
+                config={"url": "https://example.com"},
+                exits=["done"],
+                name="http_lookup",
+                description="Look up a URL",
+                parameters={"type": "object", "properties": {"url": {"type": "string"}}},
+                tool_type="http",
+            ),
         ]
         stubs = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")
-        assert callable(stubs[0])
+        assert callable(stubs[0].execute)
+
+    def test_tool_stub_openai_schema_comes_from_envelope_metadata(self):
+        """Stub to_openai_schema should use name/description/parameters from ToolDefEnvelope."""
+        from runsight_core.isolation.worker import create_tool_stubs
+
+        tool_defs = [
+            ToolDefEnvelope(
+                source="custom/echo",
+                config={},
+                exits=["done"],
+                name="echo_tool",
+                description="Echoes a string",
+                parameters={"type": "object", "properties": {"value": {"type": "string"}}},
+                tool_type="custom",
+            )
+        ]
+
+        stub = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")[0]
+        schema = stub.to_openai_schema()
+
+        assert schema == {
+            "type": "function",
+            "function": {
+                "name": "echo_tool",
+                "description": "Echoes a string",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"value": {"type": "string"}},
+                },
+            },
+        }
+
+    @pytest.mark.asyncio
+    async def test_tool_stub_execute_sends_tool_call_request_to_ipc_client(self):
+        """Stub execute() should call IPCClient.request('tool_call', ...) with tool name + args."""
+        from runsight_core.isolation.worker import create_tool_stubs
+
+        tool_defs = [
+            ToolDefEnvelope(
+                source="custom/echo",
+                config={},
+                exits=["done"],
+                name="echo_tool",
+                description="Echoes a string",
+                parameters={"type": "object", "properties": {"value": {"type": "string"}}},
+                tool_type="custom",
+            )
+        ]
+
+        with patch("runsight_core.isolation.ipc.IPCClient") as MockClient:
+            client = MockClient.return_value
+            client.request = AsyncMock(return_value={"output": "echo:hi"})
+
+            stub = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")[0]
+            result = await stub.execute({"value": "hi"})
+
+        client.request.assert_awaited_once_with(
+            "tool_call",
+            name="echo_tool",
+            arguments={"value": "hi"},
+        )
+        assert result == "echo:hi"
+
+    @pytest.mark.asyncio
+    async def test_tool_stub_returns_error_string_on_ipc_error(self):
+        """IPC error payloads should come back as 'Error: ...' strings."""
+        from runsight_core.isolation.worker import create_tool_stubs
+
+        tool_defs = [
+            ToolDefEnvelope(
+                source="custom/echo",
+                config={},
+                exits=["done"],
+                name="echo_tool",
+                description="Echoes a string",
+                parameters={"type": "object", "properties": {"value": {"type": "string"}}},
+                tool_type="custom",
+            )
+        ]
+
+        with patch("runsight_core.isolation.ipc.IPCClient") as MockClient:
+            client = MockClient.return_value
+            client.request = AsyncMock(return_value={"error": "tool failed"})
+
+            stub = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")[0]
+            result = await stub.execute({"value": "hi"})
+
+        assert result == "Error: tool failed"
 
 
 # ==============================================================================
@@ -548,6 +655,31 @@ class TestWorkerSoulReconstruction:
         assert soul.system_prompt == "You test things."
         assert soul.model_name == "gpt-4o"
         assert soul.max_tool_iterations == 5
+
+    def test_reconstruct_soul_attaches_resolved_tools(self):
+        """Worker should attach IPC-backed resolved_tools to the reconstructed Soul."""
+        from runsight_core.isolation.worker import reconstruct_soul
+        from runsight_core.tools import ToolInstance
+
+        soul_env = SoulEnvelope(
+            id="soul_1",
+            role="Tester",
+            system_prompt="You test things.",
+            model_name="gpt-4o",
+            max_tool_iterations=5,
+        )
+        resolved_tools = [
+            ToolInstance(
+                name="echo_tool",
+                description="Echoes a string",
+                parameters={"type": "object", "properties": {"value": {"type": "string"}}},
+                execute=AsyncMock(),
+            )
+        ]
+
+        soul = reconstruct_soul(soul_env, resolved_tools=resolved_tools)
+
+        assert soul.resolved_tools == resolved_tools
 
 
 # ==============================================================================
