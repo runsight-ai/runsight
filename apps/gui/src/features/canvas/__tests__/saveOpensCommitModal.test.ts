@@ -194,6 +194,7 @@ function renderPage() {
     },
     commitDialog: mocks.commitDialogProps.at(-1) as {
       open?: boolean;
+      onOpenChange?: (open: boolean) => void;
       onCommitSuccess?: () => void;
     },
   };
@@ -250,10 +251,12 @@ describe("CanvasPage save flow (RUN-433)", () => {
     expect(cleanRender.topbar.isDirty).toBe(false);
   });
 
-  it("uses the inline workflow save only for Save & Leave when navigation is blocked", () => {
+  it("opens the production commit dialog instead of using the inline workflow update path", () => {
     const firstRender = renderPage();
     firstRender.yamlEditor.onDirtyChange?.(true);
-    renderPage();
+    const dirtyRender = renderPage();
+
+    expect(dirtyRender.commitDialog.open).toBe(false);
 
     mocks.blocker.state = "blocked";
     renderPage();
@@ -264,13 +267,56 @@ describe("CanvasPage save flow (RUN-433)", () => {
 
     saveAndLeaveButton?.onClick?.();
 
-    expect(mocks.updateWorkflowMutate).toHaveBeenCalledWith(
-      {
-        id: "wf_1",
-        data: { yaml: mocks.canvasStoreState.yamlContent },
-      },
-      { onSuccess: expect.any(Function) },
-    );
+    const modalRender = renderPage();
+
+    expect(modalRender.commitDialog.open).toBe(true);
+    expect(mocks.updateWorkflowMutate).not.toHaveBeenCalled();
+    expect(mocks.blocker.proceed).not.toHaveBeenCalled();
+  });
+
+  it("navigates away only after the commit dialog reports a successful save", () => {
+    const firstRender = renderPage();
+    firstRender.yamlEditor.onDirtyChange?.(true);
+    renderPage();
+
+    mocks.blocker.state = "blocked";
+    renderPage();
+
+    const saveAndLeaveButton = findButton("Save & Leave");
+    saveAndLeaveButton?.onClick?.();
+
+    const modalRender = renderPage();
+
+    expect(modalRender.commitDialog.open).toBe(true);
+    expect(mocks.blocker.proceed).not.toHaveBeenCalled();
+
+    modalRender.commitDialog.onCommitSuccess?.();
+
     expect(mocks.blocker.proceed).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the user on the current workflow when the commit dialog is cancelled", () => {
+    const firstRender = renderPage();
+    firstRender.yamlEditor.onDirtyChange?.(true);
+    renderPage();
+
+    mocks.blocker.state = "blocked";
+    renderPage();
+
+    const saveAndLeaveButton = findButton("Save & Leave");
+    saveAndLeaveButton?.onClick?.();
+
+    const modalRender = renderPage();
+
+    expect(modalRender.commitDialog.open).toBe(true);
+
+    modalRender.commitDialog.onOpenChange?.(false);
+
+    const cancelledRender = renderPage();
+
+    expect(cancelledRender.topbar.isDirty).toBe(true);
+    expect(cancelledRender.commitDialog.open).toBe(false);
+    expect(mocks.blocker.proceed).not.toHaveBeenCalled();
+    expect(mocks.updateWorkflowMutate).not.toHaveBeenCalled();
   });
 });
