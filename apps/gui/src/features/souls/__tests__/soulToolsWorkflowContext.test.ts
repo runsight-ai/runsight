@@ -90,10 +90,12 @@ describe("RUN-490 workflow tool context rendering", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /tools/i }));
 
-    expect(screen.getByText("HTTP Requests")).toBeTruthy();
+    const httpToolButton = screen.getByRole("button", { name: /http requests/i });
+
+    expect(httpToolButton).toBeTruthy();
+    expect(httpToolButton.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText("Workspace Files")).toBeTruthy();
     expect(screen.getByText("Report Lookup")).toBeTruthy();
-    expect(screen.getByText("Enabled")).toBeTruthy();
     const customBadge = screen.getByText("Custom");
     expect(customBadge.className).toMatch(/amber|warning/i);
     const workflowBadge = screen.getByText("Not enabled in workflow");
