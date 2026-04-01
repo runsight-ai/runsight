@@ -9,7 +9,6 @@ from ..schemas.workflows import (
     WorkflowCommitResponse,
     WorkflowCreate,
     WorkflowDeleteResponse,
-    WorkflowEnabledUpdate,
     WorkflowListResponse,
     WorkflowResponse,
     WorkflowSimulationCreate,
@@ -57,16 +56,6 @@ async def update_workflow(
 ):
     data = body.model_dump(exclude_unset=True)
     w = service.update_workflow(id, data)
-    return WorkflowResponse(**w.model_dump())
-
-
-@router.patch("/{id}/enabled", response_model=WorkflowResponse)
-async def set_workflow_enabled(
-    id: str,
-    body: WorkflowEnabledUpdate,
-    service: WorkflowService = Depends(get_workflow_service),
-):
-    w = service.set_workflow_enabled(id, body.enabled)
     return WorkflowResponse(**w.model_dump())
 
 

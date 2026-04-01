@@ -691,58 +691,6 @@
         }
       }
     },
-    "/api/workflows/{id}/enabled": {
-      "patch": {
-        "tags": [
-          "Workflows"
-        ],
-        "summary": "Set Workflow Enabled",
-        "operationId": "set_workflow_enabled_api_workflows__id__enabled_patch",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WorkflowEnabledUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorkflowResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/workflows/{id}/commits": {
       "post": {
         "tags": [
@@ -4926,19 +4874,6 @@
           "runs_deleted"
         ],
         "title": "WorkflowDeleteResponse"
-      },
-      "WorkflowEnabledUpdate": {
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "title": "Enabled"
-          }
-        },
-        "type": "object",
-        "required": [
-          "enabled"
-        ],
-        "title": "WorkflowEnabledUpdate"
       },
       "WorkflowHealthMetrics": {
         "properties": {

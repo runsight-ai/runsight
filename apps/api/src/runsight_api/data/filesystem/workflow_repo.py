@@ -28,8 +28,6 @@ from ._utils import atomic_write as _shared_atomic_write
 
 logger = logging.getLogger(__name__)
 
-# Fields that live in the canvas sidecar, not in the YAML file
-_CANVAS_FIELDS = {"canvas_state"}
 # Fields that are API-only metadata, not part of the YAML file content
 _META_FIELDS = {"id", "canvas_state", "yaml"}
 
@@ -53,6 +51,7 @@ class WorkflowRepository:
         self.canvas_dir = self.workflows_dir / ".canvas"
         self.workflows_dir.mkdir(parents=True, exist_ok=True)
         self.canvas_dir.mkdir(parents=True, exist_ok=True)
+        self._materialize_legacy_canvas_workflows()
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -118,13 +117,19 @@ class WorkflowRepository:
     def _canvas_path(self, stem: str) -> Path:
         return self.canvas_dir / f"{stem}.canvas.json"
 
-    def _materialize_orphan_canvas_sidecar(self, stem: str) -> Optional[Path]:
-        """Create a canonical raw-YAML file for a legacy canvas-only workflow once."""
+    def _materialize_legacy_canvas_workflow(self, stem: str) -> Optional[Path]:
+        """Create a canonical raw-YAML file for one legacy canvas-only workflow."""
         yaml_path = self._get_path(stem)
         if yaml_path.exists() or not self._canvas_path(stem).exists():
             return None
         self._atomic_write(yaml_path, "")
         return yaml_path
+
+    def _materialize_legacy_canvas_workflows(self) -> None:
+        """Run the one-time legacy canvas migration into canonical YAML files."""
+        for canvas_file in sorted(self.canvas_dir.glob("*.canvas.json")):
+            stem = canvas_file.name.replace(".canvas.json", "")
+            self._materialize_legacy_canvas_workflow(stem)
 
     @staticmethod
     def _validate_yaml_content(raw_yaml: Optional[str]) -> Tuple[bool, Optional[str]]:
@@ -148,15 +153,6 @@ class WorkflowRepository:
             return False, str(e)
         except Exception as e:
             return False, f"Unexpected validation error: {e}"
-
-    @staticmethod
-    def _extract_yaml_data(data: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract only the fields that belong in the YAML file.
-
-        Removes API-only metadata (id, canvas_state, yaml).
-        Per ADR D3, id is NOT stored in the YAML file.
-        """
-        return {k: v for k, v in data.items() if k not in _META_FIELDS}
 
     def _write_canvas_sidecar(self, stem: str, canvas_state: Any) -> None:
         """Write the canvas sidecar JSON file."""
@@ -235,8 +231,6 @@ class WorkflowRepository:
         Every .yaml file is included — the id is the filename stem (ADR D3).
         """
         workflows: List[WorkflowEntity] = []
-        for canvas_file in sorted(self.canvas_dir.glob("*.canvas.json")):
-            self._materialize_orphan_canvas_sidecar(canvas_file.name.replace(".canvas.json", ""))
         for file in sorted(self.workflows_dir.glob("*.yaml")):
             raw_yaml = ""
             try:
@@ -252,8 +246,6 @@ class WorkflowRepository:
     def get_by_id(self, workflow_id: str) -> Optional[WorkflowEntity]:
         """Retrieve a workflow by its id (= filename stem)."""
         yaml_path = self._get_path(workflow_id)
-        if not yaml_path.exists():
-            yaml_path = self._materialize_orphan_canvas_sidecar(workflow_id) or yaml_path
         if not yaml_path.exists():
             return None
 
@@ -336,7 +328,7 @@ class WorkflowRepository:
     def update(self, workflow_id: str, data: Dict[str, Any]) -> WorkflowEntity:
         """Update an existing workflow file.
 
-        Reads the existing file, merges with new data, and writes back atomically.
+        Writes the provided canonical raw YAML back atomically.
         """
         yaml_path = self._get_path(workflow_id)
         if not yaml_path.exists():
@@ -359,22 +351,6 @@ class WorkflowRepository:
         parsed_data = yaml_mod.safe_load(yaml_content) or {}
         canvas_state = self._read_canvas_sidecar(workflow_id)
         return self._build_entity(parsed_data, workflow_id, canvas_state, raw_yaml=yaml_content)
-
-    def set_enabled(self, workflow_id: str, enabled: bool) -> WorkflowEntity:
-        """Update only the enabled flag in an existing workflow YAML file."""
-        yaml_path = self._get_path(workflow_id)
-        if not yaml_path.exists():
-            raise WorkflowNotFound(f"Workflow {workflow_id} not found")
-
-        with open(yaml_path, "r") as f:
-            data = yaml_mod.safe_load(f) or {}
-
-        data["enabled"] = enabled
-        yaml_content = yaml_mod.safe_dump(data, sort_keys=False, default_flow_style=False)
-        self._atomic_write(yaml_path, yaml_content)
-
-        canvas_state = self._read_canvas_sidecar(workflow_id)
-        return self._build_entity(data, workflow_id, canvas_state, raw_yaml=yaml_content)
 
     def delete(self, workflow_id: str) -> bool:
         """Delete a workflow and its canvas sidecar."""

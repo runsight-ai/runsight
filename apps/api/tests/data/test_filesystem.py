@@ -152,8 +152,9 @@ def test_workflow_list_keeps_malformed_yaml_recoverable():
 
 def test_workflow_list_materializes_orphan_canvas_sidecar_once():
     with tempfile.TemporaryDirectory() as tmpdir:
-        repo = WorkflowRepository(base_path=tmpdir)
-        canvas_path = repo.canvas_dir / "legacy-orphan.canvas.json"
+        workflows_dir = WorkflowRepository(base_path=tmpdir).workflows_dir
+        canvas_dir = workflows_dir / ".canvas"
+        canvas_path = canvas_dir / "legacy-orphan.canvas.json"
         canvas_path.write_text(
             json.dumps(
                 {
@@ -165,6 +166,7 @@ def test_workflow_list_materializes_orphan_canvas_sidecar_once():
                 }
             )
         )
+        repo = WorkflowRepository(base_path=tmpdir)
 
         workflows = repo.list_all()
 
@@ -179,8 +181,9 @@ def test_workflow_list_materializes_orphan_canvas_sidecar_once():
 
 def test_workflow_get_materializes_orphan_canvas_sidecar():
     with tempfile.TemporaryDirectory() as tmpdir:
-        repo = WorkflowRepository(base_path=tmpdir)
-        canvas_path = repo.canvas_dir / "legacy-get.canvas.json"
+        workflows_dir = WorkflowRepository(base_path=tmpdir).workflows_dir
+        canvas_dir = workflows_dir / ".canvas"
+        canvas_path = canvas_dir / "legacy-get.canvas.json"
         canvas_path.write_text(
             json.dumps(
                 {
@@ -192,6 +195,7 @@ def test_workflow_get_materializes_orphan_canvas_sidecar():
                 }
             )
         )
+        repo = WorkflowRepository(base_path=tmpdir)
 
         entity = repo.get_by_id("legacy-get")
 

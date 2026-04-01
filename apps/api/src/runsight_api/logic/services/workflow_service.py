@@ -69,15 +69,6 @@ class WorkflowService:
     def update_workflow(self, id: str, data: Dict[str, Any]) -> WorkflowEntity:
         return self.workflow_repo.update(id, data)
 
-    def set_workflow_enabled(self, id: str, enabled: bool) -> WorkflowEntity:
-        result = self.workflow_repo.set_enabled(id, enabled)
-        action = "Enable" if enabled else "Disable"
-        self._auto_commit(
-            f"{action} workflow: {result.name}",
-            [f"custom/workflows/{result.id}.yaml"],
-        )
-        return result
-
     def commit_workflow(
         self,
         workflow_id: str,

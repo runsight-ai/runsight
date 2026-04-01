@@ -508,11 +508,6 @@ export const WorkflowDeleteResponseSchema = z.object({
 });
 export type WorkflowDeleteResponse = z.infer<typeof WorkflowDeleteResponseSchema>;
 
-export const WorkflowEnabledUpdateSchema = z.object({
-  enabled: z.boolean(),
-});
-export type WorkflowEnabledUpdate = z.infer<typeof WorkflowEnabledUpdateSchema>;
-
 export const WorkflowHealthMetricsSchema = z.object({
   run_count: z.number().optional().default(0),
   eval_pass_pct: z.number().nullable().optional(),

@@ -161,23 +161,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/workflows/{id}/enabled": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Set Workflow Enabled */
-        patch: operations["set_workflow_enabled_api_workflows__id__enabled_patch"];
-        trace?: never;
-    };
     "/api/workflows/{id}/commits": {
         parameters: {
             query?: never;
@@ -1467,11 +1450,6 @@ export interface components {
             /** Runs Deleted */
             runs_deleted: number;
         };
-        /** WorkflowEnabledUpdate */
-        WorkflowEnabledUpdate: {
-            /** Enabled */
-            enabled: boolean;
-        };
         /** WorkflowHealthMetrics */
         WorkflowHealthMetrics: {
             /**
@@ -1996,41 +1974,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkflowDeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    set_workflow_enabled_api_workflows__id__enabled_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WorkflowEnabledUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorkflowResponse"];
                 };
             };
             /** @description Validation Error */
