@@ -113,3 +113,29 @@ def make_file_io_handler(*, base_dir: str) -> Handler:
         return {"error": f"Unknown action_type: {action_type}"}
 
     return _handle
+
+
+# ---------------------------------------------------------------------------
+# Generic tool_call handler
+# ---------------------------------------------------------------------------
+
+
+def make_tool_call_handler(resolved_tools: dict[str, Any]) -> Handler:
+    """Return an IPC handler that dispatches to resolved ToolInstances by name."""
+
+    async def _handle(params: dict[str, Any]) -> dict[str, Any]:
+        tool_name = str(params.get("name", ""))
+        tool_args = params.get("arguments", {})
+
+        tool = resolved_tools.get(tool_name)
+        if tool is None:
+            return {"error": f"Unknown tool: {tool_name}"}
+
+        try:
+            output = await tool.execute(tool_args)
+        except Exception as exc:
+            return {"error": f"Tool '{tool_name}' failed: {exc}"}
+
+        return {"output": output}
+
+    return _handle

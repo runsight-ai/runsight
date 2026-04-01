@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SoulEnvelope(BaseModel):
@@ -24,6 +24,10 @@ class ToolDefEnvelope(BaseModel):
     source: str
     config: dict[str, Any]
     exits: list[str]
+    name: str = ""
+    description: str = ""
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    tool_type: str = ""
 
 
 class TaskEnvelope(BaseModel):
