@@ -1,29 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 
-const settingsSourcePath = resolve(__dirname, "..", "settings.ts");
-const mocks = vi.hoisted(() => ({
+const testState = vi.hoisted(() => ({
+  contractMarker: Symbol("runsight.shared-settings-contract-marker"),
   apiGet: vi.fn(),
   apiPost: vi.fn(),
   apiPut: vi.fn(),
 }));
 
-vi.mock("../client", () => ({
-  api: {
-    get: mocks.apiGet,
-    post: mocks.apiPost,
-    put: mocks.apiPut,
-    delete: vi.fn(),
-  },
-}));
-
-beforeEach(() => {
-  vi.resetModules();
-  mocks.apiGet.mockReset();
-  mocks.apiPost.mockReset();
-  mocks.apiPut.mockReset();
-});
+type ParseableSchema = {
+  parse: (input: unknown) => unknown;
+  transform: (transformer: (parsed: unknown) => unknown) => ParseableSchema;
+};
 
 type SharedContractCase = {
   title: string;
@@ -32,6 +19,107 @@ type SharedContractCase = {
   invoke: (settingsApi: typeof import("../settings").settingsApi) => Promise<unknown>;
   assertResult: (result: unknown) => void;
 };
+
+function isRecord(value: unknown): value is Record<PropertyKey, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isParseableSchema(value: unknown): value is ParseableSchema {
+  return (
+    isRecord(value) &&
+    typeof value.parse === "function" &&
+    typeof value.transform === "function"
+  );
+}
+
+function shouldWrapSharedSchemaExport(name: string, value: unknown): value is ParseableSchema {
+  return /(?:Provider|ModelDefault|Budget|AppSettings).*Schema/i.test(name) && isParseableSchema(value);
+}
+
+function withSharedContractMarker(value: unknown, schemaName: string) {
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  const target = Object.isExtensible(value)
+    ? value
+    : Array.isArray(value)
+      ? [...value]
+      : { ...value };
+  const existingMarker = target[testState.contractMarker];
+  const markerSet = existingMarker instanceof Set ? new Set(existingMarker) : new Set<string>();
+
+  markerSet.add(schemaName);
+  Object.defineProperty(target, testState.contractMarker, {
+    configurable: true,
+    enumerable: false,
+    value: markerSet,
+  });
+
+  return target;
+}
+
+function wrapSharedSchemaExports<TModule extends Record<string, unknown>>(module: TModule): TModule {
+  const wrappedEntries = Object.fromEntries(
+    Object.entries(module).map(([name, value]) => [
+      name,
+      shouldWrapSharedSchemaExport(name, value)
+        ? value.transform((parsed) => withSharedContractMarker(parsed, name))
+        : value,
+    ]),
+  );
+
+  return { ...module, ...wrappedEntries };
+}
+
+function hasSharedContractMarker(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const marker = value[testState.contractMarker];
+  if (marker instanceof Set && marker.size > 0) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => hasSharedContractMarker(item));
+  }
+
+  return Object.values(value).some((item) => hasSharedContractMarker(item));
+}
+
+function expectSharedContractMarker(result: unknown) {
+  expect(hasSharedContractMarker(result)).toBe(true);
+}
+
+vi.mock("../client", () => ({
+  api: {
+    get: testState.apiGet,
+    post: testState.apiPost,
+    put: testState.apiPut,
+    delete: vi.fn(),
+  },
+}));
+
+vi.mock("@runsight/shared/zod", async () => {
+  const actual = await vi.importActual<typeof import("@runsight/shared/zod")>("@runsight/shared/zod");
+
+  return wrapSharedSchemaExports(actual);
+});
+
+vi.mock("@runsight/shared", async () => {
+  const actual = await vi.importActual<typeof import("@runsight/shared")>("@runsight/shared");
+
+  return wrapSharedSchemaExports(actual);
+});
+
+beforeEach(() => {
+  vi.resetModules();
+  testState.apiGet.mockReset();
+  testState.apiPost.mockReset();
+  testState.apiPut.mockReset();
+});
 
 const providerItemPayload = {
   id: "openai",
@@ -77,10 +165,10 @@ const appSettingsPayload = {
 describe("RUN-512 settings API shared contract normalization", () => {
   const contractCases: SharedContractCase[] = [
     {
-      title: "parses provider lists through shared contracts and keeps API response fields that the transport exposes",
+      title: "parses provider lists through shared contracts and preserves provider transport fields",
       payload: { items: [providerItemPayload], total: 1 },
       arrange: (payload) => {
-        mocks.apiGet.mockResolvedValue(payload);
+        testState.apiGet.mockResolvedValue(payload);
       },
       invoke: (settingsApi) => settingsApi.listProviders(),
       assertResult: (result) => {
@@ -96,13 +184,14 @@ describe("RUN-512 settings API shared contract normalization", () => {
             total: 1,
           }),
         );
+        expectSharedContractMarker(result);
       },
     },
     {
       title: "parses getProvider responses through shared contracts and preserves provider transport fields",
       payload: providerItemPayload,
       arrange: (payload) => {
-        mocks.apiGet.mockResolvedValue(payload);
+        testState.apiGet.mockResolvedValue(payload);
       },
       invoke: (settingsApi) => settingsApi.getProvider("openai"),
       assertResult: (result) => {
@@ -113,13 +202,14 @@ describe("RUN-512 settings API shared contract normalization", () => {
             updated_at: providerItemPayload.updated_at,
           }),
         );
+        expectSharedContractMarker(result);
       },
     },
     {
       title: "parses createProvider responses through shared contracts and preserves provider transport fields",
       payload: providerItemPayload,
       arrange: (payload) => {
-        mocks.apiPost.mockResolvedValue(payload);
+        testState.apiPost.mockResolvedValue(payload);
       },
       invoke: (settingsApi) =>
         settingsApi.createProvider({
@@ -135,13 +225,14 @@ describe("RUN-512 settings API shared contract normalization", () => {
             updated_at: providerItemPayload.updated_at,
           }),
         );
+        expectSharedContractMarker(result);
       },
     },
     {
       title: "parses updateProvider responses through shared contracts and preserves provider transport fields",
       payload: providerItemPayload,
       arrange: (payload) => {
-        mocks.apiPut.mockResolvedValue(payload);
+        testState.apiPut.mockResolvedValue(payload);
       },
       invoke: (settingsApi) =>
         settingsApi.updateProvider("openai", {
@@ -157,13 +248,14 @@ describe("RUN-512 settings API shared contract normalization", () => {
             updated_at: providerItemPayload.updated_at,
           }),
         );
+        expectSharedContractMarker(result);
       },
     },
     {
       title: "parses model defaults through shared contracts instead of GUI-local schemas",
       payload: { items: [modelDefaultItemPayload], total: 1 },
       arrange: (payload) => {
-        mocks.apiGet.mockResolvedValue(payload);
+        testState.apiGet.mockResolvedValue(payload);
       },
       invoke: (settingsApi) => settingsApi.listModelDefaults(),
       assertResult: (result) => {
@@ -179,13 +271,14 @@ describe("RUN-512 settings API shared contract normalization", () => {
             total: 1,
           }),
         );
+        expectSharedContractMarker(result);
       },
     },
     {
       title: "parses updateModelDefault responses through shared contracts",
       payload: modelDefaultItemPayload,
       arrange: (payload) => {
-        mocks.apiPut.mockResolvedValue(payload);
+        testState.apiPut.mockResolvedValue(payload);
       },
       invoke: (settingsApi) =>
         settingsApi.updateModelDefault("openai", {
@@ -201,13 +294,14 @@ describe("RUN-512 settings API shared contract normalization", () => {
             fallback_chain: modelDefaultItemPayload.fallback_chain,
           }),
         );
+        expectSharedContractMarker(result);
       },
     },
     {
       title: "parses budgets through shared contracts and preserves spent/reset transport fields",
       payload: { items: [budgetItemPayload], total: 1 },
       arrange: (payload) => {
-        mocks.apiGet.mockResolvedValue(payload);
+        testState.apiGet.mockResolvedValue(payload);
       },
       invoke: (settingsApi) => settingsApi.getBudgets(),
       assertResult: (result) => {
@@ -222,13 +316,14 @@ describe("RUN-512 settings API shared contract normalization", () => {
             total: 1,
           }),
         );
+        expectSharedContractMarker(result);
       },
     },
     {
       title: "parses createBudget responses through shared contracts and preserves spent/reset transport fields",
       payload: budgetItemPayload,
       arrange: (payload) => {
-        mocks.apiPost.mockResolvedValue(payload);
+        testState.apiPost.mockResolvedValue(payload);
       },
       invoke: (settingsApi) =>
         settingsApi.createBudget({
@@ -243,13 +338,14 @@ describe("RUN-512 settings API shared contract normalization", () => {
             reset_at: budgetItemPayload.reset_at,
           }),
         );
+        expectSharedContractMarker(result);
       },
     },
     {
       title: "parses updateBudget responses through shared contracts and preserves spent/reset transport fields",
       payload: budgetItemPayload,
       arrange: (payload) => {
-        mocks.apiPut.mockResolvedValue(payload);
+        testState.apiPut.mockResolvedValue(payload);
       },
       invoke: (settingsApi) =>
         settingsApi.updateBudget("team", {
@@ -264,24 +360,26 @@ describe("RUN-512 settings API shared contract normalization", () => {
             reset_at: budgetItemPayload.reset_at,
           }),
         );
+        expectSharedContractMarker(result);
       },
     },
     {
-      title: "keeps the full app settings surface when reading settings",
+      title: "keeps the full app settings surface when reading settings through shared contracts",
       payload: appSettingsPayload,
       arrange: (payload) => {
-        mocks.apiGet.mockResolvedValue(payload);
+        testState.apiGet.mockResolvedValue(payload);
       },
       invoke: (settingsApi) => settingsApi.getAppSettings(),
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(appSettingsPayload));
+        expectSharedContractMarker(result);
       },
     },
     {
-      title: "keeps the full app settings surface when updating settings",
+      title: "keeps the full app settings surface when updating settings through shared contracts",
       payload: appSettingsPayload,
       arrange: (payload) => {
-        mocks.apiPut.mockResolvedValue(payload);
+        testState.apiPut.mockResolvedValue(payload);
       },
       invoke: (settingsApi) =>
         settingsApi.updateAppSettings({
@@ -290,6 +388,7 @@ describe("RUN-512 settings API shared contract normalization", () => {
         }),
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(appSettingsPayload));
+        expectSharedContractMarker(result);
       },
     },
   ];
@@ -301,16 +400,5 @@ describe("RUN-512 settings API shared contract normalization", () => {
     const result = await invoke(settingsApi);
 
     assertResult(result);
-  });
-});
-
-describe("RUN-512 settings adapter drift guard", () => {
-  it("blocks direct GUI-local settings transport schema definitions while allowing shared-schema composition", () => {
-    const source = readFileSync(settingsSourcePath, "utf-8");
-
-    expect(source).not.toMatch(/const\s+ProviderSchema\s*=\s*z\.object\(/);
-    expect(source).not.toMatch(/const\s+ModelDefaultSchema\s*=\s*z\.object\(/);
-    expect(source).not.toMatch(/const\s+BudgetSchema\s*=\s*z\.object\(/);
-    expect(source).not.toMatch(/const\s+AppSettingsSchema\s*=\s*z\.object\(/);
   });
 });
