@@ -15,6 +15,7 @@ def _make_mock_run(
     branch: str = "feat/run-413",
     source: str = "webhook",
     commit_sha: str | None = "abc123def456",
+    workflow_commit_sha: str | None = None,
 ):
     mock_run = Mock()
     mock_run.id = run_id
@@ -30,6 +31,7 @@ def _make_mock_run(
     mock_run.branch = branch
     mock_run.source = source
     mock_run.commit_sha = commit_sha
+    mock_run.workflow_commit_sha = workflow_commit_sha
     return mock_run
 
 
@@ -109,5 +111,25 @@ def test_runs_get_serializes_commit_sha_as_null_when_unset():
         assert body["branch"] == "main"
         assert body["source"] == "manual"
         assert body["commit_sha"] is None
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_runs_get_uses_legacy_workflow_commit_sha_for_old_records():
+    mock_run = _make_mock_run(
+        run_id="run_413_legacy",
+        branch="main",
+        source="manual",
+        commit_sha=None,
+        workflow_commit_sha="legacysha413",
+    )
+    mock_service = _stub_run_service(mock_run)
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+
+    try:
+        response = client.get("/api/runs/run_413_legacy")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["commit_sha"] == "legacysha413"
     finally:
         app.dependency_overrides.clear()

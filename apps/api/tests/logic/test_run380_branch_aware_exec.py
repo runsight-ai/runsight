@@ -371,6 +371,7 @@ class TestBranchStoredOnRun:
         with Session(db_engine) as session:
             updated = session.get(Run, run_id)
             assert updated.commit_sha == "deadbeef90abcdef"
+            assert updated.workflow_commit_sha is None
 
     @pytest.mark.asyncio
     async def test_main_branch_stored_on_run(self):
