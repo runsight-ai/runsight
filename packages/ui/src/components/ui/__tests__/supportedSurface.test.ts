@@ -35,6 +35,15 @@ function walkFiles(directory: string): string[] {
   });
 }
 
+function isGuiRuntimeSourceFile(filePath: string) {
+  return (
+    /\.(ts|tsx)$/.test(filePath) &&
+    !/\.test\.tsx?$/.test(filePath) &&
+    !/(^|\/)__tests__(\/|$)/.test(filePath) &&
+    !/(^|\/)tests?(\/|$)/.test(filePath)
+  );
+}
+
 function getExportTarget(target: string | { import?: string; default?: string }) {
   if (typeof target === "string") {
     return target;
@@ -58,7 +67,7 @@ function getGuiUiImportSubpaths() {
 
   return new Set(
     walkFiles(GUI_SRC_DIR)
-      .filter((filePath) => /\.(ts|tsx)$/.test(filePath))
+      .filter((filePath) => isGuiRuntimeSourceFile(filePath))
       .flatMap((filePath) => [...readFile(filePath).matchAll(importPattern)].map((match) => `./${match[1]}`)),
   );
 }
