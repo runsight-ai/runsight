@@ -54,7 +54,7 @@ def _tracked_invalid_artifacts() -> list[str]:
             invalid.append(relative_path)
             continue
 
-        if path.suffix in {".bak", ".db", ".pyc", ".pyo", ".pyd"}:
+        if path.suffix in {".bak", ".pyc", ".pyo", ".pyd"}:
             invalid.append(relative_path)
             continue
 
