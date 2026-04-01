@@ -4,15 +4,6 @@ import { ShellLayout } from "./layouts/ShellLayout";
 import { createSetupGuardLoader, createReverseGuardLoader } from "./guards";
 import { queryClient } from "@/lib/queryClient";
 
-const RETIRED_DIRECT_ENTRY_PATHS = new Set(["/health", "/test-components"]);
-
-if (
-  typeof window !== "undefined" &&
-  RETIRED_DIRECT_ENTRY_PATHS.has(window.location.pathname)
-) {
-  window.history.replaceState(null, "", "/");
-}
-
 function LegacyWorkflowEditorRedirect() {
   const { id } = useParams<{ id: string }>();
 
@@ -69,10 +60,6 @@ export const router = createBrowserRouter([
           import("@/features/canvas/CanvasPage").then((m) => ({
             Component: m.Component,
           })),
-      },
-      {
-        path: "workflows",
-        element: <Navigate to="/flows" replace />,
       },
       {
         path: "runs",
