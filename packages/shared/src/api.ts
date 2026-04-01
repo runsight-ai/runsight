@@ -3240,5 +3240,3 @@ export interface operations {
         };
     };
 }
-
-export const components = {};
