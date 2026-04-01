@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useParams, useBlocker } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Layout } from "lucide-react";
 import { CanvasTopbar } from "./CanvasTopbar";
 import { UncommittedBanner } from "./UncommittedBanner";
 import { CanvasStatusBar } from "./CanvasStatusBar";
@@ -9,10 +8,10 @@ import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { FirstTimeTooltip } from "./FirstTimeTooltip";
 import { PaletteSidebar } from "./PaletteSidebar";
 import { ExploreBanner } from "./ExploreBanner";
+import { WorkflowCanvas } from "./WorkflowCanvas";
 import { ProviderModal } from "@/components/provider/ProviderModal";
 import { CommitDialog } from "@/features/git/CommitDialog";
 import { gitApi } from "@/api/git";
-import { EmptyState } from "@runsight/ui/empty-state";
 import { YamlEditor } from "./YamlEditor";
 import { useCreateRun } from "@/queries/runs";
 import { useCanvasStore } from "@/store/canvas";
@@ -164,12 +163,7 @@ export function Component() {
         <ExploreBanner onAddApiKey={() => setApiKeyModalOpen(true)} />
         <UncommittedBanner onCommit={() => setCommitDialogOpen(true)} />
         {activeTab === "canvas" ? (
-          <EmptyState
-            icon={Layout}
-            title="Visual canvas coming soon"
-            description="Switch to YAML to edit your workflow."
-            action={{ label: "Switch to YAML", onClick: () => setActiveTab("yaml") }}
-          />
+          <WorkflowCanvas />
         ) : (
           <div className="flex-1 overflow-hidden">
             <YamlEditor workflowId={id!} onDirtyChange={handleDirtyChange} onValidation={handleValidation} />

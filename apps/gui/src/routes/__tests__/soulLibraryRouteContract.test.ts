@@ -2,7 +2,6 @@ import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  soulListComponent: vi.fn(() => React.createElement("div", null, "SoulList")),
   soulLibraryPageComponent: vi.fn(() => React.createElement("div", null, "SoulLibraryPage")),
   soulFormPageComponent: vi.fn(() => React.createElement("div", null, "SoulFormPage")),
 }));
@@ -17,10 +16,6 @@ vi.mock("react-router", () => ({
       typeof children === "function" ? children({ isActive: false }) : children,
     ),
   Outlet: () => React.createElement("outlet"),
-}));
-
-vi.mock("@/features/sidebar/SoulList", () => ({
-  Component: mocks.soulListComponent,
 }));
 
 vi.mock("@/features/souls/SoulLibraryPage", () => ({
@@ -63,20 +58,22 @@ function findRoute(router: { routes: Array<{ children?: Array<{ path?: string; l
 }
 
 beforeEach(() => {
-  mocks.soulListComponent.mockClear();
   mocks.soulLibraryPageComponent.mockClear();
   mocks.soulFormPageComponent.mockClear();
 });
 
 describe("RUN-452 route wiring", () => {
-  it("routes /souls to SoulLibraryPage instead of the legacy SoulList", async () => {
+  it("routes /souls to SoulLibraryPage without importing the legacy sidebar SoulList", async () => {
     const { router } = await import("../index");
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
 
     const soulsRoute = findRoute(router, "souls");
     const resolved = await soulsRoute.lazy?.();
+    const routesSource = readFileSync(resolve(__dirname, "..", "index.tsx"), "utf-8");
 
     expect(resolved?.Component).toBe(mocks.soulLibraryPageComponent);
-    expect(resolved?.Component).not.toBe(mocks.soulListComponent);
+    expect(routesSource).not.toMatch(/features\/sidebar\/SoulList/);
   });
 
   it("keeps /souls/new and /souls/:id/edit wired to SoulFormPage", async () => {

@@ -1,7 +1,7 @@
 /**
  * RED-TEAM tests for RUN-296: Screen Token Reference Sweep.
  *
- * Validates that all 37 non-UI-component files in apps/gui/src/ have been
+ * Validates that the shipped non-UI-component files in apps/gui/src/ have been
  * updated to use the Runsight Product Design System token names. Tests read
  * each file as a string and assert:
  *   1. No OLD shadcn token class names or var() references remain
@@ -11,7 +11,7 @@
  * Excludes: components/ui/ (done in RUN-295), __tests__/ dirs.
  *
  * Expected failures (current state):
- *   - All 37 files still reference old shadcn/custom token names
+ *   - Some shipped files still reference old shadcn/custom token names
  *
  * Standard Tailwind class mapping (same as RUN-295):
  *   bg-background        -> bg-surface-primary
@@ -196,7 +196,6 @@ function findOldVarRefs(source: string): string[] {
 // ---------------------------------------------------------------------------
 
 const SHARED_COMPONENTS = [
-  "components/shared/CrudListPage.tsx",
   "components/shared/DataTable.tsx",
   "components/shared/DeleteConfirmDialog.tsx",
   "components/shared/ErrorBoundary.tsx",
@@ -205,13 +204,6 @@ const SHARED_COMPONENTS = [
 ];
 
 const PROVIDER_COMPONENTS = ["components/provider/ProviderSetup.tsx"];
-
-const SIDEBAR_FEATURES = [
-  "features/sidebar/StepModals.tsx",
-  "features/sidebar/SoulList.tsx",
-  "features/sidebar/SoulModals.tsx",
-  "features/sidebar/TaskModals.tsx",
-];
 
 const CANVAS_FEATURES = [
   "features/canvas/WorkflowCanvas.tsx",
@@ -236,11 +228,6 @@ const SETTINGS_FEATURES = [
 
 const OTHER_FEATURES = [
   "features/dashboard/DashboardOrOnboarding.tsx",
-  "features/health/HealthPage.tsx",
-];
-
-const WORKFLOW_FEATURES = [
-  "features/workflows/NewWorkflowModal.tsx",
 ];
 
 const LAYOUTS = ["routes/layouts/ShellLayout.tsx"];
@@ -250,15 +237,27 @@ const UTILITIES = ["utils/icons.tsx"];
 const ALL_FILES = [
   ...SHARED_COMPONENTS,
   ...PROVIDER_COMPONENTS,
-  ...SIDEBAR_FEATURES,
   ...CANVAS_FEATURES,
   ...RUNS_FEATURES,
   ...SETTINGS_FEATURES,
   ...OTHER_FEATURES,
-  ...WORKFLOW_FEATURES,
   ...LAYOUTS,
   ...UTILITIES,
 ];
+
+describe("RUN-511 dead leaf files are not treated as shipped screens", () => {
+  it("stops tracking deleted dead leaves in the token sweep", () => {
+    expect(SHARED_COMPONENTS).not.toContain("components/shared/CrudListPage.tsx");
+    expect(OTHER_FEATURES).not.toContain("features/health/HealthPage.tsx");
+    expect(ALL_FILES).not.toContain("features/workflows/NewWorkflowModal.tsx");
+  });
+
+  it("keeps protected live files in the token sweep", () => {
+    expect(SHARED_COMPONENTS).toContain("components/shared/DeleteConfirmDialog.tsx");
+    expect(SHARED_COMPONENTS).toContain("components/shared/StatusBadge.tsx");
+    expect(PROVIDER_COMPONENTS).toContain("components/provider/ProviderSetup.tsx");
+  });
+});
 
 // ===========================================================================
 // 1. Tracked screen files exist and are readable
@@ -326,27 +325,16 @@ describe("No old var() refs — provider", () => {
 });
 
 // ===========================================================================
-// 5. Sidebar features — no old tokens
+// 5. RUN-508 boundary — retired sidebar files are not part of the sweep
 // ===========================================================================
 
-describe("No old Tailwind tokens — sidebar", () => {
-  for (const filePath of SIDEBAR_FEATURES) {
-    it(`${filePath} contains no old shadcn Tailwind class tokens`, () => {
-      const source = readFile(filePath);
-      const found = findOldTailwindTokens(source);
-      expect(found, `Old tokens found: ${found.join(", ")}`).toEqual([]);
-    });
-  }
-});
-
-describe("No old var() refs — sidebar", () => {
-  for (const filePath of SIDEBAR_FEATURES) {
-    it(`${filePath} contains no old CSS var() token references`, () => {
-      const source = readFile(filePath);
-      const found = findOldVarRefs(source);
-      expect(found, `Old var() refs found: ${found.join(", ")}`).toEqual([]);
-    });
-  }
+describe("RUN-508 retired sidebar boundary", () => {
+  it("does not track retired sidebar CRUD files in the token sweep", () => {
+    expect(ALL_FILES).not.toContain("features/sidebar/SoulList.tsx");
+    expect(ALL_FILES).not.toContain("features/sidebar/SoulModals.tsx");
+    expect(ALL_FILES).not.toContain("features/sidebar/TaskModals.tsx");
+    expect(ALL_FILES).not.toContain("features/sidebar/StepModals.tsx");
+  });
 });
 
 // ===========================================================================
@@ -446,31 +434,7 @@ describe("No old var() refs — other pages", () => {
 });
 
 // ===========================================================================
-// 10. Workflow features — no old tokens
-// ===========================================================================
-
-describe("No old Tailwind tokens — workflows", () => {
-  for (const filePath of WORKFLOW_FEATURES) {
-    it(`${filePath} contains no old shadcn Tailwind class tokens`, () => {
-      const source = readFile(filePath);
-      const found = findOldTailwindTokens(source);
-      expect(found, `Old tokens found: ${found.join(", ")}`).toEqual([]);
-    });
-  }
-});
-
-describe("No old var() refs — workflows", () => {
-  for (const filePath of WORKFLOW_FEATURES) {
-    it(`${filePath} contains no old CSS var() token references`, () => {
-      const source = readFile(filePath);
-      const found = findOldVarRefs(source);
-      expect(found, `Old var() refs found: ${found.join(", ")}`).toEqual([]);
-    });
-  }
-});
-
-// ===========================================================================
-// 11. Layouts — no old tokens
+// 10. Layouts — no old tokens
 // ===========================================================================
 
 describe("No old Tailwind tokens — layouts", () => {
@@ -494,7 +458,7 @@ describe("No old var() refs — layouts", () => {
 });
 
 // ===========================================================================
-// 12. Utilities — no old tokens
+// 11. Utilities — no old tokens
 // ===========================================================================
 
 describe("No old Tailwind tokens — utilities", () => {
@@ -518,7 +482,7 @@ describe("No old var() refs — utilities", () => {
 });
 
 // ===========================================================================
-// 13. Comprehensive cross-file sweep — each old Tailwind token absent in
+// 12. Comprehensive cross-file sweep — each old Tailwind token absent in
 //     ALL 37 files (grouped by token for clear failure messages)
 // ===========================================================================
 

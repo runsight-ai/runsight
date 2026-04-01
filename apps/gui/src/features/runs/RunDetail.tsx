@@ -139,8 +139,6 @@ function RunDetailInner() {
       <main className="flex-1 flex flex-col min-w-0">
         <RunDetailHeader
           run={run}
-          totalCostUsd={run.total_cost_usd}
-          totalTokens={run.total_tokens}
         />
         {attentionItems.length > 0 && (
           <div className="border-b border-border-default bg-surface-secondary px-4 py-3">

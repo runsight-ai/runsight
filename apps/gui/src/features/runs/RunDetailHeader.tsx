@@ -5,12 +5,8 @@ import { Button } from "@runsight/ui/button";
 import { cn } from "@/utils/helpers";
 import {
   ChevronLeft,
-  RefreshCw,
-  AlertTriangle,
+  ArrowUpRight,
   DollarSign,
-  ZoomIn,
-  ZoomOut,
-  Maximize,
   Activity,
 } from "lucide-react";
 import type { RunResponse } from "@runsight/shared/zod";
@@ -21,8 +17,6 @@ import type { RunResponse } from "@runsight/shared/zod";
 
 interface RunDetailHeaderProps {
   run: RunResponse;
-  totalCostUsd?: number;
-  totalTokens?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -35,9 +29,9 @@ export function RunDetailHeader({ run }: RunDetailHeaderProps) {
   const isFailed = run.status === "failed" || run.status === "error";
   const isCompleted = run.status === "completed" || run.status === "success";
 
-  const handleRunAgain = useCallback(() => {
+  const handleOpenWorkflow = useCallback(() => {
     if (run.workflow_id) {
-      navigate(`/workflows/${run.workflow_id}`);
+      navigate(`/workflows/${run.workflow_id}/edit`);
     }
   }, [navigate, run.workflow_id]);
 
@@ -61,15 +55,6 @@ export function RunDetailHeader({ run }: RunDetailHeaderProps) {
         </span>
       </div>
 
-      {/* Center: Zoom Controls */}
-      <div className="flex items-center gap-1" role="group" aria-label="Canvas zoom controls">
-        <Button variant="ghost" size="icon-sm" className="w-8 h-8" aria-label="Zoom in"><ZoomIn className="w-4 h-4" /></Button>
-        <span className="text-sm text-[var(--text-muted)] min-w-[50px] text-center">100%</span>
-        <Button variant="ghost" size="icon-sm" className="w-8 h-8" aria-label="Zoom out"><ZoomOut className="w-4 h-4" /></Button>
-        <div className="w-px h-5 bg-[var(--border-default)] mx-1" />
-        <Button variant="ghost" size="icon-sm" className="w-8 h-8" aria-label="Fit to screen" title="Fit to screen"><Maximize className="w-4 h-4" /></Button>
-      </div>
-
       {/* Right: Actions */}
       <div className="flex items-center gap-3">
         <div className="h-6 px-2 rounded bg-[var(--accent-2)] border border-[var(--interactive-default)]/30 flex items-center gap-1.5 text-[11px] font-medium text-[var(--interactive-default)]">
@@ -86,9 +71,15 @@ export function RunDetailHeader({ run }: RunDetailHeaderProps) {
           <span className="text-xs text-[var(--text-muted)]">Tokens</span>
           <span className="font-mono text-sm text-[var(--text-primary)]">{run.total_tokens.toLocaleString()}</span>
         </div>
-        <Button className={cn("h-9 px-4", isFailed ? "bg-[var(--danger-9)] hover:bg-[var(--danger-10)] text-on-accent" : "bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent")} onClick={handleRunAgain}>
-          {isFailed ? (<><AlertTriangle className="w-4 h-4 mr-2" />Retry</>) : (<><RefreshCw className="w-4 h-4 mr-2" />Run Again</>)}
-        </Button>
+        {run.workflow_id ? (
+          <Button
+            className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent"
+            onClick={handleOpenWorkflow}
+          >
+            <ArrowUpRight className="w-4 h-4 mr-2" />
+            Open Workflow
+          </Button>
+        ) : null}
       </div>
     </header>
   );

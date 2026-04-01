@@ -17,7 +17,7 @@ describe("ProvidersTab error state wiring", () => {
     expect(source).toMatch(/const\s*\{\s*data,\s*isLoading,\s*error,\s*refetch\s*\}\s*=\s*useProviders\(\)/);
   });
 
-  it("renders the CrudListPage-style error presentation", () => {
+  it("renders the shared retryable error presentation", () => {
     const source = readSource(PROVIDERS_TAB_PATH);
     expect(source).toMatch(/AlertCircle/);
     expect(source).toMatch(/Failed to load providers/i);
@@ -49,7 +49,7 @@ describe("ModelsTab error state wiring", () => {
     );
   });
 
-  it("renders the CrudListPage-style error presentation", () => {
+  it("renders the shared retryable error presentation", () => {
     const source = readSource(MODELS_TAB_PATH);
     expect(source).toMatch(/AlertCircle/);
     expect(source).toMatch(/Failed to load model defaults/i);
