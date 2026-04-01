@@ -1,7 +1,7 @@
-"""Red tests for RUN-329: Capture workflow commit SHA on Run at execution time.
+"""Red tests for RUN-329: Capture commit SHA on Run at execution time.
 
 Tests cover:
-1. Run model has workflow_commit_sha field (defaults to None)
+1. Run model uses commit_sha only and no longer exposes workflow_commit_sha
 2. SHA captured at execution time via git command
 3. Graceful None when not in a git repo or git not available
 """
@@ -13,13 +13,13 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
 # ---------------------------------------------------------------------------
-# 1. Run model — workflow_commit_sha field
+# 1. Run model — commit_sha only
 # ---------------------------------------------------------------------------
 
 
-class TestRunWorkflowCommitShaField:
-    def test_run_has_workflow_commit_sha_field(self):
-        """Run model has a workflow_commit_sha field."""
+class TestRunCommitShaOnly:
+    def test_run_does_not_expose_workflow_commit_sha_field(self):
+        """Run model no longer exposes a workflow_commit_sha field."""
         from runsight_api.domain.entities.run import Run
 
         run = Run(
@@ -28,10 +28,10 @@ class TestRunWorkflowCommitShaField:
             workflow_name="WF 1",
             task_json='{"instruction": "test"}',
         )
-        assert hasattr(run, "workflow_commit_sha")
+        assert not hasattr(run, "workflow_commit_sha")
 
-    def test_workflow_commit_sha_defaults_to_none(self):
-        """workflow_commit_sha defaults to None when not provided."""
+    def test_run_does_not_expose_effective_commit_sha_accessor(self):
+        """Run model no longer exposes a fallback effective_commit_sha accessor."""
         from runsight_api.domain.entities.run import Run
 
         run = Run(
@@ -40,10 +40,10 @@ class TestRunWorkflowCommitShaField:
             workflow_name="WF 1",
             task_json='{"instruction": "test"}',
         )
-        assert run.workflow_commit_sha is None
+        assert not hasattr(run, "effective_commit_sha")
 
-    def test_workflow_commit_sha_accepts_string(self):
-        """workflow_commit_sha can be set to a string (SHA hash)."""
+    def test_commit_sha_accepts_string(self):
+        """commit_sha can be set to a string (SHA hash)."""
         from runsight_api.domain.entities.run import Run
 
         sha = "abc123def456789012345678901234567890abcd"
@@ -52,12 +52,12 @@ class TestRunWorkflowCommitShaField:
             workflow_id="wf-1",
             workflow_name="WF 1",
             task_json='{"instruction": "test"}',
-            workflow_commit_sha=sha,
+            commit_sha=sha,
         )
-        assert run.workflow_commit_sha == sha
+        assert run.commit_sha == sha
 
-    def test_workflow_commit_sha_persists_in_db(self):
-        """workflow_commit_sha is stored and retrieved from the database."""
+    def test_commit_sha_persists_in_db(self):
+        """commit_sha is stored and retrieved from the database."""
         from runsight_api.domain.entities.run import Run
 
         engine = create_engine("sqlite:///:memory:")
@@ -70,17 +70,17 @@ class TestRunWorkflowCommitShaField:
                 workflow_id="wf-1",
                 workflow_name="WF 1",
                 task_json='{"instruction": "test"}',
-                workflow_commit_sha=sha,
+                commit_sha=sha,
             )
             session.add(run)
             session.commit()
 
         with Session(engine) as session:
             loaded = session.get(Run, "run-sha-db")
-            assert loaded.workflow_commit_sha == sha
+            assert loaded.commit_sha == sha
 
-    def test_workflow_commit_sha_none_persists_in_db(self):
-        """workflow_commit_sha=None round-trips through the database."""
+    def test_commit_sha_none_persists_in_db_without_legacy_field(self):
+        """commit_sha=None round-trips through the database without legacy fields."""
         from runsight_api.domain.entities.run import Run
 
         engine = create_engine("sqlite:///:memory:")
@@ -98,7 +98,8 @@ class TestRunWorkflowCommitShaField:
 
         with Session(engine) as session:
             loaded = session.get(Run, "run-sha-none")
-            assert loaded.workflow_commit_sha is None
+            assert loaded.commit_sha is None
+            assert not hasattr(loaded, "workflow_commit_sha")
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +182,7 @@ class TestGetWorkflowCommitSha:
 class TestLaunchExecutionStoresSha:
     @pytest.mark.asyncio
     async def test_launch_execution_stores_sha_on_run(self):
-        """launch_execution stores the SHA in the canonical commit_sha field."""
+        """launch_execution stores the SHA in the canonical commit_sha field only."""
         from runsight_api.domain.entities.run import Run, RunStatus
         from runsight_api.logic.services.execution_service import ExecutionService
 
@@ -246,11 +247,12 @@ class TestLaunchExecutionStoresSha:
         with Session(db_engine) as session:
             updated = session.get(Run, run_id)
             assert updated.commit_sha == fake_sha
-            assert updated.workflow_commit_sha is None
+            assert not hasattr(updated, "workflow_commit_sha")
+            assert not hasattr(updated, "effective_commit_sha")
 
     @pytest.mark.asyncio
     async def test_launch_execution_stores_none_when_no_git(self):
-        """launch_execution leaves commit fields unset when git is unavailable."""
+        """launch_execution leaves commit_sha unset and exposes no legacy fields when git is unavailable."""
         from runsight_api.domain.entities.run import Run, RunStatus
         from runsight_api.logic.services.execution_service import ExecutionService
 
@@ -313,4 +315,5 @@ class TestLaunchExecutionStoresSha:
         with Session(db_engine) as session:
             updated = session.get(Run, run_id)
             assert updated.commit_sha is None
-            assert updated.workflow_commit_sha is None
+            assert not hasattr(updated, "workflow_commit_sha")
+            assert not hasattr(updated, "effective_commit_sha")
