@@ -161,6 +161,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workflows/{id}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set Workflow Enabled */
+        patch: operations["set_workflow_enabled_api_workflows__id__enabled_patch"];
+        trace?: never;
+    };
     "/api/workflows/{id}/commits": {
         parameters: {
             query?: never;
@@ -371,6 +388,23 @@ export interface paths {
         put?: never;
         /** Test Provider */
         post: operations["test_provider_api_settings_providers__provider_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/providers/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Provider Credentials */
+        post: operations["test_provider_credentials_api_settings_providers_test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -878,6 +912,19 @@ export interface components {
              */
             is_configured: boolean;
         };
+        /** ProviderTestIn */
+        ProviderTestIn: {
+            /** Provider Id */
+            provider_id?: string | null;
+            /** Provider Type */
+            provider_type?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Api Key Env */
+            api_key_env?: string | null;
+            /** Base Url */
+            base_url?: string | null;
+        };
         /** ProviderUpdate */
         ProviderUpdate: {
             /** Name */
@@ -994,6 +1041,94 @@ export interface components {
             /** Eval Pass Pct */
             eval_pass_pct?: number | null;
             node_summary?: components["schemas"]["NodeSummary"] | null;
+        };
+        /** SettingsBudgetListResponse */
+        SettingsBudgetListResponse: {
+            /** Items */
+            items: components["schemas"]["SettingsBudgetResponse"][];
+            /** Total */
+            total: number;
+        };
+        /** SettingsBudgetResponse */
+        SettingsBudgetResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Limit Usd */
+            limit_usd: number;
+            /** Spent Usd */
+            spent_usd: number;
+            /** Period */
+            period: string;
+            /** Reset At */
+            reset_at?: string | null;
+        };
+        /** SettingsModelDefaultListResponse */
+        SettingsModelDefaultListResponse: {
+            /** Items */
+            items: components["schemas"]["SettingsModelDefaultResponse"][];
+            /** Total */
+            total: number;
+        };
+        /** SettingsModelDefaultResponse */
+        SettingsModelDefaultResponse: {
+            /** Id */
+            id: string;
+            /** Model Name */
+            model_name: string;
+            /** Provider Id */
+            provider_id: string;
+            /** Provider Name */
+            provider_name: string;
+            /**
+             * Fallback Chain
+             * @default []
+             */
+            fallback_chain: string[];
+            /**
+             * Is Default
+             * @default false
+             */
+            is_default: boolean;
+        };
+        /** SettingsProviderListResponse */
+        SettingsProviderListResponse: {
+            /** Items */
+            items: components["schemas"]["SettingsProviderResponse"][];
+            /** Total */
+            total: number;
+        };
+        /** SettingsProviderResponse */
+        SettingsProviderResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Type */
+            type?: string | null;
+            /** Status */
+            status: string;
+            /** Api Key Env */
+            api_key_env?: string | null;
+            /** Api Key Preview */
+            api_key_preview?: string | null;
+            /** Base Url */
+            base_url?: string | null;
+            /**
+             * Models
+             * @default []
+             */
+            models: string[];
+            /**
+             * Model Count
+             * @default 0
+             */
+            model_count: number;
+            /** Created At */
+            created_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
         };
         /** SimBranchRequest */
         SimBranchRequest: {
@@ -1300,6 +1435,20 @@ export interface components {
             /** Yaml */
             yaml?: string | null;
             canvas_state?: components["schemas"]["WorkflowCanvasState"] | null;
+        };
+        /** WorkflowDeleteResponse */
+        WorkflowDeleteResponse: {
+            /** Id */
+            id: string;
+            /** Deleted */
+            deleted: boolean;
+            /** Runs Deleted */
+            runs_deleted: number;
+        };
+        /** WorkflowEnabledUpdate */
+        WorkflowEnabledUpdate: {
+            /** Enabled */
+            enabled: boolean;
         };
         /** WorkflowHealthMetrics */
         WorkflowHealthMetrics: {
@@ -1807,7 +1956,9 @@ export interface operations {
     };
     delete_workflow_api_workflows__id__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                force?: boolean;
+            };
             header?: never;
             path: {
                 id: string;
@@ -1822,7 +1973,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["WorkflowDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_workflow_enabled_api_workflows__id__enabled_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowEnabledUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2443,7 +2629,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SettingsProviderListResponse"];
                 };
             };
         };
@@ -2467,7 +2653,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SettingsProviderResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2498,7 +2684,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SettingsProviderResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2533,7 +2719,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SettingsProviderResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2609,6 +2795,39 @@ export interface operations {
             };
         };
     };
+    test_provider_credentials_api_settings_providers_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderTestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_model_defaults_api_settings_models_get: {
         parameters: {
             query?: never;
@@ -2624,7 +2843,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SettingsModelDefaultListResponse"];
                 };
             };
         };
@@ -2650,7 +2869,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SettingsModelDefaultResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2679,7 +2898,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SettingsBudgetListResponse"];
                 };
             };
         };
@@ -2699,7 +2918,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AppSettingsOut"];
                 };
             };
         };
@@ -2723,7 +2942,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AppSettingsOut"];
                 };
             };
             /** @description Validation Error */

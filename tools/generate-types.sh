@@ -8,7 +8,7 @@ GENERATED_DIR="$REPO_ROOT/packages/shared/src"
 
 # Step 1: Extract OpenAPI spec from FastAPI app
 echo "Extracting OpenAPI spec..."
-uv run python -c "
+uv run --package runsight-api python -c "
 from runsight_api.main import app
 import json
 spec = app.openapi()

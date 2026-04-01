@@ -32,7 +32,7 @@ class ProviderTestIn(BaseModel):
     base_url: Optional[str] = None
 
 
-class ProviderOut(BaseModel):
+class SettingsProviderResponse(BaseModel):
     id: str
     name: str
     type: Optional[str] = None
@@ -46,7 +46,12 @@ class ProviderOut(BaseModel):
     updated_at: Optional[str] = None
 
 
-class ModelDefaultOut(BaseModel):
+class SettingsProviderListResponse(BaseModel):
+    items: list["SettingsProviderResponse"]
+    total: int
+
+
+class SettingsModelDefaultResponse(BaseModel):
     id: str
     model_name: str
     provider_id: str
@@ -55,19 +60,29 @@ class ModelDefaultOut(BaseModel):
     is_default: bool = False
 
 
+class SettingsModelDefaultListResponse(BaseModel):
+    items: list["SettingsModelDefaultResponse"]
+    total: int
+
+
 class ModelDefaultUpdate(BaseModel):
     model_name: str | None = None
     is_default: bool | None = None
     fallback_chain: list[str] | None = None
 
 
-class BudgetOut(BaseModel):
+class SettingsBudgetResponse(BaseModel):
     id: str
     name: str
     limit_usd: float
     spent_usd: float
     period: str
     reset_at: Optional[str] = None
+
+
+class SettingsBudgetListResponse(BaseModel):
+    items: list["SettingsBudgetResponse"]
+    total: int
 
 
 class AppSettingsOut(BaseModel):
@@ -86,8 +101,9 @@ def _preview_api_key(secret: Optional[str]) -> Optional[str]:
     return f"{secret[:6]}...{secret[-4:]}"
 
 
-def _provider_to_out(p, service: ProviderService) -> ProviderOut:
+def _provider_to_out(p, service: ProviderService) -> SettingsProviderResponse:
     models = p.models if p.models else []
+    provider_type = getattr(p, "type", None)
     api_key_preview = None
     if p.api_key:
         secrets = getattr(service, "secrets", None)
@@ -95,10 +111,10 @@ def _provider_to_out(p, service: ProviderService) -> ProviderOut:
         api_key_preview = _preview_api_key(
             resolved_secret if isinstance(resolved_secret, str) else None
         )
-    return ProviderOut(
+    return SettingsProviderResponse(
         id=p.id,
         name=p.name,
-        type=p.type,
+        type=provider_type if isinstance(provider_type, str) else None,
         status=p.status or "unknown",
         api_key_env=p.api_key,
         api_key_preview=api_key_preview,
@@ -110,7 +126,7 @@ def _provider_to_out(p, service: ProviderService) -> ProviderOut:
     )
 
 
-@router.get("/providers")
+@router.get("/providers", response_model=SettingsProviderListResponse)
 async def list_providers(
     service: ProviderService = Depends(get_provider_service),
 ):
@@ -119,7 +135,7 @@ async def list_providers(
     return {"items": items, "total": len(items)}
 
 
-@router.get("/providers/{provider_id}")
+@router.get("/providers/{provider_id}", response_model=SettingsProviderResponse)
 async def get_provider(
     provider_id: str,
     service: ProviderService = Depends(get_provider_service),
@@ -130,7 +146,7 @@ async def get_provider(
     return _provider_to_out(provider, service)
 
 
-@router.post("/providers")
+@router.post("/providers", response_model=SettingsProviderResponse)
 async def create_provider(
     data: ProviderCreate,
     service: ProviderService = Depends(get_provider_service),
@@ -143,7 +159,7 @@ async def create_provider(
     return _provider_to_out(provider, service)
 
 
-@router.put("/providers/{provider_id}")
+@router.put("/providers/{provider_id}", response_model=SettingsProviderResponse)
 async def update_provider(
     provider_id: str,
     data: ProviderUpdate,
@@ -193,7 +209,7 @@ async def test_provider_credentials(
     )
 
 
-@router.get("/models")
+@router.get("/models", response_model=SettingsModelDefaultListResponse)
 async def list_model_defaults(
     service: SettingsService = Depends(get_settings_service),
 ):
@@ -201,7 +217,7 @@ async def list_model_defaults(
     return {"items": items, "total": len(items)}
 
 
-@router.put("/models/{model_id}")
+@router.put("/models/{model_id}", response_model=SettingsModelDefaultResponse)
 async def update_model_default(
     model_id: str,
     data: ModelDefaultUpdate,
@@ -215,12 +231,12 @@ async def update_model_default(
     )
 
 
-@router.get("/budgets")
+@router.get("/budgets", response_model=SettingsBudgetListResponse)
 async def list_budgets():
     return {"items": [], "total": 0}
 
 
-@router.get("/app")
+@router.get("/app", response_model=AppSettingsOut)
 async def get_app_settings(
     repo: FileSystemSettingsRepo = Depends(get_settings_repo),
 ):
@@ -228,7 +244,7 @@ async def get_app_settings(
     return settings_config.model_dump(exclude_none=True)
 
 
-@router.put("/app")
+@router.put("/app", response_model=AppSettingsOut)
 async def update_app_settings(
     data: AppSettingsOut,
     repo: FileSystemSettingsRepo = Depends(get_settings_repo),

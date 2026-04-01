@@ -43,8 +43,6 @@ export type Budget = SettingsBudgetResponse;
 export type CreateBudget = Partial<Budget>;
 export type UpdateBudget = Partial<Budget>;
 
-// Legacy source-inspection tests still assert the shared app-settings contract
-// includes `fallback_chain_enabled: z.boolean().optional()`.
 export type AppSettings = AppSettingsOut;
 
 export const settingsApi = {
