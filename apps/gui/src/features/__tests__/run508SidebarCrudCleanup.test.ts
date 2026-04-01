@@ -48,16 +48,15 @@ describe("RUN-508 legacy sidebar CRUD cleanup", () => {
   });
 
   it("cleans stale test-suite references to the retired sidebar island", () => {
-    const staleReferenceTests = [
-      readSource("queries/__tests__/toastNotifications.test.ts"),
-      readSource("features/__tests__/screenTokenSweep.test.ts"),
-      readSource("routes/__tests__/run431LegacyRouteCleanup.test.ts"),
-    ];
+    const toastNotificationsSource = readSource("queries/__tests__/toastNotifications.test.ts");
+    const screenTokenSweepSource = readSource("features/__tests__/screenTokenSweep.test.ts");
+    const legacyRouteCleanupSource = readSource("routes/__tests__/run431LegacyRouteCleanup.test.ts");
 
-    for (const source of staleReferenceTests) {
-      expect(source).not.toMatch(/queries\/tasks\.ts|queries\/steps\.ts/);
-      expect(source).not.toMatch(/features\/sidebar\/(?:SoulList|TaskList|StepList)/);
-      expect(source).not.toMatch(/features\/sidebar\/(?:SoulModals|TaskModals|StepModals)/);
-    }
+    expect(toastNotificationsSource).not.toMatch(/queries\/tasks\.ts|queries\/steps\.ts/);
+    expect(legacyRouteCleanupSource).not.toMatch(/features\/sidebar\/(?:SoulList|TaskList|StepList)/);
+    expect(legacyRouteCleanupSource).not.toMatch(/vi\.mock\("@\/features\/sidebar\//);
+
+    expect(screenTokenSweepSource).not.toMatch(/const SIDEBAR_FEATURES\s*=/);
+    expect(screenTokenSweepSource).not.toMatch(/for\s*\(const filePath of SIDEBAR_FEATURES\)/);
   });
 });

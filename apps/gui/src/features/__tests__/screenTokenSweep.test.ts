@@ -318,27 +318,16 @@ describe("No old var() refs — provider", () => {
 });
 
 // ===========================================================================
-// 5. Sidebar features — no old tokens
+// 5. RUN-508 boundary — retired sidebar files are not part of the sweep
 // ===========================================================================
 
-describe("No old Tailwind tokens — sidebar", () => {
-  for (const filePath of SIDEBAR_FEATURES) {
-    it(`${filePath} contains no old shadcn Tailwind class tokens`, () => {
-      const source = readFile(filePath);
-      const found = findOldTailwindTokens(source);
-      expect(found, `Old tokens found: ${found.join(", ")}`).toEqual([]);
-    });
-  }
-});
-
-describe("No old var() refs — sidebar", () => {
-  for (const filePath of SIDEBAR_FEATURES) {
-    it(`${filePath} contains no old CSS var() token references`, () => {
-      const source = readFile(filePath);
-      const found = findOldVarRefs(source);
-      expect(found, `Old var() refs found: ${found.join(", ")}`).toEqual([]);
-    });
-  }
+describe("RUN-508 retired sidebar boundary", () => {
+  it("does not track retired sidebar CRUD files in the token sweep", () => {
+    expect(ALL_FILES).not.toContain("features/sidebar/SoulList.tsx");
+    expect(ALL_FILES).not.toContain("features/sidebar/SoulModals.tsx");
+    expect(ALL_FILES).not.toContain("features/sidebar/TaskModals.tsx");
+    expect(ALL_FILES).not.toContain("features/sidebar/StepModals.tsx");
+  });
 });
 
 // ===========================================================================
