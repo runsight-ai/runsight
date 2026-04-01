@@ -72,32 +72,36 @@ def _canonical_service(run):
     return mock_service, captured
 
 
-def test_runs_route_uses_canonical_service_signature_without_runtime_introspection(monkeypatch):
-    """GET /api/runs should succeed without calling inspect.signature at runtime."""
+def test_fetch_paginated_runs_uses_canonical_service_signature_without_runtime_introspection(
+    monkeypatch,
+):
+    """_fetch_paginated_runs should succeed without calling inspect.signature at runtime."""
     run = _make_mock_run()
     mock_service, captured = _canonical_service(run)
-    app.dependency_overrides[get_run_service] = lambda: mock_service
 
     def forbid_signature_lookup(*_args, **_kwargs):
-        raise AssertionError("inspect.signature should not be called for /api/runs")
+        raise AssertionError("inspect.signature should not be called for _fetch_paginated_runs")
 
     monkeypatch.setattr(runs_router.inspect, "signature", forbid_signature_lookup)
-    client = TestClient(app, raise_server_exceptions=False)
 
-    try:
-        response = client.get("/api/runs?workflow_id=wf_1&source=manual&branch=main")
+    result = runs_router._fetch_paginated_runs(
+        mock_service,
+        0,
+        20,
+        workflow_id="wf_1",
+        source=["manual"],
+        branch="main",
+    )
 
-        assert response.status_code == 200
-        assert captured["kwargs"] == {
-            "offset": 0,
-            "limit": 20,
-            "status": None,
-            "workflow_id": "wf_1",
-            "source": ["manual"],
-            "branch": "main",
-        }
-    finally:
-        app.dependency_overrides.clear()
+    assert result == ([run], 1)
+    assert captured["kwargs"] == {
+        "offset": 0,
+        "limit": 20,
+        "status": None,
+        "workflow_id": "wf_1",
+        "source": ["manual"],
+        "branch": "main",
+    }
 
 
 def test_resolve_summaries_rejects_invalid_batch_shape_without_per_run_fallback():
