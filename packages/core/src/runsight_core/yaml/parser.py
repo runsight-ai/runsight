@@ -157,6 +157,15 @@ def _resolve_tool_for_parser(
     return resolve_tool(tool_def, base_dir=base_dir)
 
 
+def _attach_tool_runtime_metadata(tool: object, tool_def: ToolDef) -> object:
+    """Annotate a resolved ToolInstance with source/type metadata for isolation."""
+    setattr(tool, "source", tool_def.source or "")
+    setattr(tool, "tool_type", getattr(tool_def, "type", ""))
+    if hasattr(tool_def, "model_dump"):
+        setattr(tool, "config", tool_def.model_dump())
+    return tool
+
+
 # Trigger auto-discovery of co-located blocks and rebuild the discriminated
 # union so that BlockDef includes all registered block types.
 import runsight_core.blocks  # noqa: E402, F401
@@ -400,15 +409,21 @@ def parse_workflow_yaml(
                         f"'{block_id_for_soul}' has no exits defined"
                     )
                 resolved_tools.append(
-                    _resolve_tool_for_parser(
+                    _attach_tool_runtime_metadata(
+                        _resolve_tool_for_parser(
+                            tool_def,
+                            exits=exits,
+                            base_dir=workflow_base_dir,
+                        ),
                         tool_def,
-                        exits=exits,
-                        base_dir=workflow_base_dir,
                     )
                 )
             else:
                 resolved_tools.append(
-                    _resolve_tool_for_parser(tool_def, base_dir=workflow_base_dir)
+                    _attach_tool_runtime_metadata(
+                        _resolve_tool_for_parser(tool_def, base_dir=workflow_base_dir),
+                        tool_def,
+                    )
                 )
 
         # Attach resolved tools to the soul in souls_map

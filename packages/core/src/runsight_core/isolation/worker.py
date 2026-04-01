@@ -9,6 +9,7 @@ runner, llm, memory, state, and blocks sub-packages.
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
 import sys
@@ -73,16 +74,21 @@ def create_tool_stubs(
     socket_path: str,
 ) -> list[ToolInstance]:
     """Convert ToolDefEnvelope list into IPC-backed callable tool stubs."""
-    client = isolation_ipc.IPCClient(socket_path=socket_path)
     stubs: list[ToolInstance] = []
     for tool_def in tool_envelopes:
 
         async def _execute(args: dict[str, Any], *, td: ToolDefEnvelope = tool_def) -> str:
-            result = await client.request(
-                "tool_call",
-                name=td.name,
-                arguments=args,
-            )
+            client = isolation_ipc.IPCClient(socket_path=socket_path)
+            try:
+                result = await client.request(
+                    "tool_call",
+                    name=td.name,
+                    arguments=args,
+                )
+            finally:
+                close_result = client.close()
+                if inspect.isawaitable(close_result):
+                    await close_result
             if "error" in result:
                 return f"Error: {result['error']}"
             return str(result.get("output", ""))
