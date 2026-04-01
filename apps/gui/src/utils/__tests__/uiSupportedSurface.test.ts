@@ -4,7 +4,8 @@ import { relative, resolve } from "node:path";
 
 const GUI_SRC_DIR = resolve(__dirname, "..", "..");
 const GUI_ROOT = resolve(GUI_SRC_DIR, "..");
-const UI_PACKAGE_JSON_PATH = resolve(GUI_ROOT, "..", "..", "..", "..", "packages", "ui", "package.json");
+const WORKTREE_ROOT = resolve(GUI_ROOT, "..", "..");
+const UI_PACKAGE_JSON_PATH = resolve(WORKTREE_ROOT, "packages", "ui", "package.json");
 
 function readFile(filePath: string) {
   return readFileSync(filePath, "utf8");
