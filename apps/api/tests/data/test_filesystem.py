@@ -1,9 +1,12 @@
 import tempfile
 
+import pytest
+
 from runsight_api.data.filesystem.soul_repo import SoulRepository
 from runsight_api.data.filesystem.step_repo import StepRepository
 from runsight_api.data.filesystem.task_repo import TaskRepository
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+from runsight_api.domain.errors import InputValidationError
 
 
 def test_workflow_repository():
@@ -11,7 +14,7 @@ def test_workflow_repository():
         repo = WorkflowRepository(base_path=tmpdir)
 
         # Test Create — id is derived from filename stem (slug-shortid)
-        workflow_data = {"name": "Test Workflow"}
+        workflow_data = {"name": "Test Workflow", "yaml": "workflow:\n  name: Test Workflow\n"}
         entity = repo.create(workflow_data)
         assert entity.id  # id is auto-generated slug-shortid
         assert entity.name == "Test Workflow"
@@ -25,17 +28,23 @@ def test_workflow_repository():
         assert fetched.name == "Test Workflow"
 
         # Test Update
-        updated_data = {"name": "Updated Workflow"}
+        updated_data = {"name": "Updated Workflow", "yaml": "workflow:\n  name: Updated Workflow\n"}
         repo.update(wf_id, updated_data)
         fetched_updated = repo.get_by_id(wf_id)
         assert fetched_updated.name == "Updated Workflow"
         assert fetched_updated.id == wf_id
 
-        # Test partial update preserves existing fields
-        repo.update(wf_id, {"description": "Keeps existing name"})
+        # Test non-YAML structured fields are not synthesized back into the file
+        repo.update(
+            wf_id,
+            {
+                "description": "Keeps existing name",
+                "yaml": "workflow:\n  name: Updated Workflow\n",
+            },
+        )
         fetched_partial = repo.get_by_id(wf_id)
         assert fetched_partial.name == "Updated Workflow"
-        assert getattr(fetched_partial, "description") == "Keeps existing name"
+        assert not hasattr(fetched_partial, "description")
 
         # Test List
         all_wfs = repo.list_all()
@@ -46,12 +55,35 @@ def test_workflow_repository():
         assert repo.get_by_id(wf_id) is None
 
 
+def test_workflow_repository_rejects_create_without_yaml():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+
+        with pytest.raises(InputValidationError, match="yaml is required"):
+            repo.create({"name": "No YAML"})
+
+
+def test_workflow_repository_rejects_update_without_yaml():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+        entity = repo.create(
+            {"name": "Test Workflow", "yaml": "workflow:\n  name: Test Workflow\n"}
+        )
+
+        with pytest.raises(InputValidationError, match="yaml is required"):
+            repo.update(entity.id, {"name": "Updated Workflow"})
+
+
 def test_workflow_create_does_not_mutate_input():
     """create() must not mutate the caller's dict (Fix 2)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
 
-        data = {"name": "Immutable", "canvas_state": {"nodes": []}}
+        data = {
+            "name": "Immutable",
+            "yaml": "workflow:\n  name: Immutable\n",
+            "canvas_state": {"nodes": []},
+        }
         original_keys = set(data.keys())
         repo.create(data)
         assert set(data.keys()) == original_keys, "create() mutated the input dict"
@@ -63,7 +95,7 @@ def test_workflow_id_not_in_yaml_file():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
-        entity = repo.create({"name": "No ID Inside"})
+        entity = repo.create({"name": "No ID Inside", "yaml": "workflow:\n  name: No ID Inside\n"})
 
         yaml_path = repo._get_path(entity.id)
         with open(yaml_path) as f:

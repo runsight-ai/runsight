@@ -13,15 +13,14 @@ The fix: change `if raw_yaml:` to `if raw_yaml is not None:`.
 AC:
   - POST /api/workflows with { yaml: "" } creates a workflow with empty YAML content
   - POST /api/workflows with { yaml: "..." } still works (template YAML)
-  - POST /api/workflows with no yaml field uses _extract_yaml_data fallback
-  - The same bug in update() is also covered
+  - POST /api/workflows with no yaml field is rejected instead of falling back
+  - PUT/commit paths also reject missing yaml so raw YAML stays canonical
 """
-
-import yaml as yaml_mod
 
 import pytest
 
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+from runsight_api.domain.errors import InputValidationError
 
 
 # ---------------------------------------------------------------------------
@@ -107,33 +106,26 @@ class TestNonEmptyYamlCreate:
 
 
 # ===========================================================================
-# AC: POST /api/workflows with no yaml field uses _extract_yaml_data fallback
+# AC: POST /api/workflows with no yaml field is rejected
 # ===========================================================================
 
 
 class TestNoYamlFieldCreate:
-    """When no yaml field is provided, _extract_yaml_data must generate YAML."""
+    """Missing yaml must be rejected instead of using a structured-field fallback."""
 
-    def test_no_yaml_field_uses_fallback(self, repo, workflows_dir):
-        """create({"name": "test"}) must auto-generate YAML from structured fields."""
-        entity = repo.create({"name": "Auto Generated"})
-        yaml_path = workflows_dir / f"{entity.id}.yaml"
+    def test_no_yaml_field_is_rejected(self, repo, workflows_dir):
+        """create({"name": "test"}) must fail fast when raw yaml is absent."""
+        with pytest.raises(InputValidationError, match="yaml is required"):
+            repo.create({"name": "Auto Generated"})
 
-        content = yaml_path.read_text()
-        # _extract_yaml_data strips meta fields and yaml.dump produces content
-        parsed = yaml_mod.safe_load(content)
-        assert isinstance(parsed, dict)
-        assert parsed.get("name") == "Auto Generated"
+        assert list(workflows_dir.glob("*.yaml")) == []
 
-    def test_none_yaml_field_uses_fallback(self, repo, workflows_dir):
-        """create({"name": "test", "yaml": None}) must also use _extract_yaml_data."""
-        entity = repo.create({"name": "Explicit None", "yaml": None})
-        yaml_path = workflows_dir / f"{entity.id}.yaml"
+    def test_none_yaml_field_is_rejected(self, repo, workflows_dir):
+        """create({"name": "test", "yaml": None}) must be rejected too."""
+        with pytest.raises(InputValidationError, match="yaml is required"):
+            repo.create({"name": "Explicit None", "yaml": None})
 
-        content = yaml_path.read_text()
-        parsed = yaml_mod.safe_load(content)
-        assert isinstance(parsed, dict)
-        assert parsed.get("name") == "Explicit None"
+        assert list(workflows_dir.glob("*.yaml")) == []
 
 
 # ===========================================================================
@@ -142,39 +134,26 @@ class TestNoYamlFieldCreate:
 
 
 class TestEmptyStringIsNotNone:
-    """The critical invariant: {"yaml": ""} and {"name": "x"} must behave differently."""
+    """The critical invariant: {"yaml": ""} is valid, while missing yaml is not."""
 
     def test_empty_string_yaml_differs_from_no_yaml(self, repo, workflows_dir):
-        """{"yaml": ""} must NOT produce the same file content as {"name": "..."}."""
+        """{"yaml": ""} must succeed while missing yaml raises a validation error."""
         entity_blank = repo.create({"name": "Blank", "yaml": ""})
-        entity_auto = repo.create({"name": "Blank"})
-
         blank_path = workflows_dir / f"{entity_blank.id}.yaml"
-        auto_path = workflows_dir / f"{entity_auto.id}.yaml"
-
         blank_content = blank_path.read_text()
-        auto_content = auto_path.read_text()
-
-        assert blank_content != auto_content, (
-            "Empty-string YAML and no-YAML-field produced identical files — "
-            "the empty string was treated as falsy (the bug)"
-        )
+        assert blank_content == ""
+        with pytest.raises(InputValidationError, match="yaml is required"):
+            repo.create({"name": "Blank"})
 
     def test_empty_string_yaml_differs_from_none_yaml(self, repo, workflows_dir):
-        """{"yaml": ""} must NOT produce the same output as {"yaml": None}."""
+        """{"yaml": ""} must NOT behave the same as {"yaml": None}."""
         entity_blank = repo.create({"name": "Blank", "yaml": ""})
-        entity_none = repo.create({"name": "Blank", "yaml": None})
-
         blank_path = workflows_dir / f"{entity_blank.id}.yaml"
-        none_path = workflows_dir / f"{entity_none.id}.yaml"
-
         blank_content = blank_path.read_text()
-        none_content = none_path.read_text()
+        assert blank_content == ""
 
-        assert blank_content != none_content, (
-            'yaml="" and yaml=None produced identical files — '
-            "the empty string was treated as None (the bug)"
-        )
+        with pytest.raises(InputValidationError, match="yaml is required"):
+            repo.create({"name": "Blank", "yaml": None})
 
 
 # ===========================================================================
@@ -210,3 +189,14 @@ class TestEmptyStringYamlUpdate:
         assert "version" not in content, (
             f"update with yaml='' merged with existing content instead of replacing: {content!r}"
         )
+
+    def test_update_without_yaml_is_rejected_instead_of_merging_existing(self, repo, workflows_dir):
+        """update(id, {"name": "..."}) must fail instead of synthesizing YAML."""
+        initial_yaml = "version: '1.0'\nworkflow:\n  name: Original\n"
+        entity = repo.create({"name": "To Update", "yaml": initial_yaml})
+        yaml_path = workflows_dir / f"{entity.id}.yaml"
+
+        with pytest.raises(InputValidationError, match="yaml is required"):
+            repo.update(entity.id, {"name": "Renamed"})
+
+        assert yaml_path.read_text() == initial_yaml

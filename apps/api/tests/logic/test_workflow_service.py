@@ -7,7 +7,7 @@ from unittest.mock import Mock, call
 
 import pytest
 
-from runsight_api.domain.errors import WorkflowNotFound
+from runsight_api.domain.errors import InputValidationError, WorkflowNotFound
 from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.workflow_service import WorkflowService
 
@@ -147,6 +147,14 @@ def test_create_workflow_without_id(workflow_service, workflow_repo):
     workflow_repo.create.assert_called_once_with(data)
 
 
+def test_create_workflow_requires_yaml(workflow_service, workflow_repo):
+    """create_workflow should surface the canonical YAML-only contract."""
+    workflow_repo.create.side_effect = InputValidationError("yaml is required")
+
+    with pytest.raises(InputValidationError, match="yaml is required"):
+        workflow_service.create_workflow({"name": "No YAML"})
+
+
 def test_create_workflow_does_not_fail_when_auto_commit_errors(workflow_repo):
     """Workflow creation should succeed even if the convenience git auto-commit cannot run."""
     git_service = Mock()
@@ -154,7 +162,7 @@ def test_create_workflow_does_not_fail_when_auto_commit_errors(workflow_repo):
     git_service.commit_to_branch.side_effect = RuntimeError("checkout main failed")
     created = WorkflowEntity(id="wf_new", name="New Workflow")
     workflow_repo.create.return_value = created
-    workflow_service = WorkflowService(workflow_repo, git_service=git_service)
+    workflow_service = WorkflowService(workflow_repo, Mock(), git_service=git_service)
 
     result = workflow_service.create_workflow({"name": "New Workflow"})
 
@@ -187,6 +195,14 @@ def test_update_workflow_not_found(workflow_service, workflow_repo):
         workflow_service.update_workflow("wf_missing", {"name": "New"})
 
     assert "wf_missing" in str(exc_info.value)
+
+
+def test_update_workflow_requires_yaml(workflow_service, workflow_repo):
+    """update_workflow should reject name-only updates that bypass raw YAML."""
+    workflow_repo.update.side_effect = InputValidationError("yaml is required")
+
+    with pytest.raises(InputValidationError, match="yaml is required"):
+        workflow_service.update_workflow("wf_1", {"name": "Renamed"})
 
 
 # --- commit_workflow ---
@@ -273,6 +289,28 @@ def test_commit_workflow_does_not_attempt_git_commit_when_persisting_the_draft_f
         workflow_service.commit_workflow(
             "wf_1",
             {"yaml": "workflow:\n  name: Updated Flow\n"},
+            "Save workflow to main",
+        )
+
+    git_service.commit_to_branch.assert_not_called()
+
+
+def test_commit_workflow_requires_yaml_before_touching_git(workflow_repo):
+    """Explicit saves must fail fast when the draft omits canonical YAML."""
+    git_service = Mock()
+    workflow_repo.get_by_id.return_value = WorkflowEntity(
+        id="wf_1",
+        name="Original Flow",
+        yaml="workflow:\n  name: Original Flow\n",
+    )
+    workflow_repo.update.side_effect = InputValidationError("yaml is required")
+
+    workflow_service = WorkflowService(workflow_repo, Mock(), git_service=git_service)
+
+    with pytest.raises(InputValidationError, match="yaml is required"):
+        workflow_service.commit_workflow(
+            "wf_1",
+            {"name": "Updated Flow"},
             "Save workflow to main",
         )
 
