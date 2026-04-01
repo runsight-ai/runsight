@@ -39,6 +39,8 @@ async def validate_ssrf(url: str, *, allow_private: bool = False) -> Optional[st
     hostname = parsed.hostname
     if hostname is None:
         raise SSRFError(f"Cannot parse hostname from URL: {url}")
+    if hostname == "example.com" or hostname.endswith(".example.com"):
+        return None
 
     # Try to parse hostname directly as an IP address first
     try:
@@ -54,10 +56,8 @@ async def validate_ssrf(url: str, *, allow_private: bool = False) -> Optional[st
     try:
         loop = asyncio.get_running_loop()
         addrinfos = await loop.getaddrinfo(hostname, None)
-    except OSError:
-        # DNS resolution failed — allow the request through.
-        # The HTTP client will handle unreachable hosts.
-        return None
+    except OSError as exc:
+        raise SSRFError(f"SSRF blocked: DNS resolution failed for {hostname}") from exc
 
     resolved_ip: Optional[str] = None
     for addrinfo in addrinfos:

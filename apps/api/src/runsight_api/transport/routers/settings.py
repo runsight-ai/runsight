@@ -32,6 +32,14 @@ class ProviderTestIn(BaseModel):
     base_url: Optional[str] = None
 
 
+class ProviderTestOut(BaseModel):
+    success: bool
+    message: str
+    models: list[str] = []
+    model_count: int = 0
+    latency_ms: float = 0.0
+
+
 class ProviderOut(BaseModel):
     id: str
     name: str
@@ -171,7 +179,7 @@ async def delete_provider(
     return {"id": provider_id, "deleted": True}
 
 
-@router.post("/providers/{provider_id}/test")
+@router.post("/providers/{provider_id}/test", response_model=ProviderTestOut)
 async def test_provider(
     provider_id: str,
     service: ProviderService = Depends(get_provider_service),
@@ -179,7 +187,7 @@ async def test_provider(
     return await service.test_connection(provider_id)
 
 
-@router.post("/providers/test")
+@router.post("/providers/test", response_model=ProviderTestOut)
 async def test_provider_credentials(
     data: ProviderTestIn,
     service: ProviderService = Depends(get_provider_service),

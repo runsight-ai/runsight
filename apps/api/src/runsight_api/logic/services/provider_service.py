@@ -48,6 +48,23 @@ def _parse_models(body: dict, provider_type: str) -> list[str]:
         return []
 
 
+def _build_provider_test_result(
+    *,
+    success: bool,
+    message: str,
+    models: Optional[list[str]] = None,
+    latency_ms: float = 0.0,
+) -> dict:
+    normalized_models = models or []
+    return {
+        "success": success,
+        "message": message,
+        "models": normalized_models,
+        "model_count": len(normalized_models),
+        "latency_ms": latency_ms,
+    }
+
+
 class ProviderService:
     def __init__(self, repo: FileSystemProviderRepo, secrets: SecretsEnvLoader):
         self.repo = repo
@@ -122,8 +139,19 @@ class ProviderService:
         api_key: Optional[str],
         base_url: Optional[str],
     ) -> dict:
+        started_at = time.perf_counter()
+
+        def finalize(*, success: bool, message: str, models: Optional[list[str]] = None) -> dict:
+            latency_ms = (time.perf_counter() - started_at) * 1000
+            return _build_provider_test_result(
+                success=success,
+                message=message,
+                models=models,
+                latency_ms=latency_ms,
+            )
+
         if not api_key and provider_type != "ollama":
-            return {"success": False, "message": "No API key configured"}
+            return finalize(success=False, message="No API key configured")
 
         allow_private = provider_type == "ollama"
         try:
@@ -185,11 +213,11 @@ class ProviderService:
                 if success
                 else f"Connection failed (HTTP {resp.status_code})"
             )
-            return {"success": success, "message": msg, "models": models}
+            return finalize(success=success, message=msg, models=models)
         except SSRFError as e:
-            return {"success": False, "message": f"SSRF blocked: {str(e)}"}
+            return finalize(success=False, message=f"SSRF blocked: {str(e)}")
         except Exception as e:
-            return {"success": False, "message": f"Connection failed: {str(e)}"}
+            return finalize(success=False, message=f"Connection failed: {str(e)}")
 
     async def test_credentials(
         self,
@@ -204,7 +232,7 @@ class ProviderService:
         if provider_id:
             existing_provider = self.repo.get_by_id(provider_id)
             if not existing_provider:
-                return {"success": False, "message": "Provider not found"}
+                return _build_provider_test_result(success=False, message="Provider not found")
 
         resolved_provider_type = provider_type
         if not resolved_provider_type and existing_provider:
@@ -212,7 +240,7 @@ class ProviderService:
         if not resolved_provider_type and name:
             resolved_provider_type = _infer_provider_type(name)
         if not resolved_provider_type:
-            return {"success": False, "message": "Provider type is required"}
+            return _build_provider_test_result(success=False, message="Provider type is required")
 
         resolved_api_key = api_key
         if not resolved_api_key and existing_provider and existing_provider.api_key:
@@ -231,7 +259,7 @@ class ProviderService:
     async def test_connection(self, provider_id: str) -> dict:
         provider = self.repo.get_by_id(provider_id)
         if not provider:
-            return {"success": False, "message": "Provider not found"}
+            return _build_provider_test_result(success=False, message="Provider not found")
 
         result = await self.test_credentials(provider_id=provider_id)
         if result.get("message") == "No API key configured":
