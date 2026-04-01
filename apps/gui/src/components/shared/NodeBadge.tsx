@@ -1,5 +1,5 @@
 import { cva } from "class-variance-authority";
-import { cn } from "@/utils/helpers";
+import { cn } from "@runsight/ui/utils";
 
 // ---------------------------------------------------------------------------
 // CVA base — outline badge variant (badge--outline spec)

@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@/utils/helpers";
+import { cn } from "@runsight/ui/utils";
 
 // ---------------------------------------------------------------------------
 // CVA variant — maps to the badge spec in components.css

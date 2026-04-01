@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { cn } from "@/utils/helpers";
+import { cn } from "@runsight/ui/utils";
 import { Input } from "@runsight/ui/input";
 import {
   Table,

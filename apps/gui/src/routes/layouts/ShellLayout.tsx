@@ -7,7 +7,7 @@ import {
   Bot,
   Settings,
 } from "lucide-react";
-import { cn } from "@/utils/helpers";
+import { cn } from "@runsight/ui/utils";
 
 const RUNS_NAV_LABEL = "Runs";
 

@@ -1,4 +1,4 @@
-import { cn } from "@/utils/helpers";
+import { cn } from "@runsight/ui/utils";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@runsight/ui/button";
 

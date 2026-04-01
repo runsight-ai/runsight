@@ -6,6 +6,7 @@
   "exports": {
     "./styles.css": "./src/styles/globals.css",
     "./empty-state": "./src/components/shared/EmptyState.tsx",
+    "./utils": "./src/utils/helpers.ts",
     "./*": "./src/components/ui/*.tsx"
   },
   "scripts": {
