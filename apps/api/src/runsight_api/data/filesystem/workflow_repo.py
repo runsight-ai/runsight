@@ -22,7 +22,7 @@ from pydantic import ValidationError as PydanticValidationError
 from runsight_core.yaml.parser import validate_tool_governance
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
-from ...domain.errors import WorkflowNotFound
+from ...domain.errors import InputValidationError, WorkflowNotFound
 from ...domain.value_objects import WorkflowEntity
 from ._utils import atomic_write as _shared_atomic_write
 
@@ -282,6 +282,9 @@ class WorkflowRepository:
         valid/validation_error indicating schema conformance.
         """
         name = data.get("name") or "untitled"
+        raw_yaml = data.get("yaml")
+        if raw_yaml is None:
+            raise InputValidationError("yaml is required")
 
         # Generate filename with collision retry (Fix 6)
         stem = None
@@ -298,15 +301,7 @@ class WorkflowRepository:
 
         # Do NOT mutate the input dict — use .get() instead of .pop()
         canvas_state = data.get("canvas_state")
-        raw_yaml = data.get("yaml")
-
-        # D7: If raw YAML provided (including empty string), write it directly (WYSIWYG).
-        # Otherwise, build YAML from structured fields (backward compat).
-        if raw_yaml is not None:
-            yaml_content = raw_yaml
-        else:
-            yaml_data = self._extract_yaml_data(data)
-            yaml_content = yaml_mod.dump(yaml_data, sort_keys=True, default_flow_style=False)
+        yaml_content = raw_yaml
 
         # Atomic write YAML (D5: YAML first, then canvas)
         self._atomic_write(self._get_path(stem), yaml_content)
@@ -335,21 +330,9 @@ class WorkflowRepository:
         # Do NOT mutate the input dict — use .get() instead of .pop()
         canvas_state_update = data.get("canvas_state")
         raw_yaml = data.get("yaml")
-
-        # D7: If raw YAML provided (including empty string), write it directly (WYSIWYG).
-        # Otherwise, merge structured fields with existing content (backward compat).
-        if raw_yaml is not None:
-            yaml_content = raw_yaml
-        else:
-            with open(yaml_path, "r") as f:
-                existing = yaml_mod.safe_load(f) or {}
-
-            # Merge: new data overwrites existing fields (exclude meta fields)
-            update_fields = {k: v for k, v in data.items() if k not in _META_FIELDS}
-            merged = {**existing, **update_fields}
-
-            yaml_data = self._extract_yaml_data(merged)
-            yaml_content = yaml_mod.dump(yaml_data, sort_keys=True, default_flow_style=False)
+        if raw_yaml is None:
+            raise InputValidationError("yaml is required")
+        yaml_content = raw_yaml
 
         self._atomic_write(yaml_path, yaml_content)
 

@@ -48,14 +48,14 @@ class WorkflowListResponse(BaseModel):
 class WorkflowCreate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    yaml: Optional[str] = None
+    yaml: str
     canvas_state: Optional[WorkflowCanvasState] = None
 
 
 class WorkflowUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    yaml: Optional[str] = None
+    yaml: str
     canvas_state: Optional[WorkflowCanvasState] = None
 
 
@@ -66,7 +66,7 @@ class WorkflowEnabledUpdate(BaseModel):
 class WorkflowCommitCreate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    yaml: Optional[str] = None
+    yaml: str
     canvas_state: Optional[WorkflowCanvasState] = None
     message: str = Field(min_length=1)
 
