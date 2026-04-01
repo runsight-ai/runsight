@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import type { settingsApi as SettingsApi } from "../settings";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const settingsSource = readFileSync(new URL("../settings.ts", import.meta.url), "utf8");
@@ -14,7 +15,7 @@ type SharedContractCase = {
   title: string;
   payload: unknown;
   arrange: (payload: unknown) => void;
-  invoke: (settingsApi: typeof import("../settings").settingsApi) => Promise<unknown>;
+  invoke: (settingsApi: typeof SettingsApi) => Promise<unknown>;
   assertResult: (result: unknown) => void;
 };
 
@@ -36,11 +37,11 @@ function escapeForRegExp(value: string) {
 function collectCanonicalImportBindings(source: string, modulePath: string): CanonicalImportBindings {
   const modulePattern = escapeForRegExp(modulePath);
   const namedImportPattern = new RegExp(
-    `import\\s*{([^;]*?)}\\s*from\\s*[\"']${modulePattern}[\"'];`,
+    `import\\s*{([^;]*?)}\\s*from\\s*["']${modulePattern}["'];`,
     "g",
   );
   const namespaceImportPattern = new RegExp(
-    `import\\s*\\*\\s*as\\s*(\\w+)\\s*from\\s*[\"']${modulePattern}[\"'];`,
+    `import\\s*\\*\\s*as\\s*(\\w+)\\s*from\\s*["']${modulePattern}["'];`,
     "g",
   );
   const named = new Map<string, string[]>();

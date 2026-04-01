@@ -4,6 +4,7 @@ import {
   AppSettingsOutSchema,
   ModelResponseSchema,
   ProviderSummarySchema,
+  ProviderTestOutSchema,
   SettingsBudgetListResponseSchema,
   SettingsBudgetResponseSchema,
   SettingsModelDefaultListResponseSchema,
@@ -17,6 +18,7 @@ import type {
   ModelResponse,
   ProviderCreate,
   ProviderSummary,
+  ProviderTestOut,
   ProviderUpdate,
   SettingsBudgetResponse,
   SettingsModelDefaultResponse,
@@ -67,13 +69,13 @@ export const settingsApi = {
     const res = await api.delete<{ id: string; deleted: boolean }>(`/settings/providers/${id}`);
     return res;
   },
-  testProviderConnection: async (id: string): Promise<{ success: boolean; message?: string; models?: string[] }> => {
-    const res = await api.post<{ success: boolean; message?: string; models?: string[] }>(`/settings/providers/${id}/test`);
-    return res;
+  testProviderConnection: async (id: string): Promise<ProviderTestOut> => {
+    const res = await api.post(`/settings/providers/${id}/test`);
+    return ProviderTestOutSchema.parse(res);
   },
-  testProviderCredentials: async (data: ProviderCredentialTest): Promise<{ success: boolean; message?: string; models?: string[] }> => {
-    const res = await api.post<{ success: boolean; message?: string; models?: string[] }>(`/settings/providers/test`, data);
-    return res;
+  testProviderCredentials: async (data: ProviderCredentialTest): Promise<ProviderTestOut> => {
+    const res = await api.post(`/settings/providers/test`, data);
+    return ProviderTestOutSchema.parse(res);
   },
 
   listModelProviders: async (): Promise<ProviderSummary[]> => {
