@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 from textwrap import dedent
 
+import pytest
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
@@ -519,3 +520,198 @@ class TestDiscoverCustomAssets:
             assert len(blocks) == 1
             assert len(souls) == 1
             assert workflows == {}  # No workflows directory
+
+
+class TestDiscoverCustomTools:
+    """RUN-525: discovery of custom tool metadata files under custom/tools/."""
+
+    @staticmethod
+    def _load_symbols():
+        import runsight_core.yaml.discovery as discovery_module
+
+        discover_custom_tools = getattr(discovery_module, "discover_custom_tools", None)
+        tool_meta = getattr(discovery_module, "ToolMeta", None)
+        return discover_custom_tools, tool_meta
+
+    def test_missing_custom_tools_directory_returns_empty_dict(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = discover_custom_tools(Path(tmpdir))
+            assert result == {}
+
+    def test_discovers_supported_custom_and_http_tool_files_by_slug(self):
+        discover_custom_tools, tool_meta = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+        assert tool_meta is not None, "Expected runsight_core.yaml.discovery.ToolMeta to exist"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+
+            (tools_dir / "python_helper.yaml").write_text(
+                dedent("""
+                type: custom
+                source: python_helper
+                code: |
+                  def main(args: dict) -> Any:
+                      return args
+                """)
+            )
+            (tools_dir / "http_lookup.yaml").write_text(
+                dedent("""
+                type: http
+                source: http_lookup
+                """)
+            )
+
+            discovered = discover_custom_tools(base_dir)
+
+            assert set(discovered.keys()) == {"python_helper", "http_lookup"}
+            assert isinstance(discovered["python_helper"], tool_meta)
+            assert isinstance(discovered["http_lookup"], tool_meta)
+            assert discovered["python_helper"].type == "custom"
+            assert discovered["http_lookup"].type == "http"
+
+    def test_unsupported_type_raises_file_specific_error(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            invalid_file = tools_dir / "bad_type.yaml"
+            invalid_file.write_text(
+                dedent("""
+                type: builtin
+                source: bad_type
+                """)
+            )
+
+            with pytest.raises(ValueError, match="bad_type.yaml"):
+                discover_custom_tools(base_dir)
+
+    def test_malformed_yaml_raises_file_specific_error(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            invalid_file = tools_dir / "broken.yaml"
+            invalid_file.write_text("type: custom\nsource: broken\ncode: [not: valid")
+
+            with pytest.raises(Exception, match="broken.yaml"):
+                discover_custom_tools(base_dir)
+
+    def test_invalid_metadata_raises_file_specific_error(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            invalid_file = tools_dir / "missing_source.yaml"
+            invalid_file.write_text("type: http\n")
+
+            with pytest.raises(ValueError, match="missing_source.yaml"):
+                discover_custom_tools(base_dir)
+
+    def test_custom_tool_rejects_both_code_and_code_file(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            invalid_file = tools_dir / "double_code.yaml"
+            invalid_file.write_text(
+                dedent("""
+                type: custom
+                source: double_code
+                code: |
+                  def main(args: dict) -> Any:
+                      return args
+                code_file: helper.py
+                """)
+            )
+
+            with pytest.raises(ValueError, match="double_code.yaml"):
+                discover_custom_tools(base_dir)
+
+    def test_custom_tool_rejects_missing_code_file(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            invalid_file = tools_dir / "missing_code_file.yaml"
+            invalid_file.write_text(
+                dedent("""
+                type: custom
+                source: missing_code_file
+                code_file: missing_impl.py
+                """)
+            )
+
+            with pytest.raises(ValueError, match="missing_code_file.yaml"):
+                discover_custom_tools(base_dir)
+
+    def test_custom_tool_rejects_invalid_main_signature(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            invalid_file = tools_dir / "bad_signature.yaml"
+            invalid_file.write_text(
+                dedent("""
+                type: custom
+                source: bad_signature
+                code: |
+                  def main() -> Any:
+                      return {}
+                """)
+            )
+
+            with pytest.raises(ValueError, match="bad_signature.yaml"):
+                discover_custom_tools(base_dir)
+
+
+class TestRepoPolicyForCustomTools:
+    """RUN-525: repository policy should explicitly allow custom/tools assets."""
+
+    def test_agents_policy_allows_custom_tools_directory(self):
+        repo_policy = Path(__file__).resolve().parents[5] / "AGENTS.md"
+        assert repo_policy.exists(), f"Expected repo policy at {repo_policy}"
+
+        contents = repo_policy.read_text(encoding="utf-8")
+        assert "custom/tools/" in contents or "- tools" in contents, (
+            "AGENTS.md should explicitly allow custom/tools/ under the custom asset policy"
+        )
