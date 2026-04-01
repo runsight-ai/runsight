@@ -1,14 +1,7 @@
-import type { ComponentType } from "react";
-import { createBrowserRouter, Navigate, useParams } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { ShellLayout } from "./layouts/ShellLayout";
 import { createSetupGuardLoader, createReverseGuardLoader } from "./guards";
 import { queryClient } from "@/lib/queryClient";
-
-function LegacyWorkflowEditorRedirect() {
-  const { id } = useParams<{ id: string }>();
-
-  return <Navigate to={`/workflows/${id}/edit`} replace />;
-}
 
 export const router = createBrowserRouter([
   {
@@ -42,16 +35,6 @@ export const router = createBrowserRouter([
         lazy: () =>
           import("@/features/flows/FlowsPage").then((m) => ({
             Component: m.Component,
-          })),
-      },
-      {
-        path: "workflows/:id",
-        lazy: () =>
-          import("@/features/canvas/WorkflowCanvas").then((m) => ({
-            Component:
-              "LegacyWorkflowRedirect" in m
-                ? (m.LegacyWorkflowRedirect as ComponentType)
-                : LegacyWorkflowEditorRedirect,
           })),
       },
       {
