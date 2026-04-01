@@ -34,6 +34,13 @@ export function useSoulUsages(id: string | undefined) {
   });
 }
 
+export function useAvailableTools() {
+  return useQuery({
+    queryKey: queryKeys.souls.tools,
+    queryFn: soulsApi.listAvailableTools,
+  });
+}
+
 export function useCreateSoul() {
   const queryClient = useQueryClient();
   return useMutation({

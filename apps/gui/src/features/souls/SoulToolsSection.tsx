@@ -10,18 +10,62 @@ type WorkflowToolContext = {
   availableInWorkflow?: boolean;
 };
 
+type AvailableTool = {
+  slug: string;
+  name: string;
+  description: string;
+  type: "builtin" | "custom" | "http";
+};
+
 interface SoulToolsSectionProps {
   tools: string[];
   workflowTools?: WorkflowToolContext[];
+  availableTools?: AvailableTool[];
   onToolsChange: (tools: string[]) => void;
 }
 
 function buildAvailableTools(
   tools: string[],
   workflowTools: WorkflowToolContext[],
-): WorkflowToolContext[] {
+  availableTools: AvailableTool[],
+): Array<WorkflowToolContext & { type: AvailableTool["type"] }> {
   if (workflowTools.length > 0) {
-    return workflowTools;
+    const workflowMap = new Map(workflowTools.map((tool) => [tool.id, tool]));
+    const toolCards = availableTools.map((tool) => {
+      const workflowTool = workflowMap.get(tool.slug);
+      return {
+        id: tool.slug,
+        label: tool.name,
+        description: tool.description,
+        enabled: tools.includes(tool.slug),
+        availableInWorkflow: workflowTool ? (workflowTool.availableInWorkflow ?? true) : false,
+        type: tool.type,
+      };
+    });
+
+    const knownIds = new Set(toolCards.map((tool) => tool.id));
+    for (const workflowTool of workflowTools) {
+      if (knownIds.has(workflowTool.id)) {
+        continue;
+      }
+      toolCards.push({
+        ...workflowTool,
+        type: "builtin",
+      });
+    }
+
+    return toolCards;
+  }
+
+  if (availableTools.length > 0) {
+    return availableTools.map((tool) => ({
+      id: tool.slug,
+      label: tool.name,
+      description: tool.description,
+      enabled: tools.includes(tool.slug),
+      availableInWorkflow: true,
+      type: tool.type,
+    }));
   }
 
   return tools.map((tool) => ({
@@ -30,15 +74,19 @@ function buildAvailableTools(
     description:
       "Enabled on this soul. Open the form from a workflow to compare workflow-only availability.",
     enabled: true,
+    availableInWorkflow: true,
+    type: "builtin" as const,
   }));
 }
 
 export function SoulToolsSection({
   tools,
   workflowTools = [],
+  availableTools = [],
   onToolsChange,
 }: SoulToolsSectionProps) {
-  const availableTools = buildAvailableTools(tools, workflowTools);
+  const toolCards = buildAvailableTools(tools, workflowTools, availableTools);
+  const hasCustomTools = availableTools.some((tool) => tool.type === "custom");
 
   const toggleTool = (toolId: string) => {
     const nextTools = tools.includes(toolId)
@@ -62,9 +110,9 @@ export function SoulToolsSection({
           </p>
         </div>
 
-        {availableTools.length > 0 ? (
+        {toolCards.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
-            {availableTools.map((tool) => {
+            {toolCards.map((tool) => {
               const selected = tools.includes(tool.id);
               const isAvailableInWorkflow = tool.availableInWorkflow !== false;
 
@@ -86,13 +134,18 @@ export function SoulToolsSection({
                       <div className="text-sm font-medium text-heading">{tool.label}</div>
                       <div className="mt-1 text-sm text-muted">{tool.description}</div>
                     </div>
-                    {selected ? (
-                      <Badge variant="accent">Enabled</Badge>
-                    ) : isAvailableInWorkflow ? (
-                      <Badge variant="warning">Available in workflow</Badge>
-                    ) : (
-                      <Badge variant="warning">Not enabled in workflow</Badge>
-                    )}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {tool.type === "custom" ? (
+                        <Badge variant="warning">Custom</Badge>
+                      ) : null}
+                      {selected ? (
+                        <Badge variant="accent">Enabled</Badge>
+                      ) : isAvailableInWorkflow ? (
+                        <Badge variant="warning">Available in workflow</Badge>
+                      ) : (
+                        <Badge variant="warning">Not enabled in workflow</Badge>
+                      )}
+                    </div>
                   </div>
                 </button>
               );
@@ -104,9 +157,15 @@ export function SoulToolsSection({
             the soul.
           </div>
         )}
+
+        {!hasCustomTools ? (
+          <div className="rounded-lg border border-border-default bg-surface-secondary px-4 py-4 text-sm text-muted">
+            Custom tools can be added by creating YAML files under <code>custom/tools</code>.
+          </div>
+        ) : null}
       </div>
     </SoulFormSection>
   );
 }
 
-export type { SoulToolsSectionProps, WorkflowToolContext };
+export type { AvailableTool, SoulToolsSectionProps, WorkflowToolContext };

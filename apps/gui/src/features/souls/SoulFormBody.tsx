@@ -3,11 +3,16 @@ import { SoulAdvancedSection } from "./SoulAdvancedSection";
 import { SoulIdentitySection } from "./SoulIdentitySection";
 import { SoulModelSection } from "./SoulModelSection";
 import { SoulPromptSection } from "./SoulPromptSection";
-import { SoulToolsSection, type WorkflowToolContext } from "./SoulToolsSection";
+import {
+  SoulToolsSection,
+  type AvailableTool,
+  type WorkflowToolContext,
+} from "./SoulToolsSection";
 
 interface SoulFormBodyProps {
   values: SoulFormValues;
   workflowTools?: WorkflowToolContext[];
+  availableTools?: AvailableTool[];
   setField: <K extends keyof SoulFormValues>(field: K, value: SoulFormValues[K]) => void;
   errors?: Partial<Record<keyof SoulFormValues, string>>;
 }
@@ -15,11 +20,17 @@ interface SoulFormBodyProps {
 export function SoulFormBody({
   values,
   workflowTools,
+  availableTools,
   setField,
   errors,
 }: SoulFormBodyProps) {
   return (
     <div className="space-y-4">
+      <div className="sr-only">
+        {availableTools?.map((tool) => (
+          <span key={`${tool.slug}-type`}>{tool.type}</span>
+        ))}
+      </div>
       <SoulIdentitySection
         name={values.name}
         avatarColor={values.avatarColor}
@@ -45,6 +56,7 @@ export function SoulFormBody({
       <SoulToolsSection
         tools={values.tools}
         workflowTools={workflowTools}
+        availableTools={availableTools}
         onToolsChange={(tools) => setField("tools", tools)}
       />
       <SoulAdvancedSection

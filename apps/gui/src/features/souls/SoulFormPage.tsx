@@ -8,7 +8,7 @@ import {
 import { parse } from "yaml";
 
 import { PageHeader } from "@/components/shared/PageHeader";
-import { useSoul } from "@/queries/souls";
+import { useAvailableTools, useSoul } from "@/queries/souls";
 import { useWorkflow } from "@/queries/workflows";
 import { Button } from "@runsight/ui/button";
 import {
@@ -18,32 +18,18 @@ import {
   DialogTitle,
 } from "@runsight/ui/dialog";
 
-import type { WorkflowToolContext } from "./SoulToolsSection";
+import type { AvailableTool, WorkflowToolContext } from "./SoulToolsSection";
 import { SoulFormBody } from "./SoulFormBody";
 import { SoulFormFooter } from "./SoulFormFooter";
 import { useSoulForm } from "./useSoulForm";
 
 type WorkflowToolDef = {
+  type?: "builtin" | "custom" | "http";
   source?: string;
 };
 
 type WorkflowToolFile = {
   tools?: Record<string, WorkflowToolDef>;
-};
-
-const TOOL_SOURCE_META: Record<string, { label: string; description: string }> = {
-  "runsight/http": {
-    label: "HTTP Requests",
-    description: "Fetch external APIs.",
-  },
-  "runsight/file-io": {
-    label: "Workspace Files",
-    description: "Read project files.",
-  },
-  "runsight/delegate": {
-    label: "Delegate",
-    description: "Route between exits.",
-  },
 };
 
 function buildBreadcrumbLabel(mode: "create" | "edit", role?: string | null) {
@@ -66,12 +52,15 @@ function getWorkflowIdFromReturnUrl(returnUrl: string | null): string | null {
 function buildWorkflowTools(
   yamlText: string | null | undefined,
   selectedTools: string[],
+  availableTools: AvailableTool[],
 ): WorkflowToolContext[] {
+  const availableToolMap = new Map(availableTools.map((tool) => [tool.slug, tool]));
+
   const fallbackTools = selectedTools.map((tool) => ({
     id: tool,
-    label: TOOL_SOURCE_META[tool]?.label ?? tool,
+    label: availableToolMap.get(tool)?.name ?? tool,
     description:
-      TOOL_SOURCE_META[tool]?.description ??
+      availableToolMap.get(tool)?.description ??
       "Enabled on this soul. Open the form from a workflow to compare workflow tool availability.",
     enabled: true,
   }));
@@ -83,16 +72,17 @@ function buildWorkflowTools(
   try {
     const parsed = parse(yamlText) as WorkflowToolFile | null;
     const workflowTools = Object.entries(parsed?.tools ?? {}).map(([id, toolDef]) => {
-      const meta = TOOL_SOURCE_META[toolDef.source ?? ""] ?? {
-        label: id,
-        description: toolDef.source ?? "Available in this workflow.",
-      };
+      const lookupSlug =
+        toolDef.type === "builtin"
+          ? toolDef.source ?? id
+          : toolDef.source ?? id;
+      const meta = availableToolMap.get(lookupSlug);
 
       return {
-        id,
-        label: meta.label,
-        description: meta.description,
-        enabled: selectedTools.includes(id),
+        id: lookupSlug,
+        label: meta?.name ?? id,
+        description: meta?.description ?? toolDef.source ?? "Available in this workflow.",
+        enabled: selectedTools.includes(lookupSlug),
         availableInWorkflow: true,
       };
     });
@@ -102,8 +92,10 @@ function buildWorkflowTools(
       .filter((tool) => !knownToolIds.has(tool))
       .map((tool) => ({
         id: tool,
-        label: TOOL_SOURCE_META[tool]?.label ?? tool,
-        description: "Enabled on this soul, but not enabled in the current workflow.",
+        label: availableToolMap.get(tool)?.name ?? tool,
+        description:
+          availableToolMap.get(tool)?.description ??
+          "Enabled on this soul, but not enabled in the current workflow.",
         enabled: true,
         availableInWorkflow: false,
       }));
@@ -159,6 +151,7 @@ export function Component() {
   const workflowId = getWorkflowIdFromReturnUrl(returnUrl);
   const mode = id ? "edit" : "create";
   const soulQuery = useSoul(id ?? "");
+  const availableToolsQuery = useAvailableTools();
   const workflowContext = useWorkflow(workflowId ?? "");
 
   const form = useSoulForm({
@@ -175,7 +168,11 @@ export function Component() {
     },
   });
   const { isDirty, isSubmitting, reset, setField, submit, values } = form;
-  const workflowTools = buildWorkflowTools(workflowContext.data?.yaml, values.tools);
+  const workflowTools = buildWorkflowTools(
+    workflowContext.data?.yaml,
+    values.tools,
+    availableToolsQuery.data ?? [],
+  );
 
   useEffect(() => {
     if (mode === "edit" && soulQuery.data) {
@@ -222,6 +219,7 @@ export function Component() {
           <SoulFormBody
             values={values}
             workflowTools={workflowTools}
+            availableTools={availableToolsQuery.data ?? []}
             setField={setField}
           />
         </div>
