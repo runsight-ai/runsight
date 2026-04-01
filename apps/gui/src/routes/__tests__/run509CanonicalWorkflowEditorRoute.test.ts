@@ -4,7 +4,7 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Outlet, useLocation } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
 
 function RouteEcho({ label }: { label: string }) {
   const location = useLocation();
@@ -20,14 +20,10 @@ vi.mock("../guards", () => ({
   createReverseGuardLoader: () => async () => null,
 }));
 
-vi.mock("../layouts/ShellLayout", async () => {
-  const actual = await vi.importActual<typeof import("react-router")>(
-    "react-router",
-  );
-
+vi.mock("../layouts/ShellLayout", () => {
   return {
     ShellLayout: () => {
-      const navigate = actual.useNavigate();
+      const navigate = useNavigate();
 
       return React.createElement(
         React.Fragment,
@@ -40,7 +36,7 @@ vi.mock("../layouts/ShellLayout", async () => {
           },
           "Flows",
         ),
-        React.createElement(actual.Outlet),
+        React.createElement(Outlet),
       );
     },
   };
