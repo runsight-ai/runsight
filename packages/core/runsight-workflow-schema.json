@@ -1012,6 +1012,7 @@
       "type": "object"
     },
     "SoulDef": {
+      "additionalProperties": false,
       "description": "Soul definition as expressed in the YAML souls: section.",
       "properties": {
         "id": {

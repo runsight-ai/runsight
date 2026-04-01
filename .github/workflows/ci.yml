@@ -17,7 +17,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e "libs/core[dev]"
-      - run: ruff check libs/core/src/
-      - run: python libs/core/scripts/generate_schema.py --check
-      - run: pytest libs/core/tests/ -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: "pnpm"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - run: python -m pip install uv
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --frozen --all-packages --all-groups
+      - run: uv run python packages/core/scripts/generate_schema.py --check
+      - run: uv run pytest apps/api/tests packages/core/tests -q
+      - run: |
+          export PATH="$PWD/.venv/bin:$PATH"
+          pnpm run lint
