@@ -12,6 +12,9 @@ Tests target:
 
 from __future__ import annotations
 
+import json
+from textwrap import dedent
+
 import pytest
 
 # ---------------------------------------------------------------------------
@@ -40,6 +43,15 @@ def _make_dummy_tool_instance():
         },
         execute=_dummy_execute,
     )
+
+
+def _write_custom_tool_yaml(base_dir, slug: str, contents: str):
+    """Create a custom tool YAML file under custom/tools/ for resolver tests."""
+    tools_dir = base_dir / "custom" / "tools"
+    tools_dir.mkdir(parents=True, exist_ok=True)
+    yaml_path = tools_dir / f"{slug}.yaml"
+    yaml_path.write_text(dedent(contents), encoding="utf-8")
+    return yaml_path
 
 
 # ---------------------------------------------------------------------------
@@ -390,15 +402,28 @@ class TestResolveToolTypedDispatch:
         finally:
             BUILTIN_TOOL_CATALOG.pop(source, None)
 
-    def test_resolve_tool_custom_variant_raises_notimplementederror_stub(self):
-        """CustomToolDef should dispatch to a stub path that raises NotImplementedError for now."""
-        from runsight_core.tools import resolve_tool
+    def test_resolve_tool_custom_variant_returns_toolinstance(self, tmp_path):
+        """CustomToolDef should dispatch through the custom resolver and return a ToolInstance."""
+        from runsight_core.tools import ToolInstance, resolve_tool
         from runsight_core.yaml.schema import CustomToolDef
 
-        tool_def = CustomToolDef(type="custom", source="custom/tools/github.py")
+        _write_custom_tool_yaml(
+            tmp_path,
+            "echo_tool",
+            """
+            type: custom
+            source: echo_tool
+            code: |
+              def main(args):
+                  return {"echo": args["message"]}
+            """,
+        )
+        tool_def = CustomToolDef(type="custom", source="echo_tool")
 
-        with pytest.raises(NotImplementedError):
-            resolve_tool(tool_def, workspace_root="/tmp/project")
+        result = resolve_tool(tool_def, base_dir=tmp_path)
+
+        assert isinstance(result, ToolInstance)
+        assert callable(result.execute)
 
     def test_resolve_tool_http_variant_raises_notimplementederror_stub(self):
         """HTTPToolDef should dispatch to a stub path that raises NotImplementedError for now."""
@@ -409,3 +434,147 @@ class TestResolveToolTypedDispatch:
 
         with pytest.raises(NotImplementedError):
             resolve_tool(tool_def, api_key="secret123")
+
+
+class TestResolveCustomTool:
+    """RUN-526: custom tools resolve from YAML and execute in the sandbox."""
+
+    def test_catalog_exposes_resolve_custom_tool(self):
+        """The catalog module should expose a dedicated custom-tool resolver."""
+        from runsight_core.tools import _catalog as catalog_module
+
+        assert callable(getattr(catalog_module, "resolve_custom_tool", None))
+
+    @pytest.mark.asyncio
+    async def test_execute_round_trips_args_through_json_subprocess_contract(self, tmp_path):
+        """Resolved custom tools should execute user code via a JSON stdin/stdout contract."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml.schema import CustomToolDef
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "echo_json",
+            """
+            type: custom
+            source: echo_json
+            code: |
+              def main(args):
+                  return {"message": "hello " + args["name"]}
+            """,
+        )
+
+        tool = resolve_tool(CustomToolDef(type="custom", source="echo_json"), base_dir=tmp_path)
+
+        result = await tool.execute({"name": "alice"})
+
+        assert json.loads(result) == {"message": "hello alice"}
+
+    def test_blocked_imports_are_rejected_at_resolve_time(self, tmp_path):
+        """Dangerous imports should be rejected before a custom tool is returned."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml.schema import CustomToolDef
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "blocked_import_tool",
+            """
+            type: custom
+            source: blocked_import_tool
+            code: |
+              import os
+
+              def main(args):
+                  return {}
+            """,
+        )
+
+        with pytest.raises(ValueError, match="not allowed"):
+            resolve_tool(
+                CustomToolDef(type="custom", source="blocked_import_tool"),
+                base_dir=tmp_path,
+            )
+
+    def test_blocked_builtins_are_rejected_at_resolve_time(self, tmp_path):
+        """Blocked builtins like eval/open/__import__ should be rejected during resolution."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml.schema import CustomToolDef
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "blocked_builtin_tool",
+            """
+            type: custom
+            source: blocked_builtin_tool
+            code: |
+              def main(args):
+                  eval("1 + 1")
+                  return {}
+            """,
+        )
+
+        with pytest.raises(ValueError, match="not allowed"):
+            resolve_tool(
+                CustomToolDef(type="custom", source="blocked_builtin_tool"),
+                base_dir=tmp_path,
+            )
+
+    @pytest.mark.asyncio
+    async def test_timeout_returns_error_string(self, tmp_path):
+        """Runaway custom tools should be killed and surfaced as an error string."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml.schema import CustomToolDef
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "slow_tool",
+            """
+            type: custom
+            source: slow_tool
+            code: |
+              import time
+
+              def main(args):
+                  time.sleep(5)
+                  return {"done": True}
+            """,
+        )
+
+        tool = resolve_tool(
+            CustomToolDef(type="custom", source="slow_tool"),
+            base_dir=tmp_path,
+            timeout_seconds=1,
+        )
+
+        result = await tool.execute({})
+
+        assert "timed out" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_code_file_variant_loads_external_python_file(self, tmp_path):
+        """code_file metadata should load the external Python implementation before execution."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml.schema import CustomToolDef
+
+        tools_dir = tmp_path / "custom" / "tools"
+        tools_dir.mkdir(parents=True, exist_ok=True)
+        (tools_dir / "file_backed_impl.py").write_text(
+            dedent("""
+            def main(args):
+                return {"port": args["port"]}
+            """),
+            encoding="utf-8",
+        )
+        (tools_dir / "file_backed.yaml").write_text(
+            dedent("""
+            type: custom
+            source: file_backed
+            code_file: file_backed_impl.py
+            """),
+            encoding="utf-8",
+        )
+
+        tool = resolve_tool(CustomToolDef(type="custom", source="file_backed"), base_dir=tmp_path)
+
+        result = await tool.execute({"port": "done"})
+
+        assert json.loads(result) == {"port": "done"}
