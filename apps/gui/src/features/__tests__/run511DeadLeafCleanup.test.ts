@@ -43,6 +43,41 @@ function findRuntimeReferences(pattern: RegExp, excludedFiles: string[] = []): s
     .filter((filePath) => pattern.test(readSource(filePath)));
 }
 
+function listFiles(dir: string): string[] {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const fullPath = resolve(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...listFiles(fullPath));
+      continue;
+    }
+
+    if (!/\.(ts|tsx)$/.test(entry.name)) {
+      continue;
+    }
+
+    files.push(relative(SRC_DIR, fullPath));
+  }
+
+  return files;
+}
+
+function findTestReferences(pattern: RegExp, excludedFiles: string[] = []): string[] {
+  return listFiles(SRC_DIR)
+    .filter((filePath) => filePath.includes("__tests__/"))
+    .filter((filePath) => !excludedFiles.includes(filePath))
+    .filter((filePath) => pattern.test(readSource(filePath)));
+}
+
+const SHARED_DEAD_LEAF_FILES = [
+  "components/shared/CrudListPage.tsx",
+  "components/shared/NodeBadge.tsx",
+  "components/shared/CostDisplay.tsx",
+] as const;
+
 describe("RUN-511 dead feature leaf cleanup", () => {
   it("removes dead route-retired feature leaves from disk", () => {
     expect(sourceFileExists("features/health/HealthPage.tsx")).toBe(false);
@@ -66,6 +101,62 @@ describe("RUN-511 dead feature leaf cleanup", () => {
 
     expect(routesSource).not.toMatch(/path:\s*["']health["']/);
     expect(routesSource).not.toMatch(/features\/health\/HealthPage/);
+  });
+});
+
+describe("RUN-511 dead shared leaf cleanup", () => {
+  it("removes dead shared leaf component files from the shipped runtime tree", () => {
+    for (const filePath of SHARED_DEAD_LEAF_FILES) {
+      expect(sourceFileExists(filePath)).toBe(false);
+    }
+  });
+
+  it("proves the shared dead leaves are not reachable from live runtime imports", () => {
+    const crudListRefs = findRuntimeReferences(/CrudListPage/, [
+      "components/shared/CrudListPage.tsx",
+      "components/shared/index.ts",
+    ]);
+    const nodeBadgeRefs = findRuntimeReferences(/NodeBadge/, [
+      "components/shared/NodeBadge.tsx",
+      "components/shared/index.ts",
+    ]);
+    const costDisplayRefs = findRuntimeReferences(/CostDisplay/, [
+      "components/shared/CostDisplay.tsx",
+      "components/shared/index.ts",
+    ]);
+
+    expect(crudListRefs).toEqual([]);
+    expect(nodeBadgeRefs).toEqual([]);
+    expect(costDisplayRefs).toEqual([]);
+  });
+
+  it("removes stale shared barrel exports tied only to deleted shared leaves", () => {
+    const source = readSource("components/shared/index.ts");
+
+    expect(source).not.toMatch(/CrudListPage/);
+    expect(source).not.toMatch(/CrudListPageConfig/);
+    expect(source).not.toMatch(/NodeBadge/);
+    expect(source).not.toMatch(/NodeType/);
+    expect(source).not.toMatch(/CostDisplay/);
+  });
+
+  it("does not keep shared dead leaves alive only through product-tree tests", () => {
+    const crudListTestRefs = findTestReferences(/CrudListPage/, [
+      "features/__tests__/run511DeadLeafCleanup.test.ts",
+      "features/__tests__/screenTokenSweep.test.ts",
+    ]);
+    const nodeBadgeTestRefs = findTestReferences(/NodeBadge/, [
+      "features/__tests__/run511DeadLeafCleanup.test.ts",
+      "features/__tests__/screenTokenSweep.test.ts",
+    ]);
+    const costDisplayTestRefs = findTestReferences(/CostDisplay/, [
+      "features/__tests__/run511DeadLeafCleanup.test.ts",
+      "features/__tests__/screenTokenSweep.test.ts",
+    ]);
+
+    expect(crudListTestRefs).toEqual([]);
+    expect(nodeBadgeTestRefs).toEqual([]);
+    expect(costDisplayTestRefs).toEqual([]);
   });
 });
 
