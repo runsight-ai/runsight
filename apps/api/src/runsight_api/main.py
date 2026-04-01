@@ -34,6 +34,7 @@ from .transport.routers import (
     sse_stream,
     steps,
     tasks,
+    tools,
     workflows,
 )
 
@@ -153,6 +154,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(git.router, prefix="/api")
     app.include_router(models.router, prefix="/api")
+    app.include_router(tools.router, prefix="/api")
     app.include_router(sse_stream.router, prefix="/api")
 
     @app.get("/health")

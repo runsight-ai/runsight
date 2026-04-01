@@ -45,11 +45,11 @@ class TestToolDef:
             ToolDef(source="runsight/http")  # type: ignore  # missing type
 
     def test_tooldef_rejects_invalid_type(self):
-        """ToolDef rejects type values other than 'builtin'."""
+        """ToolDef rejects unknown type values."""
         from runsight_core.yaml.schema import ToolDef
 
         with pytest.raises(ValidationError):
-            ToolDef(type="custom", source="runsight/http")
+            ToolDef(type="external", source="runsight/http")
 
     def test_tooldef_type_literal_builtin_only(self):
         """ToolDef type field is Literal['builtin'] — only 'builtin' accepted."""
@@ -60,6 +60,67 @@ class TestToolDef:
 
         with pytest.raises(ValidationError):
             ToolDef(type="external", source="runsight/search")
+
+
+class TestToolDefDiscriminatedUnion:
+    """RUN-523: ToolDef should become a discriminated union across tool kinds."""
+
+    def test_builtin_tooldef_backward_compat_still_works(self):
+        """Existing builtin ToolDef(type='builtin', source=...) usage must still validate."""
+        from runsight_core.yaml.schema import ToolDef
+
+        td = ToolDef(type="builtin", source="runsight/http")
+        assert td.type == "builtin"
+        assert td.source == "runsight/http"
+
+    def test_builtin_tooldef_rejects_unknown_fields(self):
+        """All ToolDef variants use extra='forbid', including builtin."""
+        from runsight_core.yaml.schema import ToolDef
+
+        with pytest.raises(ValidationError, match="bogus"):
+            ToolDef(type="builtin", source="runsight/http", bogus=True)
+
+    def test_custom_tooldef_rejects_unknown_fields(self):
+        """CustomToolDef should also enforce extra='forbid'."""
+        from runsight_core.yaml.schema import ToolDef
+
+        with pytest.raises(ValidationError, match="bogus"):
+            ToolDef(type="custom", source="custom/providers/github_tool.py", bogus=True)
+
+    def test_http_tooldef_rejects_unknown_fields(self):
+        """HTTPToolDef should also enforce extra='forbid'."""
+        from runsight_core.yaml.schema import ToolDef
+
+        with pytest.raises(ValidationError, match="bogus"):
+            ToolDef(type="http", source="http_tool", bogus=True)
+
+    def test_tooldef_accepts_custom_variant(self):
+        """CustomToolDef is accepted by the ToolDef discriminated union."""
+        from runsight_core.yaml.schema import ToolDef
+
+        td = ToolDef(type="custom", source="custom/providers/github_tool.py")
+        assert td.type == "custom"
+        assert td.source == "custom/providers/github_tool.py"
+
+    def test_tooldef_accepts_http_variant(self):
+        """HTTPToolDef is accepted by the ToolDef discriminated union."""
+        from runsight_core.yaml.schema import ToolDef
+
+        td = ToolDef(type="http", source="http_tool")
+        assert td.type == "http"
+        assert td.source == "http_tool"
+
+    def test_tooldef_unknown_type_error_mentions_all_supported_variants(self):
+        """Unknown ToolDef type values should mention builtin, custom, and http."""
+        from runsight_core.yaml.schema import ToolDef
+
+        with pytest.raises(ValidationError) as exc_info:
+            ToolDef(type="external", source="some/tool")
+
+        message = str(exc_info.value)
+        assert "builtin" in message
+        assert "custom" in message
+        assert "http" in message
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +176,49 @@ class TestRunsightWorkflowFileTools:
         assert "tools" in dump
         assert dump["tools"]["my_tool"]["type"] == "builtin"
         assert dump["tools"]["my_tool"]["source"] == "runsight/http"
+
+    def test_workflow_file_accepts_mixed_tooldef_variants(self):
+        """RunsightWorkflowFile.tools stays Dict[str, ToolDef] while accepting all variants."""
+        from runsight_core.yaml.schema import RunsightWorkflowFile
+
+        wf = RunsightWorkflowFile.model_validate(
+            {
+                "workflow": {"name": "test", "entry": "start"},
+                "tools": {
+                    "builtin_tool": {"type": "builtin", "source": "runsight/http"},
+                    "custom_tool": {
+                        "type": "custom",
+                        "source": "custom/tools/github.py",
+                    },
+                    "http_tool": {
+                        "type": "http",
+                        "source": "http_tool",
+                    },
+                },
+            }
+        )
+
+        assert wf.tools["builtin_tool"].type == "builtin"
+        assert wf.tools["custom_tool"].type == "custom"
+        assert wf.tools["http_tool"].type == "http"
+
+    def test_workflow_file_rejects_extra_fields_in_tooldef_variants(self):
+        """ToolDef variants should all enforce extra='forbid' inside RunsightWorkflowFile.tools."""
+        from runsight_core.yaml.schema import RunsightWorkflowFile
+
+        with pytest.raises(ValidationError, match="unexpected_field"):
+            RunsightWorkflowFile.model_validate(
+                {
+                    "workflow": {"name": "test", "entry": "start"},
+                    "tools": {
+                        "http_tool": {
+                            "type": "builtin",
+                            "source": "runsight/http",
+                            "unexpected_field": "nope",
+                        }
+                    },
+                }
+            )
 
 
 # ---------------------------------------------------------------------------

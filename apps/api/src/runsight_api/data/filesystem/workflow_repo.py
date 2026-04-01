@@ -19,6 +19,7 @@ from urllib.parse import unquote
 
 import yaml as yaml_mod
 from pydantic import ValidationError as PydanticValidationError
+from runsight_core.yaml.parser import validate_tool_governance
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 from ...domain.errors import WorkflowNotFound
@@ -130,9 +131,12 @@ class WorkflowRepository:
             data = yaml_mod.safe_load(raw_yaml)
             if not isinstance(data, dict):
                 return False, "YAML content is not a mapping"
-            RunsightWorkflowFile.model_validate(data)
+            file_def = RunsightWorkflowFile.model_validate(data)
+            validate_tool_governance(file_def)
             return True, None
         except PydanticValidationError as e:
+            return False, str(e)
+        except ValueError as e:
             return False, str(e)
         except Exception as e:
             return False, f"Unexpected validation error: {e}"

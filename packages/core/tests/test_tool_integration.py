@@ -27,14 +27,21 @@ Mocking strategy:
 
 from __future__ import annotations
 
+import asyncio
 import json
+import socket
 from pathlib import Path
 from typing import Any, Dict, List
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from runsight_core.isolation.envelope import ResultEnvelope, ToolDefEnvelope
+from runsight_core.isolation.handlers import make_tool_call_handler
+from runsight_core.isolation.ipc import IPCServer
+from runsight_core.isolation.worker import create_tool_stubs
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
+from runsight_core.state import WorkflowState
 from runsight_core.tools import BUILTIN_TOOL_CATALOG, ToolInstance, register_builtin
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.schema import ExitDef
@@ -116,6 +123,23 @@ def _workflow_dict(
     if blocks:
         d["blocks"] = blocks
     return d
+
+
+# ---------------------------------------------------------------------------
+# File helpers for checkout-local custom tool workflows
+# ---------------------------------------------------------------------------
+
+
+def _write_custom_tool_yaml(tmp_path: Path, slug: str, yaml_body: str) -> None:
+    tools_dir = tmp_path / "custom" / "tools"
+    tools_dir.mkdir(parents=True, exist_ok=True)
+    (tools_dir / f"{slug}.yaml").write_text(yaml_body, encoding="utf-8")
+
+
+def _write_workflow_file(tmp_path: Path, yaml_body: str) -> Path:
+    workflow_path = tmp_path / "workflow.yaml"
+    workflow_path.write_text(yaml_body, encoding="utf-8")
+    return workflow_path
 
 
 # ---------------------------------------------------------------------------
@@ -1133,3 +1157,452 @@ class TestExistingYamlWorkflowsParseClean:
         assert yaml_path.exists(), f"Workflow file missing: {yaml_path}"
         workflow = parse_workflow_yaml(str(yaml_path))
         assert workflow is not None
+
+
+# ===========================================================================
+# RUN-532: Full custom/http tool pipeline integration
+# ===========================================================================
+
+
+class TestRun532ToolPipelineIntegration:
+    """Integration coverage for custom/http tools across parse, resolve, loop, and IPC seams."""
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.runner.LiteLLMClient.achat")
+    async def test_custom_tool_yaml_parse_resolve_and_agentic_loop(
+        self,
+        mock_achat: AsyncMock,
+        tmp_path: Path,
+    ) -> None:
+        """RUN-532 AC1: custom tool metadata should resolve and execute through the tool loop."""
+        _write_custom_tool_yaml(
+            tmp_path,
+            "adder",
+            """\
+type: custom
+source: adder
+code: |
+  def main(args):
+      return {"sum": args["a"] + args["b"]}
+""",
+        )
+        workflow_path = _write_workflow_file(
+            tmp_path,
+            """\
+version: "1.0"
+config:
+  model_name: gpt-4o
+tools:
+  add:
+    type: custom
+    source: adder
+souls:
+  agent:
+    id: agent_1
+    role: Custom Agent
+    system_prompt: Use the adder tool.
+    tools:
+      - add
+blocks:
+  step:
+    type: linear
+    soul_ref: agent
+workflow:
+  name: run_532_custom_pipeline
+  entry: step
+  transitions:
+    - from: step
+      to: null
+""",
+        )
+
+        workflow = parse_workflow_yaml(str(workflow_path))
+        soul = workflow.blocks["step"].soul
+
+        assert soul.resolved_tools is not None
+        assert [tool.name for tool in soul.resolved_tools] == ["adder"]
+
+        mock_achat.side_effect = [
+            _tool_call_response("adder", arguments='{"a": 2, "b": 3}', call_id="custom_1"),
+            _text_response("Custom tool complete."),
+        ]
+
+        runner = RunsightTeamRunner(model_name="gpt-4o")
+        result = await runner.execute_task(
+            Task(id="run-532-custom", instruction="Add numbers"), soul
+        )
+
+        assert result.output == "Custom tool complete."
+        assert result.tool_calls_made == ["adder"]
+
+        tool_messages = [
+            msg
+            for msg in mock_achat.call_args_list[1].kwargs["messages"]
+            if msg.get("role") == "tool"
+        ]
+        assert json.loads(tool_messages[-1]["content"]) == {"sum": 5}
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.runner.LiteLLMClient.achat")
+    async def test_http_tool_yaml_parse_resolve_and_agentic_loop(
+        self,
+        mock_achat: AsyncMock,
+        tmp_path: Path,
+    ) -> None:
+        """RUN-532 AC2: HTTP tool metadata should resolve and feed HTTP results back into the loop."""
+        _write_custom_tool_yaml(
+            tmp_path,
+            "fetch_answer",
+            """\
+type: http
+url: https://example.com/items/{{ item_id }}
+response_path: data.answer
+""",
+        )
+        workflow_path = _write_workflow_file(
+            tmp_path,
+            """\
+version: "1.0"
+config:
+  model_name: gpt-4o
+tools:
+  fetch:
+    type: http
+    source: fetch_answer
+souls:
+  agent:
+    id: agent_1
+    role: HTTP Agent
+    system_prompt: Use the fetch tool.
+    tools:
+      - fetch
+blocks:
+  step:
+    type: linear
+    soul_ref: agent
+workflow:
+  name: run_532_http_pipeline
+  entry: step
+  transitions:
+    - from: step
+      to: null
+""",
+        )
+
+        workflow = parse_workflow_yaml(str(workflow_path))
+        soul = workflow.blocks["step"].soul
+
+        class _FakeResponse:
+            headers = {"content-type": "application/json"}
+
+            def json(self) -> dict[str, Any]:
+                return {"data": {"answer": "42"}}
+
+            @property
+            def text(self) -> str:
+                return json.dumps(self.json())
+
+        class _FakeAsyncClient:
+            async def __aenter__(self) -> "_FakeAsyncClient":
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb) -> None:
+                return None
+
+            async def request(
+                self,
+                method: str,
+                url: str,
+                headers: dict[str, str] | None = None,
+                content: str | None = None,
+            ) -> _FakeResponse:
+                assert method == "GET"
+                assert url == "https://example.com/items/7"
+                assert headers is None
+                assert content is None
+                return _FakeResponse()
+
+        mock_achat.side_effect = [
+            _tool_call_response("fetch_answer", arguments='{"item_id": 7}', call_id="http_1"),
+            _text_response("HTTP tool complete."),
+        ]
+
+        with patch("runsight_core.tools._catalog.httpx.AsyncClient", _FakeAsyncClient):
+            runner = RunsightTeamRunner(model_name="gpt-4o")
+            result = await runner.execute_task(
+                Task(id="run-532-http", instruction="Fetch answer"),
+                soul,
+            )
+
+        assert result.output == "HTTP tool complete."
+        assert result.tool_calls_made == ["fetch_answer"]
+
+        tool_messages = [
+            msg
+            for msg in mock_achat.call_args_list[1].kwargs["messages"]
+            if msg.get("role") == "tool"
+        ]
+        assert json.loads(tool_messages[-1]["content"]) == "42"
+
+    def test_builtin_custom_and_http_tools_parse_and_resolve_together(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """RUN-532 AC3 + AC6: mixed workflows should resolve builtin, custom, and HTTP tools together."""
+        _write_custom_tool_yaml(
+            tmp_path,
+            "adder",
+            """\
+type: custom
+source: adder
+code: |
+  def main(args):
+      return {"sum": args["a"] + args["b"]}
+""",
+        )
+        _write_custom_tool_yaml(
+            tmp_path,
+            "fetch_answer",
+            """\
+type: http
+url: https://example.com/items/{{ item_id }}
+""",
+        )
+        workflow_path = _write_workflow_file(
+            tmp_path,
+            """\
+version: "1.0"
+config:
+  model_name: gpt-4o
+tools:
+  http_builtin:
+    type: builtin
+    source: runsight/http
+  add:
+    type: custom
+    source: adder
+  fetch:
+    type: http
+    source: fetch_answer
+souls:
+  agent:
+    id: agent_1
+    role: Mixed Agent
+    system_prompt: Use every tool.
+    tools:
+      - http_builtin
+      - add
+      - fetch
+blocks:
+  step:
+    type: linear
+    soul_ref: agent
+workflow:
+  name: run_532_mixed_pipeline
+  entry: step
+  transitions:
+    - from: step
+      to: null
+""",
+        )
+
+        workflow = parse_workflow_yaml(str(workflow_path))
+        soul = workflow.blocks["step"].soul
+
+        assert soul.resolved_tools is not None
+        assert {tool.name for tool in soul.resolved_tools} == {
+            "http_request",
+            "adder",
+            "fetch_answer",
+        }
+
+    def test_undeclared_tool_raises_actionable_valueerror(self, tmp_path: Path) -> None:
+        """RUN-532 AC4: governance errors should stay actionable in the end-to-end parse path."""
+        workflow_path = _write_workflow_file(
+            tmp_path,
+            """\
+version: "1.0"
+config:
+  model_name: gpt-4o
+souls:
+  agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Use a missing tool.
+    tools:
+      - missing_tool
+blocks:
+  step:
+    type: linear
+    soul_ref: agent
+workflow:
+  name: run_532_governance_error
+  entry: step
+  transitions:
+    - from: step
+      to: null
+""",
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=r"agent.*undeclared tool 'missing_tool'.*Declared tools: \[\]",
+        ):
+            parse_workflow_yaml(str(workflow_path))
+
+    @pytest.mark.asyncio
+    async def test_ipc_tool_call_round_trip_returns_engine_tool_output(
+        self, tmp_path: Path
+    ) -> None:
+        """RUN-532 AC5: worker-side tool stubs should round-trip through IPC tool_call."""
+
+        async def _echo(args: dict[str, Any]) -> str:
+            return f"echo:{args['value']}"
+
+        socket_path = tmp_path / "tool_call.sock"
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.bind(str(socket_path))
+        sock.listen(1)
+
+        server = IPCServer(
+            sock=sock,
+            handlers={
+                "tool_call": make_tool_call_handler(
+                    {
+                        "echo_tool": ToolInstance(
+                            name="echo_tool",
+                            description="Echo values.",
+                            parameters={
+                                "type": "object",
+                                "properties": {"value": {"type": "string"}},
+                                "required": ["value"],
+                            },
+                            execute=_echo,
+                        )
+                    }
+                )
+            },
+        )
+        server_task = asyncio.create_task(server.serve())
+        await asyncio.sleep(0)
+
+        try:
+            stubs = create_tool_stubs(
+                [
+                    ToolDefEnvelope(
+                        source="echo_tool",
+                        config={},
+                        exits=[],
+                        name="echo_tool",
+                        description="Echo values.",
+                        parameters={
+                            "type": "object",
+                            "properties": {"value": {"type": "string"}},
+                            "required": ["value"],
+                        },
+                        tool_type="custom",
+                    )
+                ],
+                socket_path=str(socket_path),
+            )
+
+            assert await stubs[0].execute({"value": "hi"}) == "echo:hi"
+        finally:
+            await server.shutdown()
+            server_task.cancel()
+            try:
+                await server_task
+            except asyncio.CancelledError:
+                pass
+            sock.close()
+            socket_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_isolated_linear_block_envelope_includes_tool_definitions_for_worker_loop(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """RUN-532 AC5 + AC6: isolated execution must ship resolved tool metadata to the worker."""
+        _write_custom_tool_yaml(
+            tmp_path,
+            "adder",
+            """\
+type: custom
+source: adder
+code: |
+  def main(args):
+      return {"sum": args["a"] + args["b"]}
+""",
+        )
+        _write_custom_tool_yaml(
+            tmp_path,
+            "fetch_answer",
+            """\
+type: http
+url: https://example.com/items/{{ item_id }}
+""",
+        )
+        workflow_path = _write_workflow_file(
+            tmp_path,
+            """\
+version: "1.0"
+config:
+  model_name: gpt-4o
+tools:
+  builtin_http:
+    type: builtin
+    source: runsight/http
+  add:
+    type: custom
+    source: adder
+  fetch:
+    type: http
+    source: fetch_answer
+souls:
+  agent:
+    id: agent_1
+    role: Mixed Agent
+    system_prompt: Use every tool.
+    tools:
+      - builtin_http
+      - add
+      - fetch
+blocks:
+  step:
+    type: linear
+    soul_ref: agent
+workflow:
+  name: run_532_isolated_envelope
+  entry: step
+  transitions:
+    - from: step
+      to: null
+""",
+        )
+
+        workflow = parse_workflow_yaml(str(workflow_path))
+        block = workflow.blocks["step"]
+        state = WorkflowState(current_task=Task(id="run-532-envelope", instruction="Do work"))
+        captured: dict[str, Any] = {}
+
+        async def _capture(envelope: Any) -> ResultEnvelope:
+            captured["envelope"] = envelope
+            return ResultEnvelope(
+                block_id="step",
+                output="done",
+                exit_handle="done",
+                cost_usd=0.0,
+                total_tokens=0,
+                tool_calls_made=0,
+                delegate_artifacts={},
+                conversation_history=[],
+                error=None,
+                error_type=None,
+            )
+
+        with patch.object(block, "_run_in_subprocess", side_effect=_capture):
+            await block.execute(state)
+
+        envelope = captured["envelope"]
+        assert [tool.name for tool in envelope.tools] == ["http_request", "adder", "fetch_answer"]
+        assert {tool.tool_type for tool in envelope.tools} == {"builtin", "custom", "http"}

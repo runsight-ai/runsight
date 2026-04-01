@@ -90,12 +90,17 @@ class SubprocessHarness:
         self._phase_timeout = phase_timeout
         self._stall_thresholds = stall_thresholds or {}
         self._tool_credentials = tool_credentials or {}
+        self._resolved_tools: dict[str, Any] = {}
 
     # -- ISO-008: IPC handlers with baked-in credentials --------------------
 
     def _build_ipc_handlers(self) -> dict[str, Any]:
         """Build IPC handlers with tool credentials injected engine-side."""
-        from runsight_core.isolation.handlers import make_file_io_handler, make_http_handler
+        from runsight_core.isolation.handlers import (
+            make_file_io_handler,
+            make_http_handler,
+            make_tool_call_handler,
+        )
 
         merged_headers: dict[str, str] = {}
         for creds in self._tool_credentials.values():
@@ -104,6 +109,7 @@ class SubprocessHarness:
         return {
             "http": make_http_handler(credentials=merged_headers, url_allowlist=["*"]),
             "file_io": make_file_io_handler(base_dir=tempfile.mkdtemp(prefix="rs-fio-")),
+            "tool_call": make_tool_call_handler(self._resolved_tools),
         }
 
     # -- AC1: Minimal subprocess environment --------------------------------

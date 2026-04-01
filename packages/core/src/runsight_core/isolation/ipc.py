@@ -116,8 +116,11 @@ class IPCClient:
 
     async def request(self, action: str, **params: Any) -> dict[str, Any]:
         """Send an NDJSON request and return the response with matching id."""
-        if self._closed or self._writer is None or self._reader is None:
+        if self._closed:
             raise ConnectionError("IPC client is closed")
+
+        if self._writer is None or self._reader is None:
+            await self.connect()
 
         request_id = str(uuid.uuid4())
         msg = {"id": request_id, "action": action, **params}

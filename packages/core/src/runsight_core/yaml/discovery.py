@@ -14,8 +14,10 @@ Usage:
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -24,6 +26,20 @@ import yaml
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul
 from runsight_core.workflow import Workflow
+
+
+@dataclass
+class ToolMeta:
+    """Metadata for a discovered custom tool definition file."""
+
+    type: str
+    source: str
+    code: str | None = None
+    code_file: str | None = None
+    method: str | None = None
+    url: str | None = None
+    body_template: str | None = None
+    response_path: str | None = None
 
 
 def _to_snake_case(name: str) -> str:
@@ -40,6 +56,122 @@ def _to_snake_case(name: str) -> str:
             result.append("_")
         result.append(char.lower())
     return "".join(result)
+
+
+def _validate_tool_main_contract(code: str) -> None:
+    """Require a ``def main(args)`` function in custom tool code."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as exc:
+        raise ValueError(f"Tool code has a syntax error: {exc}") from exc
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "main":
+            args = node.args.args
+            if len(args) != 1 or args[0].arg != "args":
+                raise ValueError("Tool code must define 'def main(args)'")
+            return
+
+    raise ValueError("Tool code must define 'def main(args)'")
+
+
+def discover_custom_tools(base_dir: str | Path) -> Dict[str, ToolMeta]:
+    """Discover custom tool metadata files from ``custom/tools/*.yaml``."""
+    base_path = Path(base_dir)
+    tools_dir = base_path / "custom" / "tools"
+
+    if not tools_dir.exists():
+        return {}
+
+    discovered: Dict[str, ToolMeta] = {}
+
+    for yaml_file in tools_dir.glob("*.yaml"):
+        try:
+            raw = yaml.safe_load(yaml_file.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            raise ValueError(f"{yaml_file.name}: malformed YAML") from exc
+
+        if not isinstance(raw, dict):
+            raise ValueError(f"{yaml_file.name}: invalid tool metadata")
+
+        tool_type = raw.get("type")
+        if tool_type not in {"custom", "http"}:
+            raise ValueError(f"{yaml_file.name}: unsupported tool type {tool_type!r}")
+
+        code = raw.get("code")
+        code_file = raw.get("code_file")
+        method = raw.get("method")
+        url = raw.get("url")
+        body_template = raw.get("body_template")
+        response_path = raw.get("response_path")
+        allowed_fields = {
+            "type",
+            "source",
+            "code",
+            "code_file",
+            "method",
+            "url",
+            "body_template",
+            "response_path",
+        }
+        extra_fields = sorted(set(raw.keys()) - allowed_fields)
+        if extra_fields:
+            raise ValueError(f"{yaml_file.name}: invalid tool metadata")
+
+        source = raw.get("source")
+        if code is not None and not isinstance(code, str):
+            raise ValueError(f"{yaml_file.name}: invalid tool metadata")
+        if code_file is not None and not isinstance(code_file, str):
+            raise ValueError(f"{yaml_file.name}: invalid tool metadata")
+        if method is not None and not isinstance(method, str):
+            raise ValueError(f"{yaml_file.name}: invalid tool metadata")
+        if url is not None and not isinstance(url, str):
+            raise ValueError(f"{yaml_file.name}: invalid tool metadata")
+        if body_template is not None and not isinstance(body_template, str):
+            raise ValueError(f"{yaml_file.name}: invalid tool metadata")
+        if response_path is not None and not isinstance(response_path, str):
+            raise ValueError(f"{yaml_file.name}: invalid tool metadata")
+
+        if tool_type == "custom":
+            if not isinstance(source, str) or not source.strip():
+                raise ValueError(f"{yaml_file.name}: invalid tool metadata")
+            if code and code_file:
+                raise ValueError(
+                    f"{yaml_file.name}: custom tools cannot declare both code and code_file"
+                )
+            if code_file:
+                code_path = yaml_file.parent / code_file
+                if not code_path.exists():
+                    raise ValueError(f"{yaml_file.name}: referenced code_file does not exist")
+                code = code_path.read_text(encoding="utf-8")
+            elif not code:
+                raise ValueError(f"{yaml_file.name}: custom tools require code or code_file")
+
+            try:
+                _validate_tool_main_contract(code)
+            except ValueError as exc:
+                raise ValueError(f"{yaml_file.name}: {exc}") from exc
+        else:
+            if code is not None or code_file is not None:
+                raise ValueError(f"{yaml_file.name}: http tools cannot declare code or code_file")
+            if source is not None and (not isinstance(source, str) or not source.strip()):
+                raise ValueError(f"{yaml_file.name}: invalid tool metadata")
+            if source is None and (not isinstance(url, str) or not url.strip()):
+                raise ValueError(f"{yaml_file.name}: invalid tool metadata")
+            source = source or yaml_file.stem
+
+        discovered[yaml_file.stem] = ToolMeta(
+            type=tool_type,
+            source=source,
+            code=code,
+            code_file=code_file,
+            method=method,
+            url=url,
+            body_template=body_template,
+            response_path=response_path,
+        )
+
+    return discovered
 
 
 def _discover_blocks(blocks_dir: Path) -> Dict[str, type]:

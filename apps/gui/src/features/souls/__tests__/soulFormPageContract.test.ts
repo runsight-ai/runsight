@@ -74,6 +74,19 @@ describe("SoulFormPage contract (RUN-449)", () => {
     expect(source).toMatch(/navigate\(\s*["']\/souls["']/);
   });
 
+  it("derives workflow editor context from returnUrl so workflow tools can be shown during soul editing", () => {
+    const source = read(PAGE_PATH);
+    expect(source).toMatch(/returnUrl/);
+    expect(source).toMatch(/workflows/);
+    expect(source).toMatch(/workflowId|workflowContext|workflowTools/);
+  });
+
+  it("backs the tool picker with API-loaded tool metadata instead of a hardcoded builtin map", () => {
+    const source = read(PAGE_PATH);
+    expect(source).toMatch(/useAvailableTools|listAvailableTools|\/tools/);
+    expect(source).not.toMatch(/const\s+TOOL_SOURCE_META\s*=/);
+  });
+
   it("uses a blocker pattern for dirty navigation and shows discard/keep-editing controls", () => {
     const source = read(PAGE_PATH);
     expect(source).toMatch(/useBlocker/);

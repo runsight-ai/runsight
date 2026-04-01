@@ -28,6 +28,17 @@ export const soulsApi = {
     return SoulUsageResponseSchema.parse(res);
   },
 
+  listAvailableTools: async (): Promise<
+    Array<{
+      slug: string;
+      name: string;
+      description: string;
+      type: "builtin" | "custom" | "http";
+    }>
+  > => {
+    return api.get(`/tools`);
+  },
+
   createSoul: async (data: SoulCreate): Promise<SoulResponse> => {
     const res = await api.post(`/souls`, data);
     return SoulResponseSchema.parse(res);

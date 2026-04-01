@@ -10,6 +10,7 @@ from runsight_core.isolation.envelope import (
     ResultEnvelope,
     SoulEnvelope,
     TaskEnvelope,
+    ToolDefEnvelope,
 )
 from runsight_core.isolation.errors import BlockExecutionError
 from runsight_core.state import BlockResult, WorkflowState
@@ -28,6 +29,34 @@ def _get_soul(inner_block: BaseBlock) -> Any:
     """Extract the soul from an inner block, handling different attribute names."""
     attr_name = _SOUL_ATTR_MAP.get(type(inner_block).__name__, "soul")
     return getattr(inner_block, attr_name, None)
+
+
+def _build_tool_envelopes(soul: Any) -> list[ToolDefEnvelope]:
+    """Serialize resolved tool metadata for the worker-side tool loop."""
+    resolved_tools = getattr(soul, "resolved_tools", None) or []
+    tool_envelopes: list[ToolDefEnvelope] = []
+
+    for tool in resolved_tools:
+        exits = []
+        port_enum = (
+            getattr(tool, "parameters", {}).get("properties", {}).get("port", {}).get("enum", [])
+        )
+        if isinstance(port_enum, list):
+            exits = [str(port) for port in port_enum]
+
+        tool_envelopes.append(
+            ToolDefEnvelope(
+                source=str(getattr(tool, "source", "") or tool.name),
+                config=dict(getattr(tool, "config", {}) or {}),
+                exits=exits,
+                name=tool.name,
+                description=tool.description,
+                parameters=dict(tool.parameters or {}),
+                tool_type=str(getattr(tool, "tool_type", "")),
+            )
+        )
+
+    return tool_envelopes
 
 
 class IsolatedBlockWrapper(BaseBlock):
@@ -123,7 +152,7 @@ class IsolatedBlockWrapper(BaseBlock):
             block_type=type(self.inner_block).__name__,
             block_config=block_config,
             soul=soul_envelope,
-            tools=[],
+            tools=_build_tool_envelopes(soul),
             task=task_envelope,
             scoped_results={k: v.model_dump() for k, v in state.results.items()},
             scoped_shared_memory=dict(state.shared_memory),

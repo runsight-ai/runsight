@@ -97,9 +97,42 @@ def _make_result_envelope(
     )
 
 
+async def _tool_call_passthrough(args: dict[str, Any]) -> str:
+    return f"ok:{args['value']}"
+
+
 # ===========================================================================
 # AC1: Subprocess spawned with minimal env
 # ===========================================================================
+
+
+class TestIpcHandlerRegistration:
+    """Harness should register all engine-side IPC handlers, including generic tool_call."""
+
+    @pytest.mark.asyncio
+    async def test_build_ipc_handlers_keeps_http_and_file_io_and_adds_tool_call(self):
+        """RUN-529: harness should expose tool_call without regressing existing handlers."""
+        from runsight_core.isolation import SubprocessHarness
+        from runsight_core.tools import ToolInstance
+
+        harness = SubprocessHarness(api_key="sk-test-key-123")
+        harness._resolved_tools = {
+            "echo_tool": ToolInstance(
+                name="echo_tool",
+                description="Echo input",
+                parameters={"type": "object", "properties": {"value": {"type": "string"}}},
+                execute=_tool_call_passthrough,
+            )
+        }
+
+        handlers = harness._build_ipc_handlers()
+
+        assert "http" in handlers
+        assert "file_io" in handlers
+        assert "tool_call" in handlers
+        assert callable(handlers["http"])
+        assert callable(handlers["file_io"])
+        assert callable(handlers["tool_call"])
 
 
 class TestMinimalEnvironment:

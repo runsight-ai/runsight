@@ -7,16 +7,59 @@ Phase 1 (RUN-110): Discriminated-union BlockDef with per-type models.
 
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, GetCoreSchemaHandler, TypeAdapter
 
 # -- Soul / Task / Task-file (unchanged) ------------------------------------
 
 
-class ToolDef(BaseModel):
-    """Tool definition as expressed in the YAML tools: section."""
+class BaseToolDef(BaseModel):
+    """Shared fields for YAML tool definitions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: Optional[str] = None
+
+
+class BuiltinToolDef(BaseToolDef):
+    """Built-in tool definition as expressed in the YAML tools: section."""
 
     type: Literal["builtin"]
     source: str
+
+
+class CustomToolDef(BaseToolDef):
+    """Custom tool definition as expressed in the YAML tools: section."""
+
+    type: Literal["custom"]
+    source: str
+
+
+class HTTPToolDef(BaseToolDef):
+    """HTTP tool definition as expressed in the YAML tools: section."""
+
+    type: Literal["http"]
+    method: Optional[str] = None
+    url: Optional[str] = None
+    body_template: Optional[str] = None
+    response_path: Optional[str] = None
+
+
+_ToolDefUnion = Annotated[
+    Union[BuiltinToolDef, CustomToolDef, HTTPToolDef],
+    Field(discriminator="type"),
+]
+_TOOL_DEF_ADAPTER = TypeAdapter(_ToolDefUnion)
+
+
+class ToolDef:
+    """Compatibility wrapper for the discriminated YAML tool union."""
+
+    def __new__(cls, **data: Any) -> BuiltinToolDef | CustomToolDef | HTTPToolDef:
+        return _TOOL_DEF_ADAPTER.validate_python(data)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source: Any, handler: GetCoreSchemaHandler) -> Any:
+        return handler.generate_schema(_ToolDefUnion)
 
 
 class SoulDef(BaseModel):

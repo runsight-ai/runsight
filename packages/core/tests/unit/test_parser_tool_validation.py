@@ -13,9 +13,14 @@ All tests should FAIL until the parser is updated with tool validation logic.
 
 from __future__ import annotations
 
+from textwrap import dedent
+
 import pytest
+import runsight_core.yaml.parser as parser_module
+import yaml
 from runsight_core.tools import ToolInstance
-from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.yaml.parser import _resolve_soul_tool_definition, parse_workflow_yaml
+from runsight_core.yaml.schema import RunsightWorkflowFile
 
 # ---------------------------------------------------------------------------
 # Helper: minimal YAML builder for tool-validation tests
@@ -45,6 +50,20 @@ workflow:
   transitions:
 {transitions}
 """
+
+
+def _write_workflow_file(tmp_path, yaml_str: str) -> str:
+    """Persist a workflow YAML file so parse_workflow_yaml can infer checkout-local context."""
+    workflow_file = tmp_path / "workflow.yaml"
+    workflow_file.write_text(yaml_str, encoding="utf-8")
+    return str(workflow_file)
+
+
+def _write_custom_tool_file(tmp_path, slug: str, contents: str) -> None:
+    """Create a custom tool metadata file under custom/tools for parser tests."""
+    tools_dir = tmp_path / "custom" / "tools"
+    tools_dir.mkdir(parents=True, exist_ok=True)
+    (tools_dir / f"{slug}.yaml").write_text(dedent(contents), encoding="utf-8")
 
 
 # ===========================================================================
@@ -160,8 +179,8 @@ souls:
         assert "http_request" in resolved_names
         assert "file_io" in resolved_names
 
-    def test_direct_builtin_soul_tools_resolve_without_workflow_tool_map(self):
-        """Soul-level built-ins like runsight/http and runsight/file-io resolve directly."""
+    def test_direct_builtin_soul_tools_require_workflow_tool_declarations(self):
+        """RUN-490: direct soul refs must be rejected when the workflow tools map omits them."""
         yaml_str = _make_yaml(
             souls="""\
 souls:
@@ -181,12 +200,95 @@ souls:
       to: null""",
         )
 
-        workflow = parse_workflow_yaml(yaml_str)
-        soul = workflow.blocks["my_block"].soul
+        with pytest.raises(
+            ValueError,
+            match=r"undeclared tool 'runsight/http'.*Declared tools: \[\]",
+        ):
+            parse_workflow_yaml(yaml_str)
 
-        assert soul.resolved_tools is not None
-        resolved_names = {t.name for t in soul.resolved_tools}
-        assert resolved_names == {"http_request", "file_io"}
+
+# ===========================================================================
+# RUN-490: Workflow tool governance helpers
+# ===========================================================================
+
+
+class TestWorkflowToolGovernanceHelpers:
+    """Tool governance must be reusable outside parse_workflow_yaml()."""
+
+    def test_parser_no_longer_exports_user_assignable_bypass_constant(self):
+        """RUN-490: the obsolete direct-assignment bypass constant should be removed entirely."""
+        assert not hasattr(parser_module, "USER_ASSIGNABLE_SOUL_TOOL_SOURCES"), (
+            "Parser still exposes USER_ASSIGNABLE_SOUL_TOOL_SOURCES, leaving the bypass easy to resurrect"
+        )
+
+    def test_resolve_soul_tool_definition_only_uses_workflow_tools(self):
+        """RUN-490: _resolve_soul_tool_definition must not bypass workflow_tools for built-ins."""
+        assert _resolve_soul_tool_definition("runsight/http", {}) is None
+
+    def test_validate_tool_governance_exists_for_api_layer_reuse(self):
+        """RUN-490: validate_tool_governance() should enforce undeclared tool refs for API callers."""
+        yaml_str = _make_yaml(
+            souls="""\
+souls:
+  reviewer:
+    id: reviewer_1
+    role: Reviewer
+    system_prompt: Review the draft.
+    tools:
+      - runsight/http""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: reviewer""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+        validator = getattr(parser_module, "validate_tool_governance", None)
+        assert callable(validator), (
+            "Expected parser.validate_tool_governance() for API-layer governance validation reuse"
+        )
+
+        file_def = RunsightWorkflowFile.model_validate(yaml.safe_load(yaml_str))
+        with pytest.raises(ValueError, match=r"reviewer.*undeclared tool 'runsight/http'"):
+            validator(file_def)
+
+    def test_validate_tool_governance_accepts_declared_tool_refs_for_all_tool_types(self):
+        """RUN-528: soul refs should stay type-agnostic across builtin/custom/http tool defs."""
+        yaml_str = _make_yaml(
+            tools="""\
+tools:
+  builtin_http:
+    type: builtin
+    source: runsight/http
+  custom_tool:
+    type: custom
+    source: echo_tool
+  inline_http:
+    type: http
+    method: GET
+    url: https://example.com/users/{{ user_id }}""",
+            souls="""\
+souls:
+  reviewer:
+    id: reviewer_1
+    role: Reviewer
+    system_prompt: Review the draft.
+    tools:
+      - builtin_http
+      - custom_tool
+      - inline_http""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: reviewer""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+        file_def = RunsightWorkflowFile.model_validate(yaml.safe_load(yaml_str))
+
+        parser_module.validate_tool_governance(file_def)
 
 
 # ===========================================================================
@@ -348,6 +450,207 @@ souls:
 
         with pytest.raises(ValueError, match="Available"):
             parse_workflow_yaml(yaml_str)
+
+
+# ===========================================================================
+# RUN-528: Parser governance for custom/http tool types
+# ===========================================================================
+
+
+class TestTypedToolParserGovernance:
+    """Parser validation should be actionable for builtin, custom, and HTTP tool defs."""
+
+    def test_custom_tool_missing_yaml_file_raises_actionable_valueerror(self, tmp_path):
+        """A declared custom tool should fail at parse time when its custom/tools YAML is missing."""
+        workflow_file = _write_workflow_file(
+            tmp_path,
+            _make_yaml(
+                tools="""\
+tools:
+  custom_lookup:
+    type: custom
+    source: missing_lookup""",
+                souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - custom_lookup""",
+                blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+                transitions="""\
+    - from: my_block
+      to: null""",
+            ),
+        )
+
+        with pytest.raises(ValueError, match=r"missing_lookup.*custom/tools.*yaml"):
+            parse_workflow_yaml(workflow_file)
+
+    @pytest.mark.parametrize(
+        ("slug", "tool_yaml", "expected_message"),
+        [
+            (
+                "blocked_import_tool",
+                """
+                type: custom
+                source: blocked_import_tool
+                code: |
+                  import os
+
+                  def main(args):
+                      return {}
+                """,
+                r"blocked_import_tool.*not allowed",
+            ),
+            (
+                "missing_main_tool",
+                """
+                type: custom
+                source: missing_main_tool
+                code: |
+                  def helper(args):
+                      return {}
+                """,
+                r"missing_main_tool.*main",
+            ),
+        ],
+    )
+    def test_custom_tool_invalid_code_raises_actionable_valueerror(
+        self, tmp_path, slug, tool_yaml, expected_message
+    ):
+        """Blocked imports and missing main() should both fail during parser validation."""
+        _write_custom_tool_file(tmp_path, slug, tool_yaml)
+        workflow_file = _write_workflow_file(
+            tmp_path,
+            _make_yaml(
+                tools=f"""\
+tools:
+  custom_tool:
+    type: custom
+    source: {slug}""",
+                souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - custom_tool""",
+                blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+                transitions="""\
+    - from: my_block
+      to: null""",
+            ),
+        )
+
+        with pytest.raises(ValueError, match=expected_message):
+            parse_workflow_yaml(workflow_file)
+
+    def test_http_tool_without_source_or_url_raises_valueerror(self):
+        """HTTP tools must declare either an inline URL or a file source slug."""
+        yaml_str = _make_yaml(
+            tools="""\
+tools:
+  http_lookup:
+    type: http
+    method: GET""",
+            souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - http_lookup""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+
+        with pytest.raises(ValueError, match=r"inline URL|file source slug|source or url"):
+            parse_workflow_yaml(yaml_str)
+
+    def test_valid_builtin_custom_and_http_tools_parse_successfully(self, tmp_path):
+        """A workflow mixing builtin, custom, and HTTP tools should parse cleanly."""
+        _write_custom_tool_file(
+            tmp_path,
+            "echo_tool",
+            """
+            type: custom
+            source: echo_tool
+            code: |
+              def main(args):
+                  return {"echo": args["message"]}
+            """,
+        )
+        _write_custom_tool_file(
+            tmp_path,
+            "profile_lookup",
+            """
+            type: http
+            method: GET
+            url: https://example.com/users/{{ user_id }}
+            response_path: data.profile.name
+            """,
+        )
+        workflow_file = _write_workflow_file(
+            tmp_path,
+            _make_yaml(
+                tools="""\
+tools:
+  builtin_http:
+    type: builtin
+    source: runsight/http
+  custom_echo:
+    type: custom
+    source: echo_tool
+  inline_http:
+    type: http
+    method: POST
+    url: https://example.com/submit/{{ request_id }}
+    body_template: '{"note":"{{ note }}"}'
+  file_http:
+    type: http
+    source: profile_lookup""",
+                souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - builtin_http
+      - custom_echo
+      - inline_http
+      - file_http""",
+                blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+                transitions="""\
+    - from: my_block
+      to: null""",
+            ),
+        )
+
+        workflow = parse_workflow_yaml(workflow_file)
+        soul = workflow.blocks["my_block"].soul
+
+        assert soul.resolved_tools is not None
+        assert len(soul.resolved_tools) == 4
+        assert soul.tools == ["builtin_http", "custom_echo", "inline_http", "file_http"]
 
 
 # ===========================================================================
