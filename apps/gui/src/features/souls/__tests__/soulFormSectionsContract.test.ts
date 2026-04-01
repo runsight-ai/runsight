@@ -74,9 +74,11 @@ describe("SoulModelSection contract (RUN-448)", () => {
     expect(source).not.toMatch(/providerSummary\.type/);
   });
 
-  it("filters the models request by providerId and shows provider-derived model ids", () => {
+  it("translates providerId to the configured provider type for model queries and shows provider-derived model ids", () => {
     const source = read(SECTION_PATHS.model);
-    expect(source).toMatch(/useModelsForProvider\(\s*providerId\s*\)/);
+    expect(source).toMatch(/providerSummary\)\s*=>\s*providerSummary\.id\s*===\s*providerId/);
+    expect(source).toMatch(/selectedProvider\?\.type\s*\?\?\s*null/);
+    expect(source).toMatch(/useModelsForProvider\(\s*modelProviderType\s*\)/);
     expect(source).toMatch(/model_id/);
     expect(source).toMatch(/provider_name|name/);
   });
