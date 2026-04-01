@@ -7,7 +7,8 @@
  *   - Route guard using React Router `loader` on the ShellLayout route
  *   - Uses queryClient.fetchQuery with staleTime: 30_000
  *   - If onboarding_completed === false -> redirect('/setup/start')
- *   - If API is down -> let user through (graceful degradation)
+ *   - If settings fetch fails or returns a malformed payload -> fail closed to
+ *     a dedicated routed unavailable state
  *   - Reverse guard on /setup/start: if onboarding_completed === true -> redirect('/')
  *
  * AC:
@@ -184,17 +185,18 @@ describe("Guard redirects to /setup/start when not onboarded (AC1)", () => {
     ).toBe(true);
   });
 
-  it("guard checks for false or missing onboarding_completed", () => {
+  it("guard redirects to setup only when onboarding_completed is explicitly false", () => {
     const source = readSource(GUARDS_PATH);
-    // Should handle both false and undefined/missing cases
-    const checksFalsy =
-      /onboarding_completed\s*===\s*false|!.*onboarding_completed|onboarding_completed\s*!==\s*true/.test(
-        source,
-      );
+    const checksExplicitFalse = /onboarding_completed\s*===\s*false/.test(source);
     expect(
-      checksFalsy,
-      "Expected guard to check for false or missing onboarding_completed",
+      checksExplicitFalse,
+      "Expected guard to redirect to setup only when onboarding_completed is explicitly false",
     ).toBe(true);
+
+    expect(
+      source,
+      "Expected guard to avoid a falsy onboarding check that treats malformed payloads as setup-ready",
+    ).not.toMatch(/!\s*settings\.onboarding_completed/);
   });
 });
 
@@ -240,24 +242,34 @@ describe("Reverse guard redirects to / when already onboarded (AC3)", () => {
 });
 
 // ===========================================================================
-// 8. Graceful degradation: API failure lets user through
+// 8. Fail-closed routing for unavailable settings
 // ===========================================================================
 
-describe("Graceful degradation when API is down", () => {
+describe("Fail-closed routing when settings are unavailable", () => {
   it("guard has try/catch around the fetch", () => {
     const source = readSource(GUARDS_PATH);
     expect(source).toMatch(/try\s*\{/);
     expect(source).toMatch(/catch/);
   });
 
-  it("catch block returns null (no redirect on error)", () => {
+  it("catch blocks redirect to a dedicated /setup/unavailable route", () => {
     const source = readSource(GUARDS_PATH);
-    // On API failure, the guard should degrade gracefully by returning null
-    // (letting the user through to the dashboard). The catch block should
-    // contain return null.
-    const catchBlock = source.match(/catch[\s\S]*?\{([\s\S]*?)\}/);
-    expect(catchBlock).not.toBeNull();
-    expect(catchBlock![1]).toMatch(/return\s+null/);
+    const catchBlocks = source.match(/catch[\s\S]*?\{([\s\S]*?)\}/g) ?? [];
+
+    expect(
+      catchBlocks.length,
+      "Expected both setup and reverse guards to wrap fetch failures in catch blocks",
+    ).toBeGreaterThanOrEqual(2);
+
+    for (const catchBlock of catchBlocks) {
+      expect(catchBlock).toMatch(/redirect\s*\(\s*["']\/setup\/unavailable["']\s*\)/);
+      expect(catchBlock).not.toMatch(/return\s+null/);
+    }
+  });
+
+  it("routes/index.tsx declares a dedicated /setup/unavailable route", () => {
+    const source = readSource(ROUTES_PATH);
+    expect(source).toMatch(/path:\s*["']setup\/unavailable["']/);
   });
 });
 
