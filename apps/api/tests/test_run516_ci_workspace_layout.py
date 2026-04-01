@@ -68,6 +68,42 @@ def _has_python_workspace_install_command(command: str) -> bool:
     return "apps/api" in command and "packages/core" in command
 
 
+def _pytest_commands() -> list[str]:
+    """Return workflow commands that invoke pytest."""
+    return [command for command in _ci_run_commands() if re.search(r"(^|\s)pytest(\s|$)", command)]
+
+
+def _covers_current_python_test_roots(commands: list[str]) -> bool:
+    """Accept repo-root pytest or deliberate explicit coverage across commands."""
+    mentioned_roots: set[str] = set()
+
+    for command in commands:
+        mentions_api = "apps/api/tests" in command
+        mentions_core = "packages/core/tests" in command
+
+        if mentions_api:
+            mentioned_roots.add("apps/api/tests")
+        if mentions_core:
+            mentioned_roots.add("packages/core/tests")
+
+        # Repo-root pytest is valid because pyproject.toml defines both testpaths.
+        if not mentions_api and not mentions_core:
+            return True
+
+    return mentioned_roots == {"apps/api/tests", "packages/core/tests"}
+
+
+def _has_repo_root_lint_invocation(command: str) -> bool:
+    """Detect repo-root pnpm lint without requiring an exact single-line step."""
+    for line in command.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("pnpm -C "):
+            continue
+        if re.match(r"^pnpm\s+(run\s+)?lint(\s|$)", stripped):
+            return True
+    return False
+
+
 class TestWorkspaceMetadataPreconditions:
     """Preconditions describing the current canonical layout."""
 
@@ -113,15 +149,15 @@ class TestCiWorkflowLayout:
         ), "CI must run packages/core/scripts/generate_schema.py --check"
 
     def test_ci_pytest_targets_api_and_core_test_roots(self):
-        commands = _ci_run_commands()
-        assert any(
-            "pytest" in command and "apps/api/tests" in command and "packages/core/tests" in command
-            for command in commands
-        ), "CI must run pytest against both apps/api/tests and packages/core/tests"
+        commands = _pytest_commands()
+        assert _covers_current_python_test_roots(commands), (
+            "CI must cover both apps/api/tests and packages/core/tests, either through "
+            "repo-root pytest using pyproject testpaths or through deliberate explicit steps."
+        )
 
     def test_ci_invokes_repo_root_lint_coverage(self):
-        commands = [command.strip() for command in _ci_run_commands()]
-        assert "pnpm run lint" in commands, (
-            "CI must invoke the repo-root 'pnpm run lint' command so GUI, shared packages, "
+        commands = _ci_run_commands()
+        assert any(_has_repo_root_lint_invocation(command) for command in commands), (
+            "CI must invoke repo-root pnpm lint coverage so GUI, shared packages, "
             "E2E workspace, API, and core runtime stay covered intentionally."
         )
