@@ -29,9 +29,11 @@ function buildAvailableTools(
   workflowTools: WorkflowToolContext[],
   availableTools: AvailableTool[],
 ): Array<WorkflowToolContext & { type: AvailableTool["type"] }> {
+  const renderableTools = availableTools.filter((tool) => tool.slug !== "runsight/delegate");
+
   if (workflowTools.length > 0) {
     const workflowMap = new Map(workflowTools.map((tool) => [tool.id, tool]));
-    const toolCards = availableTools.map((tool) => {
+    return renderableTools.map((tool) => {
       const workflowTool = workflowMap.get(tool.slug);
       return {
         id: tool.slug,
@@ -42,23 +44,10 @@ function buildAvailableTools(
         type: tool.type,
       };
     });
-
-    const knownIds = new Set(toolCards.map((tool) => tool.id));
-    for (const workflowTool of workflowTools) {
-      if (knownIds.has(workflowTool.id)) {
-        continue;
-      }
-      toolCards.push({
-        ...workflowTool,
-        type: "builtin",
-      });
-    }
-
-    return toolCards;
   }
 
-  if (availableTools.length > 0) {
-    return availableTools.map((tool) => ({
+  if (renderableTools.length > 0) {
+    return renderableTools.map((tool) => ({
       id: tool.slug,
       label: tool.name,
       description: tool.description,
@@ -86,7 +75,9 @@ export function SoulToolsSection({
   onToolsChange,
 }: SoulToolsSectionProps) {
   const toolCards = buildAvailableTools(tools, workflowTools, availableTools);
-  const hasCustomTools = availableTools.some((tool) => tool.type === "custom");
+  const hasCustomTools = availableTools.some(
+    (tool) => tool.slug !== "runsight/delegate" && tool.type === "custom",
+  );
 
   const toggleTool = (toolId: string) => {
     const nextTools = tools.includes(toolId)

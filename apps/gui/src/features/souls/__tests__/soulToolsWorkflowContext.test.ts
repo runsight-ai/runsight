@@ -41,6 +41,12 @@ const WORKFLOW_TOOLS: WorkflowToolContext[] = [
     enabled: false,
     availableInWorkflow: false,
   },
+  {
+    id: "runsight/delegate",
+    label: "Delegate",
+    description: "Delegate work to sub-agents.",
+    enabled: false,
+  },
 ];
 
 const AVAILABLE_TOOLS: AvailableTool[] = [
@@ -96,6 +102,7 @@ describe("RUN-490 workflow tool context rendering", () => {
     expect(httpToolButton.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText("Workspace Files")).toBeTruthy();
     expect(screen.getByText("Report Lookup")).toBeTruthy();
+    expect(screen.queryByText("Delegate")).toBeNull();
     const customBadge = screen.getByText("Custom");
     expect(customBadge.className).toMatch(/amber|warning/i);
     const workflowBadge = screen.getByText("Not enabled in workflow");

@@ -54,16 +54,21 @@ function buildWorkflowTools(
   selectedTools: string[],
   availableTools: AvailableTool[],
 ): WorkflowToolContext[] {
-  const availableToolMap = new Map(availableTools.map((tool) => [tool.slug, tool]));
+  const filteredAvailableTools = availableTools.filter(
+    (tool) => tool.slug !== "runsight/delegate",
+  );
+  const availableToolMap = new Map(filteredAvailableTools.map((tool) => [tool.slug, tool]));
 
-  const fallbackTools = selectedTools.map((tool) => ({
-    id: tool,
-    label: availableToolMap.get(tool)?.name ?? tool,
-    description:
-      availableToolMap.get(tool)?.description ??
-      "Enabled on this soul. Open the form from a workflow to compare workflow tool availability.",
-    enabled: true,
-  }));
+  const fallbackTools = selectedTools
+    .filter((tool) => availableToolMap.has(tool))
+    .map((tool) => ({
+      id: tool,
+      label: availableToolMap.get(tool)?.name ?? tool,
+      description:
+        availableToolMap.get(tool)?.description ??
+        "Enabled on this soul. Open the form from a workflow to compare workflow tool availability.",
+      enabled: true,
+    }));
 
   if (!yamlText) {
     return fallbackTools;
@@ -71,25 +76,24 @@ function buildWorkflowTools(
 
   try {
     const parsed = parse(yamlText) as WorkflowToolFile | null;
-    const workflowTools = Object.entries(parsed?.tools ?? {}).map(([id, toolDef]) => {
-      const lookupSlug =
-        toolDef.type === "builtin"
-          ? toolDef.source ?? id
-          : toolDef.source ?? id;
-      const meta = availableToolMap.get(lookupSlug);
+    const workflowTools = Object.entries(parsed?.tools ?? {})
+      .map(([id, toolDef]) => toolDef.source ?? id)
+      .filter((slug) => slug !== "runsight/delegate" && availableToolMap.has(slug))
+      .map((slug) => {
+        const meta = availableToolMap.get(slug);
 
-      return {
-        id: lookupSlug,
-        label: meta?.name ?? id,
-        description: meta?.description ?? toolDef.source ?? "Available in this workflow.",
-        enabled: selectedTools.includes(lookupSlug),
-        availableInWorkflow: true,
-      };
-    });
+        return {
+          id: slug,
+          label: meta?.name ?? slug,
+          description: meta?.description ?? "Available in this workflow.",
+          enabled: selectedTools.includes(slug),
+          availableInWorkflow: true,
+        };
+      });
 
     const knownToolIds = new Set(workflowTools.map((tool) => tool.id));
     const extraSelectedTools = selectedTools
-      .filter((tool) => !knownToolIds.has(tool))
+      .filter((tool) => availableToolMap.has(tool) && !knownToolIds.has(tool))
       .map((tool) => ({
         id: tool,
         label: availableToolMap.get(tool)?.name ?? tool,
