@@ -27,7 +27,19 @@ def _make_mock_run(run_id="run_123"):
 def test_runs_list():
     mock_service = Mock()
     mock_run = _make_mock_run()
-    mock_service.list_runs.return_value = [mock_run]
+    mock_service.list_runs_paginated.return_value = ([mock_run], 1)
+    mock_service.get_node_summaries_batch.return_value = {
+        mock_run.id: {
+            "total_cost_usd": 0.0,
+            "total_tokens": 0,
+            "nodes_count": 0,
+            "total": 0,
+            "completed": 0,
+            "running": 0,
+            "pending": 0,
+            "failed": 0,
+        }
+    }
     mock_service.get_node_summary.return_value = {
         "total_cost_usd": 0.0,
         "total_tokens": 0,

@@ -6,6 +6,13 @@ import { queryClient } from "@/lib/queryClient";
 
 export const router = createBrowserRouter([
   {
+    path: "setup/unavailable",
+    lazy: () =>
+      import("@/features/setup/SetupUnavailablePage").then((m) => ({
+        Component: m.Component,
+      })),
+  },
+  {
     path: "setup/start",
     loader: createReverseGuardLoader(queryClient),
     lazy: () =>

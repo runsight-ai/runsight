@@ -87,6 +87,30 @@ def test_list_runs_response_includes_total_from_db():
 
 
 # ---------------------------------------------------------------------------
+# 6. Legacy non-tuple pagination contract fails explicitly
+# ---------------------------------------------------------------------------
+
+
+def test_list_runs_rejects_legacy_non_tuple_paginated_contract():
+    """Legacy non-tuple pagination results must fail explicitly instead of falling back to list_runs()."""
+    mock_service = Mock()
+    mock_service.list_runs_paginated.return_value = [_make_mock_run("run_legacy")]
+    mock_service.list_runs.return_value = [_make_mock_run("run_unbounded")]
+    mock_service.get_node_summaries_batch.return_value = {}
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+
+    try:
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/api/runs?offset=0&limit=20")
+
+        assert response.status_code == 500
+        mock_service.list_runs_paginated.assert_called_once()
+        mock_service.list_runs.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
+
+# ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
 

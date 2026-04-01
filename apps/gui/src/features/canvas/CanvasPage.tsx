@@ -14,7 +14,6 @@ import { CommitDialog } from "@/features/git/CommitDialog";
 import { gitApi } from "@/api/git";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { YamlEditor } from "./YamlEditor";
-import { useUpdateWorkflow } from "@/queries/workflows";
 import { useCreateRun } from "@/queries/runs";
 import { useCanvasStore } from "@/store/canvas";
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from "@runsight/ui/dialog";
@@ -31,9 +30,9 @@ export function Component() {
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const [saveAndRun, setSaveAndRun] = useState(false);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
+  const [, setLeaveAfterCommit] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const updateWorkflow = useUpdateWorkflow();
   const createRun = useCreateRun();
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const blockCount = useCanvasStore((s) => s.blockCount);
@@ -51,17 +50,9 @@ export function Component() {
   }, []);
 
   const handleSave = useCallback(() => {
+    setLeaveAfterCommit(false);
     setCommitDialogOpen(true);
   }, []);
-
-  /** Inline save for the navigation blocker — writes directly to disk. */
-  const saveInline = useCallback(() => {
-    const yamlContent = useCanvasStore.getState().yamlContent;
-    updateWorkflow.mutate(
-      { id: id!, data: { yaml: yamlContent } },
-      { onSuccess: () => setIsDirty(false) },
-    );
-  }, [id, updateWorkflow]);
 
   const handleOpenApiKeyModal = useCallback(() => {
     setSaveAndRun(true);
@@ -105,6 +96,31 @@ export function Component() {
     },
     [queryClient, saveAndRun, handleRun],
   );
+
+  const handleCommitDialogOpenChange = useCallback((open: boolean) => {
+    setCommitDialogOpen(open);
+    if (!open) {
+      setLeaveAfterCommit(false);
+    }
+  }, []);
+
+  const handleLeaveAfterSave = useCallback(() => {
+    setLeaveAfterCommit(true);
+    setCommitDialogOpen(true);
+  }, []);
+
+  const handleCommitSuccess = useCallback(() => {
+    setIsDirty(false);
+    setCommitDialogOpen(false);
+    setLeaveAfterCommit((shouldLeave) => {
+      if (shouldLeave && blocker.state === "blocked") {
+        blocker.proceed?.();
+      }
+      return false;
+    });
+  }, [blocker]);
+
+  const handleCommitError = useCallback(() => {}, []);
 
   const canvasStoreState = useCanvasStore.getState();
   const currentCanvasState =
@@ -166,7 +182,7 @@ export function Component() {
       <CanvasStatusBar activeTab={activeTab} blockCount={blockCount} edgeCount={edgeCount} />
 
       {/* Unsaved changes dialog */}
-      <Dialog open={blocker.state === "blocked"}>
+      <Dialog open={blocker.state === "blocked" && !commitDialogOpen}>
         <DialogContent>
           <DialogTitle>You have unsaved changes</DialogTitle>
           <p className="text-sm text-secondary px-5 py-4">
@@ -181,10 +197,7 @@ export function Component() {
             </Button>
             <Button
               variant="primary"
-              onClick={() => {
-                saveInline();
-                blocker.proceed?.();
-              }}
+              onClick={handleLeaveAfterSave}
             >
               Save & Leave
             </Button>
@@ -201,11 +214,12 @@ export function Component() {
 
       <CommitDialog
         open={commitDialogOpen}
-        onOpenChange={setCommitDialogOpen}
+        onOpenChange={handleCommitDialogOpenChange}
         files={currentFiles}
         workflowId={id!}
         draft={currentDraft}
-        onCommitSuccess={() => setIsDirty(false)}
+        onCommitSuccess={handleCommitSuccess}
+        onCommitError={handleCommitError}
       />
     </div>
   );

@@ -18,6 +18,7 @@ import { useAttentionItems } from "@/queries/dashboard";
 import { CanvasErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { Card } from "@runsight/ui/card";
 import { Badge } from "@runsight/ui/badge";
+import { Button } from "@runsight/ui/button";
 import { RunCanvasNode, CanvasNodeComponent, nodeTypes } from "./RunCanvasNode";
 import type { RunNodeData } from "./RunCanvasNode";
 import { RunInspectorPanel } from "./RunInspectorPanel";
@@ -51,7 +52,13 @@ function RunDetailInner() {
     },
   });
 
-  const { data: runNodes, isLoading: isLoadingNodes } = useRunNodes(id || "");
+  const {
+    data: runNodes,
+    isLoading: isLoadingNodes,
+    isError: isRunNodesError,
+    error: runNodesError,
+    refetch: refetchRunNodes,
+  } = useRunNodes(id || "");
   const { data: runLogs } = useRunLogs(id || "", undefined, { refetchInterval: undefined });
   const { data: attentionData } = useAttentionItems(100);
 
@@ -173,30 +180,52 @@ function RunDetailInner() {
 
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 relative">
-            <CanvasErrorBoundary>
-              <ReactFlow
-                nodes={nodes} edges={edges}
-                onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-                onNodeClick={onNodeClick} onPaneClick={onPaneClick}
-                nodeTypes={nodeTypes} nodesDraggable={false} nodesConnectable={false}
-                elementsSelectable fitView fitViewOptions={{ padding: 0.2 }}
-                minZoom={0.1} maxZoom={4} className="bg-[var(--surface-primary)]"
-              >
-                <Background color="var(--border-default)" gap={20} size={1} style={{ opacity: 0.3 }} />
-                <Controls className="!bg-[var(--surface-secondary)] !border-[var(--border-default)]" />
-                <MiniMap
-                  className="!bg-[var(--surface-secondary)]/90 !border-[var(--border-default)]"
-                  nodeColor={(node) => {
-                    const s = (node.data as RunNodeData)?.status;
-                    if (s === "completed") return "var(--success-9)";
-                    if (s === "failed") return "var(--danger-9)";
-                    if (s === "pending") return "var(--text-muted)";
-                    return "var(--interactive-default)";
-                  }}
-                  maskColor="var(--background-70)"
-                />
-              </ReactFlow>
-            </CanvasErrorBoundary>
+            {isRunNodesError ? (
+              <div className="flex h-full items-center justify-center p-6">
+                <Card className="w-full max-w-xl px-6 py-6">
+                  <div className="space-y-3">
+                    <h2 className="text-lg font-semibold text-heading">Unable to load run graph</h2>
+                    <p className="text-sm leading-6 text-secondary">
+                      Runsight could not read the node response for this run. Retry to fetch the
+                      graph again.
+                    </p>
+                    {runNodesError instanceof Error ? (
+                      <p className="text-sm text-secondary">{runNodesError.message}</p>
+                    ) : null}
+                    <div className="pt-2">
+                      <Button variant="primary" onClick={() => void refetchRunNodes()}>
+                        Retry
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            ) : (
+              <CanvasErrorBoundary>
+                <ReactFlow
+                  nodes={nodes} edges={edges}
+                  onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+                  onNodeClick={onNodeClick} onPaneClick={onPaneClick}
+                  nodeTypes={nodeTypes} nodesDraggable={false} nodesConnectable={false}
+                  elementsSelectable fitView fitViewOptions={{ padding: 0.2 }}
+                  minZoom={0.1} maxZoom={4} className="bg-[var(--surface-primary)]"
+                >
+                  <Background color="var(--border-default)" gap={20} size={1} style={{ opacity: 0.3 }} />
+                  <Controls className="!bg-[var(--surface-secondary)] !border-[var(--border-default)]" />
+                  <MiniMap
+                    className="!bg-[var(--surface-secondary)]/90 !border-[var(--border-default)]"
+                    nodeColor={(node) => {
+                      const s = (node.data as RunNodeData)?.status;
+                      if (s === "completed") return "var(--success-9)";
+                      if (s === "failed") return "var(--danger-9)";
+                      if (s === "pending") return "var(--text-muted)";
+                      return "var(--interactive-default)";
+                    }}
+                    maskColor="var(--background-70)"
+                  />
+                </ReactFlow>
+              </CanvasErrorBoundary>
+            )}
           </div>
           <RunInspectorPanel selectedNode={selectedNode} onClose={() => setSelectedNode(null)} />
         </div>

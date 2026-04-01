@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   stateValues: [] as unknown[],
   stateCursor: 0,
   workflowCommitMutate: vi.fn(),
+  workflowCommitPending: false,
   genericCommitMutate: vi.fn(),
   gitDiffResult: {
     data: { diff: "diff --git a/custom/workflows/wf_1.yaml b/custom/workflows/wf_1.yaml" },
@@ -46,7 +47,7 @@ vi.mock("@/queries/git", () => ({
   }),
   useCommitWorkflow: () => ({
     mutate: mocks.workflowCommitMutate,
-    isPending: false,
+    isPending: mocks.workflowCommitPending,
   }),
   useGitDiff: () => mocks.gitDiffResult,
 }));
@@ -148,6 +149,7 @@ beforeEach(() => {
   mocks.stateValues.length = 0;
   mocks.stateCursor = 0;
   mocks.workflowCommitMutate.mockReset();
+  mocks.workflowCommitPending = false;
   mocks.genericCommitMutate.mockReset();
   mocks.gitDiffResult = {
     data: { diff: "diff --git a/custom/workflows/wf_1.yaml b/custom/workflows/wf_1.yaml" },
@@ -224,5 +226,21 @@ describe("CommitDialog workflow save contract (RUN-424)", () => {
     );
 
     expect(markup).toContain("workflow:\n  name: Draft Flow\n");
+  });
+
+  it("prevents duplicate submit while the workflow commit is pending", () => {
+    mocks.workflowCommitPending = true;
+
+    const pendingTree = renderDialog();
+
+    const saveButton = findElement(
+      pendingTree,
+      (element) =>
+        typeof element.props.onClick === "function" &&
+        ["Commit", "Save", "Committing...", "Saving..."].includes(textContent(element)),
+    );
+
+    expect(saveButton?.props.disabled).toBe(true);
+    expect(textContent(saveButton)).toMatch(/saving|committing/i);
   });
 });

@@ -11,6 +11,7 @@ import {
   type PaginatedLogsResponse,
   type runsight_api__transport__schemas__runs__LogResponse as RunLogResponse,
 } from "@runsight/shared/zod";
+import { z } from "zod";
 
 /** Map frontend shorthand status values to actual RunStatus enum values. */
 const STATUS_ALIASES: Record<string, string[]> = {
@@ -79,13 +80,13 @@ export const runsApi = {
   },
 
   getRunNodes: async (id: string): Promise<RunNodeResponse[]> => {
-    // Note: Depends on backend implementation, but typically nodes are listed at /runs/:id/nodes
     const res = await api.get(`/runs/${id}/nodes`);
-    // Assuming backend returns an array or an object with an array under `items`
-    if (Array.isArray(res)) {
-       return res.map(node => RunNodeResponseSchema.parse(node));
+    const parsed = z.array(RunNodeResponseSchema).safeParse(res);
+    if (!parsed.success) {
+      throw new Error("Run node response contract invalid");
     }
-    return []; 
+
+    return parsed.data;
   },
 
   getRunLogs: async (id: string, params?: Record<string, string>): Promise<PaginatedLogsResponse> => {
