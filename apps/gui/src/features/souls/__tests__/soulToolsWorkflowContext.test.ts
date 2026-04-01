@@ -11,26 +11,56 @@ type WorkflowToolContext = {
   label: string;
   description: string;
   enabled: boolean;
+  availableInWorkflow?: boolean;
+};
+
+type AvailableTool = {
+  slug: string;
+  name: string;
+  description: string;
+  type: "builtin" | "custom" | "http";
 };
 
 const WORKFLOW_TOOLS: WorkflowToolContext[] = [
   {
-    id: "http_tool",
+    id: "runsight/http",
     label: "HTTP Requests",
     description: "Fetch external APIs.",
     enabled: true,
   },
   {
-    id: "file_tool",
+    id: "runsight/file-io",
     label: "Workspace Files",
     description: "Read project files.",
     enabled: false,
   },
   {
-    id: "delegate_tool",
-    label: "Delegate",
-    description: "Route between exits.",
+    id: "report_lookup",
+    label: "Report Lookup",
+    description: "Look up saved reports.",
     enabled: false,
+    availableInWorkflow: false,
+  },
+];
+
+const AVAILABLE_TOOLS: AvailableTool[] = [
+  {
+    slug: "runsight/http",
+    name: "HTTP Requests",
+    description: "Fetch external APIs.",
+    type: "builtin",
+  },
+  {
+    slug: "runsight/file-io",
+    name: "Workspace Files",
+    description: "Read project files.",
+    type: "builtin",
+  },
+  {
+    slug: "report_lookup",
+    name: "Report Lookup",
+    description: "Look up saved reports.",
+    type: "custom",
   },
 ];
 
@@ -41,7 +71,7 @@ const FORM_VALUES = {
   provider: null,
   modelId: null,
   systemPrompt: "Research the topic.",
-  tools: ["http_tool"],
+  tools: ["runsight/http"],
   temperature: 0.7,
   maxTokens: null,
   maxToolIterations: 3,
@@ -51,8 +81,9 @@ describe("RUN-490 workflow tool context rendering", () => {
   it("renders every workflow tool and shows informational state for tools not enabled on the soul", () => {
     render(
       React.createElement(SoulToolsSection as unknown as React.ComponentType<any>, {
-        tools: ["http_tool"],
+        tools: ["runsight/http"],
         workflowTools: WORKFLOW_TOOLS,
+        availableTools: AVAILABLE_TOOLS,
         onToolsChange: vi.fn(),
       }),
     );
@@ -61,14 +92,46 @@ describe("RUN-490 workflow tool context rendering", () => {
 
     expect(screen.getByText("HTTP Requests")).toBeTruthy();
     expect(screen.getByText("Workspace Files")).toBeTruthy();
-    expect(screen.getByText("Delegate")).toBeTruthy();
+    expect(screen.getByText("Report Lookup")).toBeTruthy();
     expect(screen.getByText("Enabled")).toBeTruthy();
+    const customBadge = screen.getByText("Custom");
+    expect(customBadge.className).toMatch(/amber|warning/i);
+    const workflowBadge = screen.getByText("Not enabled in workflow");
+    expect(workflowBadge.className).toMatch(/amber|warning/i);
+  });
 
-    const informationalBadges = screen.getAllByText("Available in workflow");
-    expect(informationalBadges).toHaveLength(2);
-    for (const badge of informationalBadges) {
-      expect(badge.className).toMatch(/amber|warning/i);
-    }
+  it("toggles API-discovered tool slugs when the user enables a tool", () => {
+    const onToolsChange = vi.fn();
+
+    render(
+      React.createElement(SoulToolsSection as unknown as React.ComponentType<any>, {
+        tools: ["runsight/http"],
+        workflowTools: WORKFLOW_TOOLS,
+        availableTools: AVAILABLE_TOOLS,
+        onToolsChange,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /tools/i }));
+    fireEvent.click(screen.getByRole("button", { name: /report lookup/i }));
+
+    expect(onToolsChange).toHaveBeenCalledWith(["runsight/http", "report_lookup"]);
+  });
+
+  it("shows custom tool guidance when the API returns no custom tools", () => {
+    render(
+      React.createElement(SoulToolsSection as unknown as React.ComponentType<any>, {
+        tools: ["runsight/http"],
+        workflowTools: WORKFLOW_TOOLS.filter((tool) => tool.id !== "report_lookup"),
+        availableTools: AVAILABLE_TOOLS.filter((tool) => tool.type !== "custom"),
+        onToolsChange: vi.fn(),
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /tools/i }));
+
+    expect(screen.getByText(/custom tools/i)).toBeTruthy();
+    expect(screen.getByText(/custom\/tools/i)).toBeTruthy();
   });
 
   it("passes workflow tool context through SoulFormBody into the tools section", async () => {
@@ -86,11 +149,18 @@ describe("RUN-490 workflow tool context rendering", () => {
       SoulAdvancedSection: () => React.createElement("div", null, "advanced"),
     }));
     vi.doMock("../SoulToolsSection", () => ({
-      SoulToolsSection: (props: { workflowTools?: WorkflowToolContext[] }) =>
+      SoulToolsSection: (props: {
+        workflowTools?: WorkflowToolContext[];
+        availableTools?: AvailableTool[];
+      }) =>
         React.createElement(
           "section",
           { "data-testid": "workflow-tools-prop" },
-          props.workflowTools?.map((tool) =>
+          [
+            ...(props.availableTools?.map((tool) =>
+              React.createElement("div", { key: tool.slug }, tool.name, tool.type),
+            ) ?? []),
+            ...(props.workflowTools?.map((tool) =>
             React.createElement(
               "div",
               { key: tool.id },
@@ -103,7 +173,8 @@ describe("RUN-490 workflow tool context rendering", () => {
                     "Available in workflow",
                   ),
             ),
-          ) ?? null,
+          ) ?? []),
+          ],
         ),
     }));
 
@@ -113,13 +184,14 @@ describe("RUN-490 workflow tool context rendering", () => {
       React.createElement(SoulFormBody as unknown as React.ComponentType<any>, {
         values: FORM_VALUES,
         workflowTools: WORKFLOW_TOOLS,
+        availableTools: AVAILABLE_TOOLS,
         setField: vi.fn(),
       }),
     );
 
     expect(screen.getByText("HTTP Requests")).toBeTruthy();
     expect(screen.getByText("Workspace Files")).toBeTruthy();
-    expect(screen.getByText("Delegate")).toBeTruthy();
-    expect(screen.getAllByText("Available in workflow")).toHaveLength(2);
+    expect(screen.getByText("Report Lookup")).toBeTruthy();
+    expect(screen.getByText("custom")).toBeTruthy();
   });
 });

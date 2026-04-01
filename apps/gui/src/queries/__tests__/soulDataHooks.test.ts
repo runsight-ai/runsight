@@ -106,6 +106,36 @@ describe("soul data API helpers (RUN-444)", () => {
     expect(mocks.apiGet).toHaveBeenCalledWith("/souls/missing/usages");
   });
 
+  it("adds soulsApi.listAvailableTools and calls /tools", async () => {
+    mocks.apiGet.mockResolvedValue([
+      {
+        slug: "runsight/http",
+        name: "HTTP Requests",
+        description: "Fetch external APIs.",
+        type: "builtin",
+      },
+      {
+        slug: "report_lookup",
+        name: "Report Lookup",
+        description: "Look up saved reports.",
+        type: "custom",
+      },
+    ]);
+
+    const { soulsApi } = await import("../../api/souls");
+    const listAvailableTools = (soulsApi as Record<string, unknown>).listAvailableTools;
+
+    expect(listAvailableTools).toBeTypeOf("function");
+
+    const result = await (listAvailableTools as () => Promise<unknown[]>)();
+
+    expect(mocks.apiGet).toHaveBeenCalledWith("/tools");
+    expect(result).toEqual([
+      expect.objectContaining({ slug: "runsight/http", type: "builtin" }),
+      expect.objectContaining({ slug: "report_lookup", type: "custom" }),
+    ]);
+  });
+
   it("adds settingsApi.listModelProviders and calls /models/providers", async () => {
     mocks.apiGet.mockResolvedValue([
       { id: "openai", name: "OpenAI", model_count: 12, is_configured: true },
@@ -177,6 +207,14 @@ describe("soul data query keys (RUN-444)", () => {
     expect(key).toEqual(expect.arrayContaining(["souls", "researcher", "usages"]));
   });
 
+  it("adds queryKeys.souls.tools for the shared tool catalog", async () => {
+    const { queryKeys } = await import("../keys");
+
+    expect((queryKeys.souls as Record<string, unknown>).tools).toEqual(
+      expect.arrayContaining(["souls", "tools"]),
+    );
+  });
+
   it("adds queryKeys.models.providers and queryKeys.models.byProvider(provider)", async () => {
     const { queryKeys } = await import("../keys");
     const models = (queryKeys as Record<string, unknown>).models as Record<string, unknown>;
@@ -220,6 +258,31 @@ describe("soul data query hooks (RUN-444)", () => {
 
     await query.queryFn();
     expect(mocks.apiGet).toHaveBeenCalledWith("/souls/researcher/usages");
+  });
+
+  it("adds useAvailableTools and wires useQuery to /tools", async () => {
+    const { useAvailableTools } = await import("../souls");
+    const { queryKeys } = await import("../keys");
+
+    expect(useAvailableTools).toBeTypeOf("function");
+
+    const query = (
+      useAvailableTools as unknown as () => {
+        queryKey: readonly string[];
+        queryFn: () => Promise<unknown>;
+      }
+    )();
+
+    expect(mocks.useQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: queryKeys.souls.tools,
+      }),
+    );
+
+    mocks.apiGet.mockResolvedValue([]);
+
+    await query.queryFn();
+    expect(mocks.apiGet).toHaveBeenCalledWith("/tools");
   });
 
   it("adds useModelProviders and wires useQuery to /models/providers", async () => {

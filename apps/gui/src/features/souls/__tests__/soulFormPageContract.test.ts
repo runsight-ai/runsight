@@ -81,6 +81,12 @@ describe("SoulFormPage contract (RUN-449)", () => {
     expect(source).toMatch(/workflowId|workflowContext|workflowTools/);
   });
 
+  it("backs the tool picker with API-loaded tool metadata instead of a hardcoded builtin map", () => {
+    const source = read(PAGE_PATH);
+    expect(source).toMatch(/useAvailableTools|listAvailableTools|\/tools/);
+    expect(source).not.toMatch(/const\s+TOOL_SOURCE_META\s*=/);
+  });
+
   it("uses a blocker pattern for dirty navigation and shows discard/keep-editing controls", () => {
     const source = read(PAGE_PATH);
     expect(source).toMatch(/useBlocker/);
