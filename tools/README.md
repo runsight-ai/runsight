@@ -9,7 +9,7 @@ Examples:
 - codemods
 - repo maintenance utilities
 
-Current legacy tooling still exists in `scripts/`.
+Use `tools/` for supported repo-level tooling and automation entry points.
 
 ## Codebones Verification Flow
 

@@ -3,8 +3,8 @@
 Generate the Runsight Workflow JSON Schema from Pydantic models.
 
 Usage:
-    python scripts/generate_schema.py          # Write schema to disk
-    python scripts/generate_schema.py --check  # CI mode: exit 1 if out of sync
+    python packages/core/scripts/generate_schema.py          # Write schema to disk
+    python packages/core/scripts/generate_schema.py --check  # CI mode: exit 1 if out of sync
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ def main() -> None:
         existing = SCHEMA_PATH.read_text()
         if existing != generated:
             print(f"FAIL: {SCHEMA_PATH} is out of sync with schema models.")
-            print("Run `python scripts/generate_schema.py` to regenerate.")
+            print("Run `python packages/core/scripts/generate_schema.py` to regenerate.")
             sys.exit(1)
         print(f"OK: {SCHEMA_PATH} is up to date.")
     else:
