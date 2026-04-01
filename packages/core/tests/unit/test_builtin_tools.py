@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from runsight_core.security import SSRFError
@@ -250,6 +250,32 @@ class TestHttpToolExecute:
 
             with pytest.raises(SSRFError):
                 await tool.execute({"method": "GET", "url": "http://192.168.1.1/admin"})
+
+    @pytest.mark.asyncio
+    async def test_execute_dns_resolution_failure_raises_ssrf_and_skips_request(self):
+        """DNS lookup failures must fail closed before any outbound request is made."""
+        from runsight_core.tools.http import create_http_tool
+
+        tool = create_http_tool()
+        fake_loop = Mock()
+        fake_loop.getaddrinfo = AsyncMock(side_effect=OSError("temporary DNS failure"))
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/json"}
+        mock_response.text = '{"ok": true}'
+
+        with patch("runsight_core.security.asyncio.get_running_loop", return_value=fake_loop):
+            with patch("runsight_core.tools.http.httpx.AsyncClient") as MockClient:
+                client_instance = AsyncMock()
+                client_instance.request.return_value = mock_response
+                client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+                client_instance.__aexit__ = AsyncMock(return_value=False)
+                MockClient.return_value = client_instance
+
+                with pytest.raises(SSRFError):
+                    await tool.execute({"method": "GET", "url": "https://provider.example/api"})
+
+                client_instance.request.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_execute_post_with_body(self):

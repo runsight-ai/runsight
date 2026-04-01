@@ -292,7 +292,8 @@ async def test_test_connection_provider_not_found():
     result = await service.test_connection("missing")
     assert result["success"] is False
     assert result["message"] == "Provider not found"
-    assert "models" not in result or result.get("models") == []
+    assert result["model_count"] == 0
+    assert result["latency_ms"] >= 0
 
 
 @pytest.mark.asyncio
@@ -311,6 +312,8 @@ async def test_test_connection_no_api_key_non_ollama():
     result = await service.test_connection("p1")
     assert result["success"] is False
     assert result["message"] == "No API key configured"
+    assert result["model_count"] == 0
+    assert result["latency_ms"] >= 0
 
 
 @pytest.mark.asyncio
@@ -341,6 +344,8 @@ async def test_test_connection_ollama_no_api_key_allowed():
 
     assert result["success"] is True
     assert "llama3" in result.get("models", [])
+    assert result["model_count"] == 1
+    assert result["latency_ms"] >= 0
 
 
 @pytest.mark.asyncio
@@ -375,6 +380,8 @@ async def test_test_connection_successful_openai():
     assert result["success"] is True
     assert "gpt-4o" in result.get("models", [])
     assert "gpt-3.5" in result.get("models", [])
+    assert result["model_count"] == 2
+    assert result["latency_ms"] >= 0
     mock_client.get.assert_called_once()
     call_kwargs = mock_client.get.call_args[1]
     assert "Bearer sk-xxx" in call_kwargs["headers"]["Authorization"]
@@ -409,6 +416,8 @@ async def test_test_connection_http_error():
 
     assert result["success"] is False
     assert "401" in result["message"]
+    assert result["model_count"] == 0
+    assert result["latency_ms"] >= 0
 
 
 @pytest.mark.asyncio

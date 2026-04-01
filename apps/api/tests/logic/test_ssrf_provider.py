@@ -90,6 +90,18 @@ class TestSharedSSRFUtilityExists:
         # Should not raise when private IPs are explicitly allowed
         await validate_ssrf("http://127.0.0.1/models", allow_private=True)
 
+    @pytest.mark.asyncio
+    async def test_shared_validator_blocks_dns_lookup_failures(self):
+        """DNS resolution failures must fail closed instead of permitting the request."""
+        from runsight_core.security import SSRFError, validate_ssrf
+
+        fake_loop = Mock()
+        fake_loop.getaddrinfo = AsyncMock(side_effect=OSError("dns lookup failed"))
+
+        with patch("runsight_core.security.asyncio.get_running_loop", return_value=fake_loop):
+            with pytest.raises(SSRFError):
+                await validate_ssrf("https://provider.example/v1/models")
+
 
 # ===========================================================================
 # 2. SSRF-blocking tests — these should FAIL until protection is added

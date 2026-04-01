@@ -18,6 +18,7 @@ def _mock_provider(*, provider_id: str, name: str, models: list[str]):
     provider = Mock()
     provider.id = provider_id
     provider.name = name
+    provider.type = "custom"
     provider.status = "active"
     provider.api_key = "configured-key"
     provider.base_url = None
@@ -25,6 +26,14 @@ def _mock_provider(*, provider_id: str, name: str, models: list[str]):
     provider.created_at = None
     provider.updated_at = None
     return provider
+
+
+def _assert_provider_test_contract(payload: dict):
+    assert payload["success"] in (True, False)
+    assert isinstance(payload["message"], str)
+    assert isinstance(payload["model_count"], int)
+    assert payload["model_count"] >= 0
+    assert payload["latency_ms"] >= 0
 
 
 def test_settings_providers_list():
@@ -116,12 +125,47 @@ def test_settings_providers_delete_404():
 
 def test_settings_providers_test():
     mock_service = Mock()
-    mock_service.test_connection = AsyncMock(return_value={"success": True})
+    mock_service.test_connection = AsyncMock(
+        return_value={
+            "success": True,
+            "message": "Connected — 1 models available",
+            "models": ["gpt-4o"],
+        }
+    )
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
-    response = client.post("/api/settings/providers/openai/test")
-    assert response.status_code == 200
-    app.dependency_overrides.clear()
+    try:
+        response = client.post("/api/settings/providers/openai/test")
+        assert response.status_code == 200
+        _assert_provider_test_contract(response.json())
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_settings_providers_test_credentials_returns_setup_contract_shape():
+    mock_service = Mock()
+    mock_service.test_credentials = AsyncMock(
+        return_value={
+            "success": False,
+            "message": "Connection failed (HTTP 401)",
+            "models": [],
+        }
+    )
+    app.dependency_overrides[get_provider_service] = lambda: mock_service
+
+    try:
+        response = client.post(
+            "/api/settings/providers/test",
+            json={
+                "provider_type": "openai",
+                "api_key_env": "sk-test",
+                "base_url": "https://api.openai.com/v1",
+            },
+        )
+        assert response.status_code == 200
+        _assert_provider_test_contract(response.json())
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_settings_models_list():
