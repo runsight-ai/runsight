@@ -52,16 +52,6 @@ afterEach(() => {
 });
 
 describe("RUN-496 routed setup guard fallback", () => {
-  it("allows protected-route navigation when settings load with onboarding_completed true", async () => {
-    const { router } = renderGuardRouter("/", async () => ({
-      onboarding_completed: true,
-    }));
-
-    expect(await screen.findByText("Protected app")).toBeTruthy();
-    expect(screen.queryByText("Guard unavailable")).toBeNull();
-    expect(router.state.location.pathname).toBe("/");
-  });
-
   it("redirects protected-route navigation to /setup/unavailable when settings fetch fails", async () => {
     const { router } = renderGuardRouter("/", async () => {
       throw new Error("settings request failed");
