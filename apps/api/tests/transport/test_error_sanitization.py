@@ -113,11 +113,11 @@ class TestUnhandledExceptionSanitization:
         body = resp.json()
         assert "_internal_api_token" not in body["error"]
 
-    def test_unhandled_exception_code_field_is_internal_error(self):
-        """The 'code' field should still be INTERNAL_ERROR."""
+    def test_unhandled_exception_omits_legacy_code_field(self):
+        """Unhandled exceptions should not emit the deprecated 'code' field."""
         resp = client.get("/raise-runtime")
         body = resp.json()
-        assert body["code"] == "INTERNAL_ERROR"
+        assert "code" not in body
 
 
 class TestUnhandledExceptionLogging:
@@ -149,25 +149,25 @@ class TestKnownExceptionsPreserved:
         assert resp.status_code == 404
         body = resp.json()
         assert body["error"] == "Workflow 'demo' not found"
-        assert body["code"] == "NOT_FOUND"
+        assert "code" not in body
 
     def test_soul_not_found_returns_404_with_message(self):
         resp = client.get("/raise-soul-not-found")
         assert resp.status_code == 404
         body = resp.json()
         assert body["error"] == "Soul 'planner' not found"
-        assert body["code"] == "NOT_FOUND"
+        assert "code" not in body
 
     def test_run_failed_returns_500_with_message(self):
         resp = client.get("/raise-run-failed")
         assert resp.status_code == 500
         body = resp.json()
         assert body["error"] == "Step 3 timed out after 30s"
-        assert body["code"] == "RUN_FAILED"
+        assert "code" not in body
 
     def test_provider_not_configured_returns_400_with_message(self):
         resp = client.get("/raise-provider-not-configured")
         assert resp.status_code == 400
         body = resp.json()
         assert body["error"] == "Provider 'openai' has no API key"
-        assert body["code"] == "PROVIDER_NOT_CONFIGURED"
+        assert "code" not in body

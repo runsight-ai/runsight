@@ -1,7 +1,7 @@
 """RED phase tests for RUN-331: Normalize error responses — HTTPException to RunsightError.
 
 All error responses must use the RunsightError shape:
-    {"error": "...", "error_code": "...", "code": "...", "status_code": ...}
+    {"error": "...", "error_code": "...", "status_code": ...}
 
 No router should return the HTTPException shape:
     {"detail": "..."}
@@ -44,7 +44,7 @@ def assert_runsight_error_shape(response, expected_status: int):
     # Must have RunsightError fields
     assert "error" in body, f"Missing 'error' key in response: {body}"
     assert "error_code" in body, f"Missing 'error_code' key in response: {body}"
-    assert "code" in body, f"Missing 'code' key in response: {body}"
+    assert "code" not in body, f"Found deprecated 'code' key in response: {body}"
     # Must NOT have HTTPException field
     assert "detail" not in body, f"Found 'detail' key (HTTPException shape) in response: {body}"
     return body
@@ -122,7 +122,6 @@ class TestStepsErrorShape:
             response = client.get("/api/steps/nonexistent")
             body = assert_runsight_error_shape(response, 404)
             assert body["error_code"] == "STEP_NOT_FOUND"
-            assert body["code"] == "NOT_FOUND"
         finally:
             app.dependency_overrides.clear()
 
@@ -134,7 +133,6 @@ class TestStepsErrorShape:
             response = client.put("/api/steps/missing", json={"name": "Updated"})
             body = assert_runsight_error_shape(response, 404)
             assert body["error_code"] == "STEP_NOT_FOUND"
-            assert body["code"] == "NOT_FOUND"
         finally:
             app.dependency_overrides.clear()
 
@@ -158,7 +156,6 @@ class TestTasksErrorShape:
             response = client.get("/api/tasks/nonexistent")
             body = assert_runsight_error_shape(response, 404)
             assert body["error_code"] == "TASK_NOT_FOUND"
-            assert body["code"] == "NOT_FOUND"
         finally:
             app.dependency_overrides.clear()
 
@@ -170,7 +167,6 @@ class TestTasksErrorShape:
             response = client.put("/api/tasks/missing", json={"name": "Updated"})
             body = assert_runsight_error_shape(response, 404)
             assert body["error_code"] == "TASK_NOT_FOUND"
-            assert body["code"] == "NOT_FOUND"
         finally:
             app.dependency_overrides.clear()
 
@@ -191,7 +187,6 @@ class TestSettingsErrorShape:
             response = client.get("/api/settings/providers/missing")
             body = assert_runsight_error_shape(response, 404)
             assert body["error_code"] == "PROVIDER_NOT_FOUND"
-            assert body["code"] == "NOT_FOUND"
         finally:
             app.dependency_overrides.clear()
 
@@ -206,7 +201,6 @@ class TestSettingsErrorShape:
             )
             body = assert_runsight_error_shape(response, 404)
             assert body["error_code"] == "PROVIDER_NOT_FOUND"
-            assert body["code"] == "NOT_FOUND"
         finally:
             app.dependency_overrides.clear()
 
@@ -218,7 +212,6 @@ class TestSettingsErrorShape:
             response = client.delete("/api/settings/providers/missing")
             body = assert_runsight_error_shape(response, 404)
             assert body["error_code"] == "PROVIDER_NOT_FOUND"
-            assert body["code"] == "NOT_FOUND"
         finally:
             app.dependency_overrides.clear()
 
@@ -340,7 +333,6 @@ class TestSSEStreamErrorShape:
             response = client.get("/api/runs/nonexistent/stream")
             body = assert_runsight_error_shape(response, 404)
             assert body["error_code"] == "RUN_NOT_FOUND"
-            assert body["code"] == "NOT_FOUND"
         finally:
             app.dependency_overrides.clear()
 
@@ -375,7 +367,6 @@ class TestEvalErrorShape:
             response = client.get("/api/runs/nonexistent/eval")
             body = assert_runsight_error_shape(response, 404)
             assert body["error_code"] == "EVAL_NOT_FOUND"
-            assert body["code"] == "NOT_FOUND"
         finally:
             app.dependency_overrides.clear()
 
