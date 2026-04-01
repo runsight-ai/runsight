@@ -5,9 +5,12 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass
 from typing import Callable, Dict
+
+import httpx
 
 from runsight_core.blocks.code import (
     _HARNESS_PREFIX,
@@ -15,6 +18,7 @@ from runsight_core.blocks.code import (
     DEFAULT_ALLOWED_IMPORTS,
     _validate_code_ast,
 )
+from runsight_core.security import validate_ssrf
 from runsight_core.yaml.discovery import discover_custom_tools
 from runsight_core.yaml.schema import BuiltinToolDef, CustomToolDef, HTTPToolDef, ToolDef
 
@@ -23,6 +27,8 @@ from runsight_core.yaml.schema import BuiltinToolDef, CustomToolDef, HTTPToolDef
 # ---------------------------------------------------------------------------
 
 BUILTIN_TOOL_CATALOG: Dict[str, Callable] = {}
+_ARG_TEMPLATE_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
+_ENV_TEMPLATE_RE = re.compile(r"\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 
 
 # ---------------------------------------------------------------------------
@@ -138,10 +144,80 @@ def resolve_custom_tool(tool_def: CustomToolDef, **kwargs: object) -> ToolInstan
     )
 
 
+def _render_http_template(template: str | None, args: dict) -> str | None:
+    """Render ``{{ param }}`` placeholders and ``${ENV}`` references."""
+    if template is None:
+        return None
+
+    rendered = _ARG_TEMPLATE_RE.sub(lambda match: str(args.get(match.group(1), "")), template)
+    return _ENV_TEMPLATE_RE.sub(lambda match: os.environ.get(match.group(1), ""), rendered)
+
+
+def _extract_http_response_value(payload: object, response_path: str | None) -> object:
+    """Traverse a dotted JSON path if one was configured."""
+    if response_path is None:
+        return payload
+
+    value = payload
+    for segment in response_path.split("."):
+        if not isinstance(value, dict) or segment not in value:
+            raise ValueError(f"Response path {response_path!r} was not found in the HTTP response")
+        value = value[segment]
+    return value
+
+
 def _resolve_http_tool(tool_def: HTTPToolDef, **kwargs: object) -> ToolInstance:
-    """Stub dispatcher for HTTP tools until RUN-527 lands."""
-    raise NotImplementedError(
-        f"HTTP tool resolution is not implemented yet for {tool_def.source!r}"
+    """Resolve an HTTP tool from inline fields or ``custom/tools/*.yaml`` metadata."""
+    method = tool_def.method or "GET"
+    url = tool_def.url
+    body_template = tool_def.body_template
+    response_path = tool_def.response_path
+    tool_name = tool_def.source or "http_tool"
+
+    if url is None:
+        if tool_def.source is None:
+            raise ValueError("HTTP tools must declare either an inline URL or a file source slug")
+
+        base_dir = kwargs.get("base_dir", ".")
+        tool_meta = discover_custom_tools(base_dir).get(tool_def.source)
+        if tool_meta is None or tool_meta.type != "http":
+            raise ValueError(f"Unknown HTTP tool source: {tool_def.source!r}")
+
+        method = tool_meta.method or method
+        url = tool_meta.url
+        body_template = tool_meta.body_template
+        response_path = tool_meta.response_path
+        tool_name = tool_meta.source
+
+    if url is None:
+        raise ValueError("HTTP tools must declare either an inline URL or a file source slug")
+
+    async def _execute(args: dict) -> str:
+        rendered_url = _render_http_template(url, args)
+        rendered_body = _render_http_template(body_template, args)
+        await validate_ssrf(rendered_url)
+
+        async with httpx.AsyncClient() as client:
+            response = await client.request(
+                method.upper(),
+                rendered_url,
+                headers=None,
+                content=rendered_body,
+            )
+
+        content_type = response.headers.get("content-type", "").lower()
+        if "application/json" in content_type:
+            payload = response.json()
+            return json.dumps(_extract_http_response_value(payload, response_path))
+        if "text/plain" in content_type or "text/html" in content_type:
+            return response.text
+        return response.text
+
+    return ToolInstance(
+        name=tool_name,
+        description=f"HTTP tool '{tool_name}'",
+        parameters={"type": "object", "properties": {}},
+        execute=_execute,
     )
 
 

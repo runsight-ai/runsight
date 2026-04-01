@@ -17,25 +17,31 @@ class BaseToolDef(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    source: str
+    source: Optional[str] = None
 
 
 class BuiltinToolDef(BaseToolDef):
     """Built-in tool definition as expressed in the YAML tools: section."""
 
     type: Literal["builtin"]
+    source: str
 
 
 class CustomToolDef(BaseToolDef):
     """Custom tool definition as expressed in the YAML tools: section."""
 
     type: Literal["custom"]
+    source: str
 
 
 class HTTPToolDef(BaseToolDef):
     """HTTP tool definition as expressed in the YAML tools: section."""
 
     type: Literal["http"]
+    method: Optional[str] = None
+    url: Optional[str] = None
+    body_template: Optional[str] = None
+    response_path: Optional[str] = None
 
 
 _ToolDefUnion = Annotated[
