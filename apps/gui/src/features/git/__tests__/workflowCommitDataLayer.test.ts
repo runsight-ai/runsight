@@ -70,6 +70,53 @@ describe("workflow commit data layer (RUN-424)", () => {
     });
   });
 
+  it("rejects a malformed workflow commit payload instead of fabricating success", async () => {
+    mocks.apiPost.mockResolvedValue({
+      message: "Save workflow to main",
+    });
+
+    const { gitApi } = await import("../../../api/git");
+
+    await expect(
+      (gitApi as {
+        commitWorkflow: (
+          workflowId: string,
+          payload: { yaml: string; message: string; canvas_state?: Record<string, unknown> },
+        ) => Promise<unknown>;
+      }).commitWorkflow("wf_1", {
+        yaml: "workflow:\n  name: Updated Flow\n",
+        canvas_state: { nodes: [], edges: [] },
+        message: "Save workflow to main",
+      }),
+    ).rejects.toThrow(/commit.*(contract|response)/i);
+  });
+
+  it("preserves backend failures distinctly from commit contract failures", async () => {
+    mocks.apiPost.mockRejectedValue(new Error("Network down"));
+
+    const { useCommitWorkflow } = await import("../../../queries/git");
+
+    const mutation = (
+      useCommitWorkflow as unknown as () => {
+        mutationFn?: (variables: {
+          workflowId: string;
+          payload: { yaml: string; message: string; canvas_state?: Record<string, unknown> };
+        }) => Promise<unknown>;
+      }
+    )();
+
+    await expect(
+      mutation.mutationFn?.({
+        workflowId: "wf_1",
+        payload: {
+          yaml: "workflow:\n  name: Updated Flow\n",
+          canvas_state: { nodes: [], edges: [] },
+          message: "Save workflow to main",
+        },
+      }),
+    ).rejects.toThrow("Network down");
+  });
+
   it("invalidates workflow and git queries after a successful production workflow save", async () => {
     const { queryKeys } = await import("../../../queries/keys");
     const { useCommitWorkflow } = await import("../../../queries/git");
