@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const testState = vi.hoisted(() => ({
@@ -18,6 +19,11 @@ type SharedContractCase = {
   arrange: (payload: unknown) => void;
   invoke: (settingsApi: typeof import("../settings").settingsApi) => Promise<unknown>;
   assertResult: (result: unknown) => void;
+};
+
+type SourceSchemaDefinition = {
+  name: string;
+  body: string;
 };
 
 function isRecord(value: unknown): value is Record<PropertyKey, unknown> {
@@ -91,6 +97,51 @@ function hasSharedContractMarker(value: unknown): boolean {
 
 function expectSharedContractMarker(result: unknown) {
   expect(hasSharedContractMarker(result)).toBe(true);
+}
+
+function extractTopLevelZObjectSchemas(source: string): SourceSchemaDefinition[] {
+  const definitions: SourceSchemaDefinition[] = [];
+  const schemaStartPattern = /^const\s+(\w+)\s*=\s*z\.object\s*\(\s*\{/gm;
+
+  for (const match of source.matchAll(schemaStartPattern)) {
+    const [matchedText, name] = match;
+    const startIndex = match.index ?? 0;
+    const bodyStart = startIndex + matchedText.lastIndexOf("{");
+    let depth = 0;
+    let bodyEnd = -1;
+
+    for (let index = bodyStart; index < source.length; index += 1) {
+      const char = source[index];
+
+      if (char === "{") {
+        depth += 1;
+        continue;
+      }
+
+      if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          bodyEnd = index;
+          break;
+        }
+      }
+    }
+
+    if (bodyEnd === -1) {
+      continue;
+    }
+
+    definitions.push({
+      name,
+      body: source.slice(bodyStart + 1, bodyEnd),
+    });
+  }
+
+  return definitions;
+}
+
+function matchesDuplicateTransportShape(body: string, fieldPatterns: RegExp[]) {
+  return fieldPatterns.every((pattern) => pattern.test(body));
 }
 
 vi.mock("../client", () => ({
@@ -400,5 +451,42 @@ describe("RUN-512 settings API shared contract normalization", () => {
     const result = await invoke(settingsApi);
 
     assertResult(result);
+  });
+
+  it("does not keep GUI-local top-level z.object transport schemas for shared settings surfaces", () => {
+    const settingsSource = readFileSync(new URL("../settings.ts", import.meta.url), "utf8");
+    const topLevelSchemas = extractTopLevelZObjectSchemas(settingsSource);
+    const duplicateTransportShapes = [
+      {
+        concern: "provider item settings transport",
+        fieldPatterns: [/api_key_env\s*:/, /api_key_preview\s*:/, /model_count\s*:/, /is_configured\s*:/],
+      },
+      {
+        concern: "model-default item settings transport",
+        fieldPatterns: [/provider_id\s*:/, /provider_name\s*:/, /model_name\s*:/, /fallback_chain\s*:/],
+      },
+      {
+        concern: "budget item settings transport",
+        fieldPatterns: [/\bid\s*:/, /\bname\s*:/, /limit_usd\s*:/, /period\s*:/],
+      },
+      {
+        concern: "app-settings transport",
+        fieldPatterns: [/onboarding_completed\s*:/, /fallback_chain_enabled\s*:/],
+      },
+    ];
+
+    const duplicateSchemas = topLevelSchemas.flatMap((schema) =>
+      duplicateTransportShapes
+        .filter(({ fieldPatterns }) => matchesDuplicateTransportShape(schema.body, fieldPatterns))
+        .map(({ concern }) => `${schema.name} (${concern})`),
+    );
+
+    expect(
+      duplicateSchemas,
+      [
+        "Expected apps/gui/src/api/settings.ts to remove dead GUI-local settings transport schemas once shared contracts are in place.",
+        `Found duplicate top-level z.object definitions: ${duplicateSchemas.join(", ") || "(none)"}`,
+      ].join("\n"),
+    ).toEqual([]);
   });
 });
