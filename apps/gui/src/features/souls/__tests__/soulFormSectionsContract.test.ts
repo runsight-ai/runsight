@@ -101,19 +101,21 @@ describe("SoulPromptSection contract (RUN-448)", () => {
 });
 
 describe("SoulToolsSection contract (RUN-448)", () => {
-  it("renders a collapsed Tools section with assignable tool options and hides system-owned tools", () => {
+  it("renders workflow-context tool states instead of a hardcoded assignable-only picker", () => {
     const source = read(SECTION_PATHS.tools);
     expect(source).toMatch(/export\s+(function|const)\s+SoulToolsSection/);
     expect(source).toMatch(/title=\{?["']Tools["']/);
     expect(source).toMatch(/defaultOpen=\{false\}|defaultOpen=\{?false\}?/);
     expect(source).toMatch(/tools:\s*string\[\]/);
     expect(source).toMatch(/onToolsChange/);
-    expect(source).toMatch(/runsight\/http/);
-    expect(source).toMatch(/runsight\/file-io/);
+    expect(source).toMatch(/workflowTools|availableTools|workflowContext/);
     expect(source).toMatch(/delegate/i);
-    expect(source).toMatch(/automatically|block/i);
-    expect(source).not.toMatch(/value:\s*["']runsight\/delegate["']/);
-    expect(source).not.toMatch(/This soul has no tools enabled yet|This soul does not have any tools enabled yet/);
+    expect(source).toMatch(/enabled/i);
+    expect(source).toMatch(/amber|warning|informational/i);
+    expect(source).toMatch(/not enabled|available in this workflow|workflow-only/i);
+    expect(source).not.toMatch(/const\s+ASSIGNABLE_SOUL_TOOLS\s*=\s*\[/);
+    expect(source).not.toMatch(/Existing custom refs/);
+    expect(source).not.toMatch(/Remove/);
   });
 });
 
@@ -143,5 +145,11 @@ describe("SoulFormBody composition contract (RUN-448)", () => {
     expect(source).toMatch(/SoulPromptSection/);
     expect(source).toMatch(/SoulToolsSection/);
     expect(source).toMatch(/SoulAdvancedSection/);
+  });
+
+  it("threads workflow tool context through to SoulToolsSection for workflow-origin editing", () => {
+    const source = read(SECTION_PATHS.body);
+    expect(source).toMatch(/workflowTools|availableTools|workflowContext/);
+    expect(source).toMatch(/SoulToolsSection[^]*workflowTools|SoulToolsSection[^]*availableTools|SoulToolsSection[^]*workflowContext/);
   });
 });

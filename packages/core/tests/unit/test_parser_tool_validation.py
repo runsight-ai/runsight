@@ -14,8 +14,11 @@ All tests should FAIL until the parser is updated with tool validation logic.
 from __future__ import annotations
 
 import pytest
+import runsight_core.yaml.parser as parser_module
+import yaml
 from runsight_core.tools import ToolInstance
-from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.yaml.parser import _resolve_soul_tool_definition, parse_workflow_yaml
+from runsight_core.yaml.schema import RunsightWorkflowFile
 
 # ---------------------------------------------------------------------------
 # Helper: minimal YAML builder for tool-validation tests
@@ -160,8 +163,8 @@ souls:
         assert "http_request" in resolved_names
         assert "file_io" in resolved_names
 
-    def test_direct_builtin_soul_tools_resolve_without_workflow_tool_map(self):
-        """Soul-level built-ins like runsight/http and runsight/file-io resolve directly."""
+    def test_direct_builtin_soul_tools_require_workflow_tool_declarations(self):
+        """RUN-490: direct soul refs must be rejected when the workflow tools map omits them."""
         yaml_str = _make_yaml(
             souls="""\
 souls:
@@ -181,12 +184,52 @@ souls:
       to: null""",
         )
 
-        workflow = parse_workflow_yaml(yaml_str)
-        soul = workflow.blocks["my_block"].soul
+        with pytest.raises(
+            ValueError,
+            match=r"undeclared tool 'runsight/http'.*Declared tools: \[\]",
+        ):
+            parse_workflow_yaml(yaml_str)
 
-        assert soul.resolved_tools is not None
-        resolved_names = {t.name for t in soul.resolved_tools}
-        assert resolved_names == {"http_request", "file_io"}
+
+# ===========================================================================
+# RUN-490: Workflow tool governance helpers
+# ===========================================================================
+
+
+class TestWorkflowToolGovernanceHelpers:
+    """Tool governance must be reusable outside parse_workflow_yaml()."""
+
+    def test_resolve_soul_tool_definition_only_uses_workflow_tools(self):
+        """RUN-490: _resolve_soul_tool_definition must not bypass workflow_tools for built-ins."""
+        assert _resolve_soul_tool_definition("runsight/http", {}) is None
+
+    def test_validate_tool_governance_exists_for_api_layer_reuse(self):
+        """RUN-490: validate_tool_governance() should enforce undeclared tool refs for API callers."""
+        yaml_str = _make_yaml(
+            souls="""\
+souls:
+  reviewer:
+    id: reviewer_1
+    role: Reviewer
+    system_prompt: Review the draft.
+    tools:
+      - runsight/http""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: reviewer""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+        validator = getattr(parser_module, "validate_tool_governance", None)
+        assert callable(validator), (
+            "Expected parser.validate_tool_governance() for API-layer governance validation reuse"
+        )
+
+        file_def = RunsightWorkflowFile.model_validate(yaml.safe_load(yaml_str))
+        with pytest.raises(ValueError, match=r"reviewer.*undeclared tool 'runsight/http'"):
+            validator(file_def)
 
 
 # ===========================================================================

@@ -74,6 +74,13 @@ describe("SoulFormPage contract (RUN-449)", () => {
     expect(source).toMatch(/navigate\(\s*["']\/souls["']/);
   });
 
+  it("derives workflow editor context from returnUrl so workflow tools can be shown during soul editing", () => {
+    const source = read(PAGE_PATH);
+    expect(source).toMatch(/returnUrl/);
+    expect(source).toMatch(/workflows/);
+    expect(source).toMatch(/workflowId|workflowContext|workflowTools/);
+  });
+
   it("uses a blocker pattern for dirty navigation and shows discard/keep-editing controls", () => {
     const source = read(PAGE_PATH);
     expect(source).toMatch(/useBlocker/);
