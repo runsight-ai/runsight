@@ -1,36 +1,40 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const FEATURE_DIR = resolve(__dirname, "..");
-const MODALS_SOURCE = readFileSync(resolve(FEATURE_DIR, "SoulModals.tsx"), "utf-8");
-const LIST_SOURCE = readFileSync(resolve(FEATURE_DIR, "SoulList.tsx"), "utf-8");
+const SRC_DIR = resolve(__dirname, "..", "..", "..");
 
-describe("RUN-440 soul sidebar contract cutover", () => {
-  it("NewSoulModal submits role and model_name instead of name/models", () => {
-    expect(MODALS_SOURCE).toMatch(/role:\s*name\.trim\(\)/);
-    expect(MODALS_SOURCE).toMatch(/model_name:\s*selectedModels/);
-    expect(MODALS_SOURCE).not.toMatch(/name:\s*name\.trim\(\)/);
-    expect(MODALS_SOURCE).not.toMatch(/models:\s*selectedModels/);
+function readSource(relativePath: string): string {
+  return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
+}
+
+describe("RUN-508 soul surface cleanup", () => {
+  it("deletes the legacy sidebar soul modules", () => {
+    expect(
+      existsSync(resolve(SRC_DIR, "features/sidebar/SoulList.tsx")),
+      "Expected SoulList.tsx to be removed with the retired sidebar island",
+    ).toBe(false);
+    expect(
+      existsSync(resolve(SRC_DIR, "features/sidebar/SoulModals.tsx")),
+      "Expected SoulModals.tsx to be removed with the retired sidebar island",
+    ).toBe(false);
   });
 
-  it("EditSoulModal reads and writes role/model_name", () => {
-    expect(MODALS_SOURCE).toMatch(/setName\(soul\.role\s*\|\|\s*""\)/);
-    expect(MODALS_SOURCE).toMatch(/setSelectedModels\(soul\.model_name\s*\?/);
-    expect(MODALS_SOURCE).toMatch(/role:\s*name\.trim\(\)\s*\|\|\s*null/);
-    expect(MODALS_SOURCE).toMatch(/model_name:\s*selectedModels/);
-    expect(MODALS_SOURCE).not.toMatch(/setName\(soul\.name/);
-    expect(MODALS_SOURCE).not.toMatch(/soul\.models/);
+  it("keeps the supported souls pages on the shared souls query layer", () => {
+    const soulLibraryPageSource = readSource("features/souls/SoulLibraryPage.tsx");
+    const soulFormPageSource = readSource("features/souls/SoulFormPage.tsx");
+    const paletteSidebarSource = readSource("features/canvas/PaletteSidebar.tsx");
+
+    expect(soulLibraryPageSource).toMatch(/@\/queries\/souls/);
+    expect(soulFormPageSource).toMatch(/@\/queries\/souls/);
+    expect(paletteSidebarSource).toMatch(/@\/queries\/souls/);
   });
 
-  it("SoulList renders and searches by role with model_name column data", () => {
-    expect(LIST_SOURCE).toMatch(/key:\s*"role"/);
-    expect(LIST_SOURCE).toMatch(/soul\.role\s*\|\|\s*"Unnamed Soul"/);
-    expect(LIST_SOURCE).toMatch(/key:\s*"model_name"/);
-    expect(LIST_SOURCE).toMatch(/const modelName = soul\.model_name/);
-    expect(LIST_SOURCE).toMatch(/searchKeys:\s*\["role",\s*"system_prompt"\]/);
-    expect(LIST_SOURCE).toMatch(/getItemName:\s*\(soul\)\s*=>\s*soul\.role\s*\|\|\s*"Unnamed Soul"/);
-    expect(LIST_SOURCE).not.toMatch(/soul\.name/);
-    expect(LIST_SOURCE).not.toMatch(/soul\.models/);
+  it("keeps the shared souls query and API adapters in place", () => {
+    const soulsQuerySource = readSource("queries/souls.ts");
+    const soulsApiSource = readSource("api/souls.ts");
+
+    expect(soulsQuerySource).toMatch(/\.\.\/api\/souls/);
+    expect(soulsApiSource.length).toBeGreaterThan(0);
   });
 });

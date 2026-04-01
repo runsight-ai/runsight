@@ -23,8 +23,6 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const SHARED_DIR = resolve(__dirname, "..");
-const SIDEBAR_DIR = resolve(__dirname, "../../../features/sidebar");
-
 function readSource(dir: string, filename: string): string {
   return readFileSync(resolve(dir, filename), "utf-8");
 }
@@ -161,51 +159,24 @@ describe("DeleteConfirmDialog module", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. SoulList migration (AC1-2)
+// 3. CrudListPage stays reusable instead of binding to a retired sidebar list
 // ---------------------------------------------------------------------------
 
-describe("SoulList migration", () => {
+describe("CrudListPage reuse boundary", () => {
   let source: string;
 
-  it("SoulList.tsx is under 100 lines", () => {
-    source = readSource(SIDEBAR_DIR, "SoulList.tsx");
+  it("does not import retired sidebar CRUD modules", () => {
+    source = readSource(SHARED_DIR, "CrudListPage.tsx");
+
+    expect(source).not.toMatch(/features\/sidebar\//);
+    expect(source).not.toMatch(/SoulList|TaskList|StepList/);
+    expect(source).not.toMatch(/SoulModals|TaskModals|StepModals/);
+  });
+
+  it("stays reasonably small as a shared primitive", () => {
+    source = readSource(SHARED_DIR, "CrudListPage.tsx");
     const lines = countLines(source);
-    expect(lines).toBeLessThanOrEqual(100);
-  });
 
-  it("imports and uses CrudListPage", () => {
-    source = readSource(SIDEBAR_DIR, "SoulList.tsx");
-    expect(source).toMatch(/import.*CrudListPage.*from/);
-  });
-
-  it("renders CrudListPage in its return", () => {
-    source = readSource(SIDEBAR_DIR, "SoulList.tsx");
-    expect(source).toMatch(/<CrudListPage/);
-  });
-
-  it("passes a config object with resourceName", () => {
-    source = readSource(SIDEBAR_DIR, "SoulList.tsx");
-    // Should have resourceName: "Soul" or similar in the config
-    expect(source).toMatch(/resourceName.*["']Soul["']/i);
-  });
-
-  it("does not have local useState for searchQuery", () => {
-    source = readSource(SIDEBAR_DIR, "SoulList.tsx");
-    // Search state should now live inside CrudListPage
-    expect(source).not.toMatch(/useState.*searchQuery|searchQuery.*useState/);
-    expect(source).not.toMatch(/setSearchQuery/);
-  });
-
-  it("does not have local useMemo for filtering", () => {
-    source = readSource(SIDEBAR_DIR, "SoulList.tsx");
-    expect(source).not.toMatch(/useMemo/);
-  });
-
-  it("does not have inline delete confirmation dialog", () => {
-    source = readSource(SIDEBAR_DIR, "SoulList.tsx");
-    // Should not import Dialog directly — DeleteConfirmDialog handles that
-    expect(source).not.toMatch(
-      /import.*\{[^}]*Dialog[^}]*\}.*from.*["'](@runsight\/ui\/dialog|@\/components\/ui\/dialog)["']/
-    );
+    expect(lines).toBeLessThanOrEqual(250);
   });
 });
