@@ -34,7 +34,6 @@ from runsight_core.yaml.schema import (
 # 1. Add the new version string here.
 # 2. Gate migration logic on ``file_def.version`` before the block-building loop.
 SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
-USER_ASSIGNABLE_SOUL_TOOL_SOURCES: frozenset[str] = frozenset({"runsight/http", "runsight/file-io"})
 
 
 def _resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
@@ -72,14 +71,29 @@ def _convert_condition_group(group_def: ConditionGroupDef) -> ConditionGroup:
 def _resolve_soul_tool_definition(
     tool_ref: str, workflow_tools: Dict[str, ToolDef]
 ) -> ToolDef | None:
-    """Resolve a soul tool ref from either the workflow tool map or direct built-ins."""
-    if tool_ref in workflow_tools:
-        return workflow_tools[tool_ref]
+    """Resolve a soul tool ref from the workflow tool map only."""
+    return workflow_tools.get(tool_ref)
 
-    if tool_ref in USER_ASSIGNABLE_SOUL_TOOL_SOURCES:
-        return ToolDef(type="builtin", source=tool_ref)
 
-    return None
+def validate_tool_governance(file_def: RunsightWorkflowFile) -> None:
+    """Validate workflow tool declarations and soul tool references."""
+    for tool_key, tool_def in file_def.tools.items():
+        if tool_def.source not in BUILTIN_TOOL_CATALOG:
+            available = sorted(BUILTIN_TOOL_CATALOG.keys())
+            raise ValueError(
+                f"Tool '{tool_key}' has unknown source '{tool_def.source}'. Available: {available}"
+            )
+
+    for soul_key, soul_def in file_def.souls.items():
+        if not soul_def.tools:
+            continue
+
+        for tool_name in soul_def.tools:
+            if _resolve_soul_tool_definition(tool_name, file_def.tools) is None:
+                raise ValueError(
+                    f"Soul '{soul_key}' references undeclared tool '{tool_name}'. "
+                    f"Declared tools: {sorted(file_def.tools.keys())}"
+                )
 
 
 # Trigger auto-discovery of co-located blocks and rebuild the discriminated
@@ -292,30 +306,7 @@ def parse_workflow_yaml(
             )
 
     # Step 6.6: Validate and resolve tools per soul
-    # 6.6a: Validate tool sources exist in BUILTIN_TOOL_CATALOG
-    for tool_key, tool_def in file_def.tools.items():
-        if tool_def.source not in BUILTIN_TOOL_CATALOG:
-            available = sorted(BUILTIN_TOOL_CATALOG.keys())
-            raise ValueError(
-                f"Tool '{tool_key}' has unknown source '{tool_def.source}'. Available: {available}"
-            )
-
-    # 6.6b: Validate soul tool references exist in file_def.tools keys
-    for soul_key, soul_def in file_def.souls.items():
-        if soul_def.tools:
-            for tool_name in soul_def.tools:
-                tool_def = _resolve_soul_tool_definition(tool_name, file_def.tools)
-                if tool_def is None:
-                    if tool_name in BUILTIN_TOOL_CATALOG:
-                        raise ValueError(
-                            f"Soul '{soul_key}' cannot directly assign system tool "
-                            f"'{tool_name}'. Assign it through workflow or block mechanics instead."
-                        )
-                    raise ValueError(
-                        f"Soul '{soul_key}' references undeclared tool '{tool_name}'. "
-                        f"Declared tools: {sorted(file_def.tools.keys())}. "
-                        f"Direct soul tools: {sorted(USER_ASSIGNABLE_SOUL_TOOL_SOURCES)}"
-                    )
+    validate_tool_governance(file_def)
 
     # 6.6c: Resolve ToolInstance objects per soul
     for soul_key, soul_def in file_def.souls.items():

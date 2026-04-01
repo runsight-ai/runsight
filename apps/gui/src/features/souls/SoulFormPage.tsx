@@ -5,9 +5,11 @@ import {
   useParams,
   useSearchParams,
 } from "react-router";
+import { parse } from "yaml";
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useSoul } from "@/queries/souls";
+import { useWorkflow } from "@/queries/workflows";
 import { Button } from "@runsight/ui/button";
 import {
   Dialog,
@@ -16,9 +18,33 @@ import {
   DialogTitle,
 } from "@runsight/ui/dialog";
 
+import type { WorkflowToolContext } from "./SoulToolsSection";
 import { SoulFormBody } from "./SoulFormBody";
 import { SoulFormFooter } from "./SoulFormFooter";
 import { useSoulForm } from "./useSoulForm";
+
+type WorkflowToolDef = {
+  source?: string;
+};
+
+type WorkflowToolFile = {
+  tools?: Record<string, WorkflowToolDef>;
+};
+
+const TOOL_SOURCE_META: Record<string, { label: string; description: string }> = {
+  "runsight/http": {
+    label: "HTTP Requests",
+    description: "Fetch external APIs.",
+  },
+  "runsight/file-io": {
+    label: "Workspace Files",
+    description: "Read project files.",
+  },
+  "runsight/delegate": {
+    label: "Delegate",
+    description: "Route between exits.",
+  },
+};
 
 function buildBreadcrumbLabel(mode: "create" | "edit", role?: string | null) {
   if (mode === "create") {
@@ -26,6 +52,66 @@ function buildBreadcrumbLabel(mode: "create" | "edit", role?: string | null) {
   }
 
   return `Souls > ${role ?? "Soul"} > Edit`;
+}
+
+function getWorkflowIdFromReturnUrl(returnUrl: string | null): string | null {
+  if (!returnUrl) {
+    return null;
+  }
+
+  const workflowMatch = returnUrl.match(/\/workflows\/([^/?#]+)(?:\/edit)?/);
+  return workflowMatch ? decodeURIComponent(workflowMatch[1]) : null;
+}
+
+function buildWorkflowTools(
+  yamlText: string | null | undefined,
+  selectedTools: string[],
+): WorkflowToolContext[] {
+  const fallbackTools = selectedTools.map((tool) => ({
+    id: tool,
+    label: TOOL_SOURCE_META[tool]?.label ?? tool,
+    description:
+      TOOL_SOURCE_META[tool]?.description ??
+      "Enabled on this soul. Open the form from a workflow to compare workflow tool availability.",
+    enabled: true,
+  }));
+
+  if (!yamlText) {
+    return fallbackTools;
+  }
+
+  try {
+    const parsed = parse(yamlText) as WorkflowToolFile | null;
+    const workflowTools = Object.entries(parsed?.tools ?? {}).map(([id, toolDef]) => {
+      const meta = TOOL_SOURCE_META[toolDef.source ?? ""] ?? {
+        label: id,
+        description: toolDef.source ?? "Available in this workflow.",
+      };
+
+      return {
+        id,
+        label: meta.label,
+        description: meta.description,
+        enabled: selectedTools.includes(id),
+        availableInWorkflow: true,
+      };
+    });
+
+    const knownToolIds = new Set(workflowTools.map((tool) => tool.id));
+    const extraSelectedTools = selectedTools
+      .filter((tool) => !knownToolIds.has(tool))
+      .map((tool) => ({
+        id: tool,
+        label: TOOL_SOURCE_META[tool]?.label ?? tool,
+        description: "Enabled on this soul, but not enabled in the current workflow.",
+        enabled: true,
+        availableInWorkflow: false,
+      }));
+
+    return [...workflowTools, ...extraSelectedTools];
+  } catch {
+    return fallbackTools;
+  }
 }
 
 function SoulFormLoadingState({ returnUrl }: { returnUrl: string | null }) {
@@ -70,8 +156,10 @@ export function Component() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get("return");
+  const workflowId = getWorkflowIdFromReturnUrl(returnUrl);
   const mode = id ? "edit" : "create";
   const soulQuery = useSoul(id ?? "");
+  const workflowContext = useWorkflow(workflowId ?? "");
 
   const form = useSoulForm({
     mode,
@@ -87,6 +175,7 @@ export function Component() {
     },
   });
   const { isDirty, isSubmitting, reset, setField, submit, values } = form;
+  const workflowTools = buildWorkflowTools(workflowContext.data?.yaml, values.tools);
 
   useEffect(() => {
     if (mode === "edit" && soulQuery.data) {
@@ -130,7 +219,11 @@ export function Component() {
 
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-6 pb-8">
-          <SoulFormBody values={values} setField={setField} />
+          <SoulFormBody
+            values={values}
+            workflowTools={workflowTools}
+            setField={setField}
+          />
         </div>
       </div>
 

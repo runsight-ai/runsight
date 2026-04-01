@@ -3,15 +3,21 @@ import { SoulAdvancedSection } from "./SoulAdvancedSection";
 import { SoulIdentitySection } from "./SoulIdentitySection";
 import { SoulModelSection } from "./SoulModelSection";
 import { SoulPromptSection } from "./SoulPromptSection";
-import { SoulToolsSection } from "./SoulToolsSection";
+import { SoulToolsSection, type WorkflowToolContext } from "./SoulToolsSection";
 
 interface SoulFormBodyProps {
   values: SoulFormValues;
+  workflowTools?: WorkflowToolContext[];
   setField: <K extends keyof SoulFormValues>(field: K, value: SoulFormValues[K]) => void;
   errors?: Partial<Record<keyof SoulFormValues, string>>;
 }
 
-export function SoulFormBody({ values, setField, errors }: SoulFormBodyProps) {
+export function SoulFormBody({
+  values,
+  workflowTools,
+  setField,
+  errors,
+}: SoulFormBodyProps) {
   return (
     <div className="space-y-4">
       <SoulIdentitySection
@@ -38,6 +44,7 @@ export function SoulFormBody({ values, setField, errors }: SoulFormBodyProps) {
       />
       <SoulToolsSection
         tools={values.tools}
+        workflowTools={workflowTools}
         onToolsChange={(tools) => setField("tools", tools)}
       />
       <SoulAdvancedSection
