@@ -40,10 +40,10 @@ def _make_mock_run(run_id: str, workflow_id: str = "wf_1", status=RunStatus.comp
 
 
 def _stub_service_with_runs(runs):
-    """Wire up a mock RunService that filters by status AND workflow_id."""
+    """Wire up a mock RunService that filters by the canonical list-runs arguments."""
     mock_service = Mock()
 
-    def paginated(offset=0, limit=20, status=None, workflow_id=None):
+    def paginated(offset=0, limit=20, status=None, workflow_id=None, source=None, branch=None):
         filtered = runs
         if status:
             filtered = [r for r in filtered if r.status in status]

@@ -1,23 +1,7 @@
-import type { ComponentType } from "react";
-import { createBrowserRouter, Navigate, useParams } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { ShellLayout } from "./layouts/ShellLayout";
 import { createSetupGuardLoader, createReverseGuardLoader } from "./guards";
 import { queryClient } from "@/lib/queryClient";
-
-const RETIRED_DIRECT_ENTRY_PATHS = new Set(["/health", "/test-components"]);
-
-if (
-  typeof window !== "undefined" &&
-  RETIRED_DIRECT_ENTRY_PATHS.has(window.location.pathname)
-) {
-  window.history.replaceState(null, "", "/");
-}
-
-function LegacyWorkflowEditorRedirect() {
-  const { id } = useParams<{ id: string }>();
-
-  return <Navigate to={`/workflows/${id}/edit`} replace />;
-}
 
 export const router = createBrowserRouter([
   {
@@ -54,25 +38,11 @@ export const router = createBrowserRouter([
           })),
       },
       {
-        path: "workflows/:id",
-        lazy: () =>
-          import("@/features/canvas/WorkflowCanvas").then((m) => ({
-            Component:
-              "LegacyWorkflowRedirect" in m
-                ? (m.LegacyWorkflowRedirect as ComponentType)
-                : LegacyWorkflowEditorRedirect,
-          })),
-      },
-      {
         path: "workflows/:id/edit",
         lazy: () =>
           import("@/features/canvas/CanvasPage").then((m) => ({
             Component: m.Component,
           })),
-      },
-      {
-        path: "workflows",
-        element: <Navigate to="/flows" replace />,
       },
       {
         path: "runs",

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import type { settingsApi as SettingsApi } from "../settings";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const settingsSource = readFileSync(new URL("../settings.ts", import.meta.url), "utf8");
@@ -14,7 +15,7 @@ type SharedContractCase = {
   title: string;
   payload: unknown;
   arrange: (payload: unknown) => void;
-  invoke: (settingsApi: typeof import("../settings").settingsApi) => Promise<unknown>;
+  invoke: (settingsApi: typeof SettingsApi) => Promise<unknown>;
   assertResult: (result: unknown) => void;
 };
 
@@ -36,11 +37,11 @@ function escapeForRegExp(value: string) {
 function collectCanonicalImportBindings(source: string, modulePath: string): CanonicalImportBindings {
   const modulePattern = escapeForRegExp(modulePath);
   const namedImportPattern = new RegExp(
-    `import\\s*{([^;]*?)}\\s*from\\s*[\"']${modulePattern}[\"'];`,
+    `import\\s*{([^;]*?)}\\s*from\\s*["']${modulePattern}["'];`,
     "g",
   );
   const namespaceImportPattern = new RegExp(
-    `import\\s*\\*\\s*as\\s*(\\w+)\\s*from\\s*[\"']${modulePattern}[\"'];`,
+    `import\\s*\\*\\s*as\\s*(\\w+)\\s*from\\s*["']${modulePattern}["'];`,
     "g",
   );
   const named = new Map<string, string[]>();
@@ -229,6 +230,14 @@ const appSettingsPayload = {
   fallback_chain_enabled: false,
 };
 
+const providerTestPayload = {
+  success: true,
+  message: "Connection successful",
+  models: ["gpt-4.1", "gpt-4o-mini"],
+  model_count: 2,
+  latency_ms: 123.4,
+};
+
 describe("RUN-512 settings API canonical shared contracts", () => {
   it("sources settings-surface parse calls from the canonical @runsight/shared/zod path", () => {
     const importBindings = collectCanonicalImportBindings(settingsSource, "@runsight/shared/zod");
@@ -244,6 +253,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       { methodName: "updateBudget", exportedSchemaName: "SettingsBudgetResponseSchema" },
       { methodName: "getAppSettings", exportedSchemaName: "AppSettingsOutSchema" },
       { methodName: "updateAppSettings", exportedSchemaName: "AppSettingsOutSchema" },
+      { methodName: "testProviderConnection", exportedSchemaName: "ProviderTestOutSchema" },
+      { methodName: "testProviderCredentials", exportedSchemaName: "ProviderTestOutSchema" },
     ];
 
     expect(
@@ -284,6 +295,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       "updateBudget",
       "getAppSettings",
       "updateAppSettings",
+      "testProviderConnection",
+      "testProviderCredentials",
     ].map((methodName) => ({
       methodName,
       parseTarget: extractParseTarget(settingsSource, methodName),
@@ -520,6 +533,34 @@ describe("RUN-512 settings API canonical shared contracts", () => {
         }),
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(appSettingsPayload));
+      },
+    },
+    {
+      title: "parses provider-test connection responses through the canonical shared contract",
+      payload: providerTestPayload,
+      arrange: (payload) => {
+        testState.apiPost.mockResolvedValue(payload);
+      },
+      invoke: (settingsApi) => settingsApi.testProviderConnection("openai"),
+      assertResult: (result) => {
+        expect(result).toEqual(expect.objectContaining(providerTestPayload));
+      },
+    },
+    {
+      title: "parses provider-test credential responses through the canonical shared contract",
+      payload: providerTestPayload,
+      arrange: (payload) => {
+        testState.apiPost.mockResolvedValue(payload);
+      },
+      invoke: (settingsApi) =>
+        settingsApi.testProviderCredentials({
+          provider_type: "openai",
+          name: "OpenAI",
+          api_key_env: "OPENAI_API_KEY",
+          base_url: "https://api.openai.com/v1",
+        }),
+      assertResult: (result) => {
+        expect(result).toEqual(expect.objectContaining(providerTestPayload));
       },
     },
   ];

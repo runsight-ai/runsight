@@ -142,4 +142,20 @@ describe("RUN-512 canonical settings transport contracts", () => {
       expect.objectContaining(appSettingsSample),
     );
   });
+
+  it("exports the canonical provider-test response schema on @runsight/shared/zod", () => {
+    const providerTestSample = {
+      success: true,
+      message: "Connection successful",
+      models: ["gpt-4.1", "gpt-4o-mini"],
+      model_count: 2,
+      latency_ms: 123.4,
+    };
+
+    const providerTestSchema = getCanonicalSchema("ProviderTestOutSchema");
+
+    expect(providerTestSchema.parse(providerTestSample)).toEqual(
+      expect.objectContaining(providerTestSample),
+    );
+  });
 });

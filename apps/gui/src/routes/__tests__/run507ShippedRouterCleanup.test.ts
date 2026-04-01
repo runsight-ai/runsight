@@ -78,9 +78,9 @@ describe("RUN-507 shipped router route contract", () => {
     expect(routesSource).toMatch(/path:\s*"setup\/start"/);
   });
 
-  it("keeps legacy /workflows list traffic pointed at /flows", () => {
-    expect(routesSource).toMatch(/path:\s*"workflows"/);
-    expect(routesSource).toMatch(/Navigate\s+to="\/flows"\s+replace/);
+  it("does not preserve the retired /workflows list path as a redirect bridge", () => {
+    expect(routesSource).not.toMatch(/path:\s*"workflows"/);
+    expect(routesSource).not.toMatch(/Navigate\s+to="\/flows"\s+replace/);
   });
 
   it("removes the placeholder /health route from the shipped router", () => {
@@ -91,6 +91,11 @@ describe("RUN-507 shipped router route contract", () => {
   it("removes the dev-only /test-components route from the shipped router", () => {
     expect(routesSource).not.toMatch(/path:\s*"test-components"/);
     expect(routesSource).not.toMatch(/ComponentShowcase/);
+  });
+
+  it("does not special-case retired direct-entry paths during router bootstrap", () => {
+    expect(routesSource).not.toMatch(/RETIRED_DIRECT_ENTRY_PATHS/);
+    expect(routesSource).not.toMatch(/window\.history\.replaceState/);
   });
 });
 
@@ -118,7 +123,7 @@ describe("RUN-507 retired route behavior", () => {
     expect(await screen.findByText("setup:/setup/start")).toBeTruthy();
   });
 
-  it("redirects bookmarked /health visits back to the supported shell", async () => {
+  it("lets direct /health visits fall through to normal unknown-route behavior", async () => {
     await renderAppAt("/health");
 
     expect(await screen.findByText("dashboard:/")).toBeTruthy();
@@ -129,7 +134,7 @@ describe("RUN-507 retired route behavior", () => {
     expect(screen.queryByText("health:/health")).toBeNull();
   });
 
-  it("redirects /test-components away from the shipped product router", async () => {
+  it("lets direct /test-components visits fall through to normal unknown-route behavior", async () => {
     await renderAppAt("/test-components");
 
     expect(await screen.findByText("dashboard:/")).toBeTruthy();

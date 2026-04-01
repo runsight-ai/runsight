@@ -181,9 +181,9 @@ export type ProviderTestIn = z.infer<typeof ProviderTestInSchema>;
 export const ProviderTestOutSchema = z.object({
   success: z.boolean(),
   message: z.string(),
-  models: z.array(z.string()).optional(),
+  models: z.array(z.string()).optional().default([]),
   model_count: z.number().optional().default(0),
-  latency_ms: z.number().optional().default(0.0),
+  latency_ms: z.number().optional().default(0),
 });
 export type ProviderTestOut = z.infer<typeof ProviderTestOutSchema>;
 
@@ -562,4 +562,3 @@ export const runsight_api__transport__routers__git__LogResponseSchema = z.object
   commits: z.array(CommitEntrySchema),
 });
 export type runsight_api__transport__routers__git__LogResponse = z.infer<typeof runsight_api__transport__routers__git__LogResponseSchema>;
-

@@ -1,4 +1,4 @@
-import inspect
+import inspect as _inspect
 import logging
 from typing import List, Optional
 
@@ -17,6 +17,7 @@ from ..schemas.runs import (
 )
 
 logger = logging.getLogger(__name__)
+inspect = _inspect
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
 
@@ -98,26 +99,24 @@ def _fetch_paginated_runs(
     branch: Optional[str] = None,
 ):
     """Fetch runs with the canonical paginated contract."""
-    paginated = run_service.list_runs_paginated
-    kwargs = {"offset": offset, "limit": limit, "status": status}
-    if "workflow_id" in inspect.signature(paginated).parameters:
-        kwargs["workflow_id"] = workflow_id
-    sig = inspect.signature(paginated)
-    if "source" in sig.parameters:
-        kwargs["source"] = source
-    if "branch" in sig.parameters:
-        kwargs["branch"] = branch
-    result = paginated(**kwargs)
+    result = run_service.list_runs_paginated(
+        offset=offset,
+        limit=limit,
+        status=status,
+        workflow_id=workflow_id,
+        source=source,
+        branch=branch,
+    )
     if not isinstance(result, tuple) or len(result) != 2:
         raise TypeError("run_service.list_runs_paginated must return (items, total)")
     return result
 
 
 def _resolve_summaries(run_service: RunService, run_ids: list, raw_batch):
-    """Resolve summaries from batch result, falling back to per-run calls."""
+    """Resolve summaries from the canonical batch result."""
     if isinstance(raw_batch, dict):
         return raw_batch
-    return {rid: run_service.get_node_summary(rid) for rid in run_ids}
+    raise TypeError("run_service.get_node_summaries_batch must return dict")
 
 
 @router.get("", response_model=RunListResponse)

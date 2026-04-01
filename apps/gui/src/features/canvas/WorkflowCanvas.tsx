@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import { Navigate, useParams } from "react-router";
 import {
   ReactFlow,
   Background,
@@ -88,10 +87,4 @@ export function WorkflowCanvas() {
       </div>
     </div>
   );
-}
-
-export function Component() {
-  const { id } = useParams<{ id: string }>();
-
-  return <Navigate to={`/workflows/${id}/edit`} replace />;
 }

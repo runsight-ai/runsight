@@ -99,12 +99,12 @@ async function renderAppAt(initialPath: string) {
 describe("RUN-431 legacy list route cleanup", () => {
   const routesSource = readFileSync(resolve(__dirname, "..", "index.tsx"), "utf-8");
 
-  it("redirects /workflows to /flows", async () => {
+  it("lets /workflows fall through to normal unknown-route behavior", async () => {
     await renderAppAt("/workflows");
 
-    expect(await screen.findByText("flows:/flows")).toBeTruthy();
+    expect(await screen.findByText("dashboard:/")).toBeTruthy();
     await waitFor(() => {
-      expect(window.location.pathname).toBe("/flows");
+      expect(window.location.pathname).toBe("/");
       expect(window.location.search).toBe("");
     });
     expect(screen.queryByText("legacy-workflows:/workflows")).toBeNull();

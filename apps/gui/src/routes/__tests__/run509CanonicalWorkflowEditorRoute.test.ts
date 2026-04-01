@@ -4,7 +4,7 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Outlet, useLocation } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
 
 function RouteEcho({ label }: { label: string }) {
   const location = useLocation();
@@ -20,14 +20,10 @@ vi.mock("../guards", () => ({
   createReverseGuardLoader: () => async () => null,
 }));
 
-vi.mock("../layouts/ShellLayout", async () => {
-  const actual = await vi.importActual<typeof import("react-router")>(
-    "react-router",
-  );
-
+vi.mock("../layouts/ShellLayout", () => {
   return {
     ShellLayout: () => {
-      const navigate = actual.useNavigate();
+      const navigate = useNavigate();
 
       return React.createElement(
         React.Fragment,
@@ -40,7 +36,7 @@ vi.mock("../layouts/ShellLayout", async () => {
           },
           "Flows",
         ),
-        React.createElement(actual.Outlet),
+        React.createElement(Outlet),
       );
     },
   };
@@ -128,25 +124,26 @@ async function renderAppAt(initialPath: string) {
 }
 
 describe("RUN-509 canonical workflow editor route", () => {
-  it("redirects legacy /workflows/:id visits onto the canonical editor with save available", async () => {
+  it("does not preserve /workflows/:id as a redirect bridge once the canonical editor route exists", async () => {
     const { router } = await renderAppAt("/workflows/wf_research");
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
+      expect(router.state.location.pathname).toBe("/");
       expect(router.state.location.search).toBe("");
     });
 
+    expect(screen.getByText("dashboard:/")).toBeTruthy();
     expect(
-      screen.getByRole("heading", { name: "Workflow editor" }),
-    ).toBeTruthy();
+      screen.queryByRole("heading", { name: "Workflow editor" }),
+    ).toBeNull();
     expect(
-      screen.getByRole("button", { name: "Save workflow" }),
-    ).toBeTruthy();
+      screen.queryByRole("button", { name: "Save workflow" }),
+    ).toBeNull();
     expect(screen.queryByText(/legacy-canvas:/)).toBeNull();
   });
 
-  it("lets people return to the Flows list from the canonical editor path", async () => {
-    const { router, user } = await renderAppAt("/workflows/wf_research");
+  it("keeps workflow editing reachable through /workflows/:id/edit", async () => {
+    const { router, user } = await renderAppAt("/workflows/wf_research/edit");
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
