@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import json
 from textwrap import dedent
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from runsight_core.security import SSRFError
 
 # ---------------------------------------------------------------------------
 # Helper fixtures
@@ -425,15 +427,26 @@ class TestResolveToolTypedDispatch:
         assert isinstance(result, ToolInstance)
         assert callable(result.execute)
 
-    def test_resolve_tool_http_variant_raises_notimplementederror_stub(self):
-        """HTTPToolDef should dispatch to a stub path that raises NotImplementedError for now."""
-        from runsight_core.tools import resolve_tool
+    def test_resolve_tool_http_variant_returns_toolinstance_from_file_source(self, tmp_path):
+        """HTTPToolDef should dispatch through the HTTP resolver and return a ToolInstance."""
+        from runsight_core.tools import ToolInstance, resolve_tool
         from runsight_core.yaml.schema import HTTPToolDef
 
+        _write_custom_tool_yaml(
+            tmp_path,
+            "http_tool",
+            """
+            type: http
+            method: GET
+            url: https://example.com/health
+            """,
+        )
         tool_def = HTTPToolDef(type="http", source="http_tool")
 
-        with pytest.raises(NotImplementedError):
-            resolve_tool(tool_def, api_key="secret123")
+        result = resolve_tool(tool_def, base_dir=tmp_path)
+
+        assert isinstance(result, ToolInstance)
+        assert callable(result.execute)
 
 
 class TestResolveCustomTool:
@@ -578,3 +591,149 @@ class TestResolveCustomTool:
         result = await tool.execute({"port": "done"})
 
         assert json.loads(result) == {"port": "done"}
+
+
+class TestResolveHttpTool:
+    """RUN-527: HTTP tools resolve from inline defs or custom tool files."""
+
+    def test_resolve_inline_http_tool_returns_toolinstance(self):
+        """Inline HTTP tool definitions should resolve directly to a ToolInstance."""
+        from runsight_core.tools import ToolInstance, resolve_tool
+        from runsight_core.yaml.schema import ToolDef
+
+        tool_def = ToolDef(
+            type="http",
+            method="POST",
+            url="https://api.example.com/users/{{ user_id }}",
+            body_template='{"token":"${API_TOKEN}","note":"{{ note }}"}',
+            response_path="data.profile.name",
+        )
+
+        result = resolve_tool(tool_def)
+
+        assert isinstance(result, ToolInstance)
+        assert callable(result.execute)
+
+    def test_resolve_file_based_http_tool_returns_toolinstance(self, tmp_path):
+        """A file-backed HTTP tool source should resolve via custom/tools/{slug}.yaml."""
+        from runsight_core.tools import ToolInstance, resolve_tool
+        from runsight_core.yaml.schema import HTTPToolDef
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "lookup_profile",
+            """
+            type: http
+            method: GET
+            url: https://api.example.com/users/{{ user_id }}
+            response_path: data.id
+            """,
+        )
+
+        result = resolve_tool(
+            HTTPToolDef(type="http", source="lookup_profile"),
+            base_dir=tmp_path,
+        )
+
+        assert isinstance(result, ToolInstance)
+        assert callable(result.execute)
+
+    @pytest.mark.asyncio
+    async def test_inline_http_tool_renders_templates_resolves_env_and_extracts_json_path(
+        self, monkeypatch
+    ):
+        """URL/body templates and env vars should render before request, and JSON paths should extract."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml.schema import ToolDef
+
+        monkeypatch.setenv("API_TOKEN", "secret-123")
+        tool_def = ToolDef(
+            type="http",
+            method="POST",
+            url="https://api.example.com/users/{{ user_id }}",
+            body_template='{"token":"${API_TOKEN}","note":"{{ note }}"}',
+            response_path="data.profile.name",
+        )
+
+        tool = resolve_tool(tool_def)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/json"}
+        mock_response.text = '{"data":{"profile":{"name":"Alice"}}}'
+        mock_response.json.return_value = {"data": {"profile": {"name": "Alice"}}}
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute({"user_id": "42", "note": "hello"})
+
+        client_instance.request.assert_awaited_once_with(
+            "POST",
+            "https://api.example.com/users/42",
+            headers=None,
+            content='{"token":"secret-123","note":"hello"}',
+        )
+        assert json.loads(result) == "Alice"
+
+    @pytest.mark.asyncio
+    async def test_http_tool_applies_ssrf_validation_to_rendered_url(self):
+        """Rendered URLs should still be blocked by SSRF validation before any request is sent."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml.schema import ToolDef
+
+        tool = resolve_tool(ToolDef(type="http", method="GET", url="http://{{ host }}/admin"))
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            with pytest.raises(SSRFError):
+                await tool.execute({"host": "127.0.0.1"})
+
+        client_instance.request.assert_not_called()
+
+    def test_http_tool_without_url_or_source_raises_valueerror(self):
+        """HTTP tools must declare either an inline URL or a file source slug."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml.schema import ToolDef
+
+        with pytest.raises(ValueError):
+            resolve_tool(ToolDef(type="http", method="GET"))
+
+    @pytest.mark.parametrize(
+        ("content_type", "body"),
+        [
+            ("text/plain", "plain text body"),
+            ("text/html", "<html>hello</html>"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_http_tool_returns_text_and_html_responses_as_is(self, content_type, body):
+        """Non-JSON responses should be returned unchanged."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml.schema import ToolDef
+
+        tool = resolve_tool(ToolDef(type="http", method="GET", url="https://example.com"))
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": content_type}
+        mock_response.text = body
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute({})
+
+        assert result == body
