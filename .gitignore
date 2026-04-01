@@ -86,3 +86,4 @@ apps/.agora/workspace/
 
 #Tmp files
 *.xml
+*.bak
