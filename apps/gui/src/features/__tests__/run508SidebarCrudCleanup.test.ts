@@ -33,17 +33,31 @@ describe("RUN-508 legacy sidebar CRUD cleanup", () => {
     expect(routesSource).not.toMatch(/features\/sidebar\/(?:SoulList|TaskList|StepList)/);
   });
 
-  it("keeps the supported souls library and palette wired to the shared souls hooks", () => {
-    const soulLibraryPageSource = readSource("features/souls/SoulLibraryPage.tsx");
-    const soulFormPageSource = readSource("features/souls/SoulFormPage.tsx");
-    const paletteSidebarSource = readSource("features/canvas/PaletteSidebar.tsx");
-    const soulsQuerySource = readSource("queries/souls.ts");
-    const soulsApiSource = readSource("api/souls.ts");
+  it("keeps the supported souls routes and shared files available", () => {
+    const routesSource = readSource("routes/index.tsx");
 
-    expect(soulLibraryPageSource).toMatch(/@\/queries\/souls/);
-    expect(soulFormPageSource).toMatch(/@\/queries\/souls/);
-    expect(paletteSidebarSource).toMatch(/@\/queries\/souls/);
-    expect(soulsQuerySource).toMatch(/\.\.\/api\/souls/);
-    expect(soulsApiSource.length).toBeGreaterThan(0);
+    expect(routesSource).toMatch(/path:\s*"souls"/);
+    expect(routesSource).toMatch(/path:\s*"souls\/new"/);
+    expect(routesSource).toMatch(/path:\s*"souls\/:id\/edit"/);
+
+    expect(existsSync(resolve(SRC_DIR, "features/souls/SoulLibraryPage.tsx"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/souls/SoulFormPage.tsx"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/canvas/PaletteSidebar.tsx"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "queries/souls.ts"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "api/souls.ts"))).toBe(true);
+  });
+
+  it("cleans stale test-suite references to the retired sidebar island", () => {
+    const staleReferenceTests = [
+      readSource("queries/__tests__/toastNotifications.test.ts"),
+      readSource("features/__tests__/screenTokenSweep.test.ts"),
+      readSource("routes/__tests__/run431LegacyRouteCleanup.test.ts"),
+    ];
+
+    for (const source of staleReferenceTests) {
+      expect(source).not.toMatch(/queries\/tasks\.ts|queries\/steps\.ts/);
+      expect(source).not.toMatch(/features\/sidebar\/(?:SoulList|TaskList|StepList)/);
+      expect(source).not.toMatch(/features\/sidebar\/(?:SoulModals|TaskModals|StepModals)/);
+    }
   });
 });

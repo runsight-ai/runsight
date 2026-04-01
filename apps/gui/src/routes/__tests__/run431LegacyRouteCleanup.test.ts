@@ -66,18 +66,6 @@ vi.mock("@/features/runs/RunDetail", () => ({
   Component: () => React.createElement(RouteEcho, { label: "run-detail" }),
 }));
 
-vi.mock("@/features/sidebar/SoulList", () => ({
-  Component: () => React.createElement("div", null, "Soul list page"),
-}));
-
-vi.mock("@/features/sidebar/TaskList", () => ({
-  Component: () => React.createElement(RouteEcho, { label: "tasks" }),
-}));
-
-vi.mock("@/features/sidebar/StepList", () => ({
-  Component: () => React.createElement(RouteEcho, { label: "steps" }),
-}));
-
 vi.mock("@/features/health/HealthPage", () => ({
   Component: () => React.createElement("div", null, "Health page"),
 }));
@@ -109,6 +97,8 @@ async function renderAppAt(initialPath: string) {
 }
 
 describe("RUN-431 legacy list route cleanup", () => {
+  const routesSource = readFileSync(resolve(__dirname, "..", "index.tsx"), "utf-8");
+
   it("redirects /workflows to /flows", async () => {
     await renderAppAt("/workflows");
 
@@ -130,20 +120,23 @@ describe("RUN-431 legacy list route cleanup", () => {
     });
   });
 
-  it.each([
-    ["/tasks", "tasks:/tasks"],
-    ["/steps", "steps:/steps"],
-  ])("does not render the legacy list UI for removed route %s", async (initialPath, removedRouteMarker) => {
+  it.each(["/tasks", "/steps"])("redirects removed route %s away from the retired list UI", async (initialPath) => {
     await renderAppAt(initialPath);
 
+    expect(await screen.findByText("dashboard:/")).toBeTruthy();
     await waitFor(() => {
-      expect(screen.queryByText(removedRouteMarker)).toBeNull();
+      expect(window.location.pathname).toBe("/");
+      expect(window.location.search).toBe("");
     });
   });
 
-  it("keeps the /workflows/:id/edit route definition wired to CanvasPage", () => {
-    const routesSource = readFileSync(resolve(__dirname, "..", "index.tsx"), "utf-8");
+  it("keeps the router source free of retired sidebar route imports", () => {
+    expect(routesSource).not.toMatch(/features\/sidebar\/(?:SoulList|TaskList|StepList)/);
+    expect(routesSource).not.toMatch(/path:\s*"tasks"/);
+    expect(routesSource).not.toMatch(/path:\s*"steps"/);
+  });
 
+  it("keeps the /workflows/:id/edit route definition wired to CanvasPage", () => {
     expect(routesSource).toMatch(/path:\s*"workflows\/:id\/edit"/);
     expect(routesSource).toMatch(/features\/canvas\/CanvasPage/);
   });

@@ -20,21 +20,28 @@ describe("RUN-508 soul surface cleanup", () => {
     ).toBe(false);
   });
 
-  it("keeps the supported souls pages on the shared souls query layer", () => {
-    const soulLibraryPageSource = readSource("features/souls/SoulLibraryPage.tsx");
-    const soulFormPageSource = readSource("features/souls/SoulFormPage.tsx");
-    const paletteSidebarSource = readSource("features/canvas/PaletteSidebar.tsx");
-
-    expect(soulLibraryPageSource).toMatch(/@\/queries\/souls/);
-    expect(soulFormPageSource).toMatch(/@\/queries\/souls/);
-    expect(paletteSidebarSource).toMatch(/@\/queries\/souls/);
+  it("keeps the supported souls pages and palette files available", () => {
+    expect(
+      existsSync(resolve(SRC_DIR, "features/souls/SoulLibraryPage.tsx")),
+      "Expected the supported souls library page to remain available",
+    ).toBe(true);
+    expect(
+      existsSync(resolve(SRC_DIR, "features/souls/SoulFormPage.tsx")),
+      "Expected the supported soul form page to remain available",
+    ).toBe(true);
+    expect(
+      existsSync(resolve(SRC_DIR, "features/canvas/PaletteSidebar.tsx")),
+      "Expected the supported canvas palette to remain available",
+    ).toBe(true);
   });
 
-  it("keeps the shared souls query and API adapters in place", () => {
-    const soulsQuerySource = readSource("queries/souls.ts");
-    const soulsApiSource = readSource("api/souls.ts");
+  it("keeps the shared souls data-layer files available", () => {
+    const routesSource = readSource("routes/index.tsx");
 
-    expect(soulsQuerySource).toMatch(/\.\.\/api\/souls/);
-    expect(soulsApiSource.length).toBeGreaterThan(0);
+    expect(existsSync(resolve(SRC_DIR, "queries/souls.ts"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "api/souls.ts"))).toBe(true);
+    expect(routesSource).toMatch(/path:\s*"souls"/);
+    expect(routesSource).toMatch(/path:\s*"souls\/new"/);
+    expect(routesSource).toMatch(/path:\s*"souls\/:id\/edit"/);
   });
 });

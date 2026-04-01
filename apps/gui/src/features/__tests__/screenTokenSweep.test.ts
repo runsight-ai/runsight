@@ -1,7 +1,7 @@
 /**
  * RED-TEAM tests for RUN-296: Screen Token Reference Sweep.
  *
- * Validates that all 37 non-UI-component files in apps/gui/src/ have been
+ * Validates that the shipped non-UI-component files in apps/gui/src/ have been
  * updated to use the Runsight Product Design System token names. Tests read
  * each file as a string and assert:
  *   1. No OLD shadcn token class names or var() references remain
@@ -11,7 +11,7 @@
  * Excludes: components/ui/ (done in RUN-295), __tests__/ dirs.
  *
  * Expected failures (current state):
- *   - All 37 files still reference old shadcn/custom token names
+ *   - Some shipped files still reference old shadcn/custom token names
  *
  * Standard Tailwind class mapping (same as RUN-295):
  *   bg-background        -> bg-surface-primary
@@ -206,13 +206,6 @@ const SHARED_COMPONENTS = [
 
 const PROVIDER_COMPONENTS = ["components/provider/ProviderSetup.tsx"];
 
-const SIDEBAR_FEATURES = [
-  "features/sidebar/StepModals.tsx",
-  "features/sidebar/SoulList.tsx",
-  "features/sidebar/SoulModals.tsx",
-  "features/sidebar/TaskModals.tsx",
-];
-
 const CANVAS_FEATURES = [
   "features/canvas/WorkflowCanvas.tsx",
   "features/canvas/nodes/SoulNode.tsx",
@@ -250,7 +243,6 @@ const UTILITIES = ["utils/icons.tsx"];
 const ALL_FILES = [
   ...SHARED_COMPONENTS,
   ...PROVIDER_COMPONENTS,
-  ...SIDEBAR_FEATURES,
   ...CANVAS_FEATURES,
   ...RUNS_FEATURES,
   ...SETTINGS_FEATURES,

@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 
 // ---------------------------------------------------------------------------
@@ -49,9 +49,9 @@ function extractFunction(source: string, name: string): string {
 // ---------------------------------------------------------------------------
 
 const QUERIES_DIR = resolve(__dirname, "..");
+const stepsPath = resolve(QUERIES_DIR, "steps.ts");
+const tasksPath = resolve(QUERIES_DIR, "tasks.ts");
 const soulsSource = readFileSync(resolve(QUERIES_DIR, "souls.ts"), "utf-8");
-const stepsSource = readFileSync(resolve(QUERIES_DIR, "steps.ts"), "utf-8");
-const tasksSource = readFileSync(resolve(QUERIES_DIR, "tasks.ts"), "utf-8");
 const workflowsSource = readFileSync(resolve(QUERIES_DIR, "workflows.ts"), "utf-8");
 const runsSource = readFileSync(resolve(QUERIES_DIR, "runs.ts"), "utf-8");
 const settingsSource = readFileSync(resolve(QUERIES_DIR, "settings.ts"), "utf-8");
@@ -136,43 +136,17 @@ describe("souls.ts toast notifications (RUN-240)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. steps.ts — 3 mutations
+// 2. Retired task/step query files are no longer required here once deleted
 // ---------------------------------------------------------------------------
 
-describe("steps.ts toast notifications (RUN-240)", () => {
-  expectToastImport(stepsSource, "steps.ts");
+describe("retired tasks/steps toast coverage cleanup (RUN-508)", () => {
+  it("does not require the retired steps query file to remain", () => {
+    expect(existsSync(stepsPath)).toBe(false);
+  });
 
-  expectSuccessToast(stepsSource, "useCreateStep", "Step created");
-  expectErrorToast(stepsSource, "useCreateStep");
-  expectOnErrorCallback(stepsSource, "useCreateStep");
-
-  expectSuccessToast(stepsSource, "useUpdateStep", "Step updated");
-  expectErrorToast(stepsSource, "useUpdateStep");
-  expectOnErrorCallback(stepsSource, "useUpdateStep");
-
-  expectSuccessToast(stepsSource, "useDeleteStep", "Step deleted");
-  expectErrorToast(stepsSource, "useDeleteStep");
-  expectOnErrorCallback(stepsSource, "useDeleteStep");
-});
-
-// ---------------------------------------------------------------------------
-// 3. tasks.ts — 3 mutations
-// ---------------------------------------------------------------------------
-
-describe("tasks.ts toast notifications (RUN-240)", () => {
-  expectToastImport(tasksSource, "tasks.ts");
-
-  expectSuccessToast(tasksSource, "useCreateTask", "Task created");
-  expectErrorToast(tasksSource, "useCreateTask");
-  expectOnErrorCallback(tasksSource, "useCreateTask");
-
-  expectSuccessToast(tasksSource, "useUpdateTask", "Task updated");
-  expectErrorToast(tasksSource, "useUpdateTask");
-  expectOnErrorCallback(tasksSource, "useUpdateTask");
-
-  expectSuccessToast(tasksSource, "useDeleteTask", "Task deleted");
-  expectErrorToast(tasksSource, "useDeleteTask");
-  expectOnErrorCallback(tasksSource, "useDeleteTask");
+  it("does not require the retired tasks query file to remain", () => {
+    expect(existsSync(tasksPath)).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -278,8 +252,6 @@ describe("git.ts toast notifications (RUN-240)", () => {
 describe("Only mutations have toasts, not queries (RUN-240)", () => {
   const queryFunctions = [
     { source: soulsSource, names: ["useSouls", "useSoul"] },
-    { source: stepsSource, names: ["useSteps", "useStep"] },
-    { source: tasksSource, names: ["useTasks", "useTask"] },
     { source: workflowsSource, names: ["useWorkflows", "useWorkflow"] },
     { source: runsSource, names: ["useRuns", "useRun", "useRunNodes", "useRunLogs"] },
     {
@@ -314,14 +286,6 @@ describe("Error toasts include error.message in description (RUN-240)", () => {
     { source: soulsSource, hookName: "useCreateSoul", file: "souls.ts" },
     { source: soulsSource, hookName: "useUpdateSoul", file: "souls.ts" },
     { source: soulsSource, hookName: "useDeleteSoul", file: "souls.ts" },
-    // steps.ts
-    { source: stepsSource, hookName: "useCreateStep", file: "steps.ts" },
-    { source: stepsSource, hookName: "useUpdateStep", file: "steps.ts" },
-    { source: stepsSource, hookName: "useDeleteStep", file: "steps.ts" },
-    // tasks.ts
-    { source: tasksSource, hookName: "useCreateTask", file: "tasks.ts" },
-    { source: tasksSource, hookName: "useUpdateTask", file: "tasks.ts" },
-    { source: tasksSource, hookName: "useDeleteTask", file: "tasks.ts" },
     // workflows.ts
     { source: workflowsSource, hookName: "useCreateWorkflow", file: "workflows.ts" },
     { source: workflowsSource, hookName: "useUpdateWorkflow", file: "workflows.ts" },
