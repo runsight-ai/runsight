@@ -291,10 +291,10 @@ class TestResolvedPathContainment:
     """
 
     def test_soul_path_stays_within_base(self, soul_repo):
-        """_get_path result must always be under souls_dir."""
+        """_get_path result must always be under the canonical entity_dir."""
         path = soul_repo._get_path("normal-id")
         resolved = path.resolve()
-        base_resolved = soul_repo.souls_dir.resolve()
+        base_resolved = soul_repo.entity_dir.resolve()
         assert str(resolved).startswith(str(base_resolved)), (
             f"Path {resolved} escapes base directory {base_resolved}"
         )
@@ -302,7 +302,7 @@ class TestResolvedPathContainment:
     def test_step_path_stays_within_base(self, step_repo):
         path = step_repo._get_path("normal-id")
         resolved = path.resolve()
-        base_resolved = step_repo.steps_dir.resolve()
+        base_resolved = step_repo.entity_dir.resolve()
         assert str(resolved).startswith(str(base_resolved)), (
             f"Path {resolved} escapes base directory {base_resolved}"
         )
@@ -310,7 +310,7 @@ class TestResolvedPathContainment:
     def test_task_path_stays_within_base(self, task_repo):
         path = task_repo._get_path("normal-id")
         resolved = path.resolve()
-        base_resolved = task_repo.tasks_dir.resolve()
+        base_resolved = task_repo.entity_dir.resolve()
         assert str(resolved).startswith(str(base_resolved)), (
             f"Path {resolved} escapes base directory {base_resolved}"
         )

@@ -8,8 +8,3 @@ class StepRepository(BaseYamlRepository[StepEntity]):
     subdir = "steps"
     not_found_error = StepNotFound
     entity_label = "Step"
-
-    @property
-    def steps_dir(self):
-        """Backward-compat alias for entity_dir."""
-        return self.entity_dir

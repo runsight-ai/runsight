@@ -8,8 +8,3 @@ class TaskRepository(BaseYamlRepository[TaskEntity]):
     subdir = "tasks"
     not_found_error = TaskNotFound
     entity_label = "Task"
-
-    @property
-    def tasks_dir(self):
-        """Backward-compat alias for entity_dir."""
-        return self.entity_dir

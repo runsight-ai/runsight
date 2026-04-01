@@ -11,8 +11,8 @@ def test_soul_repo():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = SoulRepository(base_path=tmpdir)
 
-        assert repo.souls_dir.name == "souls"
-        assert repo.souls_dir.parent.name == "custom"
+        assert repo.entity_dir.name == "souls"
+        assert repo.entity_dir.parent.name == "custom"
 
         # Test create
         created = repo.create(
@@ -60,7 +60,7 @@ def test_soul_repo():
 def test_soul_repo_resolves_embedded_id_when_filename_differs():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = SoulRepository(base_path=tmpdir)
-        legacy_path = repo.souls_dir / "gate_evaluator.yaml"
+        legacy_path = repo.entity_dir / "gate_evaluator.yaml"
         legacy_path.write_text(
             yaml.safe_dump(
                 {
@@ -87,7 +87,7 @@ def test_soul_repo_resolves_embedded_id_when_filename_differs():
         assert updated.id == "gate_eval_1"
         assert updated.role == "Updated Gate"
         assert legacy_path.exists()
-        assert not (repo.souls_dir / "gate_eval_1.yaml").exists()
+        assert not (repo.entity_dir / "gate_eval_1.yaml").exists()
 
         with open(legacy_path, "r") as f:
             on_disk = yaml.safe_load(f)
