@@ -5,6 +5,7 @@ Exports: parse_workflow_yaml, parse_task_yaml
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import yaml
@@ -21,9 +22,13 @@ from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import BUILTIN_TOOL_CATALOG, resolve_tool
 from runsight_core.workflow import Workflow
+from runsight_core.yaml.discovery import discover_custom_tools
 from runsight_core.yaml.schema import (
+    BuiltinToolDef,
     ConditionDef,
     ConditionGroupDef,
+    CustomToolDef,
+    HTTPToolDef,
     InputRef,
     RunsightTaskFile,
     RunsightWorkflowFile,
@@ -78,7 +83,7 @@ def _resolve_soul_tool_definition(
 def validate_tool_governance(file_def: RunsightWorkflowFile) -> None:
     """Validate workflow tool declarations and soul tool references."""
     for tool_key, tool_def in file_def.tools.items():
-        if tool_def.source not in BUILTIN_TOOL_CATALOG:
+        if isinstance(tool_def, BuiltinToolDef) and tool_def.source not in BUILTIN_TOOL_CATALOG:
             available = sorted(BUILTIN_TOOL_CATALOG.keys())
             raise ValueError(
                 f"Tool '{tool_key}' has unknown source '{tool_def.source}'. Available: {available}"
@@ -94,6 +99,62 @@ def validate_tool_governance(file_def: RunsightWorkflowFile) -> None:
                     f"Soul '{soul_key}' references undeclared tool '{tool_name}'. "
                     f"Declared tools: {sorted(file_def.tools.keys())}"
                 )
+
+
+def _validate_declared_tool_definitions(
+    file_def: RunsightWorkflowFile,
+    *,
+    base_dir: str,
+) -> None:
+    """Validate that declared tool definitions are parse-time resolvable."""
+    discovered_tools = discover_custom_tools(base_dir)
+
+    for tool_key, tool_def in file_def.tools.items():
+        if isinstance(tool_def, BuiltinToolDef):
+            continue
+
+        if isinstance(tool_def, CustomToolDef):
+            if tool_def.source not in discovered_tools:
+                expected_file = Path(base_dir) / "custom" / "tools" / f"{tool_def.source}.yaml"
+                raise ValueError(
+                    f"Tool '{tool_key}' references missing custom tool '{tool_def.source}'. "
+                    f"Expected metadata at {expected_file}"
+                )
+        elif (
+            isinstance(tool_def, HTTPToolDef)
+            and tool_def.url is None
+            and tool_def.source is not None
+        ):
+            if tool_def.source not in discovered_tools:
+                expected_file = Path(base_dir) / "custom" / "tools" / f"{tool_def.source}.yaml"
+                raise ValueError(
+                    f"Tool '{tool_key}' references missing HTTP tool '{tool_def.source}'. "
+                    f"Expected metadata at {expected_file}"
+                )
+
+        try:
+            _resolve_tool_for_parser(tool_def, base_dir=base_dir)
+        except ValueError as exc:
+            source_hint = f" ({tool_def.source})" if tool_def.source else ""
+            raise ValueError(f"Tool '{tool_key}'{source_hint}: {exc}") from exc
+
+
+def _resolve_tool_for_parser(
+    tool_def: ToolDef,
+    *,
+    base_dir: str,
+    exits: object | None = None,
+) -> object:
+    """Resolve a tool with only the parser context that its type needs."""
+    if isinstance(tool_def, BuiltinToolDef):
+        kwargs: Dict[str, object] = {}
+        if tool_def.source == "runsight/delegate" and exits is not None:
+            kwargs["exits"] = exits
+        elif tool_def.source == "runsight/file-io":
+            kwargs["base_dir"] = base_dir
+        return resolve_tool(tool_def, **kwargs)
+
+    return resolve_tool(tool_def, base_dir=base_dir)
 
 
 # Trigger auto-discovery of co-located blocks and rebuild the discriminated
@@ -140,12 +201,14 @@ def parse_workflow_yaml(
         yaml.YAMLError: If YAML content is syntactically invalid.
     """
     # Step 1: Normalize input to raw dict
+    workflow_base_dir = "."
     if isinstance(yaml_str_or_dict, str):
         stripped = yaml_str_or_dict.strip()
         is_file_path = "\n" not in stripped and (
             stripped.endswith(".yaml") or stripped.endswith(".yml") or stripped.endswith(".json")
         )
         if is_file_path:
+            workflow_base_dir = str(Path(stripped).resolve().parent)
             with open(stripped, "r", encoding="utf-8") as f:
                 raw: Any = yaml.safe_load(f)
         else:
@@ -307,6 +370,7 @@ def parse_workflow_yaml(
 
     # Step 6.6: Validate and resolve tools per soul
     validate_tool_governance(file_def)
+    _validate_declared_tool_definitions(file_def, base_dir=workflow_base_dir)
 
     # 6.6c: Resolve ToolInstance objects per soul
     for soul_key, soul_def in file_def.souls.items():
@@ -335,9 +399,17 @@ def parse_workflow_yaml(
                         f"Soul '{soul_key}' uses delegate tool but block "
                         f"'{block_id_for_soul}' has no exits defined"
                     )
-                resolved_tools.append(resolve_tool(tool_def, exits=exits))
+                resolved_tools.append(
+                    _resolve_tool_for_parser(
+                        tool_def,
+                        exits=exits,
+                        base_dir=workflow_base_dir,
+                    )
+                )
             else:
-                resolved_tools.append(resolve_tool(tool_def))
+                resolved_tools.append(
+                    _resolve_tool_for_parser(tool_def, base_dir=workflow_base_dir)
+                )
 
         # Attach resolved tools to the soul in souls_map
         soul = souls_map.get(soul_key)
