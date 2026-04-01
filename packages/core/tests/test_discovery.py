@@ -708,7 +708,7 @@ class TestRepoPolicyForCustomTools:
     """RUN-525: repository policy should explicitly allow custom/tools assets."""
 
     def test_agents_policy_allows_custom_tools_directory(self):
-        repo_policy = Path(__file__).resolve().parents[5] / "AGENTS.md"
+        repo_policy = Path(__file__).resolve().parents[3] / "AGENTS.md"
         assert repo_policy.exists(), f"Expected repo policy at {repo_policy}"
 
         contents = repo_policy.read_text(encoding="utf-8")
