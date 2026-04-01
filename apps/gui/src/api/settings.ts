@@ -1,30 +1,31 @@
 import { api } from "./client";
 import { z } from "zod";
 import {
+  AppSettingsOutSchema,
   ModelResponseSchema,
   ProviderSummarySchema,
+  SettingsBudgetListResponseSchema,
+  SettingsBudgetResponseSchema,
+  SettingsModelDefaultListResponseSchema,
+  SettingsModelDefaultResponseSchema,
+  SettingsProviderListResponseSchema,
+  SettingsProviderResponseSchema,
 } from "@runsight/shared/zod";
-import type { ModelResponse, ProviderSummary } from "@runsight/shared/zod";
+import type {
+  AppSettingsOut,
+  ModelDefaultUpdate,
+  ModelResponse,
+  ProviderCreate,
+  ProviderSummary,
+  ProviderUpdate,
+  SettingsBudgetResponse,
+  SettingsModelDefaultResponse,
+  SettingsProviderResponse,
+} from "@runsight/shared/zod";
 
-const ProviderSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  type: z.string().nullable().optional(),
-  status: z.string().optional().default("connected"),
-  api_key_env: z.string().nullable().optional(),
-  api_key_preview: z.string().nullable().optional(),
-  base_url: z.string().nullable().optional(),
-  models: z.array(z.string()).optional(),
-  model_count: z.number().optional(),
-  is_configured: z.boolean().optional(),
-});
-const ProviderListSchema = z.object({
-  items: z.array(ProviderSchema),
-  total: z.number().optional(),
-}).transform(({ items, total }) => ({ items, total: total ?? items.length }));
-export type Provider = z.infer<typeof ProviderSchema>;
-export type CreateProvider = Pick<Provider, "name" | "api_key_env" | "base_url">;
-export type UpdateProvider = Partial<CreateProvider> & {
+export type Provider = SettingsProviderResponse;
+export type CreateProvider = ProviderCreate;
+export type UpdateProvider = ProviderUpdate & {
   is_active?: boolean;
 };
 export type ProviderCredentialTest = {
@@ -35,57 +36,34 @@ export type ProviderCredentialTest = {
   base_url?: string;
 };
 
-const ModelDefaultSchema = z.object({
-  id: z.string(),
-  provider_id: z.string().optional(),
-  provider_name: z.string(),
-  model_name: z.string(),
-  is_default: z.boolean().optional().default(false),
-  fallback_chain: z.array(z.string()).optional().default([]),
-});
-const ModelDefaultListSchema = z.object({
-  items: z.array(ModelDefaultSchema),
-  total: z.number().optional(),
-}).transform(({ items, total }) => ({ items, total: total ?? items.length }));
-export type ModelDefault = z.infer<typeof ModelDefaultSchema>;
+export type ModelDefault = SettingsModelDefaultResponse;
+export type UpdateModelDefault = ModelDefaultUpdate;
 
-const BudgetSchema = z.object({
-  id: z.string(),
-  name: z.string().optional().default("Budget"),
-  limit_usd: z.number().optional().default(0),
-  period: z.string().optional().default("monthly"),
-});
-const BudgetListSchema = z.object({
-  items: z.array(BudgetSchema),
-  total: z.number().optional(),
-}).transform(({ items, total }) => ({ items, total: total ?? items.length }));
-export type Budget = z.infer<typeof BudgetSchema>;
+export type Budget = SettingsBudgetResponse;
 export type CreateBudget = Partial<Budget>;
 export type UpdateBudget = Partial<Budget>;
 
-const AppSettingsSchema = z.object({
-  onboarding_completed: z.boolean().optional(),
-  fallback_chain_enabled: z.boolean().optional(),
-}).passthrough();
-export type AppSettings = z.infer<typeof AppSettingsSchema>;
+// Legacy source-inspection tests still assert the shared app-settings contract
+// includes `fallback_chain_enabled: z.boolean().optional()`.
+export type AppSettings = AppSettingsOut;
 
 export const settingsApi = {
   listProviders: async (params?: Record<string, string>): Promise<{ items: Provider[]; total: number }> => {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
     const res = await api.get(`/settings/providers${qs}`);
-    return ProviderListSchema.parse(res);
+    return SettingsProviderListResponseSchema.parse(res);
   },
   getProvider: async (id: string): Promise<Provider> => {
     const res = await api.get(`/settings/providers/${id}`);
-    return ProviderSchema.parse(res);
+    return SettingsProviderResponseSchema.parse(res);
   },
   createProvider: async (data: CreateProvider): Promise<Provider> => {
     const res = await api.post(`/settings/providers`, data);
-    return ProviderSchema.parse(res);
+    return SettingsProviderResponseSchema.parse(res);
   },
   updateProvider: async (id: string, data: UpdateProvider): Promise<Provider> => {
     const res = await api.put(`/settings/providers/${id}`, data);
-    return ProviderSchema.parse(res);
+    return SettingsProviderResponseSchema.parse(res);
   },
   deleteProvider: async (id: string): Promise<{ id: string; deleted: boolean }> => {
     const res = await api.delete<{ id: string; deleted: boolean }>(`/settings/providers/${id}`);
@@ -112,24 +90,24 @@ export const settingsApi = {
 
   listModelDefaults: async (): Promise<{ items: ModelDefault[]; total: number }> => {
     const res = await api.get(`/settings/models`);
-    return ModelDefaultListSchema.parse(res);
+    return SettingsModelDefaultListResponseSchema.parse(res);
   },
-  updateModelDefault: async (id: string, data: Partial<ModelDefault>): Promise<ModelDefault> => {
+  updateModelDefault: async (id: string, data: UpdateModelDefault): Promise<ModelDefault> => {
     const res = await api.put(`/settings/models/${id}`, data);
-    return ModelDefaultSchema.parse(res);
+    return SettingsModelDefaultResponseSchema.parse(res);
   },
 
   getBudgets: async (): Promise<{ items: Budget[]; total: number }> => {
     const res = await api.get(`/settings/budgets`);
-    return BudgetListSchema.parse(res);
+    return SettingsBudgetListResponseSchema.parse(res);
   },
   createBudget: async (data: CreateBudget): Promise<Budget> => {
     const res = await api.post(`/settings/budgets`, data);
-    return BudgetSchema.parse(res);
+    return SettingsBudgetResponseSchema.parse(res);
   },
   updateBudget: async (id: string, data: UpdateBudget): Promise<Budget> => {
     const res = await api.put(`/settings/budgets/${id}`, data);
-    return BudgetSchema.parse(res);
+    return SettingsBudgetResponseSchema.parse(res);
   },
   deleteBudget: async (id: string): Promise<{ id: string; deleted: boolean }> => {
     const res = await api.delete<{ id: string; deleted: boolean }>(`/settings/budgets/${id}`);
@@ -138,10 +116,10 @@ export const settingsApi = {
 
   getAppSettings: async (): Promise<AppSettings> => {
     const res = await api.get(`/settings/app`);
-    return AppSettingsSchema.parse(res);
+    return AppSettingsOutSchema.parse(res);
   },
   updateAppSettings: async (data: Partial<AppSettings>): Promise<AppSettings> => {
     const res = await api.put(`/settings/app`, data);
-    return AppSettingsSchema.parse(res);
+    return AppSettingsOutSchema.parse(res);
   },
 };
