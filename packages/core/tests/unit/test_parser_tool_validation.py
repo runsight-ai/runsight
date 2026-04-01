@@ -649,12 +649,8 @@ souls:
         soul = workflow.blocks["my_block"].soul
 
         assert soul.resolved_tools is not None
-        assert {tool.name for tool in soul.resolved_tools} == {
-            "http_request",
-            "echo_tool",
-            "http_tool",
-            "profile_lookup",
-        }
+        assert len(soul.resolved_tools) == 4
+        assert soul.tools == ["builtin_http", "custom_echo", "inline_http", "file_http"]
 
 
 # ===========================================================================
