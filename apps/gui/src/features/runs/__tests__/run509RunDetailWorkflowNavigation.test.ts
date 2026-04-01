@@ -65,6 +65,11 @@ describe("RUN-509 run detail workflow navigation", () => {
   it("opens the canonical /edit workflow surface from completed runs", async () => {
     const { router, user } = renderHeader("completed");
 
+    expect(
+      screen.getByRole("button", { name: "Open Workflow" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /open canvas/i })).toBeNull();
+
     await user.click(screen.getByRole("button", { name: /open workflow/i }));
 
     await waitFor(() => {
@@ -77,6 +82,11 @@ describe("RUN-509 run detail workflow navigation", () => {
 
   it("opens the canonical /edit workflow surface from failed runs too", async () => {
     const { router, user } = renderHeader("failed");
+
+    expect(
+      screen.getByRole("button", { name: "Open Workflow" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /open canvas/i })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: /open workflow/i }));
 

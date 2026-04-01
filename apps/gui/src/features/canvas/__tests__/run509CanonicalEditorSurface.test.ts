@@ -42,37 +42,6 @@ vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => mocks.queryClient,
 }));
 
-vi.mock("../CanvasTopbar", () => ({
-  CanvasTopbar: ({
-    activeTab,
-    onValueChange,
-  }: {
-    activeTab: string;
-    onValueChange: (value: string) => void;
-  }) =>
-    React.createElement(
-      "div",
-      null,
-      React.createElement("div", null, `active-tab:${activeTab}`),
-      React.createElement(
-        "button",
-        {
-          type: "button",
-          onClick: () => onValueChange("canvas"),
-        },
-        "Canvas",
-      ),
-      React.createElement(
-        "button",
-        {
-          type: "button",
-          onClick: () => onValueChange("yaml"),
-        },
-        "YAML",
-      ),
-    ),
-}));
-
 vi.mock("../WorkflowCanvas", () => ({
   WorkflowCanvas: () => React.createElement("div", null, "workflow-canvas-surface"),
 }));
@@ -128,19 +97,77 @@ vi.mock("@runsight/ui/button", () => ({
   Button: ({
     children,
     onClick,
+    "aria-label": ariaLabel,
   }: {
     children: React.ReactNode;
     onClick?: () => void;
+    "aria-label"?: string;
   }) =>
     React.createElement(
       "button",
       {
         type: "button",
         onClick,
+        "aria-label": ariaLabel,
       },
       children,
     ),
 }));
+
+vi.mock("@runsight/ui/tabs", () => {
+  const TabsContext = React.createContext<{
+    onValueChange?: (value: string) => void;
+  }>({});
+
+  function Tabs({
+    value,
+    onValueChange,
+    children,
+  }: {
+    value?: string;
+    onValueChange?: (value: string) => void;
+    children: React.ReactNode;
+  }) {
+    return React.createElement(
+      TabsContext.Provider,
+      { value: { onValueChange } },
+      React.createElement(
+        "div",
+        {
+          "data-active-tab": value,
+          "data-on-value-change": onValueChange ? "present" : "missing",
+        },
+        children,
+      ),
+    );
+  }
+
+  function TabsList({ children }: { children: React.ReactNode }) {
+    return React.createElement("div", null, children);
+  }
+
+  function TabsTrigger({
+    children,
+    value,
+  }: {
+    children: React.ReactNode;
+    value: string;
+  }) {
+    const { onValueChange } = React.useContext(TabsContext);
+
+    return React.createElement(
+      "button",
+      {
+        type: "button",
+        onClick: () => onValueChange?.(value),
+        "data-value": value,
+      },
+      children,
+    );
+  }
+
+  return { Tabs, TabsList, TabsTrigger };
+});
 
 vi.mock("@runsight/ui/empty-state", () => ({
   EmptyState: ({
@@ -174,12 +201,18 @@ vi.mock("@/api/git", () => ({
 }));
 
 vi.mock("@/queries/workflows", () => ({
+  useWorkflow: () => ({
+    data: { name: "Canonical workflow" },
+  }),
   useUpdateWorkflow: () => ({
     mutate: mocks.updateWorkflowMutate,
   }),
 }));
 
 vi.mock("@/queries/runs", () => ({
+  useRun: () => ({
+    data: undefined,
+  }),
   useCreateRun: () => ({
     mutate: mocks.createRunMutate,
   }),
@@ -191,6 +224,15 @@ vi.mock("@/store/canvas", () => ({
 
 vi.mock("lucide-react", () => ({
   Layout: () => React.createElement("span", null, "layout"),
+  Save: () => React.createElement("span", null, "save"),
+}));
+
+vi.mock("../RunButton", () => ({
+  RunButton: () => React.createElement("div", null, "Run workflow"),
+}));
+
+vi.mock("../ExecutionMetrics", () => ({
+  ExecutionMetrics: () => React.createElement("div", null, "Execution metrics"),
 }));
 
 async function renderCanvasPage() {
@@ -207,7 +249,11 @@ beforeEach(() => {
   mocks.updateWorkflowMutate.mockReset();
   mocks.createRunMutate.mockReset();
   mocks.canvasStoreState.setActiveRunId.mockReset();
-  mocks.canvasStoreState.toPersistedState = undefined;
+  mocks.canvasStoreState.toPersistedState = () => ({
+    nodes: [{ id: "start" }],
+    edges: [],
+    viewport: { x: 0, y: 0, zoom: 1 },
+  });
 });
 
 afterEach(() => {
@@ -215,13 +261,21 @@ afterEach(() => {
 });
 
 describe("RUN-509 canonical editor surface", () => {
-  it("renders the live workflow canvas instead of the shipped placeholder when the canvas surface is opened", async () => {
+  it("keeps the canonical editor labels and save affordance while opening the live canvas surface", async () => {
     const { user } = await renderCanvasPage();
+
+    expect(
+      screen
+        .getAllByRole("button")
+        .some((button) => button.textContent?.includes("Save")),
+    ).toBe(true);
+    expect(screen.getByText("Canonical workflow")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Canvas" }));
 
     expect(screen.getByText("workflow-canvas-surface")).toBeTruthy();
     expect(screen.queryByText("Visual canvas coming soon")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Switch to YAML" })).toBeNull();
   });
 
   it("still reaches the live editor surface when the workflow has no persisted canvas layout yet", async () => {

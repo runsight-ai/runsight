@@ -2,7 +2,8 @@
 
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Outlet, useLocation } from "react-router";
 
 function RouteEcho({ label }: { label: string }) {
@@ -19,9 +20,31 @@ vi.mock("../guards", () => ({
   createReverseGuardLoader: () => async () => null,
 }));
 
-vi.mock("../layouts/ShellLayout", () => ({
-  ShellLayout: () => React.createElement(Outlet),
-}));
+vi.mock("../layouts/ShellLayout", async () => {
+  const actual = await vi.importActual<typeof import("react-router")>(
+    "react-router",
+  );
+
+  return {
+    ShellLayout: () => {
+      const navigate = actual.useNavigate();
+
+      return React.createElement(
+        React.Fragment,
+        null,
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            onClick: () => navigate("/flows"),
+          },
+          "Flows",
+        ),
+        React.createElement(actual.Outlet),
+      );
+    },
+  };
+});
 
 vi.mock("@/lib/queryClient", () => ({
   queryClient: {},
@@ -40,7 +63,20 @@ vi.mock("@/features/flows/FlowsPage", () => ({
 }));
 
 vi.mock("@/features/canvas/CanvasPage", () => ({
-  Component: () => React.createElement(RouteEcho, { label: "workflow-editor" }),
+  Component: () =>
+    React.createElement(
+      "section",
+      null,
+      React.createElement("h1", null, "Workflow editor"),
+      React.createElement(
+        "button",
+        {
+          type: "button",
+        },
+        "Save workflow",
+      ),
+      React.createElement(RouteEcho, { label: "workflow-editor" }),
+    ),
 }));
 
 vi.mock("@/features/canvas/WorkflowCanvas", () => ({
@@ -85,18 +121,44 @@ async function renderAppAt(initialPath: string) {
   const { router } = await import("../index");
 
   activeRouter = router;
+  const user = userEvent.setup();
   render(React.createElement(RouterProvider, { router }));
 
-  return router;
+  return { router, user };
 }
 
 describe("RUN-509 canonical workflow editor route", () => {
-  it("redirects legacy /workflows/:id visits to the canonical /workflows/:id/edit surface", async () => {
-    const router = await renderAppAt("/workflows/wf_research");
+  it("redirects legacy /workflows/:id visits onto the canonical editor with save available", async () => {
+    const { router } = await renderAppAt("/workflows/wf_research");
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
       expect(router.state.location.search).toBe("");
     });
+
+    expect(
+      screen.getByRole("heading", { name: "Workflow editor" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Save workflow" }),
+    ).toBeTruthy();
+    expect(screen.queryByText(/legacy-canvas:/)).toBeNull();
+  });
+
+  it("lets people return to the Flows list from the canonical editor path", async () => {
+    const { router, user } = await renderAppAt("/workflows/wf_research");
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
+      expect(router.state.location.search).toBe("");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Flows" }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/flows");
+      expect(router.state.location.search).toBe("");
+    });
+    expect(screen.getByText("flows:/flows")).toBeTruthy();
   });
 });
