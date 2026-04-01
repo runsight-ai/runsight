@@ -101,6 +101,14 @@ async def _teardown_ipc_pair(
     sock_path.unlink(missing_ok=True)
 
 
+async def _tool_call_echo(args: dict[str, Any]) -> str:
+    return f"echo:{args['value']}"
+
+
+async def _tool_call_boom(args: dict[str, Any]) -> str:
+    raise RuntimeError("boom")
+
+
 # ---------------------------------------------------------------------------
 # AC1 + AC9: ONE API key per subprocess, no other secrets in env
 # NOTE: _build_subprocess_env already exists and passes basic checks.
@@ -142,6 +150,70 @@ class TestSubprocessCredentialScoping:
         handlers = harness._build_ipc_handlers()
         assert "http" in handlers
         assert "file_io" in handlers
+
+
+# ---------------------------------------------------------------------------
+# RUN-529: Generic tool_call IPC handler
+# ---------------------------------------------------------------------------
+
+
+class TestGenericToolCallHandler:
+    """Generic IPC tool_call handler dispatches to resolved ToolInstances by name."""
+
+    @pytest.mark.asyncio
+    async def test_make_tool_call_handler_dispatches_to_tool_by_name(self):
+        """Resolved tool instances should be callable through the generic tool_call handler."""
+        from runsight_core.isolation.handlers import make_tool_call_handler
+        from runsight_core.tools import ToolInstance
+
+        handler = make_tool_call_handler(
+            {
+                "echo_tool": ToolInstance(
+                    name="echo_tool",
+                    description="Echoes input",
+                    parameters={"type": "object", "properties": {"value": {"type": "string"}}},
+                    execute=_tool_call_echo,
+                )
+            }
+        )
+
+        result = await handler({"name": "echo_tool", "arguments": {"value": "hi"}})
+
+        assert result == {"output": "echo:hi"}
+
+    @pytest.mark.asyncio
+    async def test_make_tool_call_handler_returns_error_for_unknown_tool_name(self):
+        """Unknown tool names should not crash the handler."""
+        from runsight_core.isolation.handlers import make_tool_call_handler
+
+        handler = make_tool_call_handler({})
+
+        result = await handler({"name": "missing_tool", "arguments": {"value": "hi"}})
+
+        assert "error" in result
+        assert "missing_tool" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_make_tool_call_handler_catches_execute_exceptions(self):
+        """Tool execution exceptions should be returned as error strings."""
+        from runsight_core.isolation.handlers import make_tool_call_handler
+        from runsight_core.tools import ToolInstance
+
+        handler = make_tool_call_handler(
+            {
+                "boom_tool": ToolInstance(
+                    name="boom_tool",
+                    description="Always fails",
+                    parameters={"type": "object", "properties": {}},
+                    execute=_tool_call_boom,
+                )
+            }
+        )
+
+        result = await handler({"name": "boom_tool", "arguments": {}})
+
+        assert "error" in result
+        assert "boom" in result["error"]
 
 
 # ---------------------------------------------------------------------------

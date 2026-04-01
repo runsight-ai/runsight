@@ -90,9 +90,10 @@ class TestContextEnvelopeFields:
             max_tool_iterations=5,
         )
         tool = ToolDefEnvelope(
-            source="builtin",
-            config={"key": "value"},
-            exits=["done", "error"],
+            name="file_io",
+            description="Read and write workflow files.",
+            parameters={"type": "object", "properties": {"path": {"type": "string"}}},
+            tool_type="builtin",
         )
         task = TaskEnvelope(
             id="task-1",
@@ -148,9 +149,13 @@ class TestContextEnvelopeFields:
         assert isinstance(env.tools, list)
         assert len(env.tools) == 1
         assert isinstance(env.tools[0], ToolDefEnvelope)
-        assert env.tools[0].source == "builtin"
-        assert env.tools[0].config == {"key": "value"}
-        assert env.tools[0].exits == ["done", "error"]
+        assert env.tools[0].name == "file_io"
+        assert env.tools[0].description == "Read and write workflow files."
+        assert env.tools[0].parameters == {
+            "type": "object",
+            "properties": {"path": {"type": "string"}},
+        }
+        assert env.tools[0].tool_type == "builtin"
 
     def test_context_envelope_has_task_envelope(self):
         """ContextEnvelope has a TaskEnvelope."""
@@ -217,7 +222,12 @@ class TestContextEnvelopeRoundTrip:
                 max_tool_iterations=3,
             ),
             tools=[
-                ToolDefEnvelope(source="mcp", config={}, exits=["ok"]),
+                ToolDefEnvelope(
+                    name="profile_lookup",
+                    description="Fetch a profile by id.",
+                    parameters={"type": "object", "properties": {"user_id": {"type": "string"}}},
+                    tool_type="http",
+                ),
             ],
             task=TaskEnvelope(id="t1", instruction="run", context={}),
             scoped_results={"x": {"out": "val"}},
