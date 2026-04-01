@@ -91,6 +91,34 @@ describe("workflow commit data layer (RUN-424)", () => {
     ).rejects.toThrow(/commit.*(contract|response)/i);
   });
 
+  it("propagates malformed workflow commit payloads through useCommitWorkflow as errors", async () => {
+    mocks.apiPost.mockResolvedValue({
+      message: "Save workflow to main",
+    });
+
+    const { useCommitWorkflow } = await import("../../../queries/git");
+
+    const mutation = (
+      useCommitWorkflow as unknown as () => {
+        mutationFn?: (variables: {
+          workflowId: string;
+          payload: { yaml: string; message: string; canvas_state?: Record<string, unknown> };
+        }) => Promise<unknown>;
+      }
+    )();
+
+    await expect(
+      mutation.mutationFn?.({
+        workflowId: "wf_1",
+        payload: {
+          yaml: "workflow:\n  name: Updated Flow\n",
+          canvas_state: { nodes: [], edges: [] },
+          message: "Save workflow to main",
+        },
+      }),
+    ).rejects.toThrow(/commit.*(contract|response)/i);
+  });
+
   it("preserves backend failures distinctly from commit contract failures", async () => {
     mocks.apiPost.mockRejectedValue(new Error("Network down"));
 

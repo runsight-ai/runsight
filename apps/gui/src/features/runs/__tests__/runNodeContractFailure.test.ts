@@ -15,6 +15,12 @@ vi.mock("../../../api/client", () => ({
   },
 }));
 
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: (options: Record<string, unknown>) => options,
+  useMutation: vi.fn(),
+  useQueryClient: vi.fn(),
+}));
+
 const RUN_DETAIL_SOURCE = readFileSync(resolve(__dirname, "../RunDetail.tsx"), "utf-8");
 
 beforeEach(() => {
@@ -44,6 +50,20 @@ describe("run-node adapter contract failures (RUN-498)", () => {
       (runsApi as { getRunNodes: (id: string) => Promise<unknown> }).getRunNodes("run_1"),
     ).rejects.toThrow("Nodes request failed");
   });
+
+  it("propagates malformed run-node payloads through useRunNodes as errors", async () => {
+    mocks.apiGet.mockResolvedValue({
+      items: [],
+    });
+
+    const { useRunNodes } = await import("../../../queries/runs");
+
+    const query = (useRunNodes as unknown as (id: string) => { queryFn: () => Promise<unknown> })(
+      "run_1",
+    );
+
+    await expect(query.queryFn()).rejects.toThrow(/run.*node.*(contract|response)/i);
+  });
 });
 
 describe("RunDetail contract-failure UI (RUN-498)", () => {
@@ -51,7 +71,9 @@ describe("RunDetail contract-failure UI (RUN-498)", () => {
     expect(
       RUN_DETAIL_SOURCE,
       "Expected RunDetail to read an explicit error state from useRunNodes",
-    ).toMatch(/useRunNodes\([^\n]+\)[\s\S]*?(isError|error|refetch)/);
+    ).toMatch(
+      /const\s*\{\s*[^}]*\b(?:isError|error|refetch)\b[^}]*\}\s*=\s*useRunNodes\s*\(/,
+    );
   });
 
   it("renders a deliberate run-graph error state with retry guidance when node parsing fails", () => {
