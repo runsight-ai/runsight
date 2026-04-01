@@ -145,6 +145,26 @@ describe("workflow commit data layer (RUN-424)", () => {
     ).rejects.toThrow("Network down");
   });
 
+  it("surfaces malformed workflow commit payloads through the workflow save error toast", async () => {
+    const { useCommitWorkflow } = await import("../../../queries/git");
+
+    const mutation = (
+      useCommitWorkflow as unknown as () => {
+        onError?: (error: Error) => void;
+      }
+    )();
+
+    mutation.onError?.(new Error("Commit response contract invalid"));
+
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(mocks.toastError).toHaveBeenCalledWith(
+      "Failed to save workflow",
+      expect.objectContaining({
+        description: "Commit response contract invalid",
+      }),
+    );
+  });
+
   it("invalidates workflow and git queries after a successful production workflow save", async () => {
     const { queryKeys } = await import("../../../queries/keys");
     const { useCommitWorkflow } = await import("../../../queries/git");
