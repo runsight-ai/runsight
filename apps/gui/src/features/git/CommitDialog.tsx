@@ -59,8 +59,8 @@ export function CommitDialog({
         onSuccess: () => {
           setMessage("");
           setSubmitError(null);
-          onOpenChange(false);
           onCommitSuccess?.();
+          onOpenChange(false);
         },
         onError: (error: Error) => {
           setSubmitError(error.message);
