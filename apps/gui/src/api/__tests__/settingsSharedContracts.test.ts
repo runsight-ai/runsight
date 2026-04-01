@@ -1,17 +1,14 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const settingsSource = readFileSync(new URL("../settings.ts", import.meta.url), "utf8");
+
 const testState = vi.hoisted(() => ({
-  contractMarker: Symbol("runsight.shared-settings-contract-marker"),
+  apiDelete: vi.fn(),
   apiGet: vi.fn(),
   apiPost: vi.fn(),
   apiPut: vi.fn(),
 }));
-
-type ParseableSchema = {
-  parse: (input: unknown) => unknown;
-  transform: (transformer: (parsed: unknown) => unknown) => ParseableSchema;
-};
 
 type SharedContractCase = {
   title: string;
@@ -21,152 +18,49 @@ type SharedContractCase = {
   assertResult: (result: unknown) => void;
 };
 
-type SourceSchemaDefinition = {
-  name: string;
-  body: string;
-};
-
-function isRecord(value: unknown): value is Record<PropertyKey, unknown> {
-  return typeof value === "object" && value !== null;
+function escapeForRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function isParseableSchema(value: unknown): value is ParseableSchema {
-  return (
-    isRecord(value) &&
-    typeof value.parse === "function" &&
-    typeof value.transform === "function"
+function collectImportedSpecifiers(source: string, modulePath: string) {
+  const modulePattern = escapeForRegExp(modulePath);
+  const importPattern = new RegExp(
+    `import\\s*{([^;]*?)}\\s*from\\s*[\"']${modulePattern}[\"'];`,
+    "g",
+  );
+
+  return [...source.matchAll(importPattern)].flatMap((match) =>
+    match[1]
+      .split(",")
+      .map((specifier) => specifier.trim())
+      .filter(Boolean)
+      .map((specifier) => specifier.split(/\s+as\s+/)[0]?.trim() ?? specifier),
   );
 }
 
-function shouldWrapSharedSchemaExport(name: string, value: unknown): value is ParseableSchema {
-  return /(?:Provider|ModelDefault|Budget|AppSettings).*Schema/i.test(name) && isParseableSchema(value);
+function countIdentifierReferences(source: string, identifier: string) {
+  return [...source.matchAll(new RegExp(`\\b${escapeForRegExp(identifier)}\\b`, "g"))].length;
 }
 
-function withSharedContractMarker(value: unknown, schemaName: string) {
-  if (!isRecord(value)) {
-    return value;
-  }
+function collectLocalSettingsSchemaDeclarations(source: string) {
+  const localSchemaPattern =
+    /^const\s+((?:\w*Provider\w*Schema|\w*ModelDefault\w*Schema|\w*Budget\w*Schema|AppSettings\w*Schema))\s*=/gm;
 
-  const target = Object.isExtensible(value)
-    ? value
-    : Array.isArray(value)
-      ? [...value]
-      : { ...value };
-  const existingMarker = target[testState.contractMarker];
-  const markerSet = existingMarker instanceof Set ? new Set(existingMarker) : new Set<string>();
-
-  markerSet.add(schemaName);
-  Object.defineProperty(target, testState.contractMarker, {
-    configurable: true,
-    enumerable: false,
-    value: markerSet,
-  });
-
-  return target;
-}
-
-function wrapSharedSchemaExports<TModule extends Record<string, unknown>>(module: TModule): TModule {
-  const wrappedEntries = Object.fromEntries(
-    Object.entries(module).map(([name, value]) => [
-      name,
-      shouldWrapSharedSchemaExport(name, value)
-        ? value.transform((parsed) => withSharedContractMarker(parsed, name))
-        : value,
-    ]),
-  );
-
-  return { ...module, ...wrappedEntries };
-}
-
-function hasSharedContractMarker(value: unknown): boolean {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  const marker = value[testState.contractMarker];
-  if (marker instanceof Set && marker.size > 0) {
-    return true;
-  }
-
-  if (Array.isArray(value)) {
-    return value.some((item) => hasSharedContractMarker(item));
-  }
-
-  return Object.values(value).some((item) => hasSharedContractMarker(item));
-}
-
-function expectSharedContractMarker(result: unknown) {
-  expect(hasSharedContractMarker(result)).toBe(true);
-}
-
-function extractTopLevelZObjectSchemas(source: string): SourceSchemaDefinition[] {
-  const definitions: SourceSchemaDefinition[] = [];
-  const schemaStartPattern = /^const\s+(\w+)\s*=\s*z\.object\s*\(\s*\{/gm;
-
-  for (const match of source.matchAll(schemaStartPattern)) {
-    const [matchedText, name] = match;
-    const startIndex = match.index ?? 0;
-    const bodyStart = startIndex + matchedText.lastIndexOf("{");
-    let depth = 0;
-    let bodyEnd = -1;
-
-    for (let index = bodyStart; index < source.length; index += 1) {
-      const char = source[index];
-
-      if (char === "{") {
-        depth += 1;
-        continue;
-      }
-
-      if (char === "}") {
-        depth -= 1;
-        if (depth === 0) {
-          bodyEnd = index;
-          break;
-        }
-      }
-    }
-
-    if (bodyEnd === -1) {
-      continue;
-    }
-
-    definitions.push({
-      name,
-      body: source.slice(bodyStart + 1, bodyEnd),
-    });
-  }
-
-  return definitions;
-}
-
-function matchesDuplicateTransportShape(body: string, fieldPatterns: RegExp[]) {
-  return fieldPatterns.every((pattern) => pattern.test(body));
+  return [...source.matchAll(localSchemaPattern)].map((match) => match[1] ?? "");
 }
 
 vi.mock("../client", () => ({
   api: {
+    delete: testState.apiDelete,
     get: testState.apiGet,
     post: testState.apiPost,
     put: testState.apiPut,
-    delete: vi.fn(),
   },
 }));
 
-vi.mock("@runsight/shared/zod", async () => {
-  const actual = await vi.importActual<typeof import("@runsight/shared/zod")>("@runsight/shared/zod");
-
-  return wrapSharedSchemaExports(actual);
-});
-
-vi.mock("@runsight/shared", async () => {
-  const actual = await vi.importActual<typeof import("@runsight/shared")>("@runsight/shared");
-
-  return wrapSharedSchemaExports(actual);
-});
-
 beforeEach(() => {
   vi.resetModules();
+  testState.apiDelete.mockReset();
   testState.apiGet.mockReset();
   testState.apiPost.mockReset();
   testState.apiPut.mockReset();
@@ -213,10 +107,47 @@ const appSettingsPayload = {
   fallback_chain_enabled: false,
 };
 
-describe("RUN-512 settings API shared contract normalization", () => {
+describe("RUN-512 settings API canonical shared contracts", () => {
+  it("imports and references the canonical settings schemas from @runsight/shared/zod", () => {
+    const expectedSchemas = [
+      "SettingsProviderResponseSchema",
+      "SettingsProviderListResponseSchema",
+      "SettingsModelDefaultResponseSchema",
+      "SettingsModelDefaultListResponseSchema",
+      "SettingsBudgetResponseSchema",
+      "SettingsBudgetListResponseSchema",
+      "AppSettingsOutSchema",
+    ];
+    const importedSchemas = collectImportedSpecifiers(settingsSource, "@runsight/shared/zod");
+
+    expect(
+      importedSchemas,
+      `Expected apps/gui/src/api/settings.ts to import the canonical settings transport schemas from @runsight/shared/zod`,
+    ).toEqual(expect.arrayContaining(expectedSchemas));
+
+    for (const schemaName of expectedSchemas) {
+      expect(
+        countIdentifierReferences(settingsSource, schemaName),
+        `Expected apps/gui/src/api/settings.ts to reference ${schemaName} after importing it from @runsight/shared/zod`,
+      ).toBeGreaterThan(1);
+    }
+  });
+
+  it("does not keep GUI-local provider, model-default, budget, or app-settings transport schemas", () => {
+    const localSchemaDeclarations = collectLocalSettingsSchemaDeclarations(settingsSource);
+
+    expect(
+      localSchemaDeclarations,
+      [
+        "Expected apps/gui/src/api/settings.ts to stop declaring GUI-local settings transport schemas once the canonical shared imports exist.",
+        `Found local declarations: ${localSchemaDeclarations.join(", ") || "(none)"}`,
+      ].join("\n"),
+    ).toEqual([]);
+  });
+
   const contractCases: SharedContractCase[] = [
     {
-      title: "parses provider lists through shared contracts and preserves provider transport fields",
+      title: "preserves provider transport fields for listProviders",
       payload: { items: [providerItemPayload], total: 1 },
       arrange: (payload) => {
         testState.apiGet.mockResolvedValue(payload);
@@ -235,11 +166,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
             total: 1,
           }),
         );
-        expectSharedContractMarker(result);
       },
     },
     {
-      title: "parses getProvider responses through shared contracts and preserves provider transport fields",
+      title: "preserves provider transport fields for getProvider",
       payload: providerItemPayload,
       arrange: (payload) => {
         testState.apiGet.mockResolvedValue(payload);
@@ -253,11 +183,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
             updated_at: providerItemPayload.updated_at,
           }),
         );
-        expectSharedContractMarker(result);
       },
     },
     {
-      title: "parses createProvider responses through shared contracts and preserves provider transport fields",
+      title: "preserves provider transport fields for createProvider",
       payload: providerItemPayload,
       arrange: (payload) => {
         testState.apiPost.mockResolvedValue(payload);
@@ -276,11 +205,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
             updated_at: providerItemPayload.updated_at,
           }),
         );
-        expectSharedContractMarker(result);
       },
     },
     {
-      title: "parses updateProvider responses through shared contracts and preserves provider transport fields",
+      title: "preserves provider transport fields for updateProvider",
       payload: providerItemPayload,
       arrange: (payload) => {
         testState.apiPut.mockResolvedValue(payload);
@@ -299,11 +227,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
             updated_at: providerItemPayload.updated_at,
           }),
         );
-        expectSharedContractMarker(result);
       },
     },
     {
-      title: "parses model defaults through shared contracts instead of GUI-local schemas",
+      title: "preserves model-default transport fields for listModelDefaults",
       payload: { items: [modelDefaultItemPayload], total: 1 },
       arrange: (payload) => {
         testState.apiGet.mockResolvedValue(payload);
@@ -322,11 +249,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
             total: 1,
           }),
         );
-        expectSharedContractMarker(result);
       },
     },
     {
-      title: "parses updateModelDefault responses through shared contracts",
+      title: "preserves model-default transport fields for updateModelDefault",
       payload: modelDefaultItemPayload,
       arrange: (payload) => {
         testState.apiPut.mockResolvedValue(payload);
@@ -345,11 +271,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
             fallback_chain: modelDefaultItemPayload.fallback_chain,
           }),
         );
-        expectSharedContractMarker(result);
       },
     },
     {
-      title: "parses budgets through shared contracts and preserves spent/reset transport fields",
+      title: "preserves budget transport fields for getBudgets",
       payload: { items: [budgetItemPayload], total: 1 },
       arrange: (payload) => {
         testState.apiGet.mockResolvedValue(payload);
@@ -367,11 +292,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
             total: 1,
           }),
         );
-        expectSharedContractMarker(result);
       },
     },
     {
-      title: "parses createBudget responses through shared contracts and preserves spent/reset transport fields",
+      title: "preserves budget transport fields for createBudget",
       payload: budgetItemPayload,
       arrange: (payload) => {
         testState.apiPost.mockResolvedValue(payload);
@@ -389,11 +313,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
             reset_at: budgetItemPayload.reset_at,
           }),
         );
-        expectSharedContractMarker(result);
       },
     },
     {
-      title: "parses updateBudget responses through shared contracts and preserves spent/reset transport fields",
+      title: "preserves budget transport fields for updateBudget",
       payload: budgetItemPayload,
       arrange: (payload) => {
         testState.apiPut.mockResolvedValue(payload);
@@ -411,11 +334,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
             reset_at: budgetItemPayload.reset_at,
           }),
         );
-        expectSharedContractMarker(result);
       },
     },
     {
-      title: "keeps the full app settings surface when reading settings through shared contracts",
+      title: "preserves app-settings transport fields for getAppSettings",
       payload: appSettingsPayload,
       arrange: (payload) => {
         testState.apiGet.mockResolvedValue(payload);
@@ -423,11 +345,10 @@ describe("RUN-512 settings API shared contract normalization", () => {
       invoke: (settingsApi) => settingsApi.getAppSettings(),
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(appSettingsPayload));
-        expectSharedContractMarker(result);
       },
     },
     {
-      title: "keeps the full app settings surface when updating settings through shared contracts",
+      title: "preserves app-settings transport fields for updateAppSettings",
       payload: appSettingsPayload,
       arrange: (payload) => {
         testState.apiPut.mockResolvedValue(payload);
@@ -439,7 +360,6 @@ describe("RUN-512 settings API shared contract normalization", () => {
         }),
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(appSettingsPayload));
-        expectSharedContractMarker(result);
       },
     },
   ];
@@ -451,42 +371,5 @@ describe("RUN-512 settings API shared contract normalization", () => {
     const result = await invoke(settingsApi);
 
     assertResult(result);
-  });
-
-  it("does not keep GUI-local top-level z.object transport schemas for shared settings surfaces", () => {
-    const settingsSource = readFileSync(new URL("../settings.ts", import.meta.url), "utf8");
-    const topLevelSchemas = extractTopLevelZObjectSchemas(settingsSource);
-    const duplicateTransportShapes = [
-      {
-        concern: "provider item settings transport",
-        fieldPatterns: [/api_key_env\s*:/, /api_key_preview\s*:/, /model_count\s*:/, /is_configured\s*:/],
-      },
-      {
-        concern: "model-default item settings transport",
-        fieldPatterns: [/provider_id\s*:/, /provider_name\s*:/, /model_name\s*:/, /fallback_chain\s*:/],
-      },
-      {
-        concern: "budget item settings transport",
-        fieldPatterns: [/\bid\s*:/, /\bname\s*:/, /limit_usd\s*:/, /period\s*:/],
-      },
-      {
-        concern: "app-settings transport",
-        fieldPatterns: [/onboarding_completed\s*:/, /fallback_chain_enabled\s*:/],
-      },
-    ];
-
-    const duplicateSchemas = topLevelSchemas.flatMap((schema) =>
-      duplicateTransportShapes
-        .filter(({ fieldPatterns }) => matchesDuplicateTransportShape(schema.body, fieldPatterns))
-        .map(({ concern }) => `${schema.name} (${concern})`),
-    );
-
-    expect(
-      duplicateSchemas,
-      [
-        "Expected apps/gui/src/api/settings.ts to remove dead GUI-local settings transport schemas once shared contracts are in place.",
-        `Found duplicate top-level z.object definitions: ${duplicateSchemas.join(", ") || "(none)"}`,
-      ].join("\n"),
-    ).toEqual([]);
   });
 });

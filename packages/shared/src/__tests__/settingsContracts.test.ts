@@ -1,3 +1,4 @@
+import * as sharedZod from "@runsight/shared/zod";
 import { describe, expect, it } from "vitest";
 
 type ParseableSchema = {
@@ -8,63 +9,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isParseableSchema(value: unknown): value is ParseableSchema {
-  return isRecord(value) && typeof value.parse === "function";
+function getCanonicalSchema(name: string): ParseableSchema {
+  const schema = (sharedZod as Record<string, unknown>)[name];
+
+  expect(
+    isRecord(schema) && typeof schema.parse === "function",
+    `Expected ${name} to be exported from @runsight/shared/zod`,
+  ).toBe(true);
+
+  return schema as ParseableSchema;
 }
 
-async function findSchemaCandidate(
-  pattern: RegExp,
-  sample: unknown,
-  validator: (parsed: unknown) => boolean,
-) {
-  const zodModule = await import("../zod");
-  const matchingEntries = Object.entries(zodModule).filter(([name, value]) =>
-    pattern.test(name) && isParseableSchema(value),
-  );
-
-  for (const [name, schema] of matchingEntries) {
-    try {
-      const parsed = schema.parse(sample);
-      if (validator(parsed)) {
-        return { name, available: matchingEntries.map(([entryName]) => entryName) };
-      }
-    } catch {
-      // Keep searching until a matching contract can parse the full transport shape.
-    }
-  }
-
-  return { name: null, available: matchingEntries.map(([entryName]) => entryName) };
-}
-
-describe("RUN-512 shared settings transport contracts", () => {
-  it("exports an app-settings schema that preserves the shared settings adapter surface", async () => {
-    const appSettingsSample = {
-      base_path: "/workspace",
-      default_provider: "openai",
-      auto_save: true,
-      onboarding_completed: true,
-      fallback_chain_enabled: false,
-    };
-
-    const appSettingsSchema = await findSchemaCandidate(
-      /AppSettings.*Schema/i,
-      appSettingsSample,
-      (parsed) =>
-        isRecord(parsed) &&
-        parsed.base_path === appSettingsSample.base_path &&
-        parsed.default_provider === appSettingsSample.default_provider &&
-        parsed.auto_save === appSettingsSample.auto_save &&
-        parsed.onboarding_completed === appSettingsSample.onboarding_completed &&
-        parsed.fallback_chain_enabled === appSettingsSample.fallback_chain_enabled,
-    );
-
-    expect(
-      appSettingsSchema.name,
-      `Expected a shared app-settings schema. Saw app-settings exports: ${appSettingsSchema.available.join(", ") || "(none)"}`,
-    ).not.toBeNull();
-  });
-
-  it("exports a provider item schema and list schema that preserve the full settings provider response", async () => {
+describe("RUN-512 canonical settings transport contracts", () => {
+  it("exports canonical provider item and list schemas on @runsight/shared/zod", () => {
     const providerSample = {
       id: "openai",
       name: "OpenAI",
@@ -80,39 +37,31 @@ describe("RUN-512 shared settings transport contracts", () => {
       updated_at: "2026-03-02T00:00:00Z",
     };
 
-    const itemSchema = await findSchemaCandidate(
-      /Provider.*Schema/i,
-      providerSample,
-      (parsed) =>
-        isRecord(parsed) &&
-        parsed.api_key_preview === providerSample.api_key_preview &&
-        parsed.created_at === providerSample.created_at &&
-        parsed.updated_at === providerSample.updated_at,
-    );
+    const providerItemSchema = getCanonicalSchema("SettingsProviderResponseSchema");
+    const providerListSchema = getCanonicalSchema("SettingsProviderListResponseSchema");
 
-    const listSchema = await findSchemaCandidate(
-      /Provider.*Schema/i,
-      { items: [providerSample], total: 1 },
-      (parsed) =>
-        isRecord(parsed) &&
-        Array.isArray(parsed.items) &&
-        isRecord(parsed.items[0]) &&
-        parsed.items[0].created_at === providerSample.created_at &&
-        parsed.items[0].updated_at === providerSample.updated_at &&
-        parsed.total === 1,
+    expect(providerItemSchema.parse(providerSample)).toEqual(
+      expect.objectContaining({
+        api_key_preview: providerSample.api_key_preview,
+        created_at: providerSample.created_at,
+        updated_at: providerSample.updated_at,
+      }),
     );
-
-    expect(
-      itemSchema.name,
-      `Expected a shared provider response schema. Saw provider-related exports: ${itemSchema.available.join(", ") || "(none)"}`,
-    ).not.toBeNull();
-    expect(
-      listSchema.name,
-      `Expected a shared provider list schema. Saw provider-related exports: ${listSchema.available.join(", ") || "(none)"}`,
-    ).not.toBeNull();
+    expect(providerListSchema.parse({ items: [providerSample], total: 1 })).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            api_key_preview: providerSample.api_key_preview,
+            created_at: providerSample.created_at,
+            updated_at: providerSample.updated_at,
+          }),
+        ],
+        total: 1,
+      }),
+    );
   });
 
-  it("exports a model-default item schema and list schema for the settings adapter surface", async () => {
+  it("exports canonical model-default item and list schemas on @runsight/shared/zod", () => {
     const modelDefaultSample = {
       id: "openai",
       provider_id: "openai",
@@ -122,40 +71,31 @@ describe("RUN-512 shared settings transport contracts", () => {
       fallback_chain: ["gpt-4o-mini", "claude-3-5-sonnet"],
     };
 
-    const itemSchema = await findSchemaCandidate(
-      /ModelDefault.*Schema/i,
-      modelDefaultSample,
-      (parsed) =>
-        isRecord(parsed) &&
-        parsed.id === modelDefaultSample.id &&
-        parsed.provider_id === modelDefaultSample.provider_id &&
-        parsed.provider_name === modelDefaultSample.provider_name &&
-        Array.isArray(parsed.fallback_chain),
-    );
+    const modelDefaultItemSchema = getCanonicalSchema("SettingsModelDefaultResponseSchema");
+    const modelDefaultListSchema = getCanonicalSchema("SettingsModelDefaultListResponseSchema");
 
-    const listSchema = await findSchemaCandidate(
-      /ModelDefault.*Schema/i,
-      { items: [modelDefaultSample], total: 1 },
-      (parsed) =>
-        isRecord(parsed) &&
-        Array.isArray(parsed.items) &&
-        isRecord(parsed.items[0]) &&
-        parsed.items[0].provider_id === modelDefaultSample.provider_id &&
-        parsed.items[0].provider_name === modelDefaultSample.provider_name &&
-        parsed.total === 1,
+    expect(modelDefaultItemSchema.parse(modelDefaultSample)).toEqual(
+      expect.objectContaining({
+        provider_id: modelDefaultSample.provider_id,
+        provider_name: modelDefaultSample.provider_name,
+        fallback_chain: modelDefaultSample.fallback_chain,
+      }),
     );
-
-    expect(
-      itemSchema.name,
-      `Expected a shared model-default response schema. Saw model-default exports: ${itemSchema.available.join(", ") || "(none)"}`,
-    ).not.toBeNull();
-    expect(
-      listSchema.name,
-      `Expected a shared model-default list schema. Saw model-default exports: ${listSchema.available.join(", ") || "(none)"}`,
-    ).not.toBeNull();
+    expect(modelDefaultListSchema.parse({ items: [modelDefaultSample], total: 1 })).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            provider_id: modelDefaultSample.provider_id,
+            provider_name: modelDefaultSample.provider_name,
+            fallback_chain: modelDefaultSample.fallback_chain,
+          }),
+        ],
+        total: 1,
+      }),
+    );
   });
 
-  it("exports a budget item schema and list schema that keep spent and reset fields on the shared settings surface", async () => {
+  it("exports canonical budget item and list schemas on @runsight/shared/zod", () => {
     const budgetSample = {
       id: "team",
       name: "Team Budget",
@@ -165,34 +105,41 @@ describe("RUN-512 shared settings transport contracts", () => {
       reset_at: "2026-04-30T00:00:00Z",
     };
 
-    const itemSchema = await findSchemaCandidate(
-      /Budget.*Schema/i,
-      budgetSample,
-      (parsed) =>
-        isRecord(parsed) &&
-        parsed.spent_usd === budgetSample.spent_usd &&
-        parsed.reset_at === budgetSample.reset_at,
-    );
+    const budgetItemSchema = getCanonicalSchema("SettingsBudgetResponseSchema");
+    const budgetListSchema = getCanonicalSchema("SettingsBudgetListResponseSchema");
 
-    const listSchema = await findSchemaCandidate(
-      /Budget.*Schema/i,
-      { items: [budgetSample], total: 1 },
-      (parsed) =>
-        isRecord(parsed) &&
-        Array.isArray(parsed.items) &&
-        isRecord(parsed.items[0]) &&
-        parsed.items[0].spent_usd === budgetSample.spent_usd &&
-        parsed.items[0].reset_at === budgetSample.reset_at &&
-        parsed.total === 1,
+    expect(budgetItemSchema.parse(budgetSample)).toEqual(
+      expect.objectContaining({
+        spent_usd: budgetSample.spent_usd,
+        reset_at: budgetSample.reset_at,
+      }),
     );
+    expect(budgetListSchema.parse({ items: [budgetSample], total: 1 })).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            spent_usd: budgetSample.spent_usd,
+            reset_at: budgetSample.reset_at,
+          }),
+        ],
+        total: 1,
+      }),
+    );
+  });
 
-    expect(
-      itemSchema.name,
-      `Expected a shared budget response schema. Saw budget-related exports: ${itemSchema.available.join(", ") || "(none)"}`,
-    ).not.toBeNull();
-    expect(
-      listSchema.name,
-      `Expected a shared budget list schema. Saw budget-related exports: ${listSchema.available.join(", ") || "(none)"}`,
-    ).not.toBeNull();
+  it("exports the canonical app-settings schema on @runsight/shared/zod", () => {
+    const appSettingsSample = {
+      base_path: "/workspace",
+      default_provider: "openai",
+      auto_save: true,
+      onboarding_completed: true,
+      fallback_chain_enabled: false,
+    };
+
+    const appSettingsSchema = getCanonicalSchema("AppSettingsOutSchema");
+
+    expect(appSettingsSchema.parse(appSettingsSample)).toEqual(
+      expect.objectContaining(appSettingsSample),
+    );
   });
 });
