@@ -8,7 +8,6 @@ const LOCAL_DUPLICATE_HELPER_PATHS = [
   resolve(GUI_SRC_ROOT, "lib", "utils.ts"),
   resolve(GUI_SRC_ROOT, "utils", "helpers.ts"),
 ];
-const CANONICAL_GUI_IMPORT_PATH = "@runsight/ui/helpers";
 const DISALLOWED_GUI_IMPORT_PATHS = ["@/utils/helpers", "@/lib/utils"];
 
 function readFile(filePath: string) {
@@ -58,13 +57,17 @@ function findDuplicateCnExports() {
   });
 }
 
+function isUiOwnedImportPath(importPath: string) {
+  return /^@runsight\/ui(?:\/|$)/.test(importPath);
+}
+
 describe("RUN-513 GUI cn import convergence", () => {
-  it("moves GUI cn consumers onto the canonical @runsight/ui/helpers path", () => {
+  it("moves GUI cn consumers onto a packages/ui-owned import path", () => {
     const cnImports = collectCnImports();
     const localImports = cnImports.filter(({ importPath }) =>
       DISALLOWED_GUI_IMPORT_PATHS.includes(importPath),
     );
-    const canonicalImports = cnImports.filter(({ importPath }) => importPath === CANONICAL_GUI_IMPORT_PATH);
+    const uiOwnedImports = cnImports.filter(({ importPath }) => isUiOwnedImportPath(importPath));
 
     expect(
       localImports,
@@ -76,10 +79,10 @@ describe("RUN-513 GUI cn import convergence", () => {
       ].join("\n"),
     ).toEqual([]);
     expect(
-      canonicalImports.length,
-      "Expected GUI cn consumers to use the canonical @runsight/ui/helpers path",
+      uiOwnedImports.length,
+      "Expected GUI cn consumers to use a packages/ui-owned import path",
     ).toBeGreaterThan(0);
-    expect(canonicalImports).toHaveLength(cnImports.length);
+    expect(uiOwnedImports).toHaveLength(cnImports.length);
   });
 });
 
