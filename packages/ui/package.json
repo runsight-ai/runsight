@@ -21,6 +21,7 @@
     "./status-dot": "./src/components/ui/status-dot.tsx",
     "./switch": "./src/components/ui/switch.tsx",
     "./table": "./src/components/ui/table.tsx",
+    "./tag-input": "./src/components/ui/tag-input.tsx",
     "./tabs": "./src/components/ui/tabs.tsx",
     "./textarea": "./src/components/ui/textarea.tsx",
     "./tooltip": "./src/components/ui/tooltip.tsx",
