@@ -583,4 +583,56 @@ describe("RUN-512 settings API canonical shared contracts", () => {
 
     assertResult(result);
   });
+
+  it("sends only fallback_provider_id and fallback_model_id in updateModelDefault requests", async () => {
+    testState.apiPut.mockResolvedValue(modelDefaultItemPayload);
+
+    const { settingsApi } = await import("../settings");
+    await settingsApi.updateModelDefault("openai", {
+      model_name: "gpt-4.1",
+      is_default: true,
+      fallback_provider_id: "anthropic",
+      fallback_model_id: "claude-sonnet-4",
+    });
+
+    expect(testState.apiPut).toHaveBeenCalledWith("/settings/models/openai", {
+      model_name: "gpt-4.1",
+      is_default: true,
+      fallback_provider_id: "anthropic",
+      fallback_model_id: "claude-sonnet-4",
+    });
+
+    const [, payload] = testState.apiPut.mock.calls.at(-1) ?? [];
+    expect(payload).toEqual(
+      expect.objectContaining({
+        fallback_provider_id: "anthropic",
+        fallback_model_id: "claude-sonnet-4",
+      }),
+    );
+    expect(payload).not.toHaveProperty("fallback_chain");
+  });
+
+  it("sends only fallback_enabled in updateAppSettings requests", async () => {
+    testState.apiPut.mockResolvedValue(appSettingsPayload);
+
+    const { settingsApi } = await import("../settings");
+    await settingsApi.updateAppSettings({
+      onboarding_completed: true,
+      fallback_enabled: false,
+    });
+
+    expect(testState.apiPut).toHaveBeenCalledWith("/settings/app", {
+      onboarding_completed: true,
+      fallback_enabled: false,
+    });
+
+    const [, payload] = testState.apiPut.mock.calls.at(-1) ?? [];
+    expect(payload).toEqual(
+      expect.objectContaining({
+        onboarding_completed: true,
+        fallback_enabled: false,
+      }),
+    );
+    expect(payload).not.toHaveProperty("fallback_chain_enabled");
+  });
 });
