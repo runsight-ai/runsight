@@ -20,11 +20,6 @@ export interface PersistedCanvasState {
   canvas_mode: CanvasMode;
 }
 
-type LegacyPersistedCanvasState = PersistedCanvasState & {
-  selectedNodeId?: string | null;
-  canvasMode?: CanvasMode;
-};
-
 interface CanvasState {
   nodes: Node[];
   edges: Edge[];
@@ -127,15 +122,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return;
     }
 
-    const normalizedState = state as LegacyPersistedCanvasState;
-
     set({
-      nodes: (normalizedState.nodes as Node[]) ?? [],
-      edges: (normalizedState.edges as Edge[]) ?? [],
-      viewport: normalizedState.viewport ?? DEFAULT_VIEWPORT,
-      selectedNodeId:
-        normalizedState.selected_node_id ?? normalizedState.selectedNodeId ?? null,
-      canvasMode: normalizedState.canvas_mode ?? normalizedState.canvasMode ?? "dag",
+      nodes: (state.nodes as Node[]) ?? [],
+      edges: (state.edges as Edge[]) ?? [],
+      viewport: state.viewport ?? DEFAULT_VIEWPORT,
+      selectedNodeId: state.selected_node_id ?? null,
+      canvasMode: state.canvas_mode ?? "dag",
       isDirty: false,
     });
   },

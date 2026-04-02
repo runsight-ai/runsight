@@ -337,7 +337,7 @@ class TestBranchStoredOnRun:
 
     @pytest.mark.asyncio
     async def test_commit_sha_stored_on_run(self):
-        """Run record has commit_sha populated from GitService."""
+        """Run record has commit_sha populated from GitService and no legacy sha field."""
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
 
@@ -371,7 +371,8 @@ class TestBranchStoredOnRun:
         with Session(db_engine) as session:
             updated = session.get(Run, run_id)
             assert updated.commit_sha == "deadbeef90abcdef"
-            assert updated.workflow_commit_sha is None
+            assert not hasattr(updated, "workflow_commit_sha")
+            assert not hasattr(updated, "effective_commit_sha")
 
     @pytest.mark.asyncio
     async def test_main_branch_stored_on_run(self):
@@ -410,7 +411,7 @@ class TestBranchStoredOnRun:
 
     @pytest.mark.asyncio
     async def test_main_branch_commit_sha_from_git_service(self):
-        """Even for main branch, commit_sha is populated via GitService.get_sha."""
+        """Even for main branch, commit_sha is populated via GitService.get_sha without legacy fields."""
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
 
@@ -443,6 +444,8 @@ class TestBranchStoredOnRun:
         with Session(db_engine) as session:
             updated = session.get(Run, run_id)
             assert updated.commit_sha == "mainsha0000"
+            assert not hasattr(updated, "workflow_commit_sha")
+            assert not hasattr(updated, "effective_commit_sha")
 
 
 # ---------------------------------------------------------------------------

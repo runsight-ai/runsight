@@ -150,7 +150,7 @@ def test_workflow_list_keeps_malformed_yaml_recoverable():
         assert workflows[0].validation_error
 
 
-def test_workflow_list_materializes_orphan_canvas_sidecar_once():
+def test_workflow_list_does_not_materialize_orphan_canvas_sidecar():
     with tempfile.TemporaryDirectory() as tmpdir:
         workflows_dir = WorkflowRepository(base_path=tmpdir).workflows_dir
         canvas_dir = workflows_dir / ".canvas"
@@ -170,16 +170,12 @@ def test_workflow_list_materializes_orphan_canvas_sidecar_once():
 
         workflows = repo.list_all()
 
-        assert (repo.workflows_dir / "legacy-orphan.yaml").exists()
-        assert (repo.workflows_dir / "legacy-orphan.yaml").read_text() == ""
-        assert len(workflows) == 1
-        assert workflows[0].id == "legacy-orphan"
-        assert workflows[0].yaml == ""
-        assert workflows[0].canvas_state["canvas_mode"] == "dag"
-        assert workflows[0].valid is False
+        assert not (repo.workflows_dir / "legacy-orphan.yaml").exists()
+        assert workflows == []
+        assert repo.get_by_id("legacy-orphan") is None
 
 
-def test_workflow_get_materializes_orphan_canvas_sidecar():
+def test_workflow_get_does_not_materialize_orphan_canvas_sidecar():
     with tempfile.TemporaryDirectory() as tmpdir:
         workflows_dir = WorkflowRepository(base_path=tmpdir).workflows_dir
         canvas_dir = workflows_dir / ".canvas"
@@ -199,11 +195,8 @@ def test_workflow_get_materializes_orphan_canvas_sidecar():
 
         entity = repo.get_by_id("legacy-get")
 
-        assert entity is not None
-        assert (repo.workflows_dir / "legacy-get.yaml").exists()
-        assert entity.yaml == ""
-        assert entity.canvas_state["selected_node_id"] == "node-1"
-        assert entity.valid is False
+        assert entity is None
+        assert not (repo.workflows_dir / "legacy-get.yaml").exists()
 
 
 def test_soul_repository():
