@@ -327,12 +327,11 @@ def test_settings_app_get():
         repo = Mock(spec=FileSystemSettingsRepo)
         repo.get_settings.return_value = AppSettingsConfig(
             default_provider="openai",
-            fallback_enabled=False,
         )
         app.dependency_overrides[get_settings_repo] = lambda: repo
         response = client.get("/api/settings/app")
         assert response.status_code == 200
-        assert response.json()["fallback_enabled"] is False
+        assert response.json()["default_provider"] == "openai"
     finally:
         app.dependency_overrides.clear()
 
@@ -341,12 +340,12 @@ def test_settings_app_put():
     try:
         repo = Mock(spec=FileSystemSettingsRepo)
         repo.update_settings.return_value = AppSettingsConfig(
-            fallback_enabled=False,
+            default_provider="openai",
         )
         app.dependency_overrides[get_settings_repo] = lambda: repo
-        response = client.put("/api/settings/app", json={"fallback_enabled": False})
+        response = client.put("/api/settings/app", json={"default_provider": "openai"})
         assert response.status_code == 200
-        assert response.json()["fallback_enabled"] is False
-        repo.update_settings.assert_called_once_with({"fallback_enabled": False})
+        assert response.json()["default_provider"] == "openai"
+        repo.update_settings.assert_called_once_with({"default_provider": "openai"})
     finally:
         app.dependency_overrides.clear()
