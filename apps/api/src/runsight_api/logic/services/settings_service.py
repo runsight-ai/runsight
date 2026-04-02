@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ...data.filesystem.provider_repo import FileSystemProviderRepo
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
-from ...domain.entities.settings import FallbackTargetEntry, ModelDefaultEntry
+from ...domain.entities.settings import FallbackTargetEntry
 from ...domain.errors import InputValidationError, ProviderNotFound
 
 
@@ -22,11 +22,8 @@ class SettingsService:
             if getattr(provider, "is_active", True)
         ]
 
-    def get_model_defaults(self) -> list[dict]:
+    def get_fallback_targets(self) -> list[dict]:
         active_providers = {provider.id: provider for provider in self._list_active_providers()}
-        defaults = [
-            entry for entry in self._list_model_defaults() if entry.provider_id in active_providers
-        ]
         fallback_map = {
             entry.provider_id: entry
             for entry in self._list_fallback_map()
@@ -34,22 +31,19 @@ class SettingsService:
         }
 
         return [
-            self._model_default_out(
-                provider=active_providers[entry.provider_id],
-                default_entry=entry,
+            self._fallback_target_out(
+                provider=provider,
                 fallback_target=self._readable_fallback_target(
-                    fallback_target=fallback_map.get(entry.provider_id),
+                    fallback_target=fallback_map.get(provider.id),
                     active_providers=active_providers,
                 ),
             )
-            for entry in defaults
+            for provider in active_providers.values()
         ]
 
-    def update_model_default(
+    def update_fallback_target(
         self,
         provider_id: str,
-        model_name: str | None,
-        is_default: bool | None,
         fallback_provider_id: str | None,
         fallback_model_id: str | None,
     ) -> dict:
@@ -58,23 +52,6 @@ class SettingsService:
             raise ProviderNotFound(f"Provider {provider_id} not found")
         if not getattr(provider, "is_active", True):
             raise InputValidationError(f"Provider {provider_id} is disabled")
-
-        default_entry = self._default_entry_for_provider(provider_id)
-
-        if model_name is not None:
-            default_entry = ModelDefaultEntry(
-                provider_id=provider_id,
-                model_id=model_name,
-                is_default=is_default if is_default is not None else False,
-            )
-            self.settings_repo.set_model_default(default_entry)
-        elif is_default is not None and default_entry is not None:
-            default_entry = ModelDefaultEntry(
-                provider_id=provider_id,
-                model_id=default_entry.model_id,
-                is_default=is_default,
-            )
-            self.settings_repo.set_model_default(default_entry)
 
         fallback_target = self._fallback_target_for_provider(provider_id)
         if fallback_provider_id == "" or fallback_model_id == "":
@@ -93,36 +70,21 @@ class SettingsService:
             )
             self.settings_repo.set_fallback_target(fallback_target)
 
-        return self._model_default_out(
+        return self._fallback_target_out(
             provider=provider,
-            default_entry=default_entry,
             fallback_target=self._readable_fallback_target_for_update(fallback_target),
         )
 
-    def _default_entry_for_provider(self, provider_id: str) -> ModelDefaultEntry | None:
-        for entry in self._list_model_defaults():
-            if entry.provider_id == provider_id:
-                return entry
-        return None
-
-    def _model_default_out(
+    def _fallback_target_out(
         self,
         *,
         provider,
-        default_entry: ModelDefaultEntry | None,
         fallback_target: FallbackTargetEntry | None,
     ) -> dict:
-        provider_models = provider.models or []
         return {
             "id": provider.id,
             "provider_id": provider.id,
             "provider_name": provider.name or provider.id,
-            "model_name": (
-                default_entry.model_id
-                if default_entry is not None
-                else (provider_models[0] if provider_models else "")
-            ),
-            "is_default": default_entry.is_default if default_entry is not None else False,
             "fallback_provider_id": (
                 fallback_target.fallback_provider_id if fallback_target is not None else None
             ),
@@ -139,7 +101,12 @@ class SettingsService:
     ) -> FallbackTargetEntry | None:
         if fallback_target is None:
             return None
-        if fallback_target.fallback_provider_id not in active_providers:
+        target_provider = active_providers.get(fallback_target.fallback_provider_id)
+        if target_provider is None:
+            return None
+        if fallback_target.fallback_model_id not in (
+            getattr(target_provider, "models", None) or []
+        ):
             return None
         return fallback_target
 
@@ -152,6 +119,8 @@ class SettingsService:
 
         target_provider = self.provider_repo.get_by_id(fallback_target.fallback_provider_id)
         if target_provider is None or not getattr(target_provider, "is_active", True):
+            return None
+        if fallback_target.fallback_model_id not in (target_provider.models or []):
             return None
         return fallback_target
 
@@ -184,10 +153,6 @@ class SettingsService:
             fallback_provider_id=fallback_provider_id,
             fallback_model_id=fallback_model_id,
         )
-
-    def _list_model_defaults(self) -> list[ModelDefaultEntry]:
-        defaults = self.settings_repo.list_model_defaults()
-        return defaults if isinstance(defaults, list) else []
 
     def _fallback_target_for_provider(self, provider_id: str) -> FallbackTargetEntry | None:
         for entry in self._list_fallback_map():

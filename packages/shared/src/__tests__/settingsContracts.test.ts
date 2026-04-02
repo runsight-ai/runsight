@@ -35,7 +35,7 @@ function getSchemaProperties(name: string) {
   return OPENAPI_DOCUMENT.components?.schemas?.[name]?.properties ?? {};
 }
 
-describe("RUN-512 canonical settings transport contracts", () => {
+describe("canonical settings transport contracts", () => {
   it("exports canonical provider item and list schemas on @runsight/shared/zod", () => {
     const providerSample = {
       id: "openai",
@@ -47,7 +47,7 @@ describe("RUN-512 canonical settings transport contracts", () => {
       base_url: "https://api.openai.com/v1",
       models: ["gpt-4.1"],
       model_count: 1,
-      is_configured: true,
+      is_active: true,
       created_at: "2026-03-01T00:00:00Z",
       updated_at: "2026-03-02T00:00:00Z",
     };
@@ -76,54 +76,30 @@ describe("RUN-512 canonical settings transport contracts", () => {
     );
   });
 
-  it("exports canonical model-default item and list schemas on @runsight/shared/zod", () => {
-    const modelDefaultSample = {
+  it("exports canonical fallback item and list schemas on @runsight/shared/zod", () => {
+    const fallbackSample = {
       id: "openai",
       provider_id: "openai",
       provider_name: "OpenAI",
-      model_name: "gpt-4.1",
-      is_default: true,
       fallback_provider_id: "anthropic",
       fallback_model_id: "claude-sonnet-4",
     };
 
-    const modelDefaultItemSchema = getCanonicalSchema("SettingsModelDefaultResponseSchema");
-    const modelDefaultListSchema = getCanonicalSchema("SettingsModelDefaultListResponseSchema");
+    const fallbackItemSchema = getCanonicalSchema("SettingsFallbackResponseSchema");
+    const fallbackListSchema = getCanonicalSchema("SettingsFallbackListResponseSchema");
+    const fallbackUpdateSchema = getCanonicalSchema("FallbackUpdateSchema");
 
-    expect(modelDefaultItemSchema.parse(modelDefaultSample)).toEqual(
-      expect.objectContaining({
-        provider_id: modelDefaultSample.provider_id,
-        provider_name: modelDefaultSample.provider_name,
-        fallback_provider_id: modelDefaultSample.fallback_provider_id,
-        fallback_model_id: modelDefaultSample.fallback_model_id,
-      }),
+    expect(fallbackItemSchema.parse(fallbackSample)).toEqual(
+      expect.objectContaining(fallbackSample),
     );
-    expect(modelDefaultListSchema.parse({ items: [modelDefaultSample], total: 1 })).toEqual(
+    expect(fallbackListSchema.parse({ items: [fallbackSample], total: 1 })).toEqual(
       expect.objectContaining({
-        items: [
-          expect.objectContaining({
-            provider_id: modelDefaultSample.provider_id,
-            provider_name: modelDefaultSample.provider_name,
-            fallback_provider_id: modelDefaultSample.fallback_provider_id,
-            fallback_model_id: modelDefaultSample.fallback_model_id,
-          }),
-        ],
+        items: [expect.objectContaining(fallbackSample)],
         total: 1,
       }),
     );
-  });
-
-  it("parses renamed fallback fields as strings, nulls, or omitted in canonical zod schemas", () => {
-    const modelDefaultSchema = getCanonicalSchema("SettingsModelDefaultResponseSchema");
-    const modelDefaultUpdateSchema = getCanonicalSchema("ModelDefaultUpdateSchema");
-
     expect(
-      modelDefaultSchema.parse({
-        id: "openai",
-        provider_id: "openai",
-        provider_name: "OpenAI",
-        model_name: "gpt-4.1",
-        is_default: true,
+      fallbackUpdateSchema.parse({
         fallback_provider_id: "anthropic",
         fallback_model_id: "claude-sonnet-4",
       }),
@@ -134,12 +110,7 @@ describe("RUN-512 canonical settings transport contracts", () => {
       }),
     );
     expect(
-      modelDefaultSchema.parse({
-        id: "openai",
-        provider_id: "openai",
-        provider_name: "OpenAI",
-        model_name: "gpt-4.1",
-        is_default: true,
+      fallbackUpdateSchema.parse({
         fallback_provider_id: null,
         fallback_model_id: null,
       }),
@@ -147,80 +118,6 @@ describe("RUN-512 canonical settings transport contracts", () => {
       expect.objectContaining({
         fallback_provider_id: null,
         fallback_model_id: null,
-      }),
-    );
-    expect(
-      modelDefaultSchema.parse({
-        id: "openai",
-        provider_id: "openai",
-        provider_name: "OpenAI",
-        model_name: "gpt-4.1",
-        is_default: true,
-      }),
-    ).toEqual(
-      expect.objectContaining({
-        id: "openai",
-        provider_id: "openai",
-      }),
-    );
-
-    expect(
-      modelDefaultUpdateSchema.parse({
-        fallback_provider_id: "anthropic",
-        fallback_model_id: "claude-sonnet-4",
-      }),
-    ).toEqual(
-      expect.objectContaining({
-        fallback_provider_id: "anthropic",
-        fallback_model_id: "claude-sonnet-4",
-      }),
-    );
-    expect(
-      modelDefaultUpdateSchema.parse({
-        fallback_provider_id: null,
-        fallback_model_id: null,
-      }),
-    ).toEqual(
-      expect.objectContaining({
-        fallback_provider_id: null,
-        fallback_model_id: null,
-      }),
-    );
-    expect(modelDefaultUpdateSchema.parse({ model_name: "gpt-4.1" })).toEqual(
-      expect.objectContaining({
-        model_name: "gpt-4.1",
-      }),
-    );
-  });
-
-  it("exports canonical budget item and list schemas on @runsight/shared/zod", () => {
-    const budgetSample = {
-      id: "team",
-      name: "Team Budget",
-      limit_usd: 100,
-      spent_usd: 42.5,
-      period: "monthly",
-      reset_at: "2026-04-30T00:00:00Z",
-    };
-
-    const budgetItemSchema = getCanonicalSchema("SettingsBudgetResponseSchema");
-    const budgetListSchema = getCanonicalSchema("SettingsBudgetListResponseSchema");
-
-    expect(budgetItemSchema.parse(budgetSample)).toEqual(
-      expect.objectContaining({
-        spent_usd: budgetSample.spent_usd,
-        reset_at: budgetSample.reset_at,
-      }),
-    );
-    expect(budgetListSchema.parse({ items: [budgetSample], total: 1 })).toEqual(
-      expect.objectContaining({
-        items: [
-          expect.objectContaining({
-            spent_usd: budgetSample.spent_usd,
-            reset_at: budgetSample.reset_at,
-          }),
-        ],
-        total: 1,
       }),
     );
   });
@@ -228,7 +125,6 @@ describe("RUN-512 canonical settings transport contracts", () => {
   it("exports the canonical app-settings schema on @runsight/shared/zod", () => {
     const appSettingsSample = {
       base_path: "/workspace",
-      default_provider: "openai",
       auto_save: true,
       onboarding_completed: true,
       fallback_enabled: false,
@@ -241,33 +137,34 @@ describe("RUN-512 canonical settings transport contracts", () => {
     );
   });
 
-  it("keeps generated OpenAPI and shared contract artifacts on the renamed fallback fields only", () => {
-    const settingsModelDefaultProps = getSchemaProperties("SettingsModelDefaultResponse");
-    const modelDefaultUpdateProps = getSchemaProperties("ModelDefaultUpdate");
+  it("keeps generated OpenAPI and shared contract artifacts on fallback-only settings fields", () => {
+    const settingsFallbackProps = getSchemaProperties("SettingsFallbackResponse");
+    const fallbackUpdateProps = getSchemaProperties("FallbackUpdate");
     const appSettingsProps = getSchemaProperties("AppSettingsOut");
 
-    expect(settingsModelDefaultProps).toHaveProperty("fallback_provider_id");
-    expect(settingsModelDefaultProps).toHaveProperty("fallback_model_id");
-    expect(settingsModelDefaultProps).not.toHaveProperty("fallback_chain");
+    expect(settingsFallbackProps).toHaveProperty("fallback_provider_id");
+    expect(settingsFallbackProps).toHaveProperty("fallback_model_id");
+    expect(settingsFallbackProps).not.toHaveProperty("model_name");
 
-    expect(modelDefaultUpdateProps).toHaveProperty("fallback_provider_id");
-    expect(modelDefaultUpdateProps).toHaveProperty("fallback_model_id");
-    expect(modelDefaultUpdateProps).not.toHaveProperty("fallback_chain");
+    expect(fallbackUpdateProps).toHaveProperty("fallback_provider_id");
+    expect(fallbackUpdateProps).toHaveProperty("fallback_model_id");
 
     expect(appSettingsProps).toHaveProperty("fallback_enabled");
+    expect(appSettingsProps).not.toHaveProperty("default_provider");
     expect(appSettingsProps).not.toHaveProperty("fallback_chain_enabled");
 
-    expect(GENERATED_API_SOURCE).toContain("fallback_provider_id");
-    expect(GENERATED_API_SOURCE).toContain("fallback_model_id");
+    expect(GENERATED_API_SOURCE).toContain("/api/settings/fallbacks");
+    expect(GENERATED_API_SOURCE).toContain("SettingsFallbackResponse");
     expect(GENERATED_API_SOURCE).toContain("fallback_enabled");
-    expect(GENERATED_API_SOURCE).not.toContain("fallback_chain");
-    expect(GENERATED_API_SOURCE).not.toContain("fallback_chain_enabled");
+    expect(GENERATED_API_SOURCE).not.toContain("/api/settings/models");
+    expect(GENERATED_API_SOURCE).not.toContain("SettingsModelDefaultResponse");
+    expect(GENERATED_API_SOURCE).not.toContain("default_provider");
 
-    expect(GENERATED_ZOD_SOURCE).toContain("fallback_provider_id");
-    expect(GENERATED_ZOD_SOURCE).toContain("fallback_model_id");
+    expect(GENERATED_ZOD_SOURCE).toContain("SettingsFallbackResponseSchema");
+    expect(GENERATED_ZOD_SOURCE).toContain("FallbackUpdateSchema");
     expect(GENERATED_ZOD_SOURCE).toContain("fallback_enabled");
-    expect(GENERATED_ZOD_SOURCE).not.toContain("fallback_chain");
-    expect(GENERATED_ZOD_SOURCE).not.toContain("fallback_chain_enabled");
+    expect(GENERATED_ZOD_SOURCE).not.toContain("SettingsModelDefaultResponseSchema");
+    expect(GENERATED_ZOD_SOURCE).not.toContain("default_provider");
   });
 
   it("exports the canonical provider-test response schema on @runsight/shared/zod", () => {

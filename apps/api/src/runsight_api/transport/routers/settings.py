@@ -61,24 +61,20 @@ class SettingsProviderListResponse(BaseModel):
     total: int
 
 
-class SettingsModelDefaultResponse(BaseModel):
+class SettingsFallbackResponse(BaseModel):
     id: str
-    model_name: str
     provider_id: str
     provider_name: str
     fallback_provider_id: str | None = None
     fallback_model_id: str | None = None
-    is_default: bool = False
 
 
-class SettingsModelDefaultListResponse(BaseModel):
-    items: list["SettingsModelDefaultResponse"]
+class SettingsFallbackListResponse(BaseModel):
+    items: list["SettingsFallbackResponse"]
     total: int
 
 
-class ModelDefaultUpdate(BaseModel):
-    model_name: str | None = None
-    is_default: bool | None = None
+class FallbackUpdate(BaseModel):
     fallback_provider_id: str | None = None
     fallback_model_id: str | None = None
 
@@ -99,7 +95,6 @@ class SettingsBudgetListResponse(BaseModel):
 
 class AppSettingsOut(BaseModel):
     base_path: Optional[str] = None
-    default_provider: Optional[str] = None
     auto_save: Optional[bool] = None
     onboarding_completed: Optional[bool] = None
     fallback_enabled: Optional[bool] = None
@@ -223,24 +218,22 @@ async def test_provider_credentials(
     )
 
 
-@router.get("/models", response_model=SettingsModelDefaultListResponse)
-async def list_model_defaults(
+@router.get("/fallbacks", response_model=SettingsFallbackListResponse)
+async def list_fallback_targets(
     service: SettingsService = Depends(get_settings_service),
 ):
-    items = service.get_model_defaults()
+    items = service.get_fallback_targets()
     return {"items": items, "total": len(items)}
 
 
-@router.put("/models/{model_id}", response_model=SettingsModelDefaultResponse)
-async def update_model_default(
-    model_id: str,
-    data: ModelDefaultUpdate,
+@router.put("/fallbacks/{provider_id}", response_model=SettingsFallbackResponse)
+async def update_fallback_target(
+    provider_id: str,
+    data: FallbackUpdate,
     service: SettingsService = Depends(get_settings_service),
 ):
-    return service.update_model_default(
-        provider_id=model_id,
-        model_name=data.model_name,
-        is_default=data.is_default,
+    return service.update_fallback_target(
+        provider_id=provider_id,
         fallback_provider_id=data.fallback_provider_id,
         fallback_model_id=data.fallback_model_id,
     )

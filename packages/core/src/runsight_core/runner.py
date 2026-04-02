@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -20,6 +21,13 @@ class ExecutionResult(BaseModel):
     total_tokens: int = 0
     tool_iterations: int = 0
     tool_calls_made: List[str] = Field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class FallbackRoute:
+    source_provider_id: str
+    target_provider_id: str
+    target_model_name: str
 
 
 def _detect_provider(model_name: str) -> str:
@@ -49,9 +57,11 @@ class RunsightTeamRunner:
         self,
         model_name: str = "gpt-4o",
         api_keys: Optional[Dict[str, str]] = None,
+        fallback_routes: Optional[Dict[str, FallbackRoute]] = None,
     ):
         self.model_name = model_name
         self.api_keys = api_keys
+        self.fallback_routes = fallback_routes or {}
         # Resolve the default key for the runner's own model when canonical provider keys are available.
         default_key = self._resolve_key_for_model(model_name) if api_keys else None
         self.llm_client = LiteLLMClient(model_name=model_name, api_key=default_key)
@@ -101,6 +111,77 @@ class RunsightTeamRunner:
             self._clients[override] = LiteLLMClient(model_name=override, api_key=key)
         return self._clients[override]
 
+    @staticmethod
+    def _is_retryable_provider_error(exc: Exception) -> bool:
+        if isinstance(exc, (TimeoutError, ConnectionError)):
+            return True
+
+        name = type(exc).__name__.lower()
+        module = type(exc).__module__.lower()
+        message = str(exc).lower()
+        signals = (
+            "ratelimit",
+            "timeout",
+            "authentication",
+            "auth",
+            "apierror",
+            "apiconnection",
+            "serviceunavailable",
+            "internalservererror",
+            "badgateway",
+            "gatewaytimeout",
+            "temporarily unavailable",
+            "overloaded",
+        )
+        haystacks = (name, module, message)
+        return any(signal in haystack for haystack in haystacks for signal in signals)
+
+    def _fallback_soul(self, soul: Soul) -> Soul | None:
+        if not soul.provider:
+            return None
+        route = self.fallback_routes.get(soul.provider)
+        if route is None:
+            return None
+        return soul.model_copy(
+            update={
+                "model_name": route.target_model_name,
+                "provider": route.target_provider_id,
+            }
+        )
+
+    async def _achat_with_failover(
+        self,
+        soul: Soul,
+        *,
+        messages: List[Dict[str, Any]],
+        system_prompt: Optional[str],
+        tools: Optional[List[dict]] = None,
+        tool_choice: Optional[str] = None,
+        allow_failover: bool = True,
+    ) -> tuple[Dict[str, Any], Soul, bool]:
+        active_soul = soul
+        client = self._get_client(active_soul)
+        try:
+            response = await client.achat(
+                messages=messages,
+                system_prompt=system_prompt,
+                tools=tools,
+                tool_choice=tool_choice,
+            )
+            return response, active_soul, allow_failover
+        except Exception as exc:
+            fallback_soul = self._fallback_soul(active_soul) if allow_failover else None
+            if fallback_soul is None or not self._is_retryable_provider_error(exc):
+                raise
+            fallback_client = self._get_client(fallback_soul)
+            response = await fallback_client.achat(
+                messages=messages,
+                system_prompt=system_prompt,
+                tools=tools,
+                tool_choice=tool_choice,
+            )
+            return response, fallback_soul, False
+
     async def execute_task(
         self, task: Task, soul: Soul, messages: list[dict] | None = None
     ) -> ExecutionResult:
@@ -112,14 +193,20 @@ class RunsightTeamRunner:
         and repeats until the LLM responds with text or max iterations is reached.
         """
         all_messages = (messages or []) + [{"role": "user", "content": self._build_prompt(task)}]
-        client = self._get_client(soul)
+        active_soul = soul
+        allow_failover = True
 
         # Single-shot path: no tools
-        if not soul.resolved_tools:
-            response = await client.achat(messages=all_messages, system_prompt=soul.system_prompt)
+        if not active_soul.resolved_tools:
+            response, active_soul, allow_failover = await self._achat_with_failover(
+                active_soul,
+                messages=all_messages,
+                system_prompt=active_soul.system_prompt,
+                allow_failover=allow_failover,
+            )
             return ExecutionResult(
                 task_id=task.id,
-                soul_id=soul.id,
+                soul_id=active_soul.id,
                 output=response["content"],
                 cost_usd=response["cost_usd"],
                 total_tokens=response["total_tokens"],
@@ -128,9 +215,9 @@ class RunsightTeamRunner:
             )
 
         # Agentic tool loop
-        tool_schemas = [t.to_openai_schema() for t in soul.resolved_tools]
-        tool_map = {t.name: t for t in soul.resolved_tools}
-        max_iters = soul.max_tool_iterations
+        tool_schemas = [t.to_openai_schema() for t in active_soul.resolved_tools]
+        tool_map = {t.name: t for t in active_soul.resolved_tools}
+        max_iters = active_soul.max_tool_iterations
         iteration = 0
         accumulated_cost = 0.0
         accumulated_tokens = 0
@@ -141,10 +228,12 @@ class RunsightTeamRunner:
             is_last = iteration == max_iters - 1
             tools_for_llm = [] if is_last else tool_schemas
 
-            response = await client.achat(
+            response, active_soul, allow_failover = await self._achat_with_failover(
+                active_soul,
                 messages=all_messages,
-                system_prompt=soul.system_prompt,
+                system_prompt=active_soul.system_prompt,
                 tools=tools_for_llm,
+                allow_failover=allow_failover,
             )
             accumulated_cost += response["cost_usd"]
             accumulated_tokens += response["total_tokens"]
@@ -153,7 +242,7 @@ class RunsightTeamRunner:
                 # LLM responded with text -- done
                 return ExecutionResult(
                     task_id=task.id,
-                    soul_id=soul.id,
+                    soul_id=active_soul.id,
                     output=response["content"],
                     cost_usd=accumulated_cost,
                     total_tokens=accumulated_tokens,
@@ -190,17 +279,19 @@ class RunsightTeamRunner:
             iteration += 1
 
         # Max iterations exhausted -- force a final text response with no tools
-        response = await client.achat(
+        response, active_soul, _ = await self._achat_with_failover(
+            active_soul,
             messages=all_messages,
-            system_prompt=soul.system_prompt,
+            system_prompt=active_soul.system_prompt,
             tools=[],
+            allow_failover=allow_failover,
         )
         accumulated_cost += response["cost_usd"]
         accumulated_tokens += response["total_tokens"]
 
         return ExecutionResult(
             task_id=task.id,
-            soul_id=soul.id,
+            soul_id=active_soul.id,
             output=response.get("content", ""),
             cost_usd=accumulated_cost,
             total_tokens=accumulated_tokens,

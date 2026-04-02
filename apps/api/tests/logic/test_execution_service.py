@@ -56,6 +56,29 @@ def _init_git_repo_with_workflow(
     return repo
 
 
+VALID_RUNTIME_YAML = """
+version: "1.0"
+workflow:
+  name: test
+  entry: b1
+  transitions:
+    - from: b1
+      to: null
+blocks:
+  b1:
+    type: linear
+    soul_ref: test
+souls:
+  test:
+    id: soul_1
+    role: tester
+    system_prompt: hello
+    provider: openai
+    model_name: gpt-4o
+config: {}
+"""
+
+
 # ---------------------------------------------------------------------------
 # 1. ExecutionService instantiation
 # ---------------------------------------------------------------------------
@@ -103,21 +126,10 @@ class TestLaunchExecution:
 
         # Provide a valid YAML string that workflow_repo returns
         mock_entity = Mock()
-        mock_entity.yaml = """
-workflow:
-  name: test
-  entry: b1
-  transitions:
-    - from: b1
-      to: null
-blocks:
-  b1:
-    type: linear
-    soul_ref: test
-souls: {}
-config: {}
-"""
+        mock_entity.yaml = VALID_RUNTIME_YAML
         workflow_repo.get_by_id.return_value = mock_entity
+        provider = Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
+        provider_repo.list_all.return_value = [provider]
 
         # Provider returns an API key
         svc = ExecutionService(
@@ -147,8 +159,10 @@ config: {}
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: test\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = VALID_RUNTIME_YAML
         workflow_repo.get_by_id.return_value = mock_entity
+        provider = Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
+        provider_repo.list_all.return_value = [provider]
 
         svc = ExecutionService(
             run_repo=run_repo,
@@ -191,6 +205,7 @@ config: {}
         from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 
         main_yaml = """
+version: "1.0"
 workflow:
   name: Main Workflow
   entry: b1
@@ -199,10 +214,17 @@ blocks:
   b1:
     type: linear
     soul_ref: main-soul
-souls: {}
+souls:
+  main-soul:
+    id: soul_main
+    role: tester
+    system_prompt: hello
+    provider: openai
+    model_name: gpt-4o
 config: {}
 """
         sim_yaml = """
+version: "1.0"
 workflow:
   name: Simulation Workflow
   entry: b1
@@ -211,7 +233,13 @@ blocks:
   b1:
     type: linear
     soul_ref: sim-soul
-souls: {}
+souls:
+  sim-soul:
+    id: soul_sim
+    role: tester
+    system_prompt: hello
+    provider: openai
+    model_name: gpt-4o
 config: {}
 """
         repo = _init_git_repo_with_workflow(tmp_path, workflow_id="wf_1", main_yaml=main_yaml)
@@ -248,8 +276,9 @@ config: {}
             )
 
             mock_parse.assert_called_once()
-            assert mock_parse.call_args.args[0] == sim_yaml
-            assert mock_parse.call_args.args[0] != main_yaml
+            workflow_def = mock_parse.call_args.args[0]
+            assert workflow_def["workflow"]["name"] == "Simulation Workflow"
+            assert workflow_def["workflow"]["name"] != "Main Workflow"
 
 
 # ---------------------------------------------------------------------------
@@ -268,8 +297,10 @@ class TestAutoCleanup:
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: test\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = VALID_RUNTIME_YAML
         workflow_repo.get_by_id.return_value = mock_entity
+        provider = Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
+        provider_repo.list_all.return_value = [provider]
 
         svc = ExecutionService(
             run_repo=run_repo,
@@ -370,6 +401,7 @@ class TestLaunchExecutionErrors:
         # Valid workflow YAML that needs an LLM call (non-placeholder block)
         mock_entity = Mock()
         mock_entity.yaml = """
+version: "1.0"
 workflow:
   name: test
   entry: b1
@@ -378,7 +410,13 @@ blocks:
   b1:
     type: linear
     soul_ref: researcher
-souls: {}
+souls:
+  researcher:
+    id: researcher_1
+    role: Researcher
+    system_prompt: hello
+    provider: openai
+    model_name: gpt-4o
 config: {}
 """
         workflow_repo.get_by_id.return_value = mock_entity
@@ -458,8 +496,10 @@ config: {}
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = VALID_RUNTIME_YAML
         workflow_repo.get_by_id.return_value = mock_entity
+        provider = Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
+        provider_repo.list_all.return_value = [provider]
         provider_repo.get_by_type.return_value = None
 
         svc = ExecutionService(
@@ -509,9 +549,10 @@ class TestRunStatusTransitions:
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = VALID_RUNTIME_YAML
         workflow_repo.get_by_id.return_value = mock_entity
-        provider_repo.get_by_type.return_value = None
+        provider = Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
+        provider_repo.list_all.return_value = [provider]
 
         svc = ExecutionService(
             run_repo=run_repo,
@@ -570,9 +611,10 @@ class TestRunStatusTransitions:
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = VALID_RUNTIME_YAML
         workflow_repo.get_by_id.return_value = mock_entity
-        provider_repo.get_by_type.return_value = None
+        provider = Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
+        provider_repo.list_all.return_value = [provider]
 
         svc = ExecutionService(
             run_repo=run_repo,
@@ -631,9 +673,10 @@ class TestRunStatusTransitions:
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = "workflow:\n  name: t\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
+        mock_entity.yaml = VALID_RUNTIME_YAML
         workflow_repo.get_by_id.return_value = mock_entity
-        provider_repo.get_by_type.return_value = None
+        provider = Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
+        provider_repo.list_all.return_value = [provider]
 
         svc = ExecutionService(
             run_repo=run_repo,
@@ -664,3 +707,104 @@ class TestRunStatusTransitions:
                 updated = session.get(Run, run_id)
                 assert updated.status == RunStatus.failed
                 assert updated.error is not None
+
+
+class TestExecutionRuntimeResolution:
+    @pytest.mark.asyncio
+    async def test_launch_execution_rejects_providerless_modeless_soul_without_workflow_model(self):
+        ExecutionService = _import_execution_service()
+        run_repo = Mock()
+        workflow_repo = Mock()
+        provider_repo = Mock()
+        settings_repo = Mock()
+
+        mock_entity = Mock()
+        mock_entity.yaml = """
+version: "1.0"
+workflow:
+  name: test
+  entry: b1
+  transitions:
+    - from: b1
+      to: null
+blocks:
+  b1:
+    type: linear
+    soul_ref: test
+souls:
+  test:
+    id: soul_1
+    role: tester
+    system_prompt: hello
+config: {}
+"""
+        workflow_repo.get_by_id.return_value = mock_entity
+        workflow_repo._get_path.return_value = "/fake/workflows/wf_1.yaml"
+        provider_repo.list_all.return_value = []
+        settings_repo.get_settings.return_value = Mock(fallback_enabled=False)
+        settings_repo.get_fallback_map.return_value = []
+
+        svc = ExecutionService(
+            run_repo=run_repo,
+            workflow_repo=workflow_repo,
+            provider_repo=provider_repo,
+            settings_repo=settings_repo,
+        )
+
+        with patch.object(svc, "_fail_run_on_prepare_error") as mock_fail:
+            await svc.launch_execution("run_missing_model", "wf_1", {"instruction": "do stuff"})
+
+        mock_fail.assert_called_once()
+        assert "explicit provider" in str(mock_fail.call_args.args[1])
+
+    @pytest.mark.asyncio
+    async def test_launch_execution_rejects_provider_only_soul_without_model_name(self):
+        ExecutionService = _import_execution_service()
+        run_repo = Mock()
+        workflow_repo = Mock()
+        provider_repo = Mock()
+        settings_repo = Mock()
+
+        mock_entity = Mock()
+        mock_entity.yaml = """
+version: "1.0"
+workflow:
+  name: test
+  entry: b1
+  transitions:
+    - from: b1
+      to: null
+blocks:
+  b1:
+    type: linear
+    soul_ref: test
+souls:
+  test:
+    id: soul_1
+    role: tester
+    system_prompt: hello
+    provider: openai
+config: {}
+"""
+        workflow_repo.get_by_id.return_value = mock_entity
+        workflow_repo._get_path.return_value = "/fake/workflows/wf_1.yaml"
+        provider_repo.list_all.return_value = [
+            Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
+        ]
+        settings_repo.get_settings.return_value = Mock(fallback_enabled=False)
+        settings_repo.get_fallback_map.return_value = []
+
+        svc = ExecutionService(
+            run_repo=run_repo,
+            workflow_repo=workflow_repo,
+            provider_repo=provider_repo,
+            settings_repo=settings_repo,
+        )
+
+        with patch.object(svc, "_fail_run_on_prepare_error") as mock_fail:
+            await svc.launch_execution(
+                "run_missing_model_name", "wf_1", {"instruction": "do stuff"}
+            )
+
+        mock_fail.assert_called_once()
+        assert "explicit model_name" in str(mock_fail.call_args.args[1])

@@ -1,8 +1,8 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from runsight_core.primitives import Soul, Task
-from runsight_core.runner import ExecutionResult, RunsightTeamRunner
+from runsight_core.runner import ExecutionResult, FallbackRoute, RunsightTeamRunner
 
 
 @pytest.fixture
@@ -58,3 +58,52 @@ async def test_stream_task(mock_astream_chat, sample_soul, sample_task):
 
     assert chunks == ["Hel", "lo!"]
     mock_astream_chat.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_execute_task_fails_over_to_configured_fallback_model(sample_task):
+    primary_client = Mock()
+    primary_client.achat = AsyncMock(side_effect=RuntimeError("RateLimitError: openai overloaded"))
+    fallback_client = Mock()
+    fallback_client.achat = AsyncMock(
+        return_value={
+            "content": "Recovered on fallback",
+            "cost_usd": 0.002,
+            "total_tokens": 20,
+            "tool_calls": None,
+            "raw_message": {"role": "assistant", "content": "Recovered on fallback"},
+        }
+    )
+
+    def client_factory(*, model_name, api_key=None):
+        if model_name == "gpt-4o":
+            return primary_client
+        if model_name == "claude-3-opus-20240229":
+            return fallback_client
+        raise AssertionError(f"Unexpected model_name: {model_name}")
+
+    soul = Soul(
+        id="test_soul",
+        role="Test Agent",
+        system_prompt="You are a helpful test agent.",
+        model_name="gpt-4o",
+        provider="openai",
+    )
+
+    with patch("runsight_core.runner.LiteLLMClient", side_effect=client_factory):
+        runner = RunsightTeamRunner(
+            model_name="gpt-4o",
+            api_keys={"openai": "sk-openai", "anthropic": "sk-anthropic"},
+            fallback_routes={
+                "openai": FallbackRoute(
+                    source_provider_id="openai",
+                    target_provider_id="anthropic",
+                    target_model_name="claude-3-opus-20240229",
+                )
+            },
+        )
+        result = await runner.execute_task(sample_task, soul)
+
+    assert result.output == "Recovered on fallback"
+    primary_client.achat.assert_awaited_once()
+    fallback_client.achat.assert_awaited_once()

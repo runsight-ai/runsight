@@ -7,7 +7,9 @@ import time
 from typing import Any, AsyncGenerator, Dict, Optional
 
 from runsight_core.observer import CompositeObserver, LoggingObserver
+from runsight_core.runner import FallbackRoute, RunsightTeamRunner
 from runsight_core.yaml.parser import parse_workflow_yaml
+import yaml
 
 from ...core.secrets import SecretsEnvLoader
 from ...domain.entities.run import RunStatus
@@ -31,6 +33,7 @@ class ExecutionService:
         max_concurrent_runs: int = 5,
         secrets: SecretsEnvLoader | None = None,
         git_service=None,
+        settings_repo=None,
     ):
         self.run_repo = run_repo
         self.workflow_repo = workflow_repo
@@ -38,6 +41,7 @@ class ExecutionService:
         self.engine = engine
         self.secrets = secrets
         self.git_service = git_service
+        self.settings_repo = settings_repo
         self._running_tasks: Dict[str, asyncio.Task] = {}
         self._semaphore = asyncio.Semaphore(max_concurrent_runs)
         self._observers: Dict[str, StreamingObserver] = {}
@@ -169,9 +173,13 @@ class ExecutionService:
 
             # Resolve API keys: provider repo -> env var fallback
             api_keys = self._resolve_api_keys()
+            workflow_definition, runner = self._prepare_runtime_workflow(
+                yaml_content=yaml_content,
+                api_keys=api_keys,
+            )
 
             # Parse workflow YAML into runnable Workflow
-            wf = parse_workflow_yaml(yaml_content, api_keys=api_keys)
+            wf = parse_workflow_yaml(workflow_definition, api_keys=api_keys, runner=runner)
 
             # Store branch + commit_sha on Run record
             self._store_branch_and_sha(run_id, branch, commit_sha)
@@ -379,3 +387,116 @@ class ExecutionService:
                     result[provider_type] = val
 
         return result
+
+    def _prepare_runtime_workflow(
+        self,
+        *,
+        yaml_content: str,
+        api_keys: Dict[str, str],
+    ) -> tuple[dict[str, Any], RunsightTeamRunner]:
+        raw = yaml.safe_load(yaml_content)
+        if not isinstance(raw, dict):
+            raise ValueError("Workflow YAML must parse to a mapping")
+
+        provider_by_id: dict[str, Any] = {}
+        try:
+            providers = self.provider_repo.list_all()
+        except (AttributeError, TypeError):
+            providers = []
+        if not isinstance(providers, list):
+            providers = []
+        provider_by_id = {
+            provider.id: provider for provider in providers if getattr(provider, "is_active", True)
+        }
+        fallback_routes = self._fallback_routes_by_provider(provider_by_id=provider_by_id)
+        souls_section = raw.get("souls")
+        if not isinstance(souls_section, dict):
+            souls_section = {}
+            raw["souls"] = souls_section
+
+        for soul_key, soul_data in souls_section.items():
+            if not isinstance(soul_data, dict):
+                continue
+
+            provider_id = soul_data.get("provider")
+            model_name = soul_data.get("model_name")
+
+            if not isinstance(provider_id, str) or not provider_id.strip():
+                raise ValueError(f"Soul '{soul_key}' must define an explicit provider")
+
+            provider = provider_by_id.get(provider_id)
+            if provider is None:
+                raise ValueError(
+                    f"Soul '{soul_key}' references disabled or missing provider '{provider_id}'"
+                )
+
+            if not isinstance(model_name, str) or not model_name.strip():
+                raise ValueError(f"Soul '{soul_key}' must define an explicit model_name")
+
+            if model_name not in self._provider_models(provider):
+                raise ValueError(
+                    f"Soul '{soul_key}' model '{model_name}' does not belong to provider '{provider_id}'"
+                )
+
+        runner_model_name = next(
+            (
+                soul_data.get("model_name")
+                for soul_data in souls_section.values()
+                if isinstance(soul_data, dict)
+                and isinstance(soul_data.get("model_name"), str)
+                and soul_data.get("model_name").strip()
+            ),
+            None,
+        )
+        if runner_model_name is None:
+            raise ValueError(
+                "Workflow must include at least one soul with explicit provider and model_name"
+            )
+
+        runner = RunsightTeamRunner(
+            model_name=runner_model_name,
+            api_keys=api_keys,
+            fallback_routes=fallback_routes,
+        )
+        return raw, runner
+
+    def _fallback_routes_by_provider(
+        self, *, provider_by_id: dict[str, Any]
+    ) -> dict[str, FallbackRoute]:
+        if self.settings_repo is None:
+            return {}
+        try:
+            settings_config = self.settings_repo.get_settings()
+        except (AttributeError, TypeError):
+            return {}
+        if not getattr(settings_config, "fallback_enabled", False):
+            return {}
+
+        routes: dict[str, FallbackRoute] = {}
+        try:
+            fallback_map = self.settings_repo.get_fallback_map()
+        except (AttributeError, TypeError):
+            fallback_map = []
+        if not isinstance(fallback_map, list):
+            fallback_map = []
+        for entry in fallback_map:
+            if entry.provider_id not in provider_by_id:
+                continue
+            target_provider = provider_by_id.get(entry.fallback_provider_id)
+            if target_provider is None:
+                continue
+            if entry.fallback_model_id not in self._provider_models(target_provider):
+                continue
+            routes[entry.provider_id] = FallbackRoute(
+                source_provider_id=entry.provider_id,
+                target_provider_id=entry.fallback_provider_id,
+                target_model_name=entry.fallback_model_id,
+            )
+        return routes
+
+    @staticmethod
+    def _provider_models(provider: Any) -> list[str]:
+        models = getattr(provider, "models", None)
+        if isinstance(models, list):
+            return [str(model) for model in models]
+        return []

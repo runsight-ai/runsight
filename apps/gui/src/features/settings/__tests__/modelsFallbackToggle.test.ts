@@ -13,14 +13,11 @@ const SETTINGS_QUERIES_PATH = "queries/settings.ts";
 const SETTINGS_API_PATH = "api/settings.ts";
 
 describe("ModelsTab fallback section wiring", () => {
-  it("keeps the Default Model per Provider section and renders a separate Fallback section below it", () => {
+  it("renders a dedicated fallback section without the old default-model section", () => {
     const source = readSource(MODELS_TAB_PATH);
 
-    expect(source).toMatch(/Default Model per Provider/);
     expect(source).toMatch(/Fallback/);
-    expect(source).toMatch(
-      /Default Model per Provider[\s\S]*<section[\s\S]*Fallback|Default Model per Provider[\s\S]*FallbackSection/,
-    );
+    expect(source).not.toMatch(/Default Model per Provider/);
   });
 
   it("imports Switch plus app-settings hooks for fallback toggle state", () => {
@@ -38,7 +35,7 @@ describe("ModelsTab fallback section wiring", () => {
     expect(source).not.toMatch(/fallback_chain_enabled/);
     expect(source).toMatch(/useAppSettings\(\)/);
     expect(source).toMatch(
-      /fallback_enabled\s*\?\?+\s*true|fallbackEnabled.*=\s*.*fallback_enabled.*\?\?\s*true/,
+      /fallback_enabled\s*\?\?+\s*false|fallbackEnabled.*=\s*.*fallback_enabled.*\?\?\s*false/,
     );
   });
 
@@ -47,7 +44,7 @@ describe("ModelsTab fallback section wiring", () => {
 
     expect(source).toMatch(/allProviders/);
     expect(source).toMatch(/allProviders\.length\s*===\s*0/);
-    expect(source).toMatch(/No model defaults configured/);
+    expect(source).toMatch(/No providers configured/);
   });
 
   it("renders a disabled fallback empty state when fewer than two providers are enabled", () => {
@@ -89,9 +86,9 @@ describe("Fallback section persistence contracts", () => {
     const apiSource = readSource(SETTINGS_API_PATH);
 
     expect(apiSource).toMatch(/AppSettingsOutSchema/);
-    expect(apiSource).toMatch(/SettingsModelDefaultResponseSchema/);
+    expect(apiSource).toMatch(/SettingsFallbackResponseSchema/);
     expect(apiSource).toMatch(/from\s+"@runsight\/shared\/zod"/);
     expect(apiSource).toMatch(/return AppSettingsOutSchema\.parse\(res\);/);
-    expect(apiSource).toMatch(/return SettingsModelDefaultResponseSchema\.parse\(res\);/);
+    expect(apiSource).toMatch(/return SettingsFallbackResponseSchema\.parse\(res\);/);
   });
 });

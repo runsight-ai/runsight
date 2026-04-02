@@ -140,14 +140,8 @@ function collectLocalConcernBindings(source: string) {
       fieldPatterns: [/api_key_env\s*:/, /api_key_preview\s*:/, /model_count\s*:/, /is_configured\s*:/],
     },
     {
-      concern: "model-default",
-      fieldPatterns: [
-        /provider_id\s*:/,
-        /provider_name\s*:/,
-        /model_name\s*:/,
-        /fallback_provider_id\s*:/,
-        /fallback_model_id\s*:/,
-      ],
+      concern: "fallback",
+      fieldPatterns: [/provider_id\s*:/, /provider_name\s*:/, /fallback_provider_id\s*:/, /fallback_model_id\s*:/],
     },
     {
       concern: "budget",
@@ -231,7 +225,6 @@ const budgetItemPayload = {
 
 const appSettingsPayload = {
   base_path: "/workspace",
-  default_provider: "openai",
   auto_save: true,
   onboarding_completed: true,
   fallback_enabled: false,
@@ -253,8 +246,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       { methodName: "getProvider", exportedSchemaName: "SettingsProviderResponseSchema" },
       { methodName: "createProvider", exportedSchemaName: "SettingsProviderResponseSchema" },
       { methodName: "updateProvider", exportedSchemaName: "SettingsProviderResponseSchema" },
-      { methodName: "listModelDefaults", exportedSchemaName: "SettingsModelDefaultListResponseSchema" },
-      { methodName: "updateModelDefault", exportedSchemaName: "SettingsModelDefaultResponseSchema" },
+      { methodName: "listFallbackTargets", exportedSchemaName: "SettingsFallbackListResponseSchema" },
+      { methodName: "updateFallbackTarget", exportedSchemaName: "SettingsFallbackResponseSchema" },
       { methodName: "getBudgets", exportedSchemaName: "SettingsBudgetListResponseSchema" },
       { methodName: "createBudget", exportedSchemaName: "SettingsBudgetResponseSchema" },
       { methodName: "updateBudget", exportedSchemaName: "SettingsBudgetResponseSchema" },
@@ -295,8 +288,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       "getProvider",
       "createProvider",
       "updateProvider",
-      "listModelDefaults",
-      "updateModelDefault",
+      "listFallbackTargets",
+      "updateFallbackTarget",
       "getBudgets",
       "createBudget",
       "updateBudget",
@@ -313,6 +306,7 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       localConcernBindings,
       [
         "Expected apps/gui/src/api/settings.ts to stop locally constructing provider/model-default/budget/app-settings transport schemas.",
+        "Expected apps/gui/src/api/settings.ts to stop locally constructing provider/fallback/budget/app-settings transport schemas.",
         `Found local constructions: ${localConcernBindings.map(({ binding, concern }) => `${binding} (${concern})`).join(", ") || "(none)"}`,
       ].join("\n"),
     ).toEqual([]);
@@ -410,12 +404,12 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       },
     },
     {
-      title: "preserves model-default transport fields for listModelDefaults",
+      title: "preserves fallback transport fields for listFallbackTargets",
       payload: { items: [modelDefaultItemPayload], total: 1 },
       arrange: (payload) => {
         testState.apiGet.mockResolvedValue(payload);
       },
-      invoke: (settingsApi) => settingsApi.listModelDefaults(),
+      invoke: (settingsApi) => settingsApi.listFallbackTargets(),
       assertResult: (result) => {
         expect(result).toEqual(
           expect.objectContaining({
@@ -433,15 +427,13 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       },
     },
     {
-      title: "preserves model-default transport fields for updateModelDefault",
+      title: "preserves fallback transport fields for updateFallbackTarget",
       payload: modelDefaultItemPayload,
       arrange: (payload) => {
         testState.apiPut.mockResolvedValue(payload);
       },
       invoke: (settingsApi) =>
-        settingsApi.updateModelDefault("openai", {
-          model_name: "gpt-4.1",
-          is_default: true,
+        settingsApi.updateFallbackTarget("openai", {
           fallback_provider_id: modelDefaultItemPayload.fallback_provider_id,
           fallback_model_id: modelDefaultItemPayload.fallback_model_id,
         }),
@@ -584,20 +576,16 @@ describe("RUN-512 settings API canonical shared contracts", () => {
     assertResult(result);
   });
 
-  it("sends only fallback_provider_id and fallback_model_id in updateModelDefault requests", async () => {
+  it("sends only fallback_provider_id and fallback_model_id in updateFallbackTarget requests", async () => {
     testState.apiPut.mockResolvedValue(modelDefaultItemPayload);
 
     const { settingsApi } = await import("../settings");
-    await settingsApi.updateModelDefault("openai", {
-      model_name: "gpt-4.1",
-      is_default: true,
+    await settingsApi.updateFallbackTarget("openai", {
       fallback_provider_id: "anthropic",
       fallback_model_id: "claude-sonnet-4",
     });
 
-    expect(testState.apiPut).toHaveBeenCalledWith("/settings/models/openai", {
-      model_name: "gpt-4.1",
-      is_default: true,
+    expect(testState.apiPut).toHaveBeenCalledWith("/settings/fallbacks/openai", {
       fallback_provider_id: "anthropic",
       fallback_model_id: "claude-sonnet-4",
     });
