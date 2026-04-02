@@ -8,7 +8,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from typing import Callable, Dict
+from typing import Any, Callable, Dict
 
 import httpx
 
@@ -106,6 +106,11 @@ def _resolve_custom_tool_id(
     tool_meta = tool_meta or discover_custom_tools(base_dir).get(tool_id)
     if tool_meta is None:
         raise ValueError(f"Unknown custom tool source: {tool_id!r}")
+    if tool_meta.executor != "python":
+        raise ValueError(
+            f"Custom tool {tool_id!r} uses unsupported executor for python resolution: "
+            f"{tool_meta.executor!r}"
+        )
     if tool_meta.code is None:
         raise ValueError(f"Custom tool {tool_id!r} has no executable code")
 
@@ -149,8 +154,8 @@ def _resolve_custom_tool_id(
 
     return ToolInstance(
         name=_tool_instance_name(tool_id),
-        description=f"Custom tool '{tool_id}'",
-        parameters={"type": "object", "properties": {}},
+        description=tool_meta.description,
+        parameters=tool_meta.parameters,
         execute=_execute,
     )
 
@@ -185,24 +190,42 @@ def _extract_http_response_value(payload: object, response_path: str | None) -> 
 def _build_http_tool(
     *,
     tool_name: str,
+    description: str,
+    parameters: dict[str, Any],
     method: str,
     url: str,
+    headers: dict[str, str] | None,
     body_template: str | None,
     response_path: str | None,
+    timeout_seconds: int | None = None,
 ) -> ToolInstance:
     """Build a ToolInstance for an HTTP-backed tool."""
 
     async def _execute(args: dict) -> str:
         rendered_url = _render_http_template(url, args)
         rendered_body = _render_http_template(body_template, args)
+        rendered_headers = (
+            {
+                key: rendered_value
+                for key, value in headers.items()
+                if (rendered_value := _render_http_template(value, args)) is not None
+            }
+            if headers
+            else None
+        )
         await validate_ssrf(rendered_url)
 
         async with httpx.AsyncClient() as client:
-            response = await client.request(
+            request_coro = client.request(
                 method.upper(),
                 rendered_url,
-                headers=None,
+                headers=rendered_headers,
                 content=rendered_body,
+            )
+            response = (
+                await asyncio.wait_for(request_coro, timeout=timeout_seconds)
+                if timeout_seconds is not None
+                else await request_coro
             )
 
         content_type = response.headers.get("content-type", "").lower()
@@ -215,8 +238,8 @@ def _build_http_tool(
 
     return ToolInstance(
         name=tool_name,
-        description=f"HTTP tool '{tool_name}'",
-        parameters={"type": "object", "properties": {}},
+        description=description,
+        parameters=parameters,
         execute=_execute,
     )
 
@@ -230,17 +253,26 @@ def _resolve_http_tool_id(
     """Resolve a discovered HTTP tool from its canonical workflow ID."""
     base_dir = kwargs.get("base_dir", ".")
     tool_meta = tool_meta or discover_custom_tools(base_dir).get(tool_id)
-    if tool_meta is None or tool_meta.type != "http":
+    if tool_meta is None:
         raise ValueError(f"Unknown HTTP tool source: {tool_id!r}")
-    if tool_meta.url is None:
-        raise ValueError("HTTP tools must declare either an inline URL or a file source slug")
+    if tool_meta.executor != "request":
+        raise ValueError(
+            f"Custom tool {tool_id!r} uses unsupported executor for request resolution: "
+            f"{tool_meta.executor!r}"
+        )
+    if tool_meta.request is None:
+        raise ValueError(f"Request tool {tool_id!r} is missing request configuration")
 
     return _build_http_tool(
         tool_name=_tool_instance_name(tool_id),
-        method=tool_meta.method or "GET",
-        url=tool_meta.url,
-        body_template=tool_meta.body_template,
-        response_path=tool_meta.response_path,
+        description=tool_meta.description,
+        parameters=tool_meta.parameters,
+        method=str(tool_meta.request.get("method", "GET")),
+        url=str(tool_meta.request["url"]),
+        headers=tool_meta.request.get("headers"),
+        body_template=tool_meta.request.get("body_template"),
+        response_path=tool_meta.request.get("response_path"),
+        timeout_seconds=tool_meta.timeout_seconds,
     )
 
 
@@ -258,8 +290,11 @@ def _resolve_http_tool(tool_def: HTTPToolDef, **kwargs: object) -> ToolInstance:
 
     return _build_http_tool(
         tool_name=_tool_instance_name(tool_def.source or "http_tool"),
+        description=f"HTTP tool '{_tool_instance_name(tool_def.source or 'http_tool')}'",
+        parameters={"type": "object", "properties": {}},
         method=method,
         url=url,
+        headers=None,
         body_template=body_template,
         response_path=response_path,
     )
@@ -267,22 +302,30 @@ def _resolve_http_tool(tool_def: HTTPToolDef, **kwargs: object) -> ToolInstance:
 
 def resolve_tool_id(tool_id: str, **kwargs: object) -> ToolInstance:
     """Resolve a workflow-authored canonical tool ID to a ToolInstance."""
+    base_dir = kwargs.get("base_dir", ".")
+    discovered_tools = discover_custom_tools(base_dir)
+
     if tool_id in RESERVED_BUILTIN_TOOL_IDS:
+        if tool_id in discovered_tools:
+            collision_path = discovered_tools[tool_id].file_path
+            raise ValueError(
+                f"reserved builtin tool id '{tool_id}' collides with custom tool metadata at "
+                f"{collision_path}"
+            )
         factory = BUILTIN_TOOL_CATALOG.get(tool_id)
         if factory is None:
             raise ValueError(f"Unknown builtin tool id: {tool_id!r}")
         return factory(**kwargs)
 
-    base_dir = kwargs.get("base_dir", ".")
-    tool_meta = discover_custom_tools(base_dir).get(tool_id)
+    tool_meta = discovered_tools.get(tool_id)
     if tool_meta is None:
         raise ValueError(f"Unknown tool id: {tool_id!r}")
-    if tool_meta.type == "custom":
+    if tool_meta.executor == "python":
         return _resolve_custom_tool_id(tool_id, tool_meta=tool_meta, **kwargs)
-    if tool_meta.type == "http":
+    if tool_meta.executor == "request":
         return _resolve_http_tool_id(tool_id, tool_meta=tool_meta, **kwargs)
 
-    raise ValueError(f"Unsupported discovered tool type {tool_meta.type!r} for {tool_id!r}")
+    raise ValueError(f"Unsupported discovered tool executor {tool_meta.executor!r} for {tool_id!r}")
 
 
 def resolve_tool(tool_def: ToolDef, **kwargs: object) -> ToolInstance:
