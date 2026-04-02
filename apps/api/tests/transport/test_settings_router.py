@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, Mock
 from fastapi.testclient import TestClient
 
 from runsight_api.data.filesystem.settings_repo import FileSystemSettingsRepo
+from runsight_api.domain.entities.settings import AppSettingsConfig
 from runsight_api.main import app
 from runsight_api.transport.deps import (
     get_provider_service,
@@ -324,18 +325,14 @@ def test_settings_budgets_list():
 def test_settings_app_get():
     try:
         repo = Mock(spec=FileSystemSettingsRepo)
-        repo.get_settings.return_value = Mock(
-            model_dump=Mock(
-                return_value={
-                    "default_provider": "openai",
-                    "fallback_chain_enabled": False,
-                }
-            )
+        repo.get_settings.return_value = AppSettingsConfig(
+            default_provider="openai",
+            fallback_enabled=False,
         )
         app.dependency_overrides[get_settings_repo] = lambda: repo
         response = client.get("/api/settings/app")
         assert response.status_code == 200
-        assert response.json()["fallback_chain_enabled"] is False
+        assert response.json()["fallback_enabled"] is False
     finally:
         app.dependency_overrides.clear()
 
@@ -343,13 +340,13 @@ def test_settings_app_get():
 def test_settings_app_put():
     try:
         repo = Mock(spec=FileSystemSettingsRepo)
-        repo.update_settings.return_value = Mock(
-            model_dump=Mock(return_value={"fallback_chain_enabled": False})
+        repo.update_settings.return_value = AppSettingsConfig(
+            fallback_enabled=False,
         )
         app.dependency_overrides[get_settings_repo] = lambda: repo
-        response = client.put("/api/settings/app", json={"fallback_chain_enabled": False})
+        response = client.put("/api/settings/app", json={"fallback_enabled": False})
         assert response.status_code == 200
-        assert response.json()["fallback_chain_enabled"] is False
-        repo.update_settings.assert_called_once_with({"fallback_chain_enabled": False})
+        assert response.json()["fallback_enabled"] is False
+        repo.update_settings.assert_called_once_with({"fallback_enabled": False})
     finally:
         app.dependency_overrides.clear()

@@ -35,6 +35,11 @@ class TestDomainFoundation:
 
         assert not hasattr(settings_module, "FallbackChainEntry")
 
+    def test_fallback_chain_entry_removed_from_entities_module(self):
+        entities_module = _entities_module()
+
+        assert not hasattr(entities_module, "FallbackChainEntry")
+
     def test_fallback_target_entry_exported_from_domain_modules(self):
         settings_module = _settings_module()
         entities_module = _entities_module()
@@ -70,6 +75,10 @@ class TestFreshInstallDefaults:
 
         assert isinstance(settings, AppSettingsConfig)
         assert settings.fallback_enabled is False
+
+    def test_legacy_fallback_chain_repo_methods_are_removed(self, repo):
+        assert not hasattr(repo, "get_fallback_chain")
+        assert not hasattr(repo, "update_fallback_chain")
 
     def test_get_fallback_map_returns_empty_list_for_new_install(self, repo):
         assert repo.get_fallback_map() == []
