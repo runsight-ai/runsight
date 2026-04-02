@@ -63,6 +63,27 @@ def test_settings_providers_list():
     app.dependency_overrides.clear()
 
 
+def test_settings_providers_list_keeps_disabled_provider_visible_for_management():
+    mock_service = Mock()
+    disabled_provider = _mock_provider(
+        provider_id="anthropic",
+        name="Anthropic",
+        models=["claude-sonnet-4"],
+    )
+    disabled_provider.is_active = False
+    mock_service.list_providers.return_value = [disabled_provider]
+    app.dependency_overrides[get_provider_service] = lambda: mock_service
+
+    try:
+        response = client.get("/api/settings/providers")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["items"][0]["id"] == "anthropic"
+        assert payload["items"][0]["is_active"] is False
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_settings_providers_get_404():
     mock_service = Mock()
     mock_service.get_provider.return_value = None

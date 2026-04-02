@@ -86,3 +86,27 @@ def test_put_soul_rejects_switching_to_disabled_provider_with_validation_error(
     assert response.status_code == 400
     assert response.json()["error_code"] == "VALIDATION_ERROR"
     assert "disabled" in response.json()["error"].lower()
+
+
+def test_get_soul_keeps_existing_disabled_provider_readable(tmp_path, monkeypatch):
+    monkeypatch.setattr(deps_module.settings, "base_path", str(tmp_path))
+    app.dependency_overrides[get_git_service] = lambda: Mock()
+    _write_provider(tmp_path, provider_id="anthropic", provider_type="anthropic", is_active=False)
+    SoulRepository(str(tmp_path)).create(
+        {
+            "id": "soul_disabled_existing",
+            "role": "Existing Soul",
+            "system_prompt": "Keep working.",
+            "provider": "anthropic",
+            "model_name": "claude-sonnet-4",
+        }
+    )
+
+    try:
+        response = client.get("/api/souls/soul_disabled_existing")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["provider"] == "anthropic"
+    assert response.json()["model_name"] == "claude-sonnet-4"
