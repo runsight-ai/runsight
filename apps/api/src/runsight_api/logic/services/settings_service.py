@@ -23,41 +23,35 @@ class SettingsService:
         ]
 
     def get_model_defaults(self) -> list[dict]:
-        providers = self._list_active_providers()
-        if not providers:
-            self._list_model_defaults()
-            self._list_fallback_map()
-            return []
-
-        provider_ids = {provider.id for provider in providers}
-        defaults_by_provider = {
+        active_providers = {provider.id: provider for provider in self._list_active_providers()}
+        defaults = [
+            entry for entry in self._list_model_defaults() if entry.provider_id in active_providers
+        ]
+        fallback_map = {
             entry.provider_id: entry
-            for entry in self._list_model_defaults()
-            if entry.provider_id in provider_ids
+            for entry in self._list_fallback_map()
+            if entry.provider_id in active_providers
         }
-        fallback_map = self._fallback_map_for_provider_ids(provider_ids)
 
-        items: list[dict] = []
-        for provider in providers:
-            items.append(
-                self._model_default_out(
-                    provider=provider,
-                    default_entry=defaults_by_provider.get(provider.id),
-                    fallback_chain=self._fallback_chain_for_provider(
-                        default_entry=defaults_by_provider.get(provider.id),
-                        fallback_target=fallback_map.get(provider.id),
-                    ),
-                )
+        return [
+            self._model_default_out(
+                provider=active_providers[entry.provider_id],
+                default_entry=entry,
+                fallback_target=self._readable_fallback_target(
+                    fallback_target=fallback_map.get(entry.provider_id),
+                    active_providers=active_providers,
+                ),
             )
-
-        return items
+            for entry in defaults
+        ]
 
     def update_model_default(
         self,
         provider_id: str,
         model_name: str | None,
         is_default: bool | None,
-        fallback_chain: list[str] | None,
+        fallback_provider_id: str | None,
+        fallback_model_id: str | None,
     ) -> dict:
         provider = self.provider_repo.get_by_id(provider_id)
         if provider is None:
@@ -82,20 +76,27 @@ class SettingsService:
             )
             self.settings_repo.set_model_default(default_entry)
 
-        persisted_fallback_chain = self._fallback_chain_from_target(
-            self._fallback_target_for_provider(provider_id)
-        )
-
-        if fallback_chain is not None:
-            self._persist_fallback_target(provider_id, fallback_chain)
-            response_fallback_chain = fallback_chain
-        else:
-            response_fallback_chain = persisted_fallback_chain
+        fallback_target = self._fallback_target_for_provider(provider_id)
+        if fallback_provider_id == "" or fallback_model_id == "":
+            if fallback_provider_id == "" and fallback_model_id == "":
+                self.settings_repo.remove_fallback_target(provider_id)
+                fallback_target = None
+            else:
+                raise InputValidationError(
+                    "fallback_provider_id and fallback_model_id must both be provided or both omitted"
+                )
+        elif fallback_provider_id is not None or fallback_model_id is not None:
+            fallback_target = self._validated_fallback_target(
+                provider_id=provider_id,
+                fallback_provider_id=fallback_provider_id,
+                fallback_model_id=fallback_model_id,
+            )
+            self.settings_repo.set_fallback_target(fallback_target)
 
         return self._model_default_out(
             provider=provider,
             default_entry=default_entry,
-            fallback_chain=response_fallback_chain,
+            fallback_target=self._readable_fallback_target_for_update(fallback_target),
         )
 
     def _default_entry_for_provider(self, provider_id: str) -> ModelDefaultEntry | None:
@@ -104,21 +105,12 @@ class SettingsService:
                 return entry
         return None
 
-    def _fallback_map_for_provider_ids(
-        self, provider_ids: set[str]
-    ) -> dict[str, FallbackTargetEntry]:
-        return {
-            entry.provider_id: entry
-            for entry in self._list_fallback_map()
-            if entry.provider_id in provider_ids and entry.fallback_provider_id in provider_ids
-        }
-
     def _model_default_out(
         self,
         *,
         provider,
         default_entry: ModelDefaultEntry | None,
-        fallback_chain: list[str],
+        fallback_target: FallbackTargetEntry | None,
     ) -> dict:
         provider_models = provider.models or []
         return {
@@ -131,53 +123,67 @@ class SettingsService:
                 else (provider_models[0] if provider_models else "")
             ),
             "is_default": default_entry.is_default if default_entry is not None else False,
-            "fallback_chain": fallback_chain,
+            "fallback_provider_id": (
+                fallback_target.fallback_provider_id if fallback_target is not None else None
+            ),
+            "fallback_model_id": (
+                fallback_target.fallback_model_id if fallback_target is not None else None
+            ),
         }
 
-    def _fallback_chain_for_provider(
+    def _readable_fallback_target(
         self,
         *,
-        default_entry: ModelDefaultEntry | None,
         fallback_target: FallbackTargetEntry | None,
-    ) -> list[str]:
-        if fallback_target is not None:
-            return [fallback_target.fallback_model_id]
-        if default_entry is not None:
-            return [default_entry.model_id]
-        return []
-
-    def _fallback_chain_from_target(self, fallback_target: FallbackTargetEntry | None) -> list[str]:
-        if fallback_target is None:
-            return []
-        return [fallback_target.fallback_model_id]
-
-    def _persist_fallback_target(self, provider_id: str, fallback_chain: list[str]) -> None:
-        if not fallback_chain:
-            self.settings_repo.remove_fallback_target(provider_id)
-            return
-
-        fallback_target = self._resolve_fallback_target(provider_id, fallback_chain)
-        if fallback_target is None:
-            self.settings_repo.remove_fallback_target(provider_id)
-            return
-
-        self.settings_repo.set_fallback_target(fallback_target)
-
-    def _resolve_fallback_target(
-        self,
-        provider_id: str,
-        fallback_chain: list[str],
+        active_providers: dict[str, object],
     ) -> FallbackTargetEntry | None:
-        providers = self._list_active_providers()
-        for model_name in fallback_chain:
-            for provider in providers:
-                if model_name in (provider.models or []):
-                    return FallbackTargetEntry(
-                        provider_id=provider_id,
-                        fallback_provider_id=provider.id,
-                        fallback_model_id=model_name,
-                    )
-        return None
+        if fallback_target is None:
+            return None
+        if fallback_target.fallback_provider_id not in active_providers:
+            return None
+        return fallback_target
+
+    def _readable_fallback_target_for_update(
+        self,
+        fallback_target: FallbackTargetEntry | None,
+    ) -> FallbackTargetEntry | None:
+        if fallback_target is None:
+            return None
+
+        target_provider = self.provider_repo.get_by_id(fallback_target.fallback_provider_id)
+        if target_provider is None or not getattr(target_provider, "is_active", True):
+            return None
+        return fallback_target
+
+    def _validated_fallback_target(
+        self,
+        *,
+        provider_id: str,
+        fallback_provider_id: str | None,
+        fallback_model_id: str | None,
+    ) -> FallbackTargetEntry:
+        if fallback_provider_id is None or fallback_model_id is None:
+            raise InputValidationError(
+                "fallback_provider_id and fallback_model_id must both be provided or both omitted"
+            )
+        if fallback_provider_id == provider_id:
+            raise InputValidationError("fallback target cannot reference self")
+
+        target_provider = self.provider_repo.get_by_id(fallback_provider_id)
+        if target_provider is None:
+            raise ProviderNotFound(f"Provider {fallback_provider_id} not found")
+        if not getattr(target_provider, "is_active", True):
+            raise InputValidationError(f"Provider {fallback_provider_id} is disabled")
+        if fallback_model_id not in (target_provider.models or []):
+            raise InputValidationError(
+                f"Model {fallback_model_id} does not belong to provider {fallback_provider_id}"
+            )
+
+        return FallbackTargetEntry(
+            provider_id=provider_id,
+            fallback_provider_id=fallback_provider_id,
+            fallback_model_id=fallback_model_id,
+        )
 
     def _list_model_defaults(self) -> list[ModelDefaultEntry]:
         defaults = self.settings_repo.list_model_defaults()
