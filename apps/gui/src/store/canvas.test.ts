@@ -44,7 +44,7 @@ describe("useCanvasStore", () => {
     expect(state.isDirty).toBe(false);
   });
 
-  it("normalizes legacy camelCase persisted keys at load time while keeping runtime state canonical", () => {
+  it("ignores legacy camelCase persisted keys during hydrate", () => {
     const legacyPersisted = {
       nodes: [makeNode("n1", 7, 8) as unknown as Record<string, unknown>],
       edges: [makeEdge("e1", "n1", "n2") as unknown as Record<string, unknown>],
@@ -56,8 +56,8 @@ describe("useCanvasStore", () => {
     useCanvasStore.getState().hydrateFromPersisted(legacyPersisted);
 
     const state = useCanvasStore.getState();
-    expect(state.selectedNodeId).toBe("n1");
-    expect(state.canvasMode).toBe("state-machine");
+    expect(state.selectedNodeId).toBeNull();
+    expect(state.canvasMode).toBe("dag");
     expect(state.isDirty).toBe(false);
   });
 
