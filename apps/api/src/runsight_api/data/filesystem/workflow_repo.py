@@ -51,7 +51,6 @@ class WorkflowRepository:
         self.canvas_dir = self.workflows_dir / ".canvas"
         self.workflows_dir.mkdir(parents=True, exist_ok=True)
         self.canvas_dir.mkdir(parents=True, exist_ok=True)
-        self._materialize_legacy_canvas_workflows()
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -116,20 +115,6 @@ class WorkflowRepository:
 
     def _canvas_path(self, stem: str) -> Path:
         return self.canvas_dir / f"{stem}.canvas.json"
-
-    def _materialize_legacy_canvas_workflow(self, stem: str) -> Optional[Path]:
-        """Create a canonical raw-YAML file for one legacy canvas-only workflow."""
-        yaml_path = self._get_path(stem)
-        if yaml_path.exists() or not self._canvas_path(stem).exists():
-            return None
-        self._atomic_write(yaml_path, "")
-        return yaml_path
-
-    def _materialize_legacy_canvas_workflows(self) -> None:
-        """Run the one-time legacy canvas migration into canonical YAML files."""
-        for canvas_file in sorted(self.canvas_dir.glob("*.canvas.json")):
-            stem = canvas_file.name.replace(".canvas.json", "")
-            self._materialize_legacy_canvas_workflow(stem)
 
     @staticmethod
     def _validate_yaml_content(raw_yaml: Optional[str]) -> Tuple[bool, Optional[str]]:
