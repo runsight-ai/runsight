@@ -106,6 +106,7 @@ class ProviderService:
         name: Optional[str] = None,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
+        is_active: Optional[bool] = None,
     ) -> Optional[ProviderEntity]:
         provider = self.repo.get_by_id(provider_id)
         if not provider:
@@ -122,6 +123,8 @@ class ProviderService:
                 update_data["api_key"] = None
         if base_url is not None:
             update_data["base_url"] = base_url
+        if is_active is not None:
+            update_data["is_active"] = is_active
 
         update_data["updated_at"] = time.time()
         return self.repo.update(provider_id, update_data)

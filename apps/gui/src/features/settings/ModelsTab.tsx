@@ -8,6 +8,7 @@ import {
 } from "@/queries/settings";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { Button } from "@runsight/ui/button";
+import { Skeleton } from "@runsight/ui/skeleton";
 import { Switch } from "@runsight/ui/switch";
 import {
   Select,
@@ -20,6 +21,7 @@ import {
   Bot,
   Check,
   X,
+  GripVertical,
   ChevronUp,
   ChevronDown,
   AlertCircle,
@@ -32,28 +34,31 @@ function ModelRow({
   model,
   availableModels,
   onSave,
-  onCancel,
 }: {
   model: ModelDefault;
   availableModels: string[];
   onSave: (id: string, modelName: string) => void;
-  onCancel: () => void;
 }) {
   const [selectedModel, setSelectedModel] = useState(model.model_name);
   const hasChanges = selectedModel !== model.model_name;
   const models = availableModels.length > 0 ? availableModels : [model.model_name];
+  const handleCancel = () => setSelectedModel(model.model_name);
+
+  useEffect(() => {
+    setSelectedModel(model.model_name);
+  }, [model.model_name]);
 
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border-default py-3 last:border-0">
-      <span className="w-28 shrink-0 text-sm font-medium text-primary">
+    <div className="flex flex-col gap-3 rounded-md border border-border-default bg-surface-secondary p-3 md:flex-row md:items-center">
+      <span className="min-w-[100px] shrink-0 text-sm font-medium text-heading">
         {model.provider_name}
       </span>
-      <div className="flex flex-1 items-center gap-2">
+      <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
         <Select
           value={selectedModel}
           onValueChange={(v) => v && setSelectedModel(v)}
         >
-          <SelectTrigger className="h-8 min-w-[180px] rounded-lg border-border-default bg-surface-secondary">
+          <SelectTrigger className="min-w-[220px] rounded-md border-border-subtle bg-surface-tertiary font-mono text-sm text-primary">
             <SelectValue placeholder="Select model" />
           </SelectTrigger>
           <SelectContent>
@@ -65,24 +70,24 @@ function ModelRow({
           </SelectContent>
         </Select>
         {hasChanges && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2 md:ml-auto">
             <Button
-              variant="icon-only"
-              size="md"
-              className="text-[var(--success-9)] hover:text-[var(--success-9)]"
+              variant="secondary"
+              size="sm"
               onClick={() => onSave(model.id, selectedModel)}
               aria-label={`Save ${model.provider_name} default model`}
             >
-              <Check className="h-4 w-4" />
+              <Check className="h-4 w-4 text-[var(--success-11)]" />
+              Save
             </Button>
             <Button
-              variant="icon-only"
-              size="md"
-              className="text-muted"
-              onClick={onCancel}
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
               aria-label={`Cancel ${model.provider_name} model change`}
             >
               <X className="h-4 w-4" />
+              Cancel
             </Button>
           </div>
         )}
@@ -139,6 +144,13 @@ function FallbackChainSection({
     setLocalChain(primaryFallbackChain);
     setHasChanges(false);
   }, [primaryFallbackChain]);
+  const providerNamesByModel = useMemo(
+    () =>
+      new Map(
+        modelDefaults.map((model) => [model.model_name, model.provider_name]),
+      ),
+    [modelDefaults],
+  );
 
   if (!primary) return null;
 
@@ -153,15 +165,12 @@ function FallbackChainSection({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted">
-          Retry order when primary fails
-        </span>
+        <span className="text-sm text-muted">Retry order when primary fails</span>
         {hasChanges && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <Button
               variant="secondary"
               size="sm"
-              className="h-7 text-xs"
               onClick={handleSave}
               disabled={!enabled}
             >
@@ -170,7 +179,6 @@ function FallbackChainSection({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-xs"
               onClick={handleCancel}
               disabled={!enabled}
             >
@@ -189,34 +197,44 @@ function FallbackChainSection({
         {localChain.map((name, i) => (
           <li
             key={`${name}-${i}`}
-            className="flex items-center gap-2 rounded-md border border-border-default bg-surface-secondary px-3 py-2 text-sm"
+            className="flex items-center gap-3 rounded-md border border-border-default bg-surface-secondary px-3 py-2.5 text-sm"
           >
-            <div className="flex shrink-0 gap-0.5">
+            <GripVertical className="h-4 w-4 shrink-0 text-muted" />
+            <span className="w-5 shrink-0 text-center font-mono text-2xs text-muted">
+              {i + 1}
+            </span>
+            <span className="flex-1 font-mono text-sm text-primary">{name}</span>
+            <span className="shrink-0 text-2xs text-muted">
+              {providerNamesByModel.get(name) ?? "Unknown provider"}
+            </span>
+            <div className="ml-auto flex shrink-0 gap-1">
               <Button
                 variant="icon-only"
-                size="sm"
-                className="h-6 w-6"
+                size="icon-sm"
                 onClick={() => move(i, -1)}
                 disabled={!enabled || i === 0}
                 aria-label={`Move ${name} up`}
               >
-                <ChevronUp className="h-3.5 w-3.5" />
+                <ChevronUp className="h-4 w-4" />
               </Button>
               <Button
                 variant="icon-only"
-                size="sm"
-                className="h-6 w-6"
+                size="icon-sm"
                 onClick={() => move(i, 1)}
                 disabled={!enabled || i === localChain.length - 1}
                 aria-label={`Move ${name} down`}
               >
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="h-4 w-4" />
               </Button>
             </div>
-            <span className="flex-1 font-medium text-primary">{name}</span>
           </li>
         ))}
       </ul>
+      <p className="text-sm leading-relaxed text-muted">
+        When enabled, if the primary model fails (rate limit, timeout), the
+        system tries the next model in the chain. When disabled, failures are
+        reported immediately. Drag to reorder.
+      </p>
     </div>
   );
 }
@@ -277,20 +295,26 @@ export function ModelsTab() {
 
   return (
     <div className="w-full">
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold tracking-tight text-primary">
-          Models
-        </h2>
-      </div>
-
       {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-40 animate-pulse rounded-lg border border-border-default bg-surface-secondary"
-            />
-          ))}
+        <div className="space-y-6">
+          <section>
+            <div className="mb-3 font-mono text-2xs font-medium uppercase tracking-wider text-muted">
+              Default Model per Provider
+            </div>
+            <div className="space-y-2">
+              {[1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-md border border-border-default bg-surface-secondary p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="w-24" />
+                    <Skeleton className="h-8 w-full max-w-[360px]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       ) : error ? (
         <div className="flex items-center justify-center rounded-lg border border-border-default bg-surface-secondary p-8">
@@ -315,7 +339,7 @@ export function ModelsTab() {
           </div>
         </div>
       ) : modelDefaults.length === 0 ? (
-        <div className="rounded-lg border border-border-default bg-surface-secondary p-8">
+        <div className="rounded-lg border border-border-default bg-surface-primary p-8">
           <EmptyState
             icon={Bot}
             title="No model defaults configured"
@@ -324,48 +348,41 @@ export function ModelsTab() {
         </div>
       ) : (
         <div className="space-y-6">
-          <section className="rounded-lg border border-border-default bg-surface-secondary p-5">
-            <h3 className="mb-4 text-base font-medium text-primary">
-              Default Models per Provider
-            </h3>
-            <p className="mb-6 text-sm text-muted">
-              Select the default model for each provider. Souls without an
-              explicit model will use these defaults.
-            </p>
-
-            <div className="space-y-0">
+          <section>
+            <div className="mb-3 font-mono text-2xs font-medium uppercase tracking-wider text-muted">
+              Default Model per Provider
+            </div>
+            <div className="space-y-2">
               {modelDefaults.map((model) => (
                 <ModelRow
                   key={model.id}
                   model={model}
                   availableModels={model.provider_id ? getProviderModels(model.provider_id) : []}
                   onSave={handleSaveModel}
-                  onCancel={() => {}}
                 />
               ))}
             </div>
           </section>
 
           {showFallbackChain ? (
-            <section className="rounded-lg border border-border-default bg-surface-secondary p-5">
-              <div className="mb-4 flex items-start justify-between gap-4">
+            <section className="space-y-3">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-base font-medium text-primary">
+                  <div className="font-mono text-2xs font-medium uppercase tracking-wider text-muted">
                     Fallback Chain
-                  </h3>
-                  <p className="mt-1 text-sm text-muted">
-                    When the primary model fails (rate limit, error), the system
-                    retries with the next model in chain.
-                  </p>
+                  </div>
                 </div>
-                <Switch
-                  checked={fallbackChainEnabled}
-                  onCheckedChange={(checked) =>
-                    updateAppSettings.mutateAsync({ fallback_chain_enabled: checked })
-                  }
-                  aria-label="Enable fallback chain"
-                  disabled={updateAppSettings.isPending}
-                />
+                <label className="flex items-center gap-2 text-sm text-secondary">
+                  <Switch
+                    checked={fallbackChainEnabled}
+                    onCheckedChange={(checked) =>
+                      updateAppSettings.mutateAsync({ fallback_chain_enabled: checked })
+                    }
+                    aria-label="Enable fallback chain"
+                    disabled={updateAppSettings.isPending}
+                  />
+                  Enabled
+                </label>
               </div>
               <FallbackChainSection
                 enabled={fallbackChainEnabled}

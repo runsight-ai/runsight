@@ -5,26 +5,27 @@ import {
   useTestProviderConnection,
   useUpdateProvider,
 } from "@/queries/settings";
-import { DeleteConfirmDialog, StatusBadge } from "@/components/shared";
+import { DeleteConfirmDialog } from "@/components/shared";
+import { BadgeDot } from "@runsight/ui/badge";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { Button } from "@runsight/ui/button";
+import { Skeleton } from "@runsight/ui/skeleton";
 import { Switch } from "@runsight/ui/switch";
 import {
-  Plus,
-  Pencil,
-  Trash2,
-  CheckCircle2,
-  XCircle,
-  Server,
-  AlertCircle,
-  RotateCcw,
-} from "lucide-react";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableMonoCell,
+  TableRow,
+} from "@runsight/ui/table";
+import { Server, AlertCircle, RotateCcw } from "lucide-react";
 import { AddProviderDialog } from "./AddProviderDialog";
 import type { EditingProvider } from "@/components/provider/ProviderSetup";
 import { cn } from "@runsight/ui/utils";
 import type { Provider } from "@/api/settings";
 
-// Provider icon/logo component
 function ProviderLogo({ name, status }: { name: string; status: string }) {
   const getInitials = (name: string) => {
     return name
@@ -33,6 +34,17 @@ function ProviderLogo({ name, status }: { name: string; status: string }) {
       .join("")
       .toUpperCase()
       .slice(0, 3);
+  };
+
+  const getTone = (name: string) => {
+    const normalized = name.trim().toLowerCase();
+    if (normalized === "anthropic") {
+      return "bg-warning-9 text-on-accent border-warning-9";
+    }
+    if (normalized === "openai") {
+      return "bg-neutral-6 text-primary border-neutral-6";
+    }
+    return "bg-surface-tertiary text-primary border-border-subtle";
   };
 
   const getStatusColor = (status: string) => {
@@ -50,7 +62,12 @@ function ProviderLogo({ name, status }: { name: string; status: string }) {
   };
 
   return (
-    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-border-default bg-surface-secondary">
+    <div
+      className={cn(
+        "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border",
+        getTone(name),
+      )}
+    >
       <span className={cn("text-xs font-semibold", getStatusColor(status))}>
         {getInitials(name)}
       </span>
@@ -58,20 +75,17 @@ function ProviderLogo({ name, status }: { name: string; status: string }) {
   );
 }
 
-// Status mapping from provider status to StatusBadge variant
-function getStatusVariant(
-  status: string
-): "success" | "warning" | "error" | "pending" {
+function getStatusDotClass(status: string): string {
   switch (status) {
     case "connected":
     case "active":
-      return "success";
+      return "text-success-9";
     case "rate-limited":
-      return "warning";
+      return "text-warning-9";
     case "error":
-      return "error";
+      return "text-danger-9";
     default:
-      return "pending";
+      return "text-neutral-9";
   }
 }
 
@@ -79,9 +93,9 @@ function getStatusLabel(status: string): string {
   switch (status) {
     case "connected":
     case "active":
-      return "Active";
+      return "Connected";
     case "rate-limited":
-      return "Rate Limited";
+      return "Rate limited";
     case "error":
       return "Error";
     case "offline":
@@ -91,8 +105,7 @@ function getStatusLabel(status: string): string {
   }
 }
 
-// Provider Card Component
-function ProviderCard({
+function ProviderRow({
   provider,
   onEdit,
   onDelete,
@@ -103,19 +116,16 @@ function ProviderCard({
 }) {
   const testConnection = useTestProviderConnection();
   const updateProvider = useUpdateProvider();
-  const [testStatus, setTestStatus] = useState<
-    "idle" | "testing" | "success" | "error"
-  >("idle");
+  const [testStatus, setTestStatus] = useState<"idle" | "testing">("idle");
 
   const handleTest = async () => {
     setTestStatus("testing");
     try {
-      const result = await testConnection.mutateAsync(provider.id);
-      setTestStatus(result.success ? "success" : "error");
-      setTimeout(() => setTestStatus("idle"), 3000);
+      await testConnection.mutateAsync(provider.id);
     } catch {
-      setTestStatus("error");
-      setTimeout(() => setTestStatus("idle"), 3000);
+      // surfaced by toast and refreshed provider status
+    } finally {
+      setTestStatus("idle");
     }
   };
 
@@ -126,170 +136,141 @@ function ProviderCard({
     });
   };
 
-  const isEnabled =
-    provider.status !== "offline" && provider.status !== "error";
+  const isEnabled = provider.is_active ?? true;
+  const keyPreview = provider.api_key_preview
+    ? provider.api_key_preview
+    : provider.api_key_env?.startsWith("$")
+      ? `Configured via ${provider.api_key_env}`
+      : "(none configured)";
 
   return (
-    <div className="rounded-lg border border-border-default bg-surface-secondary p-4 transition-colors hover:border-border-default/80">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
+    <TableRow>
+      <TableCell className="border-b-0 py-3">
+        <div className="flex items-center gap-2.5">
           <ProviderLogo name={provider.name} status={provider.status} />
-
-          {/* Provider Info */}
-          <div className="flex-1">
-            <div className="mb-1 flex items-center gap-3">
-              <h3 className="text-base font-medium text-primary">
-                {provider.name}
-              </h3>
-              <div
-                aria-label={`Provider ${provider.name} status ${getStatusLabel(provider.status)}`}
-              >
-                <StatusBadge
-                  status={getStatusVariant(provider.status)}
-                  label={getStatusLabel(provider.status)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="w-20 text-xs uppercase tracking-wider text-muted">
-                  API Key
-                </span>
-                {provider.api_key_preview ? (
-                  <span className="font-mono text-muted">
-                    {provider.api_key_preview}
-                  </span>
-                ) : provider.api_key_env?.startsWith("$") ? (
-                  <span className="font-mono text-muted">
-                    Configured via {provider.api_key_env}
-                  </span>
-                ) : (
-                  <span className="font-mono text-muted">
-                    (none configured)
-                  </span>
-                )}
-              </div>
-
-              {provider.base_url && (
-                <div className="flex items-center gap-2">
-                  <span className="w-20 text-xs uppercase tracking-wider text-muted">
-                    Base URL
-                  </span>
-                  <span className="text-muted">
-                    {provider.base_url}
-                  </span>
-                </div>
-              )}
-
-              <div className="mt-3 flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-wider text-muted">
-                    Models
-                  </span>
-                  <span className="font-medium text-primary">
-                    {provider.models?.length || 0} available
-                  </span>
-                </div>
-              </div>
-            </div>
+          <div className="min-w-0">
+            <div className="text-md font-medium text-heading">{provider.name}</div>
+            {provider.base_url ? (
+              <div className="truncate text-xs text-muted">{provider.base_url}</div>
+            ) : null}
           </div>
         </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-3">
+      </TableCell>
+      <TableMonoCell className="border-b-0 py-3 text-secondary">{keyPreview}</TableMonoCell>
+      <TableCell className="border-b-0 py-3">
+        <div
+          aria-label={`Provider ${provider.name} status ${getStatusLabel(provider.status)}`}
+          className="inline-flex items-center gap-1.5 text-sm text-secondary"
+        >
+          <BadgeDot className={getStatusDotClass(provider.status)} />
+          <span>{getStatusLabel(provider.status)}</span>
+        </div>
+      </TableCell>
+      <TableCell className="border-b-0 py-3 text-sm text-secondary">
+        {(provider.models?.length || 0) === 1
+          ? "1 model"
+          : `${provider.models?.length || 0} models`}
+      </TableCell>
+      <TableCell className="w-[1%] border-b-0 py-3 whitespace-nowrap">
+        <div className="flex items-center gap-1.5">
           <Switch
             checked={isEnabled}
             onCheckedChange={handleToggle}
             aria-label={`Enable ${provider.name} provider`}
+            wrapperClassName="mr-1"
+            className="scale-90"
           />
-          <div className="flex items-center gap-1">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleTest}
-              disabled={testStatus === "testing"}
-              className="text-xs"
-              aria-label={`Test ${provider.name} connection`}
-            >
-              {testStatus === "testing" ? (
-                "Testing..."
-              ) : testStatus === "success" ? (
-                <>
-                  <CheckCircle2 className="mr-1 h-3 w-3 text-[var(--success-9)]" />
-                  Connected
-                </>
-              ) : testStatus === "error" ? (
-                <>
-                  <XCircle className="mr-1 h-3 w-3 text-[var(--danger-9)]" />
-                  Failed
-                </>
-              ) : (
-                "Test Connection"
-              )}
-            </Button>
-            <Button
-              variant="icon-only"
-              size="md"
-              onClick={() => onEdit(provider)}
-              title="Edit provider"
-              aria-label={`Edit ${provider.name} provider`}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="icon-only"
-              size="md"
-              onClick={() => onDelete(provider)}
-              className="text-[var(--danger-9)] hover:text-[var(--danger-9)]"
-              title="Remove provider"
-              aria-label={`Delete ${provider.name} provider`}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={handleTest}
+            disabled={testStatus === "testing"}
+            className="px-1.5 text-secondary"
+            aria-label={`Test ${provider.name} connection`}
+          >
+            {testStatus === "testing" ? "Testing..." : "Test"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => onEdit(provider)}
+            className="px-1.5 text-secondary"
+            aria-label={`Edit ${provider.name} provider`}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => onDelete(provider)}
+            className="text-[var(--danger-11)] hover:bg-[var(--danger-3)] hover:text-[var(--danger-11)]"
+            aria-label={`Delete ${provider.name} provider`}
+          >
+            Delete
+          </Button>
         </div>
-      </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function ProviderTableSkeleton() {
+  return (
+    <div>
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Provider</TableHead>
+            <TableHead>API Key</TableHead>
+            <TableHead className="w-[140px]">Status</TableHead>
+            <TableHead className="w-[140px]">Models</TableHead>
+            <TableHead className="w-[220px] text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {[1, 2, 3].map((index) => (
+            <TableRow key={index}>
+              <TableCell colSpan={5}>
+                <div className="flex items-center gap-4 py-2">
+                  <Skeleton variant="avatar" className="h-7 w-7 rounded-full" />
+                  <div className="grid flex-1 grid-cols-[1.1fr_1fr_140px_120px_180px] gap-4">
+                    <Skeleton className="w-36" />
+                    <Skeleton className="w-40" />
+                    <Skeleton className="w-24" />
+                    <Skeleton className="w-20" />
+                    <Skeleton variant="button" className="w-24" />
+                  </div>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
 
-function toEditing(p: Provider): EditingProvider {
-  return {
-    id: p.id,
-    name: p.name,
-    type: p.name.toLowerCase().replace(/\s+/g, "_"),
-    baseUrl: p.base_url,
-    hasKey: !!p.api_key_env,
-  };
+interface ProvidersTabProps {
+  onAddProvider: () => void;
+  onEditProvider: (provider: Provider) => void;
+  dialogOpen: boolean;
+  onDialogOpenChange: (open: boolean) => void;
+  editing?: EditingProvider;
 }
 
-export function ProvidersTab() {
+export function ProvidersTab({
+  onAddProvider,
+  onEditProvider,
+  dialogOpen,
+  onDialogOpenChange,
+  editing,
+}: ProvidersTabProps) {
   const { data, isLoading, error, refetch } = useProviders();
   const deleteProvider = useDeleteProvider();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<EditingProvider | undefined>(undefined);
   const [itemToDelete, setItemToDelete] = useState<Provider | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
   const providers = data?.items || [];
-
-  const handleAdd = () => {
-    setEditing(undefined);
-    setDialogOpen(true);
-  };
-
-  const handleEdit = (provider: Provider) => {
-    setEditing(toEditing(provider));
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = (open: boolean) => {
-    if (!open) {
-      setDialogOpen(false);
-      setEditing(undefined);
-    }
-  };
 
   const handleDelete = (provider: Provider) => {
     setItemToDelete(provider);
@@ -306,27 +287,8 @@ export function ProvidersTab() {
 
   return (
     <div className="w-full">
-      {/* Page Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold tracking-tight text-primary">
-          Providers
-        </h2>
-        <Button onClick={handleAdd}>
-          <Plus className="mr-1 h-4 w-4" />
-          Add Provider
-        </Button>
-      </div>
-
-      {/* Provider List */}
       {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-32 animate-pulse rounded-lg border border-border-default bg-surface-secondary"
-            />
-          ))}
-        </div>
+        <ProviderTableSkeleton />
       ) : error ? (
         <div className="flex items-center justify-center rounded-lg border border-border-default bg-surface-secondary p-8">
           <div className="max-w-md text-center">
@@ -350,30 +312,43 @@ export function ProvidersTab() {
           </div>
         </div>
       ) : providers.length === 0 ? (
-        <div className="rounded-lg border border-border-default bg-surface-secondary p-8">
+        <div className="rounded-lg border border-border-default bg-surface-primary p-8">
           <EmptyState
             icon={Server}
             title="No providers configured"
             description="Add an AI provider to start using Runsight with models like GPT-4, Claude, or local Ollama instances."
-            action={{ label: "Add Provider", onClick: handleAdd }}
+            action={{ label: "Add Provider", onClick: onAddProvider }}
           />
         </div>
       ) : (
-        <div className="space-y-4">
-          {providers.map((provider) => (
-            <ProviderCard
-              key={provider.id}
-              provider={provider}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          ))}
+        <div>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Provider</TableHead>
+                <TableHead>API Key</TableHead>
+                <TableHead className="w-[140px]">Status</TableHead>
+                <TableHead className="w-[140px]">Models</TableHead>
+                <TableHead className="w-[220px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {providers.map((provider) => (
+                <ProviderRow
+                  key={provider.id}
+                  provider={provider}
+                  onEdit={onEditProvider}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
       <AddProviderDialog
         open={dialogOpen}
-        onOpenChange={handleCloseDialog}
+        onOpenChange={onDialogOpenChange}
         editing={editing}
       />
 

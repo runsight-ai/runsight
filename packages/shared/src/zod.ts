@@ -191,6 +191,7 @@ export const ProviderUpdateSchema = z.object({
   name: z.string().nullable().optional(),
   api_key_env: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
+  is_active: z.boolean().optional(),
 });
 export type ProviderUpdate = z.infer<typeof ProviderUpdateSchema>;
 
@@ -290,6 +291,7 @@ export const SettingsProviderResponseSchema = z.object({
   name: z.string(),
   type: z.string().nullable().optional(),
   status: z.string(),
+  is_active: z.boolean().optional().default(true),
   api_key_env: z.string().nullable().optional(),
   api_key_preview: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),

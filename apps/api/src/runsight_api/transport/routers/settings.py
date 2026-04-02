@@ -22,6 +22,7 @@ class ProviderUpdate(BaseModel):
     name: Optional[str] = None
     api_key_env: Optional[str] = None  # Frontend sends the raw API key in this field
     base_url: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 class ProviderTestIn(BaseModel):
@@ -45,6 +46,7 @@ class SettingsProviderResponse(BaseModel):
     name: str
     type: Optional[str] = None
     status: str
+    is_active: bool = True
     api_key_env: Optional[str] = None
     api_key_preview: Optional[str] = None
     base_url: Optional[str] = None
@@ -124,6 +126,7 @@ def _provider_to_out(p, service: ProviderService) -> SettingsProviderResponse:
         name=p.name,
         type=provider_type if isinstance(provider_type, str) else None,
         status=p.status or "unknown",
+        is_active=bool(getattr(p, "is_active", True)),
         api_key_env=p.api_key,
         api_key_preview=api_key_preview,
         base_url=p.base_url,
@@ -178,6 +181,7 @@ async def update_provider(
         name=data.name,
         api_key=data.api_key_env,
         base_url=data.base_url,
+        is_active=data.is_active,
     )
     if not provider:
         raise ProviderNotFound(f"Provider {provider_id} not found")
