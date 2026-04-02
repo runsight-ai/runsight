@@ -13,6 +13,18 @@ import {
 } from "@runsight/shared/zod";
 import { z } from "zod";
 
+// ---------------------------------------------------------------------------
+// Regressions
+// ---------------------------------------------------------------------------
+
+export const RunRegressionSchema = z.object({
+  node_name: z.string(),
+  regression_type: z.string(),
+  delta: z.string(),
+});
+
+export type RunRegression = z.infer<typeof RunRegressionSchema>;
+
 /** Map frontend shorthand status values to actual RunStatus enum values. */
 const STATUS_ALIASES: Record<string, string[]> = {
   active: ["running", "pending"],
@@ -93,6 +105,11 @@ export const runsApi = {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
     const res = await api.get(`/runs/${id}/logs${qs}`);
     return PaginatedLogsResponseSchema.parse(res);
+  },
+
+  getRunRegressions: async (id: string): Promise<RunRegression[]> => {
+    const res = await api.get(`/runs/${id}/regressions`);
+    return z.array(RunRegressionSchema).parse(res);
   },
 };
 

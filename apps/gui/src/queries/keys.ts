@@ -7,6 +7,7 @@ export const queryKeys = {
     all: ["runs"] as const,
     detail: (id: string) => ["runs", id] as const,
     logs: (id: string) => ["runs", id, "logs"] as const,
+    regressions: (id: string) => ["runs", id, "regressions"] as const,
   },
   models: {
     providers: ["models", "providers"] as const,

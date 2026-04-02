@@ -93,6 +93,14 @@ export function useRunLogs(id: string, params?: Record<string, string>, options?
   });
 }
 
+export function useRunRegressions(runId: string) {
+  return useQuery({
+    queryKey: queryKeys.runs.regressions(runId),
+    queryFn: () => runsApi.getRunRegressions(runId),
+    enabled: !!runId,
+  });
+}
+
 export function useActiveRuns() {
   const queryClient = useQueryClient();
 

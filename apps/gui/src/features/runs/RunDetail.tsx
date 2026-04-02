@@ -228,7 +228,7 @@ function RunDetailInner() {
           <RunInspectorPanel selectedNode={selectedNode} onClose={() => setSelectedNode(null)} />
         </div>
 
-        <RunBottomPanel logs={logs} executionComplete executionFailed={isFailed} finalDuration={run.duration_seconds || 0} />
+        <RunBottomPanel logs={logs} executionComplete executionFailed={isFailed} finalDuration={run.duration_seconds || 0} runId={run.id} workflowId={run.workflow_id} currentRunId={run.id} />
       </main>
     </div>
   );
