@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 
 from ...logic.services.workflow_service import WorkflowService
 from ..deps import get_workflow_service
@@ -9,6 +10,7 @@ from ..schemas.workflows import (
     WorkflowCommitResponse,
     WorkflowCreate,
     WorkflowDeleteResponse,
+    WorkflowEnabledUpdate,
     WorkflowListResponse,
     WorkflowResponse,
     WorkflowSimulationCreate,
@@ -78,6 +80,21 @@ async def create_workflow_simulation(
 ):
     result = service.create_simulation(workflow_id=id, yaml=body.yaml)
     return WorkflowSimulationResponse(**result)
+
+
+@router.patch("/{id}/enabled", response_model=WorkflowResponse)
+async def patch_workflow_enabled(
+    id: str,
+    body: WorkflowEnabledUpdate,
+    service: WorkflowService = Depends(get_workflow_service),
+):
+    from ...domain.errors import RunsightError
+
+    try:
+        w = service.set_enabled(id, body.enabled)
+    except RunsightError as exc:
+        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
+    return WorkflowResponse(**w.model_dump())
 
 
 @router.delete("/{id}", response_model=WorkflowDeleteResponse)

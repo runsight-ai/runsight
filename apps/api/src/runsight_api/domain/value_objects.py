@@ -32,6 +32,7 @@ class WorkflowEntity(BaseModel):
     name: Optional[str] = None
     yaml: Optional[str] = None
     valid: bool = True
+    enabled: bool = False
     validation_error: Optional[str] = None
     filename: Optional[str] = None
     model_config = {"extra": "allow"}

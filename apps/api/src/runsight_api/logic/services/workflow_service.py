@@ -132,6 +132,10 @@ class WorkflowService:
             branch = "main"
         return self.git_service.get_sha(branch, path)
 
+    def set_enabled(self, workflow_id: str, enabled: bool) -> WorkflowEntity:
+        """Toggle the enabled field for a workflow."""
+        return self.workflow_repo.patch_yaml_field(workflow_id, "enabled", enabled)
+
     def delete_workflow(self, id: str, force: bool = False) -> dict[str, Any]:
         workflow = self.workflow_repo.get_by_id(id)
         if workflow is None:

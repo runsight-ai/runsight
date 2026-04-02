@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 
 
 class CanvasViewport(BaseModel):
@@ -85,3 +85,7 @@ class WorkflowDeleteResponse(BaseModel):
     id: str
     deleted: bool
     runs_deleted: int
+
+
+class WorkflowEnabledUpdate(BaseModel):
+    enabled: StrictBool
