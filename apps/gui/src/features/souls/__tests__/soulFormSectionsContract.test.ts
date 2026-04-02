@@ -71,7 +71,7 @@ describe("SoulModelSection contract (RUN-448)", () => {
     expect(source).not.toMatch(/provider:\s*string\s*\|\s*null/);
     expect(source).toMatch(/onProviderChange/);
     expect(source).toMatch(/onModelChange/);
-    expect(source).not.toMatch(/providerSummary\.type/);
+    expect(source).toMatch(/providerSummary\.is_active/);
   });
 
   it("translates providerId to the configured provider type for model queries and shows provider-derived model ids", () => {
@@ -83,10 +83,19 @@ describe("SoulModelSection contract (RUN-448)", () => {
     expect(source).toMatch(/provider_name|name/);
   });
 
-  it("disables the provider picker cleanly when no providers are configured", () => {
+  it("keeps a disabled assigned provider visible with a warning while only offering active replacements", () => {
+    const source = read(SECTION_PATHS.model);
+    expect(source).toMatch(/currentProviderIsDisabled/);
+    expect(source).toMatch(/providerTriggerEnabled/);
+    expect(source).toMatch(/This provider is disabled in Settings/);
+    expect(source).toMatch(/No active providers available/);
+    expect(source).toMatch(/disabled=\{!providerTriggerEnabled\}/);
+    expect(source).toMatch(/disabled=\{!selectedProvider\}/);
+  });
+
+  it("still explains the empty state when there are no providers configured at all", () => {
     const source = read(SECTION_PATHS.model);
     expect(source).toMatch(/hasConfiguredProviders/);
-    expect(source).toMatch(/disabled=\{!hasConfiguredProviders\}/);
     expect(source).toMatch(/No providers configured/);
     expect(source).toMatch(/Add a provider in Settings before selecting a model/);
   });

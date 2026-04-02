@@ -45,6 +45,17 @@ vi.mock("@/queries/souls", () => ({
   useSouls: () => mocks.soulsQuery,
 }));
 
+vi.mock("@/queries/settings", () => ({
+  useProviders: () => ({
+    data: {
+      items: [
+        { id: "openai", name: "OpenAI", is_active: true },
+        { id: "anthropic", name: "Anthropic", is_active: false },
+      ],
+    },
+  }),
+}));
+
 vi.mock("@/components/shared/PageHeader", () => ({
   PageHeader: (props: Record<string, unknown>) => {
     mocks.pageHeaderProps.push(props);
@@ -106,6 +117,32 @@ describe("RUN-452 SoulLibraryPage behavior", () => {
     expect(String(tableProps.columns.find((column) => column.header === "Tools")?.render)).toMatch(
       /TOOL_META|HTTP|Files|Icon/,
     );
+  });
+
+  it("shows a warning in the provider column when a soul points at a disabled provider", async () => {
+    const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
+
+    renderToStaticMarkup(
+      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
+    );
+
+    const tableProps = mocks.dataTableProps[0] as {
+      columns: Array<{
+        header: string;
+        render?: (row: Record<string, unknown>) => React.ReactNode;
+      }>;
+      data: Array<Record<string, unknown>>;
+    };
+
+    const providerColumn = tableProps.columns.find((column) => column.header === "Provider");
+    expect(providerColumn?.render).toBeTypeOf("function");
+
+    const markup = renderToStaticMarkup(
+      React.createElement(React.Fragment, null, providerColumn?.render?.(tableProps.data[1])),
+    );
+
+    expect(markup).toContain("Anthropic");
+    expect(markup).toContain("Provider disabled");
   });
 
   it("navigates to /souls/new from the create action and /souls/:id/edit from row selection", async () => {

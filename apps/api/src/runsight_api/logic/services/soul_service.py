@@ -5,17 +5,20 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from ...data.filesystem.soul_repo import SoulRepository
-from ...domain.errors import SoulAlreadyExists, SoulInUse, SoulNotFound
+from ...domain.errors import InputValidationError, SoulAlreadyExists, SoulInUse, SoulNotFound
 from ...domain.value_objects import SoulEntity, WorkflowEntity
 
 logger = logging.getLogger(__name__)
 
 
 class SoulService:
-    def __init__(self, soul_repo: SoulRepository, git_service=None, workflow_repo=None):
+    def __init__(
+        self, soul_repo: SoulRepository, git_service=None, workflow_repo=None, provider_repo=None
+    ):
         self.soul_repo = soul_repo
         self.git_service = git_service
         self.workflow_repo = workflow_repo
+        self.provider_repo = provider_repo
 
     @staticmethod
     def _soul_file_path(id: str) -> str:
@@ -66,6 +69,13 @@ class SoulService:
         if normalized.get("max_tool_iterations") is None:
             normalized["max_tool_iterations"] = 5
         return normalized
+
+    def _validate_provider_state(self, provider_id: str | None) -> None:
+        if not provider_id or not self.provider_repo:
+            return
+        provider = self.provider_repo.get_by_id(provider_id)
+        if provider and not getattr(provider, "is_active", True):
+            raise InputValidationError(f"Provider {provider_id} is disabled")
 
     def list_souls(self, query: Optional[str] = None, workflow_repo=None) -> List[SoulEntity]:
         souls = self.soul_repo.list_all()
@@ -118,6 +128,7 @@ class SoulService:
 
     def create_soul(self, data: Dict[str, Any]) -> SoulEntity:
         data = self._normalize_soul_payload(data)
+        self._validate_provider_state(data.get("provider"))
         if "id" not in data or not data["id"]:
             data["id"] = f"soul_{uuid.uuid4().hex[:8]}"
         if self.soul_repo.get_by_id(data["id"]):
@@ -136,12 +147,14 @@ class SoulService:
             # Create a new soul with a new ID
             new_id = f"{id}_copy_{uuid.uuid4().hex[:4]}"
             data["id"] = new_id
+            self._validate_provider_state(data.get("provider"))
             result = self.soul_repo.create(data)
             self._auto_commit(f"Create {result.id}.yaml", [self._soul_file_path(result.id)])
             return result
 
         merged = existing.model_dump(exclude={"workflow_count"})
         merged.update(data)
+        self._validate_provider_state(merged.get("provider"))
         result = self.soul_repo.update(id, merged)
         self._auto_commit(f"Update {id}.yaml", [self._soul_file_path(id)])
         return result

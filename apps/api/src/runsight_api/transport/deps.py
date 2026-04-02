@@ -101,8 +101,14 @@ def get_soul_service(
     soul_repo: SoulRepository = Depends(get_soul_repo),
     git_service: GitService = Depends(get_git_service),
     workflow_repo: WorkflowRepository = Depends(get_workflow_repo),
+    provider_repo: FileSystemProviderRepo = Depends(get_provider_repo),
 ) -> SoulService:
-    return SoulService(soul_repo, git_service=git_service, workflow_repo=workflow_repo)
+    return SoulService(
+        soul_repo,
+        git_service=git_service,
+        workflow_repo=workflow_repo,
+        provider_repo=provider_repo,
+    )
 
 
 def get_registry_service() -> RegistryService:

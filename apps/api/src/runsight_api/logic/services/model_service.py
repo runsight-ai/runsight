@@ -19,7 +19,11 @@ class ModelService:
     def _list_configured_providers(self) -> list:
         """Return configured providers, gracefully handling DB errors."""
         try:
-            return self._provider_repo.list_all()
+            return [
+                provider
+                for provider in self._provider_repo.list_all()
+                if getattr(provider, "is_active", True)
+            ]
         except Exception:
             logger.debug("Could not query provider table; treating as empty.", exc_info=True)
             return []

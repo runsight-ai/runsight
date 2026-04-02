@@ -341,15 +341,24 @@ class ExecutionService:
         import os
 
         result: Dict[str, str] = {}
+        configured_provider_types: set[str] = set()
+        disabled_provider_types: set[str] = set()
 
         # Collect keys from all providers
         try:
             providers = self.provider_repo.list_all()
             for provider in providers:
+                provider_type = getattr(provider, "type", None)
+                if not provider_type:
+                    continue
+                configured_provider_types.add(provider_type)
+                if not getattr(provider, "is_active", True):
+                    disabled_provider_types.add(provider_type)
+                    continue
                 if provider.api_key and self.secrets:
                     resolved = self.secrets.resolve(provider.api_key)
                     if resolved:
-                        result[provider.type] = resolved
+                        result[provider_type] = resolved
         except (TypeError, AttributeError):
             # list_all() not available or not iterable (e.g. repo not configured)
             pass
@@ -360,6 +369,10 @@ class ExecutionService:
             "anthropic": "ANTHROPIC_API_KEY",
         }
         for provider_type, env_var in env_var_map.items():
+            if provider_type in disabled_provider_types:
+                continue
+            if provider_type in configured_provider_types and provider_type not in result:
+                continue
             if provider_type not in result:
                 val = os.environ.get(env_var)
                 if val:

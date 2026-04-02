@@ -21,8 +21,8 @@ export function RunButton({ workflowId, onAddApiKey }: RunButtonProps) {
   const yamlContent = useCanvasStore((s) => s.yamlContent);
 
   const { data: providers } = useProviders();
-  const items = providers?.items ?? [];
-  const hasProviders = items.length > 0;
+  const activeProviders = (providers?.items ?? []).filter((provider) => provider.is_active ?? true);
+  const hasProviders = activeProviders.length > 0;
 
   const createRun = useCreateRun();
   const cancelRun = useCancelRun();

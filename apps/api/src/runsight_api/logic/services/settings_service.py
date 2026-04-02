@@ -3,7 +3,7 @@ from __future__ import annotations
 from ...data.filesystem.provider_repo import FileSystemProviderRepo
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
 from ...domain.entities.settings import FallbackChainEntry, ModelDefaultEntry
-from ...domain.errors import ProviderNotFound
+from ...domain.errors import InputValidationError, ProviderNotFound
 
 
 class SettingsService:
@@ -15,8 +15,15 @@ class SettingsService:
         self.settings_repo = settings_repo
         self.provider_repo = provider_repo
 
+    def _list_active_providers(self) -> list:
+        return [
+            provider
+            for provider in self.provider_repo.list_all()
+            if getattr(provider, "is_active", True)
+        ]
+
     def get_model_defaults(self) -> list[dict]:
-        providers = self.provider_repo.list_all()
+        providers = self._list_active_providers()
         if not providers:
             self._list_model_defaults()
             self._list_fallback_chain()
@@ -52,6 +59,8 @@ class SettingsService:
         provider = self.provider_repo.get_by_id(provider_id)
         if provider is None:
             raise ProviderNotFound(f"Provider {provider_id} not found")
+        if not getattr(provider, "is_active", True):
+            raise InputValidationError(f"Provider {provider_id} is disabled")
 
         default_entry = self._default_entry_for_provider(provider_id)
 
@@ -73,7 +82,7 @@ class SettingsService:
         if fallback_chain is not None:
             self.settings_repo.update_fallback_chain(self._resolve_fallback_entries(fallback_chain))
 
-        provider_ids = {item.id for item in self.provider_repo.list_all()}
+        provider_ids = {item.id for item in self._list_active_providers()}
         return self._model_default_out(
             provider=provider,
             default_entry=default_entry,
@@ -119,7 +128,7 @@ class SettingsService:
         }
 
     def _resolve_fallback_entries(self, fallback_chain: list[str]) -> list[FallbackChainEntry]:
-        providers = self.provider_repo.list_all()
+        providers = self._list_active_providers()
         resolved: list[FallbackChainEntry] = []
         for model_name in fallback_chain:
             for provider in providers:
