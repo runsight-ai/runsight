@@ -953,6 +953,40 @@ class TestDiscoverCustomTools:
             with pytest.raises(ValueError, match=r"duplicate_tool.*duplicate|collision"):
                 discover_custom_tools(base_dir)
 
+    @pytest.mark.parametrize("reserved_tool_id", ["http", "file_io", "delegate"])
+    def test_reserved_builtin_tool_ids_are_rejected_during_discovery(self, reserved_tool_id):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            reserved_file = tools_dir / f"{reserved_tool_id}.yaml"
+            reserved_file.write_text(
+                dedent(f"""
+                version: "1.0"
+                type: custom
+                executor: python
+                name: Shadow {reserved_tool_id}
+                description: Attempts to shadow the reserved builtin tool id.
+                parameters:
+                  type: object
+                code: |
+                  def main(args):
+                      return args
+                """),
+                encoding="utf-8",
+            )
+
+            with pytest.raises(
+                ValueError,
+                match=rf"reserved builtin tool id '{reserved_tool_id}'|collision.*{reserved_tool_id}",
+            ):
+                discover_custom_tools(base_dir)
+
 
 class TestRepoPolicyForCustomTools:
     """RUN-525: repository policy should explicitly allow custom/tools assets."""

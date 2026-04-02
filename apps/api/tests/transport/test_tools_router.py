@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from runsight_api.main import app
@@ -12,6 +14,32 @@ def _items(payload):
     if isinstance(payload, dict) and isinstance(payload.get("items"), list):
         return payload["items"]
     return payload
+
+
+def _tool_meta(tool_id, *, executor="python"):
+    return ToolMeta(
+        tool_id=tool_id,
+        file_path=Path(f"/tmp/{tool_id}.yaml"),
+        version="1.0",
+        type="custom",
+        executor=executor,
+        name=tool_id.replace("_", " ").title(),
+        description=f"{tool_id} description",
+        parameters={"type": "object", "properties": {}},
+        code="def main(args):\n    return args\n" if executor == "python" else None,
+        request=(
+            {
+                "method": "GET",
+                "url": "https://example.com/items/{{ item_id }}",
+                "headers": {},
+                "body_template": None,
+                "response_path": "data.answer",
+            }
+            if executor == "request"
+            else None
+        ),
+        timeout_seconds=9 if executor == "request" else None,
+    )
 
 
 def _patch_custom_tools(monkeypatch, mapping):
@@ -44,7 +72,7 @@ def test_tools_list_endpoint_exists_and_returns_required_fields(monkeypatch):
             assert required_fields.issubset(item.keys())
 
 
-def test_tools_list_includes_http_and_file_io_but_excludes_delegate(monkeypatch):
+def test_tools_list_uses_canonical_builtin_ids_and_hides_delegate(monkeypatch):
     _patch_custom_tools(monkeypatch, {})
 
     response = client.get("/api/tools")
@@ -53,26 +81,19 @@ def test_tools_list_includes_http_and_file_io_but_excludes_delegate(monkeypatch)
     items = _items(response.json())
     slugs = {item["slug"] for item in items}
 
-    assert "runsight/http" in slugs
-    assert "runsight/file-io" in slugs
-    assert "runsight/delegate" not in slugs
+    assert "http" in slugs
+    assert "file_io" in slugs
+    assert "delegate" not in slugs
+    assert "runsight/http" not in slugs
+    assert "runsight/file-io" not in slugs
 
 
-def test_tools_list_includes_custom_tools_from_discovery(monkeypatch):
+def test_tools_list_includes_discovered_custom_tool_ids(monkeypatch):
     _patch_custom_tools(
         monkeypatch,
         {
-            "report_lookup": ToolMeta(
-                type="custom",
-                source="report_lookup",
-                code="def main(args): return {}",
-            ),
-            "profile_fetch": ToolMeta(
-                type="http",
-                source="profile_fetch",
-                url="https://example.com/users/{{ user_id }}",
-                method="GET",
-            ),
+            "report_lookup": _tool_meta("report_lookup", executor="python"),
+            "profile_fetch": _tool_meta("profile_fetch", executor="request"),
         },
     )
 
@@ -83,4 +104,4 @@ def test_tools_list_includes_custom_tools_from_discovery(monkeypatch):
     indexed = {item["slug"]: item for item in items}
 
     assert indexed["report_lookup"]["type"] == "custom"
-    assert indexed["profile_fetch"]["type"] == "http"
+    assert indexed["profile_fetch"]["type"] == "custom"

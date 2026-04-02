@@ -449,6 +449,98 @@ class TestResolveToolTypedDispatch:
         assert callable(result.execute)
 
 
+class TestResolveCanonicalToolIds:
+    """RUN-579: canonical tool IDs should drive one runtime resolution path."""
+
+    def test_resolve_tool_id_builtin_reserved_id_returns_toolinstance(self):
+        """Reserved builtin IDs should resolve directly without legacy runsight/... aliases."""
+        from runsight_core.tools import ToolInstance
+        from runsight_core.tools._catalog import resolve_tool_id
+
+        result = resolve_tool_id("http")
+
+        assert isinstance(result, ToolInstance)
+        assert result.name == "http_request"
+
+    def test_resolve_tool_id_python_custom_tool_uses_discovered_filename_id(self, tmp_path):
+        """A discovered python tool should resolve from its filename-derived canonical ID."""
+        from runsight_core.tools import ToolInstance
+        from runsight_core.tools._catalog import resolve_tool_id
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "adder",
+            """
+            version: "1.0"
+            type: custom
+            executor: python
+            name: Adder
+            description: Add integers together.
+            parameters:
+              type: object
+              properties:
+                a:
+                  type: integer
+                b:
+                  type: integer
+              required:
+                - a
+                - b
+            code: |
+              def main(args):
+                  return {"sum": args["a"] + args["b"]}
+            """,
+        )
+
+        result = resolve_tool_id("adder", base_dir=tmp_path)
+
+        assert isinstance(result, ToolInstance)
+        assert result.name == "adder"
+
+    def test_resolve_tool_id_request_custom_tool_uses_discovered_executor_mode(self, tmp_path):
+        """A discovered request tool should resolve from canonical ID without type:http authoring."""
+        from runsight_core.tools import ToolInstance
+        from runsight_core.tools._catalog import resolve_tool_id
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "fetch_answer",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Fetch Answer
+            description: Fetch an answer from a remote API.
+            parameters:
+              type: object
+              properties:
+                item_id:
+                  type: integer
+              required:
+                - item_id
+            request:
+              method: GET
+              url: https://example.com/items/{{ item_id }}
+              response_path: data.answer
+            timeout_seconds: 9
+            """,
+        )
+
+        result = resolve_tool_id("fetch_answer", base_dir=tmp_path)
+
+        assert isinstance(result, ToolInstance)
+        assert result.name == "fetch_answer"
+
+    def test_resolve_tool_id_missing_discovered_custom_tool_raises_explicit_valueerror(
+        self, tmp_path
+    ):
+        """Missing canonical custom IDs should fail explicitly instead of falling back."""
+        from runsight_core.tools._catalog import resolve_tool_id
+
+        with pytest.raises(ValueError, match=r"Unknown tool id: 'lookup_profile'"):
+            resolve_tool_id("lookup_profile", base_dir=tmp_path)
+
+
 class TestResolveCustomTool:
     """RUN-526: custom tools resolve from YAML and execute in the sandbox."""
 
