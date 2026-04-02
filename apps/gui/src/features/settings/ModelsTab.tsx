@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useId } from "react";
 import {
   useAppSettings,
   useModelDefaults,
@@ -126,10 +126,17 @@ function FallbackTargetRow({
     setDraftFallbackModel(fallbackModelId);
   }, [fallbackModelId, fallbackProviderId]);
 
-  const handleFallbackProviderChange = useCallback((nextFallbackProviderId: string | null) => {
-    setDraftFallbackProvider(nextFallbackProviderId);
-    setDraftFallbackModel(null);
-  }, []);
+  const handleFallbackProviderChange = useCallback(
+    (nextFallbackProviderName: string | null) => {
+      const nextFallbackProvider =
+        enabledSiblingProviders.find((provider) => provider.name === nextFallbackProviderName) ??
+        null;
+
+      setDraftFallbackProvider(nextFallbackProvider?.id ?? null);
+      setDraftFallbackModel(null);
+    },
+    [enabledSiblingProviders],
+  );
 
   const handleFallbackModelChange = useCallback(
     async (nextFallbackModelId: string | null) => {
@@ -156,7 +163,7 @@ function FallbackTargetRow({
       <span className="shrink-0 text-sm text-muted">{"->"}</span>
       <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
         <Select
-          value={draftFallbackProvider ?? undefined}
+          value={selectedFallbackProvider?.name ?? undefined}
           onValueChange={handleFallbackProviderChange}
           disabled={!enabled}
         >
@@ -170,7 +177,7 @@ function FallbackTargetRow({
             {enabledSiblingProviders
               .filter((provider) => provider.id !== providerId)
               .map((provider) => (
-                <SelectItem key={provider.id} value={provider.id}>
+                <SelectItem key={provider.id} value={provider.name}>
                   {provider.name}
                 </SelectItem>
               ))}
@@ -230,6 +237,7 @@ function FallbackSection({
 }) {
   const canConfigureFallback = enabledProviders.length >= 2;
   const rowsDisabled = !fallbackEnabled;
+  const fallbackToggleLabelId = useId();
 
   return (
     <section className="space-y-3">
@@ -237,15 +245,15 @@ function FallbackSection({
         <div className="font-mono text-2xs font-medium uppercase tracking-wider text-muted">
           Fallback
         </div>
-        <label className="flex items-center gap-2 text-sm text-secondary">
+        <div className="flex items-center gap-2 text-sm text-secondary">
           <Switch
             checked={fallbackEnabled}
             onCheckedChange={(checked) => onToggle({ fallback_enabled: checked })}
-            aria-label="Enable fallback"
+            aria-labelledby={fallbackToggleLabelId}
             disabled={isPending || enabledProviders.length < 2}
           />
-          Enabled
-        </label>
+          <span id={fallbackToggleLabelId}>Enable fallback</span>
+        </div>
       </div>
 
       {!canConfigureFallback ? (
