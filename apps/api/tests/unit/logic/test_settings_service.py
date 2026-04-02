@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 import inspect
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -116,7 +116,9 @@ class TestFallbackFoundation:
 
 
 class TestSettingsServiceReadFallbackTargets:
-    def test_get_model_defaults_returns_per_provider_fallback_fields_for_enabled_sources(self):
+    def test_get_model_defaults_returns_per_provider_fallback_fields_and_allows_circular_reads(
+        self,
+    ):
         settings_repo = Mock()
         provider_repo = Mock()
         provider_repo.list_all.return_value = [
@@ -202,6 +204,18 @@ class TestSettingsServiceReadFallbackTargets:
     def test_get_model_defaults_suppresses_missing_or_disabled_targets_without_dropping_rows(self):
         settings_repo = Mock()
         provider_repo = Mock()
+        stored_fallback_map = [
+            FallbackTargetEntry(
+                provider_id="openai",
+                fallback_provider_id="google",
+                fallback_model_id="gemini-2.5-pro",
+            ),
+            FallbackTargetEntry(
+                provider_id="missing-target",
+                fallback_provider_id="openai",
+                fallback_model_id="gpt-4o",
+            ),
+        ]
         provider_repo.list_all.return_value = [
             _provider(
                 provider_id="openai",
@@ -221,18 +235,7 @@ class TestSettingsServiceReadFallbackTargets:
         settings_repo.list_model_defaults.return_value = [
             ModelDefaultEntry(provider_id="openai", model_id="gpt-4o", is_default=True),
         ]
-        settings_repo.get_fallback_map.return_value = [
-            FallbackTargetEntry(
-                provider_id="openai",
-                fallback_provider_id="google",
-                fallback_model_id="gemini-2.5-pro",
-            ),
-            FallbackTargetEntry(
-                provider_id="missing-target",
-                fallback_provider_id="openai",
-                fallback_model_id="gpt-4o",
-            ),
-        ]
+        settings_repo.get_fallback_map.return_value = stored_fallback_map
 
         result = _service(
             settings_repo=settings_repo, provider_repo=provider_repo
@@ -249,6 +252,9 @@ class TestSettingsServiceReadFallbackTargets:
                 "fallback_model_id": None,
             }
         ]
+        assert settings_repo.get_fallback_map.return_value == stored_fallback_map
+        settings_repo.set_fallback_target.assert_not_called()
+        settings_repo.remove_fallback_target.assert_not_called()
 
     def test_get_model_defaults_returns_stored_fallback_model_when_target_model_was_removed_later(
         self,
@@ -300,6 +306,169 @@ class TestSettingsServiceReadFallbackTargets:
 
 
 class TestSettingsServiceUpdateFallbackTargets:
+    def test_update_model_default_persists_valid_fallback_target_and_returns_fields(self):
+        settings_repo = Mock()
+        provider_repo = Mock()
+        source_provider = _provider(
+            provider_id="openai",
+            provider_type="openai",
+            name="OpenAI",
+            is_active=True,
+            models=["gpt-4o"],
+        )
+        target_provider = _provider(
+            provider_id="anthropic",
+            provider_type="anthropic",
+            name="Anthropic",
+            is_active=True,
+            models=["claude-sonnet-4"],
+        )
+        provider_repo.get_by_id.side_effect = lambda provider_id: {
+            "openai": source_provider,
+            "anthropic": target_provider,
+        }.get(provider_id)
+        settings_repo.list_model_defaults.return_value = [
+            ModelDefaultEntry(provider_id="openai", model_id="gpt-4o", is_default=True),
+        ]
+        settings_repo.get_fallback_map.return_value = []
+        settings_repo.set_fallback_target.side_effect = lambda entry: entry
+
+        service = _service(settings_repo=settings_repo, provider_repo=provider_repo)
+        result = service.update_model_default(
+            provider_id="openai",
+            model_name="gpt-4o",
+            is_default=True,
+            fallback_provider_id="anthropic",
+            fallback_model_id="claude-sonnet-4",
+        )
+
+        settings_repo.set_fallback_target.assert_called_once_with(
+            FallbackTargetEntry(
+                provider_id="openai",
+                fallback_provider_id="anthropic",
+                fallback_model_id="claude-sonnet-4",
+            )
+        )
+        settings_repo.remove_fallback_target.assert_not_called()
+        assert result["fallback_provider_id"] == "anthropic"
+        assert result["fallback_model_id"] == "claude-sonnet-4"
+
+    def test_update_model_default_allows_target_provider_with_connection_failure_status(self):
+        settings_repo = Mock()
+        provider_repo = Mock()
+        source_provider = _provider(
+            provider_id="openai",
+            provider_type="openai",
+            name="OpenAI",
+            is_active=True,
+            models=["gpt-4o"],
+        )
+        target_provider = _provider(
+            provider_id="anthropic",
+            provider_type="anthropic",
+            name="Anthropic",
+            is_active=True,
+            models=["claude-sonnet-4"],
+            status="connection_failed",
+        )
+        provider_repo.get_by_id.side_effect = lambda provider_id: {
+            "openai": source_provider,
+            "anthropic": target_provider,
+        }.get(provider_id)
+        settings_repo.list_model_defaults.return_value = [
+            ModelDefaultEntry(provider_id="openai", model_id="gpt-4o", is_default=True),
+        ]
+        settings_repo.get_fallback_map.return_value = []
+        settings_repo.set_fallback_target.side_effect = lambda entry: entry
+
+        service = _service(settings_repo=settings_repo, provider_repo=provider_repo)
+        result = service.update_model_default(
+            provider_id="openai",
+            model_name="gpt-4o",
+            is_default=True,
+            fallback_provider_id="anthropic",
+            fallback_model_id="claude-sonnet-4",
+        )
+
+        settings_repo.set_fallback_target.assert_called_once_with(
+            FallbackTargetEntry(
+                provider_id="openai",
+                fallback_provider_id="anthropic",
+                fallback_model_id="claude-sonnet-4",
+            )
+        )
+        assert result["fallback_provider_id"] == "anthropic"
+        assert result["fallback_model_id"] == "claude-sonnet-4"
+
+    def test_update_model_default_allows_circular_fallback_mappings(self):
+        settings_repo = Mock()
+        provider_repo = Mock()
+        openai_provider = _provider(
+            provider_id="openai",
+            provider_type="openai",
+            name="OpenAI",
+            is_active=True,
+            models=["gpt-4o"],
+        )
+        anthropic_provider = _provider(
+            provider_id="anthropic",
+            provider_type="anthropic",
+            name="Anthropic",
+            is_active=True,
+            models=["claude-sonnet-4"],
+        )
+        provider_repo.get_by_id.side_effect = lambda provider_id: {
+            "openai": openai_provider,
+            "anthropic": anthropic_provider,
+        }.get(provider_id)
+        settings_repo.list_model_defaults.return_value = [
+            ModelDefaultEntry(provider_id="openai", model_id="gpt-4o", is_default=True),
+            ModelDefaultEntry(
+                provider_id="anthropic",
+                model_id="claude-sonnet-4",
+                is_default=False,
+            ),
+        ]
+        settings_repo.get_fallback_map.return_value = []
+        settings_repo.set_fallback_target.side_effect = lambda entry: entry
+
+        service = _service(settings_repo=settings_repo, provider_repo=provider_repo)
+        first = service.update_model_default(
+            provider_id="openai",
+            model_name="gpt-4o",
+            is_default=True,
+            fallback_provider_id="anthropic",
+            fallback_model_id="claude-sonnet-4",
+        )
+        second = service.update_model_default(
+            provider_id="anthropic",
+            model_name="claude-sonnet-4",
+            is_default=False,
+            fallback_provider_id="openai",
+            fallback_model_id="gpt-4o",
+        )
+
+        assert settings_repo.set_fallback_target.call_args_list == [
+            call(
+                FallbackTargetEntry(
+                    provider_id="openai",
+                    fallback_provider_id="anthropic",
+                    fallback_model_id="claude-sonnet-4",
+                )
+            ),
+            call(
+                FallbackTargetEntry(
+                    provider_id="anthropic",
+                    fallback_provider_id="openai",
+                    fallback_model_id="gpt-4o",
+                )
+            ),
+        ]
+        assert first["fallback_provider_id"] == "anthropic"
+        assert first["fallback_model_id"] == "claude-sonnet-4"
+        assert second["fallback_provider_id"] == "openai"
+        assert second["fallback_model_id"] == "gpt-4o"
+
     def test_update_model_default_rejects_partial_fallback_updates(self):
         settings_repo = Mock()
         provider_repo = Mock()
