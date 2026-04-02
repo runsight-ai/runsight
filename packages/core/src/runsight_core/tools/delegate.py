@@ -1,4 +1,4 @@
-"""Built-in delegate tool: runsight/delegate."""
+"""Built-in delegate tool."""
 
 from __future__ import annotations
 
@@ -50,4 +50,5 @@ def create_delegate_tool(exits: List[ExitDef] | None = None) -> ToolInstance:
     )
 
 
+register_builtin("delegate", create_delegate_tool)
 register_builtin("runsight/delegate", create_delegate_tool)

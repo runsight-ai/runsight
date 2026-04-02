@@ -1,4 +1,4 @@
-"""Built-in HTTP tool: runsight/http."""
+"""Built-in HTTP tool."""
 
 from __future__ import annotations
 
@@ -58,4 +58,5 @@ def create_http_tool() -> ToolInstance:
     )
 
 
+register_builtin("http", create_http_tool)
 register_builtin("runsight/http", create_http_tool)

@@ -19,7 +19,7 @@ from runsight_core.blocks.code import (
     _validate_code_ast,
 )
 from runsight_core.security import validate_ssrf
-from runsight_core.yaml.discovery import discover_custom_tools
+from runsight_core.yaml.discovery import ToolMeta, discover_custom_tools
 from runsight_core.yaml.schema import BuiltinToolDef, CustomToolDef, HTTPToolDef, ToolDef
 
 # ---------------------------------------------------------------------------
@@ -27,6 +27,7 @@ from runsight_core.yaml.schema import BuiltinToolDef, CustomToolDef, HTTPToolDef
 # ---------------------------------------------------------------------------
 
 BUILTIN_TOOL_CATALOG: Dict[str, Callable] = {}
+RESERVED_BUILTIN_TOOL_IDS = frozenset({"http", "file_io", "delegate"})
 _ARG_TEMPLATE_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
 _ENV_TEMPLATE_RE = re.compile(r"\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 
@@ -85,18 +86,28 @@ def _resolve_builtin_tool(tool_def: BuiltinToolDef, **kwargs: object) -> ToolIns
     return factory(**kwargs)
 
 
-def resolve_custom_tool(tool_def: CustomToolDef, **kwargs: object) -> ToolInstance:
-    """Resolve a custom tool from ``custom/tools/*.yaml`` metadata."""
+def _tool_instance_name(tool_id: str) -> str:
+    """Derive the LLM-facing function name from a canonical tool ID."""
+    return tool_id.removesuffix("_tool")
+
+
+def _resolve_custom_tool_id(
+    tool_id: str,
+    *,
+    tool_meta: ToolMeta | None = None,
+    **kwargs: object,
+) -> ToolInstance:
+    """Resolve a custom tool from its canonical workflow ID."""
     base_dir = kwargs.get("base_dir", ".")
     timeout_seconds = kwargs.get("timeout_seconds", 30)
     if not isinstance(timeout_seconds, int):
         raise TypeError("timeout_seconds must be an int")
 
-    tool_meta = discover_custom_tools(base_dir).get(tool_def.source)
+    tool_meta = tool_meta or discover_custom_tools(base_dir).get(tool_id)
     if tool_meta is None:
-        raise ValueError(f"Unknown custom tool source: {tool_def.source!r}")
+        raise ValueError(f"Unknown custom tool source: {tool_id!r}")
     if tool_meta.code is None:
-        raise ValueError(f"Custom tool {tool_def.source!r} has no executable code")
+        raise ValueError(f"Custom tool {tool_id!r} has no executable code")
 
     _validate_code_ast(tool_meta.code, list(DEFAULT_ALLOWED_IMPORTS))
     harness = _HARNESS_PREFIX + tool_meta.code + _HARNESS_SUFFIX
@@ -128,7 +139,7 @@ def resolve_custom_tool(tool_def: CustomToolDef, **kwargs: object) -> ToolInstan
                 await proc.wait()
             except ProcessLookupError:
                 pass
-            return f"Error: custom tool '{tool_def.source}' timed out after {timeout_seconds}s"
+            return f"Error: custom tool '{tool_id}' timed out after {timeout_seconds}s"
 
         if proc.returncode != 0:
             error_msg = stderr_bytes.decode(errors="replace").strip()
@@ -137,11 +148,16 @@ def resolve_custom_tool(tool_def: CustomToolDef, **kwargs: object) -> ToolInstan
         return stdout_bytes.decode(errors="replace").strip()
 
     return ToolInstance(
-        name=tool_def.source,
-        description=f"Custom tool '{tool_def.source}'",
+        name=_tool_instance_name(tool_id),
+        description=f"Custom tool '{tool_id}'",
         parameters={"type": "object", "properties": {}},
         execute=_execute,
     )
+
+
+def resolve_custom_tool(tool_def: CustomToolDef, **kwargs: object) -> ToolInstance:
+    """Resolve a custom tool from ``custom/tools/*.yaml`` metadata."""
+    return _resolve_custom_tool_id(tool_def.source, **kwargs)
 
 
 def _render_http_template(template: str | None, args: dict) -> str | None:
@@ -166,31 +182,15 @@ def _extract_http_response_value(payload: object, response_path: str | None) -> 
     return value
 
 
-def _resolve_http_tool(tool_def: HTTPToolDef, **kwargs: object) -> ToolInstance:
-    """Resolve an HTTP tool from inline fields or ``custom/tools/*.yaml`` metadata."""
-    method = tool_def.method or "GET"
-    url = tool_def.url
-    body_template = tool_def.body_template
-    response_path = tool_def.response_path
-    tool_name = tool_def.source or "http_tool"
-
-    if url is None:
-        if tool_def.source is None:
-            raise ValueError("HTTP tools must declare either an inline URL or a file source slug")
-
-        base_dir = kwargs.get("base_dir", ".")
-        tool_meta = discover_custom_tools(base_dir).get(tool_def.source)
-        if tool_meta is None or tool_meta.type != "http":
-            raise ValueError(f"Unknown HTTP tool source: {tool_def.source!r}")
-
-        method = tool_meta.method or method
-        url = tool_meta.url
-        body_template = tool_meta.body_template
-        response_path = tool_meta.response_path
-        tool_name = tool_meta.source
-
-    if url is None:
-        raise ValueError("HTTP tools must declare either an inline URL or a file source slug")
+def _build_http_tool(
+    *,
+    tool_name: str,
+    method: str,
+    url: str,
+    body_template: str | None,
+    response_path: str | None,
+) -> ToolInstance:
+    """Build a ToolInstance for an HTTP-backed tool."""
 
     async def _execute(args: dict) -> str:
         rendered_url = _render_http_template(url, args)
@@ -219,6 +219,70 @@ def _resolve_http_tool(tool_def: HTTPToolDef, **kwargs: object) -> ToolInstance:
         parameters={"type": "object", "properties": {}},
         execute=_execute,
     )
+
+
+def _resolve_http_tool_id(
+    tool_id: str,
+    *,
+    tool_meta: ToolMeta | None = None,
+    **kwargs: object,
+) -> ToolInstance:
+    """Resolve a discovered HTTP tool from its canonical workflow ID."""
+    base_dir = kwargs.get("base_dir", ".")
+    tool_meta = tool_meta or discover_custom_tools(base_dir).get(tool_id)
+    if tool_meta is None or tool_meta.type != "http":
+        raise ValueError(f"Unknown HTTP tool source: {tool_id!r}")
+    if tool_meta.url is None:
+        raise ValueError("HTTP tools must declare either an inline URL or a file source slug")
+
+    return _build_http_tool(
+        tool_name=_tool_instance_name(tool_id),
+        method=tool_meta.method or "GET",
+        url=tool_meta.url,
+        body_template=tool_meta.body_template,
+        response_path=tool_meta.response_path,
+    )
+
+
+def _resolve_http_tool(tool_def: HTTPToolDef, **kwargs: object) -> ToolInstance:
+    """Resolve an HTTP tool from inline fields or ``custom/tools/*.yaml`` metadata."""
+    method = tool_def.method or "GET"
+    url = tool_def.url
+    body_template = tool_def.body_template
+    response_path = tool_def.response_path
+
+    if url is None:
+        if tool_def.source is None:
+            raise ValueError("HTTP tools must declare either an inline URL or a file source slug")
+        return _resolve_http_tool_id(tool_def.source, **kwargs)
+
+    return _build_http_tool(
+        tool_name=_tool_instance_name(tool_def.source or "http_tool"),
+        method=method,
+        url=url,
+        body_template=body_template,
+        response_path=response_path,
+    )
+
+
+def resolve_tool_id(tool_id: str, **kwargs: object) -> ToolInstance:
+    """Resolve a workflow-authored canonical tool ID to a ToolInstance."""
+    if tool_id in RESERVED_BUILTIN_TOOL_IDS:
+        factory = BUILTIN_TOOL_CATALOG.get(tool_id)
+        if factory is None:
+            raise ValueError(f"Unknown builtin tool id: {tool_id!r}")
+        return factory(**kwargs)
+
+    base_dir = kwargs.get("base_dir", ".")
+    tool_meta = discover_custom_tools(base_dir).get(tool_id)
+    if tool_meta is None:
+        raise ValueError(f"Unknown tool id: {tool_id!r}")
+    if tool_meta.type == "custom":
+        return _resolve_custom_tool_id(tool_id, tool_meta=tool_meta, **kwargs)
+    if tool_meta.type == "http":
+        return _resolve_http_tool_id(tool_id, tool_meta=tool_meta, **kwargs)
+
+    raise ValueError(f"Unsupported discovered tool type {tool_meta.type!r} for {tool_id!r}")
 
 
 def resolve_tool(tool_def: ToolDef, **kwargs: object) -> ToolInstance:

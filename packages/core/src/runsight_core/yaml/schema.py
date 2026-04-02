@@ -7,7 +7,14 @@ Phase 1 (RUN-110): Discriminated-union BlockDef with per-type models.
 
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, GetCoreSchemaHandler, TypeAdapter
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    GetCoreSchemaHandler,
+    TypeAdapter,
+    field_validator,
+)
 
 # -- Soul / Task / Task-file (unchanged) ------------------------------------
 
@@ -260,10 +267,26 @@ class RunsightWorkflowFile(BaseModel):
     version: str = "1.0"
     enabled: bool = False
     config: Dict[str, Any] = Field(default_factory=dict)
-    tools: Dict[str, ToolDef] = Field(default_factory=dict)
+    tools: List[str] = Field(default_factory=list)
     souls: Dict[str, SoulDef] = Field(default_factory=dict)
     blocks: Dict[str, BlockDef] = Field(default_factory=dict)
     workflow: WorkflowDef  # required — no default; Pydantic raises ValidationError if absent
+
+    @field_validator("tools")
+    @classmethod
+    def _validate_unique_tool_ids(cls, tool_ids: List[str]) -> List[str]:
+        duplicates: List[str] = []
+        seen: set[str] = set()
+        for tool_id in tool_ids:
+            if tool_id in seen and tool_id not in duplicates:
+                duplicates.append(tool_id)
+            seen.add(tool_id)
+
+        if duplicates:
+            joined = ", ".join(repr(tool_id) for tool_id in duplicates)
+            raise ValueError(f"duplicate workflow tool ids are not allowed: {joined}")
+
+        return tool_ids
 
 
 # -- Dynamic union builders -------------------------------------------------

@@ -5,6 +5,7 @@ Exports: parse_workflow_yaml, parse_task_yaml
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
@@ -20,19 +21,15 @@ from runsight_core.conditions.engine import (
 )
 from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
-from runsight_core.tools._catalog import BUILTIN_TOOL_CATALOG, resolve_tool
+from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.discovery import discover_custom_tools
 from runsight_core.yaml.schema import (
-    BuiltinToolDef,
     ConditionDef,
     ConditionGroupDef,
-    CustomToolDef,
-    HTTPToolDef,
     InputRef,
     RunsightTaskFile,
     RunsightWorkflowFile,
-    ToolDef,
 )
 
 # Supported schema versions.  When a future version bump is needed:
@@ -73,31 +70,34 @@ def _convert_condition_group(group_def: ConditionGroupDef) -> ConditionGroup:
     )
 
 
-def _resolve_soul_tool_definition(
-    tool_ref: str, workflow_tools: Dict[str, ToolDef]
-) -> ToolDef | None:
-    """Resolve a soul tool ref from the workflow tool map only."""
-    return workflow_tools.get(tool_ref)
+def _find_duplicate_tool_ids(tool_ids: Collection[str]) -> list[str]:
+    """Return workflow tool IDs that appear more than once, preserving first duplicate order."""
+    duplicates: list[str] = []
+    seen: set[str] = set()
+    for tool_id in tool_ids:
+        if tool_id in seen and tool_id not in duplicates:
+            duplicates.append(tool_id)
+        seen.add(tool_id)
+    return duplicates
+
+
+def _resolve_soul_tool_definition(tool_ref: str, workflow_tools: Collection[str]) -> str | None:
+    """Resolve a soul tool ref from the workflow tool whitelist only."""
+    return tool_ref if tool_ref in workflow_tools else None
 
 
 def validate_tool_governance(file_def: RunsightWorkflowFile) -> None:
     """Validate workflow tool declarations and soul tool references."""
-    for tool_key, tool_def in file_def.tools.items():
-        if isinstance(tool_def, BuiltinToolDef) and tool_def.source not in BUILTIN_TOOL_CATALOG:
-            available = sorted(BUILTIN_TOOL_CATALOG.keys())
-            raise ValueError(
-                f"Tool '{tool_key}' has unknown source '{tool_def.source}'. Available: {available}"
-            )
-
+    declared_tools = set(file_def.tools)
     for soul_key, soul_def in file_def.souls.items():
         if not soul_def.tools:
             continue
 
         for tool_name in soul_def.tools:
-            if _resolve_soul_tool_definition(tool_name, file_def.tools) is None:
+            if _resolve_soul_tool_definition(tool_name, declared_tools) is None:
                 raise ValueError(
                     f"Soul '{soul_key}' references undeclared tool '{tool_name}'. "
-                    f"Declared tools: {sorted(file_def.tools.keys())}"
+                    f"Declared tools: {sorted(file_def.tools)}"
                 )
 
 
@@ -105,64 +105,70 @@ def _validate_declared_tool_definitions(
     file_def: RunsightWorkflowFile,
     *,
     base_dir: str,
+    require_custom_metadata: bool = False,
 ) -> None:
-    """Validate that declared tool definitions are parse-time resolvable."""
+    """Validate that declared canonical tool IDs are parse-time resolvable."""
     discovered_tools = discover_custom_tools(base_dir)
+    available_builtin_ids = sorted(RESERVED_BUILTIN_TOOL_IDS)
+    available_custom_ids = sorted(discovered_tools.keys())
 
-    for tool_key, tool_def in file_def.tools.items():
-        if isinstance(tool_def, BuiltinToolDef):
+    for tool_id in file_def.tools:
+        expected_file = Path(base_dir) / "custom" / "tools" / f"{tool_id}.yaml"
+
+        if tool_id in RESERVED_BUILTIN_TOOL_IDS:
+            if tool_id in discovered_tools:
+                raise ValueError(
+                    f"reserved builtin tool id '{tool_id}' collides with custom tool metadata at "
+                    f"{expected_file}"
+                )
             continue
 
-        if isinstance(tool_def, CustomToolDef):
-            if tool_def.source not in discovered_tools:
-                expected_file = Path(base_dir) / "custom" / "tools" / f"{tool_def.source}.yaml"
+        tool_meta = discovered_tools.get(tool_id)
+        if tool_meta is None:
+            if require_custom_metadata:
                 raise ValueError(
-                    f"Tool '{tool_key}' references missing custom tool '{tool_def.source}'. "
+                    f"Tool '{tool_id}' references missing custom tool metadata. "
                     f"Expected metadata at {expected_file}"
                 )
-        elif (
-            isinstance(tool_def, HTTPToolDef)
-            and tool_def.url is None
-            and tool_def.source is not None
-        ):
-            if tool_def.source not in discovered_tools:
-                expected_file = Path(base_dir) / "custom" / "tools" / f"{tool_def.source}.yaml"
-                raise ValueError(
-                    f"Tool '{tool_key}' references missing HTTP tool '{tool_def.source}'. "
-                    f"Expected metadata at {expected_file}"
-                )
+            raise ValueError(
+                f"Workflow declares unknown tool id '{tool_id}'. "
+                f"Available builtin IDs: {available_builtin_ids}. "
+                f"Discovered custom IDs: {available_custom_ids}"
+            )
 
         try:
-            _resolve_tool_for_parser(tool_def, base_dir=base_dir)
+            _resolve_tool_for_parser(tool_id, base_dir=base_dir)
         except ValueError as exc:
-            source_hint = f" ({tool_def.source})" if tool_def.source else ""
-            raise ValueError(f"Tool '{tool_key}'{source_hint}: {exc}") from exc
+            raise ValueError(f"Tool '{tool_id}': {exc}") from exc
 
 
 def _resolve_tool_for_parser(
-    tool_def: ToolDef,
+    tool_id: str,
     *,
     base_dir: str,
     exits: object | None = None,
 ) -> object:
-    """Resolve a tool with only the parser context that its type needs."""
-    if isinstance(tool_def, BuiltinToolDef):
-        kwargs: Dict[str, object] = {}
-        if tool_def.source == "runsight/delegate" and exits is not None:
-            kwargs["exits"] = exits
-        elif tool_def.source == "runsight/file-io":
-            kwargs["base_dir"] = base_dir
-        return resolve_tool(tool_def, **kwargs)
+    """Resolve a tool with only the parser context that its canonical ID needs."""
+    kwargs: Dict[str, object] = {}
+    if tool_id == "delegate" and exits is not None:
+        kwargs["exits"] = exits
+    elif tool_id == "file_io":
+        kwargs["base_dir"] = base_dir
+    elif tool_id not in RESERVED_BUILTIN_TOOL_IDS:
+        kwargs["base_dir"] = base_dir
 
-    return resolve_tool(tool_def, base_dir=base_dir)
+    return resolve_tool_id(tool_id, **kwargs)
 
 
-def _attach_tool_runtime_metadata(tool: object, tool_def: ToolDef) -> object:
-    """Annotate a resolved ToolInstance with source/type metadata for isolation."""
-    setattr(tool, "source", tool_def.source or "")
-    setattr(tool, "tool_type", getattr(tool_def, "type", ""))
-    if hasattr(tool_def, "model_dump"):
-        setattr(tool, "config", tool_def.model_dump())
+def _attach_tool_runtime_metadata(tool: object, tool_id: str, *, base_dir: str) -> object:
+    """Annotate a resolved ToolInstance with ID/type metadata for isolation."""
+    setattr(tool, "source", tool_id)
+    if tool_id in RESERVED_BUILTIN_TOOL_IDS:
+        setattr(tool, "tool_type", "builtin")
+    else:
+        tool_meta = discover_custom_tools(base_dir).get(tool_id)
+        setattr(tool, "tool_type", tool_meta.type if tool_meta is not None else "")
+    setattr(tool, "config", {"id": tool_id})
     return tool
 
 
@@ -210,6 +216,7 @@ def parse_workflow_yaml(
     """
     # Step 1: Normalize input to raw dict
     workflow_base_dir = "."
+    require_custom_metadata = False
     if isinstance(yaml_str_or_dict, str):
         stripped = yaml_str_or_dict.strip()
         is_file_path = "\n" not in stripped and (
@@ -217,12 +224,26 @@ def parse_workflow_yaml(
         )
         if is_file_path:
             workflow_base_dir = str(Path(stripped).resolve().parent)
+            require_custom_metadata = True
             with open(stripped, "r", encoding="utf-8") as f:
                 raw: Any = yaml.safe_load(f)
         else:
             raw = yaml.safe_load(yaml_str_or_dict)
     else:
         raw = yaml_str_or_dict
+
+    if isinstance(raw, dict):
+        raw_tools = raw.get("tools")
+        if isinstance(raw_tools, list):
+            duplicates = _find_duplicate_tool_ids(raw_tools)
+            if duplicates:
+                joined = ", ".join(repr(tool_id) for tool_id in duplicates)
+                raise ValueError(f"duplicate workflow tool ids are not allowed: {joined}")
+        raw_souls = raw.get("souls")
+        if isinstance(raw_souls, dict):
+            for soul_data in raw_souls.values():
+                if isinstance(soul_data, dict):
+                    soul_data.pop("exits", None)
 
     # Step 2: Validate against Pydantic schema (raises ValidationError on failure)
     file_def = RunsightWorkflowFile.model_validate(raw)
@@ -370,15 +391,20 @@ def parse_workflow_yaml(
     # Step 6.5b: Bridge block-owned assertions onto the final runtime blocks
     for block_id, block_def in file_def.blocks.items():
         if block_id in built_blocks:
+            block_assertions = getattr(block_def, "assertions", None)
             built_blocks[block_id].assertions = (
-                [dict(assertion) for assertion in block_def.assertions]
-                if block_def.assertions is not None
+                [dict(assertion) for assertion in block_assertions]
+                if block_assertions is not None
                 else None
             )
 
     # Step 6.6: Validate and resolve tools per soul
     validate_tool_governance(file_def)
-    _validate_declared_tool_definitions(file_def, base_dir=workflow_base_dir)
+    _validate_declared_tool_definitions(
+        file_def,
+        base_dir=workflow_base_dir,
+        require_custom_metadata=require_custom_metadata,
+    )
 
     # 6.6c: Resolve ToolInstance objects per soul
     for soul_key, soul_def in file_def.souls.items():
@@ -391,7 +417,7 @@ def parse_workflow_yaml(
             if tool_def is None:
                 continue
 
-            if tool_def.source == "runsight/delegate":
+            if tool_def == "delegate":
                 # Find the block that references this soul via soul_ref
                 block_id_for_soul = None
                 block_def_for_soul = None
@@ -415,6 +441,7 @@ def parse_workflow_yaml(
                             base_dir=workflow_base_dir,
                         ),
                         tool_def,
+                        base_dir=workflow_base_dir,
                     )
                 )
             else:
@@ -422,6 +449,7 @@ def parse_workflow_yaml(
                     _attach_tool_runtime_metadata(
                         _resolve_tool_for_parser(tool_def, base_dir=workflow_base_dir),
                         tool_def,
+                        base_dir=workflow_base_dir,
                     )
                 )
 

@@ -1,26 +1,5 @@
 {
   "$defs": {
-    "BuiltinToolDef": {
-      "additionalProperties": false,
-      "description": "Built-in tool definition as expressed in the YAML tools: section.",
-      "properties": {
-        "source": {
-          "title": "Source",
-          "type": "string"
-        },
-        "type": {
-          "const": "builtin",
-          "title": "Type",
-          "type": "string"
-        }
-      },
-      "required": [
-        "source",
-        "type"
-      ],
-      "title": "BuiltinToolDef",
-      "type": "object"
-    },
     "CarryContextConfig": {
       "additionalProperties": false,
       "description": "Configuration for carrying context between LoopBlock rounds.",
@@ -319,27 +298,6 @@
         "from"
       ],
       "title": "ConditionalTransitionDef",
-      "type": "object"
-    },
-    "CustomToolDef": {
-      "additionalProperties": false,
-      "description": "Custom tool definition as expressed in the YAML tools: section.",
-      "properties": {
-        "source": {
-          "title": "Source",
-          "type": "string"
-        },
-        "type": {
-          "const": "custom",
-          "title": "Type",
-          "type": "string"
-        }
-      },
-      "required": [
-        "source",
-        "type"
-      ],
-      "title": "CustomToolDef",
       "type": "object"
     },
     "ExitDef": {
@@ -662,27 +620,6 @@
         "eval_key"
       ],
       "title": "GateBlockDef",
-      "type": "object"
-    },
-    "HTTPToolDef": {
-      "additionalProperties": false,
-      "description": "HTTP tool definition as expressed in the YAML tools: section.",
-      "properties": {
-        "source": {
-          "title": "Source",
-          "type": "string"
-        },
-        "type": {
-          "const": "http",
-          "title": "Type",
-          "type": "string"
-        }
-      },
-      "required": [
-        "source",
-        "type"
-      ],
-      "title": "HTTPToolDef",
       "type": "object"
     },
     "InputRef": {
@@ -1562,29 +1499,11 @@
       "type": "object"
     },
     "tools": {
-      "additionalProperties": {
-        "discriminator": {
-          "mapping": {
-            "builtin": "#/$defs/BuiltinToolDef",
-            "custom": "#/$defs/CustomToolDef",
-            "http": "#/$defs/HTTPToolDef"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/$defs/BuiltinToolDef"
-          },
-          {
-            "$ref": "#/$defs/CustomToolDef"
-          },
-          {
-            "$ref": "#/$defs/HTTPToolDef"
-          }
-        ]
+      "items": {
+        "type": "string"
       },
       "title": "Tools",
-      "type": "object"
+      "type": "array"
     },
     "souls": {
       "additionalProperties": {
