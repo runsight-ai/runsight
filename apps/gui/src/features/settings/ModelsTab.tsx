@@ -126,13 +126,13 @@ function FallbackTargetRow({
     setDraftFallbackModel(fallbackModelId);
   }, [fallbackModelId, fallbackProviderId]);
 
-  const handleFallbackProviderChange = useCallback((nextFallbackProviderId: string) => {
+  const handleFallbackProviderChange = useCallback((nextFallbackProviderId: string | null) => {
     setDraftFallbackProvider(nextFallbackProviderId);
     setDraftFallbackModel(null);
   }, []);
 
   const handleFallbackModelChange = useCallback(
-    async (nextFallbackModelId: string) => {
+    async (nextFallbackModelId: string | null) => {
       setDraftFallbackModel(nextFallbackModelId);
 
       const fallbackProviderId = draftFallbackProvider;
@@ -285,7 +285,16 @@ export function ModelsTab() {
   const updateAppSettings = useUpdateAppSettings();
   const [isRetrying, setIsRetrying] = useState(false);
   const modelDefaults = useMemo(() => data?.items ?? [], [data?.items]);
-  const allProviders = useMemo(() => providersData?.items ?? [], [providersData?.items]);
+  const allProviders = useMemo<ProviderOption[]>(
+    () =>
+      (providersData?.items ?? []).map((provider) => ({
+        id: provider.id,
+        name: provider.name,
+        models: provider.models ?? [],
+        is_active: provider.is_active,
+      })),
+    [providersData?.items],
+  );
   const enabledProviders = useMemo(
     () => allProviders.filter((provider) => provider.is_active ?? true),
     [allProviders],
