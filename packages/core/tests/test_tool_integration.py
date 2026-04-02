@@ -99,7 +99,7 @@ def _tool_call_response(
 
 def _workflow_dict(
     *,
-    tools: Dict[str, Any] | None = None,
+    tools: List[str] | None = None,
     souls: Dict[str, Any] | None = None,
     blocks: Dict[str, Any] | None = None,
     transitions: List[Dict[str, Any]] | None = None,
@@ -187,13 +187,13 @@ class TestFullPipeline:
     async def test_yaml_parse_and_execute_with_tool_call(self, mock_achat: AsyncMock) -> None:
         """Full pipeline: parse YAML dict, run task with tool call, get final output."""
         yaml_dict = _workflow_dict(
-            tools={"echo_tool": {"type": "builtin", "source": _ECHO_TOOL_SOURCE}},
+            tools=[_ECHO_TOOL_SOURCE],
             souls={
                 "agent": {
                     "id": "agent_1",
                     "role": "Test Agent",
                     "system_prompt": "Use the echo tool.",
-                    "tools": ["echo_tool"],
+                    "tools": [_ECHO_TOOL_SOURCE],
                 }
             },
             blocks={"step": {"type": "linear", "soul_ref": "agent"}},
@@ -230,13 +230,13 @@ class TestFullPipeline:
     async def test_tool_execute_receives_parsed_args(self, mock_achat: AsyncMock) -> None:
         """The echo tool's execute() is called with the parsed JSON arguments."""
         yaml_dict = _workflow_dict(
-            tools={"echo_tool": {"type": "builtin", "source": _ECHO_TOOL_SOURCE}},
+            tools=[_ECHO_TOOL_SOURCE],
             souls={
                 "agent": {
                     "id": "agent_1",
                     "role": "Test Agent",
                     "system_prompt": "Use echo.",
-                    "tools": ["echo_tool"],
+                    "tools": [_ECHO_TOOL_SOURCE],
                 }
             },
             blocks={"step": {"type": "linear", "soul_ref": "agent"}},
@@ -266,13 +266,13 @@ class TestFullPipeline:
     async def test_tool_schema_sent_to_llm(self, mock_achat: AsyncMock) -> None:
         """The first LLM call must receive the resolved tool's OpenAI schema."""
         yaml_dict = _workflow_dict(
-            tools={"echo_tool": {"type": "builtin", "source": _ECHO_TOOL_SOURCE}},
+            tools=[_ECHO_TOOL_SOURCE],
             souls={
                 "agent": {
                     "id": "agent_1",
                     "role": "Test Agent",
                     "system_prompt": "Use echo.",
-                    "tools": ["echo_tool"],
+                    "tools": [_ECHO_TOOL_SOURCE],
                 }
             },
             blocks={"step": {"type": "linear", "soul_ref": "agent"}},
@@ -309,22 +309,19 @@ class TestSoulIsolation:
     async def test_soul_a_only_sees_http_schema(self, mock_achat: AsyncMock) -> None:
         """Soul A (http tool) — LLM call receives only the http_request schema."""
         yaml_dict = _workflow_dict(
-            tools={
-                "http_tool": {"type": "builtin", "source": "runsight/http"},
-                "file_tool": {"type": "builtin", "source": "runsight/file-io"},
-            },
+            tools=["http", "file_io"],
             souls={
                 "soul_a": {
                     "id": "soul_a_id",
                     "role": "HTTP Agent",
                     "system_prompt": "Make HTTP calls.",
-                    "tools": ["http_tool"],
+                    "tools": ["http"],
                 },
                 "soul_b": {
                     "id": "soul_b_id",
                     "role": "File Agent",
                     "system_prompt": "Read files.",
-                    "tools": ["file_tool"],
+                    "tools": ["file_io"],
                 },
             },
             blocks={
@@ -359,22 +356,19 @@ class TestSoulIsolation:
     async def test_soul_b_only_sees_file_io_schema(self, mock_achat: AsyncMock) -> None:
         """Soul B (file_io tool) — LLM call receives only the file_io schema."""
         yaml_dict = _workflow_dict(
-            tools={
-                "http_tool": {"type": "builtin", "source": "runsight/http"},
-                "file_tool": {"type": "builtin", "source": "runsight/file-io"},
-            },
+            tools=["http", "file_io"],
             souls={
                 "soul_a": {
                     "id": "soul_a_id",
                     "role": "HTTP Agent",
                     "system_prompt": "Make HTTP calls.",
-                    "tools": ["http_tool"],
+                    "tools": ["http"],
                 },
                 "soul_b": {
                     "id": "soul_b_id",
                     "role": "File Agent",
                     "system_prompt": "Read files.",
-                    "tools": ["file_tool"],
+                    "tools": ["file_io"],
                 },
             },
             blocks={
@@ -407,22 +401,19 @@ class TestSoulIsolation:
     def test_parsed_soul_a_resolved_tools_contains_only_http(self) -> None:
         """After parsing, soul_a.resolved_tools contains only http_request."""
         yaml_dict = _workflow_dict(
-            tools={
-                "http_tool": {"type": "builtin", "source": "runsight/http"},
-                "file_tool": {"type": "builtin", "source": "runsight/file-io"},
-            },
+            tools=["http", "file_io"],
             souls={
                 "soul_a": {
                     "id": "soul_a_id",
                     "role": "HTTP Agent",
                     "system_prompt": "HTTP.",
-                    "tools": ["http_tool"],
+                    "tools": ["http"],
                 },
                 "soul_b": {
                     "id": "soul_b_id",
                     "role": "File Agent",
                     "system_prompt": "Files.",
-                    "tools": ["file_tool"],
+                    "tools": ["file_io"],
                 },
             },
             blocks={
@@ -463,13 +454,13 @@ class TestMaxIterationsIntegration:
     async def test_loop_caps_at_max_tool_iterations(self, mock_achat: AsyncMock) -> None:
         """With max_tool_iterations=2, loop stops after 2 tool iterations."""
         yaml_dict = _workflow_dict(
-            tools={"echo_tool": {"type": "builtin", "source": _ECHO_TOOL_SOURCE}},
+            tools=[_ECHO_TOOL_SOURCE],
             souls={
                 "agent": {
                     "id": "agent_1",
                     "role": "Test Agent",
                     "system_prompt": "Always call echo.",
-                    "tools": ["echo_tool"],
+                    "tools": [_ECHO_TOOL_SOURCE],
                     "max_tool_iterations": 2,
                 }
             },
@@ -498,13 +489,13 @@ class TestMaxIterationsIntegration:
     async def test_last_iteration_call_strips_tools(self, mock_achat: AsyncMock) -> None:
         """On the last iteration (iteration == max-1), tools= is passed as []."""
         yaml_dict = _workflow_dict(
-            tools={"echo_tool": {"type": "builtin", "source": _ECHO_TOOL_SOURCE}},
+            tools=[_ECHO_TOOL_SOURCE],
             souls={
                 "agent": {
                     "id": "agent_1",
                     "role": "Test Agent",
                     "system_prompt": "Echo always.",
-                    "tools": ["echo_tool"],
+                    "tools": [_ECHO_TOOL_SOURCE],
                     "max_tool_iterations": 1,
                 }
             },
@@ -530,13 +521,13 @@ class TestMaxIterationsIntegration:
     async def test_tool_calls_made_tracks_all_iterations(self, mock_achat: AsyncMock) -> None:
         """tool_calls_made in ExecutionResult lists every tool called across iterations."""
         yaml_dict = _workflow_dict(
-            tools={"echo_tool": {"type": "builtin", "source": _ECHO_TOOL_SOURCE}},
+            tools=[_ECHO_TOOL_SOURCE],
             souls={
                 "agent": {
                     "id": "agent_1",
                     "role": "Test Agent",
                     "system_prompt": "Echo.",
-                    "tools": ["echo_tool"],
+                    "tools": [_ECHO_TOOL_SOURCE],
                     "max_tool_iterations": 5,
                 }
             },
@@ -591,13 +582,13 @@ class TestToolErrorFeedback:
 
         try:
             yaml_dict = _workflow_dict(
-                tools={"fail_tool": {"type": "builtin", "source": failing_source}},
+                tools=[failing_source],
                 souls={
                     "agent": {
                         "id": "agent_1",
                         "role": "Test Agent",
                         "system_prompt": "Use the fail tool.",
-                        "tools": ["fail_tool"],
+                        "tools": [failing_source],
                     }
                 },
                 blocks={"step": {"type": "linear", "soul_ref": "agent"}},
@@ -649,13 +640,13 @@ class TestToolErrorFeedback:
 
         try:
             yaml_dict = _workflow_dict(
-                tools={"err_tool": {"type": "builtin", "source": error_source}},
+                tools=[error_source],
                 souls={
                     "agent": {
                         "id": "agent_1",
                         "role": "Test Agent",
                         "system_prompt": "Use err tool.",
-                        "tools": ["err_tool"],
+                        "tools": [error_source],
                     }
                 },
                 blocks={"step": {"type": "linear", "soul_ref": "agent"}},
@@ -689,7 +680,7 @@ class TestParseValidation:
     def test_soul_references_undeclared_tool_raises_value_error(self) -> None:
         """Soul referencing tool not in tools: section -> ValueError."""
         yaml_dict = _workflow_dict(
-            tools={"echo_tool": {"type": "builtin", "source": _ECHO_TOOL_SOURCE}},
+            tools=[_ECHO_TOOL_SOURCE],
             souls={
                 "agent": {
                     "id": "agent_1",
@@ -707,7 +698,7 @@ class TestParseValidation:
     def test_undeclared_tool_error_mentions_soul_name(self) -> None:
         """ValueError for undeclared tool must mention the soul's key."""
         yaml_dict = _workflow_dict(
-            tools={"echo_tool": {"type": "builtin", "source": _ECHO_TOOL_SOURCE}},
+            tools=[_ECHO_TOOL_SOURCE],
             souls={
                 "my_special_soul": {
                     "id": "mss_1",
@@ -722,16 +713,16 @@ class TestParseValidation:
         with pytest.raises(ValueError, match="my_special_soul"):
             parse_workflow_yaml(yaml_dict)
 
-    def test_unknown_tool_source_raises_value_error(self) -> None:
-        """Tool with source not in BUILTIN_TOOL_CATALOG -> ValueError."""
+    def test_unknown_tool_id_raises_value_error(self) -> None:
+        """Workflow tool IDs not found in the builtin registry or discovered custom tools should fail."""
         yaml_dict = _workflow_dict(
-            tools={"bad_tool": {"type": "builtin", "source": "runsight/does_not_exist"}},
+            tools=["does_not_exist"],
             souls={
                 "agent": {
                     "id": "agent_1",
                     "role": "Agent",
                     "system_prompt": "Use bad tool.",
-                    "tools": ["bad_tool"],
+                    "tools": ["does_not_exist"],
                 }
             },
             blocks={"step": {"type": "linear", "soul_ref": "agent"}},
@@ -740,22 +731,22 @@ class TestParseValidation:
         with pytest.raises(ValueError):
             parse_workflow_yaml(yaml_dict)
 
-    def test_unknown_source_error_mentions_source_string(self) -> None:
-        """ValueError for unknown source must include the offending source string."""
+    def test_unknown_tool_id_error_mentions_id_string(self) -> None:
+        """ValueError for an unknown workflow tool ID must include the offending ID string."""
         yaml_dict = _workflow_dict(
-            tools={"mystery": {"type": "builtin", "source": "runsight/mystery_281"}},
+            tools=["mystery_281"],
             souls={
                 "agent": {
                     "id": "agent_1",
                     "role": "Agent",
                     "system_prompt": "Use mystery.",
-                    "tools": ["mystery"],
+                    "tools": ["mystery_281"],
                 }
             },
             blocks={"step": {"type": "linear", "soul_ref": "agent"}},
         )
 
-        with pytest.raises(ValueError, match="runsight/mystery_281"):
+        with pytest.raises(ValueError, match="mystery_281"):
             parse_workflow_yaml(yaml_dict)
 
 
@@ -783,8 +774,10 @@ class TestCanonicalWorkflowToolIdIntegration:
         assert soul.resolved_tools is not None
         assert {tool.name for tool in soul.resolved_tools} == {"http_request", "file_io"}
 
-    def test_reserved_builtin_id_is_not_shadowed_by_custom_tool_file(self, tmp_path: Path) -> None:
-        """A custom/tools/http.yaml file must not override the reserved builtin http ID."""
+    def test_reserved_builtin_id_collision_with_custom_tool_file_raises(
+        self, tmp_path: Path
+    ) -> None:
+        """A custom/tools/http.yaml file must make the reserved builtin http ID invalid."""
         _write_custom_tool_yaml(
             tmp_path,
             "http",
@@ -824,11 +817,10 @@ workflow:
 """,
         )
 
-        workflow = parse_workflow_yaml(str(workflow_file))
-        soul = workflow.blocks["step"].soul
-
-        assert soul.resolved_tools is not None
-        assert soul.resolved_tools[0].name == "http_request"
+        with pytest.raises(
+            ValueError, match=r"reserved.*http.*custom/tools/http\.yaml|collision.*http"
+        ):
+            parse_workflow_yaml(str(workflow_file))
 
 
 # ===========================================================================
@@ -843,13 +835,13 @@ class TestDelegateTool:
     def test_delegate_port_enum_matches_block_exits(self) -> None:
         """Parsed soul with delegate tool has port enum equal to block exits."""
         yaml_dict = _workflow_dict(
-            tools={"delegate_tool": {"type": "builtin", "source": "runsight/delegate"}},
+            tools=["delegate"],
             souls={
                 "gate_agent": {
                     "id": "gate_1",
                     "role": "Gate Agent",
                     "system_prompt": "Evaluate and route.",
-                    "tools": ["delegate_tool"],
+                    "tools": ["delegate"],
                 }
             },
             blocks={
@@ -900,13 +892,13 @@ class TestDelegateTool:
     async def test_delegate_port_returned_in_tool_result(self, mock_achat: AsyncMock) -> None:
         """In the runner loop, delegate execute result (port string) is fed back as tool message."""
         yaml_dict = _workflow_dict(
-            tools={"delegate_tool": {"type": "builtin", "source": "runsight/delegate"}},
+            tools=["delegate"],
             souls={
                 "gate_agent": {
                     "id": "gate_1",
                     "role": "Gate Agent",
                     "system_prompt": "Delegate.",
-                    "tools": ["delegate_tool"],
+                    "tools": ["delegate"],
                     "exits": [
                         {"id": "approve", "label": "Approve"},
                         {"id": "reject", "label": "Reject"},
@@ -952,13 +944,13 @@ class TestDelegateTool:
     def test_delegate_three_exits_port_enum_complete(self) -> None:
         """With three exits, port enum has all three IDs."""
         yaml_dict = _workflow_dict(
-            tools={"delegate_tool": {"type": "builtin", "source": "runsight/delegate"}},
+            tools=["delegate"],
             souls={
                 "router_agent": {
                     "id": "router_1",
                     "role": "Router",
                     "system_prompt": "Route.",
-                    "tools": ["delegate_tool"],
+                    "tools": ["delegate"],
                 }
             },
             blocks={
@@ -995,13 +987,13 @@ class TestCostAccumulationIntegration:
     async def test_cost_sums_three_iterations(self, mock_achat: AsyncMock) -> None:
         """3-iteration loop (2 tool calls + 1 final text): cost_usd = sum of all."""
         yaml_dict = _workflow_dict(
-            tools={"echo_tool": {"type": "builtin", "source": _ECHO_TOOL_SOURCE}},
+            tools=[_ECHO_TOOL_SOURCE],
             souls={
                 "agent": {
                     "id": "agent_1",
                     "role": "Test Agent",
                     "system_prompt": "Echo three times.",
-                    "tools": ["echo_tool"],
+                    "tools": [_ECHO_TOOL_SOURCE],
                     "max_tool_iterations": 5,
                 }
             },
@@ -1034,13 +1026,13 @@ class TestCostAccumulationIntegration:
     async def test_cost_accumulation_matches_call_count(self, mock_achat: AsyncMock) -> None:
         """cost_usd equals the sum of cost_usd from all achat() calls."""
         yaml_dict = _workflow_dict(
-            tools={"echo_tool": {"type": "builtin", "source": _ECHO_TOOL_SOURCE}},
+            tools=[_ECHO_TOOL_SOURCE],
             souls={
                 "agent": {
                     "id": "agent_1",
                     "role": "Test Agent",
                     "system_prompt": "Echo.",
-                    "tools": ["echo_tool"],
+                    "tools": [_ECHO_TOOL_SOURCE],
                     "max_tool_iterations": 5,
                 }
             },
@@ -1148,7 +1140,7 @@ class TestNoToolsPath:
     def test_parsed_soul_without_tools_has_none_resolved_tools(self) -> None:
         """After parsing, a soul with no tools: field has resolved_tools=None."""
         yaml_dict = _workflow_dict(
-            tools={"echo_tool": {"type": "builtin", "source": _ECHO_TOOL_SOURCE}},
+            tools=[_ECHO_TOOL_SOURCE],
             souls={
                 "no_tool_soul": {
                     "id": "nt_1",
@@ -1213,14 +1205,14 @@ class TestExistingYamlWorkflowsParseClean:
         assert "workflow" in raw
         assert "version" in raw
         # If the workflow declares any tool-using souls, they must reference valid tool keys
-        tools_section = raw.get("tools", {})
+        tools_section = raw.get("tools", [])
         souls_section = raw.get("souls", {})
         for soul_key, soul_data in souls_section.items():
             if isinstance(soul_data, dict) and soul_data.get("tools"):
                 for tool_ref in soul_data["tools"]:
                     assert tool_ref in tools_section, (
                         f"Soul '{soul_key}' references undeclared tool '{tool_ref}'. "
-                        f"Declared tools: {list(tools_section.keys())}"
+                        f"Declared tools: {list(tools_section)}"
                     )
 
     def test_mockup_generate_review_yaml_parses(self) -> None:
@@ -1265,16 +1257,14 @@ version: "1.0"
 config:
   model_name: gpt-4o
 tools:
-  add:
-    type: custom
-    source: adder
+  - adder
 souls:
   agent:
     id: agent_1
     role: Custom Agent
     system_prompt: Use the adder tool.
     tools:
-      - add
+      - adder
 blocks:
   step:
     type: linear
@@ -1338,16 +1328,14 @@ version: "1.0"
 config:
   model_name: gpt-4o
 tools:
-  fetch:
-    type: http
-    source: fetch_answer
+  - fetch_answer
 souls:
   agent:
     id: agent_1
     role: HTTP Agent
     system_prompt: Use the fetch tool.
     tools:
-      - fetch
+      - fetch_answer
 blocks:
   step:
     type: linear
@@ -1447,24 +1435,18 @@ version: "1.0"
 config:
   model_name: gpt-4o
 tools:
-  http_builtin:
-    type: builtin
-    source: runsight/http
-  add:
-    type: custom
-    source: adder
-  fetch:
-    type: http
-    source: fetch_answer
+  - http
+  - adder
+  - fetch_answer
 souls:
   agent:
     id: agent_1
     role: Mixed Agent
     system_prompt: Use every tool.
     tools:
-      - http_builtin
-      - add
-      - fetch
+      - http
+      - adder
+      - fetch_answer
 blocks:
   step:
     type: linear
@@ -1621,24 +1603,18 @@ version: "1.0"
 config:
   model_name: gpt-4o
 tools:
-  builtin_http:
-    type: builtin
-    source: runsight/http
-  add:
-    type: custom
-    source: adder
-  fetch:
-    type: http
-    source: fetch_answer
+  - http
+  - adder
+  - fetch_answer
 souls:
   agent:
     id: agent_1
     role: Mixed Agent
     system_prompt: Use every tool.
     tools:
-      - builtin_http
-      - add
-      - fetch
+      - http
+      - adder
+      - fetch_answer
 blocks:
   step:
     type: linear

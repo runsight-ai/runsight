@@ -151,7 +151,7 @@ def test_create_rejects_legacy_typed_tool_authoring(tmp_path):
     assert "list" in entity.validation_error
 
 
-def test_create_keeps_reserved_builtin_ids_valid_when_custom_slug_collides(tmp_path):
+def test_create_rejects_reserved_builtin_id_collision_with_custom_slug(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
     tools_dir = tmp_path / "custom" / "tools"
     tools_dir.mkdir(parents=True, exist_ok=True)
@@ -168,5 +168,6 @@ code: |
 
     entity = repo.create({"name": "Governance Success", "yaml": VALID_DECLARED_TOOL_YAML})
 
-    assert entity.valid is True
-    assert entity.validation_error is None
+    assert entity.valid is False
+    assert entity.validation_error is not None
+    assert "http" in entity.validation_error

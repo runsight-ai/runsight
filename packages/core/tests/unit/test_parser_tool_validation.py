@@ -224,7 +224,7 @@ class TestWorkflowToolGovernanceHelpers:
 
     def test_resolve_soul_tool_definition_only_uses_workflow_tools(self):
         """RUN-490: _resolve_soul_tool_definition must not bypass workflow_tools for built-ins."""
-        assert _resolve_soul_tool_definition("runsight/http", {}) is None
+        assert _resolve_soul_tool_definition("http", {}) is None
 
     def test_validate_tool_governance_exists_for_api_layer_reuse(self):
         """RUN-490: validate_tool_governance() should enforce undeclared tool refs for API callers."""
@@ -236,7 +236,7 @@ souls:
     role: Reviewer
     system_prompt: Review the draft.
     tools:
-      - runsight/http""",
+      - http""",
             blocks="""\
   my_block:
     type: linear
@@ -251,43 +251,37 @@ souls:
         )
 
         file_def = RunsightWorkflowFile.model_validate(yaml.safe_load(yaml_str))
-        with pytest.raises(ValueError, match=r"reviewer.*undeclared tool 'runsight/http'"):
+        with pytest.raises(ValueError, match=r"reviewer.*undeclared tool 'http'"):
             validator(file_def)
 
-    def test_validate_tool_governance_accepts_declared_tool_refs_for_all_tool_types(self):
-        """RUN-528: soul refs should stay type-agnostic across builtin/custom/http tool defs."""
-        yaml_str = _make_yaml(
-            tools="""\
+    def test_validate_tool_governance_accepts_declared_tool_id_refs_from_whitelist(self):
+        """RUN-577: governance should only care that soul refs stay within the workflow tool ID list."""
+        raw = yaml.safe_load(
+            _make_yaml(
+                tools="""\
 tools:
-  builtin_http:
-    type: builtin
-    source: runsight/http
-  custom_tool:
-    type: custom
-    source: echo_tool
-  inline_http:
-    type: http
-    method: GET
-    url: https://example.com/users/{{ user_id }}""",
-            souls="""\
+  - http
+  - lookup_profile
+  - delegate""",
+                souls="""\
 souls:
   reviewer:
     id: reviewer_1
     role: Reviewer
     system_prompt: Review the draft.
     tools:
-      - builtin_http
-      - custom_tool
-      - inline_http""",
-            blocks="""\
+      - http
+      - lookup_profile""",
+                blocks="""\
   my_block:
     type: linear
     soul_ref: reviewer""",
-            transitions="""\
+                transitions="""\
     - from: my_block
       to: null""",
+            )
         )
-        file_def = RunsightWorkflowFile.model_validate(yaml.safe_load(yaml_str))
+        file_def = RunsightWorkflowFile.model_validate(raw)
 
         parser_module.validate_tool_governance(file_def)
 
@@ -442,8 +436,8 @@ souls:
         ):
             parse_workflow_yaml(workflow_file)
 
-    def test_reserved_builtin_id_wins_over_custom_slug_collision(self, tmp_path):
-        """Reserved builtin IDs must not be shadowed by custom tool files with the same slug."""
+    def test_reserved_builtin_id_collision_with_custom_slug_raises_valueerror(self, tmp_path):
+        """Reserved builtin IDs must reject custom tool files that try to reuse the same slug."""
         _write_custom_tool_file(
             tmp_path,
             "http",
@@ -479,11 +473,10 @@ souls:
             ),
         )
 
-        workflow = parse_workflow_yaml(workflow_file)
-        soul = workflow.blocks["my_block"].soul
-
-        assert soul.resolved_tools is not None
-        assert soul.resolved_tools[0].name == "http_request"
+        with pytest.raises(
+            ValueError, match=r"reserved.*http.*custom/tools/http\.yaml|collision.*http"
+        ):
+            parse_workflow_yaml(workflow_file)
 
     def test_legacy_typed_tool_definitions_fail_clearly(self):
         """Workflow authoing must reject builtin/custom/http dict definitions outright."""

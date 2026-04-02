@@ -1,127 +1,15 @@
 """
-Failing tests for RUN-274: ToolDef YAML schema, SoulDef + Soul tools update.
+Failing tests for RUN-577: workflow tool IDs are the only authoring contract.
 
 Tests target:
-- ToolDef model (new): type="builtin", source required
-- RunsightWorkflowFile: tools dict top-level section
-- SoulDef.tools: List[str] (was List[Dict])
-- SoulDef.max_tool_iterations: defaults to 5
-- Soul.tools: List[str] (was List[Dict])
-- Soul.max_tool_iterations: defaults to 5
-- Soul.resolved_tools: excluded from serialization
+- RunsightWorkflowFile.tools: List[str] of canonical tool IDs
+- Legacy typed workflow tool maps fail clearly
+- SoulDef.tools and Soul.tools remain List[str]
+- Soul.resolved_tools stays excluded from serialization
 """
 
 import pytest
 from pydantic import ValidationError
-
-# ---------------------------------------------------------------------------
-# AC1: ToolDef model — YAML `tools:` section parses correctly
-# ---------------------------------------------------------------------------
-
-
-class TestToolDef:
-    """Tests for the new ToolDef schema model."""
-
-    def test_tooldef_valid_builtin(self):
-        """ToolDef with type='builtin' and source is valid."""
-        from runsight_core.yaml.schema import ToolDef
-
-        td = ToolDef(type="builtin", source="runsight/http")
-        assert td.type == "builtin"
-        assert td.source == "runsight/http"
-
-    def test_tooldef_requires_source(self):
-        """ToolDef without source raises ValidationError."""
-        from runsight_core.yaml.schema import ToolDef
-
-        with pytest.raises(ValidationError):
-            ToolDef(type="builtin")  # type: ignore  # missing source
-
-    def test_tooldef_requires_type(self):
-        """ToolDef without type raises ValidationError."""
-        from runsight_core.yaml.schema import ToolDef
-
-        with pytest.raises(ValidationError):
-            ToolDef(source="runsight/http")  # type: ignore  # missing type
-
-    def test_tooldef_rejects_invalid_type(self):
-        """ToolDef rejects unknown type values."""
-        from runsight_core.yaml.schema import ToolDef
-
-        with pytest.raises(ValidationError):
-            ToolDef(type="external", source="runsight/http")
-
-    def test_tooldef_type_literal_builtin_only(self):
-        """ToolDef type field is Literal['builtin'] — only 'builtin' accepted."""
-        from runsight_core.yaml.schema import ToolDef
-
-        td = ToolDef(type="builtin", source="runsight/search")
-        assert td.type == "builtin"
-
-        with pytest.raises(ValidationError):
-            ToolDef(type="external", source="runsight/search")
-
-
-class TestToolDefDiscriminatedUnion:
-    """RUN-523: ToolDef should become a discriminated union across tool kinds."""
-
-    def test_builtin_tooldef_backward_compat_still_works(self):
-        """Existing builtin ToolDef(type='builtin', source=...) usage must still validate."""
-        from runsight_core.yaml.schema import ToolDef
-
-        td = ToolDef(type="builtin", source="runsight/http")
-        assert td.type == "builtin"
-        assert td.source == "runsight/http"
-
-    def test_builtin_tooldef_rejects_unknown_fields(self):
-        """All ToolDef variants use extra='forbid', including builtin."""
-        from runsight_core.yaml.schema import ToolDef
-
-        with pytest.raises(ValidationError, match="bogus"):
-            ToolDef(type="builtin", source="runsight/http", bogus=True)
-
-    def test_custom_tooldef_rejects_unknown_fields(self):
-        """CustomToolDef should also enforce extra='forbid'."""
-        from runsight_core.yaml.schema import ToolDef
-
-        with pytest.raises(ValidationError, match="bogus"):
-            ToolDef(type="custom", source="custom/providers/github_tool.py", bogus=True)
-
-    def test_http_tooldef_rejects_unknown_fields(self):
-        """HTTPToolDef should also enforce extra='forbid'."""
-        from runsight_core.yaml.schema import ToolDef
-
-        with pytest.raises(ValidationError, match="bogus"):
-            ToolDef(type="http", source="http_tool", bogus=True)
-
-    def test_tooldef_accepts_custom_variant(self):
-        """CustomToolDef is accepted by the ToolDef discriminated union."""
-        from runsight_core.yaml.schema import ToolDef
-
-        td = ToolDef(type="custom", source="custom/providers/github_tool.py")
-        assert td.type == "custom"
-        assert td.source == "custom/providers/github_tool.py"
-
-    def test_tooldef_accepts_http_variant(self):
-        """HTTPToolDef is accepted by the ToolDef discriminated union."""
-        from runsight_core.yaml.schema import ToolDef
-
-        td = ToolDef(type="http", source="http_tool")
-        assert td.type == "http"
-        assert td.source == "http_tool"
-
-    def test_tooldef_unknown_type_error_mentions_all_supported_variants(self):
-        """Unknown ToolDef type values should mention builtin, custom, and http."""
-        from runsight_core.yaml.schema import ToolDef
-
-        with pytest.raises(ValidationError) as exc_info:
-            ToolDef(type="external", source="some/tool")
-
-        message = str(exc_info.value)
-        assert "builtin" in message
-        assert "custom" in message
-        assert "http" in message
-
 
 # ---------------------------------------------------------------------------
 # AC1: RunsightWorkflowFile — tools top-level section
@@ -230,9 +118,9 @@ class TestSoulDefToolsUpdate:
             id="test_soul",
             role="Tester",
             system_prompt="Test prompt",
-            tools=["http_tool", "search_tool"],
+            tools=["http", "file_io"],
         )
-        assert sd.tools == ["http_tool", "search_tool"]
+        assert sd.tools == ["http", "file_io"]
 
     def test_souldef_tools_rejects_list_of_dicts(self):
         """SoulDef.tools rejects the old List[Dict] format."""
@@ -320,9 +208,9 @@ class TestSoulToolsUpdate:
             id="test_soul",
             role="Tester",
             system_prompt="Test prompt",
-            tools=["http_tool", "search_tool"],
+            tools=["http", "file_io"],
         )
-        assert soul.tools == ["http_tool", "search_tool"]
+        assert soul.tools == ["http", "file_io"]
 
     def test_soul_tools_rejects_list_of_dicts(self):
         """Soul.tools rejects the old List[Dict] format (breaking change)."""
@@ -445,59 +333,49 @@ class TestSoulResolvedTools:
 class TestFullYamlToolsParse:
     """End-to-end test: tools section defined, soul referencing tool names."""
 
-    def test_full_workflow_with_tools_section_and_soul_refs(self):
-        """Parse a complete workflow with tools section and soul tool references."""
-        from runsight_core.yaml.schema import (
-            RunsightWorkflowFile,
-            SoulDef,
-            ToolDef,
-            WorkflowDef,
-        )
+    def test_full_workflow_with_tools_whitelist_and_soul_refs(self):
+        """Parse a complete workflow with a tool ID whitelist and soul references."""
+        from runsight_core.yaml.schema import RunsightWorkflowFile, SoulDef, WorkflowDef
 
         wf = RunsightWorkflowFile(
             version="1.0",
             workflow=WorkflowDef(name="tool_test", entry="start"),
-            tools={
-                "http_client": ToolDef(type="builtin", source="runsight/http"),
-                "file_reader": ToolDef(type="builtin", source="runsight/file_read"),
-            },
+            tools=["http", "lookup_profile"],
             souls={
                 "agent_a": SoulDef(
                     id="agent_a",
                     role="HTTP Agent",
                     system_prompt="You make HTTP calls.",
-                    tools=["http_client"],
+                    tools=["http"],
                     max_tool_iterations=3,
                 ),
                 "agent_b": SoulDef(
                     id="agent_b",
-                    role="File Agent",
-                    system_prompt="You read files.",
-                    tools=["file_reader", "http_client"],
+                    role="Lookup Agent",
+                    system_prompt="You look profiles up.",
+                    tools=["lookup_profile", "http"],
                 ),
             },
         )
 
-        # Verify tools section
+        # Verify tools whitelist
         assert len(wf.tools) == 2
-        assert wf.tools["http_client"].source == "runsight/http"
+        assert wf.tools == ["http", "lookup_profile"]
 
         # Verify soul tool references are strings
-        assert wf.souls["agent_a"].tools == ["http_client"]
+        assert wf.souls["agent_a"].tools == ["http"]
         assert wf.souls["agent_a"].max_tool_iterations == 3
-        assert wf.souls["agent_b"].tools == ["file_reader", "http_client"]
+        assert wf.souls["agent_b"].tools == ["lookup_profile", "http"]
         assert wf.souls["agent_b"].max_tool_iterations == 5  # default
 
-    def test_workflow_model_validate_with_tools_raw_dict(self):
-        """RunsightWorkflowFile.model_validate parses raw dict with tools."""
+    def test_workflow_model_validate_with_raw_tool_id_list(self):
+        """RunsightWorkflowFile.model_validate parses raw dict with canonical tool IDs."""
         from runsight_core.yaml.schema import RunsightWorkflowFile
 
         raw = {
             "version": "1.0",
             "workflow": {"name": "test", "entry": "start"},
-            "tools": {
-                "search": {"type": "builtin", "source": "runsight/search"},
-            },
+            "tools": ["http", "search"],
             "souls": {
                 "searcher": {
                     "id": "searcher",
@@ -510,7 +388,6 @@ class TestFullYamlToolsParse:
         }
 
         wf = RunsightWorkflowFile.model_validate(raw)
-        assert len(wf.tools) == 1
-        assert wf.tools["search"].type == "builtin"
+        assert wf.tools == ["http", "search"]
         assert wf.souls["searcher"].tools == ["search"]
         assert wf.souls["searcher"].max_tool_iterations == 8
