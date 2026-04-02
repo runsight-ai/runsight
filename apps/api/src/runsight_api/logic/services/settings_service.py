@@ -27,7 +27,6 @@ class SettingsService:
         if not providers:
             self._list_model_defaults()
             self._list_fallback_map()
-            self._list_legacy_fallback_entries()
             return []
 
         provider_ids = {provider.id for provider in providers}
@@ -45,8 +44,7 @@ class SettingsService:
                     provider=provider,
                     default_entry=defaults_by_provider.get(provider.id),
                     fallback_chain=self._fallback_chain_for_provider(
-                        provider_id=provider.id,
-                        provider_ids=provider_ids,
+                        default_entry=defaults_by_provider.get(provider.id),
                         fallback_target=fallback_map.get(provider.id),
                     ),
                 )
@@ -84,18 +82,20 @@ class SettingsService:
             )
             self.settings_repo.set_model_default(default_entry)
 
+        persisted_fallback_chain = self._fallback_chain_from_target(
+            self._fallback_target_for_provider(provider_id)
+        )
+
+        if fallback_chain is not None:
+            self._persist_fallback_target(provider_id, fallback_chain)
+            response_fallback_chain = fallback_chain
+        else:
+            response_fallback_chain = persisted_fallback_chain
+
         return self._model_default_out(
             provider=provider,
             default_entry=default_entry,
-            fallback_chain=(
-                fallback_chain
-                if fallback_chain is not None
-                else self._fallback_chain_for_provider(
-                    provider_id=provider_id,
-                    provider_ids={item.id for item in self._list_active_providers()},
-                    fallback_target=self._fallback_target_for_provider(provider_id),
-                )
-            ),
+            fallback_chain=response_fallback_chain,
         )
 
     def _default_entry_for_provider(self, provider_id: str) -> ModelDefaultEntry | None:
@@ -137,18 +137,47 @@ class SettingsService:
     def _fallback_chain_for_provider(
         self,
         *,
-        provider_id: str,
-        provider_ids: set[str],
+        default_entry: ModelDefaultEntry | None,
         fallback_target: FallbackTargetEntry | None,
     ) -> list[str]:
         if fallback_target is not None:
             return [fallback_target.fallback_model_id]
-        legacy_entries = self._list_legacy_fallback_entries()
-        return [
-            entry.model_id
-            for entry in legacy_entries
-            if entry.provider_id in provider_ids and entry.provider_id == provider_id
-        ]
+        if default_entry is not None:
+            return [default_entry.model_id]
+        return []
+
+    def _fallback_chain_from_target(self, fallback_target: FallbackTargetEntry | None) -> list[str]:
+        if fallback_target is None:
+            return []
+        return [fallback_target.fallback_model_id]
+
+    def _persist_fallback_target(self, provider_id: str, fallback_chain: list[str]) -> None:
+        if not fallback_chain:
+            self.settings_repo.remove_fallback_target(provider_id)
+            return
+
+        fallback_target = self._resolve_fallback_target(provider_id, fallback_chain)
+        if fallback_target is None:
+            self.settings_repo.remove_fallback_target(provider_id)
+            return
+
+        self.settings_repo.set_fallback_target(fallback_target)
+
+    def _resolve_fallback_target(
+        self,
+        provider_id: str,
+        fallback_chain: list[str],
+    ) -> FallbackTargetEntry | None:
+        providers = self._list_active_providers()
+        for model_name in fallback_chain:
+            for provider in providers:
+                if model_name in (provider.models or []):
+                    return FallbackTargetEntry(
+                        provider_id=provider_id,
+                        fallback_provider_id=provider.id,
+                        fallback_model_id=model_name,
+                    )
+        return None
 
     def _list_model_defaults(self) -> list[ModelDefaultEntry]:
         defaults = self.settings_repo.list_model_defaults()
@@ -163,10 +192,3 @@ class SettingsService:
     def _list_fallback_map(self) -> list[FallbackTargetEntry]:
         fallback_map = self.settings_repo.get_fallback_map()
         return fallback_map if isinstance(fallback_map, list) else []
-
-    def _list_legacy_fallback_entries(self) -> list:
-        getter = getattr(self.settings_repo, "get_fallback_chain", None)
-        if not callable(getter):
-            return []
-        entries = getter()
-        return entries if isinstance(entries, list) else []
