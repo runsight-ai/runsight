@@ -1,7 +1,10 @@
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from runsight_api.domain.entities.settings import ModelDefaultEntry
+import pytest
+
+from runsight_api.domain.entities.settings import FallbackTargetEntry, ModelDefaultEntry
+from runsight_api.domain.errors import InputValidationError
 from runsight_api.domain.value_objects import ProviderEntity
 from runsight_api.logic.services.execution_service import ExecutionService
 from runsight_api.logic.services.model_service import ModelService
@@ -59,7 +62,7 @@ class TestModelServiceDisabledProviders:
 
 
 class TestSettingsServiceDisabledProviders:
-    def test_omits_inactive_providers_from_model_defaults_and_fallback_chain(self):
+    def test_omits_inactive_source_rows_and_suppresses_disabled_targets(self):
         settings_repo = Mock()
         provider_repo = Mock()
         provider_repo.list_all.return_value = [
@@ -86,9 +89,17 @@ class TestSettingsServiceDisabledProviders:
                 is_default=False,
             ),
         ]
-        settings_repo.get_fallback_chain.return_value = [
-            SimpleNamespace(provider_id="openai", model_id="gpt-4o"),
-            SimpleNamespace(provider_id="anthropic", model_id="claude-sonnet-4"),
+        settings_repo.get_fallback_map.return_value = [
+            FallbackTargetEntry(
+                provider_id="openai",
+                fallback_provider_id="anthropic",
+                fallback_model_id="claude-sonnet-4",
+            ),
+            FallbackTargetEntry(
+                provider_id="anthropic",
+                fallback_provider_id="openai",
+                fallback_model_id="gpt-4o",
+            ),
         ]
 
         service = SettingsService(settings_repo=settings_repo, provider_repo=provider_repo)
@@ -102,9 +113,32 @@ class TestSettingsServiceDisabledProviders:
                 "provider_name": "OpenAI",
                 "model_name": "gpt-4o",
                 "is_default": True,
-                "fallback_chain": ["gpt-4o"],
+                "fallback_provider_id": None,
+                "fallback_model_id": None,
             }
         ]
+
+    def test_update_model_default_rejects_inactive_source_provider_with_per_provider_fields(self):
+        settings_repo = Mock()
+        provider_repo = Mock()
+        provider_repo.get_by_id.return_value = _provider(
+            provider_id="anthropic",
+            provider_type="anthropic",
+            name="Anthropic",
+            is_active=False,
+            models=["claude-sonnet-4"],
+        )
+
+        service = SettingsService(settings_repo=settings_repo, provider_repo=provider_repo)
+
+        with pytest.raises(InputValidationError, match="disabled"):
+            service.update_model_default(
+                provider_id="anthropic",
+                model_name="claude-sonnet-4",
+                is_default=False,
+                fallback_provider_id="openai",
+                fallback_model_id="gpt-4o",
+            )
 
 
 class TestExecutionServiceDisabledProviders:
