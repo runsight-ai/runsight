@@ -66,7 +66,8 @@ class SettingsModelDefaultResponse(BaseModel):
     model_name: str
     provider_id: str
     provider_name: str
-    fallback_chain: list[str] = []
+    fallback_provider_id: str | None = None
+    fallback_model_id: str | None = None
     is_default: bool = False
 
 
@@ -78,7 +79,8 @@ class SettingsModelDefaultListResponse(BaseModel):
 class ModelDefaultUpdate(BaseModel):
     model_name: str | None = None
     is_default: bool | None = None
-    fallback_chain: list[str] | None = None
+    fallback_provider_id: str | None = None
+    fallback_model_id: str | None = None
 
 
 class SettingsBudgetResponse(BaseModel):
@@ -239,7 +241,8 @@ async def update_model_default(
         provider_id=model_id,
         model_name=data.model_name,
         is_default=data.is_default,
-        fallback_chain=data.fallback_chain,
+        fallback_provider_id=data.fallback_provider_id,
+        fallback_model_id=data.fallback_model_id,
     )
 
 
