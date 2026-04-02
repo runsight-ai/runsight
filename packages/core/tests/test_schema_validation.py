@@ -390,6 +390,48 @@ class TestRunsightWorkflowFile:
         assert isinstance(wf.blocks["b1"], LinearBlockDef)
         assert isinstance(wf.blocks["b2"], CodeBlockDef)
 
+    def test_tools_whitelist_accepts_canonical_tool_ids(self):
+        """RUN-577: root files should accept workflow tool IDs, not typed tool defs."""
+        wf = RunsightWorkflowFile.model_validate(
+            {
+                "workflow": {"name": "test", "entry": "b1"},
+                "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
+                "tools": ["http", "delegate", "lookup_profile"],
+            }
+        )
+
+        assert wf.tools == ["http", "delegate", "lookup_profile"]
+
+    def test_root_file_rejects_legacy_tool_map_authoring(self):
+        """RUN-577: old workflow tool maps must fail instead of being normalized."""
+        with pytest.raises(ValidationError, match="list"):
+            RunsightWorkflowFile.model_validate(
+                {
+                    "workflow": {"name": "test", "entry": "b1"},
+                    "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
+                    "tools": {
+                        "http": {"type": "builtin", "source": "runsight/http"},
+                    },
+                }
+            )
+
+    def test_root_file_rejects_inline_http_tool_authoring(self):
+        """RUN-577: inline HTTP definitions are no longer valid workflow authoring."""
+        with pytest.raises(ValidationError, match="list"):
+            RunsightWorkflowFile.model_validate(
+                {
+                    "workflow": {"name": "test", "entry": "b1"},
+                    "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
+                    "tools": {
+                        "http": {
+                            "type": "http",
+                            "method": "GET",
+                            "url": "https://example.com",
+                        }
+                    },
+                }
+            )
+
 
 class TestToolDefUnionValidation:
     """RUN-523: ToolDef validation at adapter and workflow-file boundaries."""

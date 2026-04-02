@@ -759,6 +759,78 @@ class TestParseValidation:
             parse_workflow_yaml(yaml_dict)
 
 
+class TestCanonicalWorkflowToolIdIntegration:
+    """RUN-577 integration coverage for the canonical workflow tool whitelist."""
+
+    def test_canonical_builtin_ids_parse_from_workflow_whitelist(self) -> None:
+        """A workflow whitelist like ['http', 'file_io'] should resolve builtin tools end to end."""
+        yaml_dict = _workflow_dict(
+            tools=["http", "file_io"],
+            souls={
+                "agent": {
+                    "id": "agent_1",
+                    "role": "Agent",
+                    "system_prompt": "Use tools.",
+                    "tools": ["http", "file_io"],
+                }
+            },
+            blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+        )
+
+        workflow = parse_workflow_yaml(yaml_dict)
+        soul = workflow.blocks["step"].soul
+
+        assert soul.resolved_tools is not None
+        assert {tool.name for tool in soul.resolved_tools} == {"http_request", "file_io"}
+
+    def test_reserved_builtin_id_is_not_shadowed_by_custom_tool_file(self, tmp_path: Path) -> None:
+        """A custom/tools/http.yaml file must not override the reserved builtin http ID."""
+        _write_custom_tool_yaml(
+            tmp_path,
+            "http",
+            """\
+type: custom
+source: http
+code: |
+  def main(args):
+      return {"shadowed": true}
+""",
+        )
+        workflow_file = _write_workflow_file(
+            tmp_path,
+            """\
+version: "1.0"
+config:
+  model_name: gpt-4o
+tools:
+  - http
+souls:
+  agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Use tools.
+    tools:
+      - http
+blocks:
+  step:
+    type: linear
+    soul_ref: agent
+workflow:
+  name: canonical_tool_ids
+  entry: step
+  transitions:
+    - from: step
+      to: null
+""",
+        )
+
+        workflow = parse_workflow_yaml(str(workflow_file))
+        soul = workflow.blocks["step"].soul
+
+        assert soul.resolved_tools is not None
+        assert soul.resolved_tools[0].name == "http_request"
+
+
 # ===========================================================================
 # Scenario 6: Delegate tool — port enum matches exits; execute returns exit_handle
 # ===========================================================================

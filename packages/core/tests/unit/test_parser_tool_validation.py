@@ -18,6 +18,7 @@ from textwrap import dedent
 import pytest
 import runsight_core.yaml.parser as parser_module
 import yaml
+from pydantic import ValidationError
 from runsight_core.tools import ToolInstance
 from runsight_core.yaml.parser import _resolve_soul_tool_definition, parse_workflow_yaml
 from runsight_core.yaml.schema import RunsightWorkflowFile
@@ -289,6 +290,257 @@ souls:
         file_def = RunsightWorkflowFile.model_validate(yaml.safe_load(yaml_str))
 
         parser_module.validate_tool_governance(file_def)
+
+
+# ===========================================================================
+# RUN-577: Canonical workflow tool ID contract
+# ===========================================================================
+
+
+class TestCanonicalWorkflowToolIds:
+    """Workflow tools should be authored as stable IDs only."""
+
+    def test_canonical_builtin_tool_ids_parse_and_resolve(self):
+        """Builtins should be declared and referenced by reserved IDs like http/file_io."""
+        yaml_str = _make_yaml(
+            tools="""\
+tools:
+  - http
+  - file_io""",
+            souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - http
+      - file_io""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+
+        workflow = parse_workflow_yaml(yaml_str)
+        soul = workflow.blocks["my_block"].soul
+
+        assert soul.tools == ["http", "file_io"]
+        assert soul.resolved_tools is not None
+        assert {tool.name for tool in soul.resolved_tools} == {"http_request", "file_io"}
+
+    def test_duplicate_workflow_tool_ids_raise_explicit_valueerror(self):
+        """Workflow whitelist must reject duplicate tool IDs like repeated http entries."""
+        yaml_str = _make_yaml(
+            tools="""\
+tools:
+  - http
+  - http""",
+            souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - http""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+
+        with pytest.raises(ValueError, match=r"duplicate.*http"):
+            parse_workflow_yaml(yaml_str)
+
+    def test_unknown_workflow_tool_id_raises_explicit_valueerror(self):
+        """Unknown workflow tool IDs must be rejected during parser validation."""
+        yaml_str = _make_yaml(
+            tools="""\
+tools:
+  - missing_lookup""",
+            souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - missing_lookup""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+
+        with pytest.raises(ValueError, match=r"unknown tool id 'missing_lookup'"):
+            parse_workflow_yaml(yaml_str)
+
+    def test_empty_tools_list_with_soul_reference_raises_undeclared_tool_error(self):
+        """Souls still need workflow-declared IDs even when the whitelist is explicitly empty."""
+        yaml_str = _make_yaml(
+            tools="""\
+tools: []""",
+            souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - http""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+
+        with pytest.raises(ValueError, match=r"undeclared tool 'http'.*Declared tools: \[\]"):
+            parse_workflow_yaml(yaml_str)
+
+    def test_missing_custom_tool_id_raises_actionable_valueerror(self, tmp_path):
+        """Custom IDs declared in the workflow must resolve to checkout-local metadata files."""
+        workflow_file = _write_workflow_file(
+            tmp_path,
+            _make_yaml(
+                tools="""\
+tools:
+  - lookup_profile""",
+                souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - lookup_profile""",
+                blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+                transitions="""\
+    - from: my_block
+      to: null""",
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=r"lookup_profile.*custom/tools/lookup_profile\.yaml",
+        ):
+            parse_workflow_yaml(workflow_file)
+
+    def test_reserved_builtin_id_wins_over_custom_slug_collision(self, tmp_path):
+        """Reserved builtin IDs must not be shadowed by custom tool files with the same slug."""
+        _write_custom_tool_file(
+            tmp_path,
+            "http",
+            """
+            type: custom
+            source: http
+            code: |
+              def main(args):
+                  return {"shadowed": True}
+            """,
+        )
+        workflow_file = _write_workflow_file(
+            tmp_path,
+            _make_yaml(
+                tools="""\
+tools:
+  - http""",
+                souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - http""",
+                blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+                transitions="""\
+    - from: my_block
+      to: null""",
+            ),
+        )
+
+        workflow = parse_workflow_yaml(workflow_file)
+        soul = workflow.blocks["my_block"].soul
+
+        assert soul.resolved_tools is not None
+        assert soul.resolved_tools[0].name == "http_request"
+
+    def test_legacy_typed_tool_definitions_fail_clearly(self):
+        """Workflow authoing must reject builtin/custom/http dict definitions outright."""
+        yaml_str = _make_yaml(
+            tools="""\
+tools:
+  http:
+    type: builtin
+    source: runsight/http""",
+            souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - http""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+
+        with pytest.raises(ValidationError, match="list"):
+            parse_workflow_yaml(yaml_str)
+
+    def test_inline_http_tool_definitions_fail_clearly(self):
+        """Inline HTTP tool authoring must fail instead of being normalized."""
+        yaml_str = _make_yaml(
+            tools="""\
+tools:
+  http:
+    type: http
+    method: GET
+    url: https://example.com/users/{{ user_id }}""",
+            souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - http""",
+            blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+            transitions="""\
+    - from: my_block
+      to: null""",
+        )
+
+        with pytest.raises(ValidationError, match="list"):
+            parse_workflow_yaml(yaml_str)
 
 
 # ===========================================================================

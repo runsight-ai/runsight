@@ -129,94 +129,87 @@ class TestToolDefDiscriminatedUnion:
 
 
 class TestRunsightWorkflowFileTools:
-    """Tests for tools dict on RunsightWorkflowFile."""
+    """RUN-577: workflow authoring uses a canonical tools whitelist of stable IDs."""
 
-    def test_workflow_file_tools_default_empty(self):
-        """RunsightWorkflowFile.tools defaults to empty dict."""
+    def test_workflow_file_tools_default_empty_list(self):
+        """RunsightWorkflowFile.tools defaults to an empty whitelist."""
         from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowDef
 
         wf = RunsightWorkflowFile(
             workflow=WorkflowDef(name="test", entry="start"),
         )
-        assert wf.tools == {}
+        assert wf.tools == []
 
-    def test_workflow_file_accepts_tools_dict(self):
-        """RunsightWorkflowFile accepts a tools dict with ToolDef values."""
-        from runsight_core.yaml.schema import (
-            RunsightWorkflowFile,
-            ToolDef,
-            WorkflowDef,
-        )
+    def test_workflow_file_accepts_tools_list_of_stable_ids(self):
+        """RunsightWorkflowFile accepts workflow-level tool IDs instead of typed defs."""
+        from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowDef
 
         wf = RunsightWorkflowFile(
             workflow=WorkflowDef(name="test", entry="start"),
-            tools={
-                "http_tool": ToolDef(type="builtin", source="runsight/http"),
-                "search_tool": ToolDef(type="builtin", source="runsight/search"),
-            },
+            tools=["http", "file_io", "lookup_profile"],
         )
-        assert len(wf.tools) == 2
-        assert "http_tool" in wf.tools
-        assert wf.tools["http_tool"].type == "builtin"
-        assert wf.tools["http_tool"].source == "runsight/http"
+        assert wf.tools == ["http", "file_io", "lookup_profile"]
 
-    def test_workflow_file_tools_in_model_dump(self):
-        """RunsightWorkflowFile.model_dump() includes tools section."""
-        from runsight_core.yaml.schema import (
-            RunsightWorkflowFile,
-            ToolDef,
-            WorkflowDef,
-        )
+    def test_workflow_file_tools_in_model_dump_as_id_list(self):
+        """RunsightWorkflowFile.model_dump() preserves the canonical tool ID list."""
+        from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowDef
 
         wf = RunsightWorkflowFile(
             workflow=WorkflowDef(name="test", entry="start"),
-            tools={"my_tool": ToolDef(type="builtin", source="runsight/http")},
+            tools=["http", "lookup_profile"],
         )
         dump = wf.model_dump()
         assert "tools" in dump
-        assert dump["tools"]["my_tool"]["type"] == "builtin"
-        assert dump["tools"]["my_tool"]["source"] == "runsight/http"
+        assert dump["tools"] == ["http", "lookup_profile"]
 
-    def test_workflow_file_accepts_mixed_tooldef_variants(self):
-        """RunsightWorkflowFile.tools stays Dict[str, ToolDef] while accepting all variants."""
+    def test_workflow_file_rejects_legacy_typed_tool_map_authoring(self):
+        """Legacy workflow-level builtin/custom/http definitions must fail clearly."""
         from runsight_core.yaml.schema import RunsightWorkflowFile
 
-        wf = RunsightWorkflowFile.model_validate(
-            {
-                "workflow": {"name": "test", "entry": "start"},
-                "tools": {
-                    "builtin_tool": {"type": "builtin", "source": "runsight/http"},
-                    "custom_tool": {
-                        "type": "custom",
-                        "source": "custom/tools/github.py",
-                    },
-                    "http_tool": {
-                        "type": "http",
-                        "source": "http_tool",
-                    },
-                },
-            }
-        )
-
-        assert wf.tools["builtin_tool"].type == "builtin"
-        assert wf.tools["custom_tool"].type == "custom"
-        assert wf.tools["http_tool"].type == "http"
-
-    def test_workflow_file_rejects_extra_fields_in_tooldef_variants(self):
-        """ToolDef variants should all enforce extra='forbid' inside RunsightWorkflowFile.tools."""
-        from runsight_core.yaml.schema import RunsightWorkflowFile
-
-        with pytest.raises(ValidationError, match="unexpected_field"):
+        with pytest.raises(ValidationError, match="list"):
             RunsightWorkflowFile.model_validate(
                 {
                     "workflow": {"name": "test", "entry": "start"},
                     "tools": {
-                        "http_tool": {
+                        "http": {
                             "type": "builtin",
                             "source": "runsight/http",
-                            "unexpected_field": "nope",
+                        },
+                        "lookup_profile": {
+                            "type": "custom",
+                            "source": "lookup_profile",
+                        },
+                    },
+                }
+            )
+
+    def test_workflow_file_rejects_inline_http_tool_authoring(self):
+        """Inline HTTP tool config is no longer allowed in workflow YAML."""
+        from runsight_core.yaml.schema import RunsightWorkflowFile
+
+        with pytest.raises(ValidationError, match="list"):
+            RunsightWorkflowFile.model_validate(
+                {
+                    "workflow": {"name": "test", "entry": "start"},
+                    "tools": {
+                        "http": {
+                            "type": "http",
+                            "method": "GET",
+                            "url": "https://example.com/users/{{ user_id }}",
                         }
                     },
+                }
+            )
+
+    def test_workflow_file_rejects_duplicate_tool_ids(self):
+        """Workflow tools whitelist must reject duplicate IDs explicitly."""
+        from runsight_core.yaml.schema import RunsightWorkflowFile
+
+        with pytest.raises(ValidationError, match=r"duplicate.*http"):
+            RunsightWorkflowFile.model_validate(
+                {
+                    "workflow": {"name": "test", "entry": "start"},
+                    "tools": ["http", "http"],
                 }
             )
 
