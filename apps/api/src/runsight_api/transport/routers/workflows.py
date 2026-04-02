@@ -3,8 +3,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from ...logic.services.eval_service import EvalService
 from ...logic.services.workflow_service import WorkflowService
-from ..deps import get_workflow_service
+from ..deps import get_eval_service, get_workflow_service
 from ..schemas.workflows import (
     WorkflowCommitCreate,
     WorkflowCommitResponse,
@@ -95,6 +96,15 @@ async def patch_workflow_enabled(
     except RunsightError as exc:
         return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
     return WorkflowResponse(**w.model_dump())
+
+
+@router.get("/{id}/regressions")
+async def get_workflow_regressions(
+    id: str,
+    eval_service: EvalService = Depends(get_eval_service),
+):
+    result = eval_service.get_workflow_regressions(id)
+    return result
 
 
 @router.delete("/{id}", response_model=WorkflowDeleteResponse)

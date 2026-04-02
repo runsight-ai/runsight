@@ -4,9 +4,10 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
+from ...logic.services.eval_service import EvalService
 from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
-from ..deps import get_execution_service, get_run_service
+from ..deps import get_eval_service, get_execution_service, get_run_service
 from ..schemas.runs import (
     NodeSummary,
     PaginatedLogsResponse,
@@ -39,6 +40,8 @@ def _run_metric_field(run, field: str):
         return value if isinstance(value, int) else None
     if field == "eval_pass_pct":
         return float(value) if isinstance(value, int | float) else None
+    if field == "regression_count":
+        return value if isinstance(value, int) else None
     return None
 
 
@@ -82,6 +85,7 @@ async def create_run(
         commit_sha=_run_response_field(run, "commit_sha", None),
         run_number=_run_metric_field(run, "run_number"),
         eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
+        regression_count=_run_metric_field(run, "regression_count"),
         node_summary=NodeSummary(total=0, completed=0, running=0, pending=0, failed=0),
     )
 
@@ -162,6 +166,7 @@ async def list_runs(
                 commit_sha=_run_response_field(run, "commit_sha", None),
                 run_number=_run_metric_field(run, "run_number"),
                 eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
+                regression_count=_run_metric_field(run, "regression_count"),
                 node_summary=NodeSummary(
                     total=summaries.get("total", 0),
                     completed=summaries.get("completed", 0),
@@ -199,6 +204,7 @@ async def get_run(run_id: str, run_service: RunService = Depends(get_run_service
         commit_sha=_run_response_field(run, "commit_sha", None),
         run_number=_run_metric_field(run, "run_number"),
         eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
+        regression_count=_run_metric_field(run, "regression_count"),
         node_summary=NodeSummary(
             total=summaries["total"],
             completed=summaries["completed"],
@@ -231,6 +237,19 @@ async def get_run_logs(
     logs = run_service.get_run_logs(run_id)
     items = logs[offset : offset + limit]
     return PaginatedLogsResponse(items=items, total=len(logs), offset=offset, limit=limit)
+
+
+@router.get("/{run_id}/regressions")
+async def get_run_regressions(
+    run_id: str,
+    eval_service: EvalService = Depends(get_eval_service),
+):
+    result = eval_service.get_run_regressions(run_id)
+    if result is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+    return result
 
 
 @router.get("/{run_id}/nodes", response_model=List[RunNodeResponse])

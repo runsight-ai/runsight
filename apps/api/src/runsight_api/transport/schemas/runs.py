@@ -34,6 +34,7 @@ class RunResponse(BaseModel):
     commit_sha: Optional[str] = None
     run_number: Optional[int] = None
     eval_pass_pct: Optional[float] = None
+    regression_count: Optional[int] = None
     node_summary: Optional[NodeSummary] = None
 
 

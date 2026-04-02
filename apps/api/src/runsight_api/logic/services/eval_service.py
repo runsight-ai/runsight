@@ -207,6 +207,136 @@ class EvalService:
         )
         return [item for _, item in items]
 
+    # ------------------------------------------------------------------
+    # Regression detection (comparison-based)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _detect_node_regressions(
+        current_node,
+        previous_node,
+    ) -> list[dict]:
+        """Compare two matching nodes and return regression issue dicts."""
+        issues: list[dict] = []
+
+        # 1. assertion_regression: passed -> failed (same soul_version)
+        if current_node.eval_passed is False and previous_node.eval_passed is True:
+            issues.append(
+                {
+                    "node_id": current_node.node_id,
+                    "node_name": getattr(current_node, "node_name", current_node.node_id),
+                    "type": "assertion_regression",
+                    "delta": {
+                        "eval_passed": False,
+                        "baseline_eval_passed": True,
+                    },
+                }
+            )
+
+        # 2. cost_spike: >20% cost increase
+        if previous_node.cost_usd > 0:
+            cost_pct = (
+                (current_node.cost_usd - previous_node.cost_usd) / previous_node.cost_usd * 100
+            )
+            if cost_pct > 20:
+                issues.append(
+                    {
+                        "node_id": current_node.node_id,
+                        "node_name": getattr(current_node, "node_name", current_node.node_id),
+                        "type": "cost_spike",
+                        "delta": {
+                            "cost_pct": cost_pct,
+                            "baseline_cost": previous_node.cost_usd,
+                        },
+                    }
+                )
+
+        # 3. quality_drop: eval_score drop > 0.1
+        if current_node.eval_score is not None and previous_node.eval_score is not None:
+            score_delta = current_node.eval_score - previous_node.eval_score
+            if score_delta < -0.1:
+                issues.append(
+                    {
+                        "node_id": current_node.node_id,
+                        "node_name": getattr(current_node, "node_name", current_node.node_id),
+                        "type": "quality_drop",
+                        "delta": {
+                            "score_delta": score_delta,
+                        },
+                    }
+                )
+
+        return issues
+
+    def get_run_regressions(self, run_id: str) -> dict | None:
+        """Compute comparison-based regressions for a single run."""
+        run = self.run_repo.get_run(run_id)
+        if run is None:
+            return None
+
+        # Get all runs for the same workflow, ordered by created_at asc
+        all_runs = self.run_repo.list_runs()
+        workflow_runs = [r for r in all_runs if r.workflow_id == run.workflow_id]
+        workflow_runs.sort(key=lambda r: r.created_at)
+
+        # Find the previous run (the run just before this one)
+        previous_run = None
+        for r in workflow_runs:
+            if r.id == run_id:
+                break
+            previous_run = r
+
+        if previous_run is None:
+            # First run — no baseline to compare against
+            return {"count": 0, "issues": []}
+
+        current_nodes = self.run_repo.list_nodes_for_run(run_id)
+        previous_nodes = self.run_repo.list_nodes_for_run(previous_run.id)
+
+        # Index previous nodes by node_id
+        prev_node_map = {n.node_id: n for n in previous_nodes}
+
+        issues: list[dict] = []
+        for node in current_nodes:
+            prev_node = prev_node_map.get(node.node_id)
+            if prev_node is None:
+                continue
+            issues.extend(self._detect_node_regressions(node, prev_node))
+
+        return {"count": len(issues), "issues": issues}
+
+    def get_workflow_regressions(self, workflow_id: str) -> dict:
+        """Compute comparison-based regressions across all runs of a workflow."""
+        all_runs = self.run_repo.list_runs()
+        workflow_runs = [r for r in all_runs if r.workflow_id == workflow_id]
+        workflow_runs.sort(key=lambda r: r.created_at)
+
+        if len(workflow_runs) < 2:
+            return {"count": 0, "issues": []}
+
+        all_issues: list[dict] = []
+
+        for i in range(1, len(workflow_runs)):
+            current_run = workflow_runs[i]
+            previous_run = workflow_runs[i - 1]
+
+            current_nodes = self.run_repo.list_nodes_for_run(current_run.id)
+            previous_nodes = self.run_repo.list_nodes_for_run(previous_run.id)
+
+            prev_node_map = {n.node_id: n for n in previous_nodes}
+
+            for node in current_nodes:
+                prev_node = prev_node_map.get(node.node_id)
+                if prev_node is None:
+                    continue
+                node_issues = self._detect_node_regressions(node, prev_node)
+                for issue in node_issues:
+                    issue["run_id"] = current_run.id
+                    issue["run_number"] = getattr(current_run, "run_number", None)
+                all_issues.extend(node_issues)
+
+        return {"count": len(all_issues), "issues": all_issues}
+
     def _compute_delta(self, node) -> EvalDelta | None:
         if node.soul_id is None or node.soul_version is None:
             return None
