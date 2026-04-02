@@ -262,6 +262,30 @@ async def git_log():
     return LogResponse(commits=commits)
 
 
+class FileReadResponse(BaseModel):
+    content: str
+    ref: str
+
+
+@router.get("/file")
+async def git_file_read(ref: str, path: str):
+    """Read a file from a specific git ref (branch name or commit SHA)."""
+    try:
+        _validate_file_path(path)
+    except InputValidationError:
+        raise
+
+    _ensure_git_repo()
+    svc = _get_git_service()
+
+    try:
+        content = svc.read_file(path, ref=ref)
+    except subprocess.CalledProcessError:
+        raise GitError(f"Git ref or path not found: ref={ref!r}, path={path!r}", status_code=404)
+
+    return FileReadResponse(content=content, ref=ref)
+
+
 @router.post("/sim-branch", response_model=SimBranchResponse)
 async def create_sim_branch(body: SimBranchRequest):
     _ensure_git_repo()

@@ -66,9 +66,9 @@ class GitService:
     def delete_branch(self, name: str) -> None:
         self._run("branch", "-D", name)
 
-    def read_file(self, path: str, branch: str) -> str:
+    def read_file(self, path: str, ref: str) -> str:
         repo_path = self._normalize_repo_path(path)
-        result = self._run("show", f"{branch}:{repo_path}")
+        result = self._run("show", f"{ref}:{repo_path}")
         return result.stdout
 
     def get_sha(self, branch: str, path: str) -> Optional[str]:
