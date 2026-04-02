@@ -78,7 +78,7 @@ class TestSettingsServiceConstructor:
 
 
 class TestFallbackFoundation:
-    def test_settings_service_imports_fallback_target_entry_not_fallback_chain_entry(self):
+    def test_settings_service_imports_fallback_target_entry_not_legacy_fallback_entry(self):
         module = _load_settings_service_module()
         source = inspect.getsource(module)
 
@@ -106,7 +106,7 @@ class TestFallbackFoundation:
             "fallback_model_id",
         ]
 
-    def test_settings_service_removes_legacy_fallback_chain_helpers(self):
+    def test_settings_service_removes_legacy_fallback_helper_names(self):
         module = _load_settings_service_module()
         source = inspect.getsource(module)
 

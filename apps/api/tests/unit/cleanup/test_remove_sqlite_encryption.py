@@ -8,7 +8,7 @@ These tests verify that all cleanup actions have been completed:
 - cryptography dependency is removed from pyproject.toml
 - SQLite tables for Run, RunNode, LogEntry remain functional
 - _migrate_schema function is removed from main.py
-- SQLModel table classes (Provider, AppSettings, FallbackChain, ModelDefault) are removed
+- Legacy SQLModel settings table classes are removed
 - Pydantic models (AppSettingsConfig, FallbackTargetEntry, ModelDefaultEntry) are preserved
 - repositories/__init__.py no longer exports deleted repos
 """
@@ -179,11 +179,11 @@ class TestSettingsEntityCleaned:
             "settings.py still contains SQLModel AppSettings class"
         )
 
-    def test_no_sqlmodel_fallback_chain_class(self):
+    def test_no_sqlmodel_legacy_fallback_table_class(self):
         settings_file = _SRC / "domain" / "entities" / "settings.py"
         text = settings_file.read_text()
         assert "class FallbackChain(SQLModel, table=True)" not in text, (
-            "settings.py still contains SQLModel FallbackChain class"
+            "settings.py still contains the legacy fallback SQLModel table class"
         )
 
     def test_no_sqlmodel_model_default_class(self):
@@ -200,11 +200,11 @@ class TestSettingsEntityCleaned:
             "settings.py should still contain Pydantic AppSettingsConfig"
         )
 
-    def test_pydantic_fallback_chain_entry_removed(self):
+    def test_pydantic_legacy_fallback_entry_removed(self):
         settings_file = _SRC / "domain" / "entities" / "settings.py"
         text = settings_file.read_text()
         assert "class FallbackChainEntry(BaseModel)" not in text, (
-            "settings.py should no longer contain Pydantic FallbackChainEntry"
+            "settings.py should no longer contain the legacy fallback Pydantic entry"
         )
 
     def test_pydantic_fallback_target_entry_preserved(self):

@@ -30,12 +30,12 @@ def settings_file(tmp_path):
 
 
 class TestDomainFoundation:
-    def test_fallback_chain_entry_removed_from_settings_module(self):
+    def test_legacy_fallback_entry_removed_from_settings_module(self):
         settings_module = _settings_module()
 
         assert not hasattr(settings_module, "FallbackChainEntry")
 
-    def test_fallback_chain_entry_removed_from_entities_module(self):
+    def test_legacy_fallback_entry_removed_from_entities_module(self):
         entities_module = _entities_module()
 
         assert not hasattr(entities_module, "FallbackChainEntry")
@@ -76,7 +76,7 @@ class TestFreshInstallDefaults:
         assert isinstance(settings, AppSettingsConfig)
         assert settings.fallback_enabled is False
 
-    def test_legacy_fallback_chain_repo_methods_are_removed(self, repo):
+    def test_legacy_fallback_repo_methods_are_removed(self, repo):
         assert not hasattr(repo, "get_fallback_chain")
         assert not hasattr(repo, "update_fallback_chain")
 
@@ -133,7 +133,9 @@ class TestFallbackMapPersistence:
 
 
 class TestLegacyYamlMigration:
-    def test_first_read_renames_legacy_flag_and_deletes_fallback_chain(self, repo, settings_file):
+    def test_first_read_renames_legacy_flag_and_deletes_legacy_fallback_list(
+        self, repo, settings_file
+    ):
         settings_file.parent.mkdir(parents=True, exist_ok=True)
         settings_file.write_text(
             yaml.safe_dump(
