@@ -2333,6 +2333,31 @@
         }
       }
     },
+    "/api/tools": {
+      "get": {
+        "tags": [
+          "Tools"
+        ],
+        "summary": "List Tools",
+        "operationId": "list_tools_api_tools_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ToolListItemResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Tools Api Tools Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runs/{run_id}/stream": {
       "get": {
         "tags": [
@@ -2439,7 +2464,7 @@
             ],
             "title": "Onboarding Completed"
           },
-          "fallback_chain_enabled": {
+          "fallback_enabled": {
             "anyOf": [
               {
                 "type": "boolean"
@@ -2448,7 +2473,7 @@
                 "type": "null"
               }
             ],
-            "title": "Fallback Chain Enabled"
+            "title": "Fallback Enabled"
           }
         },
         "type": "object",
@@ -2776,19 +2801,27 @@
             ],
             "title": "Is Default"
           },
-          "fallback_chain": {
+          "fallback_provider_id": {
             "anyOf": [
               {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Fallback Chain"
+            "title": "Fallback Provider Id"
+          },
+          "fallback_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Model Id"
           }
         },
         "type": "object",
@@ -3228,6 +3261,17 @@
               }
             ],
             "title": "Base Url"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
           }
         },
         "type": "object",
@@ -3672,13 +3716,27 @@
             "type": "string",
             "title": "Provider Name"
           },
-          "fallback_chain": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Fallback Chain",
-            "default": []
+          "fallback_provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Provider Id"
+          },
+          "fallback_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Model Id"
           },
           "is_default": {
             "type": "boolean",
@@ -3740,6 +3798,11 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
           },
           "api_key_env": {
             "anyOf": [
@@ -4634,6 +4697,34 @@
         },
         "type": "object",
         "title": "TaskUpdate"
+      },
+      "ToolListItemResponse": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "description",
+          "type"
+        ],
+        "title": "ToolListItemResponse"
       },
       "UncommittedFile": {
         "properties": {

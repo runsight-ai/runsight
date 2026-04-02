@@ -107,10 +107,9 @@ function FallbackChainSection({
 }) {
   const primary = modelDefaults.find((m) => m.is_default) ?? modelDefaults[0];
   const primaryId = primary?.id ?? null;
-  const fallbackChainSource = primary?.fallback_chain;
   const primaryFallbackChain = useMemo(
-    () => fallbackChainSource ?? [],
-    [fallbackChainSource],
+    () => (primary?.fallback_model_id ? [primary.fallback_model_id] : []),
+    [primary],
   );
   const [localChain, setLocalChain] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
@@ -251,7 +250,7 @@ export function ModelsTab() {
     () => (providersData?.items ?? []).filter((provider) => provider.is_active ?? true),
     [providersData?.items],
   );
-  const fallbackChainEnabled = appSettings?.fallback_chain_enabled ?? true;
+  const fallbackChainEnabled = appSettings?.fallback_enabled ?? true;
   const showFallbackChain =
     modelDefaults.filter((model) => model.model_name.trim().length > 0).length > 1;
 
@@ -277,14 +276,30 @@ export function ModelsTab() {
 
   const handleReorderChain = useCallback(
     async (id: string, chain: string[]) => {
+      const fallbackModelId = chain[0] ?? "";
+      const fallbackProviderId = fallbackModelId
+        ? providers.find((provider) => provider.models.includes(fallbackModelId))?.id ?? null
+        : "";
+
+      if (fallbackModelId && fallbackProviderId === null) {
+        toast.error("Failed to update fallback chain");
+        return;
+      }
+
       try {
-        await updateModelDefault.mutateAsync({ id, data: { fallback_chain: chain } });
+        await updateModelDefault.mutateAsync({
+          id,
+          data: {
+            fallback_provider_id: fallbackProviderId,
+            fallback_model_id: fallbackModelId,
+          },
+        });
         toast.success("Fallback chain updated");
       } catch {
         toast.error("Failed to update fallback chain");
       }
     },
-    [updateModelDefault]
+    [providers, updateModelDefault]
   );
 
   const handleRetry = useCallback(async () => {
@@ -379,7 +394,7 @@ export function ModelsTab() {
                   <Switch
                     checked={fallbackChainEnabled}
                     onCheckedChange={(checked) =>
-                      updateAppSettings.mutateAsync({ fallback_chain_enabled: checked })
+                      updateAppSettings.mutateAsync({ fallback_enabled: checked })
                     }
                     aria-label="Enable fallback chain"
                     disabled={updateAppSettings.isPending}

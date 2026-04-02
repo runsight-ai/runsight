@@ -8,7 +8,7 @@ export const AppSettingsOutSchema = z.object({
   default_provider: z.string().nullable().optional(),
   auto_save: z.boolean().nullable().optional(),
   onboarding_completed: z.boolean().nullable().optional(),
-  fallback_chain_enabled: z.boolean().nullable().optional(),
+  fallback_enabled: z.boolean().nullable().optional(),
 });
 export type AppSettingsOut = z.infer<typeof AppSettingsOutSchema>;
 
@@ -97,7 +97,8 @@ export type HTTPValidationError = z.infer<typeof HTTPValidationErrorSchema>;
 export const ModelDefaultUpdateSchema = z.object({
   model_name: z.string().nullable().optional(),
   is_default: z.boolean().nullable().optional(),
-  fallback_chain: z.array(z.string()).nullable().optional(),
+  fallback_provider_id: z.string().nullable().optional(),
+  fallback_model_id: z.string().nullable().optional(),
 });
 export type ModelDefaultUpdate = z.infer<typeof ModelDefaultUpdateSchema>;
 
@@ -181,9 +182,9 @@ export type ProviderTestIn = z.infer<typeof ProviderTestInSchema>;
 export const ProviderTestOutSchema = z.object({
   success: z.boolean(),
   message: z.string(),
-  models: z.array(z.string()).optional().default([]),
+  models: z.array(z.string()).optional(),
   model_count: z.number().optional().default(0),
-  latency_ms: z.number().optional().default(0),
+  latency_ms: z.number().optional().default(0.0),
 });
 export type ProviderTestOut = z.infer<typeof ProviderTestOutSchema>;
 
@@ -191,7 +192,7 @@ export const ProviderUpdateSchema = z.object({
   name: z.string().nullable().optional(),
   api_key_env: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
-  is_active: z.boolean().optional(),
+  is_active: z.boolean().nullable().optional(),
 });
 export type ProviderUpdate = z.infer<typeof ProviderUpdateSchema>;
 
@@ -275,7 +276,8 @@ export const SettingsModelDefaultResponseSchema = z.object({
   model_name: z.string(),
   provider_id: z.string(),
   provider_name: z.string(),
-  fallback_chain: z.array(z.string()).optional(),
+  fallback_provider_id: z.string().nullable().optional(),
+  fallback_model_id: z.string().nullable().optional(),
   is_default: z.boolean().optional().default(false),
 });
 export type SettingsModelDefaultResponse = z.infer<typeof SettingsModelDefaultResponseSchema>;
@@ -471,6 +473,14 @@ export const TaskUpdateSchema = z.object({
 });
 export type TaskUpdate = z.infer<typeof TaskUpdateSchema>;
 
+export const ToolListItemResponseSchema = z.object({
+  slug: z.string(),
+  name: z.string(),
+  description: z.string(),
+  type: z.string(),
+});
+export type ToolListItemResponse = z.infer<typeof ToolListItemResponseSchema>;
+
 export const WorkflowCanvasStateSchema = z.object({
   nodes: z.array(z.record(z.string(), z.unknown())).optional(),
   edges: z.array(z.record(z.string(), z.unknown())).optional(),
@@ -564,3 +574,4 @@ export const runsight_api__transport__routers__git__LogResponseSchema = z.object
   commits: z.array(CommitEntrySchema),
 });
 export type runsight_api__transport__routers__git__LogResponse = z.infer<typeof runsight_api__transport__routers__git__LogResponseSchema>;
+

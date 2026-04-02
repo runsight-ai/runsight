@@ -102,7 +102,7 @@ class AppSettingsOut(BaseModel):
     default_provider: Optional[str] = None
     auto_save: Optional[bool] = None
     onboarding_completed: Optional[bool] = None
-    fallback_chain_enabled: Optional[bool] = None
+    fallback_enabled: Optional[bool] = None
 
 
 def _preview_api_key(secret: Optional[str]) -> Optional[str]:
@@ -256,10 +256,7 @@ async def get_app_settings(
     repo: FileSystemSettingsRepo = Depends(get_settings_repo),
 ):
     settings_config = repo.get_settings()
-    payload = settings_config.model_dump(exclude_none=True)
-    if "fallback_enabled" in payload:
-        payload["fallback_chain_enabled"] = payload.pop("fallback_enabled")
-    return payload
+    return settings_config.model_dump(exclude_none=True)
 
 
 @router.put("/app", response_model=AppSettingsOut)
@@ -267,11 +264,5 @@ async def update_app_settings(
     data: AppSettingsOut,
     repo: FileSystemSettingsRepo = Depends(get_settings_repo),
 ):
-    updates = data.model_dump(exclude_none=True)
-    if "fallback_chain_enabled" in updates:
-        updates["fallback_enabled"] = updates.pop("fallback_chain_enabled")
-    settings_config = repo.update_settings(updates)
-    payload = settings_config.model_dump(exclude_none=True)
-    if "fallback_enabled" in payload:
-        payload["fallback_chain_enabled"] = payload.pop("fallback_enabled")
-    return payload
+    settings_config = repo.update_settings(data.model_dump(exclude_none=True))
+    return settings_config.model_dump(exclude_none=True)

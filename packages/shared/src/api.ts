@@ -616,6 +616,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tools */
+        get: operations["list_tools_api_tools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}/stream": {
         parameters: {
             query?: never;
@@ -667,8 +684,8 @@ export interface components {
             auto_save?: boolean | null;
             /** Onboarding Completed */
             onboarding_completed?: boolean | null;
-            /** Fallback Chain Enabled */
-            fallback_chain_enabled?: boolean | null;
+            /** Fallback Enabled */
+            fallback_enabled?: boolean | null;
         };
         /** AttentionItem */
         AttentionItem: {
@@ -796,8 +813,10 @@ export interface components {
             model_name?: string | null;
             /** Is Default */
             is_default?: boolean | null;
-            /** Fallback Chain */
-            fallback_chain?: string[] | null;
+            /** Fallback Provider Id */
+            fallback_provider_id?: string | null;
+            /** Fallback Model Id */
+            fallback_model_id?: string | null;
         };
         /** ModelResponse */
         ModelResponse: {
@@ -938,6 +957,8 @@ export interface components {
             api_key_env?: string | null;
             /** Base Url */
             base_url?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
         };
         /** RunCreate */
         RunCreate: {
@@ -1086,11 +1107,10 @@ export interface components {
             provider_id: string;
             /** Provider Name */
             provider_name: string;
-            /**
-             * Fallback Chain
-             * @default []
-             */
-            fallback_chain: string[];
+            /** Fallback Provider Id */
+            fallback_provider_id?: string | null;
+            /** Fallback Model Id */
+            fallback_model_id?: string | null;
             /**
              * Is Default
              * @default false
@@ -1114,6 +1134,11 @@ export interface components {
             type?: string | null;
             /** Status */
             status: string;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
             /** Api Key Env */
             api_key_env?: string | null;
             /** Api Key Preview */
@@ -1371,6 +1396,17 @@ export interface components {
             type?: string | null;
             /** Description */
             description?: string | null;
+        };
+        /** ToolListItemResponse */
+        ToolListItemResponse: {
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Type */
+            type: string;
         };
         /** UncommittedFile */
         UncommittedFile: {
@@ -3149,6 +3185,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProviderSummary"][];
+                };
+            };
+        };
+    };
+    list_tools_api_tools_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolListItemResponse"][];
                 };
             };
         };
