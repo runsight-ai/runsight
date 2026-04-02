@@ -8,6 +8,8 @@ This module tests:
 - Soul resolution and merging with built-ins
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
 from pydantic import ValidationError
 from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
@@ -70,6 +72,67 @@ workflow:
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
         assert workflow.name == "test_linear"
+
+    def test_parse_workflow_yaml_does_not_use_config_model_name_for_runner(self):
+        """RUN-585: parser must not source runtime model resolution from workflow config."""
+        yaml_content = """
+version: "1.0"
+config:
+  model_name: gpt-4o-mini
+souls:
+  my_soul:
+    id: my_soul_1
+    role: Custom Researcher
+    system_prompt: Do research
+    provider: anthropic
+    model_name: claude-sonnet-4
+blocks:
+  linear_block:
+    type: linear
+    soul_ref: my_soul
+workflow:
+  name: test_linear
+  entry: linear_block
+  transitions:
+    - from: linear_block
+      to: null
+"""
+        with patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner:
+            mock_runner.return_value = Mock()
+            parse_workflow_yaml(yaml_content)
+
+        assert mock_runner.call_args is not None
+        assert mock_runner.call_args.kwargs["model_name"] != "gpt-4o-mini"
+
+    def test_parse_workflow_yaml_does_not_fall_back_to_hidden_gpt_4o_runner_model(self):
+        """RUN-585: parser must not keep the legacy hidden gpt-4o runner path alive."""
+        yaml_content = """
+version: "1.0"
+config: {}
+souls:
+  my_soul:
+    id: my_soul_1
+    role: Custom Researcher
+    system_prompt: Do research
+    provider: anthropic
+    model_name: claude-sonnet-4
+blocks:
+  linear_block:
+    type: linear
+    soul_ref: my_soul
+workflow:
+  name: test_linear
+  entry: linear_block
+  transitions:
+    - from: linear_block
+      to: null
+"""
+        with patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner:
+            mock_runner.return_value = Mock()
+            parse_workflow_yaml(yaml_content)
+
+        assert mock_runner.call_args is not None
+        assert mock_runner.call_args.kwargs["model_name"] != "gpt-4o"
 
     def test_linear_block_missing_soul_ref_raises_error(self):
         """AC-2: LinearBlock without soul_ref raises ValueError."""

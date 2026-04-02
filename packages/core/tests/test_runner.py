@@ -15,6 +15,11 @@ def sample_task():
     return Task(id="test_task", instruction="Say hello.", context="This is a test context.")
 
 
+def test_runner_requires_explicit_model_name():
+    with pytest.raises(TypeError):
+        RunsightTeamRunner()
+
+
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
 async def test_execute_task(mock_achat, sample_soul, sample_task):
@@ -58,6 +63,52 @@ async def test_stream_task(mock_astream_chat, sample_soul, sample_task):
 
     assert chunks == ["Hel", "lo!"]
     mock_astream_chat.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("runsight_core.runner.LiteLLMClient.achat")
+async def test_execute_task_rejects_model_only_soul_without_provider(mock_achat, sample_task):
+    mock_achat.return_value = {
+        "content": "Hello!",
+        "cost_usd": 0.001,
+        "total_tokens": 10,
+    }
+
+    runner = RunsightTeamRunner(model_name="gpt-4o")
+    soul = Soul(
+        id="test_soul",
+        role="Test Agent",
+        system_prompt="You are a helpful test agent.",
+        model_name="gpt-4o",
+    )
+
+    with pytest.raises(ValueError, match="explicit provider"):
+        await runner.execute_task(sample_task, soul)
+
+    mock_achat.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("runsight_core.runner.LiteLLMClient.achat")
+async def test_execute_task_rejects_provider_only_soul_without_model_name(mock_achat, sample_task):
+    mock_achat.return_value = {
+        "content": "Hello!",
+        "cost_usd": 0.001,
+        "total_tokens": 10,
+    }
+
+    runner = RunsightTeamRunner(model_name="gpt-4o")
+    soul = Soul(
+        id="test_soul",
+        role="Test Agent",
+        system_prompt="You are a helpful test agent.",
+        provider="openai",
+    )
+
+    with pytest.raises(ValueError, match="explicit model_name"):
+        await runner.execute_task(sample_task, soul)
+
+    mock_achat.assert_not_called()
 
 
 @pytest.mark.asyncio
