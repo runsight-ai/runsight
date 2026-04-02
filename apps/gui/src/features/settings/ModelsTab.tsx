@@ -17,18 +17,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@runsight/ui/select";
-import {
-  Bot,
-  Check,
-  X,
-  GripVertical,
-  ChevronUp,
-  ChevronDown,
-  AlertCircle,
-  RotateCcw,
-} from "lucide-react";
+import { Bot, Check, X, AlertCircle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { ModelDefault } from "@/api/settings";
+
+type ProviderOption = {
+  id: string;
+  name: string;
+  models: string[];
+  is_active?: boolean;
+};
 
 function ModelRow({
   model,
@@ -54,17 +52,14 @@ function ModelRow({
         {model.provider_name}
       </span>
       <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
-        <Select
-          value={selectedModel}
-          onValueChange={(v) => v && setSelectedModel(v)}
-        >
+        <Select value={selectedModel} onValueChange={(value) => value && setSelectedModel(value)}>
           <SelectTrigger className="min-w-[220px] rounded-md border-border-subtle bg-surface-tertiary font-mono text-sm text-primary">
             <SelectValue placeholder="Select model" />
           </SelectTrigger>
           <SelectContent>
-            {models.map((m) => (
-              <SelectItem key={m} value={m}>
-                {m}
+            {models.map((item) => (
+              <SelectItem key={item} value={item}>
+                {item}
               </SelectItem>
             ))}
           </SelectContent>
@@ -96,145 +91,189 @@ function ModelRow({
   );
 }
 
-function FallbackChainSection({
+function FallbackTargetRow({
+  modelDefaultId,
+  providerId,
+  providerName,
+  fallbackProviderId,
+  fallbackModelId,
+  enabledSiblingProviders,
   enabled,
-  modelDefaults,
-  onReorder,
+  onCommit,
+  onClear,
 }: {
+  modelDefaultId: string;
+  providerId: string;
+  providerName: string;
+  fallbackProviderId: string | null;
+  fallbackModelId: string | null;
+  enabledSiblingProviders: ProviderOption[];
   enabled: boolean;
-  modelDefaults: ModelDefault[];
-  onReorder: (id: string, chain: string[]) => void;
+  onCommit: (modelDefaultId: string, fallbackProviderId: string, fallbackModelId: string) => Promise<void>;
+  onClear: (modelDefaultId: string) => Promise<void>;
 }) {
-  const primary = modelDefaults.find((m) => m.is_default) ?? modelDefaults[0];
-  const primaryId = primary?.id ?? null;
-  const primaryFallbackChain = useMemo(
-    () => (primary?.fallback_model_id ? [primary.fallback_model_id] : []),
-    [primary],
+  const [draftFallbackProvider, setDraftFallbackProvider] = useState<string | null>(
+    fallbackProviderId,
   );
-  const [localChain, setLocalChain] = useState<string[]>([]);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [draftFallbackModel, setDraftFallbackModel] = useState<string | null>(fallbackModelId);
+  const selectedFallbackProvider = useMemo(
+    () => enabledSiblingProviders.find((provider) => provider.id === draftFallbackProvider) ?? null,
+    [draftFallbackProvider, enabledSiblingProviders],
+  );
 
   useEffect(() => {
-    if (primary && !hasChanges) setLocalChain(primaryFallbackChain);
-  }, [primary, primaryFallbackChain, hasChanges]);
+    setDraftFallbackProvider(fallbackProviderId);
+    setDraftFallbackModel(fallbackModelId);
+  }, [fallbackModelId, fallbackProviderId]);
 
-  const move = (index: number, direction: 1 | -1) => {
-    if (!enabled) return;
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= localChain.length) return;
-    const next = [...localChain];
-    const a = next[index];
-    const b = next[newIndex];
-    if (a !== undefined && b !== undefined) {
-      next[index] = b;
-      next[newIndex] = a;
-      setLocalChain(next);
-      setHasChanges(true);
-    }
-  };
+  const handleFallbackProviderChange = useCallback((nextFallbackProviderId: string) => {
+    setDraftFallbackProvider(nextFallbackProviderId);
+    setDraftFallbackModel(null);
+  }, []);
 
-  const handleSave = useCallback(() => {
-    if (!primaryId) return;
-    onReorder(primaryId, localChain);
-    setHasChanges(false);
-  }, [localChain, onReorder, primaryId]);
+  const handleFallbackModelChange = useCallback(
+    async (nextFallbackModelId: string) => {
+      setDraftFallbackModel(nextFallbackModelId);
 
-  const handleCancel = useCallback(() => {
-    setLocalChain(primaryFallbackChain);
-    setHasChanges(false);
-  }, [primaryFallbackChain]);
-  const providerNamesByModel = useMemo(
-    () =>
-      new Map(
-        modelDefaults.map((model) => [model.model_name, model.provider_name]),
-      ),
-    [modelDefaults],
+      const fallbackProviderId = draftFallbackProvider;
+      const fallbackModelId = nextFallbackModelId;
+      if (!fallbackProviderId || !fallbackModelId) return;
+
+      await onCommit(modelDefaultId, fallbackProviderId, fallbackModelId);
+    },
+    [draftFallbackProvider, modelDefaultId, onCommit],
   );
 
-  if (!primary) return null;
-
-  if (localChain.length === 0 && !hasChanges) {
-    return (
-      <div className="rounded-lg border border-dashed border-border-default bg-surface-tertiary/30 p-4 text-center text-sm text-muted">
-        No fallback models configured. Set default models above first.
-      </div>
-    );
-  }
+  const handleClear = useCallback(async () => {
+    setDraftFallbackProvider(null);
+    setDraftFallbackModel(null);
+    await onClear(modelDefaultId);
+  }, [modelDefaultId, onClear]);
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted">Retry order when primary fails</span>
-        {hasChanges && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleSave}
-              disabled={!enabled}
-            >
-              Save order
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCancel}
-              disabled={!enabled}
-            >
-              Cancel
-            </Button>
-          </div>
-        )}
-      </div>
-      <ul
-        className={
-          enabled
-            ? "space-y-2"
-            : "space-y-2 opacity-50 pointer-events-none"
-        }
-      >
-        {localChain.map((name, i) => (
-          <li
-            key={`${name}-${i}`}
-            className="flex items-center gap-3 rounded-md border border-border-default bg-surface-secondary px-3 py-2.5 text-sm"
+    <div className="flex flex-col gap-3 rounded-md border border-border-default bg-surface-secondary p-3 md:flex-row md:items-center">
+      <span className="min-w-[100px] shrink-0 text-sm font-medium text-heading">{providerName}</span>
+      <span className="shrink-0 text-sm text-muted">{"->"}</span>
+      <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
+        <Select
+          value={draftFallbackProvider ?? undefined}
+          onValueChange={handleFallbackProviderChange}
+          disabled={!enabled}
+        >
+          <SelectTrigger
+            aria-label={`Fallback provider for ${providerName}`}
+            className="min-w-[220px] rounded-md border-border-subtle bg-surface-tertiary text-sm text-primary"
           >
-            <GripVertical className="h-4 w-4 shrink-0 text-muted" />
-            <span className="w-5 shrink-0 text-center font-mono text-2xs text-muted">
-              {i + 1}
-            </span>
-            <span className="flex-1 font-mono text-sm text-primary">{name}</span>
-            <span className="shrink-0 text-2xs text-muted">
-              {providerNamesByModel.get(name) ?? "Unknown provider"}
-            </span>
-            <div className="ml-auto flex shrink-0 gap-1">
-              <Button
-                variant="icon-only"
-                size="icon-sm"
-                onClick={() => move(i, -1)}
-                disabled={!enabled || i === 0}
-                aria-label={`Move ${name} up`}
-              >
-                <ChevronUp className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="icon-only"
-                size="icon-sm"
-                onClick={() => move(i, 1)}
-                disabled={!enabled || i === localChain.length - 1}
-                aria-label={`Move ${name} down`}
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <p className="text-sm leading-relaxed text-muted">
-        When enabled, if the primary model fails (rate limit, timeout), the
-        system tries the next model in the chain. When disabled, failures are
-        reported immediately. Drag to reorder.
-      </p>
+            <SelectValue placeholder="Select fallback provider" />
+          </SelectTrigger>
+          <SelectContent>
+            {enabledSiblingProviders
+              .filter((provider) => provider.id !== providerId)
+              .map((provider) => (
+                <SelectItem key={provider.id} value={provider.id}>
+                  {provider.name}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={draftFallbackModel ?? undefined}
+          onValueChange={handleFallbackModelChange}
+          disabled={!enabled || !selectedFallbackProvider}
+        >
+          <SelectTrigger
+            aria-label={`Fallback model for ${providerName}`}
+            className="min-w-[220px] rounded-md border-border-subtle bg-surface-tertiary font-mono text-sm text-primary"
+          >
+            <SelectValue placeholder="Select fallback model" />
+          </SelectTrigger>
+          <SelectContent>
+            {(selectedFallbackProvider?.models ?? []).map((model) => (
+              <SelectItem key={model} value={model}>
+                {model}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleClear}
+          disabled={!enabled || (!draftFallbackProvider && !draftFallbackModel)}
+          aria-label={`Clear fallback for ${providerName}`}
+        >
+          Clear
+        </Button>
+      </div>
     </div>
+  );
+}
+
+function FallbackSection({
+  modelDefaults,
+  enabledProviders,
+  fallbackEnabled,
+  onToggle,
+  onCommit,
+  onClear,
+  isPending,
+}: {
+  modelDefaults: ModelDefault[];
+  enabledProviders: ProviderOption[];
+  fallbackEnabled: boolean;
+  onToggle: (settings: { fallback_enabled: boolean }) => Promise<void>;
+  onCommit: (modelDefaultId: string, fallbackProviderId: string, fallbackModelId: string) => Promise<void>;
+  onClear: (modelDefaultId: string) => Promise<void>;
+  isPending: boolean;
+}) {
+  const canConfigureFallback = enabledProviders.length >= 2;
+  const rowsDisabled = !fallbackEnabled;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-4">
+        <div className="font-mono text-2xs font-medium uppercase tracking-wider text-muted">
+          Fallback
+        </div>
+        <label className="flex items-center gap-2 text-sm text-secondary">
+          <Switch
+            checked={fallbackEnabled}
+            onCheckedChange={(checked) => onToggle({ fallback_enabled: checked })}
+            aria-label="Enable fallback"
+            disabled={isPending || enabledProviders.length < 2}
+          />
+          Enabled
+        </label>
+      </div>
+
+      {!canConfigureFallback ? (
+        <div className="rounded-lg border border-dashed border-border-default bg-surface-tertiary/30 p-4 text-sm text-muted">
+          Enable at least two providers to configure fallback targets.
+        </div>
+      ) : (
+        <div
+          className="space-y-2"
+          style={rowsDisabled ? { opacity: 0.4, pointerEvents: "none" } : undefined}
+        >
+          {modelDefaults.map((model) => (
+            <FallbackTargetRow
+              key={model.id}
+              providerName={model.provider_name}
+              modelDefaultId={model.id}
+              providerId={model.provider_id}
+              fallbackProviderId={model.fallback_provider_id ?? null}
+              fallbackModelId={model.fallback_model_id ?? null}
+              enabledSiblingProviders={enabledProviders.filter((provider) => provider.id !== model.provider_id)}
+              enabled={!rowsDisabled}
+              onCommit={onCommit}
+              onClear={onClear}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -245,21 +284,27 @@ export function ModelsTab() {
   const updateModelDefault = useUpdateModelDefault();
   const updateAppSettings = useUpdateAppSettings();
   const [isRetrying, setIsRetrying] = useState(false);
-  const modelDefaults = data?.items ?? [];
-  const providers = useMemo(
-    () => (providersData?.items ?? []).filter((provider) => provider.is_active ?? true),
-    [providersData?.items],
+  const modelDefaults = useMemo(() => data?.items ?? [], [data?.items]);
+  const allProviders = useMemo(() => providersData?.items ?? [], [providersData?.items]);
+  const enabledProviders = useMemo(
+    () => allProviders.filter((provider) => provider.is_active ?? true),
+    [allProviders],
   );
-  const fallbackChainEnabled = appSettings?.fallback_enabled ?? true;
-  const showFallbackChain =
-    modelDefaults.filter((model) => model.model_name.trim().length > 0).length > 1;
+  const fallbackEnabled = appSettings?.fallback_enabled ?? true;
+  const fallbackModelDefaults = useMemo(
+    () =>
+      modelDefaults.filter((model) =>
+        enabledProviders.some((provider) => provider.id === model.provider_id),
+      ),
+    [enabledProviders, modelDefaults],
+  );
 
   const getProviderModels = useCallback(
     (providerId: string) => {
-      const p = providers.find((pr) => pr.id === providerId);
-      return p?.models ?? [];
+      const provider = allProviders.find((item) => item.id === providerId);
+      return provider?.models ?? [];
     },
-    [providers]
+    [allProviders],
   );
 
   const handleSaveModel = useCallback(
@@ -271,35 +316,50 @@ export function ModelsTab() {
         toast.error("Failed to save model default");
       }
     },
-    [updateModelDefault]
+    [updateModelDefault],
   );
 
-  const handleReorderChain = useCallback(
-    async (id: string, chain: string[]) => {
-      const fallbackModelId = chain[0] ?? "";
-      const fallbackProviderId = fallbackModelId
-        ? providers.find((provider) => provider.models.includes(fallbackModelId))?.id ?? null
-        : "";
-
-      if (fallbackModelId && fallbackProviderId === null) {
-        toast.error("Failed to update fallback chain");
-        return;
-      }
-
+  const handleCommitFallback = useCallback(
+    async (modelDefaultId: string, fallbackProviderId: string, fallbackModelId: string) => {
       try {
         await updateModelDefault.mutateAsync({
-          id,
+          id: modelDefaultId,
           data: {
             fallback_provider_id: fallbackProviderId,
             fallback_model_id: fallbackModelId,
           },
         });
-        toast.success("Fallback chain updated");
+        toast.success("Fallback target updated");
       } catch {
-        toast.error("Failed to update fallback chain");
+        toast.error("Failed to update fallback target");
       }
     },
-    [providers, updateModelDefault]
+    [updateModelDefault],
+  );
+
+  const handleClearFallback = useCallback(
+    async (modelDefaultId: string) => {
+      try {
+        await updateModelDefault.mutateAsync({
+          id: modelDefaultId,
+          data: {
+            fallback_provider_id: "",
+            fallback_model_id: "",
+          },
+        });
+        toast.success("Fallback target cleared");
+      } catch {
+        toast.error("Failed to clear fallback target");
+      }
+    },
+    [updateModelDefault],
+  );
+
+  const handleToggleFallback = useCallback(
+    async ({ fallback_enabled: nextFallbackEnabled }: { fallback_enabled: boolean }) => {
+      await updateAppSettings.mutateAsync({ fallback_enabled: nextFallbackEnabled });
+    },
+    [updateAppSettings],
   );
 
   const handleRetry = useCallback(async () => {
@@ -320,9 +380,9 @@ export function ModelsTab() {
               Default Model per Provider
             </div>
             <div className="space-y-2">
-              {[1, 2].map((i) => (
+              {[1, 2].map((item) => (
                 <div
-                  key={i}
+                  key={item}
                   className="rounded-md border border-border-default bg-surface-secondary p-3"
                 >
                   <div className="flex items-center gap-3">
@@ -338,30 +398,24 @@ export function ModelsTab() {
         <div className="flex items-center justify-center rounded-lg border border-border-default bg-surface-secondary p-8">
           <div className="max-w-md text-center">
             <AlertCircle className="mx-auto mb-4 h-12 w-12 text-danger" />
-            <h3 className="mb-2 text-lg font-medium text-primary">
-              Failed to load model defaults
-            </h3>
+            <h3 className="mb-2 text-lg font-medium text-primary">Failed to load model defaults</h3>
             <p className="mb-4 text-sm text-muted">
               {error instanceof Error
                 ? error.message
                 : "An error occurred while fetching model defaults."}
             </p>
-            <Button
-              onClick={handleRetry}
-              variant="secondary"
-              disabled={isRetrying}
-            >
+            <Button onClick={handleRetry} variant="secondary" disabled={isRetrying}>
               <RotateCcw className="mr-2 h-4 w-4" />
               {isRetrying ? "Retrying..." : "Retry"}
             </Button>
           </div>
         </div>
-      ) : modelDefaults.length === 0 ? (
+      ) : allProviders.length === 0 ? (
         <div className="rounded-lg border border-border-default bg-surface-primary p-8">
           <EmptyState
             icon={Bot}
             title="No model defaults configured"
-            description="Model defaults and fallback chains will appear here once providers are connected and models are available."
+            description="Model defaults and fallback targets will appear here once providers are connected and models are available."
           />
         </div>
       ) : (
@@ -382,33 +436,15 @@ export function ModelsTab() {
             </div>
           </section>
 
-          {showFallbackChain ? (
-            <section className="space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="font-mono text-2xs font-medium uppercase tracking-wider text-muted">
-                    Fallback Chain
-                  </div>
-                </div>
-                <label className="flex items-center gap-2 text-sm text-secondary">
-                  <Switch
-                    checked={fallbackChainEnabled}
-                    onCheckedChange={(checked) =>
-                      updateAppSettings.mutateAsync({ fallback_enabled: checked })
-                    }
-                    aria-label="Enable fallback chain"
-                    disabled={updateAppSettings.isPending}
-                  />
-                  Enabled
-                </label>
-              </div>
-              <FallbackChainSection
-                enabled={fallbackChainEnabled}
-                modelDefaults={modelDefaults}
-                onReorder={handleReorderChain}
-              />
-            </section>
-          ) : null}
+          <FallbackSection
+            modelDefaults={fallbackModelDefaults}
+            enabledProviders={enabledProviders}
+            fallbackEnabled={fallbackEnabled}
+            onToggle={handleToggleFallback}
+            onCommit={handleCommitFallback}
+            onClear={handleClearFallback}
+            isPending={updateAppSettings.isPending || updateModelDefault.isPending}
+          />
         </div>
       )}
     </div>
