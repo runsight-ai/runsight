@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from runsight_api.domain.entities.settings import FallbackChainEntry, ModelDefaultEntry
+from runsight_api.domain.entities.settings import ModelDefaultEntry
 from runsight_api.domain.value_objects import ProviderEntity
 from runsight_api.logic.services.execution_service import ExecutionService
 from runsight_api.logic.services.model_service import ModelService
@@ -87,8 +87,8 @@ class TestSettingsServiceDisabledProviders:
             ),
         ]
         settings_repo.get_fallback_chain.return_value = [
-            FallbackChainEntry(provider_id="openai", model_id="gpt-4o"),
-            FallbackChainEntry(provider_id="anthropic", model_id="claude-sonnet-4"),
+            SimpleNamespace(provider_id="openai", model_id="gpt-4o"),
+            SimpleNamespace(provider_id="anthropic", model_id="claude-sonnet-4"),
         ]
 
         service = SettingsService(settings_repo=settings_repo, provider_repo=provider_repo)

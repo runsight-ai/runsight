@@ -9,7 +9,7 @@ These tests verify that all cleanup actions have been completed:
 - SQLite tables for Run, RunNode, LogEntry remain functional
 - _migrate_schema function is removed from main.py
 - SQLModel table classes (Provider, AppSettings, FallbackChain, ModelDefault) are removed
-- Pydantic models (AppSettingsConfig, FallbackChainEntry, ModelDefaultEntry) are preserved
+- Pydantic models (AppSettingsConfig, FallbackTargetEntry, ModelDefaultEntry) are preserved
 - repositories/__init__.py no longer exports deleted repos
 """
 
@@ -200,11 +200,18 @@ class TestSettingsEntityCleaned:
             "settings.py should still contain Pydantic AppSettingsConfig"
         )
 
-    def test_pydantic_fallback_chain_entry_preserved(self):
+    def test_pydantic_fallback_chain_entry_removed(self):
         settings_file = _SRC / "domain" / "entities" / "settings.py"
         text = settings_file.read_text()
-        assert "class FallbackChainEntry(BaseModel)" in text, (
-            "settings.py should still contain Pydantic FallbackChainEntry"
+        assert "class FallbackChainEntry(BaseModel)" not in text, (
+            "settings.py should no longer contain Pydantic FallbackChainEntry"
+        )
+
+    def test_pydantic_fallback_target_entry_preserved(self):
+        settings_file = _SRC / "domain" / "entities" / "settings.py"
+        text = settings_file.read_text()
+        assert "class FallbackTargetEntry(BaseModel)" in text, (
+            "settings.py should still contain Pydantic FallbackTargetEntry"
         )
 
     def test_pydantic_model_default_entry_preserved(self):
