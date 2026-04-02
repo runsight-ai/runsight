@@ -155,6 +155,12 @@ def _validate_file_path(file_path: str) -> None:
             )
 
 
+def _validate_git_ref(ref: str) -> None:
+    """Validate a git ref is safe to pass to git commands."""
+    if not ref or ref.startswith("-"):
+        raise InputValidationError("Invalid ref: must not be empty or start with '-'")
+
+
 def _sanitize_commit_message(message: str) -> str:
     """Sanitize a commit message for safe use with git."""
     message = re.sub(r"[\x00-\x1f\x7f]", "", message)
@@ -267,13 +273,11 @@ class FileReadResponse(BaseModel):
     ref: str
 
 
-@router.get("/file")
+@router.get("/file", response_model=FileReadResponse)
 async def git_file_read(ref: str, path: str):
     """Read a file from a specific git ref (branch name or commit SHA)."""
-    try:
-        _validate_file_path(path)
-    except InputValidationError:
-        raise
+    _validate_git_ref(ref)
+    _validate_file_path(path)
 
     _ensure_git_repo()
     svc = _get_git_service()
