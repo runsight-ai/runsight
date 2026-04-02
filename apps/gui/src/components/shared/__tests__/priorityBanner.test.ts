@@ -242,7 +242,7 @@ describe("UNCOMMITTED and REGRESSIONS dismiss is session-scoped (AC5)", () => {
     // uncommitted or regressions. We check there's no "uncommitted" in
     // localStorage key patterns.
     const hasUncommittedStorage =
-      /localStorage.*uncommitted|uncommitted.*localStorage/s.test(source);
+      /localStorage.*uncommitted|uncommitted.*localStorage/.test(source);
     expect(
       hasUncommittedStorage,
       "Uncommitted dismiss should NOT use localStorage",
@@ -252,7 +252,7 @@ describe("UNCOMMITTED and REGRESSIONS dismiss is session-scoped (AC5)", () => {
   it("does NOT persist regressions dismiss to localStorage", () => {
     const source = readSource(BANNER_PATH);
     const hasRegressionsStorage =
-      /localStorage.*regressions|regressions.*localStorage/s.test(source);
+      /localStorage.*regressions|regressions.*localStorage/.test(source);
     expect(
       hasRegressionsStorage,
       "Regressions dismiss should NOT use localStorage",

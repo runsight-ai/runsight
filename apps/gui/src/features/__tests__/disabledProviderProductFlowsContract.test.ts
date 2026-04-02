@@ -39,12 +39,13 @@ describe("disabled-provider gating across product flows", () => {
     expect(source).toMatch(/filter\([^)]*is_active|\.filter\(/s);
   });
 
-  it("ExploreBanner stays visible when only disabled providers exist", () => {
-    const source = read("features/canvas/ExploreBanner.tsx");
+  it("CanvasPage explore condition stays active when only disabled providers exist", () => {
+    // ExploreBanner was deleted in RUN-559; explore logic now lives in CanvasPage
+    // which filters active providers and passes conditions to PriorityBanner.
+    const source = read("features/canvas/CanvasPage.tsx");
 
     expect(source).toMatch(/is_active/);
     expect(source).toMatch(/filter\([^)]*is_active|\.filter\(/s);
-    expect(source).not.toMatch(/items\.length\s*>\s*0/);
   });
 
   it("ModelsTab derives provider-backed defaults from active providers only", () => {

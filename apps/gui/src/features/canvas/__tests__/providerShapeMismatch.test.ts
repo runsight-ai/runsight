@@ -39,7 +39,6 @@ function readSource(relativePath: string): string {
 
 const RUN_BUTTON_PATH = "features/canvas/RunButton.tsx";
 const STATUS_BAR_PATH = "features/canvas/CanvasStatusBar.tsx";
-const EXPLORE_BANNER_PATH = "features/canvas/ExploreBanner.tsx";
 const SETTINGS_QUERY_PATH = "queries/settings.ts";
 const SETTINGS_API_PATH = "api/settings.ts";
 
@@ -166,59 +165,9 @@ describe("CanvasStatusBar accesses providers via .items (RUN-406 AC2)", () => {
 });
 
 // ===========================================================================
-// 3. ExploreBanner — must access .items, not .length on data (AC3)
+// 3. Removed — ExploreBanner was deleted in RUN-559
+// (explore provider checks now live in CanvasPage, tested via priorityBanner tests)
 // ===========================================================================
-
-describe("ExploreBanner accesses providers via .items (RUN-406 AC3)", () => {
-  it("does NOT call .length directly on the providers data object", () => {
-    const source = readSource(EXPLORE_BANNER_PATH);
-    // The buggy pattern: providers && providers.length > 0
-    // where providers is { items: [], total: 0 }
-    const hasDirectLengthOnData = /\bproviders\?\.length\b|\bproviders\.length\b/.test(source);
-    expect(
-      hasDirectLengthOnData,
-      "ExploreBanner calls .length directly on { items, total } — must use .items first",
-    ).toBe(false);
-  });
-
-  it("accesses providers through the .items property", () => {
-    const source = readSource(EXPLORE_BANNER_PATH);
-    const accessesItems =
-      /providers\?\.items|providers\.items|data\?\.items|\.items\s*\?\?|\.items\s*\|\||const\s*\{[^}]*items[^}]*\}\s*=/.test(source);
-    expect(
-      accessesItems,
-      "ExploreBanner must access .items on the { items, total } data from useProviders",
-    ).toBe(true);
-  });
-
-  it("checks items array length for conditional rendering", () => {
-    const source = readSource(EXPLORE_BANNER_PATH);
-    const checksItemsLength =
-      /items\?\.length|items\.length/.test(source);
-    expect(
-      checksItemsLength,
-      "ExploreBanner should check .items.length to determine if providers exist",
-    ).toBe(true);
-  });
-
-  it("hides banner when items array has entries, not when { items, total } is truthy", () => {
-    const source = readSource(EXPLORE_BANNER_PATH);
-    // The buggy pattern:
-    //   if (providers && providers.length > 0) return null;
-    // This never returns null because providers is always { items, total } (truthy)
-    // and { items, total }.length is undefined, so (undefined > 0) is false.
-    // The banner is ALWAYS shown even when providers exist.
-    //
-    // The fix should check:
-    //   if (providers?.items?.length > 0) return null;
-    //   or: const providerList = providers?.items ?? []; if (providerList.length > 0) ...
-    const buggyPattern = /providers\s*&&\s*providers\.length\s*>/;
-    expect(
-      buggyPattern.test(source),
-      "ExploreBanner uses buggy pattern 'providers && providers.length > 0' — must check .items",
-    ).toBe(false);
-  });
-});
 
 // ===========================================================================
 // 4. Cross-cutting: no .length on { items, total } in any canvas component (AC4)
@@ -228,7 +177,6 @@ describe("No .length called on { items, total } object in canvas components (RUN
   const CANVAS_COMPONENTS = [
     { name: "RunButton", path: RUN_BUTTON_PATH },
     { name: "CanvasStatusBar", path: STATUS_BAR_PATH },
-    { name: "ExploreBanner", path: EXPLORE_BANNER_PATH },
   ];
 
   for (const { name, path } of CANVAS_COMPONENTS) {
