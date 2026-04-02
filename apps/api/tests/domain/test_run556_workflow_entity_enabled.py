@@ -37,16 +37,25 @@ class TestWorkflowEntityEnabledField:
 
     def test_enabled_true_roundtrips(self):
         """Setting enabled=True should persist through model construction."""
+        assert "enabled" in WorkflowEntity.model_fields, (
+            "WorkflowEntity must declare 'enabled' as an explicit field, not rely on extra='allow'"
+        )
         entity = WorkflowEntity(id="test-wf", enabled=True)
         assert entity.enabled is True
 
     def test_enabled_false_roundtrips(self):
         """Setting enabled=False should persist through model construction."""
+        assert "enabled" in WorkflowEntity.model_fields, (
+            "WorkflowEntity must declare 'enabled' as an explicit field, not rely on extra='allow'"
+        )
         entity = WorkflowEntity(id="test-wf", enabled=False)
         assert entity.enabled is False
 
     def test_enabled_appears_in_model_dump(self):
         """The enabled field must appear in model_dump output as a declared field."""
+        assert "enabled" in WorkflowEntity.model_fields, (
+            "WorkflowEntity must declare 'enabled' as an explicit field, not rely on extra='allow'"
+        )
         entity = WorkflowEntity(id="test-wf", enabled=True)
         dumped = entity.model_dump()
         assert "enabled" in dumped
