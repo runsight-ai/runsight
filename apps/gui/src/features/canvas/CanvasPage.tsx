@@ -2,18 +2,20 @@ import { useState, useCallback, useRef } from "react";
 import { useParams, useBlocker } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { CanvasTopbar } from "./CanvasTopbar";
-import { UncommittedBanner } from "./UncommittedBanner";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { FirstTimeTooltip } from "./FirstTimeTooltip";
 import { PaletteSidebar } from "./PaletteSidebar";
-import { ExploreBanner } from "./ExploreBanner";
+import { PriorityBanner } from "@/components/shared/PriorityBanner";
+import type { BannerCondition } from "@/components/shared/PriorityBanner";
 import { WorkflowCanvas } from "./WorkflowCanvas";
 import { ProviderModal } from "@/components/provider/ProviderModal";
 import { CommitDialog } from "@/features/git/CommitDialog";
 import { gitApi } from "@/api/git";
 import { YamlEditor } from "./YamlEditor";
 import { useCreateRun } from "@/queries/runs";
+import { useProviders } from "@/queries/settings";
+import { useGitStatus } from "@/queries/git";
 import { useCanvasStore } from "@/store/canvas";
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from "@runsight/ui/dialog";
 import { Button } from "@runsight/ui/button";
@@ -36,6 +38,24 @@ export function Component() {
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const blockCount = useCanvasStore((s) => s.blockCount);
   const edgeCount = useCanvasStore((s) => s.edgeCount);
+  const { data: providers } = useProviders();
+  const { data: gitStatus } = useGitStatus();
+  const activeProviders = (providers?.items ?? []).filter((p) => p.is_active ?? true);
+
+  const bannerConditions: BannerCondition[] = [
+    {
+      type: "explore",
+      active: activeProviders.length === 0,
+      message: "You are in explore mode.",
+      action: { label: "Add an API key", onClick: () => setApiKeyModalOpen(true) },
+    },
+    {
+      type: "uncommitted",
+      active: Boolean(gitStatus && !gitStatus.is_clean),
+      message: `${gitStatus?.uncommitted_files?.length ?? 0} uncommitted change${(gitStatus?.uncommitted_files?.length ?? 0) === 1 ? "" : "s"}`,
+      action: { label: "Commit", onClick: () => setCommitDialogOpen(true) },
+    },
+  ];
 
   const blocker = useBlocker(isDirty);
 
@@ -160,8 +180,7 @@ export function Component() {
       />
       <PaletteSidebar onCollapse={setSidebarCollapsed} />
       <div className="relative flex flex-col overflow-hidden" style={{ gridColumn: "2", gridRow: "2" }}>
-        <ExploreBanner onAddApiKey={() => setApiKeyModalOpen(true)} />
-        <UncommittedBanner onCommit={() => setCommitDialogOpen(true)} />
+        <PriorityBanner conditions={bannerConditions} />
         {activeTab === "canvas" ? (
           <WorkflowCanvas />
         ) : (

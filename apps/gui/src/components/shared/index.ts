@@ -7,3 +7,8 @@ export {
   CanvasErrorBoundary,
 } from "./ErrorBoundary";
 export { DeleteConfirmDialog } from "./DeleteConfirmDialog";
+export {
+  PriorityBanner,
+  type BannerCondition,
+  type PriorityBannerProps,
+} from "./PriorityBanner";
