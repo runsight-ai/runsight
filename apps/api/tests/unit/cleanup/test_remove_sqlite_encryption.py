@@ -228,6 +228,17 @@ class TestSettingsEntityCleaned:
         assert "from sqlmodel" not in text, "settings.py still imports sqlmodel after cleanup"
 
 
+class TestSettingsRepoCleaned:
+    """Legacy fallback migration helpers should not survive in the repo layer."""
+
+    def test_no_legacy_fallback_migration_helper(self):
+        repo_file = _SRC / "data" / "filesystem" / "settings_repo.py"
+        text = repo_file.read_text()
+        assert "_migrate_legacy_settings" not in text, (
+            "settings_repo.py should not keep legacy fallback migration helpers"
+        )
+
+
 # =========================================================================
 # _migrate_schema removed from main.py
 # =========================================================================

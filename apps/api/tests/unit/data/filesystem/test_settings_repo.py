@@ -132,8 +132,8 @@ class TestFallbackMapPersistence:
         assert repo.remove_fallback_target("missing-provider") is False
 
 
-class TestLegacyYamlMigration:
-    def test_first_read_renames_legacy_flag_and_deletes_legacy_fallback_list(
+class TestCleanSchemaOnly:
+    def test_get_settings_ignores_legacy_fallback_keys_without_rewriting_yaml(
         self, repo, settings_file
     ):
         settings_file.parent.mkdir(parents=True, exist_ok=True)
@@ -163,12 +163,18 @@ class TestLegacyYamlMigration:
 
         settings = repo.get_settings()
 
-        assert settings.fallback_enabled is True
+        assert settings.default_provider == "openai"
+        assert settings.fallback_enabled is False
 
         on_disk = yaml.safe_load(settings_file.read_text())
-        assert on_disk["fallback_enabled"] is True
-        assert "fallback_chain_enabled" not in on_disk
-        assert "fallback_chain" not in on_disk
+        assert on_disk["fallback_chain_enabled"] is True
+        assert on_disk["fallback_chain"] == [
+            {"provider_id": "openai", "model_id": "gpt-4o"},
+            {
+                "provider_id": "anthropic",
+                "model_id": "claude-sonnet-4",
+            },
+        ]
         assert on_disk["model_defaults"] == [
             ModelDefaultEntry(
                 provider_id="openai",
@@ -178,7 +184,7 @@ class TestLegacyYamlMigration:
         ]
         assert repo.get_fallback_map() == []
 
-    def test_first_read_defaults_fallback_enabled_to_false_when_legacy_flag_is_missing(
+    def test_get_settings_defaults_fallback_enabled_false_when_only_legacy_chain_exists(
         self, repo, settings_file
     ):
         settings_file.parent.mkdir(parents=True, exist_ok=True)
@@ -199,6 +205,7 @@ class TestLegacyYamlMigration:
         assert settings.fallback_enabled is False
 
         on_disk = yaml.safe_load(settings_file.read_text())
-        assert on_disk["fallback_enabled"] is False
-        assert "fallback_chain_enabled" not in on_disk
-        assert "fallback_chain" not in on_disk
+        assert "fallback_enabled" not in on_disk
+        assert on_disk["fallback_chain"] == [
+            {"provider_id": "openai", "model_id": "gpt-4o"},
+        ]

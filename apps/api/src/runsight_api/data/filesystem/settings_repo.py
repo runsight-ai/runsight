@@ -72,34 +72,9 @@ class FileSystemSettingsRepo:
         content = yaml.dump(data, sort_keys=False, default_flow_style=False)
         atomic_write(self._settings_file, content)
 
-    def _migrate_legacy_settings(self, data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-        """Normalize legacy fallback keys on first read."""
-        changed = False
-
-        if "fallback_chain_enabled" in data:
-            data["fallback_enabled"] = bool(data.pop("fallback_chain_enabled"))
-            changed = True
-        elif "fallback_chain" in data and "fallback_enabled" not in data:
-            data["fallback_enabled"] = False
-            changed = True
-
-        if "fallback_chain" in data:
-            data.pop("fallback_chain", None)
-            changed = True
-
-        return data, changed
-
     def _load_yaml(self) -> dict[str, Any] | None:
-        """Read settings YAML and apply one-time legacy migrations."""
-        data = self._read_yaml()
-        if data is None:
-            return None
-
-        data, changed = self._migrate_legacy_settings(data)
-        if changed:
-            self._write_yaml(data)
-
-        return data
+        """Read settings YAML without rewriting legacy keys."""
+        return self._read_yaml()
 
     # ------------------------------------------------------------------
     # Public API: flat settings
