@@ -25,52 +25,76 @@ import { AddProviderDialog } from "./AddProviderDialog";
 import type { EditingProvider } from "@/components/provider/ProviderSetup";
 import { cn } from "@runsight/ui/utils";
 import type { Provider } from "@/api/settings";
+import type { CSSProperties } from "react";
 
-function ProviderLogo({ name, status }: { name: string; status: string }) {
-  const getInitials = (name: string) => {
-    return name
-      .split(/\s+/)
-      .map((word) => word[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 3);
-  };
+const PROVIDER_LOGO_TONES = [
+  {
+    backgroundColor: "var(--neutral-6)",
+    borderColor: "var(--neutral-6)",
+    color: "var(--text-primary)",
+  },
+  {
+    backgroundColor: "var(--accent-8)",
+    borderColor: "var(--accent-8)",
+    color: "var(--text-on-accent)",
+  },
+  {
+    backgroundColor: "var(--info-9)",
+    borderColor: "var(--info-9)",
+    color: "var(--text-on-accent)",
+  },
+  {
+    backgroundColor: "var(--success-9)",
+    borderColor: "var(--success-9)",
+    color: "var(--text-on-accent)",
+  },
+  {
+    backgroundColor: "var(--warning-9)",
+    borderColor: "var(--warning-9)",
+    color: "var(--warning-11)",
+  },
+  {
+    backgroundColor: "var(--danger-9)",
+    borderColor: "var(--danger-9)",
+    color: "var(--text-on-accent)",
+  },
+] as const;
 
-  const getTone = (name: string) => {
-    const normalized = name.trim().toLowerCase();
-    if (normalized === "anthropic") {
-      return "bg-warning-9 text-on-accent border-warning-9";
-    }
-    if (normalized === "openai") {
-      return "bg-neutral-6 text-primary border-neutral-6";
-    }
-    return "bg-surface-tertiary text-primary border-border-subtle";
-  };
+function getProviderInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 3);
+}
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "connected":
-      case "active":
-        return "text-primary";
-      case "rate-limited":
-        return "text-[var(--warning-9)]";
-      case "error":
-        return "text-[var(--danger-9)]";
-      default:
-        return "text-muted";
-    }
-  };
+function getProviderLogoTone(name: string): CSSProperties {
+  const normalized = name.trim().toLowerCase();
+  if (normalized === "anthropic") {
+    return PROVIDER_LOGO_TONES[1];
+  }
+  if (normalized === "openai") {
+    return PROVIDER_LOGO_TONES[0];
+  }
+
+  const hash = [...normalized].reduce(
+    (acc, char) => acc + char.charCodeAt(0),
+    0,
+  );
+  return PROVIDER_LOGO_TONES[hash % PROVIDER_LOGO_TONES.length];
+}
+
+function ProviderLogo({ name }: { name: string }) {
 
   return (
     <div
+      style={getProviderLogoTone(name)}
       className={cn(
         "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border",
-        getTone(name),
       )}
     >
-      <span className={cn("text-xs font-semibold", getStatusColor(status))}>
-        {getInitials(name)}
-      </span>
+      <span className="text-xs font-semibold">{getProviderInitials(name)}</span>
     </div>
   );
 }
@@ -147,7 +171,7 @@ function ProviderRow({
     <TableRow>
       <TableCell className="border-b-0 py-3">
         <div className="flex items-center gap-2.5">
-          <ProviderLogo name={provider.name} status={provider.status} />
+          <ProviderLogo name={provider.name} />
           <div className="min-w-0">
             <div className="text-md font-medium text-heading">{provider.name}</div>
             {provider.base_url ? (
