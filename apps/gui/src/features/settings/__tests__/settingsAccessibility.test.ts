@@ -33,8 +33,18 @@ describe("Settings accessibility wiring", () => {
     const source = readGuiSource(MODELS_TAB_PATH);
     expect(source).toMatch(/aria-label=\{`Save \$\{model\.provider_name\} default model`\}/);
     expect(source).toMatch(/aria-label=\{`Cancel \$\{model\.provider_name\} model change`\}/);
-    expect(source).toMatch(/aria-label=\{`Move \$\{name\} up`\}/);
-    expect(source).toMatch(/aria-label=\{`Move \$\{name\} down`\}/);
+    expect(source).toMatch(/aria-label=\{`Fallback provider for \$\{.*\}`\}/);
+    expect(source).toMatch(/aria-label=\{`Fallback model for \$\{.*\}`\}/);
+    expect(source).toMatch(/aria-label=\{`Clear fallback for \$\{.*\}`\}/);
+    expect(source).not.toMatch(/aria-label=\{`Move \$\{name\} up`\}/);
+    expect(source).not.toMatch(/aria-label=\{`Move \$\{name\} down`\}/);
+  });
+
+  it("fallback row keyboard order runs provider select then model select then clear button", () => {
+    const source = readGuiSource(MODELS_TAB_PATH);
+    expect(source).toMatch(
+      /Fallback provider for[\s\S]*Fallback model for[\s\S]*Clear fallback for/,
+    );
   });
 
   it("connection feedback announces status changes", () => {
