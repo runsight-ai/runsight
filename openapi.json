@@ -1834,20 +1834,20 @@
         }
       }
     },
-    "/api/settings/models": {
+    "/api/settings/fallbacks": {
       "get": {
         "tags": [
           "Settings"
         ],
-        "summary": "List Model Defaults",
-        "operationId": "list_model_defaults_api_settings_models_get",
+        "summary": "List Fallback Targets",
+        "operationId": "list_fallback_targets_api_settings_fallbacks_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SettingsModelDefaultListResponse"
+                  "$ref": "#/components/schemas/SettingsFallbackListResponse"
                 }
               }
             }
@@ -1855,21 +1855,21 @@
         }
       }
     },
-    "/api/settings/models/{model_id}": {
+    "/api/settings/fallbacks/{provider_id}": {
       "put": {
         "tags": [
           "Settings"
         ],
-        "summary": "Update Model Default",
-        "operationId": "update_model_default_api_settings_models__model_id__put",
+        "summary": "Update Fallback Target",
+        "operationId": "update_fallback_target_api_settings_fallbacks__provider_id__put",
         "parameters": [
           {
-            "name": "model_id",
+            "name": "provider_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Model Id"
+              "title": "Provider Id"
             }
           }
         ],
@@ -1878,7 +1878,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ModelDefaultUpdate"
+                "$ref": "#/components/schemas/FallbackUpdate"
               }
             }
           }
@@ -1889,7 +1889,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SettingsModelDefaultResponse"
+                  "$ref": "#/components/schemas/SettingsFallbackResponse"
                 }
               }
             }
@@ -2431,17 +2431,6 @@
             ],
             "title": "Base Path"
           },
-          "default_provider": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Default Provider"
-          },
           "auto_save": {
             "anyOf": [
               {
@@ -2764,43 +2753,8 @@
         ],
         "title": "EvalDelta"
       },
-      "HTTPValidationError": {
+      "FallbackUpdate": {
         "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
-      "ModelDefaultUpdate": {
-        "properties": {
-          "model_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model Name"
-          },
-          "is_default": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Default"
-          },
           "fallback_provider_id": {
             "anyOf": [
               {
@@ -2825,7 +2779,20 @@
           }
         },
         "type": "object",
-        "title": "ModelDefaultUpdate"
+        "title": "FallbackUpdate"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
       },
       "ModelResponse": {
         "properties": {
@@ -3677,11 +3644,11 @@
         ],
         "title": "SettingsBudgetResponse"
       },
-      "SettingsModelDefaultListResponse": {
+      "SettingsFallbackListResponse": {
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/SettingsModelDefaultResponse"
+              "$ref": "#/components/schemas/SettingsFallbackResponse"
             },
             "type": "array",
             "title": "Items"
@@ -3696,17 +3663,13 @@
           "items",
           "total"
         ],
-        "title": "SettingsModelDefaultListResponse"
+        "title": "SettingsFallbackListResponse"
       },
-      "SettingsModelDefaultResponse": {
+      "SettingsFallbackResponse": {
         "properties": {
           "id": {
             "type": "string",
             "title": "Id"
-          },
-          "model_name": {
-            "type": "string",
-            "title": "Model Name"
           },
           "provider_id": {
             "type": "string",
@@ -3737,21 +3700,15 @@
               }
             ],
             "title": "Fallback Model Id"
-          },
-          "is_default": {
-            "type": "boolean",
-            "title": "Is Default",
-            "default": false
           }
         },
         "type": "object",
         "required": [
           "id",
-          "model_name",
           "provider_id",
           "provider_name"
         ],
-        "title": "SettingsModelDefaultResponse"
+        "title": "SettingsFallbackResponse"
       },
       "SettingsProviderListResponse": {
         "properties": {

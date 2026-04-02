@@ -188,7 +188,7 @@ function FallbackSection({
 
       {!canConfigureFallback ? (
         <div className="rounded-lg border border-dashed border-border-default bg-surface-tertiary/30 p-4 text-sm text-muted">
-          Enable at least two enabled providers to configure fallback targets.
+          Enable at least two providers to configure runtime fallback. Once two providers are enabled, you can choose one fallback target per provider.
         </div>
       ) : (
         <>

@@ -5,7 +5,6 @@ import { z } from "zod";
 
 export const AppSettingsOutSchema = z.object({
   base_path: z.string().nullable().optional(),
-  default_provider: z.string().nullable().optional(),
   auto_save: z.boolean().nullable().optional(),
   onboarding_completed: z.boolean().nullable().optional(),
   fallback_enabled: z.boolean().nullable().optional(),
@@ -80,6 +79,12 @@ export const EvalDeltaSchema = z.object({
 });
 export type EvalDelta = z.infer<typeof EvalDeltaSchema>;
 
+export const FallbackUpdateSchema = z.object({
+  fallback_provider_id: z.string().nullable().optional(),
+  fallback_model_id: z.string().nullable().optional(),
+});
+export type FallbackUpdate = z.infer<typeof FallbackUpdateSchema>;
+
 export const ValidationErrorSchema = z.object({
   loc: z.array(z.union([z.string(), z.number()])),
   msg: z.string(),
@@ -93,14 +98,6 @@ export const HTTPValidationErrorSchema = z.object({
   detail: z.array(ValidationErrorSchema).optional(),
 });
 export type HTTPValidationError = z.infer<typeof HTTPValidationErrorSchema>;
-
-export const ModelDefaultUpdateSchema = z.object({
-  model_name: z.string().nullable().optional(),
-  is_default: z.boolean().nullable().optional(),
-  fallback_provider_id: z.string().nullable().optional(),
-  fallback_model_id: z.string().nullable().optional(),
-});
-export type ModelDefaultUpdate = z.infer<typeof ModelDefaultUpdateSchema>;
 
 export const ModelResponseSchema = z.object({
   provider: z.string(),
@@ -271,22 +268,20 @@ export const SettingsBudgetListResponseSchema = z.object({
 });
 export type SettingsBudgetListResponse = z.infer<typeof SettingsBudgetListResponseSchema>;
 
-export const SettingsModelDefaultResponseSchema = z.object({
+export const SettingsFallbackResponseSchema = z.object({
   id: z.string(),
-  model_name: z.string(),
   provider_id: z.string(),
   provider_name: z.string(),
   fallback_provider_id: z.string().nullable().optional(),
   fallback_model_id: z.string().nullable().optional(),
-  is_default: z.boolean().optional().default(false),
 });
-export type SettingsModelDefaultResponse = z.infer<typeof SettingsModelDefaultResponseSchema>;
+export type SettingsFallbackResponse = z.infer<typeof SettingsFallbackResponseSchema>;
 
-export const SettingsModelDefaultListResponseSchema = z.object({
-  items: z.array(SettingsModelDefaultResponseSchema),
+export const SettingsFallbackListResponseSchema = z.object({
+  items: z.array(SettingsFallbackResponseSchema),
   total: z.number(),
 });
-export type SettingsModelDefaultListResponse = z.infer<typeof SettingsModelDefaultListResponseSchema>;
+export type SettingsFallbackListResponse = z.infer<typeof SettingsFallbackListResponseSchema>;
 
 export const SettingsProviderResponseSchema = z.object({
   id: z.string(),
