@@ -29,14 +29,16 @@ export function SoulModelSection({
   onModelChange,
 }: SoulModelSectionProps) {
   const providersQuery = useProviders();
-  const configuredProviders = providersQuery.data?.items ?? [];
+  const configuredProviders = (providersQuery.data?.items ?? []).filter(
+    (providerSummary) => providerSummary.is_active ?? true,
+  );
   const hasConfiguredProviders = configuredProviders.length > 0;
   const selectedProvider = configuredProviders.find(
     (providerSummary) => providerSummary.id === providerId,
   );
   const modelProviderType = selectedProvider?.type ?? null;
   const modelsQuery = useModelsForProvider(modelProviderType);
-  const selectedProviderValue = selectedProvider?.id ?? providerId ?? undefined;
+  const selectedProviderValue = selectedProvider?.id ?? undefined;
 
   return (
     <SoulFormSection title="Model">

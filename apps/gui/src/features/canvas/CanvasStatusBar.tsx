@@ -13,9 +13,9 @@ export function CanvasStatusBar({
   edgeCount = 0,
 }: CanvasStatusBarProps) {
   const { data: providers } = useProviders();
-  const items = providers?.items ?? [];
-  const connected = items.length > 0;
-  const providerName = connected ? items[0]?.name ?? "No provider" : "No provider";
+  const activeProviders = (providers?.items ?? []).filter((provider) => provider.is_active ?? true);
+  const connected = activeProviders.length > 0;
+  const providerName = connected ? activeProviders[0]?.name ?? "No provider" : "No provider";
 
   return (
     <footer

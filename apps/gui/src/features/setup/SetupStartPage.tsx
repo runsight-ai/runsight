@@ -18,7 +18,8 @@ export function Component() {
   const updateAppSettings = useUpdateAppSettings();
   const { data: providers } = useProviders();
 
-  const hasProviders = (providers?.items?.length ?? 0) > 0;
+  const activeProviders = (providers?.items ?? []).filter((provider) => provider.is_active ?? true);
+  const hasProviders = activeProviders.length > 0;
   const isPending = createWorkflow.isPending || updateAppSettings.isPending;
 
   async function handleStartBuilding() {

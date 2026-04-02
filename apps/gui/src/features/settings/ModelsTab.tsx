@@ -247,7 +247,10 @@ export function ModelsTab() {
   const updateAppSettings = useUpdateAppSettings();
   const [isRetrying, setIsRetrying] = useState(false);
   const modelDefaults = data?.items ?? [];
-  const providers = useMemo(() => providersData?.items ?? [], [providersData?.items]);
+  const providers = useMemo(
+    () => (providersData?.items ?? []).filter((provider) => provider.is_active ?? true),
+    [providersData?.items],
+  );
   const fallbackChainEnabled = appSettings?.fallback_chain_enabled ?? true;
   const showFallbackChain =
     modelDefaults.filter((model) => model.model_name.trim().length > 0).length > 1;
