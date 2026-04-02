@@ -253,7 +253,10 @@ async def get_app_settings(
     repo: FileSystemSettingsRepo = Depends(get_settings_repo),
 ):
     settings_config = repo.get_settings()
-    return settings_config.model_dump(exclude_none=True)
+    payload = settings_config.model_dump(exclude_none=True)
+    if "fallback_enabled" in payload:
+        payload["fallback_chain_enabled"] = payload.pop("fallback_enabled")
+    return payload
 
 
 @router.put("/app", response_model=AppSettingsOut)
@@ -262,5 +265,10 @@ async def update_app_settings(
     repo: FileSystemSettingsRepo = Depends(get_settings_repo),
 ):
     updates = data.model_dump(exclude_none=True)
+    if "fallback_chain_enabled" in updates:
+        updates["fallback_enabled"] = updates.pop("fallback_chain_enabled")
     settings_config = repo.update_settings(updates)
-    return settings_config.model_dump(exclude_none=True)
+    payload = settings_config.model_dump(exclude_none=True)
+    if "fallback_enabled" in payload:
+        payload["fallback_chain_enabled"] = payload.pop("fallback_enabled")
+    return payload

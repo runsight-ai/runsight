@@ -11,15 +11,15 @@ class AppSettingsConfig(BaseModel):
     default_provider: str | None = None
     auto_save: bool | None = None
     onboarding_completed: bool = False
-    fallback_chain_enabled: bool = True
+    fallback_enabled: bool = False
 
 
-class FallbackChainEntry(BaseModel):
-    """Single entry in the fallback chain list."""
+class FallbackTargetEntry(BaseModel):
+    """Single per-provider fallback target."""
 
     provider_id: str
-    model_id: str
-    enabled: bool = True
+    fallback_provider_id: str
+    fallback_model_id: str
 
 
 class ModelDefaultEntry(BaseModel):

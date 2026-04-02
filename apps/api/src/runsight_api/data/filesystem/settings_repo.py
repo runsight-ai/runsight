@@ -1,19 +1,19 @@
 """Filesystem-backed settings repository.
 
 Persists app settings as a single YAML file at .runsight/settings.yaml.
-Manages default provider, auto_save, onboarding state, fallback chains,
+Manages default provider, auto_save, onboarding state, fallback targets,
 and model defaults.
 """
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
 from ...domain.entities.settings import (
     AppSettingsConfig,
-    FallbackChainEntry,
+    FallbackTargetEntry,
     ModelDefaultEntry,
 )
 from ._utils import atomic_write
@@ -25,14 +25,14 @@ _FLAT_KEYS = {
     "default_provider",
     "auto_save",
     "onboarding_completed",
-    "fallback_chain_enabled",
+    "fallback_enabled",
 }
 
 
 class FileSystemSettingsRepo:
     """Persists app settings in .runsight/settings.yaml.
 
-    All sections (flat settings, fallback_chain, model_defaults) coexist
+    All sections (flat settings, fallback_map, model_defaults) coexist
     in a single YAML file.
     """
 
@@ -46,7 +46,7 @@ class FileSystemSettingsRepo:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _read_yaml(self) -> Optional[Dict[str, Any]]:
+    def _read_yaml(self) -> dict[str, Any] | None:
         """Read and parse the settings YAML file.
 
         Returns None on missing file or parse failure.
@@ -67,10 +67,39 @@ class FileSystemSettingsRepo:
             logger.warning("Failed to read settings file %s: %s", self._settings_file, e)
             return None
 
-    def _write_yaml(self, data: Dict[str, Any]) -> None:
+    def _write_yaml(self, data: dict[str, Any]) -> None:
         """Write data to the settings YAML file atomically."""
         content = yaml.dump(data, sort_keys=False, default_flow_style=False)
         atomic_write(self._settings_file, content)
+
+    def _migrate_legacy_settings(self, data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+        """Normalize legacy fallback keys on first read."""
+        changed = False
+
+        if "fallback_chain_enabled" in data:
+            data["fallback_enabled"] = bool(data.pop("fallback_chain_enabled"))
+            changed = True
+        elif "fallback_chain" in data and "fallback_enabled" not in data:
+            data["fallback_enabled"] = False
+            changed = True
+
+        if "fallback_chain" in data:
+            data.pop("fallback_chain", None)
+            changed = True
+
+        return data, changed
+
+    def _load_yaml(self) -> dict[str, Any] | None:
+        """Read settings YAML and apply one-time legacy migrations."""
+        data = self._read_yaml()
+        if data is None:
+            return None
+
+        data, changed = self._migrate_legacy_settings(data)
+        if changed:
+            self._write_yaml(data)
+
+        return data
 
     # ------------------------------------------------------------------
     # Public API: flat settings
@@ -78,19 +107,19 @@ class FileSystemSettingsRepo:
 
     def get_settings(self) -> AppSettingsConfig:
         """Read flat app settings. Returns defaults if file is missing or invalid."""
-        data = self._read_yaml()
+        data = self._load_yaml()
         if data is None:
             return AppSettingsConfig()
         flat = {k: data.get(k) for k in _FLAT_KEYS if k in data}
         return AppSettingsConfig(**flat)
 
-    def update_settings(self, updates: Dict[str, Any]) -> AppSettingsConfig:
+    def update_settings(self, updates: dict[str, Any]) -> AppSettingsConfig:
         """Merge partial updates into flat settings (shallow merge).
 
-        Only keys in _FLAT_KEYS are considered. Other sections (fallback_chain,
+        Only keys in _FLAT_KEYS are considered. Other sections (fallback_map,
         model_defaults) are preserved.
         """
-        data = self._read_yaml() or {}
+        data = self._load_yaml() or {}
         for key in _FLAT_KEYS:
             if key in updates:
                 data[key] = updates[key]
@@ -99,33 +128,63 @@ class FileSystemSettingsRepo:
         return AppSettingsConfig(**flat)
 
     # ------------------------------------------------------------------
-    # Public API: fallback chain
+    # Public API: fallback map
     # ------------------------------------------------------------------
 
-    def get_fallback_chain(self) -> List[FallbackChainEntry]:
-        """Read the fallback chain. Returns empty list if missing or invalid."""
-        data = self._read_yaml()
+    def get_fallback_map(self) -> list[FallbackTargetEntry]:
+        """Read the fallback map. Returns empty list if missing or invalid."""
+        data = self._load_yaml()
         if data is None:
             return []
-        chain_data = data.get("fallback_chain")
-        if not isinstance(chain_data, list):
+        fallback_map_data = data.get("fallback_map")
+        if not isinstance(fallback_map_data, list):
             return []
-        return [FallbackChainEntry(**entry) for entry in chain_data]
+        return [FallbackTargetEntry(**entry) for entry in fallback_map_data]
 
-    def update_fallback_chain(self, chain: List[FallbackChainEntry]) -> List[FallbackChainEntry]:
-        """Replace the entire fallback chain (full replacement, not merge)."""
-        data = self._read_yaml() or {}
-        data["fallback_chain"] = [entry.model_dump() for entry in chain]
+    def set_fallback_target(self, entry: FallbackTargetEntry) -> FallbackTargetEntry:
+        """Upsert a fallback target by provider_id."""
+        data = self._load_yaml() or {}
+        fallback_map_data = data.get("fallback_map")
+        if not isinstance(fallback_map_data, list):
+            fallback_map_data = []
+
+        entry_dict = entry.model_dump()
+        updated = False
+        for index, existing in enumerate(fallback_map_data):
+            if existing.get("provider_id") == entry.provider_id:
+                fallback_map_data[index] = entry_dict
+                updated = True
+                break
+
+        if not updated:
+            fallback_map_data.append(entry_dict)
+
+        data["fallback_map"] = fallback_map_data
         self._write_yaml(data)
-        return chain
+        return entry
+
+    def remove_fallback_target(self, provider_id: str) -> bool:
+        """Remove a fallback target by provider_id."""
+        data = self._load_yaml() or {}
+        fallback_map_data = data.get("fallback_map")
+        if not isinstance(fallback_map_data, list):
+            return False
+
+        filtered = [entry for entry in fallback_map_data if entry.get("provider_id") != provider_id]
+        if len(filtered) == len(fallback_map_data):
+            return False
+
+        data["fallback_map"] = filtered
+        self._write_yaml(data)
+        return True
 
     # ------------------------------------------------------------------
     # Public API: model defaults
     # ------------------------------------------------------------------
 
-    def list_model_defaults(self) -> List[ModelDefaultEntry]:
+    def list_model_defaults(self) -> list[ModelDefaultEntry]:
         """List all model default entries. Returns empty list if missing or invalid."""
-        data = self._read_yaml()
+        data = self._load_yaml()
         if data is None:
             return []
         defaults_data = data.get("model_defaults")
@@ -135,8 +194,8 @@ class FileSystemSettingsRepo:
 
     def set_model_default(self, entry: ModelDefaultEntry) -> ModelDefaultEntry:
         """Upsert a model default by (provider_id, model_id) composite key."""
-        data = self._read_yaml() or {}
-        defaults_data: List[Dict[str, Any]] = data.get("model_defaults", [])
+        data = self._load_yaml() or {}
+        defaults_data: list[dict[str, Any]] = data.get("model_defaults", [])
         if not isinstance(defaults_data, list):
             defaults_data = []
 

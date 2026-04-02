@@ -1,6 +1,6 @@
 from .log import LogEntry
 from .run import NodeStatus, Run, RunNode, RunStatus
-from .settings import AppSettingsConfig, FallbackChainEntry, ModelDefaultEntry
+from .settings import AppSettingsConfig, FallbackTargetEntry, ModelDefaultEntry
 
 __all__ = [
     "Run",
@@ -9,6 +9,6 @@ __all__ = [
     "NodeStatus",
     "LogEntry",
     "AppSettingsConfig",
-    "FallbackChainEntry",
+    "FallbackTargetEntry",
     "ModelDefaultEntry",
 ]
