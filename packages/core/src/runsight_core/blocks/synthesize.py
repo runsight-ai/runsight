@@ -36,6 +36,7 @@ class SynthesizeBlock(BaseBlock):
             raise ValueError(f"SynthesizeBlock {block_id}: input_block_ids cannot be empty")
         self.input_block_ids = input_block_ids
         self.synthesizer_soul = synthesizer_soul
+        self.soul = synthesizer_soul
         self.runner = runner
 
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:

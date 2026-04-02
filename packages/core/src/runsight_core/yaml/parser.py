@@ -22,6 +22,7 @@ from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import BUILTIN_TOOL_CATALOG, resolve_tool
 from runsight_core.workflow import Workflow
+from runsight_core.yaml import discovery as _discovery_module
 from runsight_core.yaml.discovery import discover_custom_tools
 from runsight_core.yaml.schema import (
     BuiltinToolDef,
@@ -51,7 +52,9 @@ def _resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
     soul = souls_map.get(ref)
     if soul is None:
         raise ValueError(
-            f"Soul reference '{ref}' not found. Available souls: {sorted(souls_map.keys())}"
+            f"Soul reference '{ref}' not found in custom/souls/. "
+            f"Available souls: {sorted(souls_map.keys())}. "
+            f"Create a soul file at custom/souls/{ref}.yaml"
         )
     return soul
 
@@ -236,40 +239,9 @@ def parse_workflow_yaml(
             f"please upgrade runsight-core to a compatible release."
         )
 
-    # Step 3: Build souls map from YAML-defined souls
-    souls_map: Dict[str, Soul] = {}
-    for key, soul_def in file_def.souls.items():
-        provider = getattr(soul_def, "provider", None)
-        if not isinstance(provider, str):
-            provider = None
-
-        temperature = getattr(soul_def, "temperature", None)
-        if not isinstance(temperature, (float, int)) or isinstance(temperature, bool):
-            temperature = None
-        elif isinstance(temperature, int):
-            temperature = float(temperature)
-
-        max_tokens = getattr(soul_def, "max_tokens", None)
-        if not isinstance(max_tokens, int) or isinstance(max_tokens, bool):
-            max_tokens = None
-
-        avatar_color = getattr(soul_def, "avatar_color", None)
-        if not isinstance(avatar_color, str):
-            avatar_color = None
-
-        souls_map[key] = Soul(
-            id=soul_def.id,
-            role=soul_def.role,
-            system_prompt=soul_def.system_prompt,
-            tools=soul_def.tools,
-            max_tool_iterations=soul_def.max_tool_iterations,
-            model_name=soul_def.model_name,
-            provider=provider,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            avatar_color=avatar_color,
-            assertions=soul_def.assertions,
-        )
+    # Step 3: Discover library souls from custom/souls/ directory.
+    souls_dir = Path(workflow_base_dir) / "custom" / "souls"
+    souls_map: Dict[str, Soul] = _discovery_module._discover_souls(souls_dir)
 
     # Step 4: Instantiate runner (shared across all blocks in this workflow)
     if runner is None:
