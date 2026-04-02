@@ -35,6 +35,7 @@ from typing import Any, Dict, List
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import yaml
 from runsight_core.isolation.envelope import ResultEnvelope, ToolDefEnvelope
 from runsight_core.isolation.handlers import make_tool_call_handler
 from runsight_core.isolation.ipc import IPCServer
@@ -42,7 +43,7 @@ from runsight_core.isolation.worker import create_tool_stubs
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import WorkflowState
-from runsight_core.tools import BUILTIN_TOOL_CATALOG, ToolInstance, register_builtin
+from runsight_core.tools import ToolInstance
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.schema import ExitDef
 
@@ -142,34 +143,53 @@ def _write_workflow_file(tmp_path: Path, yaml_body: str) -> Path:
     return workflow_path
 
 
+def _write_workflow_dict_file(tmp_path: Path, workflow_data: Dict[str, Any]) -> Path:
+    workflow_path = tmp_path / "workflow.yaml"
+    workflow_path.write_text(yaml.safe_dump(workflow_data, sort_keys=False), encoding="utf-8")
+    return workflow_path
+
+
 # ---------------------------------------------------------------------------
-# Safe test tool factory (echo tool — just returns args as JSON string)
+# Safe custom tool fixtures used by integration scenarios
 # ---------------------------------------------------------------------------
 
-_ECHO_TOOL_SOURCE = "test/echo_tool_281"
+_ECHO_TOOL_ID = "echo_tool"
 
 
-def _create_echo_tool() -> ToolInstance:
-    """Factory: an echo tool that returns its args as a JSON string (safe, no I/O)."""
-
-    async def _execute(args: dict) -> str:
-        return json.dumps({"echo": args})
-
-    return ToolInstance(
-        name="echo",
-        description="Echo the provided arguments back as JSON.",
-        parameters={
-            "type": "object",
-            "properties": {"message": {"type": "string"}},
-            "required": ["message"],
-        },
-        execute=_execute,
+def _write_echo_tool_yaml(tmp_path: Path, slug: str = _ECHO_TOOL_ID) -> str:
+    _write_custom_tool_yaml(
+        tmp_path,
+        slug,
+        """\
+type: custom
+source: echo_tool
+code: |
+  def main(args):
+      return {"echo": args}
+""",
     )
+    return slug
 
 
-# Register once at module load; remove in teardown if needed
-if _ECHO_TOOL_SOURCE not in BUILTIN_TOOL_CATALOG:
-    register_builtin(_ECHO_TOOL_SOURCE, _create_echo_tool)
+def _write_raising_tool_yaml(
+    tmp_path: Path,
+    slug: str,
+    *,
+    error_type: str,
+    message: str,
+) -> str:
+    _write_custom_tool_yaml(
+        tmp_path,
+        slug,
+        f"""\
+type: custom
+source: {slug}
+code: |
+  def main(args):
+      raise {error_type}({message!r})
+""",
+    )
+    return slug
 
 
 # ===========================================================================
@@ -184,22 +204,28 @@ class TestFullPipeline:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_yaml_parse_and_execute_with_tool_call(self, mock_achat: AsyncMock) -> None:
+    async def test_yaml_parse_and_execute_with_tool_call(
+        self, mock_achat: AsyncMock, tmp_path: Path
+    ) -> None:
         """Full pipeline: parse YAML dict, run task with tool call, get final output."""
-        yaml_dict = _workflow_dict(
-            tools=[_ECHO_TOOL_SOURCE],
-            souls={
-                "agent": {
-                    "id": "agent_1",
-                    "role": "Test Agent",
-                    "system_prompt": "Use the echo tool.",
-                    "tools": [_ECHO_TOOL_SOURCE],
-                }
-            },
-            blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+        echo_tool_id = _write_echo_tool_yaml(tmp_path)
+        workflow_path = _write_workflow_dict_file(
+            tmp_path,
+            _workflow_dict(
+                tools=[echo_tool_id],
+                souls={
+                    "agent": {
+                        "id": "agent_1",
+                        "role": "Test Agent",
+                        "system_prompt": "Use the echo tool.",
+                        "tools": [echo_tool_id],
+                    }
+                },
+                blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+            ),
         )
 
-        workflow = parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(str(workflow_path))
 
         # Verify soul got resolved_tools from parse
         soul = workflow.blocks["step"].soul
@@ -227,22 +253,28 @@ class TestFullPipeline:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_tool_execute_receives_parsed_args(self, mock_achat: AsyncMock) -> None:
+    async def test_tool_execute_receives_parsed_args(
+        self, mock_achat: AsyncMock, tmp_path: Path
+    ) -> None:
         """The echo tool's execute() is called with the parsed JSON arguments."""
-        yaml_dict = _workflow_dict(
-            tools=[_ECHO_TOOL_SOURCE],
-            souls={
-                "agent": {
-                    "id": "agent_1",
-                    "role": "Test Agent",
-                    "system_prompt": "Use echo.",
-                    "tools": [_ECHO_TOOL_SOURCE],
-                }
-            },
-            blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+        echo_tool_id = _write_echo_tool_yaml(tmp_path)
+        workflow_path = _write_workflow_dict_file(
+            tmp_path,
+            _workflow_dict(
+                tools=[echo_tool_id],
+                souls={
+                    "agent": {
+                        "id": "agent_1",
+                        "role": "Test Agent",
+                        "system_prompt": "Use echo.",
+                        "tools": [echo_tool_id],
+                    }
+                },
+                blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+            ),
         )
 
-        workflow = parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(str(workflow_path))
         soul = workflow.blocks["step"].soul
 
         mock_achat.side_effect = [
@@ -263,22 +295,26 @@ class TestFullPipeline:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_tool_schema_sent_to_llm(self, mock_achat: AsyncMock) -> None:
+    async def test_tool_schema_sent_to_llm(self, mock_achat: AsyncMock, tmp_path: Path) -> None:
         """The first LLM call must receive the resolved tool's OpenAI schema."""
-        yaml_dict = _workflow_dict(
-            tools=[_ECHO_TOOL_SOURCE],
-            souls={
-                "agent": {
-                    "id": "agent_1",
-                    "role": "Test Agent",
-                    "system_prompt": "Use echo.",
-                    "tools": [_ECHO_TOOL_SOURCE],
-                }
-            },
-            blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+        echo_tool_id = _write_echo_tool_yaml(tmp_path)
+        workflow_path = _write_workflow_dict_file(
+            tmp_path,
+            _workflow_dict(
+                tools=[echo_tool_id],
+                souls={
+                    "agent": {
+                        "id": "agent_1",
+                        "role": "Test Agent",
+                        "system_prompt": "Use echo.",
+                        "tools": [echo_tool_id],
+                    }
+                },
+                blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+            ),
         )
 
-        workflow = parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(str(workflow_path))
         soul = workflow.blocks["step"].soul
 
         mock_achat.side_effect = [_text_response("Direct answer.")]
@@ -451,23 +487,29 @@ class TestMaxIterationsIntegration:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_loop_caps_at_max_tool_iterations(self, mock_achat: AsyncMock) -> None:
+    async def test_loop_caps_at_max_tool_iterations(
+        self, mock_achat: AsyncMock, tmp_path: Path
+    ) -> None:
         """With max_tool_iterations=2, loop stops after 2 tool iterations."""
-        yaml_dict = _workflow_dict(
-            tools=[_ECHO_TOOL_SOURCE],
-            souls={
-                "agent": {
-                    "id": "agent_1",
-                    "role": "Test Agent",
-                    "system_prompt": "Always call echo.",
-                    "tools": [_ECHO_TOOL_SOURCE],
-                    "max_tool_iterations": 2,
-                }
-            },
-            blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+        echo_tool_id = _write_echo_tool_yaml(tmp_path)
+        workflow_path = _write_workflow_dict_file(
+            tmp_path,
+            _workflow_dict(
+                tools=[echo_tool_id],
+                souls={
+                    "agent": {
+                        "id": "agent_1",
+                        "role": "Test Agent",
+                        "system_prompt": "Always call echo.",
+                        "tools": [echo_tool_id],
+                        "max_tool_iterations": 2,
+                    }
+                },
+                blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+            ),
         )
 
-        workflow = parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(str(workflow_path))
         soul = workflow.blocks["step"].soul
 
         # LLM always calls the tool; after max iterations, forced final response
@@ -486,23 +528,29 @@ class TestMaxIterationsIntegration:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_last_iteration_call_strips_tools(self, mock_achat: AsyncMock) -> None:
+    async def test_last_iteration_call_strips_tools(
+        self, mock_achat: AsyncMock, tmp_path: Path
+    ) -> None:
         """On the last iteration (iteration == max-1), tools= is passed as []."""
-        yaml_dict = _workflow_dict(
-            tools=[_ECHO_TOOL_SOURCE],
-            souls={
-                "agent": {
-                    "id": "agent_1",
-                    "role": "Test Agent",
-                    "system_prompt": "Echo always.",
-                    "tools": [_ECHO_TOOL_SOURCE],
-                    "max_tool_iterations": 1,
-                }
-            },
-            blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+        echo_tool_id = _write_echo_tool_yaml(tmp_path)
+        workflow_path = _write_workflow_dict_file(
+            tmp_path,
+            _workflow_dict(
+                tools=[echo_tool_id],
+                souls={
+                    "agent": {
+                        "id": "agent_1",
+                        "role": "Test Agent",
+                        "system_prompt": "Echo always.",
+                        "tools": [echo_tool_id],
+                        "max_tool_iterations": 1,
+                    }
+                },
+                blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+            ),
         )
 
-        workflow = parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(str(workflow_path))
         soul = workflow.blocks["step"].soul
 
         # max_tool_iterations=1: first iteration (iteration=0) is the last,
@@ -518,23 +566,29 @@ class TestMaxIterationsIntegration:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_tool_calls_made_tracks_all_iterations(self, mock_achat: AsyncMock) -> None:
+    async def test_tool_calls_made_tracks_all_iterations(
+        self, mock_achat: AsyncMock, tmp_path: Path
+    ) -> None:
         """tool_calls_made in ExecutionResult lists every tool called across iterations."""
-        yaml_dict = _workflow_dict(
-            tools=[_ECHO_TOOL_SOURCE],
-            souls={
-                "agent": {
-                    "id": "agent_1",
-                    "role": "Test Agent",
-                    "system_prompt": "Echo.",
-                    "tools": [_ECHO_TOOL_SOURCE],
-                    "max_tool_iterations": 5,
-                }
-            },
-            blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+        echo_tool_id = _write_echo_tool_yaml(tmp_path)
+        workflow_path = _write_workflow_dict_file(
+            tmp_path,
+            _workflow_dict(
+                tools=[echo_tool_id],
+                souls={
+                    "agent": {
+                        "id": "agent_1",
+                        "role": "Test Agent",
+                        "system_prompt": "Echo.",
+                        "tools": [echo_tool_id],
+                        "max_tool_iterations": 5,
+                    }
+                },
+                blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+            ),
         )
 
-        workflow = parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(str(workflow_path))
         soul = workflow.blocks["step"].soul
 
         mock_achat.side_effect = [
@@ -561,112 +615,95 @@ class TestToolErrorFeedback:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_tool_error_fed_back_as_string(self, mock_achat: AsyncMock) -> None:
+    async def test_tool_error_fed_back_as_string(
+        self, mock_achat: AsyncMock, tmp_path: Path
+    ) -> None:
         """Tool raises RuntimeError -> error message sent to LLM as tool result."""
-        # Register a failing tool for this test
-        failing_source = "test/failing_tool_281"
-
-        async def _fail_execute(args: dict) -> str:
-            raise RuntimeError("Simulated tool failure")
-
-        BUILTIN_TOOL_CATALOG.pop(failing_source, None)
-        register_builtin(
-            failing_source,
-            lambda **kw: ToolInstance(
-                name="failing_tool",
-                description="Always fails.",
-                parameters={"type": "object", "properties": {}},
-                execute=_fail_execute,
-            ),
+        failing_tool_id = _write_raising_tool_yaml(
+            tmp_path,
+            "failing_tool",
+            error_type="RuntimeError",
+            message="Simulated tool failure",
         )
-
-        try:
-            yaml_dict = _workflow_dict(
-                tools=[failing_source],
+        workflow_path = _write_workflow_dict_file(
+            tmp_path,
+            _workflow_dict(
+                tools=[failing_tool_id],
                 souls={
                     "agent": {
                         "id": "agent_1",
                         "role": "Test Agent",
                         "system_prompt": "Use the fail tool.",
-                        "tools": [failing_source],
+                        "tools": [failing_tool_id],
                     }
                 },
                 blocks={"step": {"type": "linear", "soul_ref": "agent"}},
-            )
-
-            workflow = parse_workflow_yaml(yaml_dict)
-            soul = workflow.blocks["step"].soul
-
-            mock_achat.side_effect = [
-                _tool_call_response("failing_tool", call_id="c_fail"),
-                _text_response("Recovered after error."),
-            ]
-
-            runner = RunsightTeamRunner(model_name="gpt-4o")
-            task = Task(id="t_err", instruction="Call the failing tool.")
-            result = await runner.execute_task(task, soul)
-
-            # Loop must not crash; final output returned
-            assert result.output == "Recovered after error."
-            assert mock_achat.call_count == 2
-
-            # The error must be present in the second call's tool messages
-            second_messages = mock_achat.call_args_list[1].kwargs.get("messages", [])
-            tool_msgs = [m for m in second_messages if m.get("role") == "tool"]
-            assert len(tool_msgs) >= 1
-            assert "Simulated tool failure" in tool_msgs[0]["content"]
-        finally:
-            BUILTIN_TOOL_CATALOG.pop(failing_source, None)
-
-    @pytest.mark.asyncio
-    @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_tool_error_loop_does_not_raise(self, mock_achat: AsyncMock) -> None:
-        """An exception in tool.execute() must not propagate out of execute_task()."""
-        error_source = "test/error_tool_no_raise_281"
-
-        async def _raise_execute(args: dict) -> str:
-            raise ValueError("Intentional ValueError")
-
-        BUILTIN_TOOL_CATALOG.pop(error_source, None)
-        register_builtin(
-            error_source,
-            lambda **kw: ToolInstance(
-                name="error_tool",
-                description="Raises ValueError.",
-                parameters={"type": "object", "properties": {}},
-                execute=_raise_execute,
             ),
         )
 
-        try:
-            yaml_dict = _workflow_dict(
-                tools=[error_source],
+        workflow = parse_workflow_yaml(str(workflow_path))
+        soul = workflow.blocks["step"].soul
+
+        mock_achat.side_effect = [
+            _tool_call_response("failing_tool", call_id="c_fail"),
+            _text_response("Recovered after error."),
+        ]
+
+        runner = RunsightTeamRunner(model_name="gpt-4o")
+        task = Task(id="t_err", instruction="Call the failing tool.")
+        result = await runner.execute_task(task, soul)
+
+        # Loop must not crash; final output returned
+        assert result.output == "Recovered after error."
+        assert mock_achat.call_count == 2
+
+        # The error must be present in the second call's tool messages
+        second_messages = mock_achat.call_args_list[1].kwargs.get("messages", [])
+        tool_msgs = [m for m in second_messages if m.get("role") == "tool"]
+        assert len(tool_msgs) >= 1
+        assert "Simulated tool failure" in tool_msgs[0]["content"]
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.runner.LiteLLMClient.achat")
+    async def test_tool_error_loop_does_not_raise(
+        self, mock_achat: AsyncMock, tmp_path: Path
+    ) -> None:
+        """An exception in tool.execute() must not propagate out of execute_task()."""
+        error_tool_id = _write_raising_tool_yaml(
+            tmp_path,
+            "error_tool",
+            error_type="ValueError",
+            message="Intentional ValueError",
+        )
+        workflow_path = _write_workflow_dict_file(
+            tmp_path,
+            _workflow_dict(
+                tools=[error_tool_id],
                 souls={
                     "agent": {
                         "id": "agent_1",
                         "role": "Test Agent",
                         "system_prompt": "Use err tool.",
-                        "tools": [error_source],
+                        "tools": [error_tool_id],
                     }
                 },
                 blocks={"step": {"type": "linear", "soul_ref": "agent"}},
-            )
+            ),
+        )
 
-            workflow = parse_workflow_yaml(yaml_dict)
-            soul = workflow.blocks["step"].soul
+        workflow = parse_workflow_yaml(str(workflow_path))
+        soul = workflow.blocks["step"].soul
 
-            mock_achat.side_effect = [
-                _tool_call_response("error_tool", call_id="c_ve"),
-                _text_response("Survived ValueError."),
-            ]
+        mock_achat.side_effect = [
+            _tool_call_response("error_tool", call_id="c_ve"),
+            _text_response("Survived ValueError."),
+        ]
 
-            runner = RunsightTeamRunner(model_name="gpt-4o")
-            task = Task(id="t_ve", instruction="Trigger error.")
-            result = await runner.execute_task(task, soul)
+        runner = RunsightTeamRunner(model_name="gpt-4o")
+        task = Task(id="t_ve", instruction="Trigger error.")
+        result = await runner.execute_task(task, soul)
 
-            assert result.output == "Survived ValueError."
-        finally:
-            BUILTIN_TOOL_CATALOG.pop(error_source, None)
+        assert result.output == "Survived ValueError."
 
 
 # ===========================================================================
@@ -680,7 +717,7 @@ class TestParseValidation:
     def test_soul_references_undeclared_tool_raises_value_error(self) -> None:
         """Soul referencing tool not in tools: section -> ValueError."""
         yaml_dict = _workflow_dict(
-            tools=[_ECHO_TOOL_SOURCE],
+            tools=["http"],
             souls={
                 "agent": {
                     "id": "agent_1",
@@ -698,7 +735,7 @@ class TestParseValidation:
     def test_undeclared_tool_error_mentions_soul_name(self) -> None:
         """ValueError for undeclared tool must mention the soul's key."""
         yaml_dict = _workflow_dict(
-            tools=[_ECHO_TOOL_SOURCE],
+            tools=["http"],
             souls={
                 "my_special_soul": {
                     "id": "mss_1",
@@ -984,23 +1021,27 @@ class TestCostAccumulationIntegration:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_cost_sums_three_iterations(self, mock_achat: AsyncMock) -> None:
+    async def test_cost_sums_three_iterations(self, mock_achat: AsyncMock, tmp_path: Path) -> None:
         """3-iteration loop (2 tool calls + 1 final text): cost_usd = sum of all."""
-        yaml_dict = _workflow_dict(
-            tools=[_ECHO_TOOL_SOURCE],
-            souls={
-                "agent": {
-                    "id": "agent_1",
-                    "role": "Test Agent",
-                    "system_prompt": "Echo three times.",
-                    "tools": [_ECHO_TOOL_SOURCE],
-                    "max_tool_iterations": 5,
-                }
-            },
-            blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+        echo_tool_id = _write_echo_tool_yaml(tmp_path)
+        workflow_path = _write_workflow_dict_file(
+            tmp_path,
+            _workflow_dict(
+                tools=[echo_tool_id],
+                souls={
+                    "agent": {
+                        "id": "agent_1",
+                        "role": "Test Agent",
+                        "system_prompt": "Echo three times.",
+                        "tools": [echo_tool_id],
+                        "max_tool_iterations": 5,
+                    }
+                },
+                blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+            ),
         )
 
-        workflow = parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(str(workflow_path))
         soul = workflow.blocks["step"].soul
 
         mock_achat.side_effect = [
@@ -1023,23 +1064,29 @@ class TestCostAccumulationIntegration:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_cost_accumulation_matches_call_count(self, mock_achat: AsyncMock) -> None:
+    async def test_cost_accumulation_matches_call_count(
+        self, mock_achat: AsyncMock, tmp_path: Path
+    ) -> None:
         """cost_usd equals the sum of cost_usd from all achat() calls."""
-        yaml_dict = _workflow_dict(
-            tools=[_ECHO_TOOL_SOURCE],
-            souls={
-                "agent": {
-                    "id": "agent_1",
-                    "role": "Test Agent",
-                    "system_prompt": "Echo.",
-                    "tools": [_ECHO_TOOL_SOURCE],
-                    "max_tool_iterations": 5,
-                }
-            },
-            blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+        echo_tool_id = _write_echo_tool_yaml(tmp_path)
+        workflow_path = _write_workflow_dict_file(
+            tmp_path,
+            _workflow_dict(
+                tools=[echo_tool_id],
+                souls={
+                    "agent": {
+                        "id": "agent_1",
+                        "role": "Test Agent",
+                        "system_prompt": "Echo.",
+                        "tools": [echo_tool_id],
+                        "max_tool_iterations": 5,
+                    }
+                },
+                blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+            ),
         )
 
-        workflow = parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(str(workflow_path))
         soul = workflow.blocks["step"].soul
 
         costs = [0.0015, 0.0025, 0.0035]
@@ -1140,7 +1187,7 @@ class TestNoToolsPath:
     def test_parsed_soul_without_tools_has_none_resolved_tools(self) -> None:
         """After parsing, a soul with no tools: field has resolved_tools=None."""
         yaml_dict = _workflow_dict(
-            tools=[_ECHO_TOOL_SOURCE],
+            tools=["http"],
             souls={
                 "no_tool_soul": {
                     "id": "nt_1",

@@ -80,9 +80,7 @@ class TestToolResolutionHappyPath:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  http_tool:
-    type: builtin
-    source: runsight/http""",
+  - http""",
             souls="""\
 souls:
   my_agent:
@@ -90,7 +88,7 @@ souls:
     role: Agent
     system_prompt: Do things.
     tools:
-      - http_tool""",
+      - http""",
             blocks="""\
   my_block:
     type: linear
@@ -114,9 +112,7 @@ souls:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  http_tool:
-    type: builtin
-    source: runsight/http""",
+  - http""",
             souls="""\
 souls:
   my_agent:
@@ -124,7 +120,7 @@ souls:
     role: Agent
     system_prompt: Do things.
     tools:
-      - http_tool""",
+      - http""",
             blocks="""\
   my_block:
     type: linear
@@ -146,12 +142,8 @@ souls:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  http_tool:
-    type: builtin
-    source: runsight/http
-  file_tool:
-    type: builtin
-    source: runsight/file-io""",
+  - http
+  - file_io""",
             souls="""\
 souls:
   my_agent:
@@ -159,8 +151,8 @@ souls:
     role: Agent
     system_prompt: Do things.
     tools:
-      - http_tool
-      - file_tool""",
+      - http
+      - file_io""",
             blocks="""\
   my_block:
     type: linear
@@ -181,7 +173,7 @@ souls:
         assert "file_io" in resolved_names
 
     def test_direct_builtin_soul_tools_require_workflow_tool_declarations(self):
-        """RUN-490: direct soul refs must be rejected when the workflow tools map omits them."""
+        """RUN-490: direct soul refs must be rejected when the workflow tools whitelist omits them."""
         yaml_str = _make_yaml(
             souls="""\
 souls:
@@ -190,8 +182,8 @@ souls:
     role: Agent
     system_prompt: Do things.
     tools:
-      - runsight/http
-      - runsight/file-io""",
+      - http
+      - file_io""",
             blocks="""\
   my_block:
     type: linear
@@ -203,7 +195,7 @@ souls:
 
         with pytest.raises(
             ValueError,
-            match=r"undeclared tool 'runsight/http'.*Declared tools: \[\]",
+            match=r"undeclared tool 'http'.*Declared tools: \[\]",
         ):
             parse_workflow_yaml(yaml_str)
 
@@ -549,9 +541,7 @@ class TestUndeclaredToolReference:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  http_tool:
-    type: builtin
-    source: runsight/http""",
+  - http""",
             souls="""\
 souls:
   my_agent:
@@ -577,12 +567,8 @@ souls:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  http_tool:
-    type: builtin
-    source: runsight/http
-  file_tool:
-    type: builtin
-    source: runsight/file-io""",
+  - http
+  - file_io""",
             souls="""\
 souls:
   researcher_agent:
@@ -633,21 +619,19 @@ souls:
 
 
 # ===========================================================================
-# AC3: Unknown tool source -> ValueError at parse time
+# AC3: Unknown tool IDs -> ValueError at parse time
 # ===========================================================================
 
 
-class TestUnknownToolSource:
-    """Tool with unknown source in BUILTIN_TOOL_CATALOG raises ValueError."""
+class TestUnknownToolIdStrings:
+    """Source-like workflow entries must fail as unknown canonical IDs."""
 
-    def test_unknown_builtin_source_raises_valueerror(self):
-        """AC3: Tool with source 'runsight/unknown' -> ValueError."""
+    def test_legacy_builtin_source_string_in_workflow_tools_raises_valueerror(self):
+        """Old source strings must not be accepted as workflow tool IDs."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  mystery_tool:
-    type: builtin
-    source: runsight/unknown""",
+  - runsight/unknown""",
             souls="""\
 souls:
   my_agent:
@@ -655,7 +639,7 @@ souls:
     role: Agent
     system_prompt: Do things.
     tools:
-      - mystery_tool""",
+      - runsight/unknown""",
             blocks="""\
   my_block:
     type: linear
@@ -665,17 +649,15 @@ souls:
       to: null""",
         )
 
-        with pytest.raises(ValueError, match="runsight/unknown"):
+        with pytest.raises(ValueError, match=r"unknown tool id 'runsight/unknown'"):
             parse_workflow_yaml(yaml_str)
 
-    def test_unknown_source_error_mentions_available_sources(self):
-        """AC3: Error message lists available built-in tool sources."""
+    def test_unknown_tool_id_error_mentions_available_canonical_ids(self):
+        """Unknown ID errors should point callers back to the canonical whitelist."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  bad_tool:
-    type: builtin
-    source: runsight/nonexistent""",
+  - runsight/nonexistent""",
             souls="""\
 souls:
   my_agent:
@@ -683,7 +665,7 @@ souls:
     role: Agent
     system_prompt: Do things.
     tools:
-      - bad_tool""",
+      - runsight/nonexistent""",
             blocks="""\
   my_block:
     type: linear
@@ -698,23 +680,21 @@ souls:
 
 
 # ===========================================================================
-# RUN-528: Parser governance for custom/http tool types
+# RUN-528: Parser governance for discovered custom tool IDs
 # ===========================================================================
 
 
-class TestTypedToolParserGovernance:
-    """Parser validation should be actionable for builtin, custom, and HTTP tool defs."""
+class TestCanonicalDiscoveredToolValidation:
+    """Parser validation should stay actionable with ID-only workflow authoring."""
 
     def test_custom_tool_missing_yaml_file_raises_actionable_valueerror(self, tmp_path):
-        """A declared custom tool should fail at parse time when its custom/tools YAML is missing."""
+        """A declared custom tool ID should fail when its custom/tools YAML is missing."""
         workflow_file = _write_workflow_file(
             tmp_path,
             _make_yaml(
                 tools="""\
 tools:
-  custom_lookup:
-    type: custom
-    source: missing_lookup""",
+  - missing_lookup""",
                 souls="""\
 souls:
   my_agent:
@@ -722,7 +702,7 @@ souls:
     role: Agent
     system_prompt: Do things.
     tools:
-      - custom_lookup""",
+      - missing_lookup""",
                 blocks="""\
   my_block:
     type: linear
@@ -768,24 +748,22 @@ souls:
     def test_custom_tool_invalid_code_raises_actionable_valueerror(
         self, tmp_path, slug, tool_yaml, expected_message
     ):
-        """Blocked imports and missing main() should both fail during parser validation."""
+        """Blocked imports and missing main() should fail for discovered custom tool IDs."""
         _write_custom_tool_file(tmp_path, slug, tool_yaml)
         workflow_file = _write_workflow_file(
             tmp_path,
             _make_yaml(
                 tools=f"""\
 tools:
-  custom_tool:
-    type: custom
-    source: {slug}""",
-                souls="""\
+  - {slug}""",
+                souls=f"""\
 souls:
   my_agent:
     id: agent_1
     role: Agent
     system_prompt: Do things.
     tools:
-      - custom_tool""",
+      - {slug}""",
                 blocks="""\
   my_block:
     type: linear
@@ -799,36 +777,8 @@ souls:
         with pytest.raises(ValueError, match=expected_message):
             parse_workflow_yaml(workflow_file)
 
-    def test_http_tool_without_source_or_url_raises_valueerror(self):
-        """HTTP tools must declare either an inline URL or a file source slug."""
-        yaml_str = _make_yaml(
-            tools="""\
-tools:
-  http_lookup:
-    type: http
-    method: GET""",
-            souls="""\
-souls:
-  my_agent:
-    id: agent_1
-    role: Agent
-    system_prompt: Do things.
-    tools:
-      - http_lookup""",
-            blocks="""\
-  my_block:
-    type: linear
-    soul_ref: my_agent""",
-            transitions="""\
-    - from: my_block
-      to: null""",
-        )
-
-        with pytest.raises(ValueError, match=r"inline URL|file source slug|source or url"):
-            parse_workflow_yaml(yaml_str)
-
-    def test_valid_builtin_custom_and_http_tools_parse_successfully(self, tmp_path):
-        """A workflow mixing builtin, custom, and HTTP tools should parse cleanly."""
+    def test_valid_builtin_and_discovered_custom_tool_ids_parse_successfully(self, tmp_path):
+        """A workflow mixing canonical builtin and discovered custom IDs should parse cleanly."""
         _write_custom_tool_file(
             tmp_path,
             "echo_tool",
@@ -840,35 +790,13 @@ souls:
                   return {"echo": args["message"]}
             """,
         )
-        _write_custom_tool_file(
-            tmp_path,
-            "profile_lookup",
-            """
-            type: http
-            method: GET
-            url: https://example.com/users/{{ user_id }}
-            response_path: data.profile.name
-            """,
-        )
         workflow_file = _write_workflow_file(
             tmp_path,
             _make_yaml(
                 tools="""\
 tools:
-  builtin_http:
-    type: builtin
-    source: runsight/http
-  custom_echo:
-    type: custom
-    source: echo_tool
-  inline_http:
-    type: http
-    method: POST
-    url: https://example.com/submit/{{ request_id }}
-    body_template: '{"note":"{{ note }}"}'
-  file_http:
-    type: http
-    source: profile_lookup""",
+  - http
+  - echo_tool""",
                 souls="""\
 souls:
   my_agent:
@@ -876,10 +804,8 @@ souls:
     role: Agent
     system_prompt: Do things.
     tools:
-      - builtin_http
-      - custom_echo
-      - inline_http
-      - file_http""",
+      - http
+      - echo_tool""",
                 blocks="""\
   my_block:
     type: linear
@@ -894,8 +820,8 @@ souls:
         soul = workflow.blocks["my_block"].soul
 
         assert soul.resolved_tools is not None
-        assert len(soul.resolved_tools) == 4
-        assert soul.tools == ["builtin_http", "custom_echo", "inline_http", "file_http"]
+        assert len(soul.resolved_tools) == 2
+        assert soul.tools == ["http", "echo_tool"]
 
 
 # ===========================================================================
@@ -911,9 +837,7 @@ class TestDelegateToolWithExits:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  delegate_tool:
-    type: builtin
-    source: runsight/delegate""",
+  - delegate""",
             souls="""\
 souls:
   gate_agent:
@@ -921,7 +845,7 @@ souls:
     role: Gate Agent
     system_prompt: Evaluate and delegate.
     tools:
-      - delegate_tool""",
+      - delegate""",
             blocks="""\
   my_block:
     type: linear
@@ -951,9 +875,7 @@ souls:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  delegate_tool:
-    type: builtin
-    source: runsight/delegate""",
+  - delegate""",
             souls="""\
 souls:
   router_agent:
@@ -961,7 +883,7 @@ souls:
     role: Router
     system_prompt: Route to exit.
     tools:
-      - delegate_tool""",
+      - delegate""",
             blocks="""\
   my_block:
     type: linear
@@ -1001,9 +923,7 @@ class TestDelegateWithoutExits:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  delegate_tool:
-    type: builtin
-    source: runsight/delegate""",
+  - delegate""",
             souls="""\
 souls:
   gate_agent:
@@ -1011,7 +931,7 @@ souls:
     role: Gate Agent
     system_prompt: Evaluate and delegate.
     tools:
-      - delegate_tool""",
+      - delegate""",
             blocks="""\
   my_block:
     type: linear
@@ -1029,9 +949,7 @@ souls:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  delegate_tool:
-    type: builtin
-    source: runsight/delegate""",
+  - delegate""",
             souls="""\
 souls:
   my_evaluator:
@@ -1039,7 +957,7 @@ souls:
     role: Evaluator
     system_prompt: Evaluate.
     tools:
-      - delegate_tool""",
+      - delegate""",
             blocks="""\
   eval_block:
     type: linear
@@ -1067,9 +985,7 @@ class TestSoulWithNoTools:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  http_tool:
-    type: builtin
-    source: runsight/http""",
+  - http""",
             souls="""\
 souls:
   plain_agent:
@@ -1129,12 +1045,8 @@ class TestMultipleSoulsDifferentTools:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  http_tool:
-    type: builtin
-    source: runsight/http
-  file_tool:
-    type: builtin
-    source: runsight/file-io""",
+  - http
+  - file_io""",
             souls="""\
 souls:
   http_agent:
@@ -1142,13 +1054,13 @@ souls:
     role: HTTP Agent
     system_prompt: Make HTTP calls.
     tools:
-      - http_tool
+      - http
   file_agent:
     id: file_1
     role: File Agent
     system_prompt: Read files.
     tools:
-      - file_tool""",
+      - file_io""",
             blocks="""\
   block_a:
     type: linear
@@ -1169,12 +1081,12 @@ souls:
         soul_a = workflow.blocks["block_a"].soul
         soul_b = workflow.blocks["block_b"].soul
 
-        # Soul A: only http_tool
+        # Soul A: only http
         assert soul_a.resolved_tools is not None
         assert len(soul_a.resolved_tools) == 1
         assert soul_a.resolved_tools[0].name == "http_request"
 
-        # Soul B: only file_tool
+        # Soul B: only file_io
         assert soul_b.resolved_tools is not None
         assert len(soul_b.resolved_tools) == 1
         assert soul_b.resolved_tools[0].name == "file_io"
@@ -1184,9 +1096,7 @@ souls:
         yaml_str = _make_yaml(
             tools="""\
 tools:
-  http_tool:
-    type: builtin
-    source: runsight/http""",
+  - http""",
             souls="""\
 souls:
   tool_agent:
@@ -1194,7 +1104,7 @@ souls:
     role: Tool Agent
     system_prompt: Use tools.
     tools:
-      - http_tool
+      - http
   plain_agent:
     id: plain_1
     role: Plain Agent
