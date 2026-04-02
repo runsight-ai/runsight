@@ -29,6 +29,7 @@ from runsight_core.yaml.schema import (
     ConditionDef,
     ConditionGroupDef,
     CustomToolDef,
+    FanOutExitDef,
     HTTPToolDef,
     InputRef,
     RunsightTaskFile,
@@ -83,8 +84,15 @@ def _resolve_soul_tool_definition(
     return workflow_tools.get(tool_ref)
 
 
-def validate_tool_governance(file_def: RunsightWorkflowFile) -> None:
-    """Validate workflow tool declarations and soul tool references."""
+def validate_tool_governance(
+    file_def: RunsightWorkflowFile, souls_map: Dict[str, Soul] | None = None
+) -> None:
+    """Validate workflow tool declarations and soul tool references.
+
+    Args:
+        file_def: The parsed workflow file definition.
+        souls_map: Library-discovered souls to validate against workflow tools.
+    """
     for tool_key, tool_def in file_def.tools.items():
         if isinstance(tool_def, BuiltinToolDef) and tool_def.source not in BUILTIN_TOOL_CATALOG:
             available = sorted(BUILTIN_TOOL_CATALOG.keys())
@@ -92,14 +100,30 @@ def validate_tool_governance(file_def: RunsightWorkflowFile) -> None:
                 f"Tool '{tool_key}' has unknown source '{tool_def.source}'. Available: {available}"
             )
 
-    for soul_key, soul_def in file_def.souls.items():
-        if not soul_def.tools:
+    if souls_map is None:
+        souls_map = {}
+
+    # Collect all soul_refs: block-level soul_refs + fanout exit soul_refs
+    all_soul_refs: set[str] = set()
+    for _block_id, block_def in file_def.blocks.items():
+        if getattr(block_def, "soul_ref", None):
+            all_soul_refs.add(block_def.soul_ref)
+        if block_def.exits:
+            for exit_def in block_def.exits:
+                if isinstance(exit_def, FanOutExitDef) and exit_def.soul_ref:
+                    all_soul_refs.add(exit_def.soul_ref)
+
+    # Validate each referenced soul's tools against workflow tools
+    for soul_key in all_soul_refs:
+        soul = souls_map.get(soul_key)
+        if soul is None or not soul.tools:
             continue
 
-        for tool_name in soul_def.tools:
+        for tool_name in soul.tools:
             if _resolve_soul_tool_definition(tool_name, file_def.tools) is None:
                 raise ValueError(
-                    f"Soul '{soul_key}' references undeclared tool '{tool_name}'. "
+                    f"Soul '{soul_key}' (custom/souls/{soul_key}.yaml) references "
+                    f"undeclared tool '{tool_name}'. "
                     f"Declared tools: {sorted(file_def.tools.keys())}"
                 )
 
@@ -349,11 +373,11 @@ def parse_workflow_yaml(
             )
 
     # Step 6.6: Validate and resolve tools per soul
-    validate_tool_governance(file_def)
+    validate_tool_governance(file_def, souls_map)
     _validate_declared_tool_definitions(file_def, base_dir=workflow_base_dir)
 
     # 6.6c: Resolve ToolInstance objects per soul
-    for soul_key, soul_def in file_def.souls.items():
+    for soul_key, soul_def in souls_map.items():
         if not soul_def.tools:
             continue
 
