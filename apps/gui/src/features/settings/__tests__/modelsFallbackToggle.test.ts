@@ -26,18 +26,22 @@ describe("ModelsTab fallback chain toggle wiring", () => {
     expect(source).toMatch(/<Switch\b/);
   });
 
-  it("reads fallback_chain_enabled from app settings so the toggle survives refresh", () => {
+  it("reads fallback_enabled from app settings so the toggle survives refresh", () => {
     const source = readSource(MODELS_TAB_PATH);
-    expect(source).toMatch(/fallback_chain_enabled/);
+    expect(source).toMatch(/fallback_enabled/);
+    expect(source).not.toMatch(/fallback_chain_enabled/);
     expect(source).toMatch(/useAppSettings\(\)/);
-    expect(source).toMatch(/fallback_chain_enabled\s*\?\?+\s*true|fallbackChainEnabled.*=\s*.*fallback_chain_enabled.*\?\?\s*true/);
+    expect(source).toMatch(
+      /fallback_enabled\s*\?\?+\s*true|fallbackChainEnabled.*=\s*.*fallback_enabled.*\?\?\s*true/,
+    );
   });
 
   it("persists toggle changes through useUpdateAppSettings", () => {
     const source = readSource(MODELS_TAB_PATH);
     expect(source).toMatch(/updateAppSettings/);
-    expect(source).toMatch(/onCheckedChange=\{.*fallback_chain_enabled:\s*\w+/s);
-    expect(source).toMatch(/mutateAsync?\s*\(\s*\{\s*fallback_chain_enabled:/);
+    expect(source).toMatch(/onCheckedChange=\{.*fallback_enabled:\s*\w+/s);
+    expect(source).toMatch(/mutateAsync?\s*\(\s*\{\s*fallback_enabled:/);
+    expect(source).not.toMatch(/fallback_chain_enabled/);
   });
 });
 
@@ -74,10 +78,13 @@ describe("Fallback chain persistence contracts", () => {
     expect(source).toMatch(/export function useUpdateAppSettings/);
   });
 
-  it("declares fallback_chain_enabled in the app settings API schema", () => {
-    const source = readSource(SETTINGS_API_PATH);
-    expect(source).toMatch(/AppSettingsOutSchema/);
-    expect(source).toMatch(/from\s+"@runsight\/shared\/zod"/);
-    expect(source).toMatch(/return AppSettingsOutSchema\.parse\(res\);/);
+  it("keeps using the canonical app settings schema while the toggle consumes fallback_enabled", () => {
+    const apiSource = readSource(SETTINGS_API_PATH);
+    const modelsTabSource = readSource(MODELS_TAB_PATH);
+    expect(apiSource).toMatch(/AppSettingsOutSchema/);
+    expect(apiSource).toMatch(/from\s+"@runsight\/shared\/zod"/);
+    expect(apiSource).toMatch(/return AppSettingsOutSchema\.parse\(res\);/);
+    expect(modelsTabSource).toMatch(/fallback_enabled/);
+    expect(modelsTabSource).not.toMatch(/fallback_chain_enabled/);
   });
 });

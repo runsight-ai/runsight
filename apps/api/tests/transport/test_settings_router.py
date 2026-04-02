@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
@@ -12,6 +13,9 @@ from runsight_api.transport.deps import (
 )
 
 client = TestClient(app)
+ROUTER_SOURCE = (
+    Path(__file__).resolve().parents[2] / "src/runsight_api/transport/routers/settings.py"
+)
 
 
 def _mock_provider(*, provider_id: str, name: str, models: list[str]):
@@ -205,7 +209,8 @@ def test_settings_models_list():
             "provider_name": "OpenAI",
             "model_name": "gpt-4o",
             "is_default": True,
-            "fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"],
+            "fallback_provider_id": "anthropic",
+            "fallback_model_id": "claude-sonnet-4",
         }
     ]
     app.dependency_overrides[getattr(deps_module, "get_settings_service")] = lambda: mock_service
@@ -221,7 +226,8 @@ def test_settings_models_list():
                     "provider_name": "OpenAI",
                     "model_name": "gpt-4o",
                     "is_default": True,
-                    "fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"],
+                    "fallback_provider_id": "anthropic",
+                    "fallback_model_id": "claude-sonnet-4",
                 }
             ],
             "total": 1,
@@ -239,7 +245,8 @@ def test_settings_models_put_updates_model_name():
         "provider_name": "OpenAI",
         "model_name": "gpt-4.1",
         "is_default": True,
-        "fallback_chain": ["gpt-4o-mini"],
+        "fallback_provider_id": "anthropic",
+        "fallback_model_id": "claude-sonnet-4",
     }
     app.dependency_overrides[get_settings_service] = lambda: mock_service
 
@@ -255,19 +262,21 @@ def test_settings_models_put_updates_model_name():
             "provider_name": "OpenAI",
             "model_name": "gpt-4.1",
             "is_default": True,
-            "fallback_chain": ["gpt-4o-mini"],
+            "fallback_provider_id": "anthropic",
+            "fallback_model_id": "claude-sonnet-4",
         }
         mock_service.update_model_default.assert_called_once_with(
             provider_id="openai",
             model_name="gpt-4.1",
             is_default=True,
-            fallback_chain=None,
+            fallback_provider_id=None,
+            fallback_model_id=None,
         )
     finally:
         app.dependency_overrides.clear()
 
 
-def test_settings_models_put_updates_fallback_chain():
+def test_settings_models_put_updates_fallback_target_fields():
     mock_service = Mock()
     mock_service.update_model_default.return_value = {
         "id": "openai",
@@ -275,22 +284,28 @@ def test_settings_models_put_updates_fallback_chain():
         "provider_name": "OpenAI",
         "model_name": "gpt-4.1",
         "is_default": True,
-        "fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"],
+        "fallback_provider_id": "anthropic",
+        "fallback_model_id": "claude-sonnet-4",
     }
     app.dependency_overrides[get_settings_service] = lambda: mock_service
 
     try:
         response = client.put(
             "/api/settings/models/openai",
-            json={"fallback_chain": ["gpt-4o-mini", "claude-3-5-sonnet"]},
+            json={
+                "fallback_provider_id": "anthropic",
+                "fallback_model_id": "claude-sonnet-4",
+            },
         )
         assert response.status_code == 200
-        assert response.json()["fallback_chain"] == ["gpt-4o-mini", "claude-3-5-sonnet"]
+        assert response.json()["fallback_provider_id"] == "anthropic"
+        assert response.json()["fallback_model_id"] == "claude-sonnet-4"
         mock_service.update_model_default.assert_called_once_with(
             provider_id="openai",
             model_name=None,
             is_default=None,
-            fallback_chain=["gpt-4o-mini", "claude-3-5-sonnet"],
+            fallback_provider_id="anthropic",
+            fallback_model_id="claude-sonnet-4",
         )
     finally:
         app.dependency_overrides.clear()
@@ -327,11 +342,14 @@ def test_settings_app_get():
         repo = Mock(spec=FileSystemSettingsRepo)
         repo.get_settings.return_value = AppSettingsConfig(
             default_provider="openai",
+            fallback_enabled=False,
         )
         app.dependency_overrides[get_settings_repo] = lambda: repo
         response = client.get("/api/settings/app")
         assert response.status_code == 200
         assert response.json()["default_provider"] == "openai"
+        assert response.json()["fallback_enabled"] is False
+        assert "fallback_chain_enabled" not in response.json()
     finally:
         app.dependency_overrides.clear()
 
@@ -341,11 +359,29 @@ def test_settings_app_put():
         repo = Mock(spec=FileSystemSettingsRepo)
         repo.update_settings.return_value = AppSettingsConfig(
             default_provider="openai",
+            fallback_enabled=False,
         )
         app.dependency_overrides[get_settings_repo] = lambda: repo
-        response = client.put("/api/settings/app", json={"default_provider": "openai"})
+        response = client.put(
+            "/api/settings/app",
+            json={"default_provider": "openai", "fallback_enabled": False},
+        )
         assert response.status_code == 200
         assert response.json()["default_provider"] == "openai"
-        repo.update_settings.assert_called_once_with({"default_provider": "openai"})
+        assert response.json()["fallback_enabled"] is False
+        assert "fallback_chain_enabled" not in response.json()
+        repo.update_settings.assert_called_once_with(
+            {"default_provider": "openai", "fallback_enabled": False}
+        )
     finally:
         app.dependency_overrides.clear()
+
+
+def test_settings_router_source_uses_new_fallback_contract_fields_only():
+    source = ROUTER_SOURCE.read_text()
+
+    assert "fallback_provider_id" in source
+    assert "fallback_model_id" in source
+    assert "fallback_enabled" in source
+    assert "fallback_chain_enabled" not in source
+    assert "fallback_chain:" not in source

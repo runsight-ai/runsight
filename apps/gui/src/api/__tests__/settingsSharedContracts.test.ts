@@ -141,7 +141,13 @@ function collectLocalConcernBindings(source: string) {
     },
     {
       concern: "model-default",
-      fieldPatterns: [/provider_id\s*:/, /provider_name\s*:/, /model_name\s*:/, /fallback_chain\s*:/],
+      fieldPatterns: [
+        /provider_id\s*:/,
+        /provider_name\s*:/,
+        /model_name\s*:/,
+        /fallback_provider_id\s*:/,
+        /fallback_model_id\s*:/,
+      ],
     },
     {
       concern: "budget",
@@ -149,7 +155,7 @@ function collectLocalConcernBindings(source: string) {
     },
     {
       concern: "app-settings",
-      fieldPatterns: [/onboarding_completed\s*:/, /fallback_chain_enabled\s*:/],
+      fieldPatterns: [/onboarding_completed\s*:/, /fallback_enabled\s*:/],
     },
   ];
 
@@ -210,7 +216,8 @@ const modelDefaultItemPayload = {
   provider_name: "OpenAI",
   model_name: "gpt-4.1",
   is_default: true,
-  fallback_chain: ["gpt-4o-mini", "claude-3-5-sonnet"],
+  fallback_provider_id: "anthropic",
+  fallback_model_id: "claude-sonnet-4",
 };
 
 const budgetItemPayload = {
@@ -227,7 +234,7 @@ const appSettingsPayload = {
   default_provider: "openai",
   auto_save: true,
   onboarding_completed: true,
-  fallback_chain_enabled: false,
+  fallback_enabled: false,
 };
 
 const providerTestPayload = {
@@ -416,7 +423,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
               expect.objectContaining({
                 provider_id: modelDefaultItemPayload.provider_id,
                 provider_name: modelDefaultItemPayload.provider_name,
-                fallback_chain: modelDefaultItemPayload.fallback_chain,
+                fallback_provider_id: modelDefaultItemPayload.fallback_provider_id,
+                fallback_model_id: modelDefaultItemPayload.fallback_model_id,
               }),
             ],
             total: 1,
@@ -434,14 +442,16 @@ describe("RUN-512 settings API canonical shared contracts", () => {
         settingsApi.updateModelDefault("openai", {
           model_name: "gpt-4.1",
           is_default: true,
-          fallback_chain: modelDefaultItemPayload.fallback_chain,
+          fallback_provider_id: modelDefaultItemPayload.fallback_provider_id,
+          fallback_model_id: modelDefaultItemPayload.fallback_model_id,
         }),
       assertResult: (result) => {
         expect(result).toEqual(
           expect.objectContaining({
             provider_id: modelDefaultItemPayload.provider_id,
             provider_name: modelDefaultItemPayload.provider_name,
-            fallback_chain: modelDefaultItemPayload.fallback_chain,
+            fallback_provider_id: modelDefaultItemPayload.fallback_provider_id,
+            fallback_model_id: modelDefaultItemPayload.fallback_model_id,
           }),
         );
       },
@@ -529,7 +539,7 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       invoke: (settingsApi) =>
         settingsApi.updateAppSettings({
           onboarding_completed: true,
-          fallback_chain_enabled: false,
+          fallback_enabled: false,
         }),
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(appSettingsPayload));
