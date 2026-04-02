@@ -523,7 +523,7 @@ class TestDiscoverCustomAssets:
 
 
 class TestDiscoverCustomTools:
-    """RUN-525: discovery of custom tool metadata files under custom/tools/."""
+    """RUN-578: discovery of canonical custom tool files under custom/tools/."""
 
     @staticmethod
     def _load_symbols():
@@ -543,7 +543,7 @@ class TestDiscoverCustomTools:
             result = discover_custom_tools(Path(tmpdir))
             assert result == {}
 
-    def test_discovers_supported_custom_and_http_tool_files_by_slug(self):
+    def test_discovers_python_and_request_executor_tool_files_by_filename_stem(self):
         discover_custom_tools, tool_meta = self._load_symbols()
         assert callable(discover_custom_tools), (
             "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
@@ -557,29 +557,62 @@ class TestDiscoverCustomTools:
 
             (tools_dir / "python_helper.yaml").write_text(
                 dedent("""
+                version: "1.0"
                 type: custom
-                source: python_helper
+                executor: python
+                name: Python Helper
+                description: Echo values back to the caller.
+                parameters:
+                  type: object
+                  properties:
+                    value:
+                      type: string
+                  required:
+                    - value
                 code: |
-                  def main(args: dict) -> Any:
+                  def main(args):
                       return args
                 """)
             )
-            (tools_dir / "http_lookup.yaml").write_text(
+            (tools_dir / "request_lookup.yaml").write_text(
                 dedent("""
-                type: http
-                source: http_lookup
+                version: "1.0"
+                type: custom
+                executor: request
+                name: Request Lookup
+                description: Fetch data from a remote service.
+                parameters:
+                  type: object
+                  properties:
+                    user_id:
+                      type: integer
+                  required:
+                    - user_id
+                request:
+                  method: GET
+                  url: https://example.com/users/{{ user_id }}
+                  headers:
+                    X-Test: runsight
+                  response_path: data.id
+                timeout_seconds: 12
                 """)
             )
 
             discovered = discover_custom_tools(base_dir)
 
-            assert set(discovered.keys()) == {"python_helper", "http_lookup"}
+            assert set(discovered.keys()) == {"python_helper", "request_lookup"}
             assert isinstance(discovered["python_helper"], tool_meta)
-            assert isinstance(discovered["http_lookup"], tool_meta)
+            assert isinstance(discovered["request_lookup"], tool_meta)
             assert discovered["python_helper"].type == "custom"
-            assert discovered["http_lookup"].type == "http"
+            assert discovered["python_helper"].executor == "python"
+            assert discovered["python_helper"].name == "Python Helper"
+            assert discovered["request_lookup"].type == "custom"
+            assert discovered["request_lookup"].executor == "request"
+            assert discovered["request_lookup"].request["url"] == (
+                "https://example.com/users/{{ user_id }}"
+            )
 
-    def test_unsupported_type_raises_file_specific_error(self):
+    def test_legacy_type_http_is_rejected_with_file_specific_error(self):
         discover_custom_tools, _ = self._load_symbols()
         assert callable(discover_custom_tools), (
             "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
@@ -589,15 +622,15 @@ class TestDiscoverCustomTools:
             base_dir = Path(tmpdir)
             tools_dir = base_dir / "custom" / "tools"
             tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "bad_type.yaml"
+            invalid_file = tools_dir / "legacy_http.yaml"
             invalid_file.write_text(
                 dedent("""
-                type: builtin
-                source: bad_type
+                version: "1.0"
+                type: http
                 """)
             )
 
-            with pytest.raises(ValueError, match="bad_type.yaml"):
+            with pytest.raises(ValueError, match=r"legacy_http\.yaml.*type.*custom|legacy_http"):
                 discover_custom_tools(base_dir)
 
     def test_malformed_yaml_raises_file_specific_error(self):
@@ -611,7 +644,9 @@ class TestDiscoverCustomTools:
             tools_dir = base_dir / "custom" / "tools"
             tools_dir.mkdir(parents=True)
             invalid_file = tools_dir / "broken.yaml"
-            invalid_file.write_text("type: custom\nsource: broken\ncode: [not: valid")
+            invalid_file.write_text(
+                'version: "1.0"\ntype: custom\nexecutor: python\ncode: [not: valid'
+            )
 
             with pytest.raises(Exception, match="broken.yaml"):
                 discover_custom_tools(base_dir)
@@ -626,10 +661,22 @@ class TestDiscoverCustomTools:
             base_dir = Path(tmpdir)
             tools_dir = base_dir / "custom" / "tools"
             tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "missing_source.yaml"
-            invalid_file.write_text("type: http\n")
+            invalid_file = tools_dir / "missing_executor.yaml"
+            invalid_file.write_text(
+                dedent("""
+                version: "1.0"
+                type: custom
+                name: Missing Executor
+                description: Broken metadata.
+                parameters:
+                  type: object
+                code: |
+                  def main(args):
+                      return args
+                """)
+            )
 
-            with pytest.raises(ValueError, match="missing_source.yaml"):
+            with pytest.raises(ValueError, match="missing_executor.yaml"):
                 discover_custom_tools(base_dir)
 
     def test_custom_tool_rejects_both_code_and_code_file(self):
@@ -645,10 +692,15 @@ class TestDiscoverCustomTools:
             invalid_file = tools_dir / "double_code.yaml"
             invalid_file.write_text(
                 dedent("""
+                version: "1.0"
                 type: custom
-                source: double_code
+                executor: python
+                name: Double Code
+                description: Declares both code and code_file.
+                parameters:
+                  type: object
                 code: |
-                  def main(args: dict) -> Any:
+                  def main(args):
                       return args
                 code_file: helper.py
                 """)
@@ -670,13 +722,46 @@ class TestDiscoverCustomTools:
             invalid_file = tools_dir / "missing_code_file.yaml"
             invalid_file.write_text(
                 dedent("""
+                version: "1.0"
                 type: custom
-                source: missing_code_file
+                executor: python
+                name: Missing Code File
+                description: References a file that does not exist.
+                parameters:
+                  type: object
                 code_file: missing_impl.py
                 """)
             )
 
             with pytest.raises(ValueError, match="missing_code_file.yaml"):
+                discover_custom_tools(base_dir)
+
+    def test_custom_tool_rejects_unreadable_code_file(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            (tools_dir / "impl_dir.py").mkdir()
+            invalid_file = tools_dir / "unreadable_code_file.yaml"
+            invalid_file.write_text(
+                dedent("""
+                version: "1.0"
+                type: custom
+                executor: python
+                name: Unreadable Code File
+                description: Points at an unreadable code file.
+                parameters:
+                  type: object
+                code_file: impl_dir.py
+                """)
+            )
+
+            with pytest.raises(ValueError, match=r"unreadable_code_file\.yaml"):
                 discover_custom_tools(base_dir)
 
     def test_custom_tool_rejects_invalid_main_signature(self):
@@ -692,15 +777,180 @@ class TestDiscoverCustomTools:
             invalid_file = tools_dir / "bad_signature.yaml"
             invalid_file.write_text(
                 dedent("""
+                version: "1.0"
                 type: custom
-                source: bad_signature
+                executor: python
+                name: Bad Signature
+                description: Uses the wrong main() signature.
+                parameters:
+                  type: object
                 code: |
-                  def main() -> Any:
+                  def main():
                       return {}
                 """)
             )
 
             with pytest.raises(ValueError, match="bad_signature.yaml"):
+                discover_custom_tools(base_dir)
+
+    def test_request_executor_requires_request_url(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            invalid_file = tools_dir / "missing_request_url.yaml"
+            invalid_file.write_text(
+                dedent("""
+                version: "1.0"
+                type: custom
+                executor: request
+                name: Missing Request URL
+                description: Missing nested request.url.
+                parameters:
+                  type: object
+                request:
+                  method: GET
+                """)
+            )
+
+            with pytest.raises(ValueError, match=r"missing_request_url\.yaml"):
+                discover_custom_tools(base_dir)
+
+    def test_request_executor_rejects_python_fields(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            invalid_file = tools_dir / "request_with_code.yaml"
+            invalid_file.write_text(
+                dedent("""
+                version: "1.0"
+                type: custom
+                executor: request
+                name: Request With Code
+                description: Request tools must not declare Python fields.
+                parameters:
+                  type: object
+                code: |
+                  def main(args):
+                      return args
+                request:
+                  method: GET
+                  url: https://example.com/users/{{ user_id }}
+                """)
+            )
+
+            with pytest.raises(ValueError, match=r"request_with_code\.yaml"):
+                discover_custom_tools(base_dir)
+
+    def test_python_executor_rejects_request_fields(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            invalid_file = tools_dir / "python_with_request.yaml"
+            invalid_file.write_text(
+                dedent("""
+                version: "1.0"
+                type: custom
+                executor: python
+                name: Python With Request
+                description: Python tools must not declare request metadata.
+                parameters:
+                  type: object
+                request:
+                  method: GET
+                  url: https://example.com/users/{{ user_id }}
+                code: |
+                  def main(args):
+                      return args
+                """)
+            )
+
+            with pytest.raises(ValueError, match=r"python_with_request\.yaml"):
+                discover_custom_tools(base_dir)
+
+    def test_unknown_executor_raises_file_specific_error(self):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            tools_dir.mkdir(parents=True)
+            invalid_file = tools_dir / "unknown_executor.yaml"
+            invalid_file.write_text(
+                dedent("""
+                version: "1.0"
+                type: custom
+                executor: shell
+                name: Unknown Executor
+                description: Unsupported executor.
+                parameters:
+                  type: object
+                """)
+            )
+
+            with pytest.raises(ValueError, match=r"unknown_executor\.yaml"):
+                discover_custom_tools(base_dir)
+
+    def test_duplicate_filename_derived_tool_id_raises_explicit_error(self, monkeypatch):
+        discover_custom_tools, _ = self._load_symbols()
+        assert callable(discover_custom_tools), (
+            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            tools_dir = base_dir / "custom" / "tools"
+            shadow_dir = base_dir / "shadow"
+            tools_dir.mkdir(parents=True)
+            shadow_dir.mkdir()
+
+            primary_file = tools_dir / "duplicate_tool.yaml"
+            shadow_file = shadow_dir / "duplicate_tool.yaml"
+            tool_yaml = dedent("""
+            version: "1.0"
+            type: custom
+            executor: python
+            name: Duplicate Tool
+            description: Detect duplicate file-backed tool ids.
+            parameters:
+              type: object
+            code: |
+              def main(args):
+                  return args
+            """)
+            primary_file.write_text(tool_yaml, encoding="utf-8")
+            shadow_file.write_text(tool_yaml, encoding="utf-8")
+
+            original_glob = Path.glob
+
+            def _fake_glob(self, pattern):
+                if self == tools_dir and pattern == "*.yaml":
+                    return [primary_file, shadow_file]
+                return original_glob(self, pattern)
+
+            monkeypatch.setattr(Path, "glob", _fake_glob)
+
+            with pytest.raises(ValueError, match=r"duplicate_tool.*duplicate|collision"):
                 discover_custom_tools(base_dir)
 
 

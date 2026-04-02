@@ -161,8 +161,18 @@ def _write_echo_tool_yaml(tmp_path: Path, slug: str = _ECHO_TOOL_ID) -> str:
         tmp_path,
         slug,
         """\
+version: "1.0"
 type: custom
-source: echo_tool
+executor: python
+name: Echo Tool
+description: Echo values back to the caller.
+parameters:
+  type: object
+  properties:
+    message:
+      type: string
+  required:
+    - message
 code: |
   def main(args):
       return {"echo": args}
@@ -182,8 +192,13 @@ def _write_raising_tool_yaml(
         tmp_path,
         slug,
         f"""\
+version: "1.0"
 type: custom
-source: {slug}
+executor: python
+name: {slug.replace("_", " ").title()}
+description: Raises an error for integration coverage.
+parameters:
+  type: object
 code: |
   def main(args):
       raise {error_type}({message!r})
@@ -819,11 +834,16 @@ class TestCanonicalWorkflowToolIdIntegration:
             tmp_path,
             "http",
             """\
+version: "1.0"
 type: custom
-source: http
+executor: python
+name: Shadow HTTP
+description: Shadows the builtin http id.
+parameters:
+  type: object
 code: |
   def main(args):
-      return {"shadowed": true}
+      return {"shadowed": True}
 """,
         )
         workflow_file = _write_workflow_file(
@@ -1271,12 +1291,12 @@ class TestExistingYamlWorkflowsParseClean:
 
 
 # ===========================================================================
-# RUN-532: Full custom/http tool pipeline integration
+# RUN-532: Full custom/request tool pipeline integration
 # ===========================================================================
 
 
 class TestRun532ToolPipelineIntegration:
-    """Integration coverage for custom/http tools across parse, resolve, loop, and IPC seams."""
+    """Integration coverage for custom/request tools across parse, resolve, loop, and IPC seams."""
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
@@ -1290,8 +1310,21 @@ class TestRun532ToolPipelineIntegration:
             tmp_path,
             "adder",
             """\
+version: "1.0"
 type: custom
-source: adder
+executor: python
+name: Adder
+description: Add two integers together.
+parameters:
+  type: object
+  properties:
+    a:
+      type: integer
+    b:
+      type: integer
+  required:
+    - a
+    - b
 code: |
   def main(args):
       return {"sum": args["a"] + args["b"]}
@@ -1353,19 +1386,38 @@ workflow:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_http_tool_yaml_parse_resolve_and_agentic_loop(
+    async def test_request_executor_tool_yaml_parse_resolve_and_agentic_loop(
         self,
         mock_achat: AsyncMock,
         tmp_path: Path,
     ) -> None:
-        """RUN-532 AC2: HTTP tool metadata should resolve and feed HTTP results back into the loop."""
+        """RUN-532 AC2: request executor metadata should resolve and feed HTTP results back."""
         _write_custom_tool_yaml(
             tmp_path,
             "fetch_answer",
             """\
-type: http
-url: https://example.com/items/{{ item_id }}
-response_path: data.answer
+version: "1.0"
+type: custom
+executor: request
+name: Fetch Answer
+description: Fetch an answer from a remote API.
+parameters:
+  type: object
+  properties:
+    item_id:
+      type: integer
+    trace_id:
+      type: string
+  required:
+    - item_id
+request:
+  method: POST
+  url: https://example.com/items
+  headers:
+    X-Trace: static-header
+  body_template: '{"item_id": {{ item_id }}, "trace_id": "{{ trace_id }}"}'
+  response_path: data.answer
+timeout_seconds: 9
 """,
         )
         workflow_path = _write_workflow_file(
@@ -1423,25 +1475,29 @@ workflow:
                 headers: dict[str, str] | None = None,
                 content: str | None = None,
             ) -> _FakeResponse:
-                assert method == "GET"
-                assert url == "https://example.com/items/7"
-                assert headers is None
-                assert content is None
+                assert method == "POST"
+                assert url == "https://example.com/items"
+                assert headers == {"X-Trace": "static-header"}
+                assert content == '{"item_id": 7, "trace_id": "trace-7"}'
                 return _FakeResponse()
 
         mock_achat.side_effect = [
-            _tool_call_response("fetch_answer", arguments='{"item_id": 7}', call_id="http_1"),
-            _text_response("HTTP tool complete."),
+            _tool_call_response(
+                "fetch_answer",
+                arguments='{"item_id": 7, "trace_id": "trace-7"}',
+                call_id="request_1",
+            ),
+            _text_response("Request tool complete."),
         ]
 
         with patch("runsight_core.tools._catalog.httpx.AsyncClient", _FakeAsyncClient):
             runner = RunsightTeamRunner(model_name="gpt-4o")
             result = await runner.execute_task(
-                Task(id="run-532-http", instruction="Fetch answer"),
+                Task(id="run-532-request", instruction="Fetch answer"),
                 soul,
             )
 
-        assert result.output == "HTTP tool complete."
+        assert result.output == "Request tool complete."
         assert result.tool_calls_made == ["fetch_answer"]
 
         tool_messages = [
@@ -1451,17 +1507,30 @@ workflow:
         ]
         assert json.loads(tool_messages[-1]["content"]) == "42"
 
-    def test_builtin_custom_and_http_tools_parse_and_resolve_together(
+    def test_builtin_custom_and_request_tools_parse_and_resolve_together(
         self,
         tmp_path: Path,
     ) -> None:
-        """RUN-532 AC3 + AC6: mixed workflows should resolve builtin, custom, and HTTP tools together."""
+        """RUN-532 AC3 + AC6: mixed workflows should resolve builtin, python, and request tools."""
         _write_custom_tool_yaml(
             tmp_path,
             "adder",
             """\
+version: "1.0"
 type: custom
-source: adder
+executor: python
+name: Adder
+description: Add two integers together.
+parameters:
+  type: object
+  properties:
+    a:
+      type: integer
+    b:
+      type: integer
+  required:
+    - a
+    - b
 code: |
   def main(args):
       return {"sum": args["a"] + args["b"]}
@@ -1471,8 +1540,21 @@ code: |
             tmp_path,
             "fetch_answer",
             """\
-type: http
-url: https://example.com/items/{{ item_id }}
+version: "1.0"
+type: custom
+executor: request
+name: Fetch Answer
+description: Fetch an answer from a remote API.
+parameters:
+  type: object
+  properties:
+    item_id:
+      type: integer
+  required:
+    - item_id
+request:
+  method: GET
+  url: https://example.com/items/{{ item_id }}
 """,
         )
         workflow_path = _write_workflow_file(
@@ -1628,8 +1710,21 @@ workflow:
             tmp_path,
             "adder",
             """\
+version: "1.0"
 type: custom
-source: adder
+executor: python
+name: Adder
+description: Add two integers together.
+parameters:
+  type: object
+  properties:
+    a:
+      type: integer
+    b:
+      type: integer
+  required:
+    - a
+    - b
 code: |
   def main(args):
       return {"sum": args["a"] + args["b"]}
@@ -1639,8 +1734,21 @@ code: |
             tmp_path,
             "fetch_answer",
             """\
-type: http
-url: https://example.com/items/{{ item_id }}
+version: "1.0"
+type: custom
+executor: request
+name: Fetch Answer
+description: Fetch an answer from a remote API.
+parameters:
+  type: object
+  properties:
+    item_id:
+      type: integer
+  required:
+    - item_id
+request:
+  method: GET
+  url: https://example.com/items/{{ item_id }}
 """,
         )
         workflow_path = _write_workflow_file(
@@ -1700,4 +1808,4 @@ workflow:
 
         envelope = captured["envelope"]
         assert [tool.name for tool in envelope.tools] == ["http_request", "adder", "fetch_answer"]
-        assert {tool.tool_type for tool in envelope.tools} == {"builtin", "custom", "http"}
+        assert {tool.tool_type for tool in envelope.tools} == {"builtin", "custom"}

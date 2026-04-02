@@ -434,8 +434,13 @@ souls:
             tmp_path,
             "http",
             """
+            version: "1.0"
             type: custom
-            source: http
+            executor: python
+            name: Shadow HTTP
+            description: Shadows the builtin http tool id.
+            parameters:
+              type: object
             code: |
               def main(args):
                   return {"shadowed": True}
@@ -722,8 +727,13 @@ souls:
             (
                 "blocked_import_tool",
                 """
+                version: "1.0"
                 type: custom
-                source: blocked_import_tool
+                executor: python
+                name: Blocked Import Tool
+                description: Imports a blocked module.
+                parameters:
+                  type: object
                 code: |
                   import os
 
@@ -735,8 +745,13 @@ souls:
             (
                 "missing_main_tool",
                 """
+                version: "1.0"
                 type: custom
-                source: missing_main_tool
+                executor: python
+                name: Missing Main Tool
+                description: Omits the required main(args) entrypoint.
+                parameters:
+                  type: object
                 code: |
                   def helper(args):
                       return {}
@@ -783,8 +798,18 @@ souls:
             tmp_path,
             "echo_tool",
             """
+            version: "1.0"
             type: custom
-            source: echo_tool
+            executor: python
+            name: Echo Tool
+            description: Echoes the provided message.
+            parameters:
+              type: object
+              properties:
+                message:
+                  type: string
+              required:
+                - message
             code: |
               def main(args):
                   return {"echo": args["message"]}
@@ -822,6 +847,142 @@ souls:
         assert soul.resolved_tools is not None
         assert len(soul.resolved_tools) == 2
         assert soul.tools == ["http", "echo_tool"]
+
+    def test_request_backed_custom_tool_file_parses_successfully(self, tmp_path):
+        """Canonical request-backed tool files should resolve from their filename-derived IDs."""
+        _write_custom_tool_file(
+            tmp_path,
+            "fetch_answer",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Fetch Answer
+            description: Fetches an answer by item id.
+            parameters:
+              type: object
+              properties:
+                item_id:
+                  type: integer
+              required:
+                - item_id
+            request:
+              method: GET
+              url: https://example.com/items/{{ item_id }}
+              headers:
+                X-Test: runsight
+              response_path: data.answer
+            timeout_seconds: 9
+            """,
+        )
+        workflow_file = _write_workflow_file(
+            tmp_path,
+            _make_yaml(
+                tools="""\
+tools:
+  - fetch_answer""",
+                souls="""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - fetch_answer""",
+                blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+                transitions="""\
+    - from: my_block
+      to: null""",
+            ),
+        )
+
+        workflow = parse_workflow_yaml(workflow_file)
+        soul = workflow.blocks["my_block"].soul
+
+        assert soul.resolved_tools is not None
+        assert [tool.name for tool in soul.resolved_tools] == ["fetch_answer"]
+
+    @pytest.mark.parametrize(
+        ("slug", "tool_yaml", "expected_message"),
+        [
+            (
+                "legacy_http",
+                """
+                version: "1.0"
+                type: http
+                """,
+                r"legacy_http.*type.*custom|legacy_http.*unsupported",
+            ),
+            (
+                "missing_request_url",
+                """
+                version: "1.0"
+                type: custom
+                executor: request
+                name: Missing Request URL
+                description: Missing nested request.url.
+                parameters:
+                  type: object
+                request:
+                  method: GET
+                """,
+                r"missing_request_url.*url",
+            ),
+            (
+                "python_with_request",
+                """
+                version: "1.0"
+                type: custom
+                executor: python
+                name: Python With Request
+                description: Python executors must reject request metadata.
+                parameters:
+                  type: object
+                request:
+                  method: GET
+                  url: https://example.com/items/{{ item_id }}
+                code: |
+                  def main(args):
+                      return args
+                """,
+                r"python_with_request.*request",
+            ),
+        ],
+    )
+    def test_invalid_custom_tool_metadata_surfaces_file_specific_errors(
+        self, tmp_path, slug, tool_yaml, expected_message
+    ):
+        """Parser errors should preserve the offending filename for invalid custom tool files."""
+        _write_custom_tool_file(tmp_path, slug, tool_yaml)
+        workflow_file = _write_workflow_file(
+            tmp_path,
+            _make_yaml(
+                tools=f"""\
+tools:
+  - {slug}""",
+                souls=f"""\
+souls:
+  my_agent:
+    id: agent_1
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - {slug}""",
+                blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+                transitions="""\
+    - from: my_block
+      to: null""",
+            ),
+        )
+
+        with pytest.raises(ValueError, match=expected_message):
+            parse_workflow_yaml(workflow_file)
 
 
 # ===========================================================================
