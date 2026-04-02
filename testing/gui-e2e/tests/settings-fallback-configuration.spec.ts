@@ -224,7 +224,9 @@ test.describe("Per-provider fallback configuration", () => {
     await expect(page.getByText("Fallback", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Enable fallback")).toBeDisabled();
     await expect(
-      page.getByText("Enable at least two enabled providers to configure fallback targets."),
+      page.getByText(
+        "Enable at least two providers to configure runtime fallback. Once two providers are enabled, you can choose one fallback target per provider.",
+      ),
     ).toBeVisible();
     await expect(page.getByLabel("Fallback provider for OpenAI")).toHaveCount(0);
   });
@@ -321,7 +323,9 @@ test.describe("Per-provider fallback configuration", () => {
 
     await expect(page.getByLabel("Enable fallback")).toBeDisabled();
     await expect(
-      page.getByText("Enable at least two enabled providers to configure fallback targets."),
+      page.getByText(
+        "Enable at least two providers to configure runtime fallback. Once two providers are enabled, you can choose one fallback target per provider.",
+      ),
     ).toBeVisible();
     await expect(page.getByLabel("Fallback provider for OpenAI")).toHaveCount(0);
 

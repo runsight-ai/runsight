@@ -157,7 +157,13 @@ describe("canonical settings transport contracts", () => {
     expect(GENERATED_API_SOURCE).toContain("SettingsFallbackResponse");
     expect(GENERATED_API_SOURCE).toContain("fallback_enabled");
     expect(GENERATED_API_SOURCE).not.toContain("/api/settings/models");
+    expect(GENERATED_API_SOURCE).not.toContain("/api/settings/models/{model_id}");
     expect(GENERATED_API_SOURCE).not.toContain("SettingsModelDefaultResponse");
+    expect(GENERATED_API_SOURCE).not.toContain("SettingsModelDefaultListResponse");
+    expect(GENERATED_API_SOURCE).not.toContain("list_model_defaults_api_settings_models_get");
+    expect(GENERATED_API_SOURCE).not.toContain(
+      "update_model_default_api_settings_models__model_id__put",
+    );
     expect(GENERATED_API_SOURCE).not.toContain("default_provider");
 
     expect(GENERATED_ZOD_SOURCE).toContain("SettingsFallbackResponseSchema");
