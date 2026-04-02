@@ -20,7 +20,7 @@ import { describe, it, expect } from "vitest";
 import { dump } from "js-yaml";
 import { parseWorkflowYamlToGraph } from "../yamlParser";
 import { compileGraphToWorkflowYaml } from "../yamlCompiler";
-import type { StepNodeData, StepType, SoulDef } from "../../../types/schemas/canvas";
+import type { StepNodeData, StepType } from "../../../types/schemas/canvas";
 import type { Node, Edge } from "@xyflow/react";
 
 // ---------------------------------------------------------------------------
@@ -88,7 +88,6 @@ interface CompileInput {
   nodes: Node<StepNodeData>[];
   edges: Edge[];
   workflowName?: string;
-  souls?: Record<string, SoulDef>;
   config?: Record<string, unknown>;
 }
 
@@ -114,7 +113,6 @@ function roundTrip(input: CompileInput) {
   const input2: CompileInput = {
     nodes: parsed.nodes,
     edges: parsed.edges,
-    souls: parsed.souls,
     config: parsed.config,
     workflowName: input.workflowName,
   };
@@ -415,15 +413,6 @@ describe("Full round-trip: custom_thing block", () => {
 
 describe("Mixed known + unknown types round-trip", () => {
   it("workflow with linear, http_request, and custom_thing all round-trip correctly", () => {
-    const souls: Record<string, SoulDef> = {
-      planner: {
-        id: "planner",
-        role: "planner",
-        system_prompt: "You plan tasks.",
-        model_name: "claude-3-opus",
-      },
-    };
-
     const nodes = [
       mockNode("plan", "linear", { soulRef: "planner" }),
       mockNode("transform", "custom_thing", {
@@ -442,7 +431,7 @@ describe("Mixed known + unknown types round-trip", () => {
       mockEdge("transform", "fetch"),
     ];
 
-    const { doc1, doc2, yaml1, yaml2 } = roundTrip({ nodes, edges, souls });
+    const { doc1, doc2, yaml1, yaml2 } = roundTrip({ nodes, edges });
 
     // Known types should still work
     const planBlock = getBlock(doc1, "plan");

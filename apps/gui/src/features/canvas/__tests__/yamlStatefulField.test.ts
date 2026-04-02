@@ -13,7 +13,7 @@
 import { describe, it, expect, test } from "vitest";
 import { compileGraphToWorkflowYaml } from "../yamlCompiler";
 import { parseWorkflowYamlToGraph } from "../yamlParser";
-import type { StepNodeData, StepType, BlockDef, SoulDef } from "../../../types/schemas/canvas";
+import type { StepNodeData, StepType, BlockDef } from "../../../types/schemas/canvas";
 import type { Node, Edge } from "@xyflow/react";
 
 // ---------------------------------------------------------------------------
@@ -57,7 +57,6 @@ interface CompileInput {
   nodes: Node<StepNodeData>[];
   edges: Edge[];
   workflowName?: string;
-  souls?: Record<string, SoulDef>;
   config?: Record<string, unknown>;
 }
 
@@ -73,7 +72,6 @@ function roundTrip(input: CompileInput) {
   const input2: CompileInput = {
     nodes: parsed.nodes,
     edges: parsed.edges,
-    souls: parsed.souls,
     config: parsed.config,
     workflowName: input.workflowName,
   };

@@ -8,7 +8,7 @@
 import { describe, it, expect, test } from "vitest";
 import { compileGraphToWorkflowYaml } from "../yamlCompiler";
 import { parseWorkflowYamlToGraph } from "../yamlParser";
-import type { StepNodeData, StepType, CaseDef, SoulDef } from "../../../types/schemas/canvas";
+import type { StepNodeData, StepType, CaseDef } from "../../../types/schemas/canvas";
 import type { Node, Edge } from "@xyflow/react";
 
 // ---------------------------------------------------------------------------
@@ -52,7 +52,6 @@ interface CompileInput {
   nodes: Node<StepNodeData>[];
   edges: Edge[];
   workflowName?: string;
-  souls?: Record<string, SoulDef>;
   config?: Record<string, unknown>;
 }
 
@@ -64,11 +63,10 @@ function roundTrip(input: CompileInput) {
   const { yaml: yaml1, workflowDocument: doc1 } = compileGraphToWorkflowYaml(input);
   const parsed = parseWorkflowYamlToGraph(yaml1);
 
-  // Rebuild compile input from parsed result
+  // Rebuild compile input from parsed result (souls no longer propagated — RUN-574)
   const input2: CompileInput = {
     nodes: parsed.nodes,
     edges: parsed.edges,
-    souls: parsed.souls,
     config: parsed.config,
     workflowName: input.workflowName,
   };
@@ -112,40 +110,25 @@ describe("Per-type round-trip", () => {
 // 2. Souls round-trip
 // ===========================================================================
 
-describe("Souls round-trip", () => {
-  it("souls survive compile -> parse -> compile", () => {
-    const souls: Record<string, SoulDef> = {
-      planner: {
-        id: "planner",
-        role: "planner",
-        system_prompt: "You are a planning agent.",
-        model_name: "claude-3-opus",
-      },
-      coder: {
-        id: "coder",
-        role: "engineer",
-        system_prompt: "You write code.",
-        tools: [{ name: "file_read" }],
-      },
-    };
-
+describe("Souls round-trip (RUN-574: souls no longer emitted)", () => {
+  it("souls are never present in compiled output", () => {
     const { doc1, doc2 } = roundTrip({
       nodes: [mockNode("b1", "linear", { soulRef: "planner" })],
       edges: [],
-      souls,
     });
 
-    expect(doc2.souls).toEqual(doc1.souls);
+    expect(doc1).not.toHaveProperty("souls");
+    expect(doc2).not.toHaveProperty("souls");
   });
 
-  it("missing souls are omitted in both passes", () => {
+  it("soul_ref on blocks still survives round-trip", () => {
     const { doc1, doc2 } = roundTrip({
-      nodes: [mockNode("b1", "linear")],
+      nodes: [mockNode("b1", "linear", { soulRef: "planner" })],
       edges: [],
     });
 
-    expect(doc1.souls).toBeUndefined();
-    expect(doc2.souls).toBeUndefined();
+    expect(doc1.blocks["b1"]).toHaveProperty("soul_ref", "planner");
+    expect(doc2.blocks["b1"]).toHaveProperty("soul_ref", "planner");
   });
 });
 
@@ -323,21 +306,7 @@ describe("Conditional transitions round-trip", () => {
 // ===========================================================================
 
 describe("Full workflow round-trip", () => {
-  it("complex workflow with multiple types, edges, souls, and config", () => {
-    const souls: Record<string, SoulDef> = {
-      planner: {
-        id: "planner",
-        role: "planner",
-        system_prompt: "You plan tasks.",
-        model_name: "claude-3-opus",
-      },
-      coder: {
-        id: "coder",
-        role: "engineer",
-        system_prompt: "You write code.",
-      },
-    };
-
+  it("complex workflow with multiple types, edges, and config (RUN-574: no souls)", () => {
     const config: Record<string, unknown> = {
       max_concurrency: 8,
       timeout: 600,
@@ -377,7 +346,6 @@ describe("Full workflow round-trip", () => {
     const { doc1, doc2, yaml1, yaml2 } = roundTrip({
       nodes,
       edges,
-      souls,
       config,
       workflowName: "full-pipeline",
     });
@@ -385,8 +353,9 @@ describe("Full workflow round-trip", () => {
     // Blocks
     expect(doc2.blocks).toEqual(doc1.blocks);
 
-    // Souls
-    expect(doc2.souls).toEqual(doc1.souls);
+    // Souls are no longer emitted (RUN-574)
+    expect(doc1).not.toHaveProperty("souls");
+    expect(doc2).not.toHaveProperty("souls");
 
     // Config
     expect(doc2.config).toEqual(doc1.config);
@@ -556,10 +525,6 @@ describe("Edge cases", () => {
   });
 
   it("YAML string equality implies full lossless round-trip", () => {
-    const souls: Record<string, SoulDef> = {
-      agent: { id: "agent", role: "worker", system_prompt: "Do work." },
-    };
-
     const nodes = [
       mockNode("a", "linear", { soulRef: "agent" }),
       mockNode("b", "fanout", { soulRefs: ["agent", "agent"] }),
@@ -570,7 +535,6 @@ describe("Edge cases", () => {
     const { yaml1, yaml2 } = roundTrip({
       nodes,
       edges,
-      souls,
       config: { debug: true },
       workflowName: "test-wf",
     });

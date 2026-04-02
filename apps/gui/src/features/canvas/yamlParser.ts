@@ -1,14 +1,13 @@
 import { parse } from "yaml";
 import type { Edge, Node } from "@xyflow/react";
 import type { PersistedCanvasState } from "../../store/canvas";
-import type { BlockDef, RunsightWorkflowFile, SoulDef, StepNodeData, StepType } from "../../types/schemas/canvas";
+import type { BlockDef, RunsightWorkflowFile, StepNodeData, StepType } from "../../types/schemas/canvas";
 
 export interface ParseWorkflowResult {
   nodes: Node<StepNodeData>[];
   edges: Edge[];
   viewport?: PersistedCanvasState["viewport"];
   error?: { message: string };
-  souls?: Record<string, SoulDef>;
   config?: Record<string, unknown>;
 }
 
@@ -19,6 +18,8 @@ type ParsedWorkflow = Partial<RunsightWorkflowFile> & {
     transitions?: Array<{ from: string; to: string | null }>;
     conditional_transitions?: Array<Record<string, string | null>>;
   };
+  /** @deprecated RUN-574: retained only to detect legacy YAML and emit a warning */
+  souls?: Record<string, unknown>;
 };
 
 const DEFAULT_GRID_X = 280;
@@ -203,7 +204,12 @@ export function parseWorkflowYamlToGraph(
 
   const result: ParseWorkflowResult = { nodes, edges, viewport: canvasState?.viewport };
   if (buildErrors.length > 0) result.error = { message: buildErrors.join("; ") };
-  if (parsed.souls !== undefined) result.souls = parsed.souls;
+  if (parsed.souls !== undefined) {
+    const soulsWarning = "Deprecated: inline souls section is no longer supported. Define souls as standalone YAML files instead.";
+    result.error = result.error
+      ? { message: `${result.error.message}; ${soulsWarning}` }
+      : { message: soulsWarning };
+  }
   if (parsed.config !== undefined) result.config = parsed.config;
   return result;
 }

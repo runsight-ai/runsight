@@ -148,7 +148,7 @@ blocks:
     expect(result.nodes).toHaveLength(0);
   });
 
-  it("parses souls and config sections", () => {
+  it("parses config section and emits deprecation warning for souls (RUN-574)", () => {
     const yamlText = `
 version: "1.0"
 config:
@@ -169,9 +169,10 @@ workflow:
 `;
     const result = parseWorkflowYamlToGraph(yamlText);
 
-    expect(result.error).toBeUndefined();
-    expect(result.souls).toBeDefined();
-    expect(result.souls!.planner.role).toBe("planner");
+    // After RUN-574, souls are stripped from result with a deprecation warning
+    expect(result).not.toHaveProperty("souls");
+    expect(result.error).toBeDefined();
+    expect(result.error!.message).toMatch(/souls/i);
     expect(result.config).toBeDefined();
     expect(result.config!.max_concurrency).toBe(4);
   });
@@ -347,16 +348,7 @@ workflow:
 // ===========================================================================
 
 describe("Existing behavior unchanged after library swap", () => {
-  it("full compile -> parse -> compile round-trip produces identical YAML", () => {
-    const souls: Record<string, SoulDef> = {
-      planner: {
-        id: "planner",
-        role: "planner",
-        system_prompt: "You plan tasks.",
-        model_name: "claude-3-opus",
-      },
-    };
-
+  it("full compile -> parse -> compile round-trip produces identical YAML (RUN-574: no souls)", () => {
     const nodes = [
       mockNode("plan", "linear", { soulRef: "planner" }),
       mockNode("execute", "fanout", { soulRefs: ["planner"] }),
@@ -370,7 +362,6 @@ describe("Existing behavior unchanged after library swap", () => {
     const pass1 = compileGraphToWorkflowYaml({
       nodes,
       edges,
-      souls,
       workflowName: "round-trip-test",
     });
 
@@ -380,7 +371,6 @@ describe("Existing behavior unchanged after library swap", () => {
     const pass2 = compileGraphToWorkflowYaml({
       nodes: parsed.nodes,
       edges: parsed.edges,
-      souls: parsed.souls,
       workflowName: "round-trip-test",
     });
 
