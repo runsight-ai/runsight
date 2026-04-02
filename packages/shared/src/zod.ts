@@ -251,6 +251,12 @@ export const RunNodeResponseSchema = z.object({
   cost_usd: z.number(),
   tokens: z.record(z.string(), z.unknown()),
   error: z.string().nullable(),
+  output: z.string().nullable().optional(),
+  soul_id: z.string().nullable().optional(),
+  model_name: z.string().nullable().optional(),
+  eval_score: z.number().nullable().optional(),
+  eval_passed: z.boolean().nullable().optional(),
+  eval_results: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 export type RunNodeResponse = z.infer<typeof RunNodeResponseSchema>;
 

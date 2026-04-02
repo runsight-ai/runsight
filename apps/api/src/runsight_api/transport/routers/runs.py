@@ -249,6 +249,12 @@ async def get_run_nodes(run_id: str, run_service: RunService = Depends(get_run_s
             cost_usd=n.cost_usd,
             tokens=n.tokens,
             error=n.error,
+            output=n.output,
+            soul_id=n.soul_id,
+            model_name=n.model_name,
+            eval_score=n.eval_score,
+            eval_passed=n.eval_passed,
+            eval_results=n.eval_results,
         )
         for n in nodes
     ]
