@@ -1,0 +1,519 @@
+// @vitest-environment jsdom
+
+import React from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Outlet, useLocation } from "react-router";
+
+/* ------------------------------------------------------------------ */
+/*  Mock data                                                          */
+/* ------------------------------------------------------------------ */
+
+const mocks = vi.hoisted(() => ({
+  productionRuns: [
+    {
+      id: "run_research_7",
+      workflow_id: "wf_research",
+      workflow_name: "Research & Review",
+      run_number: 7,
+      status: "completed",
+      commit_sha: "f078f13deadbeef",
+      source: "manual",
+      branch: "main",
+      started_at: 1_774_414_400,
+      completed_at: 1_774_414_412,
+      duration_seconds: 12.3,
+      total_cost_usd: 0.04,
+      total_tokens: 1200,
+      eval_pass_pct: 92,
+      regression_count: 3,
+      created_at: 1_774_414_399,
+    },
+    {
+      id: "run_pipeline_12",
+      workflow_id: "wf_pipeline",
+      workflow_name: "Content Pipeline",
+      run_number: 12,
+      status: "failed",
+      commit_sha: "a463263feedbeef",
+      source: "webhook",
+      branch: "main",
+      started_at: 1_774_410_800,
+      completed_at: 1_774_410_808,
+      duration_seconds: 8.1,
+      total_cost_usd: 0.02,
+      total_tokens: 900,
+      eval_pass_pct: 75,
+      regression_count: 0,
+      created_at: 1_774_410_799,
+    },
+    {
+      id: "run_digest_3",
+      workflow_id: "wf_docs",
+      workflow_name: "Daily Digest",
+      run_number: 3,
+      status: "completed",
+      commit_sha: "705ebea99999999",
+      source: "schedule",
+      branch: "main",
+      started_at: 1_774_407_200,
+      completed_at: 1_774_407_209,
+      duration_seconds: 9.2,
+      total_cost_usd: 0.03,
+      total_tokens: 640,
+      eval_pass_pct: null,
+      regression_count: null,
+      created_at: 1_774_407_199,
+    },
+  ],
+  runsQueryCalls: [] as unknown[],
+  refetchRuns: vi.fn(),
+  runsQueryState: {
+    data: null as {
+      items: Array<Record<string, unknown>>;
+      total: number;
+      offset: number;
+      limit: number;
+    } | null,
+    isLoading: false,
+    error: null as Error | null,
+  },
+}));
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+function normalizeSources(params: unknown): string[] {
+  if (params instanceof URLSearchParams) {
+    return params.getAll("source").sort();
+  }
+
+  if (
+    params &&
+    typeof params === "object" &&
+    "source" in params &&
+    Array.isArray((params as { source?: unknown }).source)
+  ) {
+    return [...((params as { source: string[] }).source)].sort();
+  }
+
+  return [];
+}
+
+function getWorkflowParam(params: unknown): string | null {
+  if (params instanceof URLSearchParams) {
+    return params.get("workflow") ?? params.get("workflow_id");
+  }
+
+  if (params && typeof params === "object") {
+    const record = params as Record<string, unknown>;
+
+    if (typeof record.workflow === "string") {
+      return record.workflow;
+    }
+
+    if (typeof record.workflow_id === "string") {
+      return record.workflow_id;
+    }
+  }
+
+  return null;
+}
+
+function buildRunList(items: Array<Record<string, unknown>>) {
+  return {
+    items,
+    total: items.length,
+    offset: 0,
+    limit: 20,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Mocks                                                              */
+/* ------------------------------------------------------------------ */
+
+vi.mock("@/queries/runs", () => ({
+  useRuns: (params?: unknown) => {
+    mocks.runsQueryCalls.push(params);
+    const requestedSources = normalizeSources(params);
+    const workflowId = getWorkflowParam(params);
+
+    let items = requestedSources.length === 0
+      ? [...mocks.productionRuns]
+      : [...mocks.productionRuns];
+
+    // Simulate server-side workflow filtering
+    if (workflowId) {
+      items = items.filter((r) => r.workflow_id === workflowId);
+    }
+
+    return {
+      data: mocks.runsQueryState.data ?? buildRunList(items),
+      isLoading: mocks.runsQueryState.isLoading,
+      error: mocks.runsQueryState.error,
+      refetch: mocks.refetchRuns,
+    };
+  },
+}));
+
+vi.mock("@runsight/ui/skeleton", () => ({
+  Skeleton: (props: Record<string, unknown>) =>
+    React.createElement("div", {
+      ...props,
+      "data-testid": "shared-skeleton",
+      "data-slot": "skeleton",
+    }),
+}));
+
+vi.mock("../../../routes/guards", () => ({
+  createSetupGuardLoader: () => async () => null,
+  createReverseGuardLoader: () => async () => null,
+}));
+
+vi.mock("../../../routes/layouts/ShellLayout", () => ({
+  ShellLayout: () => React.createElement(Outlet),
+}));
+
+vi.mock("@/lib/queryClient", () => ({
+  queryClient: {},
+}));
+
+function RouteEcho({ label }: { label: string }) {
+  const location = useLocation();
+  return React.createElement(
+    "div",
+    null,
+    `${label}:${location.pathname}${location.search}`,
+  );
+}
+
+vi.mock("@/features/runs/RunDetail", () => ({
+  Component: () => React.createElement(RouteEcho, { label: "run-detail" }),
+}));
+
+vi.mock("@/features/canvas/CanvasPage", () => ({
+  Component: () => React.createElement(RouteEcho, { label: "workflow-editor" }),
+}));
+
+/* ------------------------------------------------------------------ */
+/*  Lifecycle                                                          */
+/* ------------------------------------------------------------------ */
+
+let activeRouter: { dispose?: () => void; state?: { location: Location } } | null = null;
+
+afterEach(() => {
+  cleanup();
+  activeRouter?.dispose?.();
+  activeRouter = null;
+  window.history.pushState({}, "", "/");
+});
+
+beforeEach(() => {
+  mocks.runsQueryCalls.length = 0;
+  mocks.refetchRuns.mockReset();
+  mocks.runsQueryState.data = null;
+  mocks.runsQueryState.isLoading = false;
+  mocks.runsQueryState.error = null;
+});
+
+/* ------------------------------------------------------------------ */
+/*  Render helper                                                      */
+/* ------------------------------------------------------------------ */
+
+async function renderRunsRoute(initialPath = "/runs") {
+  vi.resetModules();
+  window.history.pushState({}, "", initialPath);
+
+  const { RouterProvider } = await import("react-router");
+  const { router } = await import("../../../routes");
+
+  activeRouter = router;
+  const user = userEvent.setup();
+  render(React.createElement(RouterProvider, { router }));
+
+  return { router, user };
+}
+
+function getVisibleColumnHeaders() {
+  const table = screen.getByRole("table");
+  return within(table)
+    .getAllByRole("columnheader")
+    .map((th) => th.textContent?.trim() ?? "");
+}
+
+function getVisibleWorkflowOrder() {
+  const table = screen.getByRole("table");
+  return within(table)
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => {
+      const workflowButton = within(row).getByRole("button");
+      return workflowButton.textContent ?? "";
+    });
+}
+
+function findRunRow(workflowName: string) {
+  const table = screen.getByRole("table");
+  return within(table)
+    .getAllByRole("row")
+    .find((row) => within(row).queryByText(workflowName));
+}
+
+function getCellsInColumn(columnName: string): HTMLElement[] {
+  const table = screen.getByRole("table");
+  const headers = within(table).getAllByRole("columnheader");
+  const colIndex = headers.findIndex(
+    (th) => th.textContent?.trim() === columnName,
+  );
+
+  if (colIndex === -1) {
+    return [];
+  }
+
+  return within(table)
+    .getAllByRole("row")
+    .slice(1) // skip header row
+    .map((row) => within(row).getAllByRole("cell")[colIndex])
+    .filter(Boolean);
+}
+
+/* ================================================================== */
+/*  AC 1: ?workflow=:id query param pre-filters runs                   */
+/* ================================================================== */
+
+describe("RUN-562 workflow filter via query param", () => {
+  it("passes workflow_id to useRuns when ?workflow=:id is present in the URL", async () => {
+    await renderRunsRoute("/runs?workflow=wf_research");
+
+    await waitFor(() => {
+      const lastCall = mocks.runsQueryCalls.at(-1);
+      expect(getWorkflowParam(lastCall)).toBe("wf_research");
+    });
+  });
+
+  it("shows only runs for the filtered workflow when ?workflow param is set", async () => {
+    await renderRunsRoute("/runs?workflow=wf_research");
+
+    await waitFor(() => {
+      const table = screen.getByRole("table");
+      const rows = within(table).getAllByRole("row").slice(1);
+      expect(rows).toHaveLength(1);
+    });
+
+    expect(screen.getByText("Research & Review")).toBeTruthy();
+    expect(screen.queryByText("Content Pipeline")).toBeNull();
+    expect(screen.queryByText("Daily Digest")).toBeNull();
+  });
+
+  it("does not pass workflow_id to useRuns when no ?workflow param is present", async () => {
+    await renderRunsRoute("/runs");
+
+    await waitFor(() => {
+      const lastCall = mocks.runsQueryCalls.at(-1);
+      expect(getWorkflowParam(lastCall)).toBeNull();
+    });
+  });
+});
+
+/* ================================================================== */
+/*  AC 2: header shows "Runs — [Name]" with × clear button            */
+/* ================================================================== */
+
+describe("RUN-562 filtered page header", () => {
+  it('shows "Runs — [Workflow Name]" in the header when workflow filter is active', async () => {
+    await renderRunsRoute("/runs?workflow=wf_research");
+
+    const heading = await screen.findByRole("heading", { level: 1 });
+    expect(heading.textContent).toContain("Research & Review");
+  });
+
+  it("shows a clear (×) button in the header when workflow filter is active", async () => {
+    await renderRunsRoute("/runs?workflow=wf_research");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+        "Research & Review",
+      );
+    });
+
+    // The clear button should be findable — it removes the workflow filter
+    const clearButton = screen.getByRole("button", { name: /clear/i });
+    expect(clearButton).toBeTruthy();
+  });
+
+  it("removes the workflow query param and restores plain 'Runs' header when × is clicked", async () => {
+    const { router, user } = await renderRunsRoute("/runs?workflow=wf_research");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+        "Research & Review",
+      );
+    });
+
+    const clearButton = screen.getByRole("button", { name: /clear/i });
+    await user.click(clearButton);
+
+    await waitFor(() => {
+      const heading = screen.getByRole("heading", { level: 1 });
+      expect(heading.textContent).not.toContain("Research & Review");
+      expect(heading.textContent).toContain("Runs");
+    });
+
+    // URL should no longer have the workflow param
+    expect(router.state?.location.search).not.toContain("workflow=");
+  });
+
+  it('shows the plain "Runs" header with no clear button when no workflow filter is active', async () => {
+    await renderRunsRoute("/runs");
+
+    const heading = await screen.findByRole("heading", { level: 1 });
+    expect(heading.textContent).toBe("Runs");
+    expect(screen.queryByRole("button", { name: /clear/i })).toBeNull();
+  });
+});
+
+/* ================================================================== */
+/*  AC 3: Regressions column shows per-run count with ⚠ badge         */
+/* ================================================================== */
+
+describe("RUN-562 Regressions column", () => {
+  it('renders a "Regr" column header after Eval', async () => {
+    await renderRunsRoute("/runs");
+
+    await waitFor(() => {
+      expect(screen.getByRole("table")).toBeTruthy();
+    });
+
+    const headers = getVisibleColumnHeaders();
+    const evalIndex = headers.indexOf("Eval");
+    expect(evalIndex).toBeGreaterThanOrEqual(0);
+    expect(headers[evalIndex + 1]).toBe("Regr");
+  });
+
+  it("displays regression count with ⚠ badge when regression_count > 0", async () => {
+    await renderRunsRoute("/runs");
+
+    const researchRow = await waitFor(() => {
+      const row = findRunRow("Research & Review");
+      expect(row).toBeTruthy();
+      return row as HTMLElement;
+    });
+
+    // Research & Review has regression_count: 3
+    expect(within(researchRow).getByText(/⚠/)).toBeTruthy();
+    expect(within(researchRow).getByText(/3/)).toBeTruthy();
+  });
+
+  /* ================================================================ */
+  /*  AC 5: Empty regressions show "—"                                 */
+  /* ================================================================ */
+
+  it('displays "—" when regression_count is 0', async () => {
+    await renderRunsRoute("/runs");
+
+    const pipelineRow = await waitFor(() => {
+      const row = findRunRow("Content Pipeline");
+      expect(row).toBeTruthy();
+      return row as HTMLElement;
+    });
+
+    // Content Pipeline has regression_count: 0
+    // The Regr column cell should show a dash
+    const regrCells = getCellsInColumn("Regr");
+    const pipelineRegrCell = regrCells[1]; // second row (pipeline is index 1 sorted by started desc)
+    expect(pipelineRegrCell.textContent).toBe("—");
+  });
+
+  it('displays "—" when regression_count is null', async () => {
+    await renderRunsRoute("/runs");
+
+    await waitFor(() => {
+      expect(findRunRow("Daily Digest")).toBeTruthy();
+    });
+
+    // Daily Digest has regression_count: null
+    const regrCells = getCellsInColumn("Regr");
+    // Find the cell for Daily Digest (last by started_at desc)
+    const digestRegrCell = regrCells[2];
+    expect(digestRegrCell.textContent).toBe("—");
+  });
+});
+
+/* ================================================================== */
+/*  AC 4: Regressions column is sortable                               */
+/* ================================================================== */
+
+describe("RUN-562 Regressions column sorting", () => {
+  it("supports ascending sort on the Regr column", async () => {
+    const { user } = await renderRunsRoute("/runs");
+
+    const regrHeader = await waitFor(() => {
+      const header = screen.getByRole("columnheader", { name: "Regr" });
+      expect(header).toBeTruthy();
+      return header;
+    });
+
+    await user.click(regrHeader);
+
+    expect(regrHeader.getAttribute("aria-sort")).toBe("ascending");
+  });
+
+  it("toggles to descending sort on the Regr column on second click", async () => {
+    const { user } = await renderRunsRoute("/runs");
+
+    const regrHeader = await waitFor(() => {
+      const header = screen.getByRole("columnheader", { name: "Regr" });
+      expect(header).toBeTruthy();
+      return header;
+    });
+
+    await user.click(regrHeader);
+    await user.click(regrHeader);
+
+    expect(regrHeader.getAttribute("aria-sort")).toBe("descending");
+  });
+
+  it("sorts runs by regression_count with nulls last in ascending order", async () => {
+    const { user } = await renderRunsRoute("/runs");
+
+    const regrHeader = await waitFor(() => {
+      const header = screen.getByRole("columnheader", { name: "Regr" });
+      expect(header).toBeTruthy();
+      return header;
+    });
+
+    await user.click(regrHeader);
+
+    const order = getVisibleWorkflowOrder();
+    // ascending: 0 (Content Pipeline), 3 (Research & Review), null last (Daily Digest)
+    expect(order).toEqual([
+      "Content Pipeline",
+      "Research & Review",
+      "Daily Digest",
+    ]);
+  });
+
+  it("sorts runs by regression_count with nulls last in descending order", async () => {
+    const { user } = await renderRunsRoute("/runs");
+
+    const regrHeader = await waitFor(() => {
+      const header = screen.getByRole("columnheader", { name: "Regr" });
+      expect(header).toBeTruthy();
+      return header;
+    });
+
+    await user.click(regrHeader);
+    await user.click(regrHeader);
+
+    const order = getVisibleWorkflowOrder();
+    // descending: 3 (Research & Review), 0 (Content Pipeline), null last (Daily Digest)
+    expect(order).toEqual([
+      "Research & Review",
+      "Content Pipeline",
+      "Daily Digest",
+    ]);
+  });
+});
