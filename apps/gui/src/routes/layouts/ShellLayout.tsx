@@ -32,7 +32,7 @@ export function ShellLayout() {
         className="flex flex-col border-r border-border-subtle"
       >
         {/* Logo */}
-        <div className="h-14 px-3 flex items-center gap-2 shrink-0">
+        <div className="flex h-14 shrink-0 items-center gap-2 px-4">
           <svg
             width="24"
             height="24"
@@ -110,8 +110,9 @@ export function ShellLayout() {
               className={({ isActive }) =>
                 cn(
                   "relative flex items-center gap-2 px-2 rounded-md transition-colors",
-                  "text-[length:var(--font-size-md)] font-normal",
-                  "h-[var(--control-height-sm)]",
+                  "gap-[var(--space-2-5)] rounded-md pl-[var(--space-4)] pr-3 transition-colors",
+                  "text-[length:var(--font-size-md)] font-medium",
+                  "h-[var(--control-height-md)]",
                   isActive
                     ? "bg-[var(--surface-selected)] text-[var(--text-heading)]"
                     : "text-[var(--sidebar-fg)] hover:bg-[var(--sidebar-hover)]",
@@ -122,7 +123,7 @@ export function ShellLayout() {
                 <>
                   {isActive && (
                     <span
-                      className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-sm"
+                      className="absolute bottom-0 left-0 top-0 w-[var(--border-width-thick)] rounded-r-sm"
                       style={{ background: "var(--sidebar-active-indicator)" }}
                     />
                   )}
@@ -143,8 +144,9 @@ export function ShellLayout() {
               className={({ isActive }) =>
                 cn(
                   "relative flex items-center gap-2 px-2 rounded-md transition-colors",
-                  "text-[length:var(--font-size-md)] font-normal",
-                  "h-[var(--control-height-sm)]",
+                  "gap-[var(--space-2-5)] rounded-md pl-[var(--space-4)] pr-3 transition-colors",
+                  "text-[length:var(--font-size-md)] font-medium",
+                  "h-[var(--control-height-md)]",
                   isActive
                     ? "bg-[var(--surface-selected)] text-[var(--text-heading)]"
                     : "text-[var(--sidebar-fg)] hover:bg-[var(--sidebar-hover)]",
@@ -155,7 +157,7 @@ export function ShellLayout() {
                 <>
                   {isActive && (
                     <span
-                      className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-sm"
+                      className="absolute bottom-0 left-0 top-0 w-[var(--border-width-thick)] rounded-r-sm"
                       style={{ background: "var(--sidebar-active-indicator)" }}
                     />
                   )}

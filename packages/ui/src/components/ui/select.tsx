@@ -131,7 +131,15 @@ function SelectItem({
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
-      className={cn("dropdown-menu__item", className)}
+      className={cn(
+        "dropdown-menu__item relative flex min-h-[var(--control-height-md)] cursor-pointer items-center rounded-[var(--radius-md)]",
+        "pl-[var(--space-4)] pr-[calc(var(--space-4)+var(--space-4))]",
+        "font-body text-md font-medium leading-normal text-primary",
+        "select-none outline-none transition-colors duration-100 ease-default",
+        "data-[highlighted]:bg-surface-hover data-[highlighted]:text-primary",
+        "data-[disabled]:pointer-events-none data-[disabled]:text-muted",
+        className
+      )}
       {...props}
     >
       <SelectPrimitive.ItemText className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">
