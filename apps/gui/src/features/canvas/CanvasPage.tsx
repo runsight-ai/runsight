@@ -14,6 +14,7 @@ import { CommitDialog } from "@/features/git/CommitDialog";
 import { gitApi } from "@/api/git";
 import { YamlEditor } from "./YamlEditor";
 import { useCreateRun } from "@/queries/runs";
+import { useWorkflowRegressions } from "@/queries/workflows";
 import { useProviders } from "@/queries/settings";
 import { useGitStatus } from "@/queries/git";
 import { useCanvasStore } from "@/store/canvas";
@@ -40,6 +41,7 @@ export function Component() {
   const edgeCount = useCanvasStore((s) => s.edgeCount);
   const { data: providers } = useProviders();
   const { data: gitStatus } = useGitStatus();
+  const { data: regressionsData } = useWorkflowRegressions(id!);
   const activeProviders = (providers?.items ?? []).filter((p) => p.is_active ?? true);
 
   const bannerConditions: BannerCondition[] = [
@@ -54,6 +56,11 @@ export function Component() {
       active: Boolean(gitStatus && !gitStatus.is_clean),
       message: `${gitStatus?.uncommitted_files?.length ?? 0} uncommitted change${(gitStatus?.uncommitted_files?.length ?? 0) === 1 ? "" : "s"}`,
       action: { label: "Commit", onClick: () => setCommitDialogOpen(true) },
+    },
+    {
+      type: "regressions",
+      active: (regressionsData?.count ?? 0) > 0,
+      message: `${regressionsData?.count ?? 0} regression${(regressionsData?.count ?? 0) === 1 ? "" : "s"} detected across runs`,
     },
   ];
 
@@ -191,7 +198,7 @@ export function Component() {
       </div>
 
       <FirstTimeTooltip />
-      <CanvasBottomPanel />
+      <CanvasBottomPanel workflowId={id} />
       <CanvasStatusBar activeTab={activeTab} blockCount={blockCount} edgeCount={edgeCount} />
 
       {/* Unsaved changes dialog */}
