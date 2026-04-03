@@ -21,17 +21,13 @@ import { useForkWorkflow } from "./useForkWorkflow";
 
 interface RunDetailHeaderProps {
   run: RunResponse;
-  metrics?: {
-    total_cost_usd: number;
-    total_tokens: number;
-  };
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function RunDetailHeader({ run, metrics }: RunDetailHeaderProps) {
+export function RunDetailHeader({ run }: RunDetailHeaderProps) {
   const navigate = useNavigate();
 
   const isFailed = run.status === "failed" || run.status === "error";
@@ -49,8 +45,7 @@ export function RunDetailHeader({ run, metrics }: RunDetailHeaderProps) {
 
   const handleOpenWorkflow = useCallback(() => {
     if (run.workflow_id) {
-      void Promise.resolve(navigate(`/workflows/${run.workflow_id}/edit`))
-        .catch(() => navigate(`/workflows/${run.workflow_id}`));
+      navigate(`/workflows/${run.workflow_id}/edit`);
     }
   }, [navigate, run.workflow_id]);
 
@@ -108,12 +103,12 @@ export function RunDetailHeader({ run, metrics }: RunDetailHeaderProps) {
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[var(--surface-raised)] border border-[var(--border-default)]">
           <DollarSign className="w-3.5 h-3.5 text-[var(--text-muted)]" />
           <span className="text-xs text-[var(--text-muted)]">Total Cost</span>
-          <span className="font-mono text-sm text-[var(--text-primary)]">${(metrics?.total_cost_usd ?? run.total_cost_usd).toFixed(3)}</span>
+          <span className="font-mono text-sm text-[var(--text-primary)]">${run.total_cost_usd.toFixed(3)}</span>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[var(--surface-raised)] border border-[var(--border-default)]">
           <Activity className="w-3.5 h-3.5 text-[var(--text-muted)]" />
           <span className="text-xs text-[var(--text-muted)]">Tokens</span>
-          <span className="font-mono text-sm text-[var(--text-primary)]">{(metrics?.total_tokens ?? run.total_tokens).toLocaleString()}</span>
+          <span className="font-mono text-sm text-[var(--text-primary)]">{run.total_tokens.toLocaleString()}</span>
         </div>
         {forkTooltip ? (
           <TooltipProvider>
