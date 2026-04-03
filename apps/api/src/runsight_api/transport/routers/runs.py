@@ -129,6 +129,7 @@ async def list_runs(
     offset: int = 0,
     limit: int = 20,
     run_service: RunService = Depends(get_run_service),
+    eval_service: EvalService = Depends(get_eval_service),
 ):
     limit = min(limit, 100)
     runs, total = _fetch_paginated_runs(
@@ -145,6 +146,12 @@ async def list_runs(
     summaries_map = _resolve_summaries(
         run_service, run_ids, run_service.get_node_summaries_batch(run_ids=run_ids)
     )
+
+    # Enrich each run with its regression count
+    regression_counts: dict[str, int] = {}
+    for run in runs:
+        result = eval_service.get_run_regressions(run.id)
+        regression_counts[run.id] = result["count"] if result else 0
 
     response_items = []
     for run in runs:
@@ -166,7 +173,7 @@ async def list_runs(
                 commit_sha=_run_response_field(run, "commit_sha", None),
                 run_number=_run_metric_field(run, "run_number"),
                 eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
-                regression_count=_run_metric_field(run, "regression_count"),
+                regression_count=regression_counts.get(run.id, 0),
                 node_summary=NodeSummary(
                     total=summaries.get("total", 0),
                     completed=summaries.get("completed", 0),
@@ -181,13 +188,18 @@ async def list_runs(
 
 
 @router.get("/{run_id}", response_model=RunResponse)
-async def get_run(run_id: str, run_service: RunService = Depends(get_run_service)):
+async def get_run(
+    run_id: str,
+    run_service: RunService = Depends(get_run_service),
+    eval_service: EvalService = Depends(get_eval_service),
+):
     run = run_service.get_run(run_id)
     if not run:
         from ...domain.errors import RunNotFound
 
         raise RunNotFound(f"Run {run_id} not found")
     summaries = run_service.get_node_summary(run.id)
+    reg_result = eval_service.get_run_regressions(run_id)
     return RunResponse(
         id=run.id,
         workflow_id=run.workflow_id,
@@ -204,7 +216,7 @@ async def get_run(run_id: str, run_service: RunService = Depends(get_run_service
         commit_sha=_run_response_field(run, "commit_sha", None),
         run_number=_run_metric_field(run, "run_number"),
         eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
-        regression_count=_run_metric_field(run, "regression_count"),
+        regression_count=reg_result["count"] if reg_result else 0,
         node_summary=NodeSummary(
             total=summaries["total"],
             completed=summaries["completed"],
