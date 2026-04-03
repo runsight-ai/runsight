@@ -13,6 +13,7 @@ _PARAMETERS_SCHEMA: Dict[str, Any] = {
         "url": {"type": "string"},
         "headers": {"type": "object"},
         "body": {"type": "string"},
+        "response_path": {"type": "string"},
     },
     "required": ["method", "url"],
 }
@@ -31,7 +32,7 @@ async def _execute(
         url=str(args["url"]),
         headers=args.get("headers"),
         body_template=args.get("body"),
-        response_path=None,
+        response_path=args.get("response_path"),
         args=args,
         timeout_seconds=timeout_seconds,
         max_output_bytes=max_output_bytes,
