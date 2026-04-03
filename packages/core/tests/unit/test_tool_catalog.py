@@ -377,14 +377,35 @@ class TestResolveToolRejectsLegacyInputs:
     """RUN-579: legacy typed defs and leaked source strings should be rejected outright."""
 
     @pytest.mark.parametrize(
-        "tool_def",
+        ("tool_def", "seed_yaml"),
         [
             pytest.param(
                 {"factory": "BuiltinToolDef", "kwargs": {"type": "builtin", "source": "http"}},
+                None,
                 id="builtin-tooldef",
             ),
             pytest.param(
                 {"factory": "CustomToolDef", "kwargs": {"type": "custom", "source": "adder"}},
+                """
+                version: "1.0"
+                type: custom
+                executor: python
+                name: Adder
+                description: Add integers together.
+                parameters:
+                  type: object
+                  properties:
+                    a:
+                      type: integer
+                    b:
+                      type: integer
+                  required:
+                    - a
+                    - b
+                code: |
+                  def main(args):
+                      return {"sum": args["a"] + args["b"]}
+                """,
                 id="custom-tooldef",
             ),
             pytest.param(
@@ -392,19 +413,41 @@ class TestResolveToolRejectsLegacyInputs:
                     "factory": "HTTPToolDef",
                     "kwargs": {"type": "http", "source": "fetch_answer"},
                 },
+                """
+                version: "1.0"
+                type: custom
+                executor: request
+                name: Fetch Answer
+                description: Fetch an answer from a remote API.
+                parameters:
+                  type: object
+                  properties:
+                    item_id:
+                      type: integer
+                  required:
+                    - item_id
+                request:
+                  method: GET
+                  url: https://example.com/items/{{ item_id }}
+                  response_path: data.answer
+                timeout_seconds: 9
+                """,
                 id="http-tooldef",
             ),
         ],
     )
-    def test_rejects_typed_tool_definition_inputs(self, tool_def):
+    def test_rejects_typed_tool_definition_inputs(self, tmp_path, tool_def, seed_yaml):
         """resolve_tool should no longer accept typed workflow definitions at runtime."""
         from runsight_core.tools import resolve_tool
         from runsight_core.yaml import schema as schema_module
 
+        if seed_yaml is not None:
+            _write_custom_tool_yaml(tmp_path, tool_def["kwargs"]["source"], seed_yaml)
+
         typed_def = getattr(schema_module, tool_def["factory"])(**tool_def["kwargs"])
 
         with pytest.raises((TypeError, ValueError)):
-            resolve_tool(typed_def)
+            resolve_tool(typed_def, base_dir=tmp_path)
 
     @pytest.mark.parametrize("legacy_source", ["runsight/http", "runsight/file-io"])
     def test_rejects_legacy_builtin_source_strings(self, legacy_source):
