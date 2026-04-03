@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import React from "react";
@@ -8,6 +8,10 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const GUI_SRC_ROOT = resolve(import.meta.dirname, "../../..");
+const FEATURE_ROOTS = [
+  resolve(GUI_SRC_ROOT, "features/canvas"),
+  resolve(GUI_SRC_ROOT, "features/runs"),
+];
 
 function collectSourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -31,23 +35,32 @@ function collectSourceFiles(dir: string): string[] {
 }
 
 function candidateSharedTopbarModules() {
-  return collectSourceFiles(GUI_SRC_ROOT).filter((filePath) => {
-    const source = readFileSync(filePath, "utf8");
+  return FEATURE_ROOTS.flatMap((root) => collectSourceFiles(root))
+    .filter((filePath) => filePath.endsWith(".tsx"));
+}
 
-    return (
-      filePath.endsWith(".tsx")
-      && /workflowName|workflow_name/.test(source)
-      && /mode/.test(source)
-      && source.includes("workflow")
-      && source.includes("execution")
-      && source.includes("historical")
-      && source.includes("fork-draft")
-      && /save|fork|openWorkflow|open workflow/i.test(source)
-      && /Total Cost|Tokens|Read-only review|Canvas|YAML/i.test(source)
-      && /<header|<Button|<Tabs|button/i.test(source)
-      && /export\s+(function|const)\s+[A-Z][A-Za-z0-9]*|export\s+default/.test(source)
-    );
-  });
+function matchesWorkflowMode() {
+  return Boolean(
+    screen.queryByText("Research Workflow")
+    && screen.queryByRole("button", { name: /save/i })
+    && screen.queryByRole("tab", { name: /canvas/i })
+    && screen.queryByRole("tab", { name: /yaml/i })
+    && !screen.queryByText(/Total Cost/i)
+    && !screen.queryByRole("button", { name: /fork/i })
+    && !screen.queryByRole("button", { name: /open workflow/i }),
+  );
+}
+
+function matchesHistoricalMode() {
+  return Boolean(
+    screen.queryByText(/Read-only review/i)
+    && screen.queryByText(/Total Cost/i)
+    && screen.queryByText(/Tokens/i)
+    && screen.queryByRole("button", { name: /fork/i })
+    && screen.queryByRole("button", { name: /open workflow/i })
+    && !screen.queryByRole("button", { name: /save/i })
+    && !screen.queryByRole("tab", { name: /yaml/i }),
+  );
 }
 
 async function loadSharedTopbarComponent() {
@@ -60,7 +73,48 @@ async function loadSharedTopbarComponent() {
 
     for (const [key, value] of Object.entries(module)) {
       if ((key === "default" || /^[A-Z]/.test(key)) && typeof value === "function") {
-        return value as React.ComponentType<Record<string, unknown>>;
+        const component = value as React.ComponentType<Record<string, unknown>>;
+
+        try {
+          const { rerender, unmount } = render(
+            React.createElement(component, {
+              mode: "workflow",
+              workflowName: "Research Workflow",
+              activeTab: "yaml",
+              onTabChange: vi.fn(),
+              isDirty: true,
+              onSave: vi.fn(),
+              onRun: vi.fn(),
+            }),
+          );
+
+          const workflowMatches = matchesWorkflowMode();
+
+          rerender(
+            React.createElement(component, {
+              mode: "historical",
+              workflowName: "Research Workflow",
+              run: buildRun("completed"),
+              metrics: {
+                total_cost_usd: 1.234,
+                total_tokens: 1234,
+              },
+              onFork: vi.fn(),
+              onOpenWorkflow: vi.fn(),
+              hasSnapshot: true,
+            }),
+          );
+
+          const historicalMatches = matchesHistoricalMode();
+          unmount();
+          cleanup();
+
+          if (workflowMatches && historicalMatches) {
+            return component;
+          }
+        } catch {
+          cleanup();
+        }
       }
     }
   }
@@ -208,6 +262,42 @@ describe("RUN-594 shared workflow surface topbar", () => {
     const SharedTopbar = await loadSharedTopbarComponent();
 
     render(
+      React.createElement(SharedTopbar, {
+        mode: "fork-draft",
+        workflowName: "Draft Workflow",
+        activeTab: "canvas",
+        onTabChange: vi.fn(),
+        onSave: vi.fn(),
+        onRun: vi.fn(),
+      }),
+    );
+
+    expect(screen.getByText("Draft Workflow")).not.toBeNull();
+    expect(screen.getByRole("button", { name: /save/i })).not.toBeNull();
+    expect(screen.getByRole("tab", { name: /canvas/i })).not.toBeNull();
+    expect(screen.queryByText(/Read-only review/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /fork/i })).toBeNull();
+  });
+
+  it("keeps workflow and fork-draft transitions on the same shared topbar component family", async () => {
+    const SharedTopbar = await loadSharedTopbarComponent();
+
+    const { rerender } = render(
+      React.createElement(SharedTopbar, {
+        mode: "workflow",
+        workflowName: "Research Workflow",
+        activeTab: "yaml",
+        onTabChange: vi.fn(),
+        isDirty: true,
+        onSave: vi.fn(),
+        onRun: vi.fn(),
+      }),
+    );
+
+    expect(screen.getByRole("button", { name: /save/i })).not.toBeNull();
+    expect(screen.getByRole("tab", { name: /yaml/i })).not.toBeNull();
+
+    rerender(
       React.createElement(SharedTopbar, {
         mode: "fork-draft",
         workflowName: "Draft Workflow",
