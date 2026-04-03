@@ -1,0 +1,241 @@
+import { useState, useCallback, useMemo, useEffect, memo } from "react";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  type Node,
+  type Edge,
+  ReactFlowProvider,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+
+import { useRun, useRunNodes, useRunLogs, useRunRegressions } from "@/queries/runs";
+import { CanvasErrorBoundary } from "@/components/shared/ErrorBoundary";
+import { Card } from "@runsight/ui/card";
+import { Button } from "@runsight/ui/button";
+import { PriorityBanner } from "@/components/shared";
+import { RunCanvasNode, CanvasNodeComponent, nodeTypes } from "./RunCanvasNode";
+import type { RunNodeData } from "./RunCanvasNode";
+import { RunInspectorPanel } from "./RunInspectorPanel";
+import { RunBottomPanel } from "./RunBottomPanel";
+import { HistoricalWorkflowSurface } from "./HistoricalWorkflowSurface";
+import { WorkflowSurfaceTopbar } from "../canvas/WorkflowSurfaceTopbar";
+import { getIconForBlockType, mapRunStatus } from "./runDetailUtils";
+import { createForkDraftWorkflow } from "./useForkWorkflow";
+import { toast } from "sonner";
+
+export { RunCanvasNode };
+
+/** Backward-compat memo wrapper (RUN-241) */
+export const CanvasNode = memo(CanvasNodeComponent, (prev, next) =>
+  prev.data.name === next.data.name
+  && prev.data.status === next.data.status
+  && prev.data.stepType === next.data.stepType,
+);
+
+interface HistoricalRunSurfaceRouteProps {
+  runId: string;
+}
+
+function HistoricalRunSurfaceRouteInner({ runId }: HistoricalRunSurfaceRouteProps) {
+  const { data: run, isLoading: isLoadingRun } = useRun(runId, {
+    refetchInterval: (query) => {
+      const status = (query?.state as { data?: { status: string } })?.data?.status;
+      if (status === "running" || status === "pending") return 2000;
+      return false;
+    },
+  });
+
+  const {
+    data: runNodes,
+    isLoading: isLoadingNodes,
+    isError: isRunNodesError,
+    error: runNodesError,
+    refetch: refetchRunNodes,
+  } = useRunNodes(runId);
+  const { data: runLogs } = useRunLogs(runId, undefined, { refetchInterval: undefined });
+  const { data: regressionData } = useRunRegressions(runId);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<RunNodeData>>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [selectedNode, setSelectedNode] = useState<Node<RunNodeData> | null>(null);
+
+  const buildCanvasFromRun = useCallback(() => {
+    if (!runNodes) return;
+    const canvasNodes: Node<RunNodeData>[] = runNodes.map((node, index) => ({
+      id: node.node_id,
+      type: "canvasNode",
+      position: { x: 100 + (index % 3) * 300, y: 100 + Math.floor(index / 3) * 200 },
+      data: {
+        name: node.block_type,
+        soulRef: node.block_type,
+        model: node.block_type,
+        status: mapRunStatus(node.status),
+        executionCost: node.cost_usd,
+        duration: node.duration_seconds || undefined,
+        tokens: node.tokens as { input?: number; output?: number; total?: number } | undefined,
+        error: node.error || undefined,
+        icon: getIconForBlockType(node.block_type),
+      },
+    }));
+    setNodes(canvasNodes);
+
+    const canvasEdges: Edge[] = [];
+    for (let i = 0; i < canvasNodes.length - 1; i++) {
+      const cur = canvasNodes[i];
+      const nxt = canvasNodes[i + 1];
+      if (cur && nxt) {
+        canvasEdges.push({
+          id: `e${i}`,
+          source: cur.id,
+          target: nxt.id,
+          style: { stroke: "var(--border-default)", strokeWidth: 2 } as React.CSSProperties,
+        });
+      }
+    }
+    setEdges(canvasEdges);
+  }, [runNodes, setNodes, setEdges]);
+
+  useEffect(() => { buildCanvasFromRun(); }, [buildCanvasFromRun]);
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node<RunNodeData>) => { setSelectedNode(node); }, []);
+  const onPaneClick = useCallback(() => { setSelectedNode(null); }, []);
+  const logs = useMemo(() => runLogs?.items || [], [runLogs]);
+  const regressionCount = regressionData?.count ?? 0;
+  const [isForking, setIsForking] = useState(false);
+  const navigateToWorkflowSurface = useCallback(
+    (path: string, state?: Record<string, unknown>) => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      window.history.pushState(state ?? null, "", path);
+      window.dispatchEvent(new PopStateEvent("popstate", { state }));
+    },
+    [],
+  );
+  const handleOpenWorkflow = useCallback(() => {
+    if (run?.workflow_id) {
+      navigateToWorkflowSurface(`/workflows/${run.workflow_id}/edit`);
+    }
+  }, [navigateToWorkflowSurface, run]);
+  const handleFork = useCallback(async () => {
+    const hasSnapshot = Boolean(run?.commit_sha);
+    const forkDisabled = !run || run.status === "running" || run.status === "pending" || !hasSnapshot;
+    if (forkDisabled || isForking) return;
+
+    setIsForking(true);
+
+    try {
+      const result = await createForkDraftWorkflow({
+        commitSha: run.commit_sha ?? "",
+        workflowPath: `custom/workflows/${run.workflow_id}.yaml`,
+        workflowName: run.workflow_name,
+      });
+
+      navigateToWorkflowSurface(`/workflows/${result.id}/edit`, {
+        workflowSurfaceMode: "fork-draft",
+      });
+    } catch {
+      toast.error("Couldn't create fork. Try again.");
+      setIsForking(false);
+    }
+  }, [isForking, navigateToWorkflowSurface, run]);
+
+  if (isLoadingRun || isLoadingNodes) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-[var(--surface-primary)]">
+        <div className="flex items-center gap-2 text-[var(--text-muted)]">
+          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          Loading run details...
+        </div>
+      </div>
+    );
+  }
+
+  if (!run) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-[var(--surface-primary)]">
+        <div className="text-[var(--text-muted)]">Run not found</div>
+      </div>
+    );
+  }
+
+  const isFailed = run.status === "failed" || run.status === "error";
+  const hasSnapshot = Boolean(run.commit_sha);
+
+  return (
+    <HistoricalWorkflowSurface
+      runId={run.id}
+      topbar={
+        <WorkflowSurfaceTopbar
+          mode="historical"
+          workflowName={run.workflow_name}
+          run={run}
+          metrics={{ total_cost_usd: run.total_cost_usd, total_tokens: run.total_tokens }}
+          hasSnapshot={hasSnapshot}
+          onFork={handleFork}
+          onOpenWorkflow={handleOpenWorkflow}
+        />
+      }
+      mainContent={
+        <>
+          <PriorityBanner conditions={[{ type: "regressions", active: regressionCount > 0, message: `${regressionCount} regressions found` }]} />
+          <div className="flex-1 relative">
+            {isRunNodesError ? (
+              <div className="flex h-full items-center justify-center p-6">
+                <Card className="w-full max-w-xl px-6 py-6">
+                  <div className="space-y-3">
+                    <h2 className="text-lg font-semibold text-heading">Unable to load run graph</h2>
+                    <p className="text-sm leading-6 text-secondary">
+                      Runsight could not read the node response for this run. Retry to fetch the graph again.
+                    </p>
+                    {runNodesError instanceof Error ? <p className="text-sm text-secondary">{runNodesError.message}</p> : null}
+                    <div className="pt-2"><Button variant="primary" onClick={() => void refetchRunNodes()}>Retry</Button></div>
+                  </div>
+                </Card>
+              </div>
+            ) : (
+              <CanvasErrorBoundary>
+                <ReactFlow
+                  nodes={nodes} edges={edges}
+                  onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+                  onNodeClick={onNodeClick} onPaneClick={onPaneClick}
+                  nodeTypes={nodeTypes} nodesDraggable={false} nodesConnectable={false}
+                  elementsSelectable fitView fitViewOptions={{ padding: 0.2 }}
+                  minZoom={0.1} maxZoom={4} className="bg-[var(--surface-primary)]"
+                >
+                  <Background color="var(--border-default)" gap={20} size={1} style={{ opacity: 0.3 }} />
+                  <Controls className="!bg-[var(--surface-secondary)] !border-[var(--border-default)]" />
+                  <MiniMap className="!bg-[var(--surface-secondary)]/90 !border-[var(--border-default)]" nodeColor={(node) => {
+                    const s = (node.data as RunNodeData)?.status;
+                    if (s === "completed") return "var(--success-9)";
+                    if (s === "failed") return "var(--danger-9)";
+                    if (s === "pending") return "var(--text-muted)";
+                    return "var(--interactive-default)";
+                  }} maskColor="var(--background-70)" />
+                </ReactFlow>
+              </CanvasErrorBoundary>
+            )}
+          </div>
+        </>
+      }
+      inspector={<RunInspectorPanel selectedNode={selectedNode} onClose={() => setSelectedNode(null)} />}
+      footer={<RunBottomPanel logs={logs} executionComplete executionFailed={isFailed} finalDuration={run.duration_seconds || 0} runId={run.id} currentRunId={run.id} workflowId={run.workflow_id} />}
+    />
+  );
+}
+
+export function HistoricalRunSurfaceRoute({ runId }: HistoricalRunSurfaceRouteProps) {
+  return (
+  <ReactFlowProvider>
+    <HistoricalRunSurfaceRouteInner runId={runId} />
+  </ReactFlowProvider>
+  );
+}
+
+export const Component = HistoricalRunSurfaceRoute;
+
+export default Component;
