@@ -8,6 +8,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from typing import Any, Callable, Dict
 
 import httpx
@@ -32,6 +33,98 @@ from runsight_core.yaml.discovery import (
 BUILTIN_TOOL_CATALOG: Dict[str, Callable] = {}
 _ARG_TEMPLATE_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
 _ENV_TEMPLATE_RE = re.compile(r"\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
+DEFAULT_MAX_HTTP_OUTPUT_BYTES = 64 * 1024
+_HTML_BLOCK_TAGS = frozenset(
+    {
+        "address",
+        "article",
+        "aside",
+        "blockquote",
+        "br",
+        "dd",
+        "div",
+        "dl",
+        "dt",
+        "fieldset",
+        "figcaption",
+        "figure",
+        "footer",
+        "form",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "header",
+        "hr",
+        "li",
+        "main",
+        "nav",
+        "ol",
+        "p",
+        "pre",
+        "section",
+        "table",
+        "tbody",
+        "td",
+        "th",
+        "thead",
+        "tr",
+        "ul",
+    }
+)
+_HTML_HIDDEN_TAGS = frozenset({"head", "noscript", "script", "style", "template"})
+
+
+class _HTMLTextExtractor(HTMLParser):
+    """Convert HTML into readable text while dropping hidden/script content."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._chunks: list[str] = []
+        self._hidden_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        normalized_tag = tag.lower()
+        if normalized_tag in _HTML_HIDDEN_TAGS:
+            self._hidden_depth += 1
+            return
+        if self._hidden_depth > 0:
+            return
+        if normalized_tag == "li":
+            self._append_line_break()
+            self._chunks.append("- ")
+            return
+        if normalized_tag in _HTML_BLOCK_TAGS:
+            self._append_line_break()
+
+    def handle_endtag(self, tag: str) -> None:
+        normalized_tag = tag.lower()
+        if normalized_tag in _HTML_HIDDEN_TAGS:
+            if self._hidden_depth > 0:
+                self._hidden_depth -= 1
+            return
+        if self._hidden_depth > 0:
+            return
+        if normalized_tag in _HTML_BLOCK_TAGS:
+            self._append_line_break()
+
+    def handle_data(self, data: str) -> None:
+        if self._hidden_depth > 0:
+            return
+        if data.isspace():
+            if "\n" in data:
+                self._append_line_break()
+            return
+        self._chunks.append(data)
+
+    def text(self) -> str:
+        return "".join(self._chunks)
+
+    def _append_line_break(self) -> None:
+        if self._chunks and not self._chunks[-1].endswith("\n"):
+            self._chunks.append("\n")
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +277,37 @@ def _extract_http_response_value(payload: object, response_path: str | None) -> 
     return value
 
 
+def _normalize_html_response(html: str) -> str:
+    """Collapse HTML into readable text for tool outputs."""
+    parser = _HTMLTextExtractor()
+    parser.feed(html)
+    parser.close()
+
+    text = parser.text().replace("\xa0", " ")
+    text = re.sub(r"[^\S\n]+", " ", text)
+    text = re.sub(r" *\n *", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def _truncate_response(result: str, *, max_output_bytes: int) -> str:
+    """Trim oversized responses to the configured byte budget."""
+    encoded = result.encode("utf-8")
+    if len(encoded) <= max_output_bytes:
+        return result
+
+    suffix = "\n\n[truncated]"
+    suffix_bytes = suffix.encode("utf-8")
+    if max_output_bytes <= len(suffix_bytes):
+        return suffix_bytes[:max_output_bytes].decode("utf-8", errors="ignore")
+
+    budget = max_output_bytes - len(suffix_bytes)
+    truncated = encoded[:budget].decode("utf-8", errors="ignore").rstrip()
+    if not truncated:
+        return suffix_bytes[:max_output_bytes].decode("utf-8", errors="ignore")
+    return f"{truncated}{suffix}"
+
+
 def _apply_response_size_policy(
     result: str,
     *,
@@ -191,11 +315,13 @@ def _apply_response_size_policy(
     response_size_policy: Callable[..., str] | None,
 ) -> str:
     """Route oversized responses through the configured size policy hook."""
-    if max_output_bytes is None or len(result.encode("utf-8")) <= max_output_bytes:
+    effective_max_output_bytes = (
+        DEFAULT_MAX_HTTP_OUTPUT_BYTES if max_output_bytes is None else max_output_bytes
+    )
+    if len(result.encode("utf-8")) <= effective_max_output_bytes:
         return result
-    if response_size_policy is None:
-        return result
-    return response_size_policy(result, max_output_bytes=max_output_bytes)
+    effective_policy = response_size_policy or _truncate_response
+    return effective_policy(result, max_output_bytes=effective_max_output_bytes)
 
 
 async def _execute_outbound_request(
@@ -236,7 +362,9 @@ async def _execute_outbound_request(
     content_type = response.headers.get("content-type", "").lower()
     if "application/json" in content_type:
         result = json.dumps(_extract_http_response_value(response.json(), response_path))
-    elif "text/plain" in content_type or "text/html" in content_type:
+    elif "text/html" in content_type:
+        result = _normalize_html_response(response.text)
+    elif "text/plain" in content_type:
         result = response.text
     else:
         result = response.text
