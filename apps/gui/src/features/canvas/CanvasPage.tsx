@@ -14,7 +14,7 @@ import { CommitDialog } from "@/features/git/CommitDialog";
 import { gitApi } from "@/api/git";
 import { YamlEditor } from "./YamlEditor";
 import { useCreateRun } from "@/queries/runs";
-import { useWorkflowRegressions } from "@/queries/workflows";
+import { useWorkflow, useWorkflowRegressions } from "@/queries/workflows";
 import { useProviders } from "@/queries/settings";
 import { useGitStatus } from "@/queries/git";
 import { useCanvasStore } from "@/store/canvas";
@@ -41,8 +41,10 @@ export function Component() {
   const edgeCount = useCanvasStore((s) => s.edgeCount);
   const { data: providers } = useProviders();
   const { data: gitStatus } = useGitStatus();
+  const { data: workflow } = useWorkflow(id!);
   const { data: regressionsData } = useWorkflowRegressions(id!);
   const activeProviders = (providers?.items ?? []).filter((p) => p.is_active ?? true);
+  const isCommitted = Boolean(workflow?.commit_sha);
 
   const bannerConditions: BannerCondition[] = [
     {
@@ -86,7 +88,7 @@ export function Component() {
   }, []);
 
   const handleRun = useCallback(async () => {
-    if (isDirty) {
+    if (isDirty || !isCommitted) {
       const yamlContent = useCanvasStore.getState().yamlContent;
       const simResult = await gitApi.createSimBranch(id!, yamlContent);
       createRun.mutate(
@@ -99,7 +101,7 @@ export function Component() {
         { onSuccess: (result) => setActiveRunId(result.id) },
       );
     }
-  }, [id, isDirty, createRun, setActiveRunId]);
+  }, [createRun, id, isCommitted, isDirty, setActiveRunId]);
 
   const handleApiKeyModalClose = useCallback(
     (open: boolean) => {
