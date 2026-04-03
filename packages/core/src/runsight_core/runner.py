@@ -141,11 +141,25 @@ class RunsightTeamRunner:
         name = type(exc).__name__.lower()
         module = type(exc).__module__.lower()
         message = str(exc).lower()
+        non_retryable_signals = (
+            "authentication",
+            "autherror",
+            "unauthorized",
+            "forbidden",
+            "permission",
+            "invalid api key",
+            "invalid_api_key",
+            "credentials",
+            "configuration",
+            "configerror",
+        )
+        haystacks = (name, module, message)
+        if any(signal in haystack for haystack in haystacks for signal in non_retryable_signals):
+            return False
+
         signals = (
             "ratelimit",
             "timeout",
-            "authentication",
-            "auth",
             "apierror",
             "apiconnection",
             "serviceunavailable",
@@ -155,7 +169,6 @@ class RunsightTeamRunner:
             "temporarily unavailable",
             "overloaded",
         )
-        haystacks = (name, module, message)
         return any(signal in haystack for haystack in haystacks for signal in signals)
 
     def _fallback_soul(self, soul: Soul) -> Soul | None:
