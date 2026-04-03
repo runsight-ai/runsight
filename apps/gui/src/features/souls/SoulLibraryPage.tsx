@@ -30,8 +30,8 @@ const TOOL_META: Record<
   string,
   { label: string; icon: typeof Globe }
 > = {
-  "runsight/http": { label: "HTTP", icon: Globe },
-  "runsight/file-io": { label: "Files", icon: FileText },
+  http: { label: "HTTP", icon: Globe },
+  file_io: { label: "Files", icon: FileText },
 };
 
 function buildColumns(
