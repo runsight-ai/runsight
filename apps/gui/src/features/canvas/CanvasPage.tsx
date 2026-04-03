@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { useParams, useBlocker } from "react-router";
+import { useParams, useBlocker, useLocation } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { CanvasTopbar } from "./CanvasTopbar";
 import { CanvasStatusBar } from "./CanvasStatusBar";
@@ -12,7 +12,8 @@ import { WorkflowCanvas } from "./WorkflowCanvas";
 import { ProviderModal } from "@/components/provider/ProviderModal";
 import { CommitDialog } from "@/features/git/CommitDialog";
 import { gitApi } from "@/api/git";
-import { WorkflowSurface } from "./WorkflowSurface";
+import { WorkflowEditorSurface } from "./WorkflowEditorSurface";
+import { ForkDraftWorkflowSurface } from "./ForkDraftWorkflowSurface";
 import { YamlEditor } from "./YamlEditor";
 import { getWorkflowSurfaceModeConfig } from "./workflowSurfaceContract";
 import { useCreateRun } from "@/queries/runs";
@@ -25,9 +26,15 @@ import { EmptyState } from "@runsight/ui/empty-state";
 import type { ValidationState } from "./useYamlValidation";
 import { useWorkflow, useWorkflowRegressions } from "./workflowSurfaceQueries";
 import { Layout } from "lucide-react";
+import type { WorkflowSurfaceMode } from "./workflowSurfaceContract";
+
+interface CanvasPageLocationState {
+  workflowSurfaceMode?: WorkflowSurfaceMode;
+}
 
 export function Component() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation() as { state?: CanvasPageLocationState };
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("yaml");
   const [isDirty, setIsDirty] = useState(false);
@@ -50,7 +57,12 @@ export function Component() {
   const { data: regressionsData } = useWorkflowRegressions(id!);
   const activeProviders = (providers?.items ?? []).filter((p) => p.is_active ?? true);
   const isCommitted = Boolean(workflow?.commit_sha);
-  const workflowSurface = getWorkflowSurfaceModeConfig("workflow");
+  const surfaceMode = location.state?.workflowSurfaceMode === "fork-draft"
+    ? "fork-draft"
+    : "workflow";
+  const workflowSurface = getWorkflowSurfaceModeConfig(surfaceMode);
+  const SurfaceComponent =
+    surfaceMode === "fork-draft" ? ForkDraftWorkflowSurface : WorkflowEditorSurface;
 
   const bannerConditions: BannerCondition[] = [
     {
@@ -183,36 +195,41 @@ export function Component() {
   }
 
   return (
-    <WorkflowSurface
-      initialMode="workflow"
-      workflowId={id!}
-      hasRunOverlay={workflowSurface.capabilities.usesRunOverlay}
-      isEditable={workflowSurface.regions.center.editable}
-      topbar={
-        <CanvasTopbar
-          workflowId={id!}
-          activeTab={activeTab}
-          onValueChange={setActiveTab}
-          isDirty={isDirty}
-          onSave={handleSave}
-          yamlValid={yamlValid}
-          errorCount={errorCount}
-          onAddApiKey={handleOpenApiKeyModal}
-        />
-      }
-      palette={<PaletteSidebar onCollapse={setSidebarCollapsed} />}
-      mainContent={
-        <div className="flex h-full flex-col">
-          <PriorityBanner conditions={bannerConditions} />
-          {activeTab === "canvas" ? (
-            workflowSurface.regions.center.editable ? (
+    <>
+      <SurfaceComponent
+        workflowId={id!}
+        hasRunOverlay={workflowSurface.capabilities.usesRunOverlay}
+        isEditable={workflowSurface.regions.center.editable}
+        activeCenterRegion={activeTab === "yaml" ? "yaml" : "main"}
+        topbar={
+          <CanvasTopbar
+            workflowId={id!}
+            activeTab={activeTab}
+            onValueChange={setActiveTab}
+            isDirty={isDirty}
+            onSave={handleSave}
+            yamlValid={yamlValid}
+            errorCount={errorCount}
+            onAddApiKey={handleOpenApiKeyModal}
+          />
+        }
+        palette={<PaletteSidebar onCollapse={setSidebarCollapsed} />}
+        mainContent={
+          <div className="flex h-full flex-col">
+            <PriorityBanner conditions={bannerConditions} />
+            {workflowSurface.regions.center.editable ? (
               <div className="flex flex-row h-full">
                 <WorkflowCanvas />
               </div>
             ) : (
               canvasTabPlaceholder
-            )
-          ) : (
+            )}
+            <FirstTimeTooltip />
+          </div>
+        }
+        yaml={
+          <div className="flex h-full flex-col">
+            <PriorityBanner conditions={bannerConditions} />
             <div className="flex-1 h-full overflow-hidden">
               <YamlEditor
                 workflowId={id!}
@@ -220,46 +237,45 @@ export function Component() {
                 onValidation={handleValidation}
               />
             </div>
-          )}
-          <FirstTimeTooltip />
-          <Dialog open={blocker.state === "blocked" && !commitDialogOpen}>
-            <DialogContent>
-              <DialogTitle>You have unsaved changes</DialogTitle>
-              <p className="text-sm text-secondary px-5 py-4">
-                Your changes will be lost if you leave without saving.
-              </p>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => blocker.reset?.()}>
-                  Cancel
-                </Button>
-                <Button variant="secondary" onClick={() => blocker.proceed?.()}>
-                  Discard
-                </Button>
-                <Button variant="primary" onClick={handleLeaveAfterSave}>
-                  Save & Leave
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          <ProviderModal
-            mode="canvas"
-            open={apiKeyModalOpen}
-            onOpenChange={handleApiKeyModalClose}
-            onSaveSuccess={handleSaveSuccess}
-          />
-          <CommitDialog
-            open={commitDialogOpen}
-            onOpenChange={handleCommitDialogOpenChange}
-            files={currentFiles}
-            workflowId={id!}
-            draft={currentDraft}
-            onCommitSuccess={handleCommitSuccess}
-            onCommitError={handleCommitError}
-          />
-        </div>
-      }
-      footer={<CanvasBottomPanel workflowId={id} />}
-      statusBar={<CanvasStatusBar activeTab={activeTab} blockCount={blockCount} edgeCount={edgeCount} />}
-    />
+          </div>
+        }
+        footer={<CanvasBottomPanel workflowId={id} />}
+        statusBar={<CanvasStatusBar activeTab={activeTab} blockCount={blockCount} edgeCount={edgeCount} />}
+      />
+      <Dialog open={blocker.state === "blocked" && !commitDialogOpen}>
+        <DialogContent>
+          <DialogTitle>You have unsaved changes</DialogTitle>
+          <p className="text-sm text-secondary px-5 py-4">
+            Your changes will be lost if you leave without saving.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
+              Cancel
+            </Button>
+            <Button variant="secondary" onClick={() => blocker.proceed?.()}>
+              Discard
+            </Button>
+            <Button variant="primary" onClick={handleLeaveAfterSave}>
+              Save & Leave
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <ProviderModal
+        mode="canvas"
+        open={apiKeyModalOpen}
+        onOpenChange={handleApiKeyModalClose}
+        onSaveSuccess={handleSaveSuccess}
+      />
+      <CommitDialog
+        open={commitDialogOpen}
+        onOpenChange={handleCommitDialogOpenChange}
+        files={currentFiles}
+        workflowId={id!}
+        draft={currentDraft}
+        onCommitSuccess={handleCommitSuccess}
+        onCommitError={handleCommitError}
+      />
+    </>
   );
 }

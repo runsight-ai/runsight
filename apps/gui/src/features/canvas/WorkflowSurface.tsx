@@ -5,10 +5,12 @@ import {
   type WorkflowSurfaceProps,
 } from "./workflowSurfaceContract";
 
-interface WorkflowSurfaceLayoutProps extends WorkflowSurfaceProps {
+export interface WorkflowSurfaceLayoutProps extends WorkflowSurfaceProps {
   topbar?: ReactNode;
   palette?: ReactNode;
   mainContent: ReactNode;
+  yaml?: ReactNode;
+  activeCenterRegion?: "main" | "yaml";
   inspector?: ReactNode;
   footer?: ReactNode;
   statusBar?: ReactNode;
@@ -23,6 +25,8 @@ export function WorkflowSurface({
   topbar,
   palette,
   mainContent,
+  yaml,
+  activeCenterRegion,
   inspector,
   footer,
   statusBar,
@@ -36,6 +40,10 @@ export function WorkflowSurface({
     modeConfig.regions.palette.visible && palette ? "2 / 3" : "1 / -1";
   const inspectorContent =
     modeConfig.regions.inspector.visible && inspector ? inspector : null;
+  const resolvedCenterRegion = activeCenterRegion ?? (yaml ? "yaml" : "main");
+  const yamlContent =
+    modeConfig.regions.yaml.visible && resolvedCenterRegion === "yaml" && yaml ? yaml : null;
+  const centerContent = yamlContent ?? mainContent;
   const mainContentLabel =
     initialMode === "historical" ? "historical workflow surface" : "workflow surface";
 
@@ -62,7 +70,7 @@ export function WorkflowSurface({
           style={{ gridColumn: centerSpan, gridRow: "2" }}
         >
           <div className="flex flex-1 overflow-hidden">
-            <div className="flex-1 min-w-0">{mainContent}</div>
+            <div className="flex-1 min-w-0">{centerContent}</div>
             {inspectorContent}
           </div>
         </div>
