@@ -636,3 +636,27 @@ describe("Deprecated retry block type", () => {
     expect(result.nodes[0].data.stepType).toBe("retry");
   });
 });
+
+// ===========================================================================
+// 10. RUN-646 dispatch-only editor parsing contract
+// ===========================================================================
+
+describe("RUN-646 dispatch-only parsing contract", () => {
+  it("rejects legacy fanout block type in editor YAML", () => {
+    const yaml = makeYaml({
+      step1: { type: "fanout", soul_refs: ["a", "b"] },
+    });
+    const result = parseWorkflowYamlToGraph(yaml);
+    expect(result.error).toBeDefined();
+    expect(result.error!.message).toMatch(/fanout|dispatch|unsupported/i);
+  });
+
+  it("rejects legacy router block type in editor YAML", () => {
+    const yaml = makeYaml({
+      step1: { type: "router", soul_ref: "classifier", condition_ref: "route_cond" },
+    });
+    const result = parseWorkflowYamlToGraph(yaml);
+    expect(result.error).toBeDefined();
+    expect(result.error!.message).toMatch(/router|dispatch|unsupported/i);
+  });
+});

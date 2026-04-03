@@ -606,6 +606,40 @@ describe("CompiledWorkflow blocks use full BlockDef shape", () => {
 });
 
 // ===========================================================================
+// 8. RUN-646 dispatch-only editor compile contract
+// ===========================================================================
+
+describe("RUN-646 dispatch-only compile contract", () => {
+  it("dispatch block does not emit legacy condition_ref", () => {
+    const { block } = compileOne(
+      mockNode("b1", "dispatch", {
+        soulRef: "branch_soul",
+        conditionRef: "legacy_condition",
+      }),
+    );
+    expect(block.type).toBe("dispatch");
+    expect(block).not.toHaveProperty("condition_ref");
+  });
+
+  it("legacy fanout editor block type is rejected at compile time", () => {
+    expect(() =>
+      compileOne(mockNode("b1", "fanout", { soulRefs: ["s1", "s2"] })),
+    ).toThrow(/fanout|dispatch|unsupported/i);
+  });
+
+  it("legacy router editor block type is rejected at compile time", () => {
+    expect(() =>
+      compileOne(
+        mockNode("b1", "router", {
+          soulRef: "router_soul",
+          conditionRef: "route_cond",
+        }),
+      ),
+    ).toThrow(/router|dispatch|unsupported/i);
+  });
+});
+
+// ===========================================================================
 // 8. YAML string fidelity (snake_case keys for all types)
 // ===========================================================================
 

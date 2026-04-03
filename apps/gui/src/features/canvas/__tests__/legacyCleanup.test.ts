@@ -410,3 +410,25 @@ describe("Parse from YAML: known types via generic path", () => {
     expect(ac.tokenEnv).toBe("API_TOKEN");
   });
 });
+
+// ===========================================================================
+// 6. RUN-646 editor type surface contract
+// ===========================================================================
+
+describe("RUN-646 editor type surface contract", () => {
+  const source = readSourceFile("../../types/schemas/canvas.ts");
+
+  it("StepType includes dispatch and removes fanout/router workflow block identities", () => {
+    expect(source).toMatch(/\|\s*"dispatch"/);
+    expect(source).not.toMatch(/\|\s*"fanout"/);
+    expect(source).not.toMatch(/\|\s*"router"/);
+  });
+
+  it("StepNodeData no longer exposes conditionRef", () => {
+    expect(source).not.toMatch(/\bconditionRef\?\s*:/);
+  });
+
+  it("BlockDef no longer exposes condition_ref", () => {
+    expect(source).not.toMatch(/\bcondition_ref\?\s*:/);
+  });
+});

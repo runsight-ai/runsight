@@ -542,3 +542,58 @@ describe("Edge cases", () => {
     expect(yaml2).toBe(yaml1);
   });
 });
+
+// ===========================================================================
+// 8. RUN-646 dispatch-only round-trip contract
+// ===========================================================================
+
+describe("RUN-646 dispatch-only round-trip contract", () => {
+  it("dispatch node round-trips with conditional transitions and no conditionRef field", () => {
+    const nodes = [
+      mockNode("dispatch_step", "dispatch", {
+        soulRef: "classifier",
+        outputConditions: [
+          {
+            case_id: "approved",
+            condition_group: {
+              combinator: "and",
+              conditions: [{ eval_key: "result.status", operator: "eq", value: "approved" }],
+            },
+          },
+          { case_id: "rejected", default: true },
+        ],
+      }),
+      mockNode("approve", "linear"),
+      mockNode("reject", "linear"),
+    ];
+
+    const edges = [
+      mockEdge("dispatch_step", "approve", "approved"),
+      mockEdge("dispatch_step", "reject"),
+    ];
+
+    const { doc1, doc2 } = roundTrip({ nodes, edges });
+    expect((doc1.blocks["dispatch_step"] as Record<string, unknown>).type).toBe("dispatch");
+    expect((doc1.blocks["dispatch_step"] as Record<string, unknown>)).not.toHaveProperty("condition_ref");
+    expect(doc2.blocks["dispatch_step"]).toEqual(doc1.blocks["dispatch_step"]);
+  });
+
+  it("legacy fanout node type is not accepted by round-trip parser path", () => {
+    const nodes = [mockNode("legacy_fanout", "fanout", { soulRefs: ["a", "b"] })];
+    const { parsed } = roundTrip({ nodes, edges: [] });
+    expect(parsed.error).toBeDefined();
+    expect(parsed.error!.message).toMatch(/fanout|dispatch|unsupported/i);
+  });
+
+  it("legacy router node type is not accepted by round-trip parser path", () => {
+    const nodes = [
+      mockNode("legacy_router", "router", {
+        soulRef: "classifier",
+        conditionRef: "route_cond",
+      }),
+    ];
+    const { parsed } = roundTrip({ nodes, edges: [] });
+    expect(parsed.error).toBeDefined();
+    expect(parsed.error!.message).toMatch(/router|dispatch|unsupported/i);
+  });
+});
