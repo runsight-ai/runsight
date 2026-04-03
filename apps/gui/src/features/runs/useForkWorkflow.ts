@@ -40,7 +40,9 @@ export function useForkWorkflow({
       const result = await workflowsApi.createWorkflow({ name, yaml, commit: false });
 
       // Navigate to the editor for the new workflow
-      navigate(`/workflows/${result.id}/edit`);
+      navigate(`/workflows/${result.id}/edit`, {
+        state: { workflowSurfaceMode: "fork-draft" },
+      });
     } catch {
       toast.error("Couldn't create fork. Try again.");
       setIsForking(false);
