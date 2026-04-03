@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import json
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
-import httpx
-
-from runsight_core.security import validate_ssrf
-from runsight_core.tools._catalog import ToolInstance, register_builtin
+from runsight_core.tools._catalog import ToolInstance, _execute_outbound_request, register_builtin
 
 _PARAMETERS_SCHEMA: Dict[str, Any] = {
     "type": "object",
@@ -22,39 +18,49 @@ _PARAMETERS_SCHEMA: Dict[str, Any] = {
 }
 
 
-async def _execute(args: dict) -> str:
-    """Execute an HTTP request after SSRF validation."""
-    url = args["url"]
-    method = args["method"]
-    headers = args.get("headers")
-    body = args.get("body")
-
-    await validate_ssrf(url)
-
-    async with httpx.AsyncClient() as client:
-        response = await client.request(
-            method,
-            url,
-            headers=headers,
-            content=body,
-        )
-
-    return json.dumps(
-        {
-            "status_code": response.status_code,
-            "headers": dict(response.headers),
-            "body": response.text,
-        }
+async def _execute(
+    args: dict,
+    *,
+    timeout_seconds: int | None = None,
+    max_output_bytes: int | None = None,
+    response_size_policy: Callable[..., str] | None = None,
+) -> str:
+    """Execute the builtin HTTP tool through the shared outbound request path."""
+    return await _execute_outbound_request(
+        method=str(args["method"]),
+        url=str(args["url"]),
+        headers=args.get("headers"),
+        body_template=args.get("body"),
+        response_path=None,
+        args=args,
+        timeout_seconds=timeout_seconds,
+        max_output_bytes=max_output_bytes,
+        response_size_policy=response_size_policy,
     )
 
 
-def create_http_tool() -> ToolInstance:
+def create_http_tool(
+    *,
+    timeout_seconds: int | None = None,
+    max_output_bytes: int | None = None,
+    response_size_policy: Callable[..., str] | None = None,
+    **_: Any,
+) -> ToolInstance:
     """Factory that returns a ToolInstance for HTTP requests."""
+
+    async def _execute_with_options(args: dict) -> str:
+        return await _execute(
+            args,
+            timeout_seconds=timeout_seconds,
+            max_output_bytes=max_output_bytes,
+            response_size_policy=response_size_policy,
+        )
+
     return ToolInstance(
         name="http_request",
         description="Make an HTTP request to an external URL.",
         parameters=_PARAMETERS_SCHEMA,
-        execute=_execute,
+        execute=_execute_with_options,
     )
 
 

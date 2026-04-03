@@ -160,7 +160,15 @@ def _render_http_template(template: str | None, args: dict) -> str | None:
         return None
 
     rendered = _ARG_TEMPLATE_RE.sub(lambda match: str(args.get(match.group(1), "")), template)
-    return _ENV_TEMPLATE_RE.sub(lambda match: os.environ.get(match.group(1), ""), rendered)
+
+    def _replace_env(match: re.Match[str]) -> str:
+        env_name = match.group(1)
+        env_value = os.environ.get(env_name)
+        if env_value is None:
+            raise ValueError(f"Missing environment secret: {env_name}")
+        return env_value
+
+    return _ENV_TEMPLATE_RE.sub(_replace_env, rendered)
 
 
 def _extract_http_response_value(payload: object, response_path: str | None) -> object:
@@ -176,6 +184,70 @@ def _extract_http_response_value(payload: object, response_path: str | None) -> 
     return value
 
 
+def _apply_response_size_policy(
+    result: str,
+    *,
+    max_output_bytes: int | None,
+    response_size_policy: Callable[..., str] | None,
+) -> str:
+    """Route oversized responses through the configured size policy hook."""
+    if max_output_bytes is None or len(result.encode("utf-8")) <= max_output_bytes:
+        return result
+    if response_size_policy is None:
+        return result
+    return response_size_policy(result, max_output_bytes=max_output_bytes)
+
+
+async def _execute_outbound_request(
+    *,
+    method: str,
+    url: str,
+    headers: dict[str, str] | None,
+    body_template: str | None,
+    response_path: str | None,
+    args: dict[str, Any],
+    timeout_seconds: int | None = None,
+    max_output_bytes: int | None = None,
+    response_size_policy: Callable[..., str] | None = None,
+) -> str:
+    """Execute a shared outbound HTTP request for builtin and custom tools."""
+    rendered_url = _render_http_template(url, args)
+    rendered_body = _render_http_template(body_template, args)
+    rendered_headers = (
+        {key: _render_http_template(value, args) for key, value in headers.items()}
+        if headers is not None
+        else None
+    )
+    await validate_ssrf(rendered_url)
+
+    async with httpx.AsyncClient() as client:
+        request_coro = client.request(
+            method.upper(),
+            rendered_url,
+            headers=rendered_headers,
+            content=rendered_body,
+        )
+        response = (
+            await asyncio.wait_for(request_coro, timeout=timeout_seconds)
+            if timeout_seconds is not None
+            else await request_coro
+        )
+
+    content_type = response.headers.get("content-type", "").lower()
+    if "application/json" in content_type:
+        result = json.dumps(_extract_http_response_value(response.json(), response_path))
+    elif "text/plain" in content_type or "text/html" in content_type:
+        result = response.text
+    else:
+        result = response.text
+
+    return _apply_response_size_policy(
+        result,
+        max_output_bytes=max_output_bytes,
+        response_size_policy=response_size_policy,
+    )
+
+
 def _build_http_tool(
     *,
     tool_name: str,
@@ -187,43 +259,23 @@ def _build_http_tool(
     body_template: str | None,
     response_path: str | None,
     timeout_seconds: int | None = None,
+    max_output_bytes: int | None = None,
+    response_size_policy: Callable[..., str] | None = None,
 ) -> ToolInstance:
     """Build a ToolInstance for an HTTP-backed tool."""
 
     async def _execute(args: dict) -> str:
-        rendered_url = _render_http_template(url, args)
-        rendered_body = _render_http_template(body_template, args)
-        rendered_headers = (
-            {
-                key: rendered_value
-                for key, value in headers.items()
-                if (rendered_value := _render_http_template(value, args)) is not None
-            }
-            if headers
-            else {}
+        return await _execute_outbound_request(
+            method=method,
+            url=url,
+            headers=headers,
+            body_template=body_template,
+            response_path=response_path,
+            args=args,
+            timeout_seconds=timeout_seconds,
+            max_output_bytes=max_output_bytes,
+            response_size_policy=response_size_policy,
         )
-        await validate_ssrf(rendered_url)
-
-        async with httpx.AsyncClient() as client:
-            request_coro = client.request(
-                method.upper(),
-                rendered_url,
-                headers=rendered_headers,
-                content=rendered_body,
-            )
-            response = (
-                await asyncio.wait_for(request_coro, timeout=timeout_seconds)
-                if timeout_seconds is not None
-                else await request_coro
-            )
-
-        content_type = response.headers.get("content-type", "").lower()
-        if "application/json" in content_type:
-            payload = response.json()
-            return json.dumps(_extract_http_response_value(payload, response_path))
-        if "text/plain" in content_type or "text/html" in content_type:
-            return response.text
-        return response.text
 
     return ToolInstance(
         name=tool_name,
@@ -262,6 +314,8 @@ def _resolve_http_tool_id(
         body_template=tool_meta.request.get("body_template"),
         response_path=tool_meta.request.get("response_path"),
         timeout_seconds=tool_meta.timeout_seconds,
+        max_output_bytes=kwargs.get("max_output_bytes"),
+        response_size_policy=kwargs.get("response_size_policy"),
     )
 
 
