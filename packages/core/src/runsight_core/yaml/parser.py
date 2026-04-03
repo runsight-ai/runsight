@@ -39,6 +39,7 @@ from runsight_core.yaml.schema import (
 # 1. Add the new version string here.
 # 2. Gate migration logic on ``file_def.version`` before the block-building loop.
 SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
+_UNSET_RUNNER_MODEL_NAME = "__runsight_explicit_model_required__"
 
 
 def _resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
@@ -54,6 +55,20 @@ def _resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
             f"Soul reference '{ref}' not found. Available souls: {sorted(souls_map.keys())}"
         )
     return soul
+
+
+def _bootstrap_runner_model_name(souls_map: Dict[str, Soul]) -> str:
+    """Choose an explicit bootstrap model for parser-owned runner construction.
+
+    Parsing should not source runtime model resolution from workflow config or a hidden
+    built-in default. When a workflow already declares an explicit soul model, use that.
+    Otherwise fall back to a neutral placeholder that is never meant to resolve runtime
+    execution on its own.
+    """
+    for soul in souls_map.values():
+        if isinstance(soul.model_name, str) and soul.model_name.strip():
+            return soul.model_name
+    return _UNSET_RUNNER_MODEL_NAME
 
 
 def _convert_condition(cond_def: ConditionDef) -> Condition:
@@ -273,7 +288,7 @@ def parse_workflow_yaml(
 
     # Step 4: Instantiate runner (shared across all blocks in this workflow)
     if runner is None:
-        model_name = str(file_def.config.get("model_name", "gpt-4o"))
+        model_name = _bootstrap_runner_model_name(souls_map)
         runner = RunsightTeamRunner(model_name=model_name, api_keys=api_keys)
 
     # Step 5: Build all blocks (single pass)

@@ -55,7 +55,7 @@ class RunsightTeamRunner:
 
     def __init__(
         self,
-        model_name: str = "gpt-4o",
+        model_name: str,
         api_keys: Optional[Dict[str, str]] = None,
         fallback_routes: Optional[Dict[str, FallbackRoute]] = None,
     ):
@@ -66,6 +66,18 @@ class RunsightTeamRunner:
         default_key = self._resolve_key_for_model(model_name) if api_keys else None
         self.llm_client = LiteLLMClient(model_name=model_name, api_key=default_key)
         self._clients: Dict[str, LiteLLMClient] = {}
+
+    def _resolve_runtime_model_name(self, soul: Soul) -> str:
+        has_provider = isinstance(soul.provider, str) and bool(soul.provider.strip())
+        has_model_name = isinstance(soul.model_name, str) and bool(soul.model_name.strip())
+
+        if has_model_name and not has_provider:
+            raise ValueError(f"Soul '{soul.id}' must define an explicit provider")
+        if has_provider and not has_model_name:
+            raise ValueError(f"Soul '{soul.id}' must define an explicit model_name")
+        if has_model_name:
+            return soul.model_name  # type: ignore[return-value]
+        return self.model_name
 
     def _resolve_key_for_model(self, model_name: str) -> str:
         """Look up the API key for a model from the api_keys dict."""
@@ -94,22 +106,30 @@ class RunsightTeamRunner:
             In that case, replace with an ``asyncio.Lock`` guarding the
             check-then-set block.
         """
+        explicit_model_name = self._resolve_runtime_model_name(soul)
+
         # When api_keys dict is provided, always resolve per-model
         if self.api_keys is not None:
-            effective_model = soul.model_name or self.model_name
-            cache_key = effective_model
+            cache_key = explicit_model_name
             if cache_key not in self._clients:
-                key = self._resolve_key_for_model(effective_model)
-                self._clients[cache_key] = LiteLLMClient(model_name=effective_model, api_key=key)
+                key = self._resolve_key_for_model(explicit_model_name)
+                self._clients[cache_key] = LiteLLMClient(
+                    model_name=explicit_model_name, api_key=key
+                )
             return self._clients[cache_key]
 
-        override = soul.model_name
-        if override is None or override == self.model_name:
+        if explicit_model_name == self.model_name:
             return self.llm_client
-        if override not in self._clients:
-            key = self._resolve_key_for_model(override) if self.api_keys is not None else None
-            self._clients[override] = LiteLLMClient(model_name=override, api_key=key)
-        return self._clients[override]
+        if explicit_model_name not in self._clients:
+            key = (
+                self._resolve_key_for_model(explicit_model_name)
+                if self.api_keys is not None
+                else None
+            )
+            self._clients[explicit_model_name] = LiteLLMClient(
+                model_name=explicit_model_name, api_key=key
+            )
+        return self._clients[explicit_model_name]
 
     @staticmethod
     def _is_retryable_provider_error(exc: Exception) -> bool:
