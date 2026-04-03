@@ -1,7 +1,7 @@
 """
-RUN-192: Failing tests for FanOutBlock stateful conversation history.
+RUN-192: Failing tests for DispatchBlock stateful conversation history.
 
-Tests verify that when stateful=True, FanOutBlock:
+Tests verify that when stateful=True, DispatchBlock:
 - Reads N independent histories (one per soul) keyed {block_id}_{soul_id}
 - Passes each soul's history to runner.execute_task(task, soul, messages=history)
 - Appends user+assistant messages per soul after parallel execution
@@ -15,8 +15,8 @@ When stateful=False (default), conversation_histories must be untouched.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from runsight_core import FanOutBlock
-from runsight_core.blocks.fanout import FanOutBranch
+from runsight_core import DispatchBlock
+from runsight_core.blocks.dispatch import DispatchBranch
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
@@ -87,16 +87,16 @@ def _make_result(soul_id, output, cost=0.0, tokens=0):
 
 
 def _souls_to_branches(souls):
-    """Convert a list of Soul objects to FanOutBranch objects (exit_id = soul.id)."""
+    """Convert a list of Soul objects to DispatchBranch objects (exit_id = soul.id)."""
     return [
-        FanOutBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
+        DispatchBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
         for s in souls
     ]
 
 
 def _make_stateful_fanout(block_id, souls, runner):
-    """Helper to create a stateful FanOutBlock."""
-    block = FanOutBlock(block_id, _souls_to_branches(souls), runner)
+    """Helper to create a stateful DispatchBlock."""
+    block = DispatchBlock(block_id, _souls_to_branches(souls), runner)
     block.stateful = True
     return block
 
@@ -125,7 +125,7 @@ async def test_stateful_first_invocation_creates_per_soul_histories(
     soul_beta,
     sample_task,
 ):
-    """First call on a stateful FanOutBlock with no prior history should
+    """First call on a stateful DispatchBlock with no prior history should
     create one history entry per soul, each keyed {block_id}_{soul_id}."""
     _setup_runner_side_effect(
         mock_runner,
@@ -392,7 +392,7 @@ async def test_stateful_three_souls_independent_histories(
         },
     )
 
-    block = _make_stateful_fanout("fanout", souls, mock_runner)
+    block = _make_stateful_fanout("dispatch", souls, mock_runner)
     state = WorkflowState(current_task=sample_task)
     state_r1 = await block.execute(state)
 
@@ -410,7 +410,7 @@ async def test_stateful_three_souls_independent_histories(
 
     # Each soul must have 4 messages (2 rounds x user+assistant)
     for soul_id in ["soul_alpha", "soul_beta", "soul_gamma"]:
-        key = f"fanout_{soul_id}"
+        key = f"dispatch_{soul_id}"
         assert key in state_r2.conversation_histories, f"Missing history for {key}"
         history = state_r2.conversation_histories[key]
         assert len(history) >= 4, f"Expected >= 4 messages for {key}, got {len(history)}"
@@ -418,7 +418,7 @@ async def test_stateful_three_souls_independent_histories(
         assert history[-1]["role"] == "assistant"
 
     # Verify cross-contamination is impossible
-    history_a = state_r2.conversation_histories["fanout_soul_alpha"]
+    history_a = state_r2.conversation_histories["dispatch_soul_alpha"]
     all_a = " ".join(m["content"] for m in history_a)
     assert "A-R1" in all_a
     assert "A-R2" in all_a
@@ -468,7 +468,7 @@ async def test_stateful_preserves_other_block_histories(
     soul_beta,
     sample_task,
 ):
-    """When other blocks already have histories, FanOutBlock must preserve them
+    """When other blocks already have histories, DispatchBlock must preserve them
     in the merged update."""
     other_history = [
         {"role": "user", "content": "hello"},
@@ -581,7 +581,7 @@ async def test_stateful_windowing_called_per_soul(
         )
 
     with patch(
-        "runsight_core.blocks.fanout.fit_to_budget",
+        "runsight_core.blocks.dispatch.fit_to_budget",
         side_effect=_passthrough_budget,
     ) as mock_budget:
         await block.execute(state)
@@ -690,7 +690,7 @@ async def test_stateful_windowing_uses_soul_specific_model(
         )
 
     with patch(
-        "runsight_core.blocks.fanout.fit_to_budget",
+        "runsight_core.blocks.dispatch.fit_to_budget",
         side_effect=_tracking_budget,
     ):
         await block.execute(state)
@@ -750,7 +750,7 @@ async def test_stateful_windowing_falls_back_to_runner_model(
         )
 
     with patch(
-        "runsight_core.blocks.fanout.fit_to_budget",
+        "runsight_core.blocks.dispatch.fit_to_budget",
         side_effect=_tracking_budget,
     ) as mock_budget:
         await block.execute(state)
@@ -800,7 +800,7 @@ async def test_stateful_no_system_messages_stored(
 
 
 # ---------------------------------------------------------------------------
-# AC: Non-stateful FanOutBlock unchanged
+# AC: Non-stateful DispatchBlock unchanged
 # ---------------------------------------------------------------------------
 
 
@@ -811,7 +811,7 @@ async def test_non_stateful_no_history_entries(
     soul_beta,
     sample_task,
 ):
-    """A non-stateful FanOutBlock must not add any conversation_histories entries."""
+    """A non-stateful DispatchBlock must not add any conversation_histories entries."""
     _setup_runner_side_effect(
         mock_runner,
         {
@@ -820,7 +820,7 @@ async def test_non_stateful_no_history_entries(
         },
     )
 
-    block = FanOutBlock("review", _souls_to_branches([soul_alpha, soul_beta]), mock_runner)
+    block = DispatchBlock("review", _souls_to_branches([soul_alpha, soul_beta]), mock_runner)
     assert block.stateful is False  # default
 
     state = WorkflowState(current_task=sample_task)
@@ -836,7 +836,7 @@ async def test_non_stateful_preserves_other_histories(
     soul_beta,
     sample_task,
 ):
-    """A non-stateful FanOutBlock must not modify existing conversation_histories."""
+    """A non-stateful DispatchBlock must not modify existing conversation_histories."""
     other_history = [
         {"role": "user", "content": "hello"},
         {"role": "assistant", "content": "hi"},
@@ -850,7 +850,7 @@ async def test_non_stateful_preserves_other_histories(
         },
     )
 
-    block = FanOutBlock("review", _souls_to_branches([soul_alpha, soul_beta]), mock_runner)
+    block = DispatchBlock("review", _souls_to_branches([soul_alpha, soul_beta]), mock_runner)
     assert block.stateful is False
 
     state = WorkflowState(
@@ -870,7 +870,7 @@ async def test_non_stateful_does_not_pass_messages_to_runner(
     soul_beta,
     sample_task,
 ):
-    """Non-stateful FanOutBlock calls runner.execute_task without messages param."""
+    """Non-stateful DispatchBlock calls runner.execute_task without messages param."""
     _setup_runner_side_effect(
         mock_runner,
         {
@@ -879,7 +879,7 @@ async def test_non_stateful_does_not_pass_messages_to_runner(
         },
     )
 
-    block = FanOutBlock("review", _souls_to_branches([soul_alpha, soul_beta]), mock_runner)
+    block = DispatchBlock("review", _souls_to_branches([soul_alpha, soul_beta]), mock_runner)
     assert block.stateful is False
 
     state = WorkflowState(current_task=sample_task)
@@ -909,7 +909,7 @@ async def test_stateful_still_stores_result_and_log(
     soul_beta,
     sample_task,
 ):
-    """Stateful FanOutBlock must still produce results, execution_log, cost, and tokens
+    """Stateful DispatchBlock must still produce results, execution_log, cost, and tokens
     exactly like the non-stateful path (regression guard)."""
     _setup_runner_side_effect(
         mock_runner,
@@ -951,7 +951,7 @@ async def test_stateful_does_not_mutate_original_state(
     sample_task,
 ):
     """model_copy semantics: the original state's conversation_histories
-    must not be mutated by a stateful FanOutBlock execution."""
+    must not be mutated by a stateful DispatchBlock execution."""
     _setup_runner_side_effect(
         mock_runner,
         {

@@ -51,7 +51,7 @@ test.describe("Canvas YAML", () => {
       "  step_a:",
       "    type: linear",
       "  step_b:",
-      "    type: fanout",
+      "    type: dispatch",
       "workflow:",
       "  name: Demo",
       "  entry: step_a",

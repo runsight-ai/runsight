@@ -2,7 +2,7 @@
 Integration tests for WorkflowBlock interactions with other block types.
 
 These tests verify that:
-1. WorkflowBlock integrates correctly with LinearBlock, FanOutBlock, SynthesizeBlock, etc.
+1. WorkflowBlock integrates correctly with LinearBlock, DispatchBlock, SynthesizeBlock, etc.
 2. Block sequencing works properly with mixed block types
 3. State flows correctly through complex workflows combining block types
 4. Cost and token accumulation works across nested workflows

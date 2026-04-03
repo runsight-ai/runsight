@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from runsight_core import (
-    FanOutBlock,
+    DispatchBlock,
     LinearBlock,
     SynthesizeBlock,
 )
@@ -129,8 +129,8 @@ async def test_linear_block_preserves_existing_messages(mock_runner, sample_soul
 
 @pytest.mark.asyncio
 async def test_fanout_block_parallel(mock_runner):
-    """AC-6: FanOutBlock executes multiple branches in parallel."""
-    from runsight_core.blocks.fanout import FanOutBranch
+    """AC-6: DispatchBlock executes multiple branches in parallel."""
+    from runsight_core.blocks.dispatch import DispatchBranch
 
     souls = [
         Soul(id="s1", role="R1", system_prompt="P1"),
@@ -138,7 +138,7 @@ async def test_fanout_block_parallel(mock_runner):
         Soul(id="s3", role="R3", system_prompt="P3"),
     ]
     branches = [
-        FanOutBranch(exit_id=f"exit_{s.id}", label=s.role, soul=s, task_instruction="Review this")
+        DispatchBranch(exit_id=f"exit_{s.id}", label=s.role, soul=s, task_instruction="Review this")
         for s in souls
     ]
 
@@ -148,7 +148,7 @@ async def test_fanout_block_parallel(mock_runner):
         ExecutionResult(task_id="t1", soul_id="s3", output="Output from s3"),
     ]
 
-    block = FanOutBlock("fanout1", branches, mock_runner)
+    block = DispatchBlock("fanout1", branches, mock_runner)
     task = Task(id="t1", instruction="Review this")
     state = WorkflowState(current_task=task)
 
@@ -167,9 +167,9 @@ async def test_fanout_block_parallel(mock_runner):
 
 @pytest.mark.asyncio
 async def test_fanout_block_empty_branches(mock_runner):
-    """FanOutBlock raises ValueError for empty branches list."""
+    """DispatchBlock raises ValueError for empty branches list."""
     with pytest.raises(ValueError, match="branches"):
-        FanOutBlock("fanout1", [], mock_runner)
+        DispatchBlock("fanout1", [], mock_runner)
 
 
 @pytest.mark.asyncio

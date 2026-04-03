@@ -152,7 +152,7 @@ describe("StepNodeData field removal", () => {
     expect(interfaceBlock).not.toContain("iterations");
   });
 
-  it("StepNodeData interface still contains soulRefs (used by FanOut)", () => {
+  it("StepNodeData interface still contains soulRefs (used by Dispatch)", () => {
     const source = readTypesFile();
     const interfaceMatch = source.match(
       /export interface StepNodeData[\s\S]*?^}/m,
@@ -198,7 +198,7 @@ describe("BlockDef field removal", () => {
     expect(interfaceBlock).not.toContain("iterations");
   });
 
-  it("BlockDef interface still contains soul_refs (used by FanOut)", () => {
+  it("BlockDef interface still contains soul_refs (used by Dispatch)", () => {
     const source = readTypesFile();
     const interfaceMatch = source.match(
       /export interface BlockDef[\s\S]*?^}/m,
@@ -284,27 +284,27 @@ describe("Parser snake-to-camel mapping removal", () => {
 });
 
 // ===========================================================================
-// 7. soulRefs MUST still be present (FanOut needs it)
+// 7. soulRefs MUST still be present (Dispatch needs it)
 // ===========================================================================
 
-describe("soulRefs preservation for FanOut", () => {
-  it("FanOut block still compiles soulRefs -> soul_refs", () => {
-    const node = mockNode("fan", "fanout", { soulRefs: ["s1", "s2"] });
+describe("soulRefs preservation for Dispatch", () => {
+  it("Dispatch block still compiles soulRefs -> soul_refs", () => {
+    const node = mockNode("fan", "dispatch", { soulRefs: ["s1", "s2"] });
     const result = compileGraphToWorkflowYaml({ nodes: [node], edges: [] });
     const block = result.workflowDocument.blocks["fan"];
 
-    expect(block.type).toBe("fanout");
+    expect(block.type).toBe("dispatch");
     expect(block).toHaveProperty("soul_refs", ["s1", "s2"]);
   });
 
-  it("FanOut block still parses soul_refs -> soulRefs", () => {
+  it("Dispatch block still parses soul_refs -> soulRefs", () => {
     const yaml = makeYaml({
-      fan: { type: "fanout", soul_refs: ["a", "b", "c"] },
+      fan: { type: "dispatch", soul_refs: ["a", "b", "c"] },
     });
     const result = parseWorkflowYamlToGraph(yaml);
     const data = result.nodes[0].data;
 
-    expect(data.stepType).toBe("fanout");
+    expect(data.stepType).toBe("dispatch");
     expect(data.soulRefs).toEqual(["a", "b", "c"]);
   });
 

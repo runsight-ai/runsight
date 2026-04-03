@@ -6,7 +6,7 @@ These tests validate that everything works together when a stateful block runs i
 a LoopBlock across multiple rounds:
 
 1. Stateful LinearBlock inside LoopBlock, 3 rounds — history grows 2*N after N rounds
-2. Stateful FanOutBlock (3 souls) inside LoopBlock, 2 rounds — per-soul independent histories
+2. Stateful DispatchBlock (3 souls) inside LoopBlock, 2 rounds — per-soul independent histories
 3. Windowing activates within loop — history exceeds token budget, gets pruned
 4. Break condition works with BlockResult.output — evaluates string, not BlockResult object
 """
@@ -15,11 +15,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from runsight_core import (
-    FanOutBlock,
+    DispatchBlock,
     LinearBlock,
     LoopBlock,
 )
-from runsight_core.blocks.fanout import FanOutBranch
+from runsight_core.blocks.dispatch import DispatchBranch
 from runsight_core.conditions.engine import Condition
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
@@ -68,16 +68,16 @@ def _make_stateful_linear(block_id, soul, runner):
 
 
 def _souls_to_branches(souls):
-    """Convert a list of Soul objects to FanOutBranch objects."""
+    """Convert a list of Soul objects to DispatchBranch objects."""
     return [
-        FanOutBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
+        DispatchBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
         for s in souls
     ]
 
 
 def _make_stateful_fanout(block_id, souls, runner):
-    """Helper to create a stateful FanOutBlock."""
-    block = FanOutBlock(block_id, _souls_to_branches(souls), runner)
+    """Helper to create a stateful DispatchBlock."""
+    block = DispatchBlock(block_id, _souls_to_branches(souls), runner)
     block.stateful = True
     return block
 
@@ -265,12 +265,12 @@ class TestStatefulLinearBlockInsideLoop:
 
 
 # ===========================================================================
-# 2. Stateful FanOutBlock (3 souls) inside LoopBlock — 2 rounds
+# 2. Stateful DispatchBlock (3 souls) inside LoopBlock — 2 rounds
 # ===========================================================================
 
 
 class TestStatefulFanOutBlockInsideLoop:
-    """Stateful FanOutBlock with 3 souls inside LoopBlock across 2 rounds.
+    """Stateful DispatchBlock with 3 souls inside LoopBlock across 2 rounds.
     Each soul must have independent 2-round history."""
 
     @pytest.mark.asyncio
@@ -557,7 +557,7 @@ class TestWindowingActivatesInsideLoop:
         state = WorkflowState(current_task=task)
 
         with patch(
-            "runsight_core.blocks.fanout.fit_to_budget",
+            "runsight_core.blocks.dispatch.fit_to_budget",
             side_effect=_aggressive_budget,
         ):
             result_state = await loop.execute(state, blocks=blocks)
@@ -731,7 +731,7 @@ class TestBreakConditionWithBlockResult:
 
     @pytest.mark.asyncio
     async def test_break_condition_with_stateful_fanout_output(self):
-        """Break condition works when inner block is a stateful FanOutBlock
+        """Break condition works when inner block is a stateful DispatchBlock
         that stores BlockResult with JSON output."""
         runner = _make_mock_runner()
         soul_a = Soul(id="soul_a", role="A", system_prompt="A.")
@@ -748,7 +748,7 @@ class TestBreakConditionWithBlockResult:
         runner.execute_task = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_fanout("fan", [soul_a, soul_b], runner)
-        # FanOutBlock output is JSON containing "soul_a_out" — use 'contains'
+        # DispatchBlock output is JSON containing "soul_a_out" — use 'contains'
         break_cond = Condition(eval_key="fan", operator="contains", value="soul_a_out")
         loop = LoopBlock(
             block_id="loop",

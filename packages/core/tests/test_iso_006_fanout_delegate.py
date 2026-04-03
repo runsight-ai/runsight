@@ -1,8 +1,8 @@
 """
-Failing tests for RUN-396: ISO-006 — FanOutBlock subprocess + delegate artifact routing.
+Failing tests for RUN-396: ISO-006 — DispatchBlock subprocess + delegate artifact routing.
 
 Tests cover all 8 acceptance criteria:
- AC1: ONE subprocess for FanOut block (not N)
+ AC1: ONE subprocess for Dispatch block (not N)
  AC2: Coordinator soul produces delegate artifacts per port
  AC3: ResultEnvelope contains delegate_artifacts dict — routed by wrapper
  AC4: Engine routes per-port artifacts to state.results
@@ -15,7 +15,7 @@ Tests cover all 8 acceptance criteria:
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.isolation.envelope import DelegateArtifact, ResultEnvelope
 from runsight_core.primitives import Soul, Task
 from runsight_core.state import BlockResult, WorkflowState
@@ -64,33 +64,33 @@ def _execute_wrapper(wrapper, state):
 
 
 def _make_wrapped_fanout(branches):
-    """Create a FanOutBlock wrapped in IsolatedBlockWrapper."""
+    """Create a DispatchBlock wrapped in IsolatedBlockWrapper."""
     from runsight_core.isolation.wrapper import IsolatedBlockWrapper
 
     runner = MagicMock()
-    inner = FanOutBlock("fanout_1", branches, runner)
+    inner = DispatchBlock("fanout_1", branches, runner)
     return IsolatedBlockWrapper("fanout_1", inner)
 
 
 # ==============================================================================
-# AC1: ONE subprocess for FanOut block (not N)
+# AC1: ONE subprocess for Dispatch block (not N)
 # ==============================================================================
 
 
 class TestFanOutSingleSubprocess:
-    """FanOut must execute in exactly ONE subprocess, not one per branch."""
+    """Dispatch must execute in exactly ONE subprocess, not one per branch."""
 
     def test_fanout_context_envelope_contains_all_branch_info(self):
         """The single ContextEnvelope sent to the subprocess must carry
         information about all branches so the coordinator can delegate."""
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="research",
                 label="Research",
                 soul=_make_soul("s1"),
                 task_instruction="research topic",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="write",
                 label="Write",
                 soul=_make_soul("s2"),
@@ -128,7 +128,7 @@ class TestFanOutSingleSubprocess:
         """Each branch in the envelope must carry its task_instruction
         so the coordinator knows what to delegate."""
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="alpha",
                 label="Alpha",
                 soul=_make_soul("s1"),
@@ -161,7 +161,7 @@ class TestFanOutSingleSubprocess:
 
 
 class TestCoordinatorDelegateArtifacts:
-    """The delegate tool for FanOut must accept both port and task arguments."""
+    """The delegate tool for Dispatch must accept both port and task arguments."""
 
     def test_delegate_tool_accepts_port_and_task(self):
         """The delegate tool parameters must include 'task' alongside 'port'."""
@@ -217,10 +217,10 @@ class TestWrapperRoutesDelegateArtifacts:
         """state.results['{block_id}.{port}'] = BlockResult(output=artifact.task, exit_handle=port)
         for each delegate artifact in the ResultEnvelope."""
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="port_a", label="A", soul=_make_soul("s1"), task_instruction="do A"
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="port_b", label="B", soul=_make_soul("s2"), task_instruction="do B"
             ),
         ]
@@ -252,7 +252,7 @@ class TestWrapperRoutesDelegateArtifacts:
     def test_per_port_results_are_block_result_instances(self):
         """Each per-port result must be a BlockResult, not a raw dict."""
         branches = [
-            FanOutBranch(exit_id="p1", label="P1", soul=_make_soul(), task_instruction="t1"),
+            DispatchBranch(exit_id="p1", label="P1", soul=_make_soul(), task_instruction="t1"),
         ]
         wrapper = _make_wrapped_fanout(branches)
 
@@ -271,7 +271,7 @@ class TestWrapperRoutesDelegateArtifacts:
     def test_block_level_result_also_present(self):
         """state.results[block_id] should also exist alongside per-port results."""
         branches = [
-            FanOutBranch(exit_id="p1", label="P1", soul=_make_soul(), task_instruction="t1"),
+            DispatchBranch(exit_id="p1", label="P1", soul=_make_soul(), task_instruction="t1"),
         ]
         wrapper = _make_wrapped_fanout(branches)
 
@@ -299,7 +299,7 @@ class TestDownstreamReceivesDelegateTask:
         """The per-port result output IS the delegate task string, which
         downstream blocks read as their instruction."""
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="analyze", label="Analyze", soul=_make_soul(), task_instruction="analyze"
             ),
         ]
@@ -320,11 +320,13 @@ class TestDownstreamReceivesDelegateTask:
     def test_multiple_downstream_blocks_get_different_tasks(self):
         """Each port's downstream block gets its own distinct delegate task."""
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="research", label="R", soul=_make_soul("s1"), task_instruction="r"
             ),
-            FanOutBranch(exit_id="draft", label="D", soul=_make_soul("s2"), task_instruction="d"),
-            FanOutBranch(exit_id="review", label="V", soul=_make_soul("s3"), task_instruction="v"),
+            DispatchBranch(exit_id="draft", label="D", soul=_make_soul("s2"), task_instruction="d"),
+            DispatchBranch(
+                exit_id="review", label="V", soul=_make_soul("s3"), task_instruction="v"
+            ),
         ]
         wrapper = _make_wrapped_fanout(branches)
 
@@ -356,9 +358,15 @@ class TestMissingPortSkipped:
         """A port that the coordinator did NOT delegate to should not appear
         in state.results — only delegated ports get per-port results."""
         branches = [
-            FanOutBranch(exit_id="port_a", label="A", soul=_make_soul("s1"), task_instruction="a"),
-            FanOutBranch(exit_id="port_b", label="B", soul=_make_soul("s2"), task_instruction="b"),
-            FanOutBranch(exit_id="port_c", label="C", soul=_make_soul("s3"), task_instruction="c"),
+            DispatchBranch(
+                exit_id="port_a", label="A", soul=_make_soul("s1"), task_instruction="a"
+            ),
+            DispatchBranch(
+                exit_id="port_b", label="B", soul=_make_soul("s2"), task_instruction="b"
+            ),
+            DispatchBranch(
+                exit_id="port_c", label="C", soul=_make_soul("s3"), task_instruction="c"
+            ),
         ]
         wrapper = _make_wrapped_fanout(branches)
 
@@ -384,10 +392,10 @@ class TestMissingPortSkipped:
         """When coordinator delegates to no ports, no per-port results are created,
         but the block-level result still exist and include delegation metadata."""
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="only_port", label="Only", soul=_make_soul(), task_instruction="t"
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="other_port", label="Other", soul=_make_soul("s2"), task_instruction="t2"
             ),
         ]
@@ -420,7 +428,7 @@ class TestDuplicatePortLastWins:
         """When the ResultEnvelope contains a duplicate-overwritten port,
         the wrapper routes the final value to state.results."""
         branches = [
-            FanOutBranch(exit_id="port_a", label="A", soul=_make_soul(), task_instruction="a"),
+            DispatchBranch(exit_id="port_a", label="A", soul=_make_soul(), task_instruction="a"),
         ]
         wrapper = _make_wrapped_fanout(branches)
 

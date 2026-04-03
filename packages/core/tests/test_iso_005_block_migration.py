@@ -3,7 +3,7 @@ Failing tests for RUN-395: ISO-005 — Migrate LinearBlock + GateBlock + Synthes
 to subprocess via IsolatedBlockWrapper.
 
 Tests cover all 13 acceptance criteria:
- AC1:  IsolatedBlockWrapper wraps LinearBlock, GateBlock, SynthesizeBlock, FanOutBlock
+ AC1:  IsolatedBlockWrapper wraps LinearBlock, GateBlock, SynthesizeBlock, DispatchBlock
  AC2:  Wrapper exposes self.soul for observer (prompt_hash, soul_version)
  AC3:  Existing block code runs unchanged inside subprocess
  AC4:  All existing block tests pass without modification (structural — no new test)
@@ -22,7 +22,7 @@ import asyncio
 
 import pytest
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.blocks.gate import GateBlock
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.blocks.synthesize import SynthesizeBlock
@@ -52,7 +52,7 @@ def _make_state(task_instruction: str = "Do something") -> WorkflowState:
 
 # ==============================================================================
 # AC1: IsolatedBlockWrapper wraps LinearBlock, GateBlock, SynthesizeBlock,
-#      FanOutBlock — and is itself a BaseBlock
+#      DispatchBlock — and is itself a BaseBlock
 # ==============================================================================
 
 
@@ -108,7 +108,7 @@ class TestIsolatedBlockWrapperWrapsBlocks:
         assert wrapper.block_id == "synth1"
 
     def test_wraps_fanout_block(self):
-        """IsolatedBlockWrapper can wrap a FanOutBlock."""
+        """IsolatedBlockWrapper can wrap a DispatchBlock."""
         from unittest.mock import MagicMock
 
         from runsight_core.isolation import IsolatedBlockWrapper
@@ -116,9 +116,9 @@ class TestIsolatedBlockWrapperWrapsBlocks:
         soul = _make_soul()
         runner = MagicMock()
         branches = [
-            FanOutBranch(exit_id="a", label="A", soul=soul, task_instruction="do A"),
+            DispatchBranch(exit_id="a", label="A", soul=soul, task_instruction="do A"),
         ]
-        inner = FanOutBlock("fan1", branches, runner)
+        inner = DispatchBlock("fan1", branches, runner)
         wrapper = IsolatedBlockWrapper(block_id="fan1", inner_block=inner)
         assert wrapper.block_id == "fan1"
 
@@ -1008,7 +1008,7 @@ workflow:
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
     def test_parser_returns_wrapped_blocks_for_fanout(self):
-        """parse_workflow_yaml wraps fanout blocks with IsolatedBlockWrapper."""
+        """parse_workflow_yaml wraps dispatch blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
 
         from runsight_core.isolation import IsolatedBlockWrapper
@@ -1023,7 +1023,7 @@ souls:
     system_prompt: You test things.
 blocks:
   fan:
-    type: fanout
+    type: dispatch
     exits:
       - id: a
         label: A

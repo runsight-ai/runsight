@@ -327,7 +327,7 @@ class TestOtherBlocksUnaffected:
 
     SURVIVING_BLOCK_CLASSES = [
         "LinearBlock",
-        "FanOutBlock",
+        "DispatchBlock",
         "SynthesizeBlock",
         "LoopBlock",
         "GateBlock",
@@ -337,7 +337,7 @@ class TestOtherBlocksUnaffected:
 
     SURVIVING_REGISTRY_KEYS = [
         "linear",
-        "fanout",
+        "dispatch",
         "synthesize",
         "loop",
         "gate",

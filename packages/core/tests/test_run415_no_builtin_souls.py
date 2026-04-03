@@ -168,7 +168,7 @@ workflow:
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
     def test_explicit_soul_fanout_block(self):
-        """YAML with inline soul definitions parses a fanout block successfully."""
+        """YAML with inline soul definitions parses a dispatch block successfully."""
         yaml_content = """\
 version: "1.0"
 souls:
@@ -182,7 +182,7 @@ souls:
     system_prompt: You are a strict peer reviewer.
 blocks:
   fanout_block:
-    type: fanout
+    type: dispatch
     exits:
       - id: exit_research
         label: Research

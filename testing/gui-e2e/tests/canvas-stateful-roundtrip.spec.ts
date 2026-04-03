@@ -157,7 +157,7 @@ test.describe("Canvas YAML — stateful field round-trip", () => {
       "    type: linear",
       "    stateful: true",
       "  step_plain:",
-      "    type: fanout",
+      "    type: dispatch",
       "workflow:",
       "  name: MixedStatefulTest",
       "  entry: step_stateful",

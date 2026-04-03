@@ -152,7 +152,7 @@ class TestRegistryCleanup:
 
         expected_types = {
             "linear",
-            "fanout",
+            "dispatch",
             "synthesize",
             "gate",
             "code",
@@ -174,7 +174,7 @@ class TestRegistryCleanup:
 
         all_known = {
             "linear",
-            "fanout",
+            "dispatch",
             "synthesize",
             "gate",
             "code",

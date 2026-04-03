@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-286: Rewrite FanOutBlock for per-exit tasks and per-exit result keying.
+Failing tests for RUN-286: Rewrite DispatchBlock for per-exit tasks and per-exit result keying.
 
 Each branch (exit) gets its own soul + task instruction. Results are keyed per-exit
 at state.results["{block_id}.{exit_id}"] and combined at state.results["{block_id}"].
@@ -13,9 +13,9 @@ Tests cover ALL acceptance criteria:
 - current_task=None doesn't crash (context defaults)
 - Stateful mode: per-exit conversation histories keyed by exit_id
 - Cost/token aggregation
-- FanOutBlockDef with old soul_refs rejects
-- FanOutBlockDef with exits (FanOutExitDef list) validates
-- build() resolves soul_refs and creates FanOutBranch list
+- DispatchBlockDef with old soul_refs rejects
+- DispatchBlockDef with exits (FanOutExitDef list) validates
+- build() resolves soul_refs and creates DispatchBranch list
 - Empty branches raises ValueError at build time
 - Same soul on multiple exits: independent histories in stateful mode
 """
@@ -83,32 +83,32 @@ def _make_exec_result(task_id, soul_id, output, cost=0.0, tokens=0):
 
 
 # ===========================================================================
-# 1. FanOutBranch dataclass exists and is importable
+# 1. DispatchBranch dataclass exists and is importable
 # ===========================================================================
 
 
 class TestFanOutBranchDataclass:
-    """FanOutBranch is a dataclass with exit_id, label, soul, task_instruction."""
+    """DispatchBranch is a dataclass with exit_id, label, soul, task_instruction."""
 
     def test_importable_from_fanout_module(self):
-        """FanOutBranch is importable from runsight_core.blocks.fanout."""
-        from runsight_core.blocks.fanout import FanOutBranch
+        """DispatchBranch is importable from runsight_core.blocks.dispatch."""
+        from runsight_core.blocks.dispatch import DispatchBranch
 
-        assert FanOutBranch is not None
+        assert DispatchBranch is not None
 
     def test_is_dataclass(self):
-        """FanOutBranch is a dataclass."""
+        """DispatchBranch is a dataclass."""
         import dataclasses
 
-        from runsight_core.blocks.fanout import FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBranch
 
-        assert dataclasses.is_dataclass(FanOutBranch)
+        assert dataclasses.is_dataclass(DispatchBranch)
 
     def test_has_required_fields(self, soul_analyst):
-        """FanOutBranch has exit_id, label, soul, task_instruction."""
-        from runsight_core.blocks.fanout import FanOutBranch
+        """DispatchBranch has exit_id, label, soul, task_instruction."""
+        from runsight_core.blocks.dispatch import DispatchBranch
 
-        branch = FanOutBranch(
+        branch = DispatchBranch(
             exit_id="exit_a",
             label="Exit A",
             soul=soul_analyst,
@@ -121,54 +121,54 @@ class TestFanOutBranchDataclass:
 
 
 # ===========================================================================
-# 2. FanOutBlock constructor accepts branches (not souls)
+# 2. DispatchBlock constructor accepts branches (not souls)
 # ===========================================================================
 
 
 class TestFanOutBlockNewConstructor:
-    """FanOutBlock constructor takes (block_id, branches, runner)."""
+    """DispatchBlock constructor takes (block_id, branches, runner)."""
 
     def test_accepts_branches_parameter(self, soul_analyst, mock_runner):
-        """FanOutBlock can be constructed with branches list."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        """DispatchBlock can be constructed with branches list."""
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze this",
             ),
         ]
-        block = FanOutBlock("fanout_1", branches, mock_runner)
+        block = DispatchBlock("fanout_1", branches, mock_runner)
         assert block.block_id == "fanout_1"
 
     def test_empty_branches_raises_valueerror(self, mock_runner):
-        """FanOutBlock with empty branches list raises ValueError mentioning 'branches'."""
-        from runsight_core.blocks.fanout import FanOutBlock
+        """DispatchBlock with empty branches list raises ValueError mentioning 'branches'."""
+        from runsight_core.blocks.dispatch import DispatchBlock
 
         with pytest.raises(ValueError, match="branches"):
-            FanOutBlock("fanout_1", [], mock_runner)
+            DispatchBlock("fanout_1", [], mock_runner)
 
     def test_branches_attribute_accessible(self, soul_analyst, soul_reviewer, mock_runner):
-        """FanOutBlock.branches is accessible and contains the provided branches."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        """DispatchBlock.branches is accessible and contains the provided branches."""
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze this",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_b",
                 label="Exit B",
                 soul=soul_reviewer,
                 task_instruction="Review this",
             ),
         ]
-        block = FanOutBlock("fanout_1", branches, mock_runner)
+        block = DispatchBlock("fanout_1", branches, mock_runner)
         assert len(block.branches) == 2
         assert block.branches[0].exit_id == "exit_a"
         assert block.branches[1].exit_id == "exit_b"
@@ -187,16 +187,16 @@ class TestPerExitTaskDifferentiation:
         self, soul_analyst, soul_reviewer, mock_runner
     ):
         """runner.execute_task is called with a different Task.instruction per branch."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze the proposal",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_b",
                 label="Exit B",
                 soul=soul_reviewer,
@@ -212,7 +212,7 @@ class TestPerExitTaskDifferentiation:
 
         mock_runner.execute_task = AsyncMock(side_effect=_capture)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(current_task=Task(id="parent", instruction="Parent instruction"))
         await block.execute(state)
 
@@ -226,16 +226,16 @@ class TestPerExitTaskDifferentiation:
         self, soul_analyst, soul_reviewer, mock_runner
     ):
         """Per-branch Task.id follows format '{block_id}_{exit_id}'."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_b",
                 label="Exit B",
                 soul=soul_reviewer,
@@ -251,7 +251,7 @@ class TestPerExitTaskDifferentiation:
 
         mock_runner.execute_task = AsyncMock(side_effect=_capture)
 
-        block = FanOutBlock("my_fanout", branches, mock_runner)
+        block = DispatchBlock("my_fanout", branches, mock_runner)
         state = WorkflowState(current_task=Task(id="parent", instruction="Parent instruction"))
         await block.execute(state)
 
@@ -270,16 +270,16 @@ class TestPerExitResultKeying:
     @pytest.mark.asyncio
     async def test_per_exit_results_stored(self, soul_analyst, soul_reviewer, mock_runner):
         """Each branch's result appears at state.results['{block_id}.{exit_id}']."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_b",
                 label="Exit B",
                 soul=soul_reviewer,
@@ -292,7 +292,7 @@ class TestPerExitResultKeying:
 
         mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
         new_state = await block.execute(state)
 
@@ -304,16 +304,16 @@ class TestPerExitResultKeying:
         self, soul_analyst, soul_reviewer, mock_runner
     ):
         """Per-exit BlockResult.output matches what the branch produced."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_b",
                 label="Exit B",
                 soul=soul_reviewer,
@@ -326,7 +326,7 @@ class TestPerExitResultKeying:
 
         mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
         new_state = await block.execute(state)
 
@@ -336,16 +336,16 @@ class TestPerExitResultKeying:
     @pytest.mark.asyncio
     async def test_per_exit_result_exit_handle_set(self, soul_analyst, soul_reviewer, mock_runner):
         """Per-exit BlockResult has exit_handle set to the exit_id."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_b",
                 label="Exit B",
                 soul=soul_reviewer,
@@ -358,7 +358,7 @@ class TestPerExitResultKeying:
 
         mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
         new_state = await block.execute(state)
 
@@ -377,16 +377,16 @@ class TestCombinedResult:
     @pytest.mark.asyncio
     async def test_combined_result_exists(self, soul_analyst, soul_reviewer, mock_runner):
         """state.results[block_id] contains a combined BlockResult."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_b",
                 label="Exit B",
                 soul=soul_reviewer,
@@ -399,7 +399,7 @@ class TestCombinedResult:
 
         mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
         new_state = await block.execute(state)
 
@@ -409,16 +409,16 @@ class TestCombinedResult:
     @pytest.mark.asyncio
     async def test_combined_result_is_json_list(self, soul_analyst, soul_reviewer, mock_runner):
         """Combined result output is a JSON list."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_b",
                 label="Exit B",
                 soul=soul_reviewer,
@@ -431,7 +431,7 @@ class TestCombinedResult:
 
         mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
         new_state = await block.execute(state)
 
@@ -451,10 +451,10 @@ class TestContextInheritance:
     @pytest.mark.asyncio
     async def test_context_passed_to_branch_task(self, soul_analyst, mock_runner):
         """When current_task has context, each branch's Task.context is set to it."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
@@ -470,7 +470,7 @@ class TestContextInheritance:
 
         mock_runner.execute_task = AsyncMock(side_effect=_capture)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(
             current_task=Task(
                 id="parent",
@@ -485,10 +485,10 @@ class TestContextInheritance:
     @pytest.mark.asyncio
     async def test_current_task_none_does_not_crash(self, soul_analyst, mock_runner):
         """When state.current_task is None, context defaults to None and no crash."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
@@ -504,7 +504,7 @@ class TestContextInheritance:
 
         mock_runner.execute_task = AsyncMock(side_effect=_capture)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(current_task=None)
 
         # Must not raise
@@ -516,10 +516,10 @@ class TestContextInheritance:
     @pytest.mark.asyncio
     async def test_current_task_without_context_passes_none(self, soul_analyst, mock_runner):
         """When current_task exists but has no context, branch task context is None."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
@@ -535,7 +535,7 @@ class TestContextInheritance:
 
         mock_runner.execute_task = AsyncMock(side_effect=_capture)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(current_task=Task(id="parent", instruction="Parent instruction"))
         await block.execute(state)
 
@@ -553,16 +553,16 @@ class TestCostTokenAggregation:
     @pytest.mark.asyncio
     async def test_cost_aggregation(self, soul_analyst, soul_reviewer, mock_runner):
         """total_cost_usd sums costs from all branches."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_b",
                 label="Exit B",
                 soul=soul_reviewer,
@@ -577,7 +577,7 @@ class TestCostTokenAggregation:
 
         mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(
             current_task=Task(id="parent", instruction="Go"),
             total_cost_usd=0.10,
@@ -590,48 +590,48 @@ class TestCostTokenAggregation:
 
 
 # ===========================================================================
-# 8. FanOutBlockDef schema validation
+# 8. DispatchBlockDef schema validation
 # ===========================================================================
 
 
 class TestFanOutBlockDefSchema:
-    """FanOutBlockDef validates with exits (FanOutExitDef list), rejects old soul_refs."""
+    """DispatchBlockDef validates with exits (FanOutExitDef list), rejects old soul_refs."""
 
     def test_old_soul_refs_rejected(self):
-        """FanOutBlockDef with soul_refs raises ValidationError (extra='forbid')."""
-        from runsight_core.blocks.fanout import FanOutBlockDef
+        """DispatchBlockDef with soul_refs raises ValidationError (extra='forbid')."""
+        from runsight_core.blocks.dispatch import DispatchBlockDef
 
         with pytest.raises(ValidationError):
-            FanOutBlockDef(
-                type="fanout",
+            DispatchBlockDef(
+                type="dispatch",
                 soul_refs=["analyst", "reviewer"],
             )
 
     def test_exits_with_fanout_exit_defs_validates(self):
-        """FanOutBlockDef with exits list of FanOutExitDef objects validates."""
-        from runsight_core.blocks.fanout import FanOutBlockDef
+        """DispatchBlockDef with exits list of FanOutExitDef objects validates."""
+        from runsight_core.blocks.dispatch import DispatchBlockDef
 
         exit_a = FanOutExitDef(id="exit_a", label="Exit A", soul_ref="analyst", task="Analyze")
         exit_b = FanOutExitDef(id="exit_b", label="Exit B", soul_ref="reviewer", task="Review")
-        block_def = FanOutBlockDef(type="fanout", exits=[exit_a, exit_b])
+        block_def = DispatchBlockDef(type="dispatch", exits=[exit_a, exit_b])
 
         assert len(block_def.exits) == 2
         assert block_def.exits[0].soul_ref == "analyst"
         assert block_def.exits[1].task == "Review"
 
     def test_exits_field_is_required(self):
-        """FanOutBlockDef without exits raises ValidationError mentioning 'exits'."""
-        from runsight_core.blocks.fanout import FanOutBlockDef
+        """DispatchBlockDef without exits raises ValidationError mentioning 'exits'."""
+        from runsight_core.blocks.dispatch import DispatchBlockDef
 
         with pytest.raises(ValidationError, match="exits"):
-            FanOutBlockDef(type="fanout")
+            DispatchBlockDef(type="dispatch")
 
     def test_exits_field_typed_as_fanout_exit_def(self):
-        """FanOutBlockDef.exits is typed as List[FanOutExitDef] (not List[ExitDef])."""
-        from runsight_core.blocks.fanout import FanOutBlockDef
+        """DispatchBlockDef.exits is typed as List[FanOutExitDef] (not List[ExitDef])."""
+        from runsight_core.blocks.dispatch import DispatchBlockDef
 
         # The field annotation for exits should reference FanOutExitDef
-        exits_field = FanOutBlockDef.model_fields["exits"]
+        exits_field = DispatchBlockDef.model_fields["exits"]
         annotation_str = str(exits_field.annotation)
         assert "FanOutExitDef" in annotation_str, (
             f"Expected exits field to be typed as List[FanOutExitDef], "
@@ -639,23 +639,23 @@ class TestFanOutBlockDefSchema:
         )
 
     def test_no_soul_refs_field_on_model(self):
-        """FanOutBlockDef should not have a soul_refs field at all."""
-        from runsight_core.blocks.fanout import FanOutBlockDef
+        """DispatchBlockDef should not have a soul_refs field at all."""
+        from runsight_core.blocks.dispatch import DispatchBlockDef
 
-        assert "soul_refs" not in FanOutBlockDef.model_fields
+        assert "soul_refs" not in DispatchBlockDef.model_fields
 
 
 # ===========================================================================
-# 9. build() function creates FanOutBranch list from exits
+# 9. build() function creates DispatchBranch list from exits
 # ===========================================================================
 
 
 class TestBuildFunction:
-    """build() resolves soul_refs from exits and creates FanOutBranch list."""
+    """build() resolves soul_refs from exits and creates DispatchBranch list."""
 
     def test_build_creates_block_with_branches(self, soul_analyst, soul_reviewer, mock_runner):
-        """build() reads block_def.exits and returns FanOutBlock with branches."""
-        from runsight_core.blocks.fanout import FanOutBlockDef, build
+        """build() reads block_def.exits and returns DispatchBlock with branches."""
+        from runsight_core.blocks.dispatch import DispatchBlockDef, build
 
         exit_a = FanOutExitDef(
             id="exit_a", label="Exit A", soul_ref="analyst", task="Analyze the data"
@@ -663,7 +663,7 @@ class TestBuildFunction:
         exit_b = FanOutExitDef(
             id="exit_b", label="Exit B", soul_ref="reviewer", task="Review the data"
         )
-        block_def = FanOutBlockDef(type="fanout", exits=[exit_a, exit_b])
+        block_def = DispatchBlockDef(type="dispatch", exits=[exit_a, exit_b])
 
         souls_map = {"analyst": soul_analyst, "reviewer": soul_reviewer}
         block = build("fan_1", block_def, souls_map, mock_runner, {})
@@ -678,17 +678,17 @@ class TestBuildFunction:
 
     def test_build_raises_on_missing_soul_ref(self, soul_analyst, mock_runner):
         """build() raises ValueError when a soul_ref is not in souls_map."""
-        from runsight_core.blocks.fanout import FanOutBlockDef, build
+        from runsight_core.blocks.dispatch import DispatchBlockDef, build
 
         exit_a = FanOutExitDef(id="exit_a", label="Exit A", soul_ref="nonexistent", task="Do stuff")
-        block_def = FanOutBlockDef(type="fanout", exits=[exit_a])
+        block_def = DispatchBlockDef(type="dispatch", exits=[exit_a])
 
         with pytest.raises(ValueError, match="nonexistent"):
             build("fan_1", block_def, {"analyst": soul_analyst}, mock_runner, {})
 
     def test_build_empty_exits_raises_valueerror(self, mock_runner):
         """build() with an empty exits list raises ValueError mentioning 'branches' or 'exits'."""
-        from runsight_core.blocks.fanout import build
+        from runsight_core.blocks.dispatch import build
 
         block_def = MagicMock()
         block_def.exits = []
@@ -709,17 +709,17 @@ class TestStatefulPerExitHistories:
     async def test_stateful_creates_per_exit_history_keys(
         self, soul_analyst, soul_reviewer, mock_runner
     ):
-        """Stateful FanOutBlock creates history keys using exit_id, not soul_id."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        """Stateful DispatchBlock creates history keys using exit_id, not soul_id."""
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="analysis",
                 label="Analysis",
                 soul=soul_analyst,
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="review",
                 label="Review",
                 soul=soul_reviewer,
@@ -732,7 +732,7 @@ class TestStatefulPerExitHistories:
 
         mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         block.stateful = True
 
         state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
@@ -750,16 +750,16 @@ class TestStatefulPerExitHistories:
         self, soul_analyst, soul_reviewer, mock_runner
     ):
         """On round 2, each branch reads its exit_id-keyed history."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="analysis",
                 label="Analysis",
                 soul=soul_analyst,
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="review",
                 label="Review",
                 soul=soul_reviewer,
@@ -784,7 +784,7 @@ class TestStatefulPerExitHistories:
 
         mock_runner.execute_task = AsyncMock(side_effect=_capture)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         block.stateful = True
 
         state = WorkflowState(
@@ -806,16 +806,16 @@ class TestStatefulPerExitHistories:
         self, soul_analyst, soul_editor, mock_runner
     ):
         """Budget fitting uses each branch's soul model, not a shared model."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="analysis",
                 label="Analysis",
                 soul=soul_analyst,  # model_name=None -> uses runner default
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="edit",
                 label="Edit",
                 soul=soul_editor,  # model_name="claude-3-opus-20240229"
@@ -828,7 +828,7 @@ class TestStatefulPerExitHistories:
 
         mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         block.stateful = True
 
         state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
@@ -863,7 +863,7 @@ class TestStatefulPerExitHistories:
             )
 
         with patch(
-            "runsight_core.blocks.fanout.fit_to_budget",
+            "runsight_core.blocks.dispatch.fit_to_budget",
             side_effect=_tracking_budget,
         ):
             await block.execute(state)
@@ -884,16 +884,16 @@ class TestSameSoulMultipleExits:
     async def test_same_soul_different_exits_independent_histories(self, soul_analyst, mock_runner):
         """When the same soul is used on two different exits, each exit gets
         its own independent conversation history keyed by exit_id."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_cost",
                 label="Cost Analysis",
                 soul=soul_analyst,
                 task_instruction="Analyze costs",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_risk",
                 label="Risk Analysis",
                 soul=soul_analyst,  # Same soul, different exit
@@ -908,7 +908,7 @@ class TestSameSoulMultipleExits:
 
         mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         block.stateful = True
 
         state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
@@ -936,16 +936,16 @@ class TestSameSoulMultipleExits:
         self, soul_analyst, mock_runner
     ):
         """On round 2, each exit reads its own history (not the other exit's)."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_cost",
                 label="Cost Analysis",
                 soul=soul_analyst,
                 task_instruction="Analyze costs",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_risk",
                 label="Risk Analysis",
                 soul=soul_analyst,
@@ -970,7 +970,7 @@ class TestSameSoulMultipleExits:
 
         mock_runner.execute_task = AsyncMock(side_effect=_capture)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         block.stateful = True
 
         state = WorkflowState(
@@ -1000,17 +1000,17 @@ class TestNonStatefulPath:
 
     @pytest.mark.asyncio
     async def test_non_stateful_no_history_entries(self, soul_analyst, soul_reviewer, mock_runner):
-        """A non-stateful FanOutBlock does not create conversation_histories."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        """A non-stateful DispatchBlock does not create conversation_histories."""
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_b",
                 label="Exit B",
                 soul=soul_reviewer,
@@ -1023,7 +1023,7 @@ class TestNonStatefulPath:
 
         mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         assert block.stateful is False
 
         state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
@@ -1035,17 +1035,17 @@ class TestNonStatefulPath:
     async def test_non_stateful_still_produces_per_exit_results(
         self, soul_analyst, soul_reviewer, mock_runner
     ):
-        """Non-stateful FanOutBlock still stores per-exit results."""
-        from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+        """Non-stateful DispatchBlock still stores per-exit results."""
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_a",
                 label="Exit A",
                 soul=soul_analyst,
                 task_instruction="Analyze",
             ),
-            FanOutBranch(
+            DispatchBranch(
                 exit_id="exit_b",
                 label="Exit B",
                 soul=soul_reviewer,
@@ -1058,7 +1058,7 @@ class TestNonStatefulPath:
 
         mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        block = FanOutBlock("fan", branches, mock_runner)
+        block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
         new_state = await block.execute(state)
 

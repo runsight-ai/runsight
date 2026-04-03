@@ -11,11 +11,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from runsight_core import (
-    FanOutBlock,
+    DispatchBlock,
     LinearBlock,
     SynthesizeBlock,
 )
-from runsight_core.blocks.fanout import FanOutBranch
+from runsight_core.blocks.dispatch import DispatchBranch
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
@@ -23,9 +23,9 @@ from runsight_core.workflow import Workflow
 
 
 def _souls_to_branches(souls):
-    """Convert a list of Soul objects to FanOutBranch objects for backwards compat."""
+    """Convert a list of Soul objects to DispatchBranch objects for backwards compat."""
     return [
-        FanOutBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
+        DispatchBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
         for s in souls
     ]
 
@@ -70,12 +70,12 @@ async def test_all_three_blocks_import_and_instantiate(mock_runner, sample_souls
     linear = LinearBlock("linear1", sample_souls["researcher"], mock_runner)
     assert linear.block_id == "linear1"
 
-    fanout = FanOutBlock(
+    dispatch = DispatchBlock(
         "fanout1",
         _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
         mock_runner,
     )
-    assert fanout.block_id == "fanout1"
+    assert dispatch.block_id == "fanout1"
 
     synthesize = SynthesizeBlock(
         "synth1", ["block_a", "block_b"], sample_souls["synthesizer"], mock_runner
@@ -107,14 +107,14 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
     assert "research" in state.results
     assert state.results["research"].output == "Research complete"
 
-    # Update task and execute FanOutBlock
+    # Update task and execute DispatchBlock
     state = state.model_copy(update={"current_task": Task(id="t2", instruction="Review research")})
-    fanout = FanOutBlock(
+    dispatch = DispatchBlock(
         "reviews",
         _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
         mock_runner,
     )
-    state = await fanout.execute(state)
+    state = await dispatch.execute(state)
 
     # Verify state accumulation
     assert "research" in state.results  # Previous result preserved
@@ -132,7 +132,7 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
 @pytest.mark.asyncio
 async def test_workflow_linear_to_fanout_workflow(mock_runner, sample_souls):
     """
-    CROSS-FEATURE TEST: Workflow orchestrates Linear → FanOut.
+    CROSS-FEATURE TEST: Workflow orchestrates Linear → Dispatch.
 
     Tests interaction between Workflow state machine and block execution,
     verifying state propagation across block types.
@@ -149,7 +149,7 @@ async def test_workflow_linear_to_fanout_workflow(mock_runner, sample_souls):
     wf = Workflow("research_review_pipeline")
 
     linear = LinearBlock("research", sample_souls["researcher"], mock_runner)
-    fanout = FanOutBlock(
+    dispatch = DispatchBlock(
         "reviews",
         _souls_to_branches(
             [sample_souls["reviewer1"], sample_souls["reviewer2"], sample_souls["reviewer3"]]
@@ -157,7 +157,7 @@ async def test_workflow_linear_to_fanout_workflow(mock_runner, sample_souls):
         mock_runner,
     )
 
-    wf.add_block(linear).add_block(fanout)
+    wf.add_block(linear).add_block(dispatch)
     wf.add_transition("research", "reviews").add_transition("reviews", None)
     wf.set_entry("research")
 
@@ -173,7 +173,7 @@ async def test_workflow_linear_to_fanout_workflow(mock_runner, sample_souls):
     assert "research" in final_state.results
     assert "reviews" in final_state.results
 
-    # Verify FanOut produced JSON with 3 reviews
+    # Verify Dispatch produced JSON with 3 reviews
     reviews = json.loads(final_state.results["reviews"].output)
     assert len(reviews) == 3
     assert reviews[0]["exit_id"] == "reviewer1"
@@ -184,14 +184,14 @@ async def test_workflow_linear_to_fanout_workflow(mock_runner, sample_souls):
 @pytest.mark.asyncio
 async def test_workflow_fanout_to_synthesize_workflow(mock_runner, sample_souls):
     """
-    CROSS-FEATURE TEST: Workflow orchestrates FanOut → Synthesize.
+    CROSS-FEATURE TEST: Workflow orchestrates Dispatch → Synthesize.
 
-    Tests that SynthesizeBlock can read FanOut's JSON output from state.results
+    Tests that SynthesizeBlock can read Dispatch's JSON output from state.results
     and combine multiple inputs correctly.
     """
     # Setup mock responses
     mock_runner.execute_task.side_effect = [
-        # FanOut responses
+        # Dispatch responses
         ExecutionResult(task_id="t1", soul_id="reviewer1", output="Positive review"),
         ExecutionResult(task_id="t1", soul_id="reviewer2", output="Critical review"),
         # Synthesize response
@@ -203,30 +203,32 @@ async def test_workflow_fanout_to_synthesize_workflow(mock_runner, sample_souls)
     # Build workflow
     wf = Workflow("review_synthesis_pipeline")
 
-    fanout = FanOutBlock(
-        "fanout",
+    dispatch = DispatchBlock(
+        "dispatch",
         _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
         mock_runner,
     )
-    synthesize = SynthesizeBlock("synthesis", ["fanout"], sample_souls["synthesizer"], mock_runner)
+    synthesize = SynthesizeBlock(
+        "synthesis", ["dispatch"], sample_souls["synthesizer"], mock_runner
+    )
 
-    wf.add_block(fanout).add_block(synthesize)
-    wf.add_transition("fanout", "synthesis").add_transition("synthesis", None)
-    wf.set_entry("fanout")
+    wf.add_block(dispatch).add_block(synthesize)
+    wf.add_transition("dispatch", "synthesis").add_transition("synthesis", None)
+    wf.set_entry("dispatch")
 
     # Execute
     initial_state = WorkflowState(current_task=Task(id="t1", instruction="Review proposal"))
     final_state = await wf.run(initial_state)
 
-    # Verify SynthesizeBlock received FanOut output
-    assert "fanout" in final_state.results
+    # Verify SynthesizeBlock received Dispatch output
+    assert "dispatch" in final_state.results
     assert "synthesis" in final_state.results
     assert "Combined" in final_state.results["synthesis"].output
 
-    # Verify synthesizer task included fanout JSON output (variable data is in context)
+    # Verify synthesizer task included dispatch JSON output (variable data is in context)
     synth_call = mock_runner.execute_task.call_args_list[2]  # 3rd call
     task_arg = synth_call[0][0]
-    assert "fanout" in task_arg.context
+    assert "dispatch" in task_arg.context
     assert "Positive review" in task_arg.context or "Critical review" in task_arg.context
 
 
@@ -239,7 +241,7 @@ async def test_workflow_fanout_to_synthesize_workflow(mock_runner, sample_souls)
 @pytest.mark.asyncio
 async def test_complete_research_review_synthesis_workflow(mock_runner, sample_souls):
     """
-    END-TO-END TEST: Research → FanOut Reviews → Synthesize.
+    END-TO-END TEST: Research → Dispatch Reviews → Synthesize.
 
     Simulates a real workflow: research a topic, get parallel reviews, synthesize.
     """
@@ -276,7 +278,7 @@ async def test_complete_research_review_synthesis_workflow(mock_runner, sample_s
     wf = Workflow("research_workflow")
 
     research_block = LinearBlock("research", sample_souls["researcher"], mock_runner)
-    review_block = FanOutBlock(
+    review_block = DispatchBlock(
         "peer_reviews",
         _souls_to_branches(
             [sample_souls["reviewer1"], sample_souls["reviewer2"], sample_souls["reviewer3"]]
@@ -302,7 +304,7 @@ async def test_complete_research_review_synthesis_workflow(mock_runner, sample_s
     )
     final_state = await wf.run(initial_state)
 
-    # Verify complete workflow execution (3 combined + 3 per-exit from FanOut)
+    # Verify complete workflow execution (3 combined + 3 per-exit from Dispatch)
     assert "research" in final_state.results
     assert "peer_reviews" in final_state.results
     assert "final_report" in final_state.results

@@ -28,7 +28,7 @@ class TestParserIntegration:
         """Verify that workflow block type is in BLOCK_TYPE_REGISTRY."""
         assert "workflow" in BLOCK_TYPE_REGISTRY
         assert "linear" in BLOCK_TYPE_REGISTRY
-        assert "fanout" in BLOCK_TYPE_REGISTRY
+        assert "dispatch" in BLOCK_TYPE_REGISTRY
 
     @pytest.mark.xfail(
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True

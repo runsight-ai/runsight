@@ -20,7 +20,7 @@ Strategy:
 
 Tests cover every write site in implementations.py:
   - LinearBlock           (line 73)
-  - FanOutBlock           (line 141)
+  - DispatchBlock           (line 141)
   - SynthesizeBlock       (line 228)
   - LoopBlock             (line 381)
   - RouterBlock — Soul    (line 707)
@@ -152,19 +152,19 @@ class TestLinearBlockEmitsBlockResult:
 
 
 # ==============================================================================
-# FanOutBlock
+# DispatchBlock
 # ==============================================================================
 
 
 class TestFanOutBlockEmitsBlockResult:
-    """FanOutBlock.execute must write BlockResult to state.results."""
+    """DispatchBlock.execute must write BlockResult to state.results."""
 
     @pytest.mark.asyncio
     async def test_fanout_block_writes_block_result_not_raw_string(
         self, mock_runner, sample_soul, sample_task
     ):
-        """FanOutBlock must emit BlockResult(output=...) instead of raw json.dumps string."""
-        from runsight_core import FanOutBlock
+        """DispatchBlock must emit BlockResult(output=...) instead of raw json.dumps string."""
+        from runsight_core import DispatchBlock
 
         soul_a = Soul(id="soul_a", role="Agent A", system_prompt="Do A.")
         soul_b = Soul(id="soul_b", role="Agent B", system_prompt="Do B.")
@@ -174,13 +174,13 @@ class TestFanOutBlockEmitsBlockResult:
             _mock_execution_result(soul_id="soul_b", output="output B"),
         ]
 
-        from runsight_core.blocks.fanout import FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBranch
 
         branches = [
-            FanOutBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Do work")
+            DispatchBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Do work")
             for s in [soul_a, soul_b]
         ]
-        block = FanOutBlock("fanout1", branches, mock_runner)
+        block = DispatchBlock("fanout1", branches, mock_runner)
         state = _make_state(current_task=sample_task)
 
         result_state = await block.execute(state)
@@ -460,8 +460,8 @@ class TestNoRawStringsInResultsAfterExecution:
     async def test_all_results_are_block_result_after_linear_and_fanout(
         self, mock_runner, sample_soul, sample_task
     ):
-        """After running LinearBlock then FanOutBlock, all results are BlockResult."""
-        from runsight_core import FanOutBlock, LinearBlock
+        """After running LinearBlock then DispatchBlock, all results are BlockResult."""
+        from runsight_core import DispatchBlock, LinearBlock
 
         mock_runner.execute_task.side_effect = [
             _mock_execution_result(output="linear output"),
@@ -470,13 +470,13 @@ class TestNoRawStringsInResultsAfterExecution:
         ]
 
         linear = LinearBlock("step1", sample_soul, mock_runner)
-        from runsight_core.blocks.fanout import FanOutBranch as _FB
+        from runsight_core.blocks.dispatch import DispatchBranch as _FB
 
         _souls = [
             Soul(id="soul_a", role="A", system_prompt="A"),
             Soul(id="soul_b", role="B", system_prompt="B"),
         ]
-        fanout = FanOutBlock(
+        dispatch = DispatchBlock(
             "step2",
             [_FB(exit_id=s.id, label=s.role, soul=s, task_instruction="Do work") for s in _souls],
             mock_runner,
@@ -484,7 +484,7 @@ class TestNoRawStringsInResultsAfterExecution:
 
         state = _make_state(current_task=sample_task)
         state = await linear.execute(state)
-        state = await fanout.execute(state)
+        state = await dispatch.execute(state)
 
         for block_id, result in state.results.items():
             assert isinstance(result, BlockResult), (

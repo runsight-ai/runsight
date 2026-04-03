@@ -393,7 +393,7 @@ class TestSoulsWithoutToolsPassSilently:
 
 
 class TestFanoutExitSoulRefsValidated:
-    """Tool governance must also check souls referenced by fanout exit soul_refs."""
+    """Tool governance must also check souls referenced by dispatch exit soul_refs."""
 
     def test_fanout_exit_soul_with_undeclared_tool_raises(self):
         """AC5: Fanout exit's soul_ref points to a soul with undeclared tools -> error."""
@@ -422,7 +422,7 @@ class TestFanoutExitSoulRefsValidated:
                   model_name: gpt-4o
                 blocks:
                   fan:
-                    type: fanout
+                    type: dispatch
                     exits:
                       - id: branch_a
                         label: Branch A
@@ -475,7 +475,7 @@ class TestFanoutExitSoulRefsValidated:
                   - http
                 blocks:
                   fan:
-                    type: fanout
+                    type: dispatch
                     exits:
                       - id: branch_a
                         label: Branch A

@@ -1,10 +1,10 @@
 """
-Integration tests for RUN-287: FanOut v2 + SynthesizeBlock end-to-end pipeline.
+Integration tests for RUN-287: Dispatch v2 + SynthesizeBlock end-to-end pipeline.
 
 Tests the full integration chain:
-1. Full pipeline: parse YAML -> FanOutBlock (per-exit tasks) -> SynthesizeBlock -> verify
+1. Full pipeline: parse YAML -> DispatchBlock (per-exit tasks) -> SynthesizeBlock -> verify
 2. Per-exit references: SynthesizeBlock reads individual branch outputs via dotted keys
-3. Stateful + loop: FanOut with stateful=true inside LoopBlock -> histories preserved
+3. Stateful + loop: Dispatch with stateful=true inside LoopBlock -> histories preserved
 4. Context inheritance: workflow current_task context -> each branch inherits context
 
 All tests mock LiteLLMClient.achat to return different outputs per branch.
@@ -13,7 +13,7 @@ All tests mock LiteLLMClient.achat to return different outputs per branch.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.blocks.loop import LoopBlock
 from runsight_core.blocks.synthesize import SynthesizeBlock
 from runsight_core.primitives import Soul, Task
@@ -43,7 +43,7 @@ souls:
 
 blocks:
   fanout_work:
-    type: fanout
+    type: dispatch
     exits:
       - id: researcher
         label: Research Agent
@@ -87,7 +87,7 @@ souls:
 
 blocks:
   fanout_work:
-    type: fanout
+    type: dispatch
     exits:
       - id: researcher
         label: Research Agent
@@ -146,12 +146,12 @@ def _mock_runner():
 
 
 # ===========================================================================
-# Scenario 1: Full pipeline — parse YAML, run FanOut, run Synthesize
+# Scenario 1: Full pipeline — parse YAML, run Dispatch, run Synthesize
 # ===========================================================================
 
 
 class TestFullPipeline:
-    """Parse YAML with FanOut v2 (per-exit tasks) -> SynthesizeBlock -> verify
+    """Parse YAML with Dispatch v2 (per-exit tasks) -> SynthesizeBlock -> verify
     each branch got its own task, synthesize got combined output."""
 
     @pytest.mark.asyncio
@@ -160,7 +160,7 @@ class TestFullPipeline:
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
     async def test_full_pipeline_parse_and_run(self, mock_acompletion):
-        """Full YAML -> parse -> run workflow -> verify FanOut per-exit + Synthesize."""
+        """Full YAML -> parse -> run workflow -> verify Dispatch per-exit + Synthesize."""
         call_count = 0
 
         async def _mock_acompletion(**kwargs):
@@ -205,7 +205,7 @@ class TestFullPipeline:
             state = WorkflowState(current_task=task)
             final_state = await wf.run(state)
 
-        # FanOut per-exit results keyed correctly
+        # Dispatch per-exit results keyed correctly
         assert "fanout_work.researcher" in final_state.results
         assert "fanout_work.coder" in final_state.results
         assert "fanout_work" in final_state.results
@@ -226,7 +226,7 @@ class TestFullPipeline:
         assert final_state.total_cost_usd > 0
         assert final_state.total_tokens > 0
 
-        # At least 3 LLM calls: 2 fanout branches + 1 synthesize
+        # At least 3 LLM calls: 2 dispatch branches + 1 synthesize
         assert call_count >= 3
 
     @pytest.mark.asyncio
@@ -235,7 +235,7 @@ class TestFullPipeline:
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
     async def test_fanout_branches_receive_different_tasks(self, mock_acompletion):
-        """Verify each FanOut branch receives its own task instruction, not a shared one."""
+        """Verify each Dispatch branch receives its own task instruction, not a shared one."""
         captured_prompts = []
 
         async def _mock_acompletion(**kwargs):
@@ -264,12 +264,12 @@ class TestFullPipeline:
             state = WorkflowState(current_task=task)
             await wf.run(state)
 
-        # The first two LLM calls are the FanOut branches. Prompts must differ.
+        # The first two LLM calls are the Dispatch branches. Prompts must differ.
         assert len(captured_prompts) >= 2
         # One prompt mentions quantum computing / papers, the other mentions Grover's
         fanout_prompts = captured_prompts[:2]
         assert fanout_prompts[0] != fanout_prompts[1], (
-            f"FanOut branches must get different prompts, got identical: {fanout_prompts[0]}"
+            f"Dispatch branches must get different prompts, got identical: {fanout_prompts[0]}"
         )
 
     @pytest.mark.asyncio
@@ -310,7 +310,7 @@ class TestFullPipeline:
             state = WorkflowState(current_task=task)
             await wf.run(state)
 
-        # The synthesize call should have received the combined FanOut output
+        # The synthesize call should have received the combined Dispatch output
         assert len(captured_synth_context) >= 1
         synth_prompt = captured_synth_context[0]
         # The SynthesizeBlock prefixes each input with "=== Output from {bid} ==="
@@ -321,7 +321,7 @@ class TestFullPipeline:
         """Verify cost and tokens from all branches + synthesize are summed in final state."""
         runner = _mock_runner()
 
-        # FanOut branch results
+        # Dispatch branch results
         runner.execute_task.side_effect = [
             _make_exec_result("fanout_work_researcher", "researcher", "Research output", 0.05, 100),
             _make_exec_result("fanout_work_coder", "coder", "Code output", 0.08, 150),
@@ -336,11 +336,11 @@ class TestFullPipeline:
         coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
         synth_soul = Soul(id="synthesizer", role="Synthesizer", system_prompt="Synthesize.")
 
-        fanout = FanOutBlock(
+        dispatch = DispatchBlock(
             "fanout_work",
             [
-                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
-                FanOutBranch("coder", "Code Agent", coder_soul, "Implement algorithm"),
+                DispatchBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
+                DispatchBranch("coder", "Code Agent", coder_soul, "Implement algorithm"),
             ],
             runner,
         )
@@ -354,8 +354,8 @@ class TestFullPipeline:
         task = Task(id="main", instruction="Work")
         state = WorkflowState(current_task=task)
 
-        # Execute FanOut
-        state = await fanout.execute(state)
+        # Execute Dispatch
+        state = await dispatch.execute(state)
         # Execute Synthesize
         state = await synthesize.execute(state)
 
@@ -424,7 +424,7 @@ class TestPerExitReferences:
             runner=runner,
         )
 
-        # Pre-populate state with per-exit results (as FanOut v2 would produce)
+        # Pre-populate state with per-exit results (as Dispatch v2 would produce)
         state = WorkflowState(
             results={
                 "fanout_work.researcher": BlockResult(
@@ -475,12 +475,12 @@ class TestPerExitReferences:
 
 
 # ===========================================================================
-# Scenario 3: Stateful + loop — FanOut with stateful=true inside LoopBlock
+# Scenario 3: Stateful + loop — Dispatch with stateful=true inside LoopBlock
 # ===========================================================================
 
 
 class TestStatefulFanOutInLoop:
-    """FanOut with stateful=true inside a LoopBlock: per-exit histories preserved across rounds."""
+    """Dispatch with stateful=true inside a LoopBlock: per-exit histories preserved across rounds."""
 
     @pytest.mark.asyncio
     async def test_stateful_fanout_preserves_histories_across_loop_rounds(self):
@@ -490,15 +490,15 @@ class TestStatefulFanOutInLoop:
         researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
         coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
 
-        fanout = FanOutBlock(
+        dispatch = DispatchBlock(
             "fanout_work",
             [
-                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
-                FanOutBranch("coder", "Code Agent", coder_soul, "Write code"),
+                DispatchBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
+                DispatchBranch("coder", "Code Agent", coder_soul, "Write code"),
             ],
             runner,
         )
-        fanout.stateful = True
+        dispatch.stateful = True
 
         # Round 1 results
         round1_results = [
@@ -522,8 +522,8 @@ class TestStatefulFanOutInLoop:
         task = Task(id="main", instruction="Iterate")
         state = WorkflowState(current_task=task)
 
-        # Execute the loop with the fanout block in the blocks dict
-        final_state = await loop.execute(state, blocks={"fanout_work": fanout})
+        # Execute the loop with the dispatch block in the blocks dict
+        final_state = await loop.execute(state, blocks={"fanout_work": dispatch})
 
         # After 2 rounds, conversation histories should exist for each branch
         histories = final_state.conversation_histories
@@ -557,15 +557,15 @@ class TestStatefulFanOutInLoop:
         researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
         coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
 
-        fanout = FanOutBlock(
+        dispatch = DispatchBlock(
             "fanout_work",
             [
-                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
-                FanOutBranch("coder", "Code Agent", coder_soul, "Write code"),
+                DispatchBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
+                DispatchBranch("coder", "Code Agent", coder_soul, "Write code"),
             ],
             runner,
         )
-        fanout.stateful = True
+        dispatch.stateful = True
 
         runner.execute_task.side_effect = [
             # Round 1
@@ -585,7 +585,7 @@ class TestStatefulFanOutInLoop:
         task = Task(id="main", instruction="Iterate")
         state = WorkflowState(current_task=task)
 
-        await loop.execute(state, blocks={"fanout_work": fanout})
+        await loop.execute(state, blocks={"fanout_work": dispatch})
 
         # Inspect calls to runner.execute_task
         all_calls = runner.execute_task.call_args_list
@@ -617,15 +617,15 @@ class TestStatefulFanOutInLoop:
         researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
         coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
 
-        fanout = FanOutBlock(
+        dispatch = DispatchBlock(
             "fanout_work",
             [
-                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
-                FanOutBranch("coder", "Code Agent", coder_soul, "Write code"),
+                DispatchBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
+                DispatchBranch("coder", "Code Agent", coder_soul, "Write code"),
             ],
             runner,
         )
-        fanout.stateful = True
+        dispatch.stateful = True
 
         runner.execute_task.side_effect = [
             _make_exec_result("fanout_work_researcher", "researcher", "RESEARCH_ONLY_R1", 0.01, 20),
@@ -643,7 +643,7 @@ class TestStatefulFanOutInLoop:
         task = Task(id="main", instruction="Iterate")
         state = WorkflowState(current_task=task)
 
-        final_state = await loop.execute(state, blocks={"fanout_work": fanout})
+        final_state = await loop.execute(state, blocks={"fanout_work": dispatch})
 
         # Researcher history should contain RESEARCH_ONLY, not CODE_ONLY
         researcher_hist = final_state.conversation_histories["fanout_work_researcher"]
@@ -672,17 +672,17 @@ class TestContextInheritance:
 
     @pytest.mark.asyncio
     async def test_branches_inherit_current_task_context(self):
-        """Each FanOut branch gets current_task.context passed through to its Task."""
+        """Each Dispatch branch gets current_task.context passed through to its Task."""
         runner = _mock_runner()
 
         researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
         coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
 
-        fanout = FanOutBlock(
+        dispatch = DispatchBlock(
             "fanout_work",
             [
-                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
-                FanOutBranch("coder", "Code Agent", coder_soul, "Write code"),
+                DispatchBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
+                DispatchBranch("coder", "Code Agent", coder_soul, "Write code"),
             ],
             runner,
         )
@@ -696,7 +696,7 @@ class TestContextInheritance:
         task = Task(id="main", instruction="Do the work", context=shared_context)
         state = WorkflowState(current_task=task)
 
-        await fanout.execute(state)
+        await dispatch.execute(state)
 
         # Both calls to runner.execute_task should have the context
         assert runner.execute_task.call_count == 2
@@ -716,11 +716,13 @@ class TestContextInheritance:
         researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
         coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
 
-        fanout = FanOutBlock(
+        dispatch = DispatchBlock(
             "fanout_work",
             [
-                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers on QC"),
-                FanOutBranch("coder", "Code Agent", coder_soul, "Implement Grover's algorithm"),
+                DispatchBranch(
+                    "researcher", "Research Agent", researcher_soul, "Find papers on QC"
+                ),
+                DispatchBranch("coder", "Code Agent", coder_soul, "Implement Grover's algorithm"),
             ],
             runner,
         )
@@ -734,7 +736,7 @@ class TestContextInheritance:
         task = Task(id="main", instruction="Work", context=context)
         state = WorkflowState(current_task=task)
 
-        await fanout.execute(state)
+        await dispatch.execute(state)
 
         calls = runner.execute_task.call_args_list
         task_0 = calls[0].args[0]
@@ -753,9 +755,9 @@ class TestContextInheritance:
 
         researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
 
-        fanout = FanOutBlock(
+        dispatch = DispatchBlock(
             "fanout_work",
-            [FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers")],
+            [DispatchBranch("researcher", "Research Agent", researcher_soul, "Find papers")],
             runner,
         )
 
@@ -766,7 +768,7 @@ class TestContextInheritance:
         # No current_task set
         state = WorkflowState()
 
-        final_state = await fanout.execute(state)
+        final_state = await dispatch.execute(state)
 
         # Should complete without error
         assert "fanout_work.researcher" in final_state.results
@@ -780,7 +782,7 @@ class TestContextInheritance:
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
     async def test_context_inheritance_through_full_yaml_pipeline(self, mock_acompletion):
-        """Full YAML pipeline: context set on WorkflowState.current_task flows to FanOut branches."""
+        """Full YAML pipeline: context set on WorkflowState.current_task flows to Dispatch branches."""
         captured_messages = []
 
         async def _mock_acompletion(**kwargs):
@@ -807,7 +809,7 @@ class TestContextInheritance:
             state = WorkflowState(current_task=task)
             await wf.run(state)
 
-        # The first two LLM calls (FanOut branches) should contain the context
+        # The first two LLM calls (Dispatch branches) should contain the context
         assert len(captured_messages) >= 2
         for branch_messages in captured_messages[:2]:
             all_content = " ".join(m.get("content", "") for m in branch_messages)

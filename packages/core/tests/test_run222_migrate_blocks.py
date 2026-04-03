@@ -42,7 +42,7 @@ BLOCKS_TO_MIGRATE = [
     ("code", "code", "CodeBlockDef"),
     ("linear", "linear", "LinearBlockDef"),
     ("gate", "gate", "GateBlockDef"),
-    ("fanout", "fanout", "FanOutBlockDef"),
+    ("dispatch", "dispatch", "DispatchBlockDef"),
     ("synthesize", "synthesize", "SynthesizeBlockDef"),
     ("loop", "loop", "LoopBlockDef"),
     ("workflow_block", "workflow", "WorkflowBlockDef"),
@@ -53,7 +53,7 @@ ALL_BLOCK_TYPES = {
     "code",
     "linear",
     "gate",
-    "fanout",
+    "dispatch",
     "synthesize",
     "loop",
     "workflow",
@@ -62,7 +62,7 @@ ALL_BLOCK_TYPES = {
 # Per-type BlockDef class names that must be removed from schema.py
 PER_TYPE_BLOCK_DEF_NAMES = [
     "LinearBlockDef",
-    "FanOutBlockDef",
+    "DispatchBlockDef",
     "SynthesizeBlockDef",
     "GateBlockDef",
     "CodeBlockDef",
@@ -116,9 +116,9 @@ class TestBlockDefImportable:
         assert GateBlockDef.model_fields["type"].default == "gate"
 
     def test_fanout_block_def_importable(self):
-        from runsight_core.blocks.fanout import FanOutBlockDef
+        from runsight_core.blocks.dispatch import DispatchBlockDef
 
-        assert FanOutBlockDef.model_fields["type"].default == "fanout"
+        assert DispatchBlockDef.model_fields["type"].default == "dispatch"
 
     def test_synthesize_block_def_importable(self):
         from runsight_core.blocks.synthesize import SynthesizeBlockDef
@@ -160,7 +160,7 @@ class TestBuildFunctionExists:
         assert callable(build)
 
     def test_fanout_build_function(self):
-        from runsight_core.blocks.fanout import build
+        from runsight_core.blocks.dispatch import build
 
         assert callable(build)
 
@@ -281,7 +281,7 @@ class TestSchemaCleanup:
         #   BlockDef = Annotated[
         #       Union[
         #           LinearBlockDef,
-        #           FanOutBlockDef, ...
+        #           DispatchBlockDef, ...
         # Extract just the BlockDef = Annotated[...] definition by tracking
         # bracket depth. The closing structure spans multiple lines:
         #     ],
@@ -345,7 +345,7 @@ class TestParserCleanup:
         """parser.py must not import runtime block classes from implementations.py.
 
         After migration, the parser delegates to BLOCK_BUILDER_REGISTRY, so it
-        no longer needs to import LinearBlock, FanOutBlock, etc.
+        no longer needs to import LinearBlock, DispatchBlock, etc.
         """
         import runsight_core.yaml.parser as parser_mod
 

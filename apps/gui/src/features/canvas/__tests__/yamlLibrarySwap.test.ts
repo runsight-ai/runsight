@@ -205,7 +205,7 @@ describe("YAML stringifying works with new library", () => {
   it("compiled YAML is parseable back into the same structure", () => {
     const nodes = [
       mockNode("a", "linear", { soulRef: "s1" }),
-      mockNode("b", "fanout", { soulRefs: ["x", "y"] }),
+      mockNode("b", "dispatch", { soulRefs: ["x", "y"] }),
     ];
     const edges = [mockEdge("a", "b")];
 
@@ -351,7 +351,7 @@ describe("Existing behavior unchanged after library swap", () => {
   it("full compile -> parse -> compile round-trip produces identical YAML (RUN-574: no souls)", () => {
     const nodes = [
       mockNode("plan", "linear", { soulRef: "planner" }),
-      mockNode("execute", "fanout", { soulRefs: ["planner"] }),
+      mockNode("execute", "dispatch", { soulRefs: ["planner"] }),
       mockNode("done", "linear"),
     ];
     const edges = [

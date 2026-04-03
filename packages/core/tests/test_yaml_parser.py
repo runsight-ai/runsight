@@ -28,7 +28,7 @@ class TestBlockTypeRegistry:
         """Verify BLOCK_TYPE_REGISTRY contains all 7 block types."""
         expected_types = {
             "linear",
-            "fanout",
+            "dispatch",
             "synthesize",
             "loop",
             "gate",
@@ -179,13 +179,13 @@ workflow:
 
 
 class TestFanOutBlock:
-    """Tests for FanOutBlock (block type: fanout)."""
+    """Tests for DispatchBlock (block type: dispatch)."""
 
     @pytest.mark.xfail(
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
     def test_fanout_block_valid_yaml(self):
-        """AC-4: Parse valid fanout block with exits."""
+        """AC-4: Parse valid dispatch block with exits."""
         yaml_content = """
 version: "1.0"
 souls:
@@ -199,7 +199,7 @@ souls:
     system_prompt: You review topics.
 blocks:
   fanout_block:
-    type: fanout
+    type: dispatch
     exits:
       - id: exit_research
         label: Research
@@ -221,12 +221,12 @@ workflow:
         assert workflow.name == "test_fanout"
 
     def test_fanout_block_missing_exits_raises_error(self):
-        """AC-5: FanOutBlock without exits raises ValidationError."""
+        """AC-5: DispatchBlock without exits raises ValidationError."""
         yaml_content = """
 version: "1.0"
 blocks:
   fanout_block:
-    type: fanout
+    type: dispatch
 workflow:
   name: test_fanout
   entry: fanout_block
@@ -235,12 +235,12 @@ workflow:
             parse_workflow_yaml(yaml_content)
 
     def test_fanout_block_empty_exits_raises_error(self):
-        """AC-6: FanOutBlock with empty exits raises ValueError."""
+        """AC-6: DispatchBlock with empty exits raises ValueError."""
         yaml_content = """
 version: "1.0"
 blocks:
   fanout_block:
-    type: fanout
+    type: dispatch
     exits: []
 workflow:
   name: test_fanout
@@ -494,7 +494,7 @@ blocks:
     type: linear
     soul_ref: researcher
   review_block:
-    type: fanout
+    type: dispatch
     exits:
       - id: exit_reviewer
         label: Reviewer
