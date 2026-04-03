@@ -9,11 +9,11 @@ import { Play, X, Key } from "lucide-react";
 
 interface RunButtonProps {
   workflowId: string;
-  isCommitted: boolean;
+  isCommitted?: boolean;
   onAddApiKey?: () => void;
 }
 
-export function RunButton({ workflowId, isCommitted, onAddApiKey }: RunButtonProps) {
+export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunButtonProps) {
   const activeRunId = useCanvasStore((s) => s.activeRunId);
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const nodes = useCanvasStore((s) => s.nodes);
