@@ -11,10 +11,11 @@ type WorkflowToolContext = {
 };
 
 type AvailableTool = {
-  slug: string;
+  id: string;
   name: string;
   description: string;
-  type: "builtin" | "custom" | "http";
+  origin: "builtin" | "custom";
+  executor: "native" | "python" | "request";
 };
 
 interface SoulToolsSectionProps {
@@ -28,32 +29,32 @@ function buildAvailableTools(
   tools: string[],
   workflowTools: WorkflowToolContext[],
   availableTools: AvailableTool[],
-): Array<WorkflowToolContext & { type: AvailableTool["type"] }> {
-  const renderableTools = availableTools.filter((tool) => tool.slug !== "runsight/delegate");
+): Array<WorkflowToolContext & { origin: AvailableTool["origin"] }> {
+  const renderableTools = availableTools.filter((tool) => tool.id !== "delegate");
 
   if (workflowTools.length > 0) {
     const workflowMap = new Map(workflowTools.map((tool) => [tool.id, tool]));
     return renderableTools.map((tool) => {
-      const workflowTool = workflowMap.get(tool.slug);
+      const workflowTool = workflowMap.get(tool.id);
       return {
-        id: tool.slug,
+        id: tool.id,
         label: tool.name,
         description: tool.description,
-        enabled: tools.includes(tool.slug),
+        enabled: tools.includes(tool.id),
         availableInWorkflow: workflowTool ? (workflowTool.availableInWorkflow ?? true) : false,
-        type: tool.type,
+        origin: tool.origin,
       };
     });
   }
 
   if (renderableTools.length > 0) {
     return renderableTools.map((tool) => ({
-      id: tool.slug,
+      id: tool.id,
       label: tool.name,
       description: tool.description,
-      enabled: tools.includes(tool.slug),
+      enabled: tools.includes(tool.id),
       availableInWorkflow: true,
-      type: tool.type,
+      origin: tool.origin,
     }));
   }
 
@@ -64,7 +65,7 @@ function buildAvailableTools(
       "Enabled on this soul. Open the form from a workflow to compare workflow-only availability.",
     enabled: true,
     availableInWorkflow: true,
-    type: "builtin" as const,
+    origin: "builtin" as const,
   }));
 }
 
@@ -76,7 +77,7 @@ export function SoulToolsSection({
 }: SoulToolsSectionProps) {
   const toolCards = buildAvailableTools(tools, workflowTools, availableTools);
   const hasCustomTools = availableTools.some(
-    (tool) => tool.slug !== "runsight/delegate" && tool.type === "custom",
+    (tool) => tool.id !== "delegate" && tool.origin === "custom",
   );
 
   const toggleTool = (toolId: string) => {
@@ -126,7 +127,7 @@ export function SoulToolsSection({
                       <div className="mt-1 text-sm text-muted">{tool.description}</div>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                      {tool.type === "custom" ? (
+                      {tool.origin === "custom" ? (
                         <Badge variant="warning">Custom</Badge>
                       ) : null}
                       {selected ? (

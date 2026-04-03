@@ -46,7 +46,8 @@ function getWorkflowIdFromReturnUrl(returnUrl: string | null): string | null {
   }
 
   const workflowMatch = returnUrl.match(/\/workflows\/([^/?#]+)(?:\/edit)?/);
-  return workflowMatch ? decodeURIComponent(workflowMatch[1]) : null;
+  const workflowId = workflowMatch?.[1];
+  return workflowId ? decodeURIComponent(workflowId) : null;
 }
 
 function buildWorkflowTools(
@@ -55,9 +56,9 @@ function buildWorkflowTools(
   availableTools: AvailableTool[],
 ): WorkflowToolContext[] {
   const filteredAvailableTools = availableTools.filter(
-    (tool) => tool.slug !== "runsight/delegate",
+    (tool) => tool.id !== "delegate",
   );
-  const availableToolMap = new Map(filteredAvailableTools.map((tool) => [tool.slug, tool]));
+  const availableToolMap = new Map(filteredAvailableTools.map((tool) => [tool.id, tool]));
 
   const fallbackTools = selectedTools
     .filter((tool) => availableToolMap.has(tool))
@@ -78,15 +79,15 @@ function buildWorkflowTools(
     const parsed = parse(yamlText) as WorkflowToolFile | null;
     const workflowTools = Object.entries(parsed?.tools ?? {})
       .map(([id, toolDef]) => toolDef.source ?? id)
-      .filter((slug) => slug !== "runsight/delegate" && availableToolMap.has(slug))
-      .map((slug) => {
-        const meta = availableToolMap.get(slug);
+      .filter((toolId) => toolId !== "delegate" && availableToolMap.has(toolId))
+      .map((toolId) => {
+        const meta = availableToolMap.get(toolId);
 
         return {
-          id: slug,
-          label: meta?.name ?? slug,
+          id: toolId,
+          label: meta?.name ?? toolId,
           description: meta?.description ?? "Available in this workflow.",
-          enabled: selectedTools.includes(slug),
+          enabled: selectedTools.includes(toolId),
           availableInWorkflow: true,
         };
       });

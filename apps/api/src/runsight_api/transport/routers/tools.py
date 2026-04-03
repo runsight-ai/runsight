@@ -7,42 +7,46 @@ from fastapi import APIRouter
 from runsight_core.yaml.discovery import discover_custom_tools
 
 from ...core.config import settings
+from ...domain.errors import InputValidationError
 from ..schemas.tools import ToolListItemResponse
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
 
 _USER_FACING_BUILTIN_TOOLS = (
     ToolListItemResponse(
-        slug="http",
+        id="http",
         name="HTTP Requests",
         description="Fetch external APIs.",
-        type="builtin",
+        origin="builtin",
+        executor="native",
     ),
     ToolListItemResponse(
-        slug="file_io",
+        id="file_io",
         name="Workspace Files",
         description="Read project files.",
-        type="builtin",
+        origin="builtin",
+        executor="native",
     ),
 )
-
-
-def _format_tool_name(slug: str) -> str:
-    parts = [segment for segment in slug.replace("-", " ").replace("_", " ").split() if segment]
-    return " ".join(part.capitalize() for part in parts) or slug
 
 
 @router.get("", response_model=List[ToolListItemResponse])
 async def list_tools() -> List[ToolListItemResponse]:
     items: List[ToolListItemResponse] = list(_USER_FACING_BUILTIN_TOOLS)
 
-    for slug, tool_meta in sorted(discover_custom_tools(settings.base_path).items()):
+    try:
+        discovered_tools = discover_custom_tools(settings.base_path)
+    except ValueError as exc:
+        raise InputValidationError(str(exc)) from exc
+
+    for tool_id, tool_meta in sorted(discovered_tools.items()):
         items.append(
             ToolListItemResponse(
-                slug=slug,
-                name=tool_meta.name or _format_tool_name(slug),
+                id=tool_id,
+                name=tool_meta.name,
                 description=tool_meta.description,
-                type=tool_meta.type,
+                origin="custom",
+                executor=tool_meta.executor,
             )
         )
 

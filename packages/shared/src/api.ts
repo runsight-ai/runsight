@@ -1399,14 +1399,22 @@ export interface components {
         };
         /** ToolListItemResponse */
         ToolListItemResponse: {
-            /** Slug */
-            slug: string;
+            /** Id */
+            id: string;
             /** Name */
             name: string;
             /** Description */
             description: string;
-            /** Type */
-            type: string;
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "builtin" | "custom";
+            /**
+             * Executor
+             * @enum {string}
+             */
+            executor: "native" | "python" | "request";
         };
         /** UncommittedFile */
         UncommittedFile: {

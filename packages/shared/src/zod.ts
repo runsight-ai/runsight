@@ -474,10 +474,11 @@ export const TaskUpdateSchema = z.object({
 export type TaskUpdate = z.infer<typeof TaskUpdateSchema>;
 
 export const ToolListItemResponseSchema = z.object({
-  slug: z.string(),
+  id: z.string(),
   name: z.string(),
   description: z.string(),
-  type: z.string(),
+  origin: z.string(),
+  executor: z.string(),
 });
 export type ToolListItemResponse = z.infer<typeof ToolListItemResponseSchema>;
 

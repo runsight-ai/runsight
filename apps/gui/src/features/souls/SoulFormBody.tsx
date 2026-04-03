@@ -28,7 +28,7 @@ export function SoulFormBody({
     <div className="space-y-4">
       <div className="sr-only">
         {availableTools?.map((tool) => (
-          <span key={`${tool.slug}-type`}>{tool.type}</span>
+          <span key={`${tool.id}-origin`}>{tool.origin}</span>
         ))}
       </div>
       <SoulIdentitySection
