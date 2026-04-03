@@ -24,7 +24,7 @@ import { SoulFormFooter } from "./SoulFormFooter";
 import { useSoulForm } from "./useSoulForm";
 
 type WorkflowToolFile = {
-  tools?: Record<string, unknown>;
+  tools?: string[];
 };
 
 function buildBreadcrumbLabel(mode: "create" | "edit", role?: string | null) {
@@ -70,14 +70,13 @@ function buildWorkflowTools(
 
   try {
     const parsed = parse(yamlText) as WorkflowToolFile | null;
-    const workflowToolEntries = parsed?.tools;
+    const workflowToolIds = parsed?.tools;
 
-    if (!workflowToolEntries || typeof workflowToolEntries !== "object") {
+    if (!Array.isArray(workflowToolIds)) {
       return fallbackTools;
     }
 
-    const workflowTools = Object.entries(parsed?.tools ?? {})
-      .map(([toolId]) => toolId)
+    const workflowTools = workflowToolIds
       .filter((toolId) => toolId !== "delegate")
       .map((toolId) => {
         const meta = availableToolMap.get(toolId);

@@ -2,7 +2,7 @@ id: web_researcher_1
 role: Web Researcher
 avatar_color: info
 tools:
-  - runsight/http
+  - http
 system_prompt: |
   You are a web research specialist.
 

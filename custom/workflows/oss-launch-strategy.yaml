@@ -3,6 +3,9 @@ version: "1.0"
 config:
   model_name: claude-haiku-4-5-20251001
 
+tools:
+  - file_io
+
 souls:
   researcher:
     id: researcher_1
@@ -35,13 +38,13 @@ souls:
       (pre-launch, launch day, post-launch, community, metrics), realistic
       timelines, and practical next steps.
 
-      If the strategy meets quality standards, use the file-io tool to write
+      If the strategy meets quality standards, use the file_io tool to write
       the content to "custom/outputs/oss-launch-strategy.md", then respond
       with EXACTLY: PASS
 
       If it needs improvement, respond with EXACTLY: FAIL: <specific issues>
     tools:
-      - runsight/file-io
+      - file_io
     max_tool_iterations: 2
 
 blocks:
