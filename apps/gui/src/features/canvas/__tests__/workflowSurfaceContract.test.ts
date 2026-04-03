@@ -10,7 +10,7 @@ const EXPECTED_MODES = [
   "fork-draft",
 ] as const;
 
-const FEATURES_ROOT = resolve(import.meta.dirname, "../..");
+const GUI_SRC_ROOT = resolve(import.meta.dirname, "../../..");
 
 type Mode = (typeof EXPECTED_MODES)[number];
 type RegionName =
@@ -168,7 +168,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function candidateContractModules() {
-  return collectSourceFiles(FEATURES_ROOT).filter((filePath) => {
+  return collectSourceFiles(GUI_SRC_ROOT).filter((filePath) => {
     const source = readFileSync(filePath, "utf8");
 
     return (
@@ -369,7 +369,8 @@ describe("RUN-591 workflow surface contract", () => {
     expect(execution.capabilities.usesRunOverlay).toBe(true);
     expect(execution.regions.palette).toEqual({ visible: true, editable: false });
     expect(execution.regions.yaml).toEqual({ visible: true, editable: false });
-    expect(execution.actions).toEqual(workflow.actions);
+    expect(execution.actions).toEqual(EXPECTED_MODE_MATRIX.execution.actions);
+    expect(execution.actions).not.toEqual(workflow.actions);
     expect(execution.actions).not.toEqual({
       save: true,
       run: true,
