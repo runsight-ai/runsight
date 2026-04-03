@@ -331,3 +331,81 @@ async def test_missing_child_ref_fails_at_save_and_launch_with_same_resolution_e
     assert "renamed-child" in updated.error
     assert "resolve ref" in updated.error.lower()
     assert svc._run_workflow.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_launch_execution_rejects_child_workflow_without_public_interface_contract(
+    tmp_path: Path,
+) -> None:
+    from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+    from runsight_api.logic.services.execution_service import ExecutionService
+    from runsight_api.logic.services.git_service import GitService
+
+    parent_yaml = """
+    version: "1.0"
+    blocks:
+      call_child:
+        type: workflow
+        workflow_ref: custom/workflows/child.yaml
+        inputs:
+          topic: shared_memory.topic
+        outputs:
+          results.summary: summary
+    workflow:
+      name: Parent Workflow
+      entry: call_child
+      transitions:
+        - from: call_child
+          to: null
+    config: {}
+    """
+    child_yaml = """
+    version: "1.0"
+    workflow:
+      name: Child Workflow
+      entry: finish
+      transitions: []
+    """
+
+    repo = _init_git_repo_with_nested_workflows(
+        tmp_path,
+        parent_yaml=parent_yaml,
+        child_yaml=child_yaml,
+    )
+
+    run_record = Mock()
+    run_repo = Mock()
+    run_repo.get_run.return_value = run_record
+    provider_repo = Mock()
+    provider_repo.list_all.return_value = [
+        Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"], api_key=None)
+    ]
+    workflow_repo = WorkflowRepository(base_path=str(repo))
+    git_service = GitService(repo_path=repo)
+    svc = ExecutionService(
+        run_repo=run_repo,
+        workflow_repo=workflow_repo,
+        provider_repo=provider_repo,
+        git_service=git_service,
+    )
+    svc._run_workflow = AsyncMock()
+
+    with patch.object(
+        svc,
+        "_prepare_runtime_workflow",
+        side_effect=lambda *, yaml_content, api_keys: (yaml.safe_load(yaml_content), Mock()),
+    ):
+        await svc.launch_execution(
+            "run_missing_interface_contract",
+            "parent",
+            {"instruction": "execute nested workflow"},
+            branch="main",
+        )
+        await asyncio.sleep(0.05)
+
+    run_repo.update_run.assert_called_once()
+    updated = run_repo.update_run.call_args.args[0]
+    assert updated.error is not None
+    assert "interface" in updated.error.lower()
+    assert "child" in updated.error.lower()
+    assert svc._run_workflow.await_count == 0
