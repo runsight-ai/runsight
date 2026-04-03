@@ -718,18 +718,9 @@ class TestResolveCanonicalRequestTools:
 
         client_instance.request.assert_not_called()
 
-    @pytest.mark.parametrize(
-        ("content_type", "body"),
-        [
-            ("text/plain", "plain text body"),
-            ("text/html", "<html>hello</html>"),
-        ],
-    )
     @pytest.mark.asyncio
-    async def test_request_tool_returns_text_and_html_responses_as_is(
-        self, tmp_path, content_type, body
-    ):
-        """Non-JSON request tool responses should be returned unchanged."""
+    async def test_request_tool_returns_plain_text_responses_as_is(self, tmp_path):
+        """Plain-text request tool responses should still round-trip directly."""
         from runsight_core.tools import resolve_tool
 
         _write_custom_tool_yaml(
@@ -754,8 +745,8 @@ class TestResolveCanonicalRequestTools:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.headers = {"content-type": content_type}
-        mock_response.text = body
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.text = "plain text body"
 
         with patch("httpx.AsyncClient") as MockClient:
             client_instance = AsyncMock()
@@ -766,7 +757,62 @@ class TestResolveCanonicalRequestTools:
 
             result = await tool.execute({})
 
-        assert result == body
+        assert result == "plain text body"
+
+    @pytest.mark.asyncio
+    async def test_request_tool_normalizes_html_into_readable_text(self, tmp_path):
+        """HTML responses should be stripped into readable text instead of raw markup."""
+        from runsight_core.tools import resolve_tool
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "read_page",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Read Page
+            description: Read a remote page.
+            parameters:
+              type: object
+              properties: {}
+            request:
+              method: GET
+              url: https://example.com
+            """,
+        )
+
+        tool = resolve_tool("read_page", base_dir=tmp_path)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/html; charset=utf-8"}
+        mock_response.text = """
+        <html>
+          <body>
+            <article>
+              <h1>Runsight Docs</h1>
+              <p>Ship tools safely.</p>
+              <script>console.log("drop me")</script>
+            </article>
+          </body>
+        </html>
+        """
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute({})
+
+        assert "Runsight Docs" in result
+        assert "Ship tools safely." in result
+        assert "<html" not in result.lower()
+        assert "<script" not in result.lower()
+        assert "console.log" not in result
 
     @pytest.mark.parametrize("location", ["headers", "body_template"])
     @pytest.mark.asyncio
@@ -884,6 +930,57 @@ class TestResolveCanonicalRequestTools:
 
         assert result == "truncated body"
         response_size_policy.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_request_tool_applies_default_size_cap_when_no_explicit_limit_is_passed(
+        self, tmp_path
+    ):
+        """Shared request execution should still cap very large responses when callers use defaults."""
+        from runsight_core.tools import resolve_tool
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "read_large_page",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Read Large Page
+            description: Read a large remote page.
+            parameters:
+              type: object
+              properties: {}
+            request:
+              method: GET
+              url: https://example.com/large
+            """,
+        )
+
+        response_size_policy = Mock(return_value="default-capped body")
+        tool = resolve_tool(
+            "read_large_page",
+            base_dir=tmp_path,
+            response_size_policy=response_size_policy,
+        )
+
+        large_html = "<html><body>" + ("Alpha " * 300_000) + "</body></html>"
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/html"}
+        mock_response.text = large_html
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute({})
+
+        assert result == "default-capped body"
+        response_size_policy.assert_called_once()
+        assert response_size_policy.call_args.kwargs["max_output_bytes"] is not None
 
     @pytest.mark.asyncio
     async def test_request_tool_size_policy_can_fail_closed_for_oversized_response(self, tmp_path):

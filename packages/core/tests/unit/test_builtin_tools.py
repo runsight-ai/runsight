@@ -169,6 +169,43 @@ class TestHttpToolExecute:
         assert result == "hello"
 
     @pytest.mark.asyncio
+    async def test_execute_html_response_returns_readable_text_without_markup(self):
+        """Builtin http should normalize HTML into readable text before returning it."""
+        from runsight_core.tools import resolve_tool
+
+        tool = resolve_tool("http")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/html; charset=utf-8"}
+        mock_response.text = """
+        <html>
+          <body>
+            <main>
+              <h1>Runsight Docs</h1>
+              <p>Keep tool output bounded.</p>
+              <script>console.log("drop me")</script>
+            </main>
+          </body>
+        </html>
+        """
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute({"method": "GET", "url": "https://example.com/docs"})
+
+        assert "Runsight Docs" in result
+        assert "Keep tool output bounded." in result
+        assert "<html" not in result.lower()
+        assert "<script" not in result.lower()
+        assert "console.log" not in result
+
+    @pytest.mark.asyncio
     async def test_execute_post_with_body_returns_normalized_json_payload(self):
         """POST responses should preserve the shared JSON payload contract as well."""
         from runsight_core.tools import resolve_tool
@@ -267,6 +304,33 @@ class TestHttpToolExecute:
 
         assert result == "truncated body"
         response_size_policy.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_execute_uses_default_size_cap_when_no_explicit_limit_is_provided(self):
+        """Builtin http should still apply a default cap so callers are not responsible for safety."""
+        from runsight_core.tools import resolve_tool
+
+        response_size_policy = Mock(return_value="default-capped body")
+        tool = resolve_tool("http", response_size_policy=response_size_policy)
+
+        large_html = "<html><body>" + ("Alpha " * 300_000) + "</body></html>"
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/html"}
+        mock_response.text = large_html
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute({"method": "GET", "url": "https://example.com/huge"})
+
+        assert result == "default-capped body"
+        response_size_policy.assert_called_once()
+        assert response_size_policy.call_args.kwargs["max_output_bytes"] is not None
 
 
 # ===========================================================================

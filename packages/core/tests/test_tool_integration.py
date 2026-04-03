@@ -1587,6 +1587,104 @@ workflow:
         ]
         assert json.loads(tool_messages[-1]["content"]) == {"answer": "42"}
 
+    @pytest.mark.asyncio
+    @patch("runsight_core.runner.LiteLLMClient.achat")
+    async def test_builtin_http_tool_pipeline_caps_and_sanitizes_multiple_large_html_pages(
+        self,
+        mock_achat: AsyncMock,
+    ) -> None:
+        """RUN-489: builtin http should keep repeated large HTML fetches readable and bounded in-loop."""
+        yaml_dict = _workflow_dict(
+            tools=["http"],
+            souls={
+                "agent": {
+                    "id": "agent_1",
+                    "role": "HTTP Agent",
+                    "system_prompt": "Use the builtin http tool.",
+                    "tools": ["http"],
+                }
+            },
+            blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+        )
+
+        workflow = parse_workflow_yaml(yaml_dict)
+        soul = workflow.blocks["step"].soul
+
+        raw_html = (
+            "<html><body><article><h1>Runsight Docs</h1><p>"
+            + ("Keep responses bounded. " * 8_000)
+            + '</p><script>console.log("drop me")</script></article></body></html>'
+        )
+
+        class _FakeResponse:
+            status_code = 200
+            headers = {"content-type": "text/html; charset=utf-8"}
+
+            @property
+            def text(self) -> str:
+                return raw_html
+
+        class _FakeAsyncClient:
+            def __init__(self) -> None:
+                self._responses = [_FakeResponse(), _FakeResponse()]
+
+            async def __aenter__(self) -> "_FakeAsyncClient":
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb) -> None:
+                return None
+
+            async def request(
+                self,
+                method: str,
+                url: str,
+                headers: dict[str, str] | None = None,
+                content: str | None = None,
+            ) -> _FakeResponse:
+                assert method == "GET"
+                assert url.startswith("https://example.com/page-")
+                assert headers is None
+                assert content is None
+                return self._responses.pop(0)
+
+        mock_achat.side_effect = [
+            _tool_call_response(
+                "http_request",
+                arguments='{"method": "GET", "url": "https://example.com/page-1"}',
+                call_id="builtin_http_html_1",
+            ),
+            _tool_call_response(
+                "http_request",
+                arguments='{"method": "GET", "url": "https://example.com/page-2"}',
+                call_id="builtin_http_html_2",
+            ),
+            _text_response("Builtin http HTML complete."),
+        ]
+
+        with patch("httpx.AsyncClient", _FakeAsyncClient):
+            runner = RunsightTeamRunner(model_name="gpt-4o")
+            result = await runner.execute_task(
+                Task(id="run-489-builtin-http-html", instruction="Fetch two HTML pages"),
+                soul,
+            )
+
+        assert result.output == "Builtin http HTML complete."
+        assert result.tool_calls_made == ["http_request", "http_request"]
+
+        tool_messages = [
+            msg
+            for msg in mock_achat.call_args_list[2].kwargs["messages"]
+            if msg.get("role") == "tool"
+        ]
+
+        assert len(tool_messages) == 2
+        for message in tool_messages:
+            assert "Runsight Docs" in message["content"]
+            assert "<html" not in message["content"].lower()
+            assert "<script" not in message["content"].lower()
+            assert "console.log" not in message["content"]
+            assert len(message["content"].encode("utf-8")) < 100_000
+
     def test_builtin_custom_and_request_tools_parse_and_resolve_together(
         self,
         tmp_path: Path,
