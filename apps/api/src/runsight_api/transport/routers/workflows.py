@@ -37,11 +37,14 @@ async def list_workflows(
 
 @router.get("/{id}", response_model=WorkflowResponse)
 async def get_workflow(id: str, service: WorkflowService = Depends(get_workflow_service)):
-    w = service.get_workflow(id)
-    if not w:
-        from ...domain.errors import WorkflowNotFound
+    from ...domain.errors import RunsightError, WorkflowNotFound
 
-        raise WorkflowNotFound(f"Workflow {id} not found")
+    try:
+        w = service.get_workflow_detail(id)
+        if not w:
+            raise WorkflowNotFound(f"Workflow {id} not found")
+    except RunsightError as exc:
+        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
     return WorkflowResponse(**w.model_dump())
 
 
@@ -114,4 +117,9 @@ async def delete_workflow(
     force: bool = False,
     service: WorkflowService = Depends(get_workflow_service),
 ):
-    return service.delete_workflow(id, force=force)
+    from ...domain.errors import RunsightError
+
+    try:
+        return service.delete_workflow(id, force=force)
+    except RunsightError as exc:
+        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
