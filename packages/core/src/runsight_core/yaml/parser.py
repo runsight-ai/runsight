@@ -207,12 +207,27 @@ _rebuild()
 del _rebuild
 
 
+def _find_project_root(start: Path) -> str:
+    """Walk up from *start* to find the directory that contains ``custom/``.
+
+    Returns the first ancestor whose ``custom/`` child exists, or *start*
+    itself if no ancestor qualifies (matches the pre-existing fallback
+    behaviour for tool discovery).
+    """
+    current = start.resolve()
+    for candidate in [current, *current.parents]:
+        if (candidate / "custom").is_dir():
+            return str(candidate)
+    return str(start)
+
+
 def parse_workflow_yaml(
     yaml_str_or_dict: Union[str, Dict[str, Any]],
     *,
     workflow_registry: Optional["WorkflowRegistry"] = None,
     api_keys: Optional[Dict[str, str]] = None,
     runner: Optional[Any] = None,
+    _base_dir: Optional[str] = None,
 ) -> Workflow:
     """
     Parse a YAML workflow definition into a runnable Workflow object.
@@ -236,14 +251,14 @@ def parse_workflow_yaml(
         yaml.YAMLError: If YAML content is syntactically invalid.
     """
     # Step 1: Normalize input to raw dict
-    workflow_base_dir = "."
+    workflow_base_dir = _base_dir or "."
     if isinstance(yaml_str_or_dict, str):
         stripped = yaml_str_or_dict.strip()
         is_file_path = "\n" not in stripped and (
             stripped.endswith(".yaml") or stripped.endswith(".yml") or stripped.endswith(".json")
         )
         if is_file_path:
-            workflow_base_dir = str(Path(stripped).resolve().parent)
+            workflow_base_dir = _base_dir or _find_project_root(Path(stripped).resolve().parent)
             with open(stripped, "r", encoding="utf-8") as f:
                 raw: Any = yaml.safe_load(f)
         else:
@@ -296,9 +311,12 @@ def parse_workflow_yaml(
             # Normalize to dict so parse_workflow_yaml receives Union[str, Dict] not model instance
             child_raw = child_file.model_dump() if hasattr(child_file, "model_dump") else child_file
 
-            # Recursively parse child workflow (passes registry for nested workflows)
+            # Recursively parse child workflow (passes registry + base_dir for nested workflows)
             child_wf = parse_workflow_yaml(
-                child_raw, workflow_registry=workflow_registry, api_keys=api_keys
+                child_raw,
+                workflow_registry=workflow_registry,
+                api_keys=api_keys,
+                _base_dir=workflow_base_dir,
             )
 
             # Read max_depth: block-level override -> global config -> default 10
