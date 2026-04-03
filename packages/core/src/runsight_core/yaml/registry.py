@@ -39,9 +39,10 @@ class WorkflowRegistry:
         wf_file = registry.get("./workflows/analysis.yaml")
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, allow_filesystem_fallback: bool = True) -> None:
         """Initialize empty registry."""
         self._registry: Dict[str, RunsightWorkflowFile] = {}
+        self._allow_filesystem_fallback = allow_filesystem_fallback
 
     def register(self, name: str, workflow_file: RunsightWorkflowFile) -> None:
         """
@@ -89,6 +90,14 @@ class WorkflowRegistry:
         # Step 1: Exact name match
         if ref in self._registry:
             return self._registry[ref]
+
+        if not self._allow_filesystem_fallback:
+            available_keys = sorted(self._registry.keys())
+            raise ValueError(
+                f"WorkflowRegistry: cannot resolve ref '{ref}'. "
+                "Not found as named workflow or filesystem path. "
+                f"Available registered names: {available_keys}"
+            )
 
         # Step 2: Treat as file path
         try:

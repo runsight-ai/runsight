@@ -177,9 +177,20 @@ class ExecutionService:
                 yaml_content=yaml_content,
                 api_keys=api_keys,
             )
+            workflow_registry = self.workflow_repo.build_runnable_workflow_registry(
+                workflow_id,
+                yaml_content,
+                git_ref=branch if self.git_service else None,
+                git_service=self.git_service,
+            )
 
             # Parse workflow YAML into runnable Workflow
-            wf = parse_workflow_yaml(workflow_definition, api_keys=api_keys, runner=runner)
+            wf = parse_workflow_yaml(
+                workflow_definition,
+                workflow_registry=workflow_registry,
+                api_keys=api_keys,
+                runner=runner,
+            )
 
             # Store branch + commit_sha on Run record
             self._store_branch_and_sha(run_id, branch, commit_sha)

@@ -304,6 +304,7 @@ def _resolve_workflow_call_contract_ref(
     *,
     base_dir: str,
     validation_index: dict[str, tuple[Path, RunsightWorkflowFile]],
+    allow_filesystem_fallback: bool = True,
 ) -> tuple[Path, RunsightWorkflowFile]:
     indexed = validation_index.get(workflow_ref)
     if indexed is not None:
@@ -321,16 +322,17 @@ def _resolve_workflow_call_contract_ref(
             candidate_paths.append(root / "custom" / "workflows" / f"{workflow_ref}.yaml")
             candidate_paths.append(root / "custom" / "workflows" / f"{workflow_ref}.yml")
 
-    for candidate_path in candidate_paths:
-        resolved_path = candidate_path.resolve()
-        indexed = validation_index.get(str(resolved_path))
-        if indexed is not None:
-            return indexed
-        if resolved_path.exists():
-            with open(resolved_path, "r", encoding="utf-8") as workflow_file_handle:
-                raw_data = yaml.safe_load(workflow_file_handle)
-            workflow_file = RunsightWorkflowFile.model_validate(raw_data)
-            return resolved_path, workflow_file
+    if allow_filesystem_fallback:
+        for candidate_path in candidate_paths:
+            resolved_path = candidate_path.resolve()
+            indexed = validation_index.get(str(resolved_path))
+            if indexed is not None:
+                return indexed
+            if resolved_path.exists():
+                with open(resolved_path, "r", encoding="utf-8") as workflow_file_handle:
+                    raw_data = yaml.safe_load(workflow_file_handle)
+                workflow_file = RunsightWorkflowFile.model_validate(raw_data)
+                return resolved_path, workflow_file
 
     raise ValueError(
         f"WorkflowRegistry: cannot resolve ref '{workflow_ref}'. "
@@ -342,13 +344,17 @@ def validate_workflow_call_contracts(
     file_def: RunsightWorkflowFile,
     *,
     base_dir: str,
-    visited_refs: set[str] | None = None,
     validation_index: dict[str, tuple[Path, RunsightWorkflowFile]] | None = None,
+    current_workflow_ref: str | None = None,
+    ancestry: tuple[str, ...] | None = None,
+    remaining_depth: int = 10,
+    allow_filesystem_fallback: bool = True,
 ) -> None:
-    if visited_refs is None:
-        visited_refs = set()
     if validation_index is None:
         validation_index = _build_workflow_validation_index(base_dir)
+    if ancestry is None:
+        root_ref = current_workflow_ref or getattr(file_def.workflow, "name", "<root>")
+        ancestry = (root_ref,)
 
     for block_id, block_def in file_def.blocks.items():
         if block_def.type != "workflow":
@@ -358,19 +364,33 @@ def validate_workflow_call_contracts(
             block_def.workflow_ref,
             base_dir=base_dir,
             validation_index=validation_index,
+            allow_filesystem_fallback=allow_filesystem_fallback,
         )
         child_ref = str(child_path)
-        if child_ref in visited_refs:
-            continue
+        if child_ref in ancestry:
+            cycle_path = " -> ".join([*ancestry, child_ref])
+            raise ValueError(f"Circular workflow reference cycle detected: {cycle_path}")
 
         _validate_workflow_block_contract(block_id, block_def, child_file)
 
-        visited_refs.add(child_ref)
+        branch_depth_limit = min(
+            remaining_depth,
+            block_def.max_depth if block_def.max_depth is not None else remaining_depth,
+        )
+        if branch_depth_limit <= 0:
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': maximum depth exceeded while resolving "
+                f"child workflow '{block_def.workflow_ref}'"
+            )
+
         validate_workflow_call_contracts(
             child_file,
             base_dir=_find_project_root(child_path.parent),
-            visited_refs=visited_refs,
             validation_index=validation_index,
+            current_workflow_ref=child_ref,
+            ancestry=(*ancestry, child_ref),
+            remaining_depth=branch_depth_limit - 1,
+            allow_filesystem_fallback=allow_filesystem_fallback,
         )
 
 
