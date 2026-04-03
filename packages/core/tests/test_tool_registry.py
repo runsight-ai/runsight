@@ -247,20 +247,34 @@ class TestResolveToolUnknownSource:
     def test_unknown_source_raises_value_error(self):
         """resolve_tool with unregistered source raises ValueError."""
         from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import ToolDef
 
-        tool_def = ToolDef(type="builtin", source="runsight/does_not_exist_xyz")
         with pytest.raises(ValueError):
-            resolve_tool(tool_def)
+            resolve_tool("does_not_exist_xyz")
 
     def test_error_message_mentions_source(self):
         """ValueError message includes the unknown source string."""
         from runsight_core.tools import resolve_tool
+
+        with pytest.raises(ValueError, match="mystery_source"):
+            resolve_tool("mystery_source")
+
+    def test_typed_tool_def_runtime_input_is_rejected(self):
+        """Legacy ToolDef runtime inputs should be rejected in favor of canonical IDs."""
+        from runsight_core.tools import resolve_tool
         from runsight_core.yaml.schema import ToolDef
 
-        tool_def = ToolDef(type="builtin", source="runsight/mystery_source")
-        with pytest.raises(ValueError, match="runsight/mystery_source"):
+        tool_def = ToolDef(type="builtin", source="http")
+
+        with pytest.raises((TypeError, ValueError)):
             resolve_tool(tool_def)
+
+    @pytest.mark.parametrize("legacy_source", ["runsight/http", "runsight/delegate"])
+    def test_legacy_source_strings_are_rejected(self, legacy_source: str):
+        """Legacy source slugs should not be accepted by the runtime resolver."""
+        from runsight_core.tools import resolve_tool
+
+        with pytest.raises((TypeError, ValueError)):
+            resolve_tool(legacy_source)
 
 
 # ===========================================================================
@@ -279,10 +293,10 @@ class TestResolveToolKwargs:
             register_builtin,
             resolve_tool,
         )
-        from runsight_core.yaml.schema import ToolDef
 
-        source = "test/runtool_registry_kwargs"
+        source = "http"
         received: dict = {}
+        original_factory = BUILTIN_TOOL_CATALOG.get(source)
 
         def factory(**kwargs: Any):
             received.update(kwargs)
@@ -293,23 +307,23 @@ class TestResolveToolKwargs:
                 execute=_noop_execute,
             )
 
-        BUILTIN_TOOL_CATALOG.pop(source, None)
         try:
             register_builtin(source, factory)
-            tool_def = ToolDef(type="builtin", source=source)
-            resolve_tool(tool_def, custom_param="test_value_281")
+            resolve_tool(source, custom_param="test_value_281")
             assert received.get("custom_param") == "test_value_281"
         finally:
-            BUILTIN_TOOL_CATALOG.pop(source, None)
+            if original_factory is None:
+                BUILTIN_TOOL_CATALOG.pop(source, None)
+            else:
+                BUILTIN_TOOL_CATALOG[source] = original_factory
 
     def test_delegate_resolve_passes_exits(self):
-        """resolve_tool for runsight/delegate passes exits kwarg to factory."""
+        """resolve_tool for canonical delegate passes exits kwarg to factory."""
         from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import ExitDef, ToolDef
+        from runsight_core.yaml.schema import ExitDef
 
         exits = [ExitDef(id="approve", label="Approve"), ExitDef(id="reject", label="Reject")]
-        tool_def = ToolDef(type="builtin", source="runsight/delegate")
-        tool = resolve_tool(tool_def, exits=exits)
+        tool = resolve_tool("delegate", exits=exits)
 
         port_schema = tool.parameters["properties"]["port"]
         assert "enum" in port_schema
