@@ -23,7 +23,7 @@ import type { RunNodeData } from "./RunCanvasNode";
 import { RunInspectorPanel } from "./RunInspectorPanel";
 import { RunBottomPanel } from "./RunBottomPanel";
 import { RunDetailHeader } from "./RunDetailHeader";
-import { getWorkflowSurfaceModeConfig } from "../canvas/workflowSurfaceContract";
+import { HistoricalWorkflowSurface } from "./HistoricalWorkflowSurface";
 import { getIconForBlockType, mapRunStatus } from "./runDetailUtils";
 
 export { RunCanvasNode };
@@ -101,7 +101,6 @@ function RunDetailInner() {
   const onPaneClick = useCallback(() => { setSelectedNode(null); }, []);
   const logs = useMemo(() => runLogs?.items || [], [runLogs]);
   const regressionCount = regressionData?.items?.length ?? 0;
-  const historicalSurface = getWorkflowSurfaceModeConfig("historical");
 
   if (isLoadingRun || isLoadingNodes) {
     return (
@@ -125,12 +124,12 @@ function RunDetailInner() {
   const isFailed = run.status === "failed" || run.status === "error";
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-[var(--surface-primary)]">
-      <main className="flex-1 flex flex-col min-w-0">
-        {historicalSurface.regions.topbar.visible ? <RunDetailHeader run={run} /> : null}
-        <PriorityBanner conditions={[{ type: "regressions", active: regressionCount > 0, message: `${regressionCount} regressions found` }]} />
-
-        <div className="flex-1 flex overflow-hidden">
+    <HistoricalWorkflowSurface
+      runId={run.id}
+      topbar={<RunDetailHeader run={run} metrics={{ total_cost_usd: run.total_cost_usd, total_tokens: run.total_tokens }} />}
+      mainContent={
+        <>
+          <PriorityBanner conditions={[{ type: "regressions", active: regressionCount > 0, message: `${regressionCount} regressions found` }]} />
           <div className="flex-1 relative">
             {isRunNodesError ? (
               <div className="flex h-full items-center justify-center p-6">
@@ -138,17 +137,10 @@ function RunDetailInner() {
                   <div className="space-y-3">
                     <h2 className="text-lg font-semibold text-heading">Unable to load run graph</h2>
                     <p className="text-sm leading-6 text-secondary">
-                      Runsight could not read the node response for this run. Retry to fetch the
-                      graph again.
+                      Runsight could not read the node response for this run. Retry to fetch the graph again.
                     </p>
-                    {runNodesError instanceof Error ? (
-                      <p className="text-sm text-secondary">{runNodesError.message}</p>
-                    ) : null}
-                    <div className="pt-2">
-                      <Button variant="primary" onClick={() => void refetchRunNodes()}>
-                        Retry
-                      </Button>
-                    </div>
+                    {runNodesError instanceof Error ? <p className="text-sm text-secondary">{runNodesError.message}</p> : null}
+                    <div className="pt-2"><Button variant="primary" onClick={() => void refetchRunNodes()}>Retry</Button></div>
                   </div>
                 </Card>
               </div>
@@ -164,27 +156,22 @@ function RunDetailInner() {
                 >
                   <Background color="var(--border-default)" gap={20} size={1} style={{ opacity: 0.3 }} />
                   <Controls className="!bg-[var(--surface-secondary)] !border-[var(--border-default)]" />
-                  <MiniMap
-                    className="!bg-[var(--surface-secondary)]/90 !border-[var(--border-default)]"
-                    nodeColor={(node) => {
-                      const s = (node.data as RunNodeData)?.status;
-                      if (s === "completed") return "var(--success-9)";
-                      if (s === "failed") return "var(--danger-9)";
-                      if (s === "pending") return "var(--text-muted)";
-                      return "var(--interactive-default)";
-                    }}
-                    maskColor="var(--background-70)"
-                  />
+                  <MiniMap className="!bg-[var(--surface-secondary)]/90 !border-[var(--border-default)]" nodeColor={(node) => {
+                    const s = (node.data as RunNodeData)?.status;
+                    if (s === "completed") return "var(--success-9)";
+                    if (s === "failed") return "var(--danger-9)";
+                    if (s === "pending") return "var(--text-muted)";
+                    return "var(--interactive-default)";
+                  }} maskColor="var(--background-70)" />
                 </ReactFlow>
               </CanvasErrorBoundary>
             )}
           </div>
-          <RunInspectorPanel selectedNode={selectedNode} onClose={() => setSelectedNode(null)} />
-        </div>
-
-        {historicalSurface.regions.footer.visible ? <RunBottomPanel logs={logs} executionComplete executionFailed={isFailed} finalDuration={run.duration_seconds || 0} runId={run.id} workflowId={run.workflow_id} currentRunId={run.id} /> : null}
-      </main>
-    </div>
+        </>
+      }
+      inspector={<RunInspectorPanel selectedNode={selectedNode} onClose={() => setSelectedNode(null)} />}
+      footer={<RunBottomPanel logs={logs} executionComplete executionFailed={isFailed} finalDuration={run.duration_seconds || 0} runId={run.id} currentRunId={run.id} workflowId={run.workflow_id} />}
+    />
   );
 }
 
