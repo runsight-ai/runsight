@@ -225,6 +225,80 @@ def _find_project_root(start: Path) -> str:
     return str(start)
 
 
+def _validate_workflow_block_contract(
+    block_id: str,
+    block_def: Any,
+    child_file: RunsightWorkflowFile,
+) -> None:
+    child_interface = child_file.interface
+    if child_interface is None:
+        raise ValueError(
+            f"WorkflowBlock '{block_id}': child workflow '{block_def.workflow_ref}' "
+            "must declare an interface"
+        )
+
+    declared_inputs = {item.name: item for item in child_interface.inputs}
+    declared_outputs = {item.name for item in child_interface.outputs}
+
+    for binding_name in (block_def.inputs or {}).keys():
+        if binding_name not in declared_inputs:
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': unknown interface input '{binding_name}'. "
+                f"Declared child inputs: {sorted(declared_inputs)}"
+            )
+
+    missing_required = [
+        item.name
+        for item in child_interface.inputs
+        if item.required and item.default is None and item.name not in (block_def.inputs or {})
+    ]
+    if missing_required:
+        raise ValueError(
+            f"WorkflowBlock '{block_id}': missing required interface inputs {missing_required}"
+        )
+
+    for binding_name in (block_def.outputs or {}).values():
+        if binding_name not in declared_outputs:
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': unknown interface output '{binding_name}'. "
+                f"Declared child outputs: {sorted(declared_outputs)}"
+            )
+
+
+def validate_workflow_call_contracts(
+    file_def: RunsightWorkflowFile,
+    *,
+    base_dir: str,
+    visited_refs: set[str] | None = None,
+) -> None:
+    if visited_refs is None:
+        visited_refs = set()
+
+    for block_id, block_def in file_def.blocks.items():
+        if block_def.type != "workflow":
+            continue
+
+        child_path = Path(block_def.workflow_ref)
+        if not child_path.is_absolute():
+            child_path = Path(base_dir) / child_path
+        child_path = child_path.resolve()
+        child_ref = str(child_path)
+        if child_ref in visited_refs:
+            continue
+
+        with open(child_path, "r", encoding="utf-8") as child_file_handle:
+            child_raw = yaml.safe_load(child_file_handle)
+        child_file = RunsightWorkflowFile.model_validate(child_raw)
+        _validate_workflow_block_contract(block_id, block_def, child_file)
+
+        visited_refs.add(child_ref)
+        validate_workflow_call_contracts(
+            child_file,
+            base_dir=_find_project_root(child_path.parent),
+            visited_refs=visited_refs,
+        )
+
+
 def parse_workflow_yaml(
     yaml_str_or_dict: Union[str, Dict[str, Any]],
     *,
@@ -326,6 +400,7 @@ def parse_workflow_yaml(
 
             # Resolve child workflow file (registry returns RunsightWorkflowFile)
             child_file = workflow_registry.get(block_def.workflow_ref)
+            _validate_workflow_block_contract(block_id, block_def, child_file)
 
             # Normalize to dict so parse_workflow_yaml receives Union[str, Dict] not model instance
             child_raw = child_file.model_dump() if hasattr(child_file, "model_dump") else child_file

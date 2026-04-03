@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 
+from pydantic import model_validator
+
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -219,6 +221,22 @@ class WorkflowBlockDef(BaseBlockDef):
     inputs: Optional[Dict[str, str]] = None  # type: ignore[assignment]  # child_state_key -> parent_path
     outputs: Optional[Dict[str, str]] = None  # parent_path -> child_dotted_path
     max_depth: Optional[int] = None
+
+    @model_validator(mode="after")
+    def _validate_interface_bindings(self) -> "WorkflowBlockDef":
+        for binding_name in (self.inputs or {}).keys():
+            if "." in binding_name:
+                raise ValueError(
+                    "workflow block inputs must bind child interface names, not child dotted paths"
+                )
+
+        for binding_name in (self.outputs or {}).values():
+            if "." in binding_name:
+                raise ValueError(
+                    "workflow block outputs must bind child interface names, not child dotted paths"
+                )
+
+        return self
 
 
 # Explicit registration (PEP 563 workaround)

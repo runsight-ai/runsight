@@ -24,6 +24,7 @@ from pydantic import ValidationError as PydanticValidationError
 from runsight_core.yaml.parser import (
     _validate_declared_tool_definitions,
     _discovery_module,
+    validate_workflow_call_contracts,
     validate_tool_governance,
 )
 from runsight_core.yaml.schema import RunsightWorkflowFile
@@ -143,6 +144,7 @@ class WorkflowRepository:
                 base_dir=str(self.base_path),
                 require_custom_metadata=True,
             )
+            validate_workflow_call_contracts(file_def, base_dir=str(self.base_path))
             return True, None
         except PydanticValidationError as e:
             return False, str(e)
