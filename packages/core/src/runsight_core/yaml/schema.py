@@ -237,7 +237,7 @@ class ConditionalTransitionDef(BaseModel):
 
     YAML structure:
         conditional_transitions:
-          - from: router_block
+          - from: branch_block
             approved: approve_block
             rejected: reject_block
             default: reject_block   # optional fallback

@@ -1,5 +1,5 @@
 """
-FanOutBlock — parallel multi-agent execution with per-exit tasks.
+DispatchBlock — parallel multi-agent execution with per-exit tasks.
 
 Co-located: runtime class + BlockDef schema + build() function.
 """
@@ -21,8 +21,8 @@ from runsight_core.state import BlockResult, WorkflowState
 
 
 @dataclass
-class FanOutBranch:
-    """A single branch (exit) in a FanOutBlock with its own soul and task instruction."""
+class DispatchBranch:
+    """A single branch (exit) in a DispatchBlock with its own soul and task instruction."""
 
     exit_id: str
     label: str
@@ -30,7 +30,7 @@ class FanOutBranch:
     task_instruction: str
 
 
-class FanOutBlock(BaseBlock):
+class DispatchBlock(BaseBlock):
     """
     Executes per-branch tasks with different agents in parallel.
 
@@ -38,10 +38,10 @@ class FanOutBlock(BaseBlock):
     per-exit at state.results["{block_id}.{exit_id}"] and combined at state.results["{block_id}"].
     """
 
-    def __init__(self, block_id: str, branches: List[FanOutBranch], runner: RunsightTeamRunner):
+    def __init__(self, block_id: str, branches: List[DispatchBranch], runner: RunsightTeamRunner):
         super().__init__(block_id)
         if not branches:
-            raise ValueError(f"FanOutBlock {block_id}: branches list cannot be empty")
+            raise ValueError(f"DispatchBlock {block_id}: branches list cannot be empty")
         self.branches = branches
         self.runner = runner
 
@@ -138,7 +138,7 @@ class FanOutBlock(BaseBlock):
                     {
                         "role": "system",
                         "content": (
-                            f"[Block {self.block_id}] FanOut completed"
+                            f"[Block {self.block_id}] Dispatch completed"
                             f" with {len(self.branches)} branches"
                         ),
                     }
@@ -155,8 +155,8 @@ class FanOutBlock(BaseBlock):
 from runsight_core.yaml.schema import BaseBlockDef, FanOutExitDef  # noqa: E402
 
 
-class FanOutBlockDef(BaseBlockDef):
-    type: Literal["fanout"] = "fanout"
+class DispatchBlockDef(BaseBlockDef):
+    type: Literal["dispatch"] = "dispatch"
     exits: List[FanOutExitDef]
 
 
@@ -164,7 +164,7 @@ class FanOutBlockDef(BaseBlockDef):
 from runsight_core.blocks._registry import register_block_builder as _register_builder  # noqa: E402
 from runsight_core.blocks._registry import register_block_def as _register_block_def  # noqa: E402
 
-_register_block_def("fanout", FanOutBlockDef)
+_register_block_def("dispatch", DispatchBlockDef)
 
 
 # -- Builder function --------------------------------------------------------
@@ -176,12 +176,12 @@ def build(
     souls_map: Dict[str, Any],
     runner: Any,
     all_blocks: Dict[str, Any],
-) -> FanOutBlock:
-    """Build a FanOutBlock from a block definition."""
+) -> DispatchBlock:
+    """Build a DispatchBlock from a block definition."""
     if not block_def.exits:
-        raise ValueError(f"FanOutBlock '{block_id}': exits list cannot be empty")
+        raise ValueError(f"DispatchBlock '{block_id}': exits list cannot be empty")
     branches = [
-        FanOutBranch(
+        DispatchBranch(
             exit_id=exit_def.id,
             label=exit_def.label,
             soul=resolve_soul(exit_def.soul_ref, souls_map),
@@ -189,7 +189,7 @@ def build(
         )
         for exit_def in block_def.exits
     ]
-    return FanOutBlock(block_id, branches, runner)
+    return DispatchBlock(block_id, branches, runner)
 
 
-_register_builder("fanout", build)
+_register_builder("dispatch", build)
