@@ -7,7 +7,13 @@ from runsight_core.runner import ExecutionResult, FallbackRoute, RunsightTeamRun
 
 @pytest.fixture
 def sample_soul():
-    return Soul(id="test_soul", role="Test Agent", system_prompt="You are a helpful test agent.")
+    return Soul(
+        id="test_soul",
+        role="Test Agent",
+        system_prompt="You are a helpful test agent.",
+        provider="openai",
+        model_name="gpt-4o",
+    )
 
 
 @pytest.fixture
@@ -29,7 +35,7 @@ async def test_execute_task(mock_achat, sample_soul, sample_task):
         "total_tokens": 10,
     }
 
-    runner = RunsightTeamRunner(model_name="test-model")
+    runner = RunsightTeamRunner(model_name="gpt-4o")
     result = await runner.execute_task(sample_task, sample_soul)
 
     assert isinstance(result, ExecutionResult)
@@ -56,7 +62,7 @@ async def test_stream_task(mock_astream_chat, sample_soul, sample_task):
 
     mock_astream_chat.side_effect = mock_stream_response
 
-    runner = RunsightTeamRunner(model_name="test-model")
+    runner = RunsightTeamRunner(model_name="gpt-4o")
     chunks = []
     async for chunk in runner.stream_task(sample_task, sample_soul):
         chunks.append(chunk)
@@ -106,6 +112,28 @@ async def test_execute_task_rejects_provider_only_soul_without_model_name(mock_a
     )
 
     with pytest.raises(ValueError, match="explicit model_name"):
+        await runner.execute_task(sample_task, soul)
+
+    mock_achat.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("runsight_core.runner.LiteLLMClient.achat")
+async def test_execute_task_rejects_soul_without_provider_and_model_name(mock_achat, sample_task):
+    mock_achat.return_value = {
+        "content": "Hello!",
+        "cost_usd": 0.001,
+        "total_tokens": 10,
+    }
+
+    runner = RunsightTeamRunner(model_name="gpt-4o")
+    soul = Soul(
+        id="test_soul",
+        role="Test Agent",
+        system_prompt="You are a helpful test agent.",
+    )
+
+    with pytest.raises(ValueError, match="explicit provider and model_name"):
         await runner.execute_task(sample_task, soul)
 
     mock_achat.assert_not_called()
