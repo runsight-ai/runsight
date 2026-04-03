@@ -252,6 +252,10 @@ class RunsightTeamRunner:
         # Agentic tool loop
         tool_schemas = [t.to_openai_schema() for t in active_soul.resolved_tools]
         tool_map = {t.name: t for t in active_soul.resolved_tools}
+        for tool in active_soul.resolved_tools:
+            source = getattr(tool, "source", None)
+            if source:
+                tool_map[str(source)] = tool
         max_iters = active_soul.max_tool_iterations
         iteration = 0
         accumulated_cost = 0.0

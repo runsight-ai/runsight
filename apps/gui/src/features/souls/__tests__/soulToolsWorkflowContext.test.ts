@@ -15,34 +15,35 @@ type WorkflowToolContext = {
 };
 
 type AvailableTool = {
-  slug: string;
+  id: string;
   name: string;
   description: string;
-  type: "builtin" | "custom" | "http";
+  origin: "builtin" | "custom";
+  executor: "native" | "python" | "request";
 };
 
 const WORKFLOW_TOOLS: WorkflowToolContext[] = [
   {
-    id: "runsight/http",
+    id: "http",
     label: "HTTP Requests",
     description: "Fetch external APIs.",
     enabled: true,
   },
   {
-    id: "runsight/file-io",
-    label: "Workspace Files",
-    description: "Read project files.",
+    id: "request_lookup",
+    label: "Request Lookup",
+    description: "Fetch live report data.",
     enabled: false,
   },
   {
-    id: "report_lookup",
-    label: "Report Lookup",
-    description: "Look up saved reports.",
+    id: "python_helper",
+    label: "Python Helper",
+    description: "Run a local analysis helper.",
     enabled: false,
     availableInWorkflow: false,
   },
   {
-    id: "runsight/delegate",
+    id: "delegate",
     label: "Delegate",
     description: "Delegate work to sub-agents.",
     enabled: false,
@@ -51,22 +52,32 @@ const WORKFLOW_TOOLS: WorkflowToolContext[] = [
 
 const AVAILABLE_TOOLS: AvailableTool[] = [
   {
-    slug: "runsight/http",
+    id: "http",
     name: "HTTP Requests",
     description: "Fetch external APIs.",
-    type: "builtin",
+    origin: "builtin",
+    executor: "native",
   },
   {
-    slug: "runsight/file-io",
-    name: "Workspace Files",
-    description: "Read project files.",
-    type: "builtin",
+    id: "request_lookup",
+    name: "Request Lookup",
+    description: "Fetch live report data.",
+    origin: "custom",
+    executor: "request",
   },
   {
-    slug: "report_lookup",
-    name: "Report Lookup",
-    description: "Look up saved reports.",
-    type: "custom",
+    id: "python_helper",
+    name: "Python Helper",
+    description: "Run a local analysis helper.",
+    origin: "custom",
+    executor: "python",
+  },
+  {
+    id: "delegate",
+    name: "Delegate",
+    description: "Delegate work to sub-agents.",
+    origin: "builtin",
+    executor: "native",
   },
 ];
 
@@ -77,17 +88,17 @@ const FORM_VALUES = {
   provider: null,
   modelId: null,
   systemPrompt: "Research the topic.",
-  tools: ["runsight/http"],
+  tools: ["http", "orphaned_tool"],
   temperature: 0.7,
   maxTokens: null,
   maxToolIterations: 3,
 };
 
 describe("RUN-490 workflow tool context rendering", () => {
-  it("renders every workflow tool and shows informational state for tools not enabled on the soul", () => {
+  it("renders canonical tool metadata with workflow availability badges while keeping delegate hidden", () => {
     render(
       React.createElement(SoulToolsSection as unknown as React.ComponentType<any>, {
-        tools: ["runsight/http"],
+        tools: ["http"],
         workflowTools: WORKFLOW_TOOLS,
         availableTools: AVAILABLE_TOOLS,
         onToolsChange: vi.fn(),
@@ -100,21 +111,22 @@ describe("RUN-490 workflow tool context rendering", () => {
 
     expect(httpToolButton).toBeTruthy();
     expect(httpToolButton.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("Workspace Files")).toBeTruthy();
-    expect(screen.getByText("Report Lookup")).toBeTruthy();
+    expect(screen.getByText("Request Lookup")).toBeTruthy();
+    expect(screen.getByText("Python Helper")).toBeTruthy();
     expect(screen.queryByText("Delegate")).toBeNull();
-    const customBadge = screen.getByText("Custom");
-    expect(customBadge.className).toMatch(/amber|warning/i);
+    expect(screen.getByText("Request")).toBeTruthy();
+    expect(screen.getByText("Python")).toBeTruthy();
+    expect(screen.getByText("Available in workflow")).toBeTruthy();
     const workflowBadge = screen.getByText("Not enabled in workflow");
     expect(workflowBadge.className).toMatch(/amber|warning/i);
   });
 
-  it("toggles API-discovered tool slugs when the user enables a tool", () => {
+  it("toggles canonical API tool ids when the user enables a tool", () => {
     const onToolsChange = vi.fn();
 
     render(
       React.createElement(SoulToolsSection as unknown as React.ComponentType<any>, {
-        tools: ["runsight/http"],
+        tools: ["http"],
         workflowTools: WORKFLOW_TOOLS,
         availableTools: AVAILABLE_TOOLS,
         onToolsChange,
@@ -122,17 +134,17 @@ describe("RUN-490 workflow tool context rendering", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /tools/i }));
-    fireEvent.click(screen.getByRole("button", { name: /report lookup/i }));
+    fireEvent.click(screen.getByRole("button", { name: /request lookup/i }));
 
-    expect(onToolsChange).toHaveBeenCalledWith(["runsight/http", "report_lookup"]);
+    expect(onToolsChange).toHaveBeenCalledWith(["http", "request_lookup"]);
   });
 
   it("shows custom tool guidance when the API returns no custom tools", () => {
     render(
       React.createElement(SoulToolsSection as unknown as React.ComponentType<any>, {
-        tools: ["runsight/http"],
-        workflowTools: WORKFLOW_TOOLS.filter((tool) => tool.id !== "report_lookup"),
-        availableTools: AVAILABLE_TOOLS.filter((tool) => tool.type !== "custom"),
+        tools: ["http"],
+        workflowTools: WORKFLOW_TOOLS.filter((tool) => tool.id !== "request_lookup"),
+        availableTools: AVAILABLE_TOOLS.filter((tool) => tool.origin !== "custom"),
         onToolsChange: vi.fn(),
       }),
     );
@@ -141,6 +153,24 @@ describe("RUN-490 workflow tool context rendering", () => {
 
     expect(screen.getByText(/custom tools/i)).toBeTruthy();
     expect(screen.getByText(/custom\/tools/i)).toBeTruthy();
+  });
+
+  it("keeps selected canonical tool ids visible when the API no longer returns metadata for them", () => {
+    render(
+      React.createElement(SoulToolsSection as unknown as React.ComponentType<any>, {
+        tools: ["http", "orphaned_tool"],
+        workflowTools: WORKFLOW_TOOLS,
+        availableTools: AVAILABLE_TOOLS.filter((tool) => tool.id !== "delegate"),
+        onToolsChange: vi.fn(),
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /tools/i }));
+
+    const orphanedToolButton = screen.queryByRole("button", { name: /orphaned_tool/i });
+
+    expect(orphanedToolButton).toBeTruthy();
+    expect(orphanedToolButton?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("passes workflow tool context through SoulFormBody into the tools section", async () => {
@@ -167,12 +197,16 @@ describe("RUN-490 workflow tool context rendering", () => {
           { "data-testid": "workflow-tools-prop" },
           [
             ...(props.availableTools?.map((tool) =>
-              React.createElement("div", { key: tool.slug }, tool.name, tool.type),
+              React.createElement(
+                "div",
+                { key: `available-${tool.id}` },
+                `${tool.name}:${tool.origin}:${tool.executor}`,
+              ),
             ) ?? []),
             ...(props.workflowTools?.map((tool) =>
             React.createElement(
               "div",
-              { key: tool.id },
+              { key: `workflow-${tool.id}` },
               tool.label,
               tool.enabled
                 ? React.createElement("span", null, "Enabled")
@@ -199,8 +233,7 @@ describe("RUN-490 workflow tool context rendering", () => {
     );
 
     expect(screen.getByText("HTTP Requests")).toBeTruthy();
-    expect(screen.getByText("Workspace Files")).toBeTruthy();
-    expect(screen.getByText("Report Lookup")).toBeTruthy();
-    expect(screen.getByText("custom")).toBeTruthy();
+    expect(screen.getByText("Request Lookup:custom:request")).toBeTruthy();
+    expect(screen.getByText("Python Helper:custom:python")).toBeTruthy();
   });
 });

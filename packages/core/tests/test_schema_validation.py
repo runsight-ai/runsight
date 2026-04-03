@@ -29,12 +29,10 @@ from runsight_core.blocks.workflow_block import WorkflowBlockDef
 from runsight_core.yaml.schema import (
     BlockDef,
     RunsightWorkflowFile,
-    ToolDef,
 )
 
 # Shared TypeAdapter for the discriminated union
 block_adapter = TypeAdapter(BlockDef)
-tool_adapter = TypeAdapter(ToolDef)
 
 
 # ---------------------------------------------------------------------------
@@ -390,39 +388,43 @@ class TestRunsightWorkflowFile:
         assert isinstance(wf.blocks["b1"], LinearBlockDef)
         assert isinstance(wf.blocks["b2"], CodeBlockDef)
 
-
-class TestToolDefUnionValidation:
-    """RUN-523: ToolDef validation at adapter and workflow-file boundaries."""
-
-    def test_tool_adapter_accepts_custom_and_http_variants(self):
-        custom_tool = tool_adapter.validate_python(
-            {"type": "custom", "source": "custom/tools/github.py"}
+    def test_tools_whitelist_accepts_canonical_tool_ids(self):
+        """RUN-577: root files should accept workflow tool IDs, not typed tool defs."""
+        wf = RunsightWorkflowFile.model_validate(
+            {
+                "workflow": {"name": "test", "entry": "b1"},
+                "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
+                "tools": ["http", "delegate", "lookup_profile"],
+            }
         )
-        http_tool = tool_adapter.validate_python({"type": "http", "source": "http_tool"})
 
-        assert custom_tool.type == "custom"
-        assert http_tool.type == "http"
+        assert wf.tools == ["http", "delegate", "lookup_profile"]
 
-    def test_unknown_tool_type_error_mentions_all_supported_variants(self):
-        with pytest.raises(ValidationError) as exc_info:
-            tool_adapter.validate_python({"type": "mcp", "source": "remote/tool"})
-
-        message = str(exc_info.value)
-        assert "builtin" in message
-        assert "custom" in message
-        assert "http" in message
-
-    def test_root_file_rejects_extra_fields_inside_custom_tool_variant(self):
-        with pytest.raises(ValidationError, match="bogus"):
+    def test_root_file_rejects_legacy_tool_map_authoring(self):
+        """RUN-577: old workflow tool maps must fail instead of being normalized."""
+        with pytest.raises(ValidationError, match="list"):
             RunsightWorkflowFile.model_validate(
                 {
-                    "workflow": {"name": "tool-test", "entry": "b1"},
+                    "workflow": {"name": "test", "entry": "b1"},
                     "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
                     "tools": {
-                        "custom_tool": {
-                            "type": "custom",
-                            "source": "custom/tools/github.py",
-                            "bogus": True,
+                        "http": {"type": "builtin", "source": "runsight/http"},
+                    },
+                }
+            )
+
+    def test_root_file_rejects_inline_http_tool_authoring(self):
+        """RUN-577: inline HTTP definitions are no longer valid workflow authoring."""
+        with pytest.raises(ValidationError, match="list"):
+            RunsightWorkflowFile.model_validate(
+                {
+                    "workflow": {"name": "test", "entry": "b1"},
+                    "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
+                    "tools": {
+                        "http": {
+                            "type": "http",
+                            "method": "GET",
+                            "url": "https://example.com",
                         }
                     },
                 }

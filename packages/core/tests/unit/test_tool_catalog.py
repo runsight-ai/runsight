@@ -7,14 +7,14 @@ Tests target:
 - register_builtin(): registers a factory under a source string
 - get_builtin(): retrieves registered factory, returns None for unknown
 - BUILTIN_TOOL_CATALOG: importable dict
-- resolve_tool(): given a ToolDef, looks up source, calls factory, returns ToolInstance
+- resolve_tool(): accepts canonical tool IDs only, rejects legacy typed/source-based inputs
 """
 
 from __future__ import annotations
 
 import json
 from textwrap import dedent
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from runsight_core.security import SSRFError
@@ -258,241 +258,258 @@ class TestBuiltinToolCatalog:
 
 
 # ---------------------------------------------------------------------------
-# AC4: resolve_tool with valid source returns ToolInstance
+# AC4: resolve_tool public contract uses canonical tool IDs only
 # ---------------------------------------------------------------------------
 
 
-class TestResolveTool:
-    """Tests for resolve_tool() function."""
+class TestResolveToolPublicContract:
+    """RUN-579: resolve_tool should expose a canonical-ID-only runtime contract."""
 
-    def test_resolve_tool_with_valid_source(self):
-        """resolve_tool looks up the ToolDef.source in catalog and returns a ToolInstance."""
-        from runsight_core.tools import (
-            BUILTIN_TOOL_CATALOG,
-            ToolInstance,
-            register_builtin,
-            resolve_tool,
-        )
-        from runsight_core.yaml.schema import ToolDef
-
-        source = "test/resolve_valid"
-
-        def factory(**kwargs):
-            return ToolInstance(
-                name="resolved_tool",
-                description="A resolved tool",
-                parameters={"type": "object", "properties": {}},
-                execute=_dummy_execute,
-            )
-
-        BUILTIN_TOOL_CATALOG.pop(source, None)
-        try:
-            register_builtin(source, factory)
-            tool_def = ToolDef(type="builtin", source=source)
-            result = resolve_tool(tool_def)
-
-            assert isinstance(result, ToolInstance)
-            assert result.name == "resolved_tool"
-        finally:
-            BUILTIN_TOOL_CATALOG.pop(source, None)
-
-    def test_resolve_tool_calls_factory(self):
-        """resolve_tool calls the factory function from the catalog."""
-        from runsight_core.tools import (
-            BUILTIN_TOOL_CATALOG,
-            ToolInstance,
-            register_builtin,
-            resolve_tool,
-        )
-        from runsight_core.yaml.schema import ToolDef
-
-        source = "test/resolve_calls_factory"
-        call_count = {"n": 0}
-
-        def factory(**kwargs):
-            call_count["n"] += 1
-            return ToolInstance(
-                name="counted_tool",
-                description="Counts calls",
-                parameters={"type": "object", "properties": {}},
-                execute=_dummy_execute,
-            )
-
-        BUILTIN_TOOL_CATALOG.pop(source, None)
-        try:
-            register_builtin(source, factory)
-            tool_def = ToolDef(type="builtin", source=source)
-            resolve_tool(tool_def)
-            assert call_count["n"] == 1
-        finally:
-            BUILTIN_TOOL_CATALOG.pop(source, None)
-
-    def test_resolve_tool_unknown_source_raises(self):
-        """resolve_tool with an unregistered source raises ValueError."""
-        from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import ToolDef
-
-        tool_def = ToolDef(type="builtin", source="nonexistent/missing_tool_xyz")
-
-        with pytest.raises(ValueError):
-            resolve_tool(tool_def)
-
-    def test_resolve_tool_passes_kwargs_to_factory(self):
-        """resolve_tool passes extra kwargs through to the factory."""
-        from runsight_core.tools import (
-            BUILTIN_TOOL_CATALOG,
-            ToolInstance,
-            register_builtin,
-            resolve_tool,
-        )
-        from runsight_core.yaml.schema import ToolDef
-
-        source = "test/resolve_kwargs"
-        received_kwargs = {}
-
-        def factory(**kwargs):
-            received_kwargs.update(kwargs)
-            return ToolInstance(
-                name="kwargs_tool",
-                description="Receives kwargs",
-                parameters={"type": "object", "properties": {}},
-                execute=_dummy_execute,
-            )
-
-        BUILTIN_TOOL_CATALOG.pop(source, None)
-        try:
-            register_builtin(source, factory)
-            tool_def = ToolDef(type="builtin", source=source)
-            resolve_tool(tool_def, api_key="secret123")
-            assert received_kwargs.get("api_key") == "secret123"
-        finally:
-            BUILTIN_TOOL_CATALOG.pop(source, None)
-
-
-class TestResolveToolTypedDispatch:
-    """RUN-524: resolve_tool dispatches by ToolDef variant type."""
-
-    def test_resolve_tool_builtin_variant_still_returns_toolinstance(self):
-        """BuiltinToolDef should continue resolving through the builtin catalog unchanged."""
-        from runsight_core.tools import (
-            BUILTIN_TOOL_CATALOG,
-            ToolInstance,
-            register_builtin,
-            resolve_tool,
-        )
-        from runsight_core.yaml.schema import BuiltinToolDef
-
-        source = "test/typed_builtin_dispatch"
-
-        def factory(**kwargs):
-            return ToolInstance(
-                name="typed_builtin_tool",
-                description="Resolved from a BuiltinToolDef",
-                parameters={"type": "object", "properties": {}},
-                execute=_dummy_execute,
-            )
-
-        BUILTIN_TOOL_CATALOG.pop(source, None)
-        try:
-            register_builtin(source, factory)
-            tool_def = BuiltinToolDef(type="builtin", source=source)
-
-            result = resolve_tool(tool_def)
-
-            assert isinstance(result, ToolInstance)
-            assert result.name == "typed_builtin_tool"
-        finally:
-            BUILTIN_TOOL_CATALOG.pop(source, None)
-
-    def test_resolve_tool_custom_variant_returns_toolinstance(self, tmp_path):
-        """CustomToolDef should dispatch through the custom resolver and return a ToolInstance."""
+    def test_resolve_tool_accepts_reserved_builtin_id(self):
+        """Public callers should resolve builtin tools by reserved canonical IDs like http."""
         from runsight_core.tools import ToolInstance, resolve_tool
-        from runsight_core.yaml.schema import CustomToolDef
+
+        result = resolve_tool("http")
+
+        assert isinstance(result, ToolInstance)
+        assert result.name == "http_request"
+
+    def test_resolve_tool_accepts_discovered_python_tool_id(self, tmp_path):
+        """Public callers should resolve discovered python tools by filename-derived tool ID."""
+        from runsight_core.tools import ToolInstance, resolve_tool
 
         _write_custom_tool_yaml(
             tmp_path,
-            "echo_tool",
+            "adder",
             """
+            version: "1.0"
             type: custom
-            source: echo_tool
+            executor: python
+            name: Adder
+            description: Add integers together.
+            parameters:
+              type: object
+              properties:
+                a:
+                  type: integer
+                b:
+                  type: integer
+              required:
+                - a
+                - b
             code: |
               def main(args):
-                  return {"echo": args["message"]}
+                  return {"sum": args["a"] + args["b"]}
             """,
         )
-        tool_def = CustomToolDef(type="custom", source="echo_tool")
 
-        result = resolve_tool(tool_def, base_dir=tmp_path)
+        result = resolve_tool("adder", base_dir=tmp_path)
 
         assert isinstance(result, ToolInstance)
-        assert callable(result.execute)
+        assert result.name == "adder"
 
-    def test_resolve_tool_http_variant_returns_toolinstance_from_file_source(self, tmp_path):
-        """HTTPToolDef should dispatch through the HTTP resolver and return a ToolInstance."""
+    def test_resolve_tool_accepts_discovered_request_tool_id(self, tmp_path):
+        """Public callers should resolve request-backed custom tools by canonical ID."""
         from runsight_core.tools import ToolInstance, resolve_tool
-        from runsight_core.yaml.schema import HTTPToolDef
 
         _write_custom_tool_yaml(
             tmp_path,
-            "http_tool",
+            "fetch_answer",
             """
-            type: http
-            method: GET
-            url: https://example.com/health
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Fetch Answer
+            description: Fetch an answer from a remote API.
+            parameters:
+              type: object
+              properties:
+                item_id:
+                  type: integer
+              required:
+                - item_id
+            request:
+              method: GET
+              url: https://example.com/items/{{ item_id }}
+              response_path: data.answer
+            timeout_seconds: 9
             """,
         )
-        tool_def = HTTPToolDef(type="http", source="http_tool")
 
-        result = resolve_tool(tool_def, base_dir=tmp_path)
+        result = resolve_tool("fetch_answer", base_dir=tmp_path)
 
         assert isinstance(result, ToolInstance)
-        assert callable(result.execute)
+        assert result.name == "fetch_answer"
+
+    def test_resolve_tool_missing_discovered_custom_tool_raises_explicit_valueerror(self, tmp_path):
+        """Missing canonical custom IDs should fail explicitly instead of falling back."""
+        from runsight_core.tools import resolve_tool
+
+        with pytest.raises(ValueError, match=r"Unknown tool id: 'lookup_profile'"):
+            resolve_tool("lookup_profile", base_dir=tmp_path)
+
+    def test_resolve_tool_builtin_custom_collision_raises_explicit_valueerror(self, tmp_path):
+        """Reserved builtin IDs must stay invalid when custom discovery collides with them."""
+        from runsight_core.tools import resolve_tool
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "http",
+            """
+            version: "1.0"
+            type: custom
+            executor: python
+            name: Shadow HTTP
+            description: Attempts to shadow the reserved builtin ID.
+            parameters:
+              type: object
+            code: |
+              def main(args):
+                  return args
+            """,
+        )
+
+        with pytest.raises(ValueError, match=r"reserved builtin tool id 'http'|collision.*http"):
+            resolve_tool("http", base_dir=tmp_path)
 
 
-class TestResolveCustomTool:
-    """RUN-526: custom tools resolve from YAML and execute in the sandbox."""
+class TestResolveToolRejectsLegacyInputs:
+    """RUN-579: legacy typed defs and leaked source strings should be rejected outright."""
 
-    def test_catalog_exposes_resolve_custom_tool(self):
-        """The catalog module should expose a dedicated custom-tool resolver."""
-        from runsight_core.tools import _catalog as catalog_module
+    @pytest.mark.parametrize(
+        ("tool_def", "seed_yaml"),
+        [
+            pytest.param(
+                {"factory": "BuiltinToolDef", "kwargs": {"type": "builtin", "source": "http"}},
+                None,
+                id="builtin-tooldef",
+            ),
+            pytest.param(
+                {"factory": "CustomToolDef", "kwargs": {"type": "custom", "source": "adder"}},
+                """
+                version: "1.0"
+                type: custom
+                executor: python
+                name: Adder
+                description: Add integers together.
+                parameters:
+                  type: object
+                  properties:
+                    a:
+                      type: integer
+                    b:
+                      type: integer
+                  required:
+                    - a
+                    - b
+                code: |
+                  def main(args):
+                      return {"sum": args["a"] + args["b"]}
+                """,
+                id="custom-tooldef",
+            ),
+            pytest.param(
+                {
+                    "factory": "HTTPToolDef",
+                    "kwargs": {"type": "http", "source": "fetch_answer"},
+                },
+                """
+                version: "1.0"
+                type: custom
+                executor: request
+                name: Fetch Answer
+                description: Fetch an answer from a remote API.
+                parameters:
+                  type: object
+                  properties:
+                    item_id:
+                      type: integer
+                  required:
+                    - item_id
+                request:
+                  method: GET
+                  url: https://example.com/items/{{ item_id }}
+                  response_path: data.answer
+                timeout_seconds: 9
+                """,
+                id="http-tooldef",
+            ),
+        ],
+    )
+    def test_rejects_typed_tool_definition_inputs(self, tmp_path, tool_def, seed_yaml):
+        """resolve_tool should no longer accept typed workflow definitions at runtime."""
+        from runsight_core.tools import resolve_tool
+        from runsight_core.yaml import schema as schema_module
 
-        assert callable(getattr(catalog_module, "resolve_custom_tool", None))
+        if seed_yaml is not None:
+            _write_custom_tool_yaml(tmp_path, tool_def["kwargs"]["source"], seed_yaml)
+
+        typed_def = getattr(schema_module, tool_def["factory"])(**tool_def["kwargs"])
+
+        with pytest.raises((TypeError, ValueError)):
+            resolve_tool(typed_def, base_dir=tmp_path)
+
+    @pytest.mark.parametrize(
+        "legacy_source", ["runsight/http", "runsight/file-io", "runsight/delegate"]
+    )
+    def test_rejects_legacy_builtin_source_strings(self, legacy_source):
+        """Legacy source slugs should not leak through the public resolution contract."""
+        from runsight_core.tools import resolve_tool
+
+        with pytest.raises((TypeError, ValueError)):
+            resolve_tool(legacy_source)
+
+
+class TestResolveCanonicalPythonTools:
+    """RUN-579: canonical python custom IDs should be the only custom runtime path."""
 
     @pytest.mark.asyncio
     async def test_execute_round_trips_args_through_json_subprocess_contract(self, tmp_path):
-        """Resolved custom tools should execute user code via a JSON stdin/stdout contract."""
+        """Resolved python custom tools should execute via the canonical tool ID contract."""
         from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import CustomToolDef
 
         _write_custom_tool_yaml(
             tmp_path,
             "echo_json",
             """
+            version: "1.0"
             type: custom
-            source: echo_json
+            executor: python
+            name: Echo JSON
+            description: Return a personalized message.
+            parameters:
+              type: object
+              properties:
+                name:
+                  type: string
+              required:
+                - name
             code: |
               def main(args):
                   return {"message": "hello " + args["name"]}
             """,
         )
 
-        tool = resolve_tool(CustomToolDef(type="custom", source="echo_json"), base_dir=tmp_path)
-
+        tool = resolve_tool("echo_json", base_dir=tmp_path)
         result = await tool.execute({"name": "alice"})
 
         assert json.loads(result) == {"message": "hello alice"}
 
     def test_blocked_imports_are_rejected_at_resolve_time(self, tmp_path):
-        """Dangerous imports should be rejected before a custom tool is returned."""
+        """Dangerous imports should be rejected before a canonical custom tool is returned."""
         from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import CustomToolDef
 
         _write_custom_tool_yaml(
             tmp_path,
             "blocked_import_tool",
             """
+            version: "1.0"
             type: custom
-            source: blocked_import_tool
+            executor: python
+            name: Blocked Import Tool
+            description: Imports a blocked module.
+            parameters:
+              type: object
             code: |
               import os
 
@@ -502,22 +519,23 @@ class TestResolveCustomTool:
         )
 
         with pytest.raises(ValueError, match="not allowed"):
-            resolve_tool(
-                CustomToolDef(type="custom", source="blocked_import_tool"),
-                base_dir=tmp_path,
-            )
+            resolve_tool("blocked_import_tool", base_dir=tmp_path)
 
     def test_blocked_builtins_are_rejected_at_resolve_time(self, tmp_path):
         """Blocked builtins like eval/open/__import__ should be rejected during resolution."""
         from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import CustomToolDef
 
         _write_custom_tool_yaml(
             tmp_path,
             "blocked_builtin_tool",
             """
+            version: "1.0"
             type: custom
-            source: blocked_builtin_tool
+            executor: python
+            name: Blocked Builtin Tool
+            description: Uses a blocked builtin.
+            parameters:
+              type: object
             code: |
               def main(args):
                   eval("1 + 1")
@@ -526,23 +544,24 @@ class TestResolveCustomTool:
         )
 
         with pytest.raises(ValueError, match="not allowed"):
-            resolve_tool(
-                CustomToolDef(type="custom", source="blocked_builtin_tool"),
-                base_dir=tmp_path,
-            )
+            resolve_tool("blocked_builtin_tool", base_dir=tmp_path)
 
     @pytest.mark.asyncio
     async def test_timeout_returns_error_string(self, tmp_path):
         """Runaway custom tools should be killed and surfaced as an error string."""
         from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import CustomToolDef
 
         _write_custom_tool_yaml(
             tmp_path,
             "slow_tool",
             """
+            version: "1.0"
             type: custom
-            source: slow_tool
+            executor: python
+            name: Slow Tool
+            description: Sleeps longer than the timeout.
+            parameters:
+              type: object
             code: |
               import time
 
@@ -552,21 +571,15 @@ class TestResolveCustomTool:
             """,
         )
 
-        tool = resolve_tool(
-            CustomToolDef(type="custom", source="slow_tool"),
-            base_dir=tmp_path,
-            timeout_seconds=1,
-        )
-
+        tool = resolve_tool("slow_tool", base_dir=tmp_path, timeout_seconds=1)
         result = await tool.execute({})
 
         assert "timed out" in result.lower()
 
     @pytest.mark.asyncio
     async def test_code_file_variant_loads_external_python_file(self, tmp_path):
-        """code_file metadata should load the external Python implementation before execution."""
+        """code_file metadata should still resolve through canonical discovery IDs."""
         from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import CustomToolDef
 
         tools_dir = tmp_path / "custom" / "tools"
         tools_dir.mkdir(parents=True, exist_ok=True)
@@ -579,83 +592,68 @@ class TestResolveCustomTool:
         )
         (tools_dir / "file_backed.yaml").write_text(
             dedent("""
+            version: "1.0"
             type: custom
-            source: file_backed
+            executor: python
+            name: File Backed
+            description: Loads code from an external file.
+            parameters:
+              type: object
+              properties:
+                port:
+                  type: string
+              required:
+                - port
             code_file: file_backed_impl.py
             """),
             encoding="utf-8",
         )
 
-        tool = resolve_tool(CustomToolDef(type="custom", source="file_backed"), base_dir=tmp_path)
-
+        tool = resolve_tool("file_backed", base_dir=tmp_path)
         result = await tool.execute({"port": "done"})
 
         assert json.loads(result) == {"port": "done"}
 
 
-class TestResolveHttpTool:
-    """RUN-527: HTTP tools resolve from inline defs or custom tool files."""
+class TestResolveCanonicalRequestTools:
+    """RUN-579: request-backed tools should resolve only from canonical discovered IDs."""
 
-    def test_resolve_inline_http_tool_returns_toolinstance(self):
-        """Inline HTTP tool definitions should resolve directly to a ToolInstance."""
-        from runsight_core.tools import ToolInstance, resolve_tool
-        from runsight_core.yaml.schema import ToolDef
+    @pytest.mark.asyncio
+    async def test_request_tool_renders_templates_resolves_env_and_extracts_json_path(
+        self, monkeypatch, tmp_path
+    ):
+        """Canonical request tools should render templates and extract configured JSON paths."""
+        from runsight_core.tools import resolve_tool
 
-        tool_def = ToolDef(
-            type="http",
-            method="POST",
-            url="https://api.example.com/users/{{ user_id }}",
-            body_template='{"token":"${API_TOKEN}","note":"{{ note }}"}',
-            response_path="data.profile.name",
-        )
-
-        result = resolve_tool(tool_def)
-
-        assert isinstance(result, ToolInstance)
-        assert callable(result.execute)
-
-    def test_resolve_file_based_http_tool_returns_toolinstance(self, tmp_path):
-        """A file-backed HTTP tool source should resolve via custom/tools/{slug}.yaml."""
-        from runsight_core.tools import ToolInstance, resolve_tool
-        from runsight_core.yaml.schema import HTTPToolDef
-
+        monkeypatch.setenv("API_TOKEN", "secret-123")
         _write_custom_tool_yaml(
             tmp_path,
             "lookup_profile",
             """
-            type: http
-            method: GET
-            url: https://api.example.com/users/{{ user_id }}
-            response_path: data.id
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Lookup Profile
+            description: Fetch a user profile.
+            parameters:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                note:
+                  type: string
+              required:
+                - user_id
+                - note
+            request:
+              method: POST
+              url: https://api.example.com/users/{{ user_id }}
+              body_template: '{"token":"${API_TOKEN}","note":"{{ note }}"}'
+              response_path: data.profile.name
             """,
         )
 
-        result = resolve_tool(
-            HTTPToolDef(type="http", source="lookup_profile"),
-            base_dir=tmp_path,
-        )
-
-        assert isinstance(result, ToolInstance)
-        assert callable(result.execute)
-
-    @pytest.mark.asyncio
-    async def test_inline_http_tool_renders_templates_resolves_env_and_extracts_json_path(
-        self, monkeypatch
-    ):
-        """URL/body templates and env vars should render before request, and JSON paths should extract."""
-        from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import ToolDef
-
-        monkeypatch.setenv("API_TOKEN", "secret-123")
-        tool_def = ToolDef(
-            type="http",
-            method="POST",
-            url="https://api.example.com/users/{{ user_id }}",
-            body_template='{"token":"${API_TOKEN}","note":"{{ note }}"}',
-            response_path="data.profile.name",
-        )
-
-        tool = resolve_tool(tool_def)
+        tool = resolve_tool("lookup_profile", base_dir=tmp_path)
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -675,18 +673,39 @@ class TestResolveHttpTool:
         client_instance.request.assert_awaited_once_with(
             "POST",
             "https://api.example.com/users/42",
-            headers=None,
+            headers={},
             content='{"token":"secret-123","note":"hello"}',
         )
         assert json.loads(result) == "Alice"
 
     @pytest.mark.asyncio
-    async def test_http_tool_applies_ssrf_validation_to_rendered_url(self):
+    async def test_request_tool_applies_ssrf_validation_to_rendered_url(self, tmp_path):
         """Rendered URLs should still be blocked by SSRF validation before any request is sent."""
         from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import ToolDef
 
-        tool = resolve_tool(ToolDef(type="http", method="GET", url="http://{{ host }}/admin"))
+        _write_custom_tool_yaml(
+            tmp_path,
+            "lookup_admin",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Lookup Admin
+            description: Fetch an admin page.
+            parameters:
+              type: object
+              properties:
+                host:
+                  type: string
+              required:
+                - host
+            request:
+              method: GET
+              url: http://{{ host }}/admin
+            """,
+        )
+
+        tool = resolve_tool("lookup_admin", base_dir=tmp_path)
 
         with patch("httpx.AsyncClient") as MockClient:
             client_instance = AsyncMock()
@@ -699,33 +718,35 @@ class TestResolveHttpTool:
 
         client_instance.request.assert_not_called()
 
-    def test_http_tool_without_url_or_source_raises_valueerror(self):
-        """HTTP tools must declare either an inline URL or a file source slug."""
-        from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import ToolDef
-
-        with pytest.raises(ValueError):
-            resolve_tool(ToolDef(type="http", method="GET"))
-
-    @pytest.mark.parametrize(
-        ("content_type", "body"),
-        [
-            ("text/plain", "plain text body"),
-            ("text/html", "<html>hello</html>"),
-        ],
-    )
     @pytest.mark.asyncio
-    async def test_http_tool_returns_text_and_html_responses_as_is(self, content_type, body):
-        """Non-JSON responses should be returned unchanged."""
+    async def test_request_tool_returns_plain_text_responses_as_is(self, tmp_path):
+        """Plain-text request tool responses should still round-trip directly."""
         from runsight_core.tools import resolve_tool
-        from runsight_core.yaml.schema import ToolDef
 
-        tool = resolve_tool(ToolDef(type="http", method="GET", url="https://example.com"))
+        _write_custom_tool_yaml(
+            tmp_path,
+            "read_page",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Read Page
+            description: Read a remote page.
+            parameters:
+              type: object
+              properties: {}
+            request:
+              method: GET
+              url: https://example.com
+            """,
+        )
+
+        tool = resolve_tool("read_page", base_dir=tmp_path)
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.headers = {"content-type": content_type}
-        mock_response.text = body
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.text = "plain text body"
 
         with patch("httpx.AsyncClient") as MockClient:
             client_instance = AsyncMock()
@@ -736,4 +757,275 @@ class TestResolveHttpTool:
 
             result = await tool.execute({})
 
-        assert result == body
+        assert result == "plain text body"
+
+    @pytest.mark.asyncio
+    async def test_request_tool_normalizes_html_into_readable_text(self, tmp_path):
+        """HTML responses should be stripped into readable text instead of raw markup."""
+        from runsight_core.tools import resolve_tool
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "read_page",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Read Page
+            description: Read a remote page.
+            parameters:
+              type: object
+              properties: {}
+            request:
+              method: GET
+              url: https://example.com
+            """,
+        )
+
+        tool = resolve_tool("read_page", base_dir=tmp_path)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/html; charset=utf-8"}
+        mock_response.text = """
+        <html>
+          <body>
+            <article>
+              <h1>Runsight Docs</h1>
+              <p>Ship tools safely.</p>
+              <script>console.log("drop me")</script>
+            </article>
+          </body>
+        </html>
+        """
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute({})
+
+        assert "Runsight Docs" in result
+        assert "Ship tools safely." in result
+        assert "<html" not in result.lower()
+        assert "<script" not in result.lower()
+        assert "console.log" not in result
+
+    @pytest.mark.parametrize("location", ["headers", "body_template"])
+    @pytest.mark.asyncio
+    async def test_request_tool_missing_env_secret_fails_closed_before_request(
+        self, tmp_path, location
+    ):
+        """Missing env-secret placeholders in shared request execution should fail closed."""
+        from runsight_core.tools import resolve_tool
+
+        request_block = """
+            request:
+              method: POST
+              url: https://example.com/secure
+              headers:
+                Authorization: Bearer ${MISSING_API_TOKEN}
+              body_template: '{"token":"${MISSING_API_TOKEN}"}'
+            """
+        if location == "headers":
+            request_block = """
+            request:
+              method: GET
+              url: https://example.com/secure
+              headers:
+                Authorization: Bearer ${MISSING_API_TOKEN}
+            """
+        elif location == "body_template":
+            request_block = """
+            request:
+              method: POST
+              url: https://example.com/secure
+              body_template: '{"token":"${MISSING_API_TOKEN}"}'
+            """
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            f"secure_lookup_{location}",
+            f"""
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Secure Lookup
+            description: Fetches a protected resource.
+            parameters:
+              type: object
+              properties: {{}}
+            {request_block}
+            """,
+        )
+
+        tool = resolve_tool(f"secure_lookup_{location}", base_dir=tmp_path)
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.headers = {"content-type": "application/json"}
+            mock_response.text = '{"ok": true}'
+            mock_response.json.return_value = {"ok": True}
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            with pytest.raises(ValueError, match=r"MISSING_API_TOKEN"):
+                await tool.execute({})
+
+        client_instance.request.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_request_tool_oversized_response_invokes_size_policy_and_can_truncate(
+        self, tmp_path
+    ):
+        """Oversized shared request responses should flow through the size policy hook."""
+        from runsight_core.tools import resolve_tool
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "read_large_page",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Read Large Page
+            description: Read a large remote page.
+            parameters:
+              type: object
+              properties: {}
+            request:
+              method: GET
+              url: https://example.com/large
+            """,
+        )
+
+        response_size_policy = Mock(return_value="truncated body")
+        tool = resolve_tool(
+            "read_large_page",
+            base_dir=tmp_path,
+            max_output_bytes=5,
+            response_size_policy=response_size_policy,
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.text = "0123456789"
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute({})
+
+        assert result == "truncated body"
+        response_size_policy.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_request_tool_applies_default_size_cap_when_no_explicit_limit_is_passed(
+        self, tmp_path
+    ):
+        """Shared request execution should still cap very large responses when callers use defaults."""
+        from runsight_core.tools import resolve_tool
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "read_large_page",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Read Large Page
+            description: Read a large remote page.
+            parameters:
+              type: object
+              properties: {}
+            request:
+              method: GET
+              url: https://example.com/large
+            """,
+        )
+
+        response_size_policy = Mock(return_value="default-capped body")
+        tool = resolve_tool(
+            "read_large_page",
+            base_dir=tmp_path,
+            response_size_policy=response_size_policy,
+        )
+
+        large_html = "<html><body>" + ("Alpha " * 300_000) + "</body></html>"
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/html"}
+        mock_response.text = large_html
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute({})
+
+        assert result == "default-capped body"
+        response_size_policy.assert_called_once()
+        assert response_size_policy.call_args.kwargs["max_output_bytes"] is not None
+
+    @pytest.mark.asyncio
+    async def test_request_tool_size_policy_can_fail_closed_for_oversized_response(self, tmp_path):
+        """Size policy failures should be surfaced directly with no fallback body return."""
+        from runsight_core.tools import resolve_tool
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "read_large_page",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Read Large Page
+            description: Read a large remote page.
+            parameters:
+              type: object
+              properties: {}
+            request:
+              method: GET
+              url: https://example.com/large
+            """,
+        )
+
+        response_size_policy = Mock(side_effect=ValueError("response exceeded max_output_bytes"))
+        tool = resolve_tool(
+            "read_large_page",
+            base_dir=tmp_path,
+            max_output_bytes=5,
+            response_size_policy=response_size_policy,
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.text = "0123456789"
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            with pytest.raises(ValueError, match="max_output_bytes"):
+                await tool.execute({})
+
+        response_size_policy.assert_called_once()

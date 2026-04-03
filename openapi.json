@@ -4657,9 +4657,9 @@
       },
       "ToolListItemResponse": {
         "properties": {
-          "slug": {
+          "id": {
             "type": "string",
-            "title": "Slug"
+            "title": "Id"
           },
           "name": {
             "type": "string",
@@ -4669,17 +4669,31 @@
             "type": "string",
             "title": "Description"
           },
-          "type": {
+          "origin": {
             "type": "string",
-            "title": "Type"
+            "enum": [
+              "builtin",
+              "custom"
+            ],
+            "title": "Origin"
+          },
+          "executor": {
+            "type": "string",
+            "enum": [
+              "native",
+              "python",
+              "request"
+            ],
+            "title": "Executor"
           }
         },
         "type": "object",
         "required": [
-          "slug",
+          "id",
           "name",
           "description",
-          "type"
+          "origin",
+          "executor"
         ],
         "title": "ToolListItemResponse"
       },

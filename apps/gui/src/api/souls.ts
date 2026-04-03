@@ -1,8 +1,10 @@
 import { api } from "./client";
+import type { components } from "@runsight/shared/api";
 import {
   SoulListResponseSchema,
   SoulResponseSchema,
   SoulUsageResponseSchema,
+  ToolListItemResponseSchema,
 } from "@runsight/shared/zod";
 import type {
   SoulCreate,
@@ -11,6 +13,11 @@ import type {
   SoulUpdate,
   SoulUsageResponse,
 } from "@runsight/shared/zod";
+import { z } from "zod";
+
+type ToolListItemResponse = components["schemas"]["ToolListItemResponse"];
+
+const AvailableToolListSchema = z.array(ToolListItemResponseSchema);
 
 export const soulsApi = {
   listSouls: async (): Promise<SoulListResponse> => {
@@ -28,15 +35,9 @@ export const soulsApi = {
     return SoulUsageResponseSchema.parse(res);
   },
 
-  listAvailableTools: async (): Promise<
-    Array<{
-      slug: string;
-      name: string;
-      description: string;
-      type: "builtin" | "custom" | "http";
-    }>
-  > => {
-    return api.get(`/tools`);
+  listAvailableTools: async (): Promise<ToolListItemResponse[]> => {
+    const res = await api.get(`/tools`);
+    return AvailableToolListSchema.parse(res) as ToolListItemResponse[];
   },
 
   createSoul: async (data: SoulCreate): Promise<SoulResponse> => {

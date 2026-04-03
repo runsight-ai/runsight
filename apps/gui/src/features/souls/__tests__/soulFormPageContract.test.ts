@@ -81,6 +81,13 @@ describe("SoulFormPage contract (RUN-449)", () => {
     expect(source).toMatch(/workflowId|workflowContext|workflowTools/);
   });
 
+  it("parses workflow tool context from canonical ids without legacy source or type:http taxonomy fields", () => {
+    const source = read(PAGE_PATH);
+    expect(source).not.toMatch(/type\?\s*:\s*["']builtin["']\s*\|\s*["']custom["']\s*\|\s*["']http["']/);
+    expect(source).not.toMatch(/source\?\s*:\s*string/);
+    expect(source).not.toMatch(/toolDef\.source/);
+  });
+
   it("backs the tool picker with API-loaded tool metadata instead of a hardcoded builtin map", () => {
     const source = read(PAGE_PATH);
     expect(source).toMatch(/useAvailableTools|listAvailableTools|\/tools/);

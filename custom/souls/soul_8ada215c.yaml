@@ -1,7 +1,7 @@
 role: Test
 system_prompt: You are cool
 tools:
-- runsight/http
+- http
 max_tool_iterations: 6
 model_name: null
 provider: null

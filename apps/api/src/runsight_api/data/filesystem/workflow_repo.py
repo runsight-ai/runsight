@@ -19,7 +19,11 @@ from urllib.parse import unquote
 
 import yaml as yaml_mod
 from pydantic import ValidationError as PydanticValidationError
-from runsight_core.yaml.parser import validate_tool_governance
+from runsight_core.yaml.parser import (
+    _validate_declared_tool_definitions,
+    _discovery_module,
+    validate_tool_governance,
+)
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 from ...domain.errors import InputValidationError, WorkflowNotFound
@@ -116,8 +120,7 @@ class WorkflowRepository:
     def _canvas_path(self, stem: str) -> Path:
         return self.canvas_dir / f"{stem}.canvas.json"
 
-    @staticmethod
-    def _validate_yaml_content(raw_yaml: Optional[str]) -> Tuple[bool, Optional[str]]:
+    def _validate_yaml_content(self, raw_yaml: Optional[str]) -> Tuple[bool, Optional[str]]:
         """Validate raw YAML string against RunsightWorkflowFile schema.
 
         Returns (valid, validation_error) — never raises.
@@ -130,7 +133,14 @@ class WorkflowRepository:
             if not isinstance(data, dict):
                 return False, "YAML content is not a mapping"
             file_def = RunsightWorkflowFile.model_validate(data)
-            validate_tool_governance(file_def)
+            souls_dir = Path(self.base_path) / "custom" / "souls"
+            souls_map = _discovery_module._discover_souls(souls_dir)
+            validate_tool_governance(file_def, souls_map)
+            _validate_declared_tool_definitions(
+                file_def,
+                base_dir=str(self.base_path),
+                require_custom_metadata=True,
+            )
             return True, None
         except PydanticValidationError as e:
             return False, str(e)

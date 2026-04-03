@@ -12,7 +12,7 @@ system_prompt: "You are a quality gate for UI mockups. You receive content to ev
   \ EXACTLY \"PASS\" or \"FAIL: <reason>\" on the first line.\nNo other format is\
   \ accepted.\n"
 tools:
-- runsight/file-io
+- file_io
 max_tool_iterations: 5
 model_name: null
 assertions: null

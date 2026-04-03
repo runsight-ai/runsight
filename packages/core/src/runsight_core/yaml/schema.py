@@ -13,6 +13,7 @@ from pydantic import (
     Field,
     GetCoreSchemaHandler,
     TypeAdapter,
+    field_validator,
     model_validator,
 )
 
@@ -267,10 +268,26 @@ class RunsightWorkflowFile(BaseModel):
     version: str = "1.0"
     enabled: bool = False
     config: Dict[str, Any] = Field(default_factory=dict)
-    tools: Dict[str, ToolDef] = Field(default_factory=dict)
+    tools: List[str] = Field(default_factory=list)
     souls: Dict[str, SoulDef] = Field(default_factory=dict)
     blocks: Dict[str, BlockDef] = Field(default_factory=dict)
     workflow: WorkflowDef  # required — no default; Pydantic raises ValidationError if absent
+
+    @field_validator("tools")
+    @classmethod
+    def _validate_unique_tool_ids(cls, tool_ids: List[str]) -> List[str]:
+        duplicates: List[str] = []
+        seen: set[str] = set()
+        for tool_id in tool_ids:
+            if tool_id in seen and tool_id not in duplicates:
+                duplicates.append(tool_id)
+            seen.add(tool_id)
+
+        if duplicates:
+            joined = ", ".join(repr(tool_id) for tool_id in duplicates)
+            raise ValueError(f"duplicate workflow tool ids are not allowed: {joined}")
+
+        return tool_ids
 
     @model_validator(mode="after")
     def _reject_inline_souls(self) -> "RunsightWorkflowFile":

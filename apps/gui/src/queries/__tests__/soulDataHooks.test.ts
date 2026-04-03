@@ -109,16 +109,18 @@ describe("soul data API helpers (RUN-444)", () => {
   it("adds soulsApi.listAvailableTools and calls /tools", async () => {
     mocks.apiGet.mockResolvedValue([
       {
-        slug: "runsight/http",
+        id: "http",
         name: "HTTP Requests",
         description: "Fetch external APIs.",
-        type: "builtin",
+        origin: "builtin",
+        executor: "native",
       },
       {
-        slug: "report_lookup",
+        id: "report_lookup",
         name: "Report Lookup",
         description: "Look up saved reports.",
-        type: "custom",
+        origin: "custom",
+        executor: "request",
       },
     ]);
 
@@ -131,8 +133,12 @@ describe("soul data API helpers (RUN-444)", () => {
 
     expect(mocks.apiGet).toHaveBeenCalledWith("/tools");
     expect(result).toEqual([
-      expect.objectContaining({ slug: "runsight/http", type: "builtin" }),
-      expect.objectContaining({ slug: "report_lookup", type: "custom" }),
+      expect.objectContaining({ id: "http", origin: "builtin", executor: "native" }),
+      expect.objectContaining({
+        id: "report_lookup",
+        origin: "custom",
+        executor: "request",
+      }),
     ]);
   });
 

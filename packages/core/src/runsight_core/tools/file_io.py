@@ -1,4 +1,4 @@
-"""Built-in file I/O tool: runsight/file-io."""
+"""Built-in file I/O tool."""
 
 from __future__ import annotations
 
@@ -65,4 +65,5 @@ def create_file_io_tool(base_dir: str = ".") -> ToolInstance:
     )
 
 
+register_builtin("file_io", create_file_io_tool)
 register_builtin("runsight/file-io", create_file_io_tool)

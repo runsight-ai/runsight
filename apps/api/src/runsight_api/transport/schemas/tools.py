@@ -1,8 +1,11 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
 class ToolListItemResponse(BaseModel):
-    slug: str
+    id: str
     name: str
     description: str
-    type: str
+    origin: Literal["builtin", "custom"]
+    executor: Literal["native", "python", "request"]

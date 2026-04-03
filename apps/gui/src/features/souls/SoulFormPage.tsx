@@ -23,13 +23,8 @@ import { SoulFormBody } from "./SoulFormBody";
 import { SoulFormFooter } from "./SoulFormFooter";
 import { useSoulForm } from "./useSoulForm";
 
-type WorkflowToolDef = {
-  type?: "builtin" | "custom" | "http";
-  source?: string;
-};
-
 type WorkflowToolFile = {
-  tools?: Record<string, WorkflowToolDef>;
+  tools?: string[];
 };
 
 function buildBreadcrumbLabel(mode: "create" | "edit", role?: string | null) {
@@ -46,7 +41,8 @@ function getWorkflowIdFromReturnUrl(returnUrl: string | null): string | null {
   }
 
   const workflowMatch = returnUrl.match(/\/workflows\/([^/?#]+)(?:\/edit)?/);
-  return workflowMatch ? decodeURIComponent(workflowMatch[1]) : null;
+  const workflowId = workflowMatch?.[1];
+  return workflowId ? decodeURIComponent(workflowId) : null;
 }
 
 function buildWorkflowTools(
@@ -54,13 +50,11 @@ function buildWorkflowTools(
   selectedTools: string[],
   availableTools: AvailableTool[],
 ): WorkflowToolContext[] {
-  const filteredAvailableTools = availableTools.filter(
-    (tool) => tool.slug !== "runsight/delegate",
-  );
-  const availableToolMap = new Map(filteredAvailableTools.map((tool) => [tool.slug, tool]));
+  const filteredAvailableTools = availableTools.filter((tool) => tool.id !== "delegate");
+  const availableToolMap = new Map(filteredAvailableTools.map((tool) => [tool.id, tool]));
 
   const fallbackTools = selectedTools
-    .filter((tool) => availableToolMap.has(tool))
+    .filter((tool) => tool !== "delegate")
     .map((tool) => ({
       id: tool,
       label: availableToolMap.get(tool)?.name ?? tool,
@@ -76,17 +70,22 @@ function buildWorkflowTools(
 
   try {
     const parsed = parse(yamlText) as WorkflowToolFile | null;
-    const workflowTools = Object.entries(parsed?.tools ?? {})
-      .map(([id, toolDef]) => toolDef.source ?? id)
-      .filter((slug) => slug !== "runsight/delegate" && availableToolMap.has(slug))
-      .map((slug) => {
-        const meta = availableToolMap.get(slug);
+    const workflowToolIds = parsed?.tools;
+
+    if (!Array.isArray(workflowToolIds)) {
+      return fallbackTools;
+    }
+
+    const workflowTools = workflowToolIds
+      .filter((toolId) => toolId !== "delegate")
+      .map((toolId) => {
+        const meta = availableToolMap.get(toolId);
 
         return {
-          id: slug,
-          label: meta?.name ?? slug,
+          id: toolId,
+          label: meta?.name ?? toolId,
           description: meta?.description ?? "Available in this workflow.",
-          enabled: selectedTools.includes(slug),
+          enabled: selectedTools.includes(toolId),
           availableInWorkflow: true,
         };
       });

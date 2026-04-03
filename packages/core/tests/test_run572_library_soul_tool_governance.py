@@ -63,7 +63,7 @@ class TestLibrarySoulToolWithoutWorkflowTools:
     """Library soul declaring tools must fail if the workflow has no tools: section."""
 
     def test_soul_with_tool_in_workflow_without_tools_section_raises(self):
-        """AC1: Soul declares tools: [runsight/http] but workflow has no tools: section."""
+        """AC1: Soul declares tools: [http] but workflow has no tools: section."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(
@@ -72,7 +72,7 @@ class TestLibrarySoulToolWithoutWorkflowTools:
                 soul_id="f1",
                 role="Fetcher",
                 prompt="You fetch data.",
-                tools=["runsight/http"],
+                tools=["http"],
             )
             path = _write_workflow_file(
                 base,
@@ -92,11 +92,11 @@ class TestLibrarySoulToolWithoutWorkflowTools:
                       to: null
                 """,
             )
-            with pytest.raises(ValueError, match="runsight/http"):
+            with pytest.raises(ValueError, match="http"):
                 parse_workflow_yaml(path)
 
     def test_soul_with_tool_in_workflow_with_empty_tools_section_raises(self):
-        """AC1: Soul declares tools but workflow tools: {} is empty."""
+        """AC1: Soul declares tools but workflow tools: [] is empty."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(
@@ -105,7 +105,7 @@ class TestLibrarySoulToolWithoutWorkflowTools:
                 soul_id="f1",
                 role="Fetcher",
                 prompt="You fetch data.",
-                tools=["runsight/http"],
+                tools=["http"],
             )
             path = _write_workflow_file(
                 base,
@@ -113,7 +113,7 @@ class TestLibrarySoulToolWithoutWorkflowTools:
                 version: "1.0"
                 config:
                   model_name: gpt-4o
-                tools: {}
+                tools: []
                 blocks:
                   step:
                     type: linear
@@ -126,7 +126,7 @@ class TestLibrarySoulToolWithoutWorkflowTools:
                       to: null
                 """,
             )
-            with pytest.raises(ValueError, match="runsight/http"):
+            with pytest.raises(ValueError, match="http"):
                 parse_workflow_yaml(path)
 
 
@@ -139,7 +139,7 @@ class TestLibrarySoulToolWithMatchingWorkflowTools:
     """Library soul declaring tools passes when the workflow declares them."""
 
     def test_soul_tool_declared_in_workflow_tools_passes(self):
-        """AC2: Soul declares tools: [http_tool], workflow has tools: { http_tool: ... }."""
+        """AC2: Soul declares tools: [http], workflow has tools: [http]."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(
@@ -148,7 +148,7 @@ class TestLibrarySoulToolWithMatchingWorkflowTools:
                 soul_id="f1",
                 role="Fetcher",
                 prompt="You fetch data.",
-                tools=["http_tool"],
+                tools=["http"],
             )
             path = _write_workflow_file(
                 base,
@@ -157,9 +157,7 @@ class TestLibrarySoulToolWithMatchingWorkflowTools:
                 config:
                   model_name: gpt-4o
                 tools:
-                  http_tool:
-                    type: builtin
-                    source: runsight/http
+                  - http
                 blocks:
                   step:
                     type: linear
@@ -188,7 +186,7 @@ class TestLibrarySoulToolWithMatchingWorkflowTools:
                 soul_id="a1",
                 role="Agent",
                 prompt="You do things.",
-                tools=["http_tool", "file_tool"],
+                tools=["http", "file_io"],
             )
             path = _write_workflow_file(
                 base,
@@ -197,12 +195,8 @@ class TestLibrarySoulToolWithMatchingWorkflowTools:
                 config:
                   model_name: gpt-4o
                 tools:
-                  http_tool:
-                    type: builtin
-                    source: runsight/http
-                  file_tool:
-                    type: builtin
-                    source: runsight/file-io
+                  - http
+                  - file_io
                 blocks:
                   step:
                     type: linear
@@ -239,7 +233,7 @@ class TestErrorMessageContent:
                 soul_id="df1",
                 role="Data Fetcher",
                 prompt="Fetch data.",
-                tools=["runsight/http"],
+                tools=["http"],
             )
             path = _write_workflow_file(
                 base,
@@ -360,7 +354,7 @@ class TestSoulsWithoutToolsPassSilently:
                 soul_id="t1",
                 role="Tooled",
                 prompt="I use tools.",
-                tools=["runsight/http"],
+                tools=["http"],
             )
             path = _write_workflow_file(
                 base,
@@ -390,7 +384,7 @@ class TestSoulsWithoutToolsPassSilently:
                 parse_workflow_yaml(path)
             error_msg = str(exc_info.value)
             assert "tooled" in error_msg
-            assert "runsight/http" in error_msg
+            assert "http" in error_msg
 
 
 # ===========================================================================
@@ -411,7 +405,7 @@ class TestFanoutExitSoulRefsValidated:
                 soul_id="ba1",
                 role="Branch Agent",
                 prompt="I handle branches.",
-                tools=["runsight/http"],
+                tools=["http"],
             )
             _write_soul_file(
                 base,
@@ -450,7 +444,7 @@ class TestFanoutExitSoulRefsValidated:
                 parse_workflow_yaml(path)
             error_msg = str(exc_info.value)
             assert "branch_agent" in error_msg
-            assert "runsight/http" in error_msg
+            assert "http" in error_msg
 
     def test_fanout_exit_soul_with_declared_tool_passes(self):
         """AC5: Fanout exit's soul_ref with properly declared tools -> passes."""
@@ -462,7 +456,7 @@ class TestFanoutExitSoulRefsValidated:
                 soul_id="tb1",
                 role="Tooled Branch",
                 prompt="I use tools.",
-                tools=["http_tool"],
+                tools=["http"],
             )
             _write_soul_file(
                 base,
@@ -478,9 +472,7 @@ class TestFanoutExitSoulRefsValidated:
                 config:
                   model_name: gpt-4o
                 tools:
-                  http_tool:
-                    type: builtin
-                    source: runsight/http
+                  - http
                 blocks:
                   fan:
                     type: fanout
@@ -527,7 +519,7 @@ class TestEdgeCases:
                 soul_id="mt1",
                 role="Multi-Tool Agent",
                 prompt="I use many tools.",
-                tools=["http_tool", "missing_file_tool"],
+                tools=["http", "missing_file_tool"],
             )
             path = _write_workflow_file(
                 base,
@@ -536,9 +528,7 @@ class TestEdgeCases:
                 config:
                   model_name: gpt-4o
                 tools:
-                  http_tool:
-                    type: builtin
-                    source: runsight/http
+                  - http
                 blocks:
                   step:
                     type: linear
@@ -607,12 +597,10 @@ class TestEdgeCases:
             assert "undeclared_tool" in error_msg
 
     def test_soul_tool_ref_matches_workflow_tool_key_not_source(self):
-        """Soul's tool ref must match the workflow tool KEY, not the source."""
+        """Soul's tool ref must match the canonical workflow tool id exactly."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
-            # Soul references "runsight/http" (the source), but the workflow
-            # tool key is "my_http" -> should fail because tool governance
-            # matches against keys
+            # Soul references a legacy source string instead of the canonical workflow tool id.
             _write_soul_file(
                 base,
                 "source_ref_agent",
@@ -628,9 +616,7 @@ class TestEdgeCases:
                 config:
                   model_name: gpt-4o
                 tools:
-                  my_http:
-                    type: builtin
-                    source: runsight/http
+                  - http
                 blocks:
                   step:
                     type: linear
@@ -643,7 +629,7 @@ class TestEdgeCases:
                       to: null
                 """,
             )
-            # "runsight/http" is the source, not the key "my_http" -> should fail
+            # Legacy source strings must not match canonical workflow ids.
             with pytest.raises(ValueError) as exc_info:
                 parse_workflow_yaml(path)
             error_msg = str(exc_info.value)
