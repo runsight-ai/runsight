@@ -118,3 +118,168 @@ def test_update_rejects_nested_child_chain_that_exceeds_max_depth(tmp_path) -> N
     assert entity.valid is False
     assert entity.validation_error is not None
     assert "depth" in entity.validation_error.lower()
+
+
+def test_update_rejects_child_chain_that_exceeds_inherited_workflow_max_depth(tmp_path) -> None:
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    child_yaml = """
+    version: "1.0"
+    interface:
+      inputs: []
+      outputs: []
+    workflow:
+      name: child
+      entry: finish
+      transitions: []
+    """
+    _write_workflow(repo, workflow_id="child", yaml_text=child_yaml)
+
+    parent_yaml = """
+    version: "1.0"
+    interface:
+      inputs: []
+      outputs: []
+    blocks:
+      call_child:
+        type: workflow
+        workflow_ref: custom/workflows/child.yaml
+    workflow:
+      name: parent
+      entry: call_child
+      transitions:
+        - from: call_child
+          to: null
+    config:
+      max_workflow_depth: 1
+    """
+    _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
+
+    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+
+    assert entity.valid is False
+    assert entity.validation_error is not None
+    assert "call_child" in entity.validation_error
+    assert "depth" in entity.validation_error.lower()
+
+
+def test_update_rejects_nested_child_block_max_depth_already_exceeded_at_call_site(
+    tmp_path,
+) -> None:
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    grandchild_yaml = """
+    version: "1.0"
+    interface:
+      inputs: []
+      outputs: []
+    workflow:
+      name: grandchild
+      entry: finish
+      transitions: []
+    """
+    _write_workflow(repo, workflow_id="grandchild", yaml_text=grandchild_yaml)
+
+    child_yaml = """
+    version: "1.0"
+    interface:
+      inputs: []
+      outputs: []
+    blocks:
+      call_grandchild:
+        type: workflow
+        workflow_ref: custom/workflows/grandchild.yaml
+        max_depth: 1
+    workflow:
+      name: child
+      entry: call_grandchild
+      transitions:
+        - from: call_grandchild
+          to: null
+    """
+    _write_workflow(repo, workflow_id="child", yaml_text=child_yaml)
+
+    parent_yaml = """
+    version: "1.0"
+    interface:
+      inputs: []
+      outputs: []
+    blocks:
+      call_child:
+        type: workflow
+        workflow_ref: custom/workflows/child.yaml
+    workflow:
+      name: parent
+      entry: call_child
+      transitions:
+        - from: call_child
+          to: null
+    """
+    _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
+
+    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+
+    assert entity.valid is False
+    assert entity.validation_error is not None
+    assert "call_grandchild" in entity.validation_error
+    assert "depth" in entity.validation_error.lower()
+
+
+def test_update_rejects_grandchild_when_propagated_call_depth_reaches_block_limit(tmp_path) -> None:
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    grandchild_yaml = """
+    version: "1.0"
+    interface:
+      inputs: []
+      outputs: []
+    workflow:
+      name: grandchild
+      entry: finish
+      transitions: []
+    """
+    _write_workflow(repo, workflow_id="grandchild", yaml_text=grandchild_yaml)
+
+    child_yaml = """
+    version: "1.0"
+    interface:
+      inputs: []
+      outputs: []
+    blocks:
+      call_grandchild:
+        type: workflow
+        workflow_ref: custom/workflows/grandchild.yaml
+        max_depth: 3
+    workflow:
+      name: child
+      entry: call_grandchild
+      transitions:
+        - from: call_grandchild
+          to: null
+    """
+    _write_workflow(repo, workflow_id="child", yaml_text=child_yaml)
+
+    parent_yaml = """
+    version: "1.0"
+    interface:
+      inputs: []
+      outputs: []
+    blocks:
+      call_child:
+        type: workflow
+        workflow_ref: custom/workflows/child.yaml
+    workflow:
+      name: parent
+      entry: call_child
+      transitions:
+        - from: call_child
+          to: null
+    """
+    _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
+
+    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+
+    assert entity.valid is False
+    assert entity.validation_error is not None
+    assert "call_grandchild" in entity.validation_error
+    assert "depth" in entity.validation_error.lower()
