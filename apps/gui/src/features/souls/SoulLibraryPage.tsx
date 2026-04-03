@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router";
-import { Globe, FileText, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { useSouls } from "@/queries/souls";
+import { useAvailableTools, useSouls } from "@/queries/souls";
 import { useProviders } from "@/queries/settings";
 import { Badge } from "@runsight/ui/badge";
 import { Button } from "@runsight/ui/button";
@@ -26,16 +26,48 @@ const AVATAR_COLOR_CLASSES: Record<string, string> = {
   neutral: "bg-neutral-8 text-on-accent",
 };
 
-const TOOL_META: Record<
-  string,
-  { label: string; icon: typeof Globe }
-> = {
-  http: { label: "HTTP", icon: Globe },
-  file_io: { label: "Files", icon: FileText },
+type AvailableTool = {
+  id: string;
+  name: string;
+  description: string;
+  origin: string;
+  executor: string;
 };
+
+function formatMetadataLabel(value: string, kind: "origin" | "executor"): string {
+  const normalized = value.trim().toLowerCase();
+
+  if (kind === "origin") {
+    if (normalized === "builtin") {
+      return "Built-in";
+    }
+    if (normalized === "custom") {
+      return "Custom";
+    }
+  }
+
+  if (kind === "executor") {
+    if (normalized === "native") {
+      return "Native";
+    }
+    if (normalized === "python") {
+      return "Python";
+    }
+    if (normalized === "request") {
+      return "Request";
+    }
+  }
+
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
 
 function buildColumns(
   providerStateById: Map<string, { name: string; isActive: boolean }>,
+  toolMetaById: Map<string, AvailableTool>,
 ): Column[] {
   return [
     {
@@ -101,7 +133,7 @@ function buildColumns(
       sortable: false,
       render: (row) => {
         const tools = Array.isArray(row.tools) ? (row.tools as string[]) : [];
-        const visibleTools = tools.filter((tool) => tool in TOOL_META);
+        const visibleTools = tools.filter((toolId) => toolId !== "delegate");
 
         if (visibleTools.length === 0) {
           return "—";
@@ -109,13 +141,23 @@ function buildColumns(
 
         return (
           <div className="flex flex-wrap gap-2">
-            {visibleTools.map((tool) => {
-              const meta = TOOL_META[tool];
-              const Icon = meta.icon;
+            {visibleTools.map((toolId) => {
+              const meta = toolMetaById.get(toolId);
+              const metadataLabels = [
+                ...(meta?.origin && meta.origin !== "builtin"
+                  ? [formatMetadataLabel(meta.origin, "origin")]
+                  : []),
+                ...(meta?.executor && meta.executor !== "native"
+                  ? [formatMetadataLabel(meta.executor, "executor")]
+                  : []),
+              ];
+
               return (
-                <Badge key={tool} variant="outline" className="gap-1.5">
-                  <Icon className="h-3 w-3" />
-                  {meta.label}
+                <Badge key={toolId} variant="outline" className="gap-1.5">
+                  <span>{meta?.name ?? toolId}</span>
+                  {metadataLabels.length > 0 ? (
+                    <span className="text-muted">{metadataLabels.join(" / ")}</span>
+                  ) : null}
                 </Badge>
               );
             })}
@@ -136,6 +178,7 @@ function buildColumns(
 export function Component() {
   const navigate = useNavigate();
   const soulsQuery = useSouls();
+  const availableToolsQuery = useAvailableTools();
   const providersQuery = useProviders();
   const souls = normalizeSoulData(soulsQuery.data);
   const providerStateById = new Map(
@@ -144,7 +187,12 @@ export function Component() {
       { name: provider.name, isActive: provider.is_active ?? true },
     ]),
   );
-  const columns = buildColumns(providerStateById);
+  const toolMetaById = new Map(
+    (availableToolsQuery.data ?? [])
+      .filter((tool) => tool.id !== "delegate")
+      .map((tool) => [tool.id, tool]),
+  );
+  const columns = buildColumns(providerStateById, toolMetaById);
 
   return (
     <div className="flex h-full flex-col">

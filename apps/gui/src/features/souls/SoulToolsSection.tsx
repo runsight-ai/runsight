@@ -14,8 +14,8 @@ type AvailableTool = {
   id: string;
   name: string;
   description: string;
-  origin: "builtin" | "custom";
-  executor: "native" | "python" | "request";
+  origin: string;
+  executor: string;
 };
 
 interface SoulToolsSectionProps {
@@ -29,44 +29,89 @@ function buildAvailableTools(
   tools: string[],
   workflowTools: WorkflowToolContext[],
   availableTools: AvailableTool[],
-): Array<WorkflowToolContext & { origin: AvailableTool["origin"] }> {
-  const renderableTools = availableTools.filter((tool) => tool.id !== "delegate");
+): Array<
+  WorkflowToolContext & {
+    origin?: string;
+    executor?: string;
+  }
+> {
+  const visibleToolIds = new Set<string>();
+  const workflowMap = new Map(
+    workflowTools
+      .filter((tool) => tool.id !== "delegate")
+      .map((tool) => [tool.id, tool]),
+  );
+  const availableToolMap = new Map(
+    availableTools
+      .filter((tool) => tool.id !== "delegate")
+      .map((tool) => [tool.id, tool]),
+  );
 
-  if (workflowTools.length > 0) {
-    const workflowMap = new Map(workflowTools.map((tool) => [tool.id, tool]));
-    return renderableTools.map((tool) => {
-      const workflowTool = workflowMap.get(tool.id);
-      return {
-        id: tool.id,
-        label: tool.name,
-        description: tool.description,
-        enabled: tools.includes(tool.id),
-        availableInWorkflow: workflowTool ? (workflowTool.availableInWorkflow ?? true) : false,
-        origin: tool.origin,
-      };
-    });
+  workflowTools.forEach((tool) => {
+    if (tool.id !== "delegate") {
+      visibleToolIds.add(tool.id);
+    }
+  });
+  availableTools.forEach((tool) => {
+    if (tool.id !== "delegate") {
+      visibleToolIds.add(tool.id);
+    }
+  });
+  tools.forEach((toolId) => {
+    if (toolId !== "delegate") {
+      visibleToolIds.add(toolId);
+    }
+  });
+
+  return [...visibleToolIds].map((toolId) => {
+    const workflowTool = workflowMap.get(toolId);
+    const availableTool = availableToolMap.get(toolId);
+
+    return {
+      id: toolId,
+      label: availableTool?.name ?? workflowTool?.label ?? toolId,
+      description:
+        availableTool?.description ??
+        workflowTool?.description ??
+        "Enabled on this soul. Open the form from a workflow to compare workflow-only availability.",
+      enabled: tools.includes(toolId),
+      availableInWorkflow:
+        workflowTool != null ? (workflowTool.availableInWorkflow ?? true) : workflowTools.length === 0,
+      origin: availableTool?.origin,
+      executor: availableTool?.executor,
+    };
+  });
+}
+
+function formatMetadataLabel(value: string, kind: "origin" | "executor"): string {
+  const normalized = value.trim().toLowerCase();
+
+  if (kind === "origin") {
+    if (normalized === "builtin") {
+      return "Built-in";
+    }
+    if (normalized === "custom") {
+      return "Custom";
+    }
   }
 
-  if (renderableTools.length > 0) {
-    return renderableTools.map((tool) => ({
-      id: tool.id,
-      label: tool.name,
-      description: tool.description,
-      enabled: tools.includes(tool.id),
-      availableInWorkflow: true,
-      origin: tool.origin,
-    }));
+  if (kind === "executor") {
+    if (normalized === "native") {
+      return "Native";
+    }
+    if (normalized === "python") {
+      return "Python";
+    }
+    if (normalized === "request") {
+      return "Request";
+    }
   }
 
-  return tools.map((tool) => ({
-    id: tool,
-    label: tool,
-    description:
-      "Enabled on this soul. Open the form from a workflow to compare workflow-only availability.",
-    enabled: true,
-    availableInWorkflow: true,
-    origin: "builtin" as const,
-  }));
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 export function SoulToolsSection({
@@ -107,6 +152,8 @@ export function SoulToolsSection({
             {toolCards.map((tool) => {
               const selected = tools.includes(tool.id);
               const isAvailableInWorkflow = tool.availableInWorkflow !== false;
+              const shouldShowOrigin = Boolean(tool.origin && tool.origin !== "builtin");
+              const shouldShowExecutor = Boolean(tool.executor && tool.executor !== "native");
 
               return (
                 <button
@@ -127,8 +174,15 @@ export function SoulToolsSection({
                       <div className="mt-1 text-sm text-muted">{tool.description}</div>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                      {tool.origin === "custom" ? (
-                        <Badge variant="warning">Custom</Badge>
+                      {shouldShowOrigin ? (
+                        <Badge variant="outline">
+                          {formatMetadataLabel(tool.origin!, "origin")}
+                        </Badge>
+                      ) : null}
+                      {shouldShowExecutor ? (
+                        <Badge variant="outline">
+                          {formatMetadataLabel(tool.executor!, "executor")}
+                        </Badge>
                       ) : null}
                       {selected ? (
                         <Badge variant="accent">Enabled</Badge>

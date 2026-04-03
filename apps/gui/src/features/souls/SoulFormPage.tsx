@@ -23,13 +23,8 @@ import { SoulFormBody } from "./SoulFormBody";
 import { SoulFormFooter } from "./SoulFormFooter";
 import { useSoulForm } from "./useSoulForm";
 
-type WorkflowToolDef = {
-  type?: "builtin" | "custom" | "http";
-  source?: string;
-};
-
 type WorkflowToolFile = {
-  tools?: Record<string, WorkflowToolDef>;
+  tools?: Record<string, unknown>;
 };
 
 function buildBreadcrumbLabel(mode: "create" | "edit", role?: string | null) {
@@ -55,13 +50,11 @@ function buildWorkflowTools(
   selectedTools: string[],
   availableTools: AvailableTool[],
 ): WorkflowToolContext[] {
-  const filteredAvailableTools = availableTools.filter(
-    (tool) => tool.id !== "delegate",
-  );
+  const filteredAvailableTools = availableTools.filter((tool) => tool.id !== "delegate");
   const availableToolMap = new Map(filteredAvailableTools.map((tool) => [tool.id, tool]));
 
   const fallbackTools = selectedTools
-    .filter((tool) => availableToolMap.has(tool))
+    .filter((tool) => tool !== "delegate")
     .map((tool) => ({
       id: tool,
       label: availableToolMap.get(tool)?.name ?? tool,
@@ -77,9 +70,15 @@ function buildWorkflowTools(
 
   try {
     const parsed = parse(yamlText) as WorkflowToolFile | null;
+    const workflowToolEntries = parsed?.tools;
+
+    if (!workflowToolEntries || typeof workflowToolEntries !== "object") {
+      return fallbackTools;
+    }
+
     const workflowTools = Object.entries(parsed?.tools ?? {})
-      .map(([id, toolDef]) => toolDef.source ?? id)
-      .filter((toolId) => toolId !== "delegate" && availableToolMap.has(toolId))
+      .map(([toolId]) => toolId)
+      .filter((toolId) => toolId !== "delegate")
       .map((toolId) => {
         const meta = availableToolMap.get(toolId);
 
