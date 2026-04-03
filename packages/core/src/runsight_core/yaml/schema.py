@@ -7,7 +7,14 @@ Phase 1 (RUN-110): Discriminated-union BlockDef with per-type models.
 
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, GetCoreSchemaHandler, TypeAdapter
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    GetCoreSchemaHandler,
+    TypeAdapter,
+    model_validator,
+)
 
 # -- Soul / Task / Task-file (unchanged) ------------------------------------
 
@@ -264,6 +271,15 @@ class RunsightWorkflowFile(BaseModel):
     souls: Dict[str, SoulDef] = Field(default_factory=dict)
     blocks: Dict[str, BlockDef] = Field(default_factory=dict)
     workflow: WorkflowDef  # required — no default; Pydantic raises ValidationError if absent
+
+    @model_validator(mode="after")
+    def _reject_inline_souls(self) -> "RunsightWorkflowFile":
+        if self.souls:
+            raise ValueError(
+                "Inline souls are not supported. "
+                "Define souls in custom/souls/ and reference them via soul_ref."
+            )
+        return self
 
 
 # -- Dynamic union builders -------------------------------------------------

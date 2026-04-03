@@ -15,10 +15,16 @@ Expected failures: These should all pass once the template and parser
 are compatible. The template YAML is hardcoded here (same as the ticket spec).
 """
 
+import pytest
 from runsight_core.blocks.gate import GateBlock
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import parse_workflow_yaml
+
+pytestmark = pytest.mark.xfail(
+    reason="RUN-570 removed inline souls; RUN-571 will wire library discovery",
+    strict=True,
+)
 
 # ---------------------------------------------------------------------------
 # Template YAML — identical to the TEMPLATE_YAML frontend constant (from ticket)

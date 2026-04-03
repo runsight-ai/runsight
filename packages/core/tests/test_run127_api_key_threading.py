@@ -111,6 +111,9 @@ class TestRunnerApiKeys:
 
 
 class TestParserApiKeys:
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_workflow_yaml_accepts_api_keys(self):
         """parse_workflow_yaml() accepts canonical api_keys."""
         from runsight_core.yaml.parser import parse_workflow_yaml

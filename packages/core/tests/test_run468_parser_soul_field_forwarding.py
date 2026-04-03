@@ -1,6 +1,16 @@
-"""Red tests for RUN-468: parse_workflow_yaml forwards all SoulDef fields to Soul."""
+"""Red tests for RUN-468: parse_workflow_yaml forwards all SoulDef fields to Soul.
 
+NOTE: These tests depend on inline soul definitions which were removed in RUN-570.
+They will be re-enabled once RUN-571 wires library soul discovery.
+"""
+
+import pytest
 from runsight_core.yaml.parser import parse_workflow_yaml
+
+pytestmark = pytest.mark.xfail(
+    reason="RUN-570 removed inline souls; RUN-571 will wire library discovery",
+    strict=True,
+)
 
 WORKFLOW_WITH_EXTENDED_SOUL = """
 version: "1.0"

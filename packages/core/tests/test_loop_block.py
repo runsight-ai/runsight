@@ -473,6 +473,9 @@ class TestLoopBlockErrorHandling:
 class TestLoopBlockYamlParsing:
     """YAML parsing: type=loop parses correctly, type=retry raises error."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_loop_type_parses_to_loop_block_def(self):
         """type: loop with inner_block_refs should parse to LoopBlockDef in a workflow file."""
         from runsight_core.blocks.loop import LoopBlockDef
@@ -556,6 +559,9 @@ workflow:
         with pytest.raises((ValidationError, ValueError), match="retry"):
             parse_workflow_yaml(yaml_str)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parser_produces_loop_block_instance(self):
         """parse_workflow_yaml with type: loop should produce a LoopBlock instance."""
         from runsight_core import LoopBlock
@@ -596,6 +602,9 @@ workflow:
         assert "loop" in BLOCK_TYPE_REGISTRY, "'loop' should be in BLOCK_TYPE_REGISTRY"
         assert "retry" not in BLOCK_TYPE_REGISTRY, "'retry' should NOT be in BLOCK_TYPE_REGISTRY"
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parser_loop_block_stores_refs_as_strings(self):
         """LoopBlock built by parser should store inner_block_refs as strings, not resolved blocks."""
         from runsight_core import LoopBlock

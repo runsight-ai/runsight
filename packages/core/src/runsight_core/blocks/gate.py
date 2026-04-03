@@ -36,6 +36,7 @@ class GateBlock(BaseBlock):
     ):
         super().__init__(block_id)
         self.gate_soul = gate_soul
+        self.soul = gate_soul
         self.eval_key = eval_key
         self.runner = runner
         self.extract_field = extract_field

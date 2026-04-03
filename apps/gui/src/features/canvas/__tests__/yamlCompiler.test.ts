@@ -718,13 +718,13 @@ describe("Souls and config top-level sections", () => {
     timeout: 300,
   };
 
-  it("souls are included in compiled output when provided", () => {
+  it("souls are NOT included in compiled output even when provided (RUN-574)", () => {
     const result = compileGraphToWorkflowYaml({
       nodes: [mockNode("b1", "linear", { soulRef: "planner" })],
       edges: [],
       souls: sampleSouls,
     });
-    expect(result.workflowDocument.souls).toEqual(sampleSouls);
+    expect(result.workflowDocument).not.toHaveProperty("souls");
   });
 
   it("config is included in compiled output when provided", () => {
@@ -736,15 +736,13 @@ describe("Souls and config top-level sections", () => {
     expect(result.workflowDocument.config).toEqual(sampleConfig);
   });
 
-  it("souls appear in YAML string output", () => {
+  it("souls do NOT appear in YAML string output even when provided (RUN-574)", () => {
     const result = compileGraphToWorkflowYaml({
       nodes: [mockNode("b1", "linear", { soulRef: "planner" })],
       edges: [],
       souls: sampleSouls,
     });
-    expect(result.yaml).toContain("souls:");
-    expect(result.yaml).toContain("planner:");
-    expect(result.yaml).toContain("system_prompt: You are a planning agent.");
+    expect(result.yaml).not.toMatch(/^souls:/m);
   });
 
   it("config appears in YAML string output", () => {
@@ -758,13 +756,13 @@ describe("Souls and config top-level sections", () => {
     expect(result.yaml).toContain("timeout: 300");
   });
 
-  it("empty souls object is omitted", () => {
+  it("empty souls object is omitted (RUN-574)", () => {
     const result = compileGraphToWorkflowYaml({
       nodes: [mockNode("b1", "linear")],
       edges: [],
       souls: {},
     });
-    expect(result.workflowDocument.souls).toBeUndefined();
+    expect(result.workflowDocument).not.toHaveProperty("souls");
     expect(result.yaml).not.toContain("souls:");
   });
 
@@ -778,18 +776,18 @@ describe("Souls and config top-level sections", () => {
     expect(result.yaml).not.toContain("config:");
   });
 
-  it("undefined souls/config are omitted", () => {
+  it("undefined souls/config are omitted (RUN-574)", () => {
     const result = compileGraphToWorkflowYaml({
       nodes: [mockNode("b1", "linear")],
       edges: [],
     });
-    expect(result.workflowDocument.souls).toBeUndefined();
+    expect(result.workflowDocument).not.toHaveProperty("souls");
     expect(result.workflowDocument.config).toBeUndefined();
     expect(result.yaml).not.toContain("souls:");
     expect(result.yaml).not.toContain("config:");
   });
 
-  it("soul with all fields is serialized correctly", () => {
+  it("soul fields are NOT serialized to top-level souls section (RUN-574)", () => {
     const fullSoul: SoulDef = {
       id: "coder",
       role: "engineer",
@@ -802,16 +800,11 @@ describe("Souls and config top-level sections", () => {
       edges: [],
       souls: { coder: fullSoul },
     });
-    const compiled = result.workflowDocument.souls!["coder"];
-    expect(compiled.id).toBe("coder");
-    expect(compiled.role).toBe("engineer");
-    expect(compiled.system_prompt).toBe("You write code.");
-    expect(compiled.tools).toEqual([{ name: "file_read", config: { root: "/src" } }]);
-    expect(compiled.model_name).toBe("claude-3-opus");
-
-    // Also check YAML string
-    expect(result.yaml).toContain("model_name: claude-3-opus");
-    expect(result.yaml).toContain("role: engineer");
+    // After RUN-574, souls are never emitted in the compiled output
+    expect(result.workflowDocument).not.toHaveProperty("souls");
+    expect(result.yaml).not.toMatch(/^souls:/m);
+    // But soul_ref on blocks should still work
+    expect(result.workflowDocument.blocks["b1"]).toHaveProperty("soul_ref", "coder");
   });
 
   it("config with nested objects serializes correctly", () => {

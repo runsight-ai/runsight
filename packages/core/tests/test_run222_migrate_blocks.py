@@ -487,6 +487,9 @@ workflow:
 class TestEndToEndRoundTrip:
     """Integration: parse YAML with migrated block types, verify correct runtime blocks."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_linear_block(self):
         """parse_workflow_yaml must still work with linear blocks after migration."""
         from runsight_core import LinearBlock
@@ -500,6 +503,9 @@ class TestEndToEndRoundTrip:
         assert block is not None
         assert isinstance(block, LinearBlock)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_loop_block(self):
         """parse_workflow_yaml must still work with loop blocks after migration."""
         from runsight_core import LoopBlock

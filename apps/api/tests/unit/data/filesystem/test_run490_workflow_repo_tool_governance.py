@@ -1,3 +1,4 @@
+import pytest
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 
 INVALID_DIRECT_SOUL_TOOL_YAML = """\
@@ -51,6 +52,9 @@ workflow:
 """
 
 
+@pytest.mark.xfail(
+    reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+)
 def test_create_stores_tool_governance_validation_error_on_entity(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
 
@@ -61,6 +65,9 @@ def test_create_stores_tool_governance_validation_error_on_entity(tmp_path):
     assert "undeclared tool 'runsight/http'" in entity.validation_error
 
 
+@pytest.mark.xfail(
+    reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+)
 def test_update_recomputes_tool_governance_validation_error_from_raw_yaml(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
     created = repo.create({"name": "Governance Success", "yaml": VALID_DECLARED_TOOL_YAML})

@@ -793,6 +793,9 @@ class TestBaseBlockDefSchemaAdditions:
         )
         assert block_def.stall_thresholds == {"parsing": 10, "executing": 60}
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_timeout_seconds_roundtrip_yaml(self):
         """timeout_seconds survives YAML parse round-trip."""
         import yaml
@@ -883,6 +886,9 @@ class TestNoDispatchInWorkflow:
     """LLM blocks are wrapped at build time by the parser/builder, not by
     runtime dispatch in workflow.py."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parser_returns_wrapped_blocks_for_linear(self):
         """parse_workflow_yaml wraps linear blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
@@ -913,6 +919,9 @@ workflow:
         block = wf._blocks["blk1"]
         assert isinstance(block, IsolatedBlockWrapper)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parser_returns_wrapped_blocks_for_gate(self):
         """parse_workflow_yaml wraps gate blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
@@ -949,6 +958,9 @@ workflow:
         block = wf._blocks["gate1"]
         assert isinstance(block, IsolatedBlockWrapper)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parser_returns_wrapped_blocks_for_synthesize(self):
         """parse_workflow_yaml wraps synthesize blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
@@ -992,6 +1004,9 @@ workflow:
         block = wf._blocks["synth"]
         assert isinstance(block, IsolatedBlockWrapper)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parser_returns_wrapped_blocks_for_fanout(self):
         """parse_workflow_yaml wraps fanout blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock

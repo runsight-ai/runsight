@@ -39,32 +39,24 @@ describe("TEMPLATE_YAML export", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Soul definitions
+// 2. Soul references (library-only, no inline souls after RUN-575)
 // ---------------------------------------------------------------------------
 
-describe("TEMPLATE_YAML soul definitions", () => {
-  it("defines a researcher soul", () => {
-    expect(TEMPLATE_YAML).toMatch(/souls:\s*\n(\s+.*\n)*?\s+researcher:/);
+describe("TEMPLATE_YAML soul references", () => {
+  it("references researcher via soul_ref", () => {
+    expect(TEMPLATE_YAML).toMatch(/soul_ref:\s*researcher/);
   });
 
-  it("defines a writer soul", () => {
-    expect(TEMPLATE_YAML).toMatch(/\bwriter:/);
+  it("references writer via soul_ref", () => {
+    expect(TEMPLATE_YAML).toMatch(/soul_ref:\s*writer/);
   });
 
-  it("defines a reviewer soul", () => {
-    expect(TEMPLATE_YAML).toMatch(/\breviewer:/);
+  it("references reviewer via soul_ref", () => {
+    expect(TEMPLATE_YAML).toMatch(/soul_ref:\s*reviewer/);
   });
 
-  it("contains exactly 3 soul definitions under the souls key", () => {
-    // Extract the souls section and count top-level keys
-    const soulsMatch = TEMPLATE_YAML.match(
-      /^souls:\s*\n((?:[ \t]+.*\n)*)/m,
-    );
-    expect(soulsMatch).not.toBeNull();
-    const soulsBlock = soulsMatch![1];
-    // Top-level soul keys are indented exactly 2 spaces
-    const soulKeys = soulsBlock.match(/^ {2}\w+:/gm) ?? [];
-    expect(soulKeys).toHaveLength(3);
+  it("does not contain an inline souls section", () => {
+    expect(TEMPLATE_YAML).not.toMatch(/^souls:/m);
   });
 });
 

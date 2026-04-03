@@ -207,7 +207,6 @@ export interface WorkflowDef {
 export interface RunsightWorkflowFile {
   version: string;
   config?: Record<string, unknown>;
-  souls?: Record<string, SoulDef>;
   blocks: Record<string, BlockDef>;
   workflow: WorkflowDef;
 }

@@ -74,6 +74,9 @@ def _write_custom_tool_file(tmp_path, slug: str, contents: str) -> None:
 class TestToolResolutionHappyPath:
     """After parsing, souls with declared tools get resolved_tools populated."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_soul_resolved_tools_is_list_of_tool_instance(self):
         """AC1: Soul referencing valid tools gets resolved_tools as list of ToolInstance."""
         yaml_str = _make_yaml(
@@ -108,6 +111,9 @@ souls:
         assert len(soul.resolved_tools) == 1
         assert isinstance(soul.resolved_tools[0], ToolInstance)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_soul_resolved_tools_contains_correct_tool_name(self):
         """AC1: Resolved ToolInstance has the expected name from the factory."""
         yaml_str = _make_yaml(
@@ -140,6 +146,9 @@ souls:
         assert soul.resolved_tools is not None
         assert soul.resolved_tools[0].name == "http_request"
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_multiple_tools_all_resolved(self):
         """AC1: Soul with multiple tools gets all of them resolved."""
         yaml_str = _make_yaml(
@@ -179,6 +188,9 @@ souls:
         assert "http_request" in resolved_names
         assert "file_io" in resolved_names
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_direct_builtin_soul_tools_require_workflow_tool_declarations(self):
         """RUN-490: direct soul refs must be rejected when the workflow tools map omits them."""
         yaml_str = _make_yaml(
@@ -225,6 +237,9 @@ class TestWorkflowToolGovernanceHelpers:
         """RUN-490: _resolve_soul_tool_definition must not bypass workflow_tools for built-ins."""
         assert _resolve_soul_tool_definition("runsight/http", {}) is None
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_validate_tool_governance_exists_for_api_layer_reuse(self):
         """RUN-490: validate_tool_governance() should enforce undeclared tool refs for API callers."""
         yaml_str = _make_yaml(
@@ -253,6 +268,9 @@ souls:
         with pytest.raises(ValueError, match=r"reviewer.*undeclared tool 'runsight/http'"):
             validator(file_def)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_validate_tool_governance_accepts_declared_tool_refs_for_all_tool_types(self):
         """RUN-528: soul refs should stay type-agnostic across builtin/custom/http tool defs."""
         yaml_str = _make_yaml(
@@ -299,6 +317,9 @@ souls:
 class TestUndeclaredToolReference:
     """Soul referencing a tool not in the tools section raises ValueError."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_soul_references_undeclared_tool_raises_valueerror(self):
         """AC2: Soul references tool 'foo' not in tools section -> ValueError."""
         yaml_str = _make_yaml(
@@ -327,6 +348,9 @@ souls:
         with pytest.raises(ValueError, match="undeclared tool"):
             parse_workflow_yaml(yaml_str)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_undeclared_tool_error_mentions_soul_name(self):
         """AC2: Error message includes the soul name and declared tool keys."""
         yaml_str = _make_yaml(
@@ -358,6 +382,9 @@ souls:
         with pytest.raises(ValueError, match="researcher_agent"):
             parse_workflow_yaml(yaml_str)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_direct_system_tool_source_still_rejected_for_soul_level_assignment(self):
         """System-owned tools like runsight/delegate must not be directly assignable on souls."""
         yaml_str = _make_yaml(
@@ -395,6 +422,9 @@ souls:
 class TestUnknownToolSource:
     """Tool with unknown source in BUILTIN_TOOL_CATALOG raises ValueError."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_unknown_builtin_source_raises_valueerror(self):
         """AC3: Tool with source 'runsight/unknown' -> ValueError."""
         yaml_str = _make_yaml(
@@ -423,6 +453,9 @@ souls:
         with pytest.raises(ValueError, match="runsight/unknown"):
             parse_workflow_yaml(yaml_str)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_unknown_source_error_mentions_available_sources(self):
         """AC3: Error message lists available built-in tool sources."""
         yaml_str = _make_yaml(
@@ -460,6 +493,9 @@ souls:
 class TestTypedToolParserGovernance:
     """Parser validation should be actionable for builtin, custom, and HTTP tool defs."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_custom_tool_missing_yaml_file_raises_actionable_valueerror(self, tmp_path):
         """A declared custom tool should fail at parse time when its custom/tools YAML is missing."""
         workflow_file = _write_workflow_file(
@@ -520,6 +556,9 @@ souls:
             ),
         ],
     )
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_custom_tool_invalid_code_raises_actionable_valueerror(
         self, tmp_path, slug, tool_yaml, expected_message
     ):
@@ -554,6 +593,9 @@ souls:
         with pytest.raises(ValueError, match=expected_message):
             parse_workflow_yaml(workflow_file)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_http_tool_without_source_or_url_raises_valueerror(self):
         """HTTP tools must declare either an inline URL or a file source slug."""
         yaml_str = _make_yaml(
@@ -582,6 +624,9 @@ souls:
         with pytest.raises(ValueError, match=r"inline URL|file source slug|source or url"):
             parse_workflow_yaml(yaml_str)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_valid_builtin_custom_and_http_tools_parse_successfully(self, tmp_path):
         """A workflow mixing builtin, custom, and HTTP tools should parse cleanly."""
         _write_custom_tool_file(
@@ -661,6 +706,9 @@ souls:
 class TestDelegateToolWithExits:
     """Delegate tool gets port enum from the block's declared exits."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_delegate_tool_resolves_with_exit_enum(self):
         """AC4: Block with exits + soul with delegate tool -> ToolInstance has port enum."""
         yaml_str = _make_yaml(
@@ -701,6 +749,9 @@ souls:
         assert "enum" in port_schema
         assert set(port_schema["enum"]) == {"approve", "reject"}
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_delegate_tool_with_three_exits(self):
         """AC4: Delegate with three exits -> port enum has all three exit IDs."""
         yaml_str = _make_yaml(
@@ -751,6 +802,9 @@ souls:
 class TestDelegateWithoutExits:
     """Delegate tool on a soul whose block has no exits -> ValueError."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_delegate_tool_without_block_exits_raises_valueerror(self):
         """AC5: Soul has delegate tool but block has no exits defined -> ValueError."""
         yaml_str = _make_yaml(
@@ -779,6 +833,9 @@ souls:
         with pytest.raises(ValueError, match="no exits"):
             parse_workflow_yaml(yaml_str)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_delegate_without_exits_error_mentions_soul_and_block(self):
         """AC5: Error message mentions the soul name and block ID."""
         yaml_str = _make_yaml(
@@ -817,6 +874,9 @@ souls:
 class TestSoulWithNoTools:
     """Soul without tools field -> resolved_tools stays None."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_soul_without_tools_has_none_resolved_tools(self):
         """AC6: Soul with no tools field -> resolved_tools is None after parsing."""
         yaml_str = _make_yaml(
@@ -846,6 +906,9 @@ souls:
 
         assert soul.resolved_tools is None
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_defined_soul_without_tools_has_none_resolved_tools(self):
         """AC6: Explicitly defined soul (no tools) -> resolved_tools is None."""
         yaml_str = _make_yaml(
@@ -879,6 +942,9 @@ souls:
 class TestMultipleSoulsDifferentTools:
     """Each soul gets only its own declared tools resolved, not all tools."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_two_souls_get_different_resolved_tools(self):
         """Two souls with different tool sets each get only their own tools."""
         yaml_str = _make_yaml(
@@ -934,6 +1000,9 @@ souls:
         assert len(soul_b.resolved_tools) == 1
         assert soul_b.resolved_tools[0].name == "file_io"
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_soul_with_tools_and_soul_without_tools(self):
         """One soul with tools and one without -> only the first gets resolved_tools."""
         yaml_str = _make_yaml(

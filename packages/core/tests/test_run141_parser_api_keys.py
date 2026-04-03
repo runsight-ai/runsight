@@ -5,6 +5,7 @@ All tests should FAIL until the implementation exists.
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from runsight_core.yaml.parser import parse_workflow_yaml
 
 MINIMAL_WORKFLOW_YAML = """
@@ -59,6 +60,9 @@ config:
 
 
 class TestParserAcceptsApiKeysDict:
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_workflow_yaml_accepts_api_keys_kwarg(self):
         """parse_workflow_yaml() accepts api_keys=Dict[str, str] keyword argument."""
         wf = parse_workflow_yaml(
@@ -77,6 +81,9 @@ class TestParserAcceptsApiKeysDict:
             f"got: {list(sig.parameters.keys())}"
         )
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_runner_created_with_api_keys(self):
         """When api_keys is passed to parse_workflow_yaml, the RunsightTeamRunner gets api_keys."""
         with patch("runsight_core.yaml.parser.RunsightTeamRunner") as MockRunner:
@@ -97,6 +104,9 @@ class TestParserAcceptsApiKeysDict:
         sig = inspect.signature(parse_workflow_yaml)
         assert "api_key" not in sig.parameters
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_multi_soul_workflow_with_api_keys(self):
         """A workflow with souls using different providers parses successfully with api_keys."""
         wf = parse_workflow_yaml(

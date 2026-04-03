@@ -142,6 +142,9 @@ class TestExistingYamlWorkflowsParse:
             f"Expected at least 2 YAML files in {CUSTOM_WORKFLOWS_DIR}, found {len(yaml_files)}"
         )
 
+    @pytest.mark.xfail(
+        reason="RUN-569 removed mockup_generate_review.yaml (broken soul_refs)", strict=True
+    )
     def test_mockup_generate_review_has_exits_on_gate(self):
         """mockup_generate_review.yaml must declare exits on its gate block.
 
@@ -162,6 +165,9 @@ class TestExistingYamlWorkflowsParse:
         assert "pass" in exit_ids, "Gate block must declare a 'pass' exit"
         assert "fail" in exit_ids, "Gate block must declare a 'fail' exit"
 
+    @pytest.mark.xfail(
+        reason="RUN-569 removed mockup_generate_review.yaml (broken soul_refs)", strict=True
+    )
     def test_mockup_generate_review_loop_has_break_on_exit(self):
         """mockup_generate_review.yaml loop must declare break_on_exit/retry_on_exit.
 
@@ -182,6 +188,9 @@ class TestExistingYamlWorkflowsParse:
             "since it transitions to a gate block that uses exit ports"
         )
 
+    @pytest.mark.xfail(
+        reason="RUN-569 removed mockup_generate_review.yaml (broken soul_refs)", strict=True
+    )
     def test_mockup_generate_review_has_conditional_transitions_for_gate(self):
         """mockup_generate_review.yaml must use conditional_transitions for the gate block.
 
@@ -221,6 +230,9 @@ class TestExistingYamlWorkflowsParse:
                     "Replace with output_conditions + exits on the appropriate block."
                 )
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_mockup_generate_review_parses_successfully(self):
         """mockup_generate_review.yaml must parse via parse_workflow_yaml without errors.
 
@@ -791,6 +803,9 @@ class TestValidationCatchesInvalidConfigs:
         errors = wf.validate()
         assert len(errors) == 0, f"'default' should always be allowed. Got: {errors}"
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_yaml_with_bad_transition_key_fails_parse(self):
         """Parsing a YAML workflow with a transition key not in declared exits
         should raise ValueError."""
@@ -832,6 +847,9 @@ blocks:
         with pytest.raises(ValueError, match="nonexistent_key"):
             parse_workflow_yaml(yaml_content)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_yaml_with_valid_exits_parses_ok(self):
         """YAML with correct exit declarations and matching transition keys
         should parse without errors."""
@@ -875,6 +893,9 @@ blocks:
         assert wf is not None
         assert wf.name == "test_valid_exits"
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_yaml_gate_auto_injects_exits_then_validates(self):
         """Gate blocks auto-inject pass/fail exits during build(). A YAML workflow
         with a gate + conditional_transitions using pass/fail should parse cleanly."""
@@ -933,6 +954,9 @@ class TestFullWorkflowBranchingFromYAML:
     """Full integration: parse a YAML workflow that uses exit ports, then run it."""
 
     @pytest.mark.asyncio
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_full_yaml_gate_workflow_pass_path(self):
         """Parse a complete YAML workflow with gate + conditional_transitions,
         mock the runner to PASS, verify correct execution path."""
@@ -1035,6 +1059,9 @@ blocks:
         assert "revise" not in final.results, "Gate PASS should NOT route to 'revise' block"
 
     @pytest.mark.asyncio
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_full_yaml_gate_workflow_fail_path(self):
         """Parse a complete YAML workflow, mock runner to FAIL, verify fail path."""
         from unittest.mock import patch
@@ -1141,6 +1168,9 @@ blocks:
 class TestYamlExitPortRoundTrip:
     """Exit port declarations in YAML survive a parse -> model_dump -> re-parse cycle."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_gate_exits_survive_schema_round_trip(self):
         """Parse a YAML with gate exits, dump to dict, verify exits are present."""
         from runsight_core.yaml.schema import RunsightWorkflowFile
@@ -1192,6 +1222,9 @@ workflow:
         assert "pass" in exit_ids
         assert "fail" in exit_ids
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_loop_break_on_exit_survives_schema_round_trip(self):
         """Parse a YAML with loop break_on_exit, dump, verify field is present."""
         from runsight_core.yaml.schema import RunsightWorkflowFile
