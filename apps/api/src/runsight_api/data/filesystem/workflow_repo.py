@@ -124,6 +124,10 @@ class WorkflowRepository:
     def _canvas_path(self, stem: str) -> Path:
         return self.canvas_dir / f"{stem}.canvas.json"
 
+    @staticmethod
+    def _has_workflow_blocks(file_def: RunsightWorkflowFile) -> bool:
+        return any(block_def.type == "workflow" for block_def in file_def.blocks.values())
+
     def _candidate_workflow_paths(self, workflow_ref: str) -> List[Path]:
         root = self.base_path.resolve()
         ref_path = Path(workflow_ref)
@@ -267,7 +271,8 @@ class WorkflowRepository:
                 base_dir=str(self.base_path),
                 require_custom_metadata=True,
             )
-            self.build_runnable_workflow_registry(workflow_id, raw_yaml)
+            if self._has_workflow_blocks(file_def):
+                self.build_runnable_workflow_registry(workflow_id, raw_yaml)
             return True, None
         except PydanticValidationError as e:
             return False, str(e)
