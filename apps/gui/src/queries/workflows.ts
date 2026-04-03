@@ -130,6 +130,14 @@ export function useSetWorkflowEnabled() {
   });
 }
 
+export function useWorkflowRegressions(workflowId: string) {
+  return useQuery({
+    queryKey: queryKeys.workflows.regressions(workflowId),
+    queryFn: () => workflowsApi.getWorkflowRegressions(workflowId),
+    enabled: !!workflowId,
+  });
+}
+
 export function useDeleteWorkflow() {
   const queryClient = useQueryClient();
   return useMutation({

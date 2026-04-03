@@ -8,6 +8,7 @@ ADR D3: The id field is NOT stored inside the YAML file — it is inferred
 from the filename stem (e.g., onboarding-flow-k8x3m.yaml → id = "onboarding-flow-k8x3m").
 """
 
+import io
 import json
 import logging
 import random
@@ -18,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote
 
 import yaml as yaml_mod
+from ruamel.yaml import YAML
 from pydantic import ValidationError as PydanticValidationError
 from runsight_core.yaml.parser import (
     _validate_declared_tool_definitions,
@@ -219,6 +221,45 @@ class WorkflowRepository:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    def patch_yaml_field(self, workflow_id: str, field: str, value: Any) -> WorkflowEntity:
+        """Update a single top-level field in a workflow YAML file.
+
+        Uses ruamel.yaml to preserve comments and formatting.
+        Writes atomically via _atomic_write.
+
+        Raises:
+            WorkflowNotFound: If the workflow file does not exist.
+            InputValidationError: If the YAML content is malformed.
+        """
+        yaml_path = self._get_path(workflow_id)
+        if not yaml_path.exists():
+            raise WorkflowNotFound(f"Workflow {workflow_id} not found")
+
+        raw_yaml = yaml_path.read_text()
+
+        ryaml = YAML()
+        ryaml.preserve_quotes = True
+        try:
+            data = ryaml.load(raw_yaml)
+        except Exception as e:
+            raise InputValidationError(f"Malformed YAML: {e}") from e
+
+        if not isinstance(data, dict):
+            raise InputValidationError("YAML content is not a mapping")
+
+        data[field] = value
+
+        stream = io.StringIO()
+        ryaml.dump(data, stream)
+        updated_yaml = stream.getvalue()
+
+        self._atomic_write(yaml_path, updated_yaml)
+
+        # Re-read and build entity from the written file
+        parsed = yaml_mod.safe_load(updated_yaml) or {}
+        canvas_state = self._read_canvas_sidecar(workflow_id)
+        return self._build_entity(parsed, workflow_id, canvas_state, raw_yaml=updated_yaml)
 
     def list_all(self) -> List[WorkflowEntity]:
         """List all workflows found in custom/workflows/*.yaml.

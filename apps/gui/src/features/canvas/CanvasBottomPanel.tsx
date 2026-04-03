@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
+import { AlertTriangle } from "lucide-react";
 import { useRunLogs, useRuns } from "@/queries/runs";
+import { useWorkflowRegressions } from "@/queries/workflows";
 import { useCanvasStore } from "@/store/canvas";
 import { mapSSEEventToStoreAction } from "./useRunStream";
 
@@ -57,7 +59,7 @@ function sseEventToLogEntry(
 
 export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBottomPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<"logs" | "runs">("logs");
+  const [activeTab, setActiveTab] = useState<"logs" | "runs" | "regressions">("logs");
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>(initialRunId);
   const logsRef = useRef<HTMLDivElement>(null);
   const [sseEntries, setSseEntries] = useState<LogEntry[]>([]);
@@ -77,6 +79,10 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
   const { data: runsData } = useRuns(
     workflowId ? { workflow_id: workflowId } : undefined,
   );
+
+  const { data: regressionsData } = useWorkflowRegressions(workflowId ?? "");
+  const count = regressionsData?.count ?? 0;
+  const regressionsItems = regressionsData?.issues ?? [];
 
   const entries: LogEntry[] = [...(logData?.items ?? []), ...sseEntries];
 
@@ -187,6 +193,20 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
         >
           Runs
         </button>
+        {count > 0 && (
+          <button
+            role="tab"
+            aria-label="Expand regressions panel"
+            aria-selected={activeTab === "regressions"}
+            onClick={() => {
+              setActiveTab("regressions");
+              setIsExpanded(true);
+            }}
+            className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "regressions" ? "text-heading" : "text-muted hover:text-primary"}`}
+          >
+            Regressions ({count})
+          </button>
+        )}
         <button
           type="button"
           aria-label={isExpanded ? "Collapse panel" : "Expand panel"}
@@ -227,6 +247,32 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
                   : "-"}
               </span>
               <span className="text-muted-foreground">{run.id}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {isExpanded && activeTab === "regressions" && (
+        <div className="overflow-auto flex-1">
+          {regressionsItems.map((regression, i) => (
+            <div
+              key={i}
+              className="text-xs font-mono px-2 py-1 flex items-center gap-2"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning-9)] shrink-0" />
+              <span className="inline-block w-32">{regression.node_name}</span>
+              <span className="inline-block w-24">{regression.type.replaceAll("_", " ")}</span>
+              <span className="inline-block w-20">
+                {regression.delta.cost_pct != null
+                  ? `+${Number(regression.delta.cost_pct).toFixed(0)}%`
+                  : regression.delta.score_delta != null
+                    ? `${Number(regression.delta.score_delta).toFixed(2)}`
+                    : "—"}
+              </span>
+              <span className="text-muted-foreground">
+                {regression.run_number != null
+                  ? `run #${regression.run_number}`
+                  : ""}
+              </span>
             </div>
           ))}
         </div>

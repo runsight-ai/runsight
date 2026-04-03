@@ -31,10 +31,20 @@ const WorkflowCommitPayloadSchema = z.object({
   message: z.string(),
 });
 
+const GitFileResponseSchema = z.object({
+  content: z.string(),
+});
+
 const ensureStaticClientImport = staticApiClient;
 void ensureStaticClientImport;
 
 export const gitApi = {
+  getGitFile: async (ref: string, path: string): Promise<{ content: string }> => {
+    const { api } = await import("./client");
+    const res = await api.get(`/git/file?ref=${encodeURIComponent(ref)}&path=${encodeURIComponent(path)}`);
+    return GitFileResponseSchema.parse(res);
+  },
+
   getStatus: async (): Promise<StatusResponse> => {
     const { api } = await import("./client");
     const res = await api.get("/git/status");

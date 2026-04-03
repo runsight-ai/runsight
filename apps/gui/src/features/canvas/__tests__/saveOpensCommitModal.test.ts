@@ -122,8 +122,8 @@ vi.mock("@runsight/ui/empty-state", () => ({
   EmptyState: () => React.createElement("div", null, "Empty State"),
 }));
 
-vi.mock("../UncommittedBanner", () => ({
-  UncommittedBanner: () => React.createElement("div", null, "Uncommitted"),
+vi.mock("@/components/shared/PriorityBanner", () => ({
+  PriorityBanner: () => React.createElement("div", null, "Banner"),
 }));
 
 vi.mock("../CanvasStatusBar", () => ({
@@ -142,8 +142,8 @@ vi.mock("../PaletteSidebar", () => ({
   PaletteSidebar: () => React.createElement("div", null, "Sidebar"),
 }));
 
-vi.mock("../ExploreBanner", () => ({
-  ExploreBanner: () => React.createElement("div", null, "Explore"),
+vi.mock("../WorkflowCanvas", () => ({
+  WorkflowCanvas: () => React.createElement("div", null, "Canvas"),
 }));
 
 vi.mock("@/components/provider/ProviderModal", () => ({
@@ -166,6 +166,14 @@ vi.mock("@/queries/runs", () => ({
   useCreateRun: () => ({
     mutate: mocks.createRunMutate,
   }),
+}));
+
+vi.mock("@/queries/settings", () => ({
+  useProviders: () => ({ data: { items: [], total: 0 } }),
+}));
+
+vi.mock("@/queries/git", () => ({
+  useGitStatus: () => ({ data: { is_clean: true, uncommitted_files: [] } }),
 }));
 
 vi.mock("@/store/canvas", () => ({

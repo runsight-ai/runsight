@@ -2,11 +2,13 @@ export const queryKeys = {
   workflows: {
     all: ["workflows"] as const,
     detail: (id: string) => ["workflows", id] as const,
+    regressions: (id: string) => ["workflows", id, "regressions"] as const,
   },
   runs: {
     all: ["runs"] as const,
     detail: (id: string) => ["runs", id] as const,
     logs: (id: string) => ["runs", id, "logs"] as const,
+    regressions: (id: string) => ["runs", id, "regressions"] as const,
   },
   models: {
     providers: ["models", "providers"] as const,

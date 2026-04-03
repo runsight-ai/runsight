@@ -34,6 +34,7 @@ class RunResponse(BaseModel):
     commit_sha: Optional[str] = None
     run_number: Optional[int] = None
     eval_pass_pct: Optional[float] = None
+    regression_count: Optional[int] = None
     node_summary: Optional[NodeSummary] = None
 
 
@@ -56,6 +57,12 @@ class RunNodeResponse(BaseModel):
     cost_usd: float
     tokens: Dict[str, Any]
     error: Optional[str]
+    output: Optional[str] = None
+    soul_id: Optional[str] = None
+    model_name: Optional[str] = None
+    eval_score: Optional[float] = None
+    eval_passed: Optional[bool] = None
+    eval_results: Optional[Dict[str, Any]] = None
 
 
 class LogResponse(BaseModel):

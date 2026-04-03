@@ -4,9 +4,10 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
+from ...logic.services.eval_service import EvalService
 from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
-from ..deps import get_execution_service, get_run_service
+from ..deps import get_eval_service, get_execution_service, get_run_service
 from ..schemas.runs import (
     NodeSummary,
     PaginatedLogsResponse,
@@ -39,6 +40,8 @@ def _run_metric_field(run, field: str):
         return value if isinstance(value, int) else None
     if field == "eval_pass_pct":
         return float(value) if isinstance(value, int | float) else None
+    if field == "regression_count":
+        return value if isinstance(value, int) else None
     return None
 
 
@@ -82,6 +85,7 @@ async def create_run(
         commit_sha=_run_response_field(run, "commit_sha", None),
         run_number=_run_metric_field(run, "run_number"),
         eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
+        regression_count=_run_metric_field(run, "regression_count"),
         node_summary=NodeSummary(total=0, completed=0, running=0, pending=0, failed=0),
     )
 
@@ -125,6 +129,7 @@ async def list_runs(
     offset: int = 0,
     limit: int = 20,
     run_service: RunService = Depends(get_run_service),
+    eval_service: EvalService = Depends(get_eval_service),
 ):
     limit = min(limit, 100)
     runs, total = _fetch_paginated_runs(
@@ -141,6 +146,12 @@ async def list_runs(
     summaries_map = _resolve_summaries(
         run_service, run_ids, run_service.get_node_summaries_batch(run_ids=run_ids)
     )
+
+    # Enrich each run with its regression count
+    regression_counts: dict[str, int] = {}
+    for run in runs:
+        result = eval_service.get_run_regressions(run.id)
+        regression_counts[run.id] = result["count"] if result else 0
 
     response_items = []
     for run in runs:
@@ -162,6 +173,7 @@ async def list_runs(
                 commit_sha=_run_response_field(run, "commit_sha", None),
                 run_number=_run_metric_field(run, "run_number"),
                 eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
+                regression_count=regression_counts.get(run.id, 0),
                 node_summary=NodeSummary(
                     total=summaries.get("total", 0),
                     completed=summaries.get("completed", 0),
@@ -176,13 +188,18 @@ async def list_runs(
 
 
 @router.get("/{run_id}", response_model=RunResponse)
-async def get_run(run_id: str, run_service: RunService = Depends(get_run_service)):
+async def get_run(
+    run_id: str,
+    run_service: RunService = Depends(get_run_service),
+    eval_service: EvalService = Depends(get_eval_service),
+):
     run = run_service.get_run(run_id)
     if not run:
         from ...domain.errors import RunNotFound
 
         raise RunNotFound(f"Run {run_id} not found")
     summaries = run_service.get_node_summary(run.id)
+    reg_result = eval_service.get_run_regressions(run_id)
     return RunResponse(
         id=run.id,
         workflow_id=run.workflow_id,
@@ -199,6 +216,7 @@ async def get_run(run_id: str, run_service: RunService = Depends(get_run_service
         commit_sha=_run_response_field(run, "commit_sha", None),
         run_number=_run_metric_field(run, "run_number"),
         eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
+        regression_count=reg_result["count"] if reg_result else 0,
         node_summary=NodeSummary(
             total=summaries["total"],
             completed=summaries["completed"],
@@ -233,6 +251,19 @@ async def get_run_logs(
     return PaginatedLogsResponse(items=items, total=len(logs), offset=offset, limit=limit)
 
 
+@router.get("/{run_id}/regressions")
+async def get_run_regressions(
+    run_id: str,
+    eval_service: EvalService = Depends(get_eval_service),
+):
+    result = eval_service.get_run_regressions(run_id)
+    if result is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+    return result
+
+
 @router.get("/{run_id}/nodes", response_model=List[RunNodeResponse])
 async def get_run_nodes(run_id: str, run_service: RunService = Depends(get_run_service)):
     nodes = run_service.get_run_nodes(run_id)
@@ -249,6 +280,12 @@ async def get_run_nodes(run_id: str, run_service: RunService = Depends(get_run_s
             cost_usd=n.cost_usd,
             tokens=n.tokens,
             error=n.error,
+            output=n.output,
+            soul_id=n.soul_id,
+            model_name=n.model_name,
+            eval_score=n.eval_score,
+            eval_passed=n.eval_passed,
+            eval_results=n.eval_results,
         )
         for n in nodes
     ]

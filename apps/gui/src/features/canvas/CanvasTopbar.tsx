@@ -137,7 +137,11 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
           Save
         </Button>
         <ExecutionMetrics runId={lastTerminalRunId} />
-        <RunButton workflowId={workflowId} onAddApiKey={onAddApiKey} />
+        <RunButton
+          workflowId={workflowId}
+          isCommitted={Boolean(workflow?.commit_sha)}
+          onAddApiKey={onAddApiKey}
+        />
       </div>
     </header>
   );

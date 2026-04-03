@@ -2,14 +2,18 @@ import { useCallback } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { Button } from "@runsight/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
 import { cn } from "@runsight/ui/utils";
 import {
   ChevronLeft,
   ArrowUpRight,
   DollarSign,
   Activity,
+  GitFork,
 } from "lucide-react";
 import type { RunResponse } from "@runsight/shared/zod";
+
+import { useForkWorkflow } from "./useForkWorkflow";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -28,12 +32,47 @@ export function RunDetailHeader({ run }: RunDetailHeaderProps) {
 
   const isFailed = run.status === "failed" || run.status === "error";
   const isCompleted = run.status === "completed" || run.status === "success";
+  const isActive = run.status === "running" || run.status === "pending";
+  const hasSnapshot = !!run.commit_sha;
+
+  const forkDisabled = isActive || !hasSnapshot;
+
+  const { forkWorkflow, isForking } = useForkWorkflow({
+    commitSha: run.commit_sha ?? "",
+    workflowPath: `custom/workflows/${run.workflow_id}.yaml`,
+    workflowName: run.workflow_name,
+  });
 
   const handleOpenWorkflow = useCallback(() => {
     if (run.workflow_id) {
       navigate(`/workflows/${run.workflow_id}/edit`);
     }
   }, [navigate, run.workflow_id]);
+
+  const handleFork = useCallback(() => {
+    if (forkDisabled || isForking) return;
+    forkWorkflow();
+  }, [forkDisabled, isForking, forkWorkflow]);
+
+  // Tooltip message for disabled fork states
+  let forkTooltip: string | null = null;
+  if (isActive) {
+    forkTooltip = "Wait for the run to finish before forking";
+  } else if (!hasSnapshot) {
+    forkTooltip = "Snapshot unavailable";
+  }
+
+  const forkButton = (
+    <Button
+      variant="ghost"
+      disabled={forkDisabled || isForking}
+      onClick={handleFork}
+      aria-label="Fork"
+    >
+      <GitFork className="w-4 h-4 mr-2" />
+      {isForking ? <>Forking...</> : <>Fork</>}
+    </Button>
+  );
 
   return (
     <header className="h-12 bg-[var(--surface-secondary)] border-b border-[var(--border-default)] flex items-center justify-between px-4 z-40">
@@ -71,6 +110,16 @@ export function RunDetailHeader({ run }: RunDetailHeaderProps) {
           <span className="text-xs text-[var(--text-muted)]">Tokens</span>
           <span className="font-mono text-sm text-[var(--text-primary)]">{run.total_tokens.toLocaleString()}</span>
         </div>
+        {forkTooltip ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger render={forkButton} />
+              <TooltipContent>{forkTooltip}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          forkButton
+        )}
         {run.workflow_id ? (
           <Button
             className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent"

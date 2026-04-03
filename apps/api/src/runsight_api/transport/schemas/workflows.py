@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 
 
 class CanvasViewport(BaseModel):
@@ -50,6 +50,7 @@ class WorkflowCreate(BaseModel):
     description: Optional[str] = None
     yaml: str
     canvas_state: Optional[WorkflowCanvasState] = None
+    commit: bool = True
 
 
 class WorkflowUpdate(BaseModel):
@@ -85,3 +86,7 @@ class WorkflowDeleteResponse(BaseModel):
     id: str
     deleted: bool
     runs_deleted: int
+
+
+class WorkflowEnabledUpdate(BaseModel):
+    enabled: StrictBool

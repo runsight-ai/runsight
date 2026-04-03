@@ -137,6 +137,47 @@ class RunRepository:
             return "warning"
         return "danger"
 
+    def _count_regressions_for_workflow(self, workflow_id: str) -> int:
+        """Count comparison-based regressions for a workflow.
+
+        A regression is a node whose eval_passed went from True to False between
+        consecutive runs, for the same node_id and soul_version.
+        """
+        runs_stmt = (
+            select(Run)
+            .where(Run.workflow_id == workflow_id, Run.source != "simulation")
+            .order_by(Run.created_at.asc())
+        )
+        runs = list(self.session.exec(runs_stmt).all())
+        if len(runs) < 2:
+            return 0
+
+        regression_count = 0
+        prev_nodes_map: dict[str, RunNode] = {}
+
+        for run in runs:
+            nodes = list(self.session.exec(select(RunNode).where(RunNode.run_id == run.id)).all())
+
+            curr_nodes_map: dict[str, RunNode] = {}
+            for node in nodes:
+                if node.soul_version is not None:
+                    key = node.node_id
+                    curr_nodes_map[key] = node
+
+                    prev_node = prev_nodes_map.get(key)
+                    if (
+                        prev_node is not None
+                        and prev_node.soul_version == node.soul_version
+                        and prev_node.eval_passed is True
+                        and node.eval_passed is False
+                    ):
+                        regression_count += 1
+
+            # Update previous node map: only track nodes with soul_version
+            prev_nodes_map = curr_nodes_map
+
+        return regression_count
+
     def get_workflow_health_metrics(self, workflow_ids: list[str]) -> dict[str, dict[str, Any]]:
         if not workflow_ids:
             return {}
@@ -162,10 +203,6 @@ class RunRepository:
                     func.sum(case((RunNode.eval_passed.is_not(None), 1), else_=0)),
                     0,
                 ).label("eval_total_count"),
-                func.coalesce(
-                    func.sum(case((RunNode.eval_passed.is_(False), 1), else_=0)),
-                    0,
-                ).label("regression_count"),
             )
             .select_from(Run)
             .join(RunNode, RunNode.run_id == Run.id, isouter=True)
@@ -179,7 +216,6 @@ class RunRepository:
             run_totals.c.total_cost_usd,
             func.coalesce(eval_totals.c.eval_pass_count, 0).label("eval_pass_count"),
             func.coalesce(eval_totals.c.eval_total_count, 0).label("eval_total_count"),
-            func.coalesce(eval_totals.c.regression_count, 0).label("regression_count"),
         ).select_from(
             run_totals.outerjoin(eval_totals, eval_totals.c.workflow_id == run_totals.c.workflow_id)
         )
@@ -196,7 +232,7 @@ class RunRepository:
                 "eval_pass_pct": eval_pass_pct,
                 "eval_health": self._eval_health(eval_pass_pct),
                 "total_cost_usd": float(row.total_cost_usd or 0.0),
-                "regression_count": int(row.regression_count or 0),
+                "regression_count": self._count_regressions_for_workflow(row.workflow_id),
             }
 
         return metrics

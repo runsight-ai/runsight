@@ -61,9 +61,25 @@ class WorkflowService:
     def get_workflow(self, id: str) -> Optional[WorkflowEntity]:
         return self.workflow_repo.get_by_id(id)
 
-    def create_workflow(self, data: Dict[str, Any]) -> WorkflowEntity:
+    def get_workflow_detail(self, id: str) -> Optional[WorkflowEntity]:
+        workflow = self.workflow_repo.get_by_id(id)
+        if workflow is None:
+            return None
+
+        yaml_path = f"custom/workflows/{workflow.id}.yaml"
+        return workflow.model_copy(
+            update={
+                "commit_sha": self._get_workflow_commit_sha_on_main(yaml_path),
+            }
+        )
+
+    def create_workflow(self, data: Dict[str, Any], *, commit: bool = True) -> WorkflowEntity:
         result = self.workflow_repo.create(data)
-        self._auto_commit(f"Create workflow: {result.name}", [result.id])
+        if commit:
+            self._auto_commit(
+                f"Create workflow: {result.name}",
+                [f"custom/workflows/{result.id}.yaml"],
+            )
         return result
 
     def update_workflow(self, id: str, data: Dict[str, Any]) -> WorkflowEntity:
@@ -131,6 +147,15 @@ class WorkflowService:
         except Exception:
             branch = "main"
         return self.git_service.get_sha(branch, path)
+
+    def _get_workflow_commit_sha_on_main(self, path: str) -> str | None:
+        if self.git_service is None:
+            return None
+        return self.git_service.get_sha("main", path)
+
+    def set_enabled(self, workflow_id: str, enabled: bool) -> WorkflowEntity:
+        """Toggle the enabled field for a workflow."""
+        return self.workflow_repo.patch_yaml_field(workflow_id, "enabled", enabled)
 
     def delete_workflow(self, id: str, force: bool = False) -> dict[str, Any]:
         workflow = self.workflow_repo.get_by_id(id)

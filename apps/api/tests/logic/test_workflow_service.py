@@ -3,9 +3,98 @@
 Tests document current behavior as guardrails — they break on any behavioral change.
 """
 
+# ruff: noqa: E402
+
+import sys
+import types
 from unittest.mock import Mock, call
 
 import pytest
+
+# ---------------------------------------------------------------------------
+# Stub external dependencies that aren't available in the test environment
+# ---------------------------------------------------------------------------
+
+if "structlog" not in sys.modules:
+    structlog = types.ModuleType("structlog")
+    structlog.contextvars = types.SimpleNamespace(
+        bind_contextvars=lambda **kwargs: None,
+        unbind_contextvars=lambda *args, **kwargs: None,
+    )
+    sys.modules["structlog"] = structlog
+    sys.modules["structlog.contextvars"] = structlog.contextvars
+
+if "runsight_core" not in sys.modules:
+    runsight_core = types.ModuleType("runsight_core")
+    runsight_core.__path__ = []
+
+    yaml_pkg = types.ModuleType("runsight_core.yaml")
+    yaml_pkg.__path__ = []
+    schema_pkg = types.ModuleType("runsight_core.yaml.schema")
+    parser_pkg = types.ModuleType("runsight_core.yaml.parser")
+
+    class _RunsightWorkflowFile:
+        @classmethod
+        def model_validate(cls, data):
+            return data
+
+    schema_pkg.RunsightWorkflowFile = _RunsightWorkflowFile
+    parser_pkg.validate_tool_governance = lambda _: None
+    yaml_pkg.schema = schema_pkg
+    yaml_pkg.parser = parser_pkg
+    runsight_core.yaml = yaml_pkg
+    sys.modules["runsight_core"] = runsight_core
+    sys.modules["runsight_core.yaml"] = yaml_pkg
+    sys.modules["runsight_core.yaml.schema"] = schema_pkg
+    sys.modules["runsight_core.yaml.parser"] = parser_pkg
+
+if "ruamel" not in sys.modules:
+    ruamel = types.ModuleType("ruamel")
+    ruamel.__path__ = []
+    ruamel_yaml = types.ModuleType("ruamel.yaml")
+
+    class _YAML:
+        def __init__(self, *args, **kwargs):
+            self.preserve_quotes = False
+
+        def load(self, _content):
+            return {}
+
+        def dump(self, _data, _stream):
+            return None
+
+    ruamel_yaml.YAML = _YAML
+    ruamel.yaml = ruamel_yaml
+    sys.modules["ruamel"] = ruamel
+    sys.modules["ruamel.yaml"] = ruamel_yaml
+
+fake_filesystem_pkg = types.ModuleType("runsight_api.data.filesystem")
+fake_filesystem_pkg.__path__ = []
+fake_workflow_repo = types.ModuleType("runsight_api.data.filesystem.workflow_repo")
+
+
+class _WorkflowRepository:
+    pass
+
+
+fake_workflow_repo.WorkflowRepository = _WorkflowRepository
+fake_filesystem_pkg.workflow_repo = fake_workflow_repo
+sys.modules["runsight_api.data.filesystem"] = fake_filesystem_pkg
+sys.modules["runsight_api.data.filesystem.workflow_repo"] = fake_workflow_repo
+
+fake_repositories_pkg = types.ModuleType("runsight_api.data.repositories")
+fake_repositories_pkg.__path__ = []
+fake_run_repo = types.ModuleType("runsight_api.data.repositories.run_repo")
+
+
+class _RunRepository:
+    pass
+
+
+fake_run_repo.RunRepository = _RunRepository
+fake_repositories_pkg.run_repo = fake_run_repo
+sys.modules["runsight_api.data.repositories"] = fake_repositories_pkg
+sys.modules["runsight_api.data.repositories.run_repo"] = fake_run_repo
 
 from runsight_api.domain.errors import InputValidationError, WorkflowNotFound
 from runsight_api.domain.value_objects import WorkflowEntity
@@ -119,6 +208,51 @@ def test_get_workflow_not_found(workflow_service, workflow_repo):
     assert result is None
 
 
+# --- get_workflow_detail ---
+
+
+def test_get_workflow_detail_uses_main_branch_commit_sha(workflow_repo, run_repo):
+    """get_workflow_detail enriches a workflow with commit_sha from main only."""
+    git_service = Mock()
+    git_service.current_branch.return_value = "feature-x"
+    git_service.get_sha.return_value = "main-sha-123"
+    workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    workflow_repo.get_by_id.return_value = WorkflowEntity(
+        id="wf_1",
+        name="Test Flow",
+        filename="wf_1.yaml",
+    )
+
+    result = workflow_service.get_workflow_detail("wf_1")
+
+    assert result.id == "wf_1"
+    assert result.commit_sha == "main-sha-123"
+    git_service.get_sha.assert_called_once_with("main", "custom/workflows/wf_1.yaml")
+    workflow_repo.get_by_id.assert_called_once_with("wf_1")
+
+
+def test_get_workflow_detail_returns_none_commit_sha_when_not_committed_on_main(
+    workflow_repo,
+    run_repo,
+):
+    """get_workflow_detail returns null commit_sha when main has no commit for the file."""
+    git_service = Mock()
+    git_service.current_branch.return_value = "feature-x"
+    git_service.get_sha.return_value = None
+    workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    workflow_repo.get_by_id.return_value = WorkflowEntity(
+        id="wf_2",
+        name="Draft Flow",
+        filename="wf_2.yaml",
+    )
+
+    result = workflow_service.get_workflow_detail("wf_2")
+
+    assert result.id == "wf_2"
+    assert result.commit_sha is None
+    git_service.get_sha.assert_called_once_with("main", "custom/workflows/wf_2.yaml")
+
+
 # --- create_workflow ---
 
 
@@ -145,6 +279,43 @@ def test_create_workflow_without_id(workflow_service, workflow_repo):
 
     assert result.id == "no-id-needed-abc12"
     workflow_repo.create.assert_called_once_with(data)
+
+
+def test_create_workflow_commit_true_uses_repo_relative_yaml_path(workflow_repo, run_repo):
+    """create_workflow should auto-commit the YAML file using the repo-relative path."""
+    git_service = Mock()
+    git_service.is_clean.return_value = False
+    git_service.commit_to_branch.return_value = "abc123def456"
+    workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    workflow_repo.create.return_value = WorkflowEntity(
+        id="wf_new",
+        name="New Workflow",
+    )
+
+    result = workflow_service.create_workflow({"name": "New Workflow"})
+
+    assert result.id == "wf_new"
+    git_service.commit_to_branch.assert_called_once_with(
+        "main",
+        ["custom/workflows/wf_new.yaml"],
+        "Create workflow: New Workflow",
+    )
+
+
+def test_create_workflow_commit_false_skips_auto_commit(workflow_repo, run_repo):
+    """create_workflow(commit=False) must not auto-commit the new workflow."""
+    git_service = Mock()
+    workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    workflow_repo.create.return_value = WorkflowEntity(
+        id="wf_no_commit",
+        name="No Commit Workflow",
+    )
+
+    result = workflow_service.create_workflow({"name": "No Commit Workflow"}, commit=False)
+
+    assert result.id == "wf_no_commit"
+    workflow_repo.create.assert_called_once_with({"name": "No Commit Workflow"})
+    git_service.commit_to_branch.assert_not_called()
 
 
 def test_create_workflow_requires_yaml(workflow_service, workflow_repo):

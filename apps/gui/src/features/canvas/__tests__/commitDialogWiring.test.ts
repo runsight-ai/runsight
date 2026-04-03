@@ -30,7 +30,6 @@ function readSource(relativePath: string): string {
 // ---------------------------------------------------------------------------
 
 const CANVAS_PAGE_PATH = "features/canvas/CanvasPage.tsx";
-const BANNER_PATH = "features/canvas/UncommittedBanner.tsx";
 const COMMIT_DIALOG_PATH = "features/git/CommitDialog.tsx";
 
 // ===========================================================================
@@ -104,74 +103,9 @@ describe("CanvasPage has CommitDialog open/close state (AC2)", () => {
 });
 
 // ===========================================================================
-// AC3: UncommittedBanner does NOT navigate to /settings
+// AC3 & AC4: Removed — UncommittedBanner was deleted in RUN-559
+// (commit flow is now wired through PriorityBanner conditions in CanvasPage)
 // ===========================================================================
-
-describe("UncommittedBanner does not navigate to /settings (AC3)", () => {
-  it("does NOT contain a Link to /settings", () => {
-    const source = readSource(BANNER_PATH);
-    // The current code has <Link to="/settings"> which must be removed
-    expect(
-      source,
-      "UncommittedBanner must NOT contain <Link to=\"/settings\"> — it should open CommitDialog instead",
-    ).not.toMatch(/to=["']\/settings["']/);
-  });
-
-  it("does NOT import Link from react-router", () => {
-    const source = readSource(BANNER_PATH);
-    // If there's no Link usage, the import should also be removed
-    // Allow the import to remain only if Link is used for something else
-    const hasLinkImport = /import\s+\{[^}]*\bLink\b[^}]*\}\s+from\s+["']react-router["']/.test(source);
-    const hasLinkToSettings = /to=["']\/settings["']/.test(source);
-    expect(
-      hasLinkImport && hasLinkToSettings,
-      "UncommittedBanner must not use Link to navigate to /settings",
-    ).toBe(false);
-  });
-});
-
-// ===========================================================================
-// AC4: UncommittedBanner triggers CommitDialog via callback or click handler
-// ===========================================================================
-
-describe("UncommittedBanner triggers CommitDialog opening (AC4)", () => {
-  it("uses a button (not a Link) for the commit action", () => {
-    const source = readSource(BANNER_PATH);
-    // The "Commit" text must be inside a <button> or element with onClick,
-    // not inside a <Link> component. Find the Commit action and verify it's
-    // NOT wrapped in a Link.
-    const commitLinkPattern = /<Link[^>]*>[\s\S]*?Commit[\s\S]*?<\/Link>/;
-    const commitButtonPattern = /<button[^>]*onClick[^>]*>[\s\S]*?Commit|onClick[^>]*>[\s\S]*?Commit/;
-    const usesLink = commitLinkPattern.test(source);
-    const usesButton = commitButtonPattern.test(source);
-    expect(
-      usesLink,
-      "UncommittedBanner must NOT use <Link> for the Commit action",
-    ).toBe(false);
-    expect(
-      usesButton,
-      "UncommittedBanner must use a <button> with onClick for the Commit action",
-    ).toBe(true);
-  });
-
-  it("accepts a callback prop for opening commit dialog", () => {
-    const source = readSource(BANNER_PATH);
-    // Component should accept a prop like onCommitClick, onOpenCommit, or onSave
-    expect(
-      source,
-      "UncommittedBanner should accept a callback prop (e.g. onCommitClick) in its props/signature",
-    ).toMatch(/onCommit|onOpenCommit|onSave/);
-  });
-
-  it("CanvasPage passes commit-open callback to UncommittedBanner", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // CanvasPage must pass a callback to UncommittedBanner
-    expect(
-      source,
-      "CanvasPage must pass a callback prop to <UncommittedBanner> for opening CommitDialog",
-    ).toMatch(/<UncommittedBanner[^/>]*\b(onCommit|onOpenCommit|onSave)\b/);
-  });
-});
 
 // ===========================================================================
 // AC5: CommitDialog is functional (sanity — should already pass)

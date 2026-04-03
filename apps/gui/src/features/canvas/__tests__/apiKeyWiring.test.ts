@@ -39,7 +39,6 @@ function readSource(relativePath: string): string {
 
 const CANVAS_PAGE_PATH = "features/canvas/CanvasPage.tsx";
 const RUN_BUTTON_PATH = "features/canvas/RunButton.tsx";
-const EXPLORE_BANNER_PATH = "features/canvas/ExploreBanner.tsx";
 
 // ===========================================================================
 // 1. CanvasPage imports and renders ProviderModal (AC1, AC2)
@@ -95,27 +94,9 @@ describe("CanvasPage has apiKeyModalOpen state (RUN-355)", () => {
 });
 
 // ===========================================================================
-// 3. CanvasPage passes onAddApiKey to ExploreBanner (AC2)
+// 3. Removed — ExploreBanner was deleted in RUN-559
+// (explore banner is now rendered via PriorityBanner conditions in CanvasPage)
 // ===========================================================================
-
-describe("CanvasPage passes onAddApiKey to ExploreBanner (RUN-355 AC2)", () => {
-  it("passes onAddApiKey prop to ExploreBanner", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<ExploreBanner[\s\S]*?onAddApiKey/);
-  });
-
-  it("onAddApiKey callback opens the modal", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // The callback passed to ExploreBanner should set modal state to true
-    // e.g. onAddApiKey={() => setApiKeyModalOpen(true)}
-    const hasModalOpener =
-      /onAddApiKey=\{.*set.*Modal.*true|onAddApiKey=\{.*open.*Modal/i.test(source);
-    expect(
-      hasModalOpener,
-      "Expected onAddApiKey to set modal open state to true",
-    ).toBe(true);
-  });
-});
 
 // ===========================================================================
 // 4. RunButton accepts onAddApiKey prop (AC1)
@@ -285,53 +266,9 @@ describe("Save & Run triggers workflow execution (RUN-355 AC4)", () => {
 });
 
 // ===========================================================================
-// 10. Explore banner dismissed on save (AC3)
+// 10. Removed — ExploreBanner was deleted in RUN-559
+// (explore banner auto-hide and dismiss now handled via PriorityBanner)
 // ===========================================================================
-
-describe("Explore banner dismissed on save (RUN-355 AC3)", () => {
-  it("ExploreBanner uses useProviders() to auto-hide when providers exist", () => {
-    const bannerSource = readSource(EXPLORE_BANNER_PATH);
-    // ExploreBanner should use useProviders() and hide when items.length > 0
-    expect(bannerSource).toMatch(/useProviders/);
-    const hidesWhenProviders =
-      /items\.length\s*>\s*0/.test(bannerSource) ||
-      /providers.*length/.test(bannerSource);
-    expect(
-      hidesWhenProviders,
-      "Expected ExploreBanner to auto-hide when providers exist",
-    ).toBe(true);
-  });
-
-  it("ExploreBanner returns null when providers are present", () => {
-    const bannerSource = readSource(EXPLORE_BANNER_PATH);
-    // Should have an early return null when items.length > 0
-    const hasEarlyReturn =
-      /if\s*\(items\.length\s*>\s*0\)\s*return\s*null/.test(bannerSource);
-    expect(
-      hasEarlyReturn,
-      "Expected ExploreBanner to return null when items.length > 0",
-    ).toBe(true);
-  });
-
-  it("save success triggers query invalidation so banner auto-hides", () => {
-    const canvasSource = readSource(CANVAS_PAGE_PATH);
-    // CanvasPage save success handler should invalidate queries (or rely on
-    // ApiKeyModal's internal invalidation via onSaveSuccess callback)
-    const hasInvalidation =
-      /invalidateQueries|queryClient|onSaveSuccess/.test(canvasSource);
-    expect(
-      hasInvalidation,
-      "Expected save success to trigger provider query invalidation for banner auto-hide",
-    ).toBe(true);
-  });
-
-  it("ExploreBanner handles manual dismissal via localStorage internally", () => {
-    const bannerSource = readSource(EXPLORE_BANNER_PATH);
-    // ExploreBanner owns its own localStorage dismissal — CanvasPage doesn't need to
-    expect(bannerSource).toMatch(/localStorage/);
-    expect(bannerSource).toMatch(/dismiss/i);
-  });
-});
 
 // ===========================================================================
 // 11. Focus returns to trigger element on modal close (AC5)

@@ -225,7 +225,7 @@ export const RunResponseSchema = z.object({
   commit_sha: z.string().nullable().optional(),
   run_number: z.number().nullable().optional(),
   eval_pass_pct: z.number().nullable().optional(),
-  regression_count: z.number().nullable().optional(),
+  regression_count: z.number().nullable().default(null),
   node_summary: NodeSummarySchema.nullable().optional(),
 });
 export type RunResponse = z.infer<typeof RunResponseSchema>;
@@ -250,6 +250,12 @@ export const RunNodeResponseSchema = z.object({
   cost_usd: z.number(),
   tokens: z.record(z.string(), z.unknown()),
   error: z.string().nullable(),
+  output: z.string().nullable().optional(),
+  soul_id: z.string().nullable().optional(),
+  model_name: z.string().nullable().optional(),
+  eval_score: z.number().nullable().optional(),
+  eval_passed: z.boolean().nullable().optional(),
+  eval_results: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 export type RunNodeResponse = z.infer<typeof RunNodeResponseSchema>;
 
@@ -507,6 +513,7 @@ export const WorkflowCreateSchema = z.object({
   description: z.string().nullable().optional(),
   yaml: z.string(),
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
+  commit: z.boolean().optional().default(true),
 });
 export type WorkflowCreate = z.infer<typeof WorkflowCreateSchema>;
 
@@ -571,4 +578,3 @@ export const runsight_api__transport__routers__git__LogResponseSchema = z.object
   commits: z.array(CommitEntrySchema),
 });
 export type runsight_api__transport__routers__git__LogResponse = z.infer<typeof runsight_api__transport__routers__git__LogResponseSchema>;
-

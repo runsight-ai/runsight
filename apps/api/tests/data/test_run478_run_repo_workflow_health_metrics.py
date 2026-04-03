@@ -104,4 +104,7 @@ class TestWorkflowHealthMetricsRepository:
         assert _metric_value(metric, "eval_pass_pct") == pytest.approx(50.0)
         assert _metric_value(metric, "eval_health") == "danger"
         assert _metric_value(metric, "total_cost_usd") == pytest.approx(0.30)
-        assert _metric_value(metric, "regression_count") == 1
+        # RUN-558: regression_count is now comparison-based (passed->failed,
+        # same node_id + soul_version). These two runs have different node_ids
+        # and no soul_version, so there are zero regressions.
+        assert _metric_value(metric, "regression_count") == 0

@@ -1,11 +1,144 @@
+# ruff: noqa: E402
+
+import sys
+import types
 from unittest.mock import Mock
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from runsight_api.domain.value_objects import WorkflowEntity
-from runsight_api.main import app
-from runsight_api.transport.deps import get_workflow_service
+# Stub external dependencies that aren't available in the test environment.
+if "structlog" not in sys.modules:
+    structlog = types.ModuleType("structlog")
+    structlog.contextvars = types.SimpleNamespace(
+        bind_contextvars=lambda **kwargs: None,
+        unbind_contextvars=lambda *args, **kwargs: None,
+    )
+    sys.modules["structlog"] = structlog
+    sys.modules["structlog.contextvars"] = structlog.contextvars
 
+if "runsight_core" not in sys.modules:
+    runsight_core = types.ModuleType("runsight_core")
+    runsight_core.__path__ = []
+
+    yaml_pkg = types.ModuleType("runsight_core.yaml")
+    yaml_pkg.__path__ = []
+    schema_pkg = types.ModuleType("runsight_core.yaml.schema")
+    parser_pkg = types.ModuleType("runsight_core.yaml.parser")
+
+    class _RunsightWorkflowFile:
+        @classmethod
+        def model_validate(cls, data):
+            return data
+
+    schema_pkg.RunsightWorkflowFile = _RunsightWorkflowFile
+    parser_pkg.validate_tool_governance = lambda _: None
+    yaml_pkg.schema = schema_pkg
+    yaml_pkg.parser = parser_pkg
+    runsight_core.yaml = yaml_pkg
+
+    llm_pkg = types.ModuleType("runsight_core.llm")
+    llm_pkg.__path__ = []
+    model_catalog = types.ModuleType("runsight_core.llm.model_catalog")
+
+    class _ModelCatalogPort:
+        pass
+
+    class _LiteLLMModelCatalog(_ModelCatalogPort):
+        pass
+
+    model_catalog.ModelCatalogPort = _ModelCatalogPort
+    model_catalog.LiteLLMModelCatalog = _LiteLLMModelCatalog
+    runsight_core.llm = llm_pkg
+
+    sys.modules["runsight_core"] = runsight_core
+    sys.modules["runsight_core.yaml"] = yaml_pkg
+    sys.modules["runsight_core.yaml.schema"] = schema_pkg
+    sys.modules["runsight_core.yaml.parser"] = parser_pkg
+    sys.modules["runsight_core.llm"] = llm_pkg
+    sys.modules["runsight_core.llm.model_catalog"] = model_catalog
+
+if "ruamel" not in sys.modules:
+    ruamel = types.ModuleType("ruamel")
+    ruamel.__path__ = []
+    ruamel_yaml = types.ModuleType("ruamel.yaml")
+
+    class _YAML:
+        def __init__(self, *args, **kwargs):
+            self.preserve_quotes = False
+
+        def load(self, _content):
+            return {}
+
+        def dump(self, _data, _stream):
+            return None
+
+    ruamel_yaml.YAML = _YAML
+    ruamel.yaml = ruamel_yaml
+    sys.modules["ruamel"] = ruamel
+    sys.modules["ruamel.yaml"] = ruamel_yaml
+
+fake_filesystem_pkg = types.ModuleType("runsight_api.data.filesystem")
+fake_filesystem_pkg.__path__ = []
+fake_workflow_repo = types.ModuleType("runsight_api.data.filesystem.workflow_repo")
+
+
+class _WorkflowRepository:
+    pass
+
+
+fake_workflow_repo.WorkflowRepository = _WorkflowRepository
+fake_filesystem_pkg.workflow_repo = fake_workflow_repo
+sys.modules["runsight_api.data.filesystem"] = fake_filesystem_pkg
+sys.modules["runsight_api.data.filesystem.workflow_repo"] = fake_workflow_repo
+
+fake_repositories_pkg = types.ModuleType("runsight_api.data.repositories")
+fake_repositories_pkg.__path__ = []
+fake_run_repo = types.ModuleType("runsight_api.data.repositories.run_repo")
+
+
+class _RunRepository:
+    pass
+
+
+fake_run_repo.RunRepository = _RunRepository
+fake_repositories_pkg.run_repo = fake_run_repo
+sys.modules["runsight_api.data.repositories"] = fake_repositories_pkg
+sys.modules["runsight_api.data.repositories.run_repo"] = fake_run_repo
+
+fake_eval_service = types.ModuleType("runsight_api.logic.services.eval_service")
+
+
+class _EvalService:
+    pass
+
+
+fake_eval_service.EvalService = _EvalService
+original_eval_service = sys.modules.get("runsight_api.logic.services.eval_service")
+sys.modules["runsight_api.logic.services.eval_service"] = fake_eval_service
+
+original_deps = sys.modules.get("runsight_api.transport.deps")
+fake_deps = types.ModuleType("runsight_api.transport.deps")
+fake_deps.get_workflow_service = lambda: None
+fake_deps.get_eval_service = lambda: None
+sys.modules["runsight_api.transport.deps"] = fake_deps
+
+from runsight_api.domain.value_objects import WorkflowEntity
+from runsight_api.transport.deps import get_workflow_service
+from runsight_api.transport.routers.workflows import router
+
+if original_deps is not None:
+    sys.modules["runsight_api.transport.deps"] = original_deps
+else:
+    del sys.modules["runsight_api.transport.deps"]
+
+if original_eval_service is not None:
+    sys.modules["runsight_api.logic.services.eval_service"] = original_eval_service
+else:
+    del sys.modules["runsight_api.logic.services.eval_service"]
+
+app = FastAPI()
+app.include_router(router, prefix="/api")
 client = TestClient(app)
 
 
@@ -27,24 +160,48 @@ def test_workflows_list():
 
 def test_workflows_get():
     mock_service = Mock()
-    mock_wf = WorkflowEntity(id="wf_1", name="Test Flow", blocks={}, edges=[])
-    mock_service.get_workflow.return_value = mock_wf
+    mock_service.get_workflow.return_value = WorkflowEntity(
+        id="wf_1",
+        name="Test Flow",
+        blocks={},
+        edges=[],
+    )
+    mock_service.get_workflow_detail.return_value = WorkflowEntity(
+        id="wf_1",
+        name="Test Flow",
+        blocks={},
+        edges=[],
+        commit_sha="abc123def456",
+    )
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
-    response = client.get("/api/workflows/wf_1")
-    assert response.status_code == 200
-    assert response.json()["id"] == "wf_1"
-    app.dependency_overrides.clear()
+    try:
+        response = client.get("/api/workflows/wf_1")
+        assert response.status_code == 200
+        assert response.json()["id"] == "wf_1"
+        assert response.json()["commit_sha"] == "abc123def456"
+        mock_service.get_workflow_detail.assert_called_once_with("wf_1")
+        mock_service.get_workflow.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_workflows_get_404():
     mock_service = Mock()
-    mock_service.get_workflow.return_value = None
+    mock_service.get_workflow.return_value = WorkflowEntity(
+        id="wf_404",
+        name="Existing Flow",
+        blocks={},
+        edges=[],
+    )
+    mock_service.get_workflow_detail.return_value = None
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
-    response = client.get("/api/workflows/missing")
-    assert response.status_code == 404
-    app.dependency_overrides.clear()
+    try:
+        response = client.get("/api/workflows/missing")
+        assert response.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_workflows_post():

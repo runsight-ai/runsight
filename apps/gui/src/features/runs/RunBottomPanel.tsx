@@ -1,16 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router";
 
 import { cn } from "@runsight/ui/utils";
+import { Badge } from "@runsight/ui/badge";
 import { formatTimestamp, formatDuration } from "@/utils/formatting";
-import {
-  CheckCircle,
-  XCircle,
-  FileText,
-  Bot,
-  Package,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+import { CheckCircle, XCircle, FileText, List, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { useRuns, useRunRegressions } from "@/queries/runs";
 import type { RunLogResponse as LogResponse } from "@/api/runs";
 
 // ---------------------------------------------------------------------------
@@ -22,6 +17,9 @@ interface RunBottomPanelProps {
   executionComplete: boolean;
   executionFailed: boolean;
   finalDuration: number;
+  runId: string;
+  workflowId: string;
+  currentRunId: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -35,31 +33,63 @@ const levelConfig = {
   DEBUG: { bg: "bg-transparent", text: "text-[var(--text-muted)]" },
 } as const;
 
-const tabs = [
-  { id: "logs", label: "Logs", icon: FileText },
-  { id: "agent-feed", label: "Agent Feed", icon: Bot },
-  { id: "artifacts", label: "Artifacts", icon: Package },
-] as const;
-
-type TabId = (typeof tabs)[number]["id"];
+type TabId = "logs" | "runs" | "regressions";
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function RunBottomPanel({ logs, executionComplete, executionFailed, finalDuration }: RunBottomPanelProps) {
+export function RunBottomPanel({
+  logs,
+  executionComplete,
+  executionFailed,
+  finalDuration,
+  runId,
+  workflowId,
+  currentRunId,
+}: RunBottomPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>("logs");
   const [isExpanded, setIsExpanded] = useState(true);
+  const navigate = useNavigate();
+
+  const { data: runsData } = useRuns({ workflow_id: workflowId });
+  const { data: regressions } = useRunRegressions(runId);
+
+  const sortedRuns = useMemo(() => {
+    const items = runsData?.items ?? [];
+    return [...items].sort((a, b) => {
+      const aTime = a.started_at ?? a.created_at ?? "";
+      const bTime = b.started_at ?? b.created_at ?? "";
+      return bTime > aTime ? 1 : bTime < aTime ? -1 : 0;
+    });
+  }, [runsData]);
+
+  const regressionCount = regressions?.count ?? 0;
+  const regressionIssues = regressions?.issues ?? [];
+
+  const visibleTabs = useMemo(() => {
+    const baseTabs: { id: TabId; label: string; icon: typeof FileText }[] = [
+      { id: "logs", label: "Logs", icon: FileText },
+      { id: "runs", label: "Runs", icon: List },
+    ];
+    if (regressionCount > 0) {
+      baseTabs.push({ id: "regressions", label: "Regressions", icon: AlertTriangle });
+    }
+    return baseTabs;
+  }, [regressionCount]);
 
   return (
     <div data-testid="bottom-panel" className={cn("bg-[var(--surface-secondary)] border-t border-[var(--border-default)] flex flex-col z-50", isExpanded ? "h-[200px]" : "h-[36px]")}>
       {/* Tab Bar */}
       <div role="tablist" aria-label="Bottom panel tabs" className="h-9 flex items-center px-4 border-b border-[var(--border-default)] justify-between shrink-0">
         <div className="flex items-center gap-1">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button key={tab.id} role="tab" aria-selected={activeTab === tab.id} aria-controls={`bottom-panel-${tab.id}`} onClick={() => setActiveTab(tab.id)} className={cn("h-7 px-3 text-[12px] font-medium flex items-center gap-1.5 border-b-2 transition-colors", activeTab === tab.id ? "text-[var(--text-primary)] border-[var(--interactive-default)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] border-transparent")}>
               <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
+              {tab.id === "regressions" && regressionCount > 0 && (
+                <Badge variant="warning" className="ml-1">{regressionCount}</Badge>
+              )}
             </button>
           ))}
         </div>
@@ -103,11 +133,58 @@ export function RunBottomPanel({ logs, executionComplete, executionFailed, final
               </div>
             </>
           )}
-          {activeTab === "agent-feed" && (
-            <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm">Agent Feed coming soon</div>
+
+          {activeTab === "runs" && (
+            <div className="flex-1 overflow-y-auto">
+              {sortedRuns.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm">No runs found for this workflow.</div>
+              ) : (
+                <table className="w-full text-xs font-mono">
+                  <thead>
+                    <tr className="border-b border-[var(--border-default)] text-[var(--text-muted)]">
+                      <th className="text-left px-3 py-1.5">Status</th>
+                      <th className="text-left px-3 py-1.5">Commit SHA</th>
+                      <th className="text-left px-3 py-1.5">Started</th>
+                      <th className="text-left px-3 py-1.5">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedRuns.map((run) => (
+                      <tr
+                        key={run.id}
+                        onClick={() => navigate(`/runs/${run.id}`)}
+                        className={cn(
+                          "cursor-pointer hover:bg-[var(--surface-raised)] transition-colors",
+                          run.id === currentRunId && "bg-[var(--surface-selected)]",
+                        )}
+                      >
+                        <td className="px-3 py-1.5">
+                          <Badge variant={run.status === "completed" ? "success" : run.status === "failed" ? "danger" : "default"}>
+                            {run.status}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-1.5 text-[var(--text-muted)]">{run.commit_sha ? run.commit_sha.slice(0, 7) : "—"}</td>
+                        <td className="px-3 py-1.5 text-[var(--text-muted)]">{run.started_at ? formatTimestamp(run.started_at) : "—"}</td>
+                        <td className="px-3 py-1.5 text-[var(--text-muted)]">{run.duration_seconds ? formatDuration(run.duration_seconds) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           )}
-          {activeTab === "artifacts" && (
-            <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm">Artifacts coming soon</div>
+
+          {activeTab === "regressions" && regressionIssues.length > 0 && (
+            <div className="flex-1 overflow-y-auto">
+              {regressionIssues.map((regression, index) => (
+                <div key={index} className={cn("flex items-center gap-3 px-3 py-2 text-xs", index % 2 === 1 && "bg-surface-secondary")}>
+                  <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning-9)] shrink-0" />
+                  <span className="text-[var(--text-primary)] w-[140px] shrink-0 truncate">{regression.node_name}</span>
+                  <span className="text-[var(--text-muted)] w-[120px] shrink-0">{regression.type.replaceAll("_", " ")}</span>
+                  <span className="text-[var(--text-primary)] flex-1">{regression.delta.cost_pct != null ? `+${Number(regression.delta.cost_pct).toFixed(0)}%` : regression.delta.score_delta != null ? `${Number(regression.delta.score_delta).toFixed(2)}` : "—"}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

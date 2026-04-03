@@ -1,14 +1,17 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 
+from ...logic.services.eval_service import EvalService
 from ...logic.services.workflow_service import WorkflowService
-from ..deps import get_workflow_service
+from ..deps import get_eval_service, get_workflow_service
 from ..schemas.workflows import (
     WorkflowCommitCreate,
     WorkflowCommitResponse,
     WorkflowCreate,
     WorkflowDeleteResponse,
+    WorkflowEnabledUpdate,
     WorkflowListResponse,
     WorkflowResponse,
     WorkflowSimulationCreate,
@@ -34,11 +37,14 @@ async def list_workflows(
 
 @router.get("/{id}", response_model=WorkflowResponse)
 async def get_workflow(id: str, service: WorkflowService = Depends(get_workflow_service)):
-    w = service.get_workflow(id)
-    if not w:
-        from ...domain.errors import WorkflowNotFound
+    from ...domain.errors import RunsightError, WorkflowNotFound
 
-        raise WorkflowNotFound(f"Workflow {id} not found")
+    try:
+        w = service.get_workflow_detail(id)
+        if not w:
+            raise WorkflowNotFound(f"Workflow {id} not found")
+    except RunsightError as exc:
+        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
     return WorkflowResponse(**w.model_dump())
 
 
@@ -46,7 +52,8 @@ async def get_workflow(id: str, service: WorkflowService = Depends(get_workflow_
 async def create_workflow(
     body: WorkflowCreate, service: WorkflowService = Depends(get_workflow_service)
 ):
-    w = service.create_workflow(body.model_dump())
+    data = body.model_dump(exclude={"commit"})
+    w = service.create_workflow(data, commit=body.commit)
     return WorkflowResponse(**w.model_dump())
 
 
@@ -80,10 +87,39 @@ async def create_workflow_simulation(
     return WorkflowSimulationResponse(**result)
 
 
+@router.patch("/{id}/enabled", response_model=WorkflowResponse)
+async def patch_workflow_enabled(
+    id: str,
+    body: WorkflowEnabledUpdate,
+    service: WorkflowService = Depends(get_workflow_service),
+):
+    from ...domain.errors import RunsightError
+
+    try:
+        w = service.set_enabled(id, body.enabled)
+    except RunsightError as exc:
+        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
+    return WorkflowResponse(**w.model_dump())
+
+
+@router.get("/{id}/regressions")
+async def get_workflow_regressions(
+    id: str,
+    eval_service: EvalService = Depends(get_eval_service),
+):
+    result = eval_service.get_workflow_regressions(id)
+    return result
+
+
 @router.delete("/{id}", response_model=WorkflowDeleteResponse)
 async def delete_workflow(
     id: str,
     force: bool = False,
     service: WorkflowService = Depends(get_workflow_service),
 ):
-    return service.delete_workflow(id, force=force)
+    from ...domain.errors import RunsightError
+
+    try:
+        return service.delete_workflow(id, force=force)
+    except RunsightError as exc:
+        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())

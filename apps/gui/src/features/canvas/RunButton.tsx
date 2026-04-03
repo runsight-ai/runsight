@@ -9,10 +9,11 @@ import { Play, X, Key } from "lucide-react";
 
 interface RunButtonProps {
   workflowId: string;
+  isCommitted?: boolean;
   onAddApiKey?: () => void;
 }
 
-export function RunButton({ workflowId, onAddApiKey }: RunButtonProps) {
+export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunButtonProps) {
   const activeRunId = useCanvasStore((s) => s.activeRunId);
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const nodes = useCanvasStore((s) => s.nodes);
@@ -43,11 +44,12 @@ export function RunButton({ workflowId, onAddApiKey }: RunButtonProps) {
 
   const isEmpty = !nodes.length && !blockCount;
   const isPending = createRun.isPending || cancelRun.isPending;
+  const shouldRunOnSimulation = isDirty || !isCommitted;
 
   async function handleClick() {
     if (isRunning) {
       cancelRun.mutate(activeRunId);
-    } else if (isDirty) {
+    } else if (shouldRunOnSimulation) {
       const simResult = await gitApi.createSimBranch(workflowId, yamlContent);
       createRun.mutate(
         { workflow_id: workflowId, source: "simulation", branch: simResult.branch },

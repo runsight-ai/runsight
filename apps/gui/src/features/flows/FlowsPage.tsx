@@ -15,6 +15,7 @@ const EMPTY_WORKFLOW_CREATE: WorkflowCreate = {
     selected_node_id: null,
     canvas_mode: "dag",
   },
+  commit: false,
 };
 
 export function Component() {
