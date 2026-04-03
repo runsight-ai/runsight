@@ -275,7 +275,7 @@
     },
     "ConditionalTransitionDef": {
       "additionalProperties": true,
-      "description": "Conditional (multi-path) transition. Extra fields are decision_key -> target_block_id.\n\nYAML structure:\n    conditional_transitions:\n      - from: router_block\n        approved: approve_block\n        rejected: reject_block\n        default: reject_block   # optional fallback",
+      "description": "Conditional (multi-path) transition. Extra fields are decision_key -> target_block_id.\n\nYAML structure:\n    conditional_transitions:\n      - from: branch_block\n        approved: approve_block\n        rejected: reject_block\n        default: reject_block   # optional fallback",
       "properties": {
         "from": {
           "title": "From",
@@ -300,31 +300,12 @@
       "title": "ConditionalTransitionDef",
       "type": "object"
     },
-    "ExitDef": {
-      "description": "Named exit port on a block definition.",
-      "properties": {
-        "id": {
-          "title": "Id",
-          "type": "string"
-        },
-        "label": {
-          "title": "Label",
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "label"
-      ],
-      "title": "ExitDef",
-      "type": "object"
-    },
-    "FanOutBlockDef": {
+    "DispatchBlockDef": {
       "additionalProperties": false,
       "properties": {
         "type": {
-          "const": "fanout",
-          "default": "fanout",
+          "const": "dispatch",
+          "default": "dispatch",
           "title": "Type",
           "type": "string"
         },
@@ -438,7 +419,26 @@
       "required": [
         "exits"
       ],
-      "title": "FanOutBlockDef",
+      "title": "DispatchBlockDef",
+      "type": "object"
+    },
+    "ExitDef": {
+      "description": "Named exit port on a block definition.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "ExitDef",
       "type": "object"
     },
     "FanOutExitDef": {
@@ -1517,7 +1517,7 @@
         "discriminator": {
           "mapping": {
             "code": "#/$defs/CodeBlockDef",
-            "fanout": "#/$defs/FanOutBlockDef",
+            "dispatch": "#/$defs/DispatchBlockDef",
             "gate": "#/$defs/GateBlockDef",
             "linear": "#/$defs/LinearBlockDef",
             "loop": "#/$defs/LoopBlockDef",
@@ -1531,7 +1531,7 @@
             "$ref": "#/$defs/CodeBlockDef"
           },
           {
-            "$ref": "#/$defs/FanOutBlockDef"
+            "$ref": "#/$defs/DispatchBlockDef"
           },
           {
             "$ref": "#/$defs/GateBlockDef"
