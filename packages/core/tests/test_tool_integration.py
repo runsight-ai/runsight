@@ -1610,24 +1610,37 @@ workflow:
         workflow = parse_workflow_yaml(yaml_dict)
         soul = workflow.blocks["step"].soul
 
-        raw_html = (
-            "<html><body><article><h1>Runsight Docs</h1><p>"
-            + ("Keep responses bounded. " * 8_000)
-            + '</p><script>console.log("drop me")</script></article></body></html>'
-        )
+        page_inputs = {
+            "https://example.com/page-1": (
+                "<html><body><article><h1>Runsight Docs One</h1>"
+                + "".join(
+                    f"<section><h2>Heading {i}</h2><p>Keep responses bounded.</p></section>"
+                    for i in range(250)
+                )
+                + '<script>console.log("drop me")</script></article></body></html>'
+            ),
+            "https://example.com/page-2": (
+                "<html><body><article><h1>Runsight Docs Two</h1>"
+                + "".join(
+                    f"<div><span>Chunk {i}</span><p>Trim raw HTML before tool replay.</p></div>"
+                    for i in range(250)
+                )
+                + "<style>body { color: red; }</style></article></body></html>"
+            ),
+        }
 
         class _FakeResponse:
             status_code = 200
             headers = {"content-type": "text/html; charset=utf-8"}
 
+            def __init__(self, body: str) -> None:
+                self._body = body
+
             @property
             def text(self) -> str:
-                return raw_html
+                return self._body
 
         class _FakeAsyncClient:
-            def __init__(self) -> None:
-                self._responses = [_FakeResponse(), _FakeResponse()]
-
             async def __aenter__(self) -> "_FakeAsyncClient":
                 return self
 
@@ -1642,10 +1655,10 @@ workflow:
                 content: str | None = None,
             ) -> _FakeResponse:
                 assert method == "GET"
-                assert url.startswith("https://example.com/page-")
+                assert url in page_inputs
                 assert headers is None
                 assert content is None
-                return self._responses.pop(0)
+                return _FakeResponse(page_inputs[url])
 
         mock_achat.side_effect = [
             _tool_call_response(
@@ -1678,12 +1691,20 @@ workflow:
         ]
 
         assert len(tool_messages) == 2
-        for message in tool_messages:
-            assert "Runsight Docs" in message["content"]
+        expected_titles = ["Runsight Docs One", "Runsight Docs Two"]
+        raw_input_sizes = [
+            len(page_inputs["https://example.com/page-1"]),
+            len(page_inputs["https://example.com/page-2"]),
+        ]
+        for message, expected_title, raw_size in zip(
+            tool_messages, expected_titles, raw_input_sizes, strict=True
+        ):
+            assert expected_title in message["content"]
             assert "<html" not in message["content"].lower()
             assert "<script" not in message["content"].lower()
+            assert "<style" not in message["content"].lower()
             assert "console.log" not in message["content"]
-            assert len(message["content"].encode("utf-8")) < 100_000
+            assert len(message["content"]) < raw_size
 
     def test_builtin_custom_and_request_tools_parse_and_resolve_together(
         self,
