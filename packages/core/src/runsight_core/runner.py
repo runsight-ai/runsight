@@ -71,13 +71,15 @@ class RunsightTeamRunner:
         has_provider = isinstance(soul.provider, str) and bool(soul.provider.strip())
         has_model_name = isinstance(soul.model_name, str) and bool(soul.model_name.strip())
 
+        if not has_provider and not has_model_name:
+            raise ValueError(f"Soul '{soul.id}' must define an explicit provider and model_name")
         if has_model_name and not has_provider:
             raise ValueError(f"Soul '{soul.id}' must define an explicit provider")
         if has_provider and not has_model_name:
             raise ValueError(f"Soul '{soul.id}' must define an explicit model_name")
         if has_model_name:
             return soul.model_name  # type: ignore[return-value]
-        return self.model_name
+        raise ValueError(f"Soul '{soul.id}' must define an explicit provider and model_name")
 
     def _resolve_key_for_model(self, model_name: str) -> str:
         """Look up the API key for a model from the api_keys dict."""

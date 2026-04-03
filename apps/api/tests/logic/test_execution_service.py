@@ -252,7 +252,9 @@ config: {}
 
         run_repo = Mock()
         provider_repo = Mock()
-        provider_repo.list_all.return_value = []
+        provider_repo.list_all.return_value = [
+            Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
+        ]
         workflow_repo = WorkflowRepository(base_path=str(repo))
         svc = ExecutionService(
             run_repo=run_repo,
