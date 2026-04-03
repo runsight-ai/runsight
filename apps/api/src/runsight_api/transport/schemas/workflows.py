@@ -50,6 +50,7 @@ class WorkflowCreate(BaseModel):
     description: Optional[str] = None
     yaml: str
     canvas_state: Optional[WorkflowCanvasState] = None
+    commit: bool = True
 
 
 class WorkflowUpdate(BaseModel):

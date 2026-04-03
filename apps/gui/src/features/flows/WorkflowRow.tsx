@@ -1,8 +1,16 @@
 import { Button } from "@runsight/ui/button";
-import { Trash2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
+import { AlertTriangle, Trash2 } from "lucide-react";
 import type { KeyboardEvent, MouseEvent, SyntheticEvent } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { useWorkflowRegressions } from "@/queries/workflows";
+import {
+  shouldShowRegressionBadge,
+  formatRegressionTooltip,
+  buildRunsFilterUrl,
+} from "../workflows/regressionBadge.utils";
+import { REGRESSION_BADGE_CLASSES, REGRESSION_TOOLTIP_CLASSES } from "../workflows/regressionBadge.styles";
 
 interface WorkflowRowProps {
   workflow: {
@@ -172,6 +180,9 @@ export function Component({ workflow, onDelete, onToggleEnabled }: WorkflowRowPr
   const navigate = useNavigate();
   const name = workflow.name?.trim() || "Untitled";
   const runCount = workflow.health?.run_count ?? 0;
+  const { data: regressionsData } = useWorkflowRegressions(workflow.id);
+  const regressionIssues = regressionsData?.issues ?? [];
+  const showBadge = shouldShowRegressionBadge(regressionIssues);
 
   const openWorkflow = () => {
     navigate(`/workflows/${workflow.id}/edit`);
@@ -215,7 +226,42 @@ export function Component({ workflow, onDelete, onToggleEnabled }: WorkflowRowPr
           <span>{formatPlural(runCount, "run")}</span>
           <span>{getEvalLabel(workflow)}</span>
           <span className="font-mono">{getCostLabel(workflow)}</span>
-          <span>{getRegressionLabel(workflow)}</span>
+          {showBadge ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span
+                      className={REGRESSION_BADGE_CLASSES}
+                      onClick={(e: MouseEvent) => e.stopPropagation()}
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
+                      {regressionIssues.length}
+                    </span>
+                  }
+                />
+                <TooltipContent className={REGRESSION_TOOLTIP_CLASSES}>
+                  <div className="text-xs">
+                    <p className="font-medium mb-1">{formatRegressionTooltip(regressionIssues).header}</p>
+                    {formatRegressionTooltip(regressionIssues).lines.map((line, i) => (
+                      <p key={i} className="text-muted">{line}</p>
+                    ))}
+                    <button
+                      className="mt-2 text-[var(--interactive-default)] hover:underline"
+                      onClick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        navigate(buildRunsFilterUrl(workflow.id));
+                      }}
+                    >
+                      View runs &rarr;
+                    </button>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <span>{getRegressionLabel(workflow)}</span>
+          )}
         </div>
       </div>
       <div

@@ -49,7 +49,8 @@ async def get_workflow(id: str, service: WorkflowService = Depends(get_workflow_
 async def create_workflow(
     body: WorkflowCreate, service: WorkflowService = Depends(get_workflow_service)
 ):
-    w = service.create_workflow(body.model_dump())
+    data = body.model_dump(exclude={"commit"})
+    w = service.create_workflow(data, commit=body.commit)
     return WorkflowResponse(**w.model_dump())
 
 

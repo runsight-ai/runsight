@@ -82,7 +82,7 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
 
   const { data: regressionsData } = useWorkflowRegressions(workflowId ?? "");
   const count = regressionsData?.count ?? 0;
-  const regressionsItems = regressionsData?.items ?? [];
+  const regressionsItems = regressionsData?.issues ?? [];
 
   const entries: LogEntry[] = [...(logData?.items ?? []), ...sseEntries];
 
@@ -260,15 +260,17 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBot
             >
               <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning-9)] shrink-0" />
               <span className="inline-block w-32">{regression.node_name}</span>
-              <span className="inline-block w-24">{regression.type}</span>
+              <span className="inline-block w-24">{regression.type.replaceAll("_", " ")}</span>
               <span className="inline-block w-20">
-                {regression.delta_pct != null
-                  ? `${regression.delta_pct > 0 ? "+" : ""}${regression.delta_pct.toFixed(1)}%`
-                  : "-"}
+                {regression.delta.cost_pct != null
+                  ? `+${Number(regression.delta.cost_pct).toFixed(0)}%`
+                  : regression.delta.score_delta != null
+                    ? `${Number(regression.delta.score_delta).toFixed(2)}`
+                    : "—"}
               </span>
               <span className="text-muted-foreground">
-                {(regression as Record<string, unknown>).run_number != null
-                  ? `run #${(regression as Record<string, unknown>).run_number}`
+                {regression.run_number != null
+                  ? `run #${regression.run_number}`
                   : ""}
               </span>
             </div>

@@ -61,9 +61,10 @@ class WorkflowService:
     def get_workflow(self, id: str) -> Optional[WorkflowEntity]:
         return self.workflow_repo.get_by_id(id)
 
-    def create_workflow(self, data: Dict[str, Any]) -> WorkflowEntity:
+    def create_workflow(self, data: Dict[str, Any], *, commit: bool = True) -> WorkflowEntity:
         result = self.workflow_repo.create(data)
-        self._auto_commit(f"Create workflow: {result.name}", [result.id])
+        if commit:
+            self._auto_commit(f"Create workflow: {result.name}", [result.id])
         return result
 
     def update_workflow(self, id: str, data: Dict[str, Any]) -> WorkflowEntity:

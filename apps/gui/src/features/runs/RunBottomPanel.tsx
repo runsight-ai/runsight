@@ -64,7 +64,8 @@ export function RunBottomPanel({
     });
   }, [runsData]);
 
-  const regressionCount = regressions?.length ?? 0;
+  const regressionCount = regressions?.count ?? 0;
+  const regressionIssues = regressions?.issues ?? [];
 
   const visibleTabs = useMemo(() => {
     const baseTabs: { id: TabId; label: string; icon: typeof FileText }[] = [
@@ -173,14 +174,14 @@ export function RunBottomPanel({
             </div>
           )}
 
-          {activeTab === "regressions" && regressions && regressions.length > 0 && (
+          {activeTab === "regressions" && regressionIssues.length > 0 && (
             <div className="flex-1 overflow-y-auto">
-              {regressions.map((regression, index) => (
+              {regressionIssues.map((regression, index) => (
                 <div key={index} className={cn("flex items-center gap-3 px-3 py-2 text-xs", index % 2 === 1 && "bg-surface-secondary")}>
                   <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning-9)] shrink-0" />
                   <span className="text-[var(--text-primary)] w-[140px] shrink-0 truncate">{regression.node_name}</span>
-                  <span className="text-[var(--text-muted)] w-[120px] shrink-0">{regression.regression_type}</span>
-                  <span className="text-[var(--text-primary)] flex-1">{regression.delta}</span>
+                  <span className="text-[var(--text-muted)] w-[120px] shrink-0">{regression.type.replaceAll("_", " ")}</span>
+                  <span className="text-[var(--text-primary)] flex-1">{regression.delta.cost_pct != null ? `+${Number(regression.delta.cost_pct).toFixed(0)}%` : regression.delta.score_delta != null ? `${Number(regression.delta.score_delta).toFixed(2)}` : "—"}</span>
                 </div>
               ))}
             </div>

@@ -36,15 +36,13 @@ export function useForkWorkflow({
           : { enabled: false };
       const yaml = stringify(modified);
 
-      // Create the new draft workflow
-      const result = await workflowsApi.createWorkflow({ name, yaml });
+      // Create the new draft workflow (no auto-commit — shows as uncommitted)
+      const result = await workflowsApi.createWorkflow({ name, yaml, commit: false });
 
       // Navigate to the editor for the new workflow
       navigate(`/workflows/${result.id}/edit`);
     } catch {
       toast.error("Couldn't create fork. Try again.");
-      // Navigate to draft even on error so the user can retry from the editor
-      navigate(`/workflows/${name}/edit`);
       setIsForking(false);
     }
   }, [commitSha, workflowPath, workflowName, navigate]);

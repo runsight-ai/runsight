@@ -1,9 +1,9 @@
 import type { WorkflowRegression } from "../../types/schemas/regressions";
 
 const TYPE_LABELS: Record<WorkflowRegression["type"], string> = {
-  assertion: "Assertion",
+  assertion_regression: "Assertion",
   cost_spike: "Cost spike",
-  latency_spike: "Latency spike",
+  quality_drop: "Quality drop",
 };
 
 export function shouldShowRegressionBadge(
@@ -21,7 +21,8 @@ export function formatRegressionTooltip(issues: WorkflowRegression[]): {
 
   const lines = issues.map((issue) => {
     const label = TYPE_LABELS[issue.type];
-    const delta = issue.delta_pct != null ? ` (+${issue.delta_pct}%)` : "";
+    const costPct = issue.delta?.cost_pct as number | undefined;
+    const delta = costPct != null ? ` (+${costPct.toFixed(0)}%)` : "";
     return `${label}: ${issue.node_name}${delta}`;
   });
 

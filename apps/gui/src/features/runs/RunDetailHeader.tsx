@@ -39,7 +39,7 @@ export function RunDetailHeader({ run }: RunDetailHeaderProps) {
 
   const { forkWorkflow, isForking } = useForkWorkflow({
     commitSha: run.commit_sha ?? "",
-    workflowPath: `workflows/${run.workflow_id}.yaml`,
+    workflowPath: `custom/workflows/${run.workflow_id}.yaml`,
     workflowName: run.workflow_name,
   });
 

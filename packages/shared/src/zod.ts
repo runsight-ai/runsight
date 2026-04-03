@@ -507,6 +507,7 @@ export const WorkflowCreateSchema = z.object({
   description: z.string().nullable().optional(),
   yaml: z.string(),
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
+  commit: z.boolean().optional().default(true),
 });
 export type WorkflowCreate = z.infer<typeof WorkflowCreateSchema>;
 

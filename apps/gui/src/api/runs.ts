@@ -18,12 +18,20 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 
 export const RunRegressionSchema = z.object({
+  node_id: z.string(),
   node_name: z.string(),
-  regression_type: z.string(),
-  delta: z.string(),
+  type: z.enum(["assertion_regression", "cost_spike", "quality_drop"]),
+  delta: z.record(z.string(), z.unknown()),
 });
 
 export type RunRegression = z.infer<typeof RunRegressionSchema>;
+
+export const RunRegressionsResponseSchema = z.object({
+  count: z.number(),
+  issues: z.array(RunRegressionSchema),
+});
+
+export type RunRegressionsResponse = z.infer<typeof RunRegressionsResponseSchema>;
 
 /** Map frontend shorthand status values to actual RunStatus enum values. */
 const STATUS_ALIASES: Record<string, string[]> = {
@@ -107,9 +115,9 @@ export const runsApi = {
     return PaginatedLogsResponseSchema.parse(res);
   },
 
-  getRunRegressions: async (id: string): Promise<RunRegression[]> => {
+  getRunRegressions: async (id: string): Promise<RunRegressionsResponse> => {
     const res = await api.get(`/runs/${id}/regressions`);
-    return z.array(RunRegressionSchema).parse(res);
+    return RunRegressionsResponseSchema.parse(res);
   },
 };
 

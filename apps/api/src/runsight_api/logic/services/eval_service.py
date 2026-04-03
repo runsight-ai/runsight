@@ -268,18 +268,31 @@ class EvalService:
 
         return issues
 
+    @staticmethod
+    def _is_production_run(run) -> bool:
+        """Filter to main-branch production runs, consistent with get_attention_items."""
+        branch = getattr(run, "branch", "main")
+        if not isinstance(branch, str):
+            branch = "main"
+        source = getattr(run, "source", "manual")
+        if not isinstance(source, str):
+            source = "manual"
+        return branch == "main" and source in {"manual", "webhook", "schedule"}
+
     def get_run_regressions(self, run_id: str) -> dict | None:
         """Compute comparison-based regressions for a single run."""
         run = self.run_repo.get_run(run_id)
         if run is None:
             return None
 
-        # Get all runs for the same workflow, ordered by created_at asc
+        # Get production runs for the same workflow, ordered by created_at asc
         all_runs = self.run_repo.list_runs()
-        workflow_runs = [r for r in all_runs if r.workflow_id == run.workflow_id]
+        workflow_runs = [
+            r for r in all_runs if r.workflow_id == run.workflow_id and self._is_production_run(r)
+        ]
         workflow_runs.sort(key=lambda r: r.created_at)
 
-        # Find the previous run (the run just before this one)
+        # Find the previous production run before this one
         previous_run = None
         for r in workflow_runs:
             if r.id == run_id:
@@ -287,18 +300,21 @@ class EvalService:
             previous_run = r
 
         if previous_run is None:
-            # First run — no baseline to compare against
             return {"count": 0, "issues": []}
 
         current_nodes = self.run_repo.list_nodes_for_run(run_id)
         previous_nodes = self.run_repo.list_nodes_for_run(previous_run.id)
 
-        # Index previous nodes by node_id
-        prev_node_map = {n.node_id: n for n in previous_nodes}
+        # Index previous nodes by (node_id, soul_version) — matching get_attention_items
+        prev_node_map: dict[tuple[str, str | None], object] = {}
+        for n in previous_nodes:
+            sv = getattr(n, "soul_version", None)
+            prev_node_map[(n.node_id, sv)] = n
 
         issues: list[dict] = []
         for node in current_nodes:
-            prev_node = prev_node_map.get(node.node_id)
+            sv = getattr(node, "soul_version", None)
+            prev_node = prev_node_map.get((node.node_id, sv))
             if prev_node is None:
                 continue
             issues.extend(self._detect_node_regressions(node, prev_node))
@@ -306,9 +322,11 @@ class EvalService:
         return {"count": len(issues), "issues": issues}
 
     def get_workflow_regressions(self, workflow_id: str) -> dict:
-        """Compute comparison-based regressions across all runs of a workflow."""
+        """Compute comparison-based regressions across all production runs of a workflow."""
         all_runs = self.run_repo.list_runs()
-        workflow_runs = [r for r in all_runs if r.workflow_id == workflow_id]
+        workflow_runs = [
+            r for r in all_runs if r.workflow_id == workflow_id and self._is_production_run(r)
+        ]
         workflow_runs.sort(key=lambda r: r.created_at)
 
         if len(workflow_runs) < 2:
@@ -323,10 +341,15 @@ class EvalService:
             current_nodes = self.run_repo.list_nodes_for_run(current_run.id)
             previous_nodes = self.run_repo.list_nodes_for_run(previous_run.id)
 
-            prev_node_map = {n.node_id: n for n in previous_nodes}
+            # Index by (node_id, soul_version)
+            prev_node_map: dict[tuple[str, str | None], object] = {}
+            for n in previous_nodes:
+                sv = getattr(n, "soul_version", None)
+                prev_node_map[(n.node_id, sv)] = n
 
             for node in current_nodes:
-                prev_node = prev_node_map.get(node.node_id)
+                sv = getattr(node, "soul_version", None)
+                prev_node = prev_node_map.get((node.node_id, sv))
                 if prev_node is None:
                     continue
                 node_issues = self._detect_node_regressions(node, prev_node)
