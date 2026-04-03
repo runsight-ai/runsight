@@ -25,11 +25,10 @@ type ParsedWorkflow = Partial<RunsightWorkflowFile> & {
 const DEFAULT_GRID_X = 280;
 const DEFAULT_GRID_Y = 160;
 
-function toStepType(value: unknown): { type: StepType; error?: string } {
+function toStepType(value: unknown): { type?: StepType; error?: string } {
   if (typeof value !== "string") return { type: "linear" as StepType, error: `Invalid block type: expected string, got ${typeof value}` };
   if (value === "fanout" || value === "router") {
     return {
-      type: value as StepType,
       error: `Unsupported legacy block type: ${value}. Use dispatch instead.`,
     };
   }
@@ -60,8 +59,12 @@ function convertKeysToCamel(value: unknown): unknown {
  * Build StepNodeData from a block ID and its YAML BlockDef.
  * Uses a single generic path for all block types — no hardcoded field lists.
  */
-function buildNodeData(nodeId: string, block: BlockDef): { data: StepNodeData; error?: string } {
+function buildNodeData(nodeId: string, block: BlockDef): { data?: StepNodeData; error?: string } {
   const stepTypeResult = toStepType(block.type);
+  if (!stepTypeResult.type) {
+    return { error: stepTypeResult.error ?? `Unsupported block type for "${nodeId}"` };
+  }
+
   const data: StepNodeData = {
     stepId: nodeId,
     name: nodeId,
@@ -149,18 +152,25 @@ export function parseWorkflowYamlToGraph(
 
   const blocks = parsed.blocks ?? {};
 
-  const nodeIds = Object.keys(blocks);
+  const blockIds = Object.keys(blocks);
   const buildErrors: string[] = [];
-  const nodes: Node<StepNodeData>[] = nodeIds.map((nodeId, index) => {
+  const nodes: Node<StepNodeData>[] = [];
+
+  blockIds.forEach((nodeId) => {
     const block = blocks[nodeId] ?? ({ type: "linear" } as BlockDef);
     const persisted = findPersistedPosition(canvasState, nodeId);
-    const row = Math.floor(index / 4);
-    const col = index % 4;
-
     const built = buildNodeData(nodeId, block);
-    if (built.error) buildErrors.push(`Block "${nodeId}": ${built.error}`);
+    if (built.error) {
+      buildErrors.push(`Block "${nodeId}": ${built.error}`);
+      if (!built.data) return;
+    }
+    if (!built.data) return;
 
-    return {
+    const positionIndex = nodes.length;
+    const row = Math.floor(positionIndex / 4);
+    const col = positionIndex % 4;
+
+    nodes.push({
       id: nodeId,
       type: "canvasNode",
       position: persisted ?? {
@@ -168,8 +178,9 @@ export function parseWorkflowYamlToGraph(
         y: row * DEFAULT_GRID_Y,
       },
       data: built.data,
-    };
+    });
   });
+  const nodeIds = new Set(nodes.map((node) => node.id));
 
   const edges: Edge[] = [];
   const addEdge = (
@@ -179,7 +190,7 @@ export function parseWorkflowYamlToGraph(
     sourceHandle?: string | null,
   ) => {
     if (!target) return;
-    if (!nodeIds.includes(source) || !nodeIds.includes(target)) return;
+    if (!nodeIds.has(source) || !nodeIds.has(target)) return;
     edges.push({
       id: `${source}->${target}:${idSuffix}`,
       source,
