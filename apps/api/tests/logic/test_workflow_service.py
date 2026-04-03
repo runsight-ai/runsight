@@ -281,6 +281,43 @@ def test_create_workflow_without_id(workflow_service, workflow_repo):
     workflow_repo.create.assert_called_once_with(data)
 
 
+def test_create_workflow_commit_true_uses_repo_relative_yaml_path(workflow_repo, run_repo):
+    """create_workflow should auto-commit the YAML file using the repo-relative path."""
+    git_service = Mock()
+    git_service.is_clean.return_value = False
+    git_service.commit_to_branch.return_value = "abc123def456"
+    workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    workflow_repo.create.return_value = WorkflowEntity(
+        id="wf_new",
+        name="New Workflow",
+    )
+
+    result = workflow_service.create_workflow({"name": "New Workflow"})
+
+    assert result.id == "wf_new"
+    git_service.commit_to_branch.assert_called_once_with(
+        "main",
+        ["custom/workflows/wf_new.yaml"],
+        "Create workflow: New Workflow",
+    )
+
+
+def test_create_workflow_commit_false_skips_auto_commit(workflow_repo, run_repo):
+    """create_workflow(commit=False) must not auto-commit the new workflow."""
+    git_service = Mock()
+    workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    workflow_repo.create.return_value = WorkflowEntity(
+        id="wf_no_commit",
+        name="No Commit Workflow",
+    )
+
+    result = workflow_service.create_workflow({"name": "No Commit Workflow"}, commit=False)
+
+    assert result.id == "wf_no_commit"
+    workflow_repo.create.assert_called_once_with({"name": "No Commit Workflow"})
+    git_service.commit_to_branch.assert_not_called()
+
+
 def test_create_workflow_requires_yaml(workflow_service, workflow_repo):
     """create_workflow should surface the canonical YAML-only contract."""
     workflow_repo.create.side_effect = InputValidationError("yaml is required")
