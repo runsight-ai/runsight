@@ -265,16 +265,6 @@ def _validate_workflow_block_contract(
             )
 
 
-def _resolve_workflow_block_max_depth(
-    file_def: RunsightWorkflowFile,
-    block_def: Any,
-) -> int:
-    """Resolve the runtime max-depth a workflow block will enforce."""
-    if block_def.max_depth is not None:
-        return block_def.max_depth
-    return file_def.config.get("max_workflow_depth", 10)
-
-
 def _build_workflow_validation_index(
     base_dir: str,
 ) -> dict[str, tuple[Path, RunsightWorkflowFile]]:
@@ -357,6 +347,7 @@ def validate_workflow_call_contracts(
     validation_index: dict[str, tuple[Path, RunsightWorkflowFile]] | None = None,
     current_workflow_ref: str | None = None,
     ancestry: tuple[str, ...] | None = None,
+    remaining_depth: int = 10,
     allow_filesystem_fallback: bool = True,
 ) -> None:
     if validation_index is None:
@@ -364,7 +355,6 @@ def validate_workflow_call_contracts(
     if ancestry is None:
         root_ref = current_workflow_ref or getattr(file_def.workflow, "name", "<root>")
         ancestry = (root_ref,)
-    current_depth = len(ancestry)
 
     for block_id, block_def in file_def.blocks.items():
         if block_def.type != "workflow":
@@ -383,12 +373,14 @@ def validate_workflow_call_contracts(
 
         _validate_workflow_block_contract(block_id, block_def, child_file)
 
-        max_depth = _resolve_workflow_block_max_depth(file_def, block_def)
-        if current_depth >= max_depth:
+        branch_depth_limit = min(
+            remaining_depth,
+            block_def.max_depth if block_def.max_depth is not None else remaining_depth,
+        )
+        if branch_depth_limit <= 0:
             raise ValueError(
-                f"WorkflowBlock '{block_id}': maximum depth {max_depth} exceeded while "
-                f"resolving child workflow '{block_def.workflow_ref}'. "
-                f"Current depth: {current_depth}"
+                f"WorkflowBlock '{block_id}': maximum depth exceeded while resolving "
+                f"child workflow '{block_def.workflow_ref}'"
             )
 
         validate_workflow_call_contracts(
@@ -397,6 +389,7 @@ def validate_workflow_call_contracts(
             validation_index=validation_index,
             current_workflow_ref=child_ref,
             ancestry=(*ancestry, child_ref),
+            remaining_depth=branch_depth_limit - 1,
             allow_filesystem_fallback=allow_filesystem_fallback,
         )
 
@@ -515,6 +508,13 @@ def parse_workflow_yaml(
                 _base_dir=workflow_base_dir,
             )
 
+            # Read max_depth: block-level override -> global config -> default 10
+            max_depth_value = (
+                block_def.max_depth
+                if block_def.max_depth is not None
+                else file_def.config.get("max_workflow_depth", 10)
+            )
+
             # Instantiate WorkflowBlock
             from runsight_core.blocks.workflow_block import WorkflowBlock
 
@@ -523,7 +523,7 @@ def parse_workflow_yaml(
                 child_workflow=child_wf,
                 inputs=block_def.inputs or {},
                 outputs=block_def.outputs or {},
-                max_depth=_resolve_workflow_block_max_depth(file_def, block_def),
+                max_depth=max_depth_value,
             )
 
             built_blocks[block_id] = block
