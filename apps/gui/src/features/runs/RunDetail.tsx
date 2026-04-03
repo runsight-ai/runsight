@@ -127,14 +127,8 @@ function RunDetailInner() {
   return (
     <div className="flex-1 flex overflow-hidden bg-[var(--surface-primary)]">
       <main className="flex-1 flex flex-col min-w-0">
-        {historicalSurface.regions.topbar.visible ? (
-          <RunDetailHeader run={run} />
-        ) : null}
-        <PriorityBanner conditions={[{
-          type: "regressions",
-          active: regressionCount > 0,
-          message: `${regressionCount} regressions found`,
-        }]} />
+        {historicalSurface.regions.topbar.visible ? <RunDetailHeader run={run} /> : null}
+        <PriorityBanner conditions={[{ type: "regressions", active: regressionCount > 0, message: `${regressionCount} regressions found` }]} />
 
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 relative">
@@ -188,17 +182,7 @@ function RunDetailInner() {
           <RunInspectorPanel selectedNode={selectedNode} onClose={() => setSelectedNode(null)} />
         </div>
 
-        {historicalSurface.regions.footer.visible ? (
-          <RunBottomPanel
-            logs={logs}
-            executionComplete
-            executionFailed={isFailed}
-            finalDuration={run.duration_seconds || 0}
-            runId={run.id}
-            workflowId={run.workflow_id}
-            currentRunId={run.id}
-          />
-        ) : null}
+        {historicalSurface.regions.footer.visible ? <RunBottomPanel logs={logs} executionComplete executionFailed={isFailed} finalDuration={run.duration_seconds || 0} runId={run.id} workflowId={run.workflow_id} currentRunId={run.id} /> : null}
       </main>
     </div>
   );
