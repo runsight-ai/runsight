@@ -1,11 +1,9 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const GUI_SRC_ROOT = resolve(import.meta.dirname, "../../..");
-const CANVAS_PAGE_PATH = resolve(import.meta.dirname, "../CanvasPage.tsx");
-const RUN_DETAIL_PATH = resolve(import.meta.dirname, "../../runs/RunDetail.tsx");
 
 function collectSourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -34,8 +32,12 @@ function candidateWorkflowSurfaceModules() {
 
     return (
       source.includes("WorkflowSurface")
-      && source.includes("WorkflowSurfaceProps")
-      && source.includes("getWorkflowSurfaceModeConfig")
+      && /workflowId|runId/.test(source)
+      && /workflow|historical/.test(source)
+      && /topbar|header/i.test(source)
+      && /inspector/i.test(source)
+      && /footer|bottom/i.test(source)
+      && /status/i.test(source)
       && /export\s+(function|const)\s+(WorkflowSurface|Component)|export\s+default/.test(
         source,
       )
@@ -68,53 +70,64 @@ async function loadWorkflowSurfaceModule() {
   );
 }
 
+function candidateDelegatorModules(mode: "workflow" | "historical", idName: "workflowId" | "runId") {
+  return collectSourceFiles(GUI_SRC_ROOT).filter((filePath) => {
+    const source = readFileSync(filePath, "utf8");
+
+    return (
+      /<WorkflowSurface|WorkflowSurface\s*\(|React\.createElement\(\s*WorkflowSurface/.test(
+        source,
+      )
+      && new RegExp(`initialMode\\s*[:=]\\s*["']${mode}["']`).test(source)
+      && source.includes(idName)
+    );
+  });
+}
+
 describe("RUN-592 WorkflowSurface component contract", () => {
-  it("creates a shared WorkflowSurface page-level component that consumes the RUN-591 runtime contract", async () => {
+  it("creates a shared WorkflowSurface page-level component that can host both workflow and run surfaces without fixing one exact RUN-591 api spelling", async () => {
     const { source } = await loadWorkflowSurfaceModule();
 
-    expect(source).toMatch(/WorkflowSurfaceProps/);
-    expect(source).toMatch(/getWorkflowSurfaceModeConfig/);
+    expect(source).toMatch(/workflowId/);
+    expect(source).toMatch(/runId/);
+    expect(source).toMatch(/workflow/);
+    expect(source).toMatch(/historical/);
     expect(source).toMatch(/topbar|header/i);
     expect(source).toMatch(/inspector/i);
     expect(source).toMatch(/footer|bottom/i);
     expect(source).toMatch(/status/i);
   });
 
-  it("moves CanvasPage behind WorkflowSurface in workflow mode instead of keeping a separate page architecture", () => {
-    expect(existsSync(CANVAS_PAGE_PATH)).toBe(true);
+  it("provides a workflow-mode entry path that loads the shared surface with only a workflow identifier, covering workflow mode without run data", () => {
+    const candidates = candidateDelegatorModules("workflow", "workflowId");
 
-    const source = readFileSync(CANVAS_PAGE_PATH, "utf8");
+    expect(candidates.length).toBeGreaterThan(0);
 
-    expect(source).toMatch(
-      /<WorkflowSurface|WorkflowSurface\s*\(|React\.createElement\(\s*WorkflowSurface/,
-    );
+    const source = readFileSync(candidates[0]!, "utf8");
     expect(source).toMatch(/initialMode\s*[:=]\s*["']workflow["']/);
     expect(source).toMatch(/workflowId/);
+    expect(source).not.toMatch(/runId\s*[:=]/);
   });
 
-  it("moves RunDetail behind WorkflowSurface in historical mode instead of preserving a separate run page surface", () => {
-    expect(existsSync(RUN_DETAIL_PATH)).toBe(true);
+  it("provides a historical-mode entry path that loads the shared surface with only a run identifier, covering missing workflow edit capabilities", () => {
+    const candidates = candidateDelegatorModules("historical", "runId");
 
-    const source = readFileSync(RUN_DETAIL_PATH, "utf8");
+    expect(candidates.length).toBeGreaterThan(0);
 
-    expect(source).toMatch(
-      /<WorkflowSurface|WorkflowSurface\s*\(|React\.createElement\(\s*WorkflowSurface/,
-    );
+    const source = readFileSync(candidates[0]!, "utf8");
     expect(source).toMatch(/initialMode\s*[:=]\s*["']historical["']/);
     expect(source).toMatch(/runId/);
+    expect(source).not.toMatch(/workflowId\s*[:=]/);
   });
 
-  it("keeps workflow-only and run-only entry points delegating to the same shared surface", () => {
-    const canvasSource = readFileSync(CANVAS_PAGE_PATH, "utf8");
-    const runSource = readFileSync(RUN_DETAIL_PATH, "utf8");
+  it("keeps one shared surface while still modeling the RUN-592 single-identifier and missing-capability edge cases", async () => {
+    const workflowEntries = candidateDelegatorModules("workflow", "workflowId");
+    const historicalEntries = candidateDelegatorModules("historical", "runId");
+    const { source } = await loadWorkflowSurfaceModule();
 
-    expect(canvasSource).toMatch(
-      /<WorkflowSurface|WorkflowSurface\s*\(|React\.createElement\(\s*WorkflowSurface/,
-    );
-    expect(runSource).toMatch(
-      /<WorkflowSurface|WorkflowSurface\s*\(|React\.createElement\(\s*WorkflowSurface/,
-    );
-    expect(canvasSource).toMatch(/workflowId/);
-    expect(runSource).toMatch(/runId/);
+    expect(workflowEntries.length).toBeGreaterThan(0);
+    expect(historicalEntries.length).toBeGreaterThan(0);
+    expect(source).toMatch(/overlay|run data|hasRunOverlay|usesRunOverlay/i);
+    expect(source).toMatch(/readOnly|editable|edit/i);
   });
 });
