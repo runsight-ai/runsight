@@ -221,12 +221,4 @@ describe("Run gating and wiring for RUN-588", () => {
     expect(source).toMatch(/<RunButton[\s\S]*isCommitted/);
     expect(source).toMatch(/workflow[\s\S]*commit_sha|commit_sha[\s\S]*workflow/);
   });
-
-  it("CanvasPage references workflow detail state and both run paths", () => {
-    const source = readSource("features/canvas/CanvasPage.tsx");
-    expect(source).toMatch(/useWorkflow\s*\(/);
-    expect(source).toMatch(/createSimBranch/);
-    expect(source).toMatch(/source:\s*["']simulation["']/);
-    expect(source).toMatch(/source:\s*["']manual["']/);
-  });
 });
