@@ -194,6 +194,15 @@ describe("RUN-134: Generated types export expected interfaces", () => {
       expect.arrayContaining(["id", "role", "system_prompt", "workflow_count"]),
     );
   });
+
+  it("declares ToolListItemResponse with canonical tool identity fields", () => {
+    const fields = extractApiComponentFieldNames(apiSource, "ToolListItemResponse");
+    expect(fields).toEqual(
+      expect.arrayContaining(["id", "name", "description", "origin", "executor"]),
+    );
+    expect(fields).not.toContain("slug");
+    expect(fields).not.toContain("type");
+  });
 });
 
 describe("RUN-515: generated API wrapper cleanup stays concrete", () => {
@@ -230,6 +239,29 @@ describe("RUN-134: Generated Zod schemas are valid", () => {
     const mod = await import("../zod");
     expect(mod.SoulResponseSchema).toBeDefined();
     expect(typeof mod.SoulResponseSchema.parse).toBe("function");
+  });
+
+  it("ToolListItemResponseSchema parses canonical tool identity fields", async () => {
+    const mod = await import("../zod");
+    const result = mod.ToolListItemResponseSchema.safeParse({
+      id: "report_lookup",
+      name: "Report Lookup",
+      description: "Look up saved reports.",
+      origin: "custom",
+      executor: "python",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("ToolListItemResponseSchema rejects the legacy slug/type taxonomy", async () => {
+    const mod = await import("../zod");
+    const result = mod.ToolListItemResponseSchema.safeParse({
+      slug: "http",
+      name: "HTTP Requests",
+      description: "Fetch external APIs.",
+      type: "builtin",
+    });
+    expect(result.success).toBe(false);
   });
 
   it("WorkflowResponseSchema parses a valid workflow object", async () => {
