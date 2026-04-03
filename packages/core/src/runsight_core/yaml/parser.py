@@ -265,30 +265,104 @@ def _validate_workflow_block_contract(
             )
 
 
+def _build_workflow_validation_index(
+    base_dir: str,
+) -> dict[str, tuple[Path, RunsightWorkflowFile]]:
+    root = Path(base_dir).resolve()
+    workflows_dir = root / "custom" / "workflows"
+    validation_index: dict[str, tuple[Path, RunsightWorkflowFile]] = {}
+
+    if not workflows_dir.is_dir():
+        return validation_index
+
+    for pattern in ("*.yaml", "*.yml"):
+        for workflow_path in workflows_dir.rglob(pattern):
+            with open(workflow_path, "r", encoding="utf-8") as workflow_file_handle:
+                raw_data = yaml.safe_load(workflow_file_handle)
+
+            workflow_file = RunsightWorkflowFile.model_validate(raw_data)
+            resolved_path = workflow_path.resolve()
+
+            aliases = {str(resolved_path), workflow_path.stem}
+            try:
+                aliases.add(str(resolved_path.relative_to(root)))
+            except ValueError:
+                pass
+
+            workflow_name = getattr(workflow_file.workflow, "name", None)
+            if workflow_name:
+                aliases.add(workflow_name)
+
+            for alias in aliases:
+                validation_index[alias] = (resolved_path, workflow_file)
+
+    return validation_index
+
+
+def _resolve_workflow_call_contract_ref(
+    workflow_ref: str,
+    *,
+    base_dir: str,
+    validation_index: dict[str, tuple[Path, RunsightWorkflowFile]],
+) -> tuple[Path, RunsightWorkflowFile]:
+    indexed = validation_index.get(workflow_ref)
+    if indexed is not None:
+        return indexed
+
+    root = Path(base_dir).resolve()
+    ref_path = Path(workflow_ref)
+    candidate_paths: list[Path] = []
+    if ref_path.is_absolute():
+        candidate_paths.append(ref_path)
+    else:
+        candidate_paths.append(root / ref_path)
+        candidate_paths.append(root / "custom" / "workflows" / ref_path)
+        if ref_path.suffix == "":
+            candidate_paths.append(root / "custom" / "workflows" / f"{workflow_ref}.yaml")
+            candidate_paths.append(root / "custom" / "workflows" / f"{workflow_ref}.yml")
+
+    for candidate_path in candidate_paths:
+        resolved_path = candidate_path.resolve()
+        indexed = validation_index.get(str(resolved_path))
+        if indexed is not None:
+            return indexed
+        if resolved_path.exists():
+            with open(resolved_path, "r", encoding="utf-8") as workflow_file_handle:
+                raw_data = yaml.safe_load(workflow_file_handle)
+            workflow_file = RunsightWorkflowFile.model_validate(raw_data)
+            return resolved_path, workflow_file
+
+    raise ValueError(
+        f"WorkflowRegistry: cannot resolve ref '{workflow_ref}'. "
+        "Not found as named workflow or filesystem path."
+    )
+
+
 def validate_workflow_call_contracts(
     file_def: RunsightWorkflowFile,
     *,
     base_dir: str,
     visited_refs: set[str] | None = None,
+    validation_index: dict[str, tuple[Path, RunsightWorkflowFile]] | None = None,
 ) -> None:
     if visited_refs is None:
         visited_refs = set()
+    if validation_index is None:
+        validation_index = _build_workflow_validation_index(base_dir)
 
     for block_id, block_def in file_def.blocks.items():
         if block_def.type != "workflow":
             continue
 
-        child_path = Path(block_def.workflow_ref)
-        if not child_path.is_absolute():
-            child_path = Path(base_dir) / child_path
-        child_path = child_path.resolve()
+        child_path, child_file = _resolve_workflow_call_contract_ref(
+            block_def.workflow_ref,
+            base_dir=base_dir,
+            validation_index=validation_index,
+        )
         child_ref = str(child_path)
         if child_ref in visited_refs:
             continue
 
-        with open(child_path, "r", encoding="utf-8") as child_file_handle:
-            child_raw = yaml.safe_load(child_file_handle)
-        child_file = RunsightWorkflowFile.model_validate(child_raw)
         _validate_workflow_block_contract(block_id, block_def, child_file)
 
         visited_refs.add(child_ref)
@@ -296,6 +370,7 @@ def validate_workflow_call_contracts(
             child_file,
             base_dir=_find_project_root(child_path.parent),
             visited_refs=visited_refs,
+            validation_index=validation_index,
         )
 
 
