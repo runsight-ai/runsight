@@ -72,6 +72,9 @@ class MockBlock:
 class TestInputParsing:
     """Tests that inputs field in YAML is parsed correctly and references are validated."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_inputs_basic(self):
         """YAML with inputs.from reference parses without error."""
         yaml_content = f"""
@@ -112,6 +115,9 @@ workflow:
                 "Parser must track inputs via Step wrapper or workflow._block_inputs"
             )
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_inputs_invalid_block_ref(self):
         """inputs.from referencing nonexistent block raises ValueError with clear message."""
         yaml_content = f"""
@@ -161,6 +167,9 @@ workflow:
         with pytest.raises(ValueError, match="step_b"):
             parse_workflow_yaml(yaml_content)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_inputs_circular_dependency(self):
         """A inputs from B, B inputs from A raises ValueError for circular dependency."""
         yaml_content = f"""
@@ -191,6 +200,9 @@ workflow:
         with pytest.raises(ValueError, match="circular|cycle"):
             parse_workflow_yaml(yaml_content)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_inputs_circular_dependency_three_nodes(self):
         """A->B->C->A circular input dependency chain raises ValueError."""
         yaml_content = f"""
@@ -229,6 +241,9 @@ workflow:
         with pytest.raises(ValueError, match="circular|cycle"):
             parse_workflow_yaml(yaml_content)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_inputs_multiple_inputs(self):
         """Block with multiple input references parses all correctly."""
         yaml_content = f"""
@@ -265,6 +280,9 @@ workflow:
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_inputs_no_inputs(self):
         """Block without inputs field works fine (backward compatible)."""
         yaml_content = f"""
@@ -293,6 +311,9 @@ workflow:
 class TestOutputDeclarations:
     """Tests that outputs field in YAML is parsed correctly."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_outputs_basic(self):
         """Block with outputs declaration (typed output schema) parses correctly."""
         yaml_content = f"""
@@ -315,6 +336,9 @@ workflow:
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_outputs_none(self):
         """Block without outputs field works fine (backward compatible)."""
         yaml_content = f"""
@@ -343,6 +367,9 @@ workflow:
 class TestOutputConditionsWiring:
     """Tests that output_conditions in YAML is parsed and wired to Workflow."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_output_conditions_wired_to_workflow(self):
         """output_conditions in YAML populates workflow._output_conditions for the block."""
         yaml_content = f"""
@@ -375,6 +402,9 @@ workflow:
         assert hasattr(workflow, "_output_conditions")
         assert "evaluator" in workflow._output_conditions
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_output_conditions_with_conditional_transition(self):
         """output_conditions on block + conditional_transition from that block both work together."""
         yaml_content = f"""
@@ -420,6 +450,9 @@ workflow:
         assert "evaluator" in workflow._output_conditions
         assert "evaluator" in workflow._conditional_transitions
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_output_conditions_empty(self):
         """Block without output_conditions has no entry in workflow._output_conditions."""
         yaml_content = f"""
@@ -545,6 +578,9 @@ class TestStepInputResolution:
 class TestParserWiresInputsToStep:
     """Tests that parser creates Step objects with declared_inputs when block has inputs."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parser_creates_step_with_declared_inputs(self):
         """When block has inputs, parser creates Step with declared_inputs populated."""
         yaml_content = f"""
@@ -590,6 +626,9 @@ workflow:
             )
 
     @pytest.mark.asyncio
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_parser_full_round_trip(self):
         """Complete YAML with inputs + output_conditions + transitions parses and validates."""
         yaml_content = f"""

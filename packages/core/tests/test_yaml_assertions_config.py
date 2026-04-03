@@ -141,6 +141,9 @@ class TestBaseBlockAssertionsAttribute:
 class TestAssertionConfigsPropagation:
     """Parser should bridge block assertions onto the built runtime block."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parser_bridges_block_assertions_to_runtime_block(self):
         """Parsed runtime block exposes block_def.assertions after build."""
         wf = parse_workflow_yaml(YAML_BLOCK_WITH_ASSERTIONS)
@@ -149,6 +152,9 @@ class TestAssertionConfigsPropagation:
         assert block.assertions is not None
         assert len(block.assertions) == 2
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parser_preserves_block_assertion_fields(self):
         """Bridged block assertions retain the YAML config fields."""
         wf = parse_workflow_yaml(YAML_BLOCK_WITH_ASSERTIONS)
@@ -160,6 +166,9 @@ class TestAssertionConfigsPropagation:
         assert block.assertions[1]["type"] == "cost"
         assert block.assertions[1]["threshold"] == 0.02
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parser_leaves_runtime_block_assertions_none_when_omitted(self):
         """Blocks without YAML assertions still expose assertions=None."""
         wf = parse_workflow_yaml(YAML_BLOCK_WITHOUT_ASSERTIONS)

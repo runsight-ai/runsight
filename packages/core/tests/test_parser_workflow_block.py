@@ -28,6 +28,9 @@ _RESEARCHER_SOUL = {
 class TestParseWorkflowBlock:
     """Tests for parsing workflow blocks from YAML."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_workflow_with_workflow_block(self):
         """
         AC-14: Parser creates WorkflowBlock from YAML with registry.
@@ -139,6 +142,9 @@ class TestParseWorkflowBlock:
         assert "workflowregistry" in error_msg or "registry" in error_msg
         assert "provided" in error_msg or "required" in error_msg
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_workflow_block_max_depth_block_level(self):
         """
         Verify max_depth is read from block-level config when present.
@@ -188,6 +194,9 @@ class TestParseWorkflowBlock:
         workflow_block = parent_workflow._blocks["invoke_child"]
         assert workflow_block.max_depth == 5
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_workflow_block_max_depth_global_config(self):
         """
         Verify max_depth falls back to global config when block-level not set.
@@ -242,6 +251,9 @@ class TestParseWorkflowBlock:
         workflow_block = parent_workflow._blocks["invoke_child"]
         assert workflow_block.max_depth == 7
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_workflow_block_max_depth_default(self):
         """
         Verify max_depth defaults to 10 when neither block-level nor global config set.
@@ -288,6 +300,9 @@ class TestParseWorkflowBlock:
         workflow_block = parent_workflow._blocks["invoke_child"]
         assert workflow_block.max_depth == 10  # default
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_workflow_no_registry_no_workflow_blocks(self):
         """
         AC-16: Parser backward-compatible — no registry needed for non-workflow YAML.

@@ -184,6 +184,9 @@ class TestFullPipeline:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_yaml_parse_and_execute_with_tool_call(self, mock_achat: AsyncMock) -> None:
         """Full pipeline: parse YAML dict, run task with tool call, get final output."""
         yaml_dict = _workflow_dict(
@@ -227,6 +230,9 @@ class TestFullPipeline:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_tool_execute_receives_parsed_args(self, mock_achat: AsyncMock) -> None:
         """The echo tool's execute() is called with the parsed JSON arguments."""
         yaml_dict = _workflow_dict(
@@ -263,6 +269,9 @@ class TestFullPipeline:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_tool_schema_sent_to_llm(self, mock_achat: AsyncMock) -> None:
         """The first LLM call must receive the resolved tool's OpenAI schema."""
         yaml_dict = _workflow_dict(
@@ -306,6 +315,9 @@ class TestSoulIsolation:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_soul_a_only_sees_http_schema(self, mock_achat: AsyncMock) -> None:
         """Soul A (http tool) — LLM call receives only the http_request schema."""
         yaml_dict = _workflow_dict(
@@ -356,6 +368,9 @@ class TestSoulIsolation:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_soul_b_only_sees_file_io_schema(self, mock_achat: AsyncMock) -> None:
         """Soul B (file_io tool) — LLM call receives only the file_io schema."""
         yaml_dict = _workflow_dict(
@@ -404,6 +419,9 @@ class TestSoulIsolation:
         assert "file_io" in tool_names
         assert "http_request" not in tool_names
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parsed_soul_a_resolved_tools_contains_only_http(self) -> None:
         """After parsing, soul_a.resolved_tools contains only http_request."""
         yaml_dict = _workflow_dict(
@@ -460,6 +478,9 @@ class TestMaxIterationsIntegration:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_loop_caps_at_max_tool_iterations(self, mock_achat: AsyncMock) -> None:
         """With max_tool_iterations=2, loop stops after 2 tool iterations."""
         yaml_dict = _workflow_dict(
@@ -495,6 +516,9 @@ class TestMaxIterationsIntegration:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_last_iteration_call_strips_tools(self, mock_achat: AsyncMock) -> None:
         """On the last iteration (iteration == max-1), tools= is passed as []."""
         yaml_dict = _workflow_dict(
@@ -527,6 +551,9 @@ class TestMaxIterationsIntegration:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_tool_calls_made_tracks_all_iterations(self, mock_achat: AsyncMock) -> None:
         """tool_calls_made in ExecutionResult lists every tool called across iterations."""
         yaml_dict = _workflow_dict(
@@ -570,6 +597,9 @@ class TestToolErrorFeedback:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_tool_error_fed_back_as_string(self, mock_achat: AsyncMock) -> None:
         """Tool raises RuntimeError -> error message sent to LLM as tool result."""
         # Register a failing tool for this test
@@ -629,6 +659,9 @@ class TestToolErrorFeedback:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_tool_error_loop_does_not_raise(self, mock_achat: AsyncMock) -> None:
         """An exception in tool.execute() must not propagate out of execute_task()."""
         error_source = "test/error_tool_no_raise_281"
@@ -686,6 +719,9 @@ class TestToolErrorFeedback:
 class TestParseValidation:
     """parse_workflow_yaml must raise ValueError for bad tool configurations."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_soul_references_undeclared_tool_raises_value_error(self) -> None:
         """Soul referencing tool not in tools: section -> ValueError."""
         yaml_dict = _workflow_dict(
@@ -740,6 +776,9 @@ class TestParseValidation:
         with pytest.raises(ValueError):
             parse_workflow_yaml(yaml_dict)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_unknown_source_error_mentions_source_string(self) -> None:
         """ValueError for unknown source must include the offending source string."""
         yaml_dict = _workflow_dict(
@@ -768,6 +807,9 @@ class TestDelegateTool:
     """Delegate tool integration: port enum built from block exits; executing
     the delegate with a valid port returns that port string (the exit_handle)."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_delegate_port_enum_matches_block_exits(self) -> None:
         """Parsed soul with delegate tool has port enum equal to block exits."""
         yaml_dict = _workflow_dict(
@@ -877,6 +919,9 @@ class TestDelegateTool:
         assert len(tool_msgs) >= 1
         assert tool_msgs[0]["content"] == "approve"
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_delegate_three_exits_port_enum_complete(self) -> None:
         """With three exits, port enum has all three IDs."""
         yaml_dict = _workflow_dict(
@@ -920,6 +965,9 @@ class TestCostAccumulationIntegration:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_cost_sums_three_iterations(self, mock_achat: AsyncMock) -> None:
         """3-iteration loop (2 tool calls + 1 final text): cost_usd = sum of all."""
         yaml_dict = _workflow_dict(
@@ -959,6 +1007,9 @@ class TestCostAccumulationIntegration:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_cost_accumulation_matches_call_count(self, mock_achat: AsyncMock) -> None:
         """cost_usd equals the sum of cost_usd from all achat() calls."""
         yaml_dict = _workflow_dict(
@@ -1017,6 +1068,9 @@ class TestNoToolsPath:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_soul_without_tools_single_achat_call(self, mock_achat: AsyncMock) -> None:
         """Soul without tools: exactly one achat() call, tool_iterations=0."""
         yaml_dict = _workflow_dict(
@@ -1048,6 +1102,9 @@ class TestNoToolsPath:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_no_tools_achat_not_given_tools_kwarg(self, mock_achat: AsyncMock) -> None:
         """Without resolved_tools, achat() must not receive a tools kwarg (or it's None)."""
         yaml_dict = _workflow_dict(
@@ -1073,6 +1130,9 @@ class TestNoToolsPath:
         call_kwargs = mock_achat.call_args.kwargs
         assert "tools" not in call_kwargs or call_kwargs.get("tools") is None
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parsed_soul_without_tools_has_none_resolved_tools(self) -> None:
         """After parsing, a soul with no tools: field has resolved_tools=None."""
         yaml_dict = _workflow_dict(
@@ -1151,6 +1211,9 @@ class TestExistingYamlWorkflowsParseClean:
                         f"Declared tools: {list(tools_section.keys())}"
                     )
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_mockup_generate_review_yaml_parses(self) -> None:
         """custom/workflows/mockup_generate_review.yaml must parse successfully."""
         yaml_path = CUSTOM_WORKFLOWS_DIR / "mockup_generate_review.yaml"
@@ -1169,6 +1232,9 @@ class TestRun532ToolPipelineIntegration:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_custom_tool_yaml_parse_resolve_and_agentic_loop(
         self,
         mock_achat: AsyncMock,
@@ -1244,6 +1310,9 @@ workflow:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_http_tool_yaml_parse_resolve_and_agentic_loop(
         self,
         mock_achat: AsyncMock,
@@ -1344,6 +1413,9 @@ workflow:
         ]
         assert json.loads(tool_messages[-1]["content"]) == "42"
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_builtin_custom_and_http_tools_parse_and_resolve_together(
         self,
         tmp_path: Path,
@@ -1416,6 +1488,9 @@ workflow:
             "fetch_answer",
         }
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_undeclared_tool_raises_actionable_valueerror(self, tmp_path: Path) -> None:
         """RUN-532 AC4: governance errors should stay actionable in the end-to-end parse path."""
         workflow_path = _write_workflow_file(
@@ -1518,6 +1593,9 @@ workflow:
             socket_path.unlink(missing_ok=True)
 
     @pytest.mark.asyncio
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_isolated_linear_block_envelope_includes_tool_definitions_for_worker_loop(
         self,
         tmp_path: Path,

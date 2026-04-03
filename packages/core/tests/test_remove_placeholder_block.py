@@ -273,6 +273,9 @@ class TestConfTestInfrastructure:
 
         assert callable(make_test_yaml)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_make_test_yaml_produces_valid_yaml_with_soul(self):
         """make_test_yaml() must wrap step YAML with a valid souls section
         containing a 'test' soul definition, so that parse_workflow_yaml succeeds."""

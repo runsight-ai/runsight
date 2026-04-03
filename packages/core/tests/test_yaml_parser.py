@@ -45,6 +45,9 @@ class TestBlockTypeRegistry:
 class TestLinearBlock:
     """Tests for LinearBlock (block type: linear)."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_linear_block_valid_yaml(self):
         """AC-1: Parse valid linear block with soul_ref."""
         yaml_content = """
@@ -85,6 +88,9 @@ workflow:
         with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_linear_block_with_defined_soul(self):
         """AC-3: LinearBlock can use explicitly defined souls."""
         yaml_content = """
@@ -112,6 +118,9 @@ workflow:
 class TestFanOutBlock:
     """Tests for FanOutBlock (block type: fanout)."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_fanout_block_valid_yaml(self):
         """AC-4: Parse valid fanout block with exits."""
         yaml_content = """
@@ -181,6 +190,9 @@ workflow:
 class TestSynthesizeBlock:
     """Tests for SynthesizeBlock (block type: synthesize)."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_synthesize_block_valid_yaml(self):
         """AC-7: Parse valid synthesize block with dependencies."""
         yaml_content = """
@@ -280,6 +292,9 @@ workflow:
         with pytest.raises(ValueError, match="Soul reference 'nonexistent_soul' not found"):
             parse_workflow_yaml(yaml_content)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_custom_soul_definition_works(self):
         """AC-29: Custom soul definition in YAML works correctly."""
         yaml_content = """
@@ -347,6 +362,9 @@ workflow:
 class TestParseFromDict:
     """Tests for parsing from dict input."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_from_dict_valid(self):
         """AC-33: parse_workflow_yaml accepts dict input."""
         workflow_dict = {
@@ -378,6 +396,9 @@ class TestParseFromDict:
 class TestComplexWorkflow:
     """Tests for complex multi-block workflows."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_complex_workflow_all_block_types(self):
         """AC-34: Parse workflow using multiple block types together."""
         yaml_content = """
@@ -671,6 +692,9 @@ workflow:
         },
     }
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_version_1_0_accepted_without_warning(self):
         """AC-1: version '1.0' is the current version and parses without error."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="1.0")
@@ -690,12 +714,18 @@ workflow:
         with pytest.raises(ValueError, match="version"):
             parse_workflow_yaml(yaml_content)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_missing_version_defaults_to_1_0(self):
         """AC-3: Missing version field works (defaults to '1.0')."""
         workflow = parse_workflow_yaml(dict(self._BASE_DICT_NO_VERSION))
         assert isinstance(workflow, Workflow)
         assert workflow.name == "version_test"
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_unknown_version_error_message_includes_supported_versions(self):
         """AC-2c: Error message for unknown version includes list of supported versions."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="3.0")

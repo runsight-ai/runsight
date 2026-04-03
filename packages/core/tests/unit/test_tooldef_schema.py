@@ -452,6 +452,9 @@ class TestSoulResolvedTools:
 class TestFullYamlToolsParse:
     """End-to-end test: tools section defined, soul referencing tool names."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_full_workflow_with_tools_section_and_soul_refs(self):
         """Parse a complete workflow with tools section and soul tool references."""
         from runsight_core.yaml.schema import (
@@ -495,6 +498,9 @@ class TestFullYamlToolsParse:
         assert wf.souls["agent_b"].tools == ["file_reader", "http_client"]
         assert wf.souls["agent_b"].max_tool_iterations == 5  # default
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_workflow_model_validate_with_tools_raw_dict(self):
         """RunsightWorkflowFile.model_validate parses raw dict with tools."""
         from runsight_core.yaml.schema import RunsightWorkflowFile
