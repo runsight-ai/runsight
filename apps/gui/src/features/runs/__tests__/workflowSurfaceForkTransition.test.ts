@@ -16,19 +16,15 @@ const createWorkflowMock = vi.fn();
 const createRunMutateMock = vi.fn();
 const setActiveRunIdMock = vi.fn();
 
-function buildRun(overrides: {
+function buildRun({
+  status = "completed" as TestRunStatus,
+  commitSha,
+  source = "manual",
+}: {
   status?: TestRunStatus;
   commitSha?: string | null | undefined;
   source?: string;
 } = {}) {
-  const {
-    status = "completed" as TestRunStatus,
-    source = "manual",
-  } = overrides;
-  const commitSha = Object.prototype.hasOwnProperty.call(overrides, "commitSha")
-    ? overrides.commitSha
-    : "abc123";
-
   return {
     id: "run_123456",
     workflow_id: "wf-research",
@@ -41,7 +37,7 @@ function buildRun(overrides: {
     started_at: 1700000000,
     completed_at: 1700000045,
     created_at: 1700000000,
-    commit_sha: commitSha,
+    commit_sha: commitSha === undefined ? "abc123" : commitSha,
   };
 }
 
@@ -333,7 +329,7 @@ describe("RUN-595 in-place workflow surface fork transition", () => {
   });
 
   it("keeps snapshot-unavailable runs on the historical shared surface", async () => {
-    currentRun = buildRun({ commitSha: undefined });
+    currentRun = buildRun({ commitSha: null });
 
     const { router } = await renderWorkflowSurfaceApp();
     const surface = document.querySelector("[data-layout='workflow-surface']");
