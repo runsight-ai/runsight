@@ -74,11 +74,11 @@ describe("Per-type block field emission", () => {
     expect(block).toHaveProperty("soul_ref", "planner_soul");
   });
 
-  it("fanout: emits soul_refs array", () => {
+  it("dispatch: emits soul_refs array", () => {
     const { block } = compileOne(
-      mockNode("b1", "fanout", { soulRefs: ["s1", "s2", "s3"] }),
+      mockNode("b1", "dispatch", { soulRefs: ["s1", "s2", "s3"] }),
     );
-    expect(block.type).toBe("fanout");
+    expect(block.type).toBe("dispatch");
     expect(block).toHaveProperty("soul_refs", ["s1", "s2", "s3"]);
   });
 
@@ -94,16 +94,15 @@ describe("Per-type block field emission", () => {
     expect(block).toHaveProperty("input_block_ids", ["a", "b"]);
   });
 
-  it("router: emits soul_ref and condition_ref", () => {
+  it("dispatch: emits soul_ref and does not emit condition_ref", () => {
     const { block } = compileOne(
-      mockNode("b1", "router", {
-        soulRef: "router_soul",
-        conditionRef: "cond_1",
+      mockNode("b1", "dispatch", {
+        soulRef: "dispatch_soul",
       }),
     );
-    expect(block.type).toBe("router");
-    expect(block).toHaveProperty("soul_ref", "router_soul");
-    expect(block).toHaveProperty("condition_ref", "cond_1");
+    expect(block.type).toBe("dispatch");
+    expect(block).toHaveProperty("soul_ref", "dispatch_soul");
+    expect(block).not.toHaveProperty("condition_ref");
   });
 
   it("team_lead: emits soul_ref and failure_context_keys", () => {
@@ -275,9 +274,9 @@ describe("Generic path emits all non-runtime fields", () => {
     expect(block).toHaveProperty("inner_block_refs");
   });
 
-  it("fanout node emits soul_ref alongside soul_refs via generic path", () => {
+  it("dispatch node emits soul_ref alongside soul_refs via generic path", () => {
     const { block } = compileOne(
-      mockNode("b1", "fanout", {
+      mockNode("b1", "dispatch", {
         soulRefs: ["s1"],
         soulRef: "extra_soul",
       }),

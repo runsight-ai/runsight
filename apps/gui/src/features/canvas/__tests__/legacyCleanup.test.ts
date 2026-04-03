@@ -265,12 +265,12 @@ describe("Round-trip after cleanup: known types use generic path", () => {
     expect(doc2.blocks["sub"]).toEqual(doc1.blocks["sub"]);
   });
 
-  it("fanout block round-trips", () => {
-    const node = mockNode("b1", "fanout", {
+  it("dispatch block round-trips with soul_refs", () => {
+    const node = mockNode("b1", "dispatch", {
       soulRefs: ["analyst1", "analyst2"],
     });
     const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
-    expect(getBlock(doc1, "b1").type).toBe("fanout");
+    expect(getBlock(doc1, "b1").type).toBe("dispatch");
     expect(getBlock(doc1, "b1").soul_refs).toEqual(["analyst1", "analyst2"]);
     expect(doc2.blocks["b1"]).toEqual(doc1.blocks["b1"]);
   });
@@ -289,14 +289,17 @@ describe("Round-trip after cleanup: known types use generic path", () => {
     expect(doc2.blocks["b1"]).toEqual(doc1.blocks["b1"]);
   });
 
-  it("router block round-trips", () => {
-    const node = mockNode("b1", "router", {
-      soulRef: "router_soul",
-      conditionRef: "my_condition",
+  it("dispatch block round-trips without condition_ref", () => {
+    const node = mockNode("b1", "dispatch", {
+      soulRef: "dispatch_soul",
+      outputConditions: [{ case_id: "default", default: true }],
     });
     const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
-    expect(getBlock(doc1, "b1").type).toBe("router");
-    expect(getBlock(doc1, "b1").condition_ref).toBe("my_condition");
+    expect(getBlock(doc1, "b1").type).toBe("dispatch");
+    expect(getBlock(doc1, "b1").output_conditions).toEqual([
+      { case_id: "default", default: true },
+    ]);
+    expect(getBlock(doc1, "b1")).not.toHaveProperty("condition_ref");
     expect(doc2.blocks["b1"]).toEqual(doc1.blocks["b1"]);
   });
 });

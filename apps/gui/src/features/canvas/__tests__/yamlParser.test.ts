@@ -52,12 +52,12 @@ describe("Per-type field parsing", () => {
     expect(data.soulRef).toBe("analyst");
   });
 
-  it("fanout: soul_refs -> soulRefs", () => {
+  it("dispatch: soul_refs -> soulRefs", () => {
     const yaml = makeYaml({
-      step1: { type: "fanout", soul_refs: ["a", "b", "c"] },
+      step1: { type: "dispatch", soul_refs: ["a", "b", "c"] },
     });
     const data = parseFirst(yaml);
-    expect(data.stepType).toBe("fanout");
+    expect(data.stepType).toBe("dispatch");
     expect(data.soulRefs).toEqual(["a", "b", "c"]);
   });
 
@@ -75,18 +75,22 @@ describe("Per-type field parsing", () => {
     expect(data.inputBlockIds).toEqual(["step_a", "step_b"]);
   });
 
-  it("router: soul_ref + condition_ref -> soulRef + conditionRef", () => {
+  it("dispatch: parses conditional output_conditions without conditionRef", () => {
     const yaml = makeYaml({
       step1: {
-        type: "router",
+        type: "dispatch",
         soul_ref: "classifier",
-        condition_ref: "route_cond",
+        output_conditions: [
+          { case_id: "approved" },
+          { case_id: "default", default: true },
+        ],
       },
     });
     const data = parseFirst(yaml);
-    expect(data.stepType).toBe("router");
+    expect(data.stepType).toBe("dispatch");
     expect(data.soulRef).toBe("classifier");
-    expect(data.conditionRef).toBe("route_cond");
+    expect(data.outputConditions).toHaveLength(2);
+    expect(Object.keys(data)).not.toContain("conditionRef");
   });
 
   it("team_lead: soul_ref + failure_context_keys -> soulRef + failureContextKeys", () => {
@@ -434,7 +438,7 @@ describe("Complex structures parsed", () => {
   it("output_conditions with nested condition_group are correctly parsed as CaseDef array", () => {
     const yaml = makeYaml({
       step1: {
-        type: "router",
+        type: "dispatch",
         soul_ref: "classifier",
         output_conditions: [
           {
@@ -550,25 +554,25 @@ describe("Existing behavior preserved", () => {
     const yaml = dump({
       version: "1.0",
       blocks: {
-        router: { type: "router", soul_ref: "classifier" },
+        dispatch_step: { type: "dispatch", soul_ref: "classifier" },
         approve: { type: "linear" },
         reject: { type: "linear" },
       },
       workflow: {
         name: "test",
-        entry: "router",
+        entry: "dispatch_step",
         transitions: [],
         conditional_transitions: [
-          { from: "router", approved: "approve", rejected: "reject" },
+          { from: "dispatch_step", approved: "approve", rejected: "reject" },
         ],
       },
     });
     const result = parseWorkflowYamlToGraph(yaml);
-    // Should have 2 edges: router->approve and router->reject
+    // Should have 2 edges: dispatch_step->approve and dispatch_step->reject
     expect(result.edges).toHaveLength(2);
     const targets = result.edges.map((e) => e.target).sort();
     expect(targets).toEqual(["approve", "reject"]);
-    expect(result.edges.every((e) => e.source === "router")).toBe(true);
+    expect(result.edges.every((e) => e.source === "dispatch_step")).toBe(true);
   });
 
   it("terminal transitions (to: null) do not create edges", () => {
