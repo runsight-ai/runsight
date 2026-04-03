@@ -32,24 +32,15 @@ describe("ModelsTab per-provider fallback row wiring", () => {
     expect(source).toMatch(/function\s+FallbackTargetRow|const\s+FallbackTargetRow\s*=\s*\(/);
   });
 
-  it("maps one fallback row per model-default entry and passes row-specific props into FallbackTargetRow", () => {
+  it("maps one fallback row per fallback target entry and passes row-specific props into FallbackTargetRow", () => {
     const source = readSource(MODELS_TAB_PATH);
 
     expect(source).toMatch(
-      /modelDefaults\.map\s*\(\s*\((model|row)\)\s*=>[\s\S]*<FallbackTargetRow\b/,
+      /fallbackTargets\.map\s*\(\s*\((fallbackTarget|row)\)\s*=>[\s\S]*<FallbackTargetRow\b/,
     );
-    expect(source).toMatch(/<FallbackTargetRow[\s\S]*key=\{(model|row)\.id\}/);
+    expect(source).toMatch(/<FallbackTargetRow[\s\S]*key=\{(fallbackTarget|row)\.id\}/);
     expect(source).toMatch(
-      /<FallbackTargetRow[\s\S]*providerName=\{(model|row)\.provider_name\}/,
-    );
-    expect(source).toMatch(
-      /<FallbackTargetRow[\s\S]*modelDefaultId=\{(model|row)\.id\}/,
-    );
-    expect(source).toMatch(
-      /<FallbackTargetRow[\s\S]*fallbackProviderId=\{(model|row)\.fallback_provider_id\s*\?\?\s*null\}|<FallbackTargetRow[\s\S]*fallbackProviderId=\{(model|row)\.fallback_provider_id\}/,
-    );
-    expect(source).toMatch(
-      /<FallbackTargetRow[\s\S]*fallbackModelId=\{(model|row)\.fallback_model_id\s*\?\?\s*null\}|<FallbackTargetRow[\s\S]*fallbackModelId=\{(model|row)\.fallback_model_id\}/,
+      /<FallbackTargetRow[\s\S]*fallbackTarget=\{(fallbackTarget|row)\}/,
     );
     expect(source).toMatch(/<FallbackTargetRow[\s\S]*enabledSiblingProviders=\{/);
     expect(source).toMatch(/<FallbackTargetRow[\s\S]*onCommit=\{/);
@@ -92,7 +83,7 @@ describe("ModelsTab per-provider fallback row wiring", () => {
   it("commits only once both fallback provider and fallback model exist", () => {
     const source = readSource(MODELS_TAB_PATH);
 
-    expect(source).toMatch(/updateModelDefault\.mutateAsync/);
+    expect(source).toMatch(/updateFallbackTarget\.mutateAsync/);
     expect(source).toMatch(/fallback_provider_id/);
     expect(source).toMatch(/fallback_model_id/);
     expect(source).toMatch(
@@ -104,11 +95,11 @@ describe("ModelsTab per-provider fallback row wiring", () => {
     const source = readSource(MODELS_TAB_PATH);
 
     expect(source).toMatch(/Clear fallback/);
-    expect(source).toMatch(/updateModelDefault\.mutateAsync/);
+    expect(source).toMatch(/updateFallbackTarget\.mutateAsync/);
     expect(source).toMatch(/fallback_provider_id\s*:\s*["']{2}/);
     expect(source).toMatch(/fallback_model_id\s*:\s*["']{2}/);
     expect(source).toMatch(
-      /updateModelDefault\.mutateAsync\([\s\S]*fallback_provider_id\s*:\s*["']{2}[\s\S]*fallback_model_id\s*:\s*["']{2}[\s\S]*\)/,
+      /updateFallbackTarget\.mutateAsync\([\s\S]*fallback_provider_id\s*:\s*["']{2}[\s\S]*fallback_model_id\s*:\s*["']{2}[\s\S]*\)/,
     );
   });
 });

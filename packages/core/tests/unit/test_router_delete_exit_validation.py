@@ -412,6 +412,9 @@ class TestParserStoresDeclaredExits:
     """Parser must store block_def.exits as _declared_exits on the runtime block
     so validate() can access them."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parsed_block_has_declared_exits_attribute(self):
         """After parsing a workflow with exits defined on a block, the runtime
         block should have _declared_exits set."""
@@ -463,6 +466,9 @@ blocks:
             f"Expected exits {{approved, rejected}}, got {exit_ids}"
         )
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parsed_block_without_exits_has_no_declared_exits(self):
         """A block without exits defined should NOT have _declared_exits set,
         or it should be None."""
@@ -508,6 +514,9 @@ blocks:
 class TestValidateWithParsedExits:
     """Integration: parser stores _declared_exits, validate() uses them."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parsed_workflow_with_mismatched_exits_fails_validation(self):
         """A parsed workflow where transition keys don't match declared exits
         should fail validation during parse_workflow_yaml (which calls validate())."""
@@ -548,6 +557,9 @@ blocks:
         with pytest.raises(ValueError, match="nonexistent_key"):
             parse_workflow_yaml(yaml_content)
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parsed_workflow_with_valid_exits_passes_validation(self):
         """A parsed workflow where all transition keys match declared exits
         should pass validation."""

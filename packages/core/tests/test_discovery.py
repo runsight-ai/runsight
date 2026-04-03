@@ -316,6 +316,9 @@ class TestDiscoverWorkflows:
             _, _, workflows = discover_custom_assets(custom_dir)
             assert workflows == {}
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_discover_single_workflow(self):
         """AC-3: Discover a single Workflow from a YAML file."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -353,6 +356,9 @@ class TestDiscoverWorkflows:
             assert isinstance(workflows["simple_workflow"], Workflow)
             assert workflows["simple_workflow"].name == "test_workflow"
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_discover_multiple_workflows(self):
         """AC-4: Discover multiple Workflows from different YAML files."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -412,6 +418,9 @@ class TestDiscoverWorkflows:
 class TestDiscoverCustomAssets:
     """Integration tests for discover_custom_assets function."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_discover_all_asset_types_together(self):
         """AC-1: Discover blocks, souls, and workflows all together."""
         with tempfile.TemporaryDirectory() as tmpdir:

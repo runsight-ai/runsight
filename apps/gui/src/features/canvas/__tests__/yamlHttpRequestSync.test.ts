@@ -16,7 +16,7 @@
 import { describe, it, expect } from "vitest";
 import { compileGraphToWorkflowYaml } from "../yamlCompiler";
 import { parseWorkflowYamlToGraph } from "../yamlParser";
-import type { StepNodeData, StepType, BlockDef, SoulDef } from "../../../types/schemas/canvas";
+import type { StepNodeData, StepType, BlockDef } from "../../../types/schemas/canvas";
 import type { Node, Edge } from "@xyflow/react";
 
 // ---------------------------------------------------------------------------
@@ -60,7 +60,6 @@ interface CompileInput {
   nodes: Node<StepNodeData>[];
   edges: Edge[];
   workflowName?: string;
-  souls?: Record<string, SoulDef>;
   config?: Record<string, unknown>;
 }
 
@@ -76,7 +75,6 @@ function roundTrip(input: CompileInput) {
   const input2: CompileInput = {
     nodes: parsed.nodes,
     edges: parsed.edges,
-    souls: parsed.souls,
     config: parsed.config,
     workflowName: input.workflowName,
   };
@@ -535,15 +533,6 @@ describe("Round-trip: http_request block", () => {
   });
 
   it("mixed workflow with http_request + other block types round-trips correctly", () => {
-    const souls: Record<string, SoulDef> = {
-      planner: {
-        id: "planner",
-        role: "planner",
-        system_prompt: "You plan tasks.",
-        model_name: "claude-3-opus",
-      },
-    };
-
     const nodes = [
       mockNode("plan", "linear", { soulRef: "planner" }),
       mockNode("fetch_data", "http_request" as StepType, {
@@ -578,7 +567,6 @@ describe("Round-trip: http_request block", () => {
     const { doc1, doc2, yaml1, yaml2 } = roundTrip({
       nodes,
       edges,
-      souls,
       workflowName: "http-pipeline",
     });
 
@@ -598,8 +586,9 @@ describe("Round-trip: http_request block", () => {
     // Transitions
     expect(doc2.workflow.transitions).toEqual(doc1.workflow.transitions);
 
-    // Souls
-    expect(doc2.souls).toEqual(doc1.souls);
+    // Souls no longer emitted (RUN-574)
+    expect(doc1).not.toHaveProperty("souls");
+    expect(doc2).not.toHaveProperty("souls");
 
     // YAML string equality
     expect(yaml2).toBe(yaml1);

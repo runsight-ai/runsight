@@ -30,6 +30,9 @@ class TestParserIntegration:
         assert "linear" in BLOCK_TYPE_REGISTRY
         assert "fanout" in BLOCK_TYPE_REGISTRY
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_parse_simple_workflow_without_workflow_blocks(self):
         """Ensure existing workflow parsing still works without workflow blocks."""
         yaml_def = """
@@ -400,6 +403,9 @@ class TestCrossFeatureInteraction:
     """Test interactions between multiple merged features."""
 
     @pytest.mark.asyncio
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     async def test_parser_produces_valid_workflow_blocks(self):
         """
         Test that if parser supported workflow blocks, it would produce

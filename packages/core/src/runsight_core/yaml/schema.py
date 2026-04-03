@@ -14,6 +14,7 @@ from pydantic import (
     GetCoreSchemaHandler,
     TypeAdapter,
     field_validator,
+    model_validator,
 )
 
 # -- Soul / Task / Task-file (unchanged) ------------------------------------
@@ -287,6 +288,15 @@ class RunsightWorkflowFile(BaseModel):
             raise ValueError(f"duplicate workflow tool ids are not allowed: {joined}")
 
         return tool_ids
+
+    @model_validator(mode="after")
+    def _reject_inline_souls(self) -> "RunsightWorkflowFile":
+        if self.souls:
+            raise ValueError(
+                "Inline souls are not supported. "
+                "Define souls in custom/souls/ and reference them via soul_ref."
+            )
+        return self
 
 
 # -- Dynamic union builders -------------------------------------------------

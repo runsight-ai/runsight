@@ -29,13 +29,14 @@ describe("Settings accessibility wiring", () => {
     );
   });
 
-  it("models tab icon-only actions use descriptive aria-labels", () => {
+  it("fallback tab controls use descriptive aria-labels", () => {
     const source = readGuiSource(MODELS_TAB_PATH);
-    expect(source).toMatch(/aria-label=\{`Save \$\{model\.provider_name\} default model`\}/);
-    expect(source).toMatch(/aria-label=\{`Cancel \$\{model\.provider_name\} model change`\}/);
+    expect(source).toMatch(/Enable fallback/);
     expect(source).toMatch(/aria-label=\{`Fallback provider for \$\{.*\}`\}/);
     expect(source).toMatch(/aria-label=\{`Fallback model for \$\{.*\}`\}/);
     expect(source).toMatch(/aria-label=\{`Clear fallback for \$\{.*\}`\}/);
+    expect(source).not.toMatch(/default model/i);
+    expect(source).not.toMatch(/model change/i);
     expect(source).not.toMatch(/aria-label=\{`Move \$\{name\} up`\}/);
     expect(source).not.toMatch(/aria-label=\{`Move \$\{name\} down`\}/);
   });

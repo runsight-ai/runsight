@@ -137,6 +137,9 @@ class TestExplicitSoulsStillWork:
     This proves the parser's soul-resolution path is intact — only the
     implicit built-in seeding is removed."""
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_explicit_soul_linear_block(self):
         """YAML with an inline soul definition parses a linear block successfully."""
         yaml_content = """\
@@ -161,6 +164,9 @@ workflow:
         assert isinstance(workflow, Workflow)
         assert workflow.name == "test_explicit_soul"
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_explicit_soul_fanout_block(self):
         """YAML with inline soul definitions parses a fanout block successfully."""
         yaml_content = """\
@@ -197,6 +203,9 @@ workflow:
         assert isinstance(workflow, Workflow)
         assert workflow.name == "test_explicit_fanout"
 
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
     def test_multiple_explicit_souls_all_resolve(self):
         """YAML defining all 6 previously-built-in names explicitly must parse."""
         yaml_content = """\

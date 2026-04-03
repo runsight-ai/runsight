@@ -21,7 +21,9 @@ def resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
     soul = souls_map.get(ref)
     if soul is None:
         raise ValueError(
-            f"Soul reference '{ref}' not found. Available souls: {sorted(souls_map.keys())}"
+            f"Soul reference '{ref}' not found in custom/souls/. "
+            f"Available souls: {sorted(souls_map.keys())}. "
+            f"Create a soul file at custom/souls/{ref}.yaml"
         )
     return soul
 

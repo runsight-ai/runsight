@@ -42,17 +42,17 @@ describe("ProvidersTab error state wiring", () => {
 });
 
 describe("ModelsTab error state wiring", () => {
-  it("reads the model-defaults query error and refetch handles", () => {
+  it("reads the fallback-targets query error and refetch handles", () => {
     const source = readSource(MODELS_TAB_PATH);
     expect(source).toMatch(
-      /const\s*\{\s*data,\s*isLoading,\s*error,\s*refetch\s*\}\s*=\s*useModelDefaults\(\)/,
+      /const\s*\{\s*data,\s*isLoading,\s*error,\s*refetch\s*\}\s*=\s*useFallbackTargets\(\)/,
     );
   });
 
   it("renders the shared retryable error presentation", () => {
     const source = readSource(MODELS_TAB_PATH);
     expect(source).toMatch(/AlertCircle/);
-    expect(source).toMatch(/Failed to load model defaults/i);
+    expect(source).toMatch(/Failed to load fallback settings/i);
     expect(source).toMatch(/error instanceof Error\s*\?\s*error\.message/);
     expect(source).toMatch(/Retry/);
   });

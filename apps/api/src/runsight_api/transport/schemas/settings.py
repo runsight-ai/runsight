@@ -9,13 +9,14 @@ class ProviderResponse(BaseModel):
     is_configured: bool
 
 
-class ModelDefaultResponse(BaseModel):
-    role: str
-    model: str
-    provider: str
+class FallbackTargetResponse(BaseModel):
+    provider_id: str
+    provider_name: str
+    fallback_provider_id: str | None = None
+    fallback_model_id: str | None = None
 
 
 class SettingsResponse(BaseModel):
     providers: List[ProviderResponse]
-    model_defaults: List[ModelDefaultResponse]
+    fallback_targets: List[FallbackTargetResponse]
     budget_limit_usd: float

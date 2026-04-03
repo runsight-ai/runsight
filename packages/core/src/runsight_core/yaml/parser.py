@@ -23,10 +23,12 @@ from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
+from runsight_core.yaml import discovery as _discovery_module
 from runsight_core.yaml.discovery import discover_custom_tools
 from runsight_core.yaml.schema import (
     ConditionDef,
     ConditionGroupDef,
+    FanOutExitDef,
     InputRef,
     RunsightTaskFile,
     RunsightWorkflowFile,
@@ -36,6 +38,7 @@ from runsight_core.yaml.schema import (
 # 1. Add the new version string here.
 # 2. Gate migration logic on ``file_def.version`` before the block-building loop.
 SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
+_UNSET_RUNNER_MODEL_NAME = "__runsight_explicit_model_required__"
 
 
 def _resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
@@ -48,9 +51,19 @@ def _resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
     soul = souls_map.get(ref)
     if soul is None:
         raise ValueError(
-            f"Soul reference '{ref}' not found. Available souls: {sorted(souls_map.keys())}"
+            f"Soul reference '{ref}' not found in custom/souls/. "
+            f"Available souls: {sorted(souls_map.keys())}. "
+            f"Create a soul file at custom/souls/{ref}.yaml"
         )
     return soul
+
+
+def _bootstrap_runner_model_name(souls_map: Dict[str, Soul]) -> str:
+    """Choose an explicit bootstrap model for parser-owned runner construction."""
+    for soul in souls_map.values():
+        if isinstance(soul.model_name, str) and soul.model_name.strip():
+            return soul.model_name
+    return _UNSET_RUNNER_MODEL_NAME
 
 
 def _convert_condition(cond_def: ConditionDef) -> Condition:
@@ -86,18 +99,35 @@ def _resolve_soul_tool_definition(tool_ref: str, workflow_tools: Collection[str]
     return tool_ref if tool_ref in workflow_tools else None
 
 
-def validate_tool_governance(file_def: RunsightWorkflowFile) -> None:
-    """Validate workflow tool declarations and soul tool references."""
+def validate_tool_governance(
+    file_def: RunsightWorkflowFile,
+    souls_map: Dict[str, Soul] | None = None,
+) -> None:
+    """Validate workflow tool declarations against referenced library souls."""
+    if souls_map is None:
+        souls_map = {}
+
     declared_tools = set(file_def.tools)
-    for soul_key, soul_def in file_def.souls.items():
-        if not soul_def.tools:
+    referenced_souls: set[str] = set()
+    for block_def in file_def.blocks.values():
+        soul_ref = getattr(block_def, "soul_ref", None)
+        if soul_ref:
+            referenced_souls.add(soul_ref)
+        if block_def.exits:
+            for exit_def in block_def.exits:
+                if isinstance(exit_def, FanOutExitDef) and exit_def.soul_ref:
+                    referenced_souls.add(exit_def.soul_ref)
+
+    for soul_key in referenced_souls:
+        soul = souls_map.get(soul_key)
+        if soul is None or not soul.tools:
             continue
 
-        for tool_name in soul_def.tools:
+        for tool_name in soul.tools:
             if _resolve_soul_tool_definition(tool_name, declared_tools) is None:
                 raise ValueError(
-                    f"Soul '{soul_key}' references undeclared tool '{tool_name}'. "
-                    f"Declared tools: {sorted(file_def.tools)}"
+                    f"Soul '{soul_key}' (custom/souls/{soul_key}.yaml) references "
+                    f"undeclared tool '{tool_name}'. Declared tools: {sorted(file_def.tools)}"
                 )
 
 
@@ -186,12 +216,22 @@ _rebuild()
 del _rebuild
 
 
+def _find_project_root(start: Path) -> str:
+    """Walk up from *start* to find the directory that contains ``custom/``."""
+    current = start.resolve()
+    for candidate in [current, *current.parents]:
+        if (candidate / "custom").is_dir():
+            return str(candidate)
+    return str(start)
+
+
 def parse_workflow_yaml(
     yaml_str_or_dict: Union[str, Dict[str, Any]],
     *,
     workflow_registry: Optional["WorkflowRegistry"] = None,
     api_keys: Optional[Dict[str, str]] = None,
     runner: Optional[Any] = None,
+    _base_dir: Optional[str] = None,
 ) -> Workflow:
     """
     Parse a YAML workflow definition into a runnable Workflow object.
@@ -215,7 +255,7 @@ def parse_workflow_yaml(
         yaml.YAMLError: If YAML content is syntactically invalid.
     """
     # Step 1: Normalize input to raw dict
-    workflow_base_dir = "."
+    workflow_base_dir = _base_dir or "."
     require_custom_metadata = False
     if isinstance(yaml_str_or_dict, str):
         stripped = yaml_str_or_dict.strip()
@@ -223,7 +263,7 @@ def parse_workflow_yaml(
             stripped.endswith(".yaml") or stripped.endswith(".yml") or stripped.endswith(".json")
         )
         if is_file_path:
-            workflow_base_dir = str(Path(stripped).resolve().parent)
+            workflow_base_dir = _base_dir or _find_project_root(Path(stripped).resolve().parent)
             require_custom_metadata = True
             with open(stripped, "r", encoding="utf-8") as f:
                 raw: Any = yaml.safe_load(f)
@@ -257,44 +297,13 @@ def parse_workflow_yaml(
             f"please upgrade runsight-core to a compatible release."
         )
 
-    # Step 3: Build souls map from YAML-defined souls
-    souls_map: Dict[str, Soul] = {}
-    for key, soul_def in file_def.souls.items():
-        provider = getattr(soul_def, "provider", None)
-        if not isinstance(provider, str):
-            provider = None
-
-        temperature = getattr(soul_def, "temperature", None)
-        if not isinstance(temperature, (float, int)) or isinstance(temperature, bool):
-            temperature = None
-        elif isinstance(temperature, int):
-            temperature = float(temperature)
-
-        max_tokens = getattr(soul_def, "max_tokens", None)
-        if not isinstance(max_tokens, int) or isinstance(max_tokens, bool):
-            max_tokens = None
-
-        avatar_color = getattr(soul_def, "avatar_color", None)
-        if not isinstance(avatar_color, str):
-            avatar_color = None
-
-        souls_map[key] = Soul(
-            id=soul_def.id,
-            role=soul_def.role,
-            system_prompt=soul_def.system_prompt,
-            tools=soul_def.tools,
-            max_tool_iterations=soul_def.max_tool_iterations,
-            model_name=soul_def.model_name,
-            provider=provider,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            avatar_color=avatar_color,
-            assertions=soul_def.assertions,
-        )
+    # Step 3: Discover library souls from custom/souls/.
+    souls_dir = Path(workflow_base_dir) / "custom" / "souls"
+    souls_map: Dict[str, Soul] = _discovery_module._discover_souls(souls_dir)
 
     # Step 4: Instantiate runner (shared across all blocks in this workflow)
     if runner is None:
-        model_name = str(file_def.config.get("model_name", "gpt-4o"))
+        model_name = _bootstrap_runner_model_name(souls_map)
         runner = RunsightTeamRunner(model_name=model_name, api_keys=api_keys)
 
     # Step 5: Build all blocks (single pass)
@@ -321,9 +330,12 @@ def parse_workflow_yaml(
             # Normalize to dict so parse_workflow_yaml receives Union[str, Dict] not model instance
             child_raw = child_file.model_dump() if hasattr(child_file, "model_dump") else child_file
 
-            # Recursively parse child workflow (passes registry for nested workflows)
+            # Recursively parse child workflow (passes registry + base_dir for nested workflows)
             child_wf = parse_workflow_yaml(
-                child_raw, workflow_registry=workflow_registry, api_keys=api_keys
+                child_raw,
+                workflow_registry=workflow_registry,
+                api_keys=api_keys,
+                _base_dir=workflow_base_dir,
             )
 
             # Read max_depth: block-level override -> global config -> default 10
@@ -399,7 +411,7 @@ def parse_workflow_yaml(
             )
 
     # Step 6.6: Validate and resolve tools per soul
-    validate_tool_governance(file_def)
+    validate_tool_governance(file_def, souls_map)
     _validate_declared_tool_definitions(
         file_def,
         base_dir=workflow_base_dir,
@@ -413,11 +425,11 @@ def parse_workflow_yaml(
 
         resolved_tools = []
         for tool_name in soul_def.tools:
-            tool_def = _resolve_soul_tool_definition(tool_name, file_def.tools)
-            if tool_def is None:
+            tool_id = _resolve_soul_tool_definition(tool_name, file_def.tools)
+            if tool_id is None:
                 continue
 
-            if tool_def == "delegate":
+            if tool_id == "delegate":
                 # Find the block that references this soul via soul_ref
                 block_id_for_soul = None
                 block_def_for_soul = None
@@ -436,19 +448,19 @@ def parse_workflow_yaml(
                 resolved_tools.append(
                     _attach_tool_runtime_metadata(
                         _resolve_tool_for_parser(
-                            tool_def,
+                            tool_id,
                             exits=exits,
                             base_dir=workflow_base_dir,
                         ),
-                        tool_def,
+                        tool_id,
                         base_dir=workflow_base_dir,
                     )
                 )
             else:
                 resolved_tools.append(
                     _attach_tool_runtime_metadata(
-                        _resolve_tool_for_parser(tool_def, base_dir=workflow_base_dir),
-                        tool_def,
+                        _resolve_tool_for_parser(tool_id, base_dir=workflow_base_dir),
+                        tool_id,
                         base_dir=workflow_base_dir,
                     )
                 )

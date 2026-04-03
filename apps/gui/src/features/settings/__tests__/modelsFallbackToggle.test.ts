@@ -9,18 +9,25 @@ function readSource(relativePath: string): string {
 }
 
 const MODELS_TAB_PATH = "features/settings/ModelsTab.tsx";
+const SETTINGS_PAGE_PATH = "features/settings/SettingsPage.tsx";
 const SETTINGS_QUERIES_PATH = "queries/settings.ts";
 const SETTINGS_API_PATH = "api/settings.ts";
 
 describe("ModelsTab fallback section wiring", () => {
-  it("keeps the Default Model per Provider section and renders a separate Fallback section below it", () => {
+  it("renders a dedicated fallback section without the old default-model section", () => {
     const source = readSource(MODELS_TAB_PATH);
 
-    expect(source).toMatch(/Default Model per Provider/);
     expect(source).toMatch(/Fallback/);
-    expect(source).toMatch(
-      /Default Model per Provider[\s\S]*<section[\s\S]*Fallback|Default Model per Provider[\s\S]*FallbackSection/,
-    );
+    expect(source).not.toMatch(/Default Model per Provider/);
+  });
+
+  it("keeps settings navigation scoped to Providers and Fallback tabs", () => {
+    const source = readSource(SETTINGS_PAGE_PATH);
+
+    expect(source).toMatch(/TabsTrigger value="providers">Providers<\/TabsTrigger>/);
+    expect(source).toMatch(/TabsTrigger value="fallback">Fallback<\/TabsTrigger>/);
+    expect(source).not.toMatch(/TabsTrigger value="models">/);
+    expect(source).not.toMatch(/Default Model/);
   });
 
   it("imports Switch plus app-settings hooks for fallback toggle state", () => {
@@ -38,7 +45,7 @@ describe("ModelsTab fallback section wiring", () => {
     expect(source).not.toMatch(/fallback_chain_enabled/);
     expect(source).toMatch(/useAppSettings\(\)/);
     expect(source).toMatch(
-      /fallback_enabled\s*\?\?+\s*true|fallbackEnabled.*=\s*.*fallback_enabled.*\?\?\s*true/,
+      /fallback_enabled\s*\?\?+\s*false|fallbackEnabled.*=\s*.*fallback_enabled.*\?\?\s*false/,
     );
   });
 
@@ -47,16 +54,18 @@ describe("ModelsTab fallback section wiring", () => {
 
     expect(source).toMatch(/allProviders/);
     expect(source).toMatch(/allProviders\.length\s*===\s*0/);
-    expect(source).toMatch(/No model defaults configured/);
+    expect(source).toMatch(/No providers configured/);
   });
 
   it("renders a disabled fallback empty state when fewer than two providers are enabled", () => {
     const source = readSource(MODELS_TAB_PATH);
 
     expect(source).toMatch(/enabledProviders/);
-    expect(source).toMatch(/enabledProviders\.length\s*<\s*2/);
-    expect(source).toMatch(/Enable at least two providers to configure fallback targets\./);
-    expect(source).toMatch(/disabled=\{[^}]*enabledProviders\.length\s*<\s*2/);
+    expect(source).toMatch(/canConfigureFallback\s*=\s*enabledProviders\.length\s*>=\s*2/);
+    expect(source).toMatch(
+      /Enable at least two providers to configure runtime fallback\. Once two providers are enabled, you can choose one fallback target per provider\./,
+    );
+    expect(source).toMatch(/disabled=\{[^}]*!canConfigureFallback/);
   });
 
   it("greys out fallback rows when the toggle is off and restores them when enabled", () => {
@@ -85,13 +94,13 @@ describe("Fallback section persistence contracts", () => {
     expect(source).toMatch(/export function useUpdateAppSettings/);
   });
 
-  it("keeps using the canonical shared schemas for app settings and model defaults", () => {
+  it("keeps using the canonical shared schemas for app settings and fallback targets", () => {
     const apiSource = readSource(SETTINGS_API_PATH);
 
     expect(apiSource).toMatch(/AppSettingsOutSchema/);
-    expect(apiSource).toMatch(/SettingsModelDefaultResponseSchema/);
+    expect(apiSource).toMatch(/SettingsFallbackResponseSchema/);
     expect(apiSource).toMatch(/from\s+"@runsight\/shared\/zod"/);
     expect(apiSource).toMatch(/return AppSettingsOutSchema\.parse\(res\);/);
-    expect(apiSource).toMatch(/return SettingsModelDefaultResponseSchema\.parse\(res\);/);
+    expect(apiSource).toMatch(/return SettingsFallbackResponseSchema\.parse\(res\);/);
   });
 });

@@ -1,8 +1,7 @@
 """Filesystem-backed settings repository.
 
 Persists app settings as a single YAML file at .runsight/settings.yaml.
-Manages default provider, auto_save, onboarding state, fallback targets,
-and model defaults.
+Manages flat app settings and per-provider fallback targets.
 """
 
 import logging
@@ -14,7 +13,6 @@ import yaml
 from ...domain.entities.settings import (
     AppSettingsConfig,
     FallbackTargetEntry,
-    ModelDefaultEntry,
 )
 from ._utils import atomic_write
 
@@ -22,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 # Flat setting keys that live at the top level of the YAML file
 _FLAT_KEYS = {
-    "default_provider",
     "auto_save",
     "onboarding_completed",
     "fallback_enabled",
@@ -32,8 +29,7 @@ _FLAT_KEYS = {
 class FileSystemSettingsRepo:
     """Persists app settings in .runsight/settings.yaml.
 
-    All sections (flat settings, fallback_map, model_defaults) coexist
-    in a single YAML file.
+    Flat settings and fallback_map coexist in a single YAML file.
     """
 
     def __init__(self, base_path: str = "."):
@@ -91,8 +87,7 @@ class FileSystemSettingsRepo:
     def update_settings(self, updates: dict[str, Any]) -> AppSettingsConfig:
         """Merge partial updates into flat settings (shallow merge).
 
-        Only keys in _FLAT_KEYS are considered. Other sections (fallback_map,
-        model_defaults) are preserved.
+        Only keys in _FLAT_KEYS are considered. Other sections are preserved.
         """
         data = self._load_yaml() or {}
         for key in _FLAT_KEYS:
@@ -152,43 +147,3 @@ class FileSystemSettingsRepo:
         data["fallback_map"] = filtered
         self._write_yaml(data)
         return True
-
-    # ------------------------------------------------------------------
-    # Public API: model defaults
-    # ------------------------------------------------------------------
-
-    def list_model_defaults(self) -> list[ModelDefaultEntry]:
-        """List all model default entries. Returns empty list if missing or invalid."""
-        data = self._load_yaml()
-        if data is None:
-            return []
-        defaults_data = data.get("model_defaults")
-        if not isinstance(defaults_data, list):
-            return []
-        return [ModelDefaultEntry(**entry) for entry in defaults_data]
-
-    def set_model_default(self, entry: ModelDefaultEntry) -> ModelDefaultEntry:
-        """Upsert a model default by (provider_id, model_id) composite key."""
-        data = self._load_yaml() or {}
-        defaults_data: list[dict[str, Any]] = data.get("model_defaults", [])
-        if not isinstance(defaults_data, list):
-            defaults_data = []
-
-        # Find existing entry by composite key
-        entry_dict = entry.model_dump()
-        updated = False
-        for i, existing in enumerate(defaults_data):
-            if (
-                existing.get("provider_id") == entry.provider_id
-                and existing.get("model_id") == entry.model_id
-            ):
-                defaults_data[i] = entry_dict
-                updated = True
-                break
-
-        if not updated:
-            defaults_data.append(entry_dict)
-
-        data["model_defaults"] = defaults_data
-        self._write_yaml(data)
-        return entry

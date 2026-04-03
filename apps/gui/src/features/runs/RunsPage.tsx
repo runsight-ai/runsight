@@ -20,9 +20,9 @@ import {
   TableRow,
 } from "@runsight/ui/table";
 import type { RunResponse } from "@runsight/shared/zod";
-import { ChevronDown, Play } from "lucide-react";
+import { AlertTriangle, ChevronDown, Play, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useRuns } from "@/queries/runs";
 import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
 
@@ -35,6 +35,7 @@ type SortColumn =
   | "duration"
   | "cost"
   | "eval"
+  | "regressions"
   | "started";
 type SortDirection = "ascending" | "descending";
 type SourceFilter = "production" | "all";
@@ -145,6 +146,23 @@ function EvalCell({ evalPassPct }: { evalPassPct: number | null | undefined }) {
   );
 }
 
+function RegressionCell({
+  regressionCount,
+}: {
+  regressionCount: number | null | undefined;
+}) {
+  if (!regressionCount) {
+    return <span className="text-muted">—</span>;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1" style={{ color: "var(--warning-11)" }}>
+      <AlertTriangle className="h-3.5 w-3.5" />
+      {regressionCount}
+    </span>
+  );
+}
+
 function compareValues(
   left: string | number | null | undefined,
   right: string | number | null | undefined,
@@ -191,6 +209,8 @@ function getSortValue(run: RunResponse, column: SortColumn) {
       return run.total_cost_usd ?? -1;
     case "eval":
       return run.eval_pass_pct;
+    case "regressions":
+      return run.regression_count;
     case "started":
       return run.started_at ?? -1;
   }
@@ -205,23 +225,29 @@ const RUN_COLUMNS: Array<{ key: SortColumn; label: string }> = [
   { key: "duration", label: "Duration" },
   { key: "cost", label: "Cost" },
   { key: "eval", label: "Eval" },
+  { key: "regressions", label: "Regr" },
   { key: "started", label: "Started" },
 ];
 
 export function Component() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const workflowFilter = searchParams.get("workflow");
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("production");
   const [sortColumn, setSortColumn] = useState<SortColumn>("started");
   const [sortDirection, setSortDirection] = useState<SortDirection>("descending");
 
-  const queryParams = useMemo(
-    () =>
-      sourceFilter === "all"
-        ? undefined
-        : { source: [...PRODUCTION_RUN_SOURCES] },
-    [sourceFilter],
-  );
+  const queryParams = useMemo(() => {
+    const params: Record<string, string | string[]> =
+      sourceFilter === "all" ? {} : { source: [...PRODUCTION_RUN_SOURCES] };
+
+    if (workflowFilter) {
+      params.workflow_id = workflowFilter;
+    }
+
+    return Object.keys(params).length > 0 ? params : undefined;
+  }, [sourceFilter, workflowFilter]);
   const { data, isLoading, error, refetch } = useRuns(queryParams);
   const visibleColumns = useMemo(
     () =>
@@ -232,6 +258,18 @@ export function Component() {
   );
 
   const runs = useMemo(() => data?.items ?? [], [data?.items]);
+  const filteredWorkflowName = workflowFilter
+    ? runs[0]?.workflow_name ?? workflowFilter
+    : null;
+
+  const clearWorkflowFilter = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("workflow");
+      return next;
+    });
+  };
+
   const filteredRuns = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const matchingRuns = normalizedQuery
@@ -272,7 +310,22 @@ export function Component() {
 
   return (
     <div className="flex h-full flex-col bg-surface-primary">
-      <PageHeader title="Runs" />
+      <PageHeader
+        title={filteredWorkflowName ? `Runs \u2014 ${filteredWorkflowName}` : "Runs"}
+        actions={
+          filteredWorkflowName ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Clear workflow filter"
+              onClick={clearWorkflowFilter}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          ) : undefined
+        }
+      />
 
       <main className="flex-1 overflow-auto px-6 pb-6">
         <section className="flex h-full flex-col py-4">
@@ -421,6 +474,9 @@ export function Component() {
                         <TableCell data-type="metric">{formatCost(run.total_cost_usd)}</TableCell>
                         <TableCell data-type="metric">
                           <EvalCell evalPassPct={run.eval_pass_pct} />
+                        </TableCell>
+                        <TableCell data-type="metric">
+                          <RegressionCell regressionCount={run.regression_count} />
                         </TableCell>
                         <TableCell data-type="timestamp">{formatStartedAt(run.started_at)}</TableCell>
                       </TableRow>

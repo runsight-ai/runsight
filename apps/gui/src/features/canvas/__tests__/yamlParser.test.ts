@@ -333,7 +333,7 @@ describe("Universal fields parsed", () => {
 // ===========================================================================
 
 describe("Souls section parsed", () => {
-  it("YAML souls section populates ParseWorkflowResult.souls", () => {
+  it("YAML souls section is stripped from result and emits deprecation warning (RUN-574)", () => {
     const yaml = makeYaml(
       { step1: { type: "linear", soul_ref: "analyst" } },
       {
@@ -348,11 +348,11 @@ describe("Souls section parsed", () => {
       },
     );
     const result = parseWorkflowYamlToGraph(yaml);
-    // The result should expose souls from the YAML
-    expect((result as any).souls).toBeDefined();
-    expect((result as any).souls.analyst).toBeDefined();
-    expect((result as any).souls.analyst.id).toBe("analyst");
-    expect((result as any).souls.analyst.role).toBe("Data Analyst");
+    // After RUN-574, souls are no longer propagated to the result
+    expect(result).not.toHaveProperty("souls");
+    // A deprecation warning should be emitted
+    expect(result.error).toBeDefined();
+    expect(result.error!.message).toMatch(/souls/i);
   });
 });
 

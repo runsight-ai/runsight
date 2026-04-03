@@ -1,7 +1,7 @@
 import { stringify } from "yaml";
 import type { Edge, Node, Viewport } from "@xyflow/react";
 import type { PersistedCanvasState } from "../../store/canvas";
-import type { StepNodeData, StepType, BlockDef, SoulDef } from "../../types/schemas/canvas";
+import type { StepNodeData, StepType, BlockDef } from "../../types/schemas/canvas";
 
 interface CompileInput {
   nodes: Node<StepNodeData>[];
@@ -10,14 +10,12 @@ interface CompileInput {
   selectedNodeId?: string | null;
   canvasMode?: "dag" | "state-machine";
   workflowName?: string;
-  souls?: Record<string, SoulDef>;
   config?: Record<string, unknown>;
 }
 
 interface CompiledWorkflow {
   version: string;
   config?: Record<string, unknown>;
-  souls?: Record<string, SoulDef>;
   blocks: Record<string, BlockDef>;
   workflow: {
     name: string;
@@ -193,15 +191,11 @@ export function compileGraphToWorkflowYaml(input: CompileInput): {
   }, {});
 
   // Build compiled object with keys in Python schema order:
-  // version → config → souls → blocks → workflow
+  // version → config → blocks → workflow
   const compiled: CompiledWorkflow = { version: "1.0" } as CompiledWorkflow;
 
   if (input.config && Object.keys(input.config).length > 0) {
     compiled.config = input.config;
-  }
-
-  if (input.souls && Object.keys(input.souls).length > 0) {
-    compiled.souls = input.souls;
   }
 
   compiled.blocks = blocks;

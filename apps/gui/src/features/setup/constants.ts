@@ -1,27 +1,5 @@
 export const TEMPLATE_YAML = `\
 version: '1.0'
-souls:
-  researcher:
-    id: researcher_1
-    role: Senior Researcher
-    system_prompt: >
-      You are an expert researcher. Given a topic, provide a concise,
-      well-structured summary of the key findings, trends, and insights.
-      Cite sources where possible. Be thorough but concise.
-  writer:
-    id: writer_1
-    role: Summary Writer
-    system_prompt: >
-      You are a skilled technical writer. Take research findings and
-      transform them into a polished, readable summary. Structure your
-      output with clear sections, highlights, and a conclusion.
-      Keep the summary under 500 words.
-  reviewer:
-    id: reviewer_1
-    role: Quality Reviewer
-    system_prompt: >
-      Evaluate if the content meets quality standards. Check for accuracy,
-      completeness, and clarity. Provide specific feedback.
 blocks:
   research:
     type: linear

@@ -58,11 +58,6 @@ type ProviderFixture = {
 type SettingsFixture = {
   fallback_enabled?: boolean;
   onboarding_completed?: boolean;
-  model_defaults?: Array<{
-    provider_id: string;
-    model_id: string;
-    is_default?: boolean;
-  }>;
   fallback_map?: Array<{
     provider_id: string;
     fallback_provider_id: string;
@@ -91,19 +86,6 @@ const ANTHROPIC_ENABLED: ProviderFixture = {
 const ANTHROPIC_DISABLED: ProviderFixture = {
   ...ANTHROPIC_ENABLED,
   is_active: false,
-};
-
-const TWO_PROVIDER_DEFAULTS: SettingsFixture = {
-  fallback_enabled: false,
-  model_defaults: [
-    { provider_id: "openai", model_id: "gpt-4o", is_default: true },
-    { provider_id: "anthropic", model_id: "claude-sonnet-4", is_default: true },
-  ],
-};
-
-const ONE_PROVIDER_DEFAULTS: SettingsFixture = {
-  fallback_enabled: false,
-  model_defaults: [{ provider_id: "openai", model_id: "gpt-4o", is_default: true }],
 };
 
 let originalProviderFiles = new Map<string, string>();
@@ -197,28 +179,20 @@ async function applyFixture(providers: ProviderFixture[], settings: SettingsFixt
     return data.items.map((provider) => provider.id).sort().join(",");
   }).toBe(providers.map((provider) => provider.id).sort().join(","));
   await expect.poll(async () => {
-    const data = await apiGet<{ items: Array<{ id: string }>; total: number }>("/settings/models");
+    const data = await apiGet<{ items: Array<{ id: string }>; total: number }>("/settings/fallbacks");
     return data.total;
-  }).toBe(settings?.model_defaults?.filter((entry) => {
-    const provider = providers.find((candidate) => candidate.id === entry.provider_id);
-    return provider?.is_active ?? false;
-  }).length ?? 0);
+  }).toBe(providers.filter((provider) => provider.is_active).length);
 }
 
-async function openModelsTab(page: Page) {
+async function openFallbackTab(page: Page) {
   await page.goto("/settings");
   await expect(page.getByRole("tablist")).toBeVisible();
-  const modelsTab = page.getByRole("tab", { name: "Models" });
-  await modelsTab.click();
-  await expect(modelsTab).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("tabpanel", { name: "Models" })).toBeVisible();
+  const fallbackTab = page.getByRole("tab", { name: "Fallback" });
+  await fallbackTab.click();
+  await expect(fallbackTab).toHaveAttribute("aria-selected", "true");
 }
 
-async function chooseSelectOption(
-  page: Page,
-  label: string,
-  optionText: string,
-) {
+async function chooseSelectOption(page: Page, label: string, optionText: string) {
   await page.getByLabel(label).click();
   await page.getByRole("option", { name: optionText, exact: true }).click();
 }
@@ -232,46 +206,40 @@ test.describe("Per-provider fallback configuration", () => {
     await restoreWorkspace();
   });
 
-  test("zero providers shows the full Models empty state with no Fallback section", async ({
-    page,
-  }) => {
-    await applyFixture([], { fallback_enabled: false, model_defaults: [] });
+  test("zero providers shows the fallback empty state", async ({ page }) => {
+    await applyFixture([], { fallback_enabled: false, fallback_map: [] });
 
-    await openModelsTab(page);
+    await openFallbackTab(page);
 
-    await expect(page.getByText("No model defaults configured")).toBeVisible();
-    await expect(
-      page.getByText(
-        "Model defaults and fallback targets will appear here once providers are connected and models are available.",
-      ),
-    ).toBeVisible();
+    await expect(page.getByText("No providers configured")).toBeVisible();
     await expect(page.getByText("Fallback", { exact: true })).toHaveCount(0);
     await expect(page.getByLabel("Enable fallback")).toHaveCount(0);
   });
 
-  test("one enabled provider keeps one default-model row and a disabled empty fallback state", async ({
-    page,
-  }) => {
-    await applyFixture([OPENAI_ENABLED], ONE_PROVIDER_DEFAULTS);
+  test("one enabled provider keeps fallback disabled and hides rows", async ({ page }) => {
+    await applyFixture([OPENAI_ENABLED], { fallback_enabled: false, fallback_map: [] });
 
-    await openModelsTab(page);
+    await openFallbackTab(page);
 
-    await expect(page.getByText("Default Model per Provider")).toBeVisible();
-    await expect(page.getByText("OpenAI", { exact: true })).toBeVisible();
     await expect(page.getByText("Fallback", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Enable fallback")).toBeDisabled();
     await expect(
-      page.getByText("Enable at least two providers to configure fallback targets."),
+      page.getByText(
+        "Enable at least two providers to configure runtime fallback. Once two providers are enabled, you can choose one fallback target per provider.",
+      ),
     ).toBeVisible();
     await expect(page.getByLabel("Fallback provider for OpenAI")).toHaveCount(0);
   });
 
-  test("two enabled providers render fallback rows greyed out while the toggle is off by default", async ({
+  test("two enabled providers render rows greyed out while the toggle is off by default", async ({
     page,
   }) => {
-    await applyFixture([OPENAI_ENABLED, ANTHROPIC_ENABLED], TWO_PROVIDER_DEFAULTS);
+    await applyFixture(
+      [OPENAI_ENABLED, ANTHROPIC_ENABLED],
+      { fallback_enabled: false, fallback_map: [] },
+    );
 
-    await openModelsTab(page);
+    await openFallbackTab(page);
 
     const disabledRows = page.locator('div[style*="opacity: 0.4"][style*="pointer-events: none"]');
 
@@ -290,32 +258,31 @@ test.describe("Per-provider fallback configuration", () => {
       [OPENAI_ENABLED, ANTHROPIC_ENABLED],
       {
         fallback_enabled: true,
-        model_defaults: TWO_PROVIDER_DEFAULTS.model_defaults,
         fallback_map: [],
       },
     );
 
-    const modelUpdateBodies: Array<Record<string, unknown>> = [];
+    const updateBodies: Array<Record<string, unknown>> = [];
     const onRequest = (request: Request) => {
-      if (request.method() !== "PUT" || !request.url().includes("/api/settings/models/")) {
+      if (request.method() !== "PUT" || !request.url().includes("/api/settings/fallbacks/")) {
         return;
       }
       const body = request.postData();
-      modelUpdateBodies.push(body ? (JSON.parse(body) as Record<string, unknown>) : {});
+      updateBodies.push(body ? (JSON.parse(body) as Record<string, unknown>) : {});
     };
     page.on("request", onRequest);
 
-    await openModelsTab(page);
+    await openFallbackTab(page);
 
     await expect(page.getByLabel("Enable fallback")).toHaveAttribute("aria-checked", "true");
     await chooseSelectOption(page, "Fallback provider for OpenAI", "Anthropic");
     await expect(page.getByLabel("Fallback model for OpenAI")).toBeEnabled();
-    expect(modelUpdateBodies).toHaveLength(0);
+    expect(updateBodies).toHaveLength(0);
 
     await chooseSelectOption(page, "Fallback model for OpenAI", "claude-sonnet-4");
 
-    await expect.poll(() => modelUpdateBodies.length).toBe(1);
-    expect(modelUpdateBodies[0]).toEqual({
+    await expect.poll(() => updateBodies.length).toBe(1);
+    expect(updateBodies[0]).toEqual({
       fallback_provider_id: "anthropic",
       fallback_model_id: "claude-sonnet-4",
     });
@@ -327,13 +294,13 @@ test.describe("Per-provider fallback configuration", () => {
           fallback_provider_id: string | null;
           fallback_model_id: string | null;
         }>;
-      }>("/settings/models");
+      }>("/settings/fallbacks");
       const openaiRow = data.items.find((item) => item.id === "openai");
       return `${openaiRow?.fallback_provider_id ?? "null"}|${openaiRow?.fallback_model_id ?? "null"}`;
     }).toBe("anthropic|claude-sonnet-4");
 
     await page.getByRole("tab", { name: "Providers" }).click();
-    await page.getByRole("tab", { name: "Models" }).click();
+    await page.getByRole("tab", { name: "Fallback" }).click();
 
     await expect(page.getByLabel("Fallback provider for OpenAI")).toContainText("Anthropic");
     await expect(page.getByLabel("Fallback model for OpenAI")).toContainText("claude-sonnet-4");
@@ -342,7 +309,6 @@ test.describe("Per-provider fallback configuration", () => {
       [OPENAI_ENABLED, ANTHROPIC_DISABLED],
       {
         fallback_enabled: true,
-        model_defaults: TWO_PROVIDER_DEFAULTS.model_defaults,
         fallback_map: [
           {
             provider_id: "openai",
@@ -353,20 +319,20 @@ test.describe("Per-provider fallback configuration", () => {
       },
     );
 
-    await openModelsTab(page);
+    await openFallbackTab(page);
 
     await expect(page.getByLabel("Enable fallback")).toBeDisabled();
     await expect(
-      page.getByText("Enable at least two providers to configure fallback targets."),
+      page.getByText(
+        "Enable at least two providers to configure runtime fallback. Once two providers are enabled, you can choose one fallback target per provider.",
+      ),
     ).toBeVisible();
     await expect(page.getByLabel("Fallback provider for OpenAI")).toHaveCount(0);
-    await expect(page.getByLabel("Fallback provider for Anthropic")).toHaveCount(0);
 
     await applyFixture(
       [OPENAI_ENABLED, ANTHROPIC_ENABLED],
       {
         fallback_enabled: true,
-        model_defaults: TWO_PROVIDER_DEFAULTS.model_defaults,
         fallback_map: [
           {
             provider_id: "openai",
@@ -377,7 +343,7 @@ test.describe("Per-provider fallback configuration", () => {
       },
     );
 
-    await openModelsTab(page);
+    await openFallbackTab(page);
 
     await expect(page.getByLabel("Enable fallback")).toHaveAttribute("aria-checked", "true");
     await expect(page.getByLabel("Fallback provider for OpenAI")).toContainText("Anthropic");

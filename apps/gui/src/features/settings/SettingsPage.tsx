@@ -13,7 +13,7 @@ import { ModelsTab } from "./ModelsTab";
 import type { EditingProvider } from "@/components/provider/ProviderSetup";
 import type { Provider } from "@/api/settings";
 
-type TabValue = "providers" | "models";
+type TabValue = "providers" | "fallback";
 
 function toEditing(provider: Provider): EditingProvider {
   return {
@@ -73,7 +73,7 @@ export function Component() {
             activateOnFocus={false}
           >
             <TabsTrigger value="providers">Providers</TabsTrigger>
-            <TabsTrigger value="models">Models</TabsTrigger>
+            <TabsTrigger value="fallback">Fallback</TabsTrigger>
           </TabsList>
 
           <TabsContent value="providers" className="mt-0">
@@ -85,7 +85,7 @@ export function Component() {
               editing={editing}
             />
           </TabsContent>
-          <TabsContent value="models" className="mt-0">
+          <TabsContent value="fallback" className="mt-0">
             <ModelsTab />
           </TabsContent>
         </Tabs>

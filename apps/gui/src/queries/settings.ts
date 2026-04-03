@@ -97,24 +97,24 @@ export function useTestProviderCredentials() {
   });
 }
 
-export function useModelDefaults() {
+export function useFallbackTargets() {
   return useQuery({
-    queryKey: queryKeys.settings.modelDefaults,
-    queryFn: settingsApi.listModelDefaults,
+    queryKey: queryKeys.settings.fallback,
+    queryFn: settingsApi.listFallbackTargets,
   });
 }
 
-export function useUpdateModelDefault() {
+export function useUpdateFallbackTarget() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof settingsApi.updateModelDefault>[1] }) =>
-      settingsApi.updateModelDefault(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof settingsApi.updateFallbackTarget>[1] }) =>
+      settingsApi.updateFallbackTarget(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.settings.modelDefaults });
-      toast.success("Model default updated");
+      queryClient.invalidateQueries({ queryKey: queryKeys.settings.fallback });
+      toast.success("Fallback target updated");
     },
     onError: (error: Error) => {
-      toast.error("Failed to update model default", { description: error.message });
+      toast.error("Failed to update fallback target", { description: error.message });
     },
   });
 }
