@@ -46,6 +46,9 @@ class ToolMeta:
     timeout_seconds: int | None = None
 
 
+RESERVED_BUILTIN_TOOL_IDS = frozenset({"http", "file_io", "delegate"})
+
+
 def _to_snake_case(name: str) -> str:
     """
     Convert CamelCase class name to snake_case identifier.
@@ -160,6 +163,17 @@ def discover_custom_tools(base_dir: str | Path) -> Dict[str, ToolMeta]:
 
     for yaml_file in tools_dir.glob("*.yaml"):
         tool_id = yaml_file.stem
+        if tool_id in RESERVED_BUILTIN_TOOL_IDS:
+            collision_path = yaml_file
+            try:
+                collision_path = yaml_file.relative_to(base_path)
+            except ValueError:
+                pass
+            raise _fail_tool_file(
+                yaml_file,
+                f"reserved builtin tool id {tool_id!r} collides with custom tool metadata at "
+                f"{collision_path}",
+            )
         if tool_id in discovered:
             raise _fail_tool_file(yaml_file, f"duplicate custom tool id collision for {tool_id!r}")
 

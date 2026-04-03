@@ -19,15 +19,17 @@ from runsight_core.blocks.code import (
     _validate_code_ast,
 )
 from runsight_core.security import validate_ssrf
-from runsight_core.yaml.discovery import ToolMeta, discover_custom_tools
-from runsight_core.yaml.schema import BuiltinToolDef, CustomToolDef, HTTPToolDef, ToolDef
+from runsight_core.yaml.discovery import (
+    RESERVED_BUILTIN_TOOL_IDS,
+    ToolMeta,
+    discover_custom_tools,
+)
 
 # ---------------------------------------------------------------------------
 # Module-level registry
 # ---------------------------------------------------------------------------
 
 BUILTIN_TOOL_CATALOG: Dict[str, Callable] = {}
-RESERVED_BUILTIN_TOOL_IDS = frozenset({"http", "file_io", "delegate"})
 _ARG_TEMPLATE_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
 _ENV_TEMPLATE_RE = re.compile(r"\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 
@@ -76,14 +78,6 @@ def get_builtin(source: str) -> Callable | None:
 # ---------------------------------------------------------------------------
 # Resolution
 # ---------------------------------------------------------------------------
-
-
-def _resolve_builtin_tool(tool_def: BuiltinToolDef, **kwargs: object) -> ToolInstance:
-    """Resolve a built-in tool through the registered factory catalog."""
-    factory = BUILTIN_TOOL_CATALOG.get(tool_def.source)
-    if factory is None:
-        raise ValueError(f"Unknown tool source: {tool_def.source!r}")
-    return factory(**kwargs)
 
 
 def _tool_instance_name(tool_id: str) -> str:
@@ -160,11 +154,6 @@ def _resolve_custom_tool_id(
     )
 
 
-def resolve_custom_tool(tool_def: CustomToolDef, **kwargs: object) -> ToolInstance:
-    """Resolve a custom tool from ``custom/tools/*.yaml`` metadata."""
-    return _resolve_custom_tool_id(tool_def.source, **kwargs)
-
-
 def _render_http_template(template: str | None, args: dict) -> str | None:
     """Render ``{{ param }}`` placeholders and ``${ENV}`` references."""
     if template is None:
@@ -211,7 +200,7 @@ def _build_http_tool(
                 if (rendered_value := _render_http_template(value, args)) is not None
             }
             if headers
-            else None
+            else {}
         )
         await validate_ssrf(rendered_url)
 
@@ -276,32 +265,11 @@ def _resolve_http_tool_id(
     )
 
 
-def _resolve_http_tool(tool_def: HTTPToolDef, **kwargs: object) -> ToolInstance:
-    """Resolve an HTTP tool from inline fields or ``custom/tools/*.yaml`` metadata."""
-    method = tool_def.method or "GET"
-    url = tool_def.url
-    body_template = tool_def.body_template
-    response_path = tool_def.response_path
-
-    if url is None:
-        if tool_def.source is None:
-            raise ValueError("HTTP tools must declare either an inline URL or a file source slug")
-        return _resolve_http_tool_id(tool_def.source, **kwargs)
-
-    return _build_http_tool(
-        tool_name=_tool_instance_name(tool_def.source or "http_tool"),
-        description=f"HTTP tool '{_tool_instance_name(tool_def.source or 'http_tool')}'",
-        parameters={"type": "object", "properties": {}},
-        method=method,
-        url=url,
-        headers=None,
-        body_template=body_template,
-        response_path=response_path,
-    )
-
-
 def resolve_tool_id(tool_id: str, **kwargs: object) -> ToolInstance:
     """Resolve a workflow-authored canonical tool ID to a ToolInstance."""
+    if not isinstance(tool_id, str):
+        raise TypeError(f"tool_id must be a string, got {type(tool_id)!r}")
+
     base_dir = kwargs.get("base_dir", ".")
     discovered_tools = discover_custom_tools(base_dir)
 
@@ -328,18 +296,6 @@ def resolve_tool_id(tool_id: str, **kwargs: object) -> ToolInstance:
     raise ValueError(f"Unsupported discovered tool executor {tool_meta.executor!r} for {tool_id!r}")
 
 
-def resolve_tool(tool_def: ToolDef, **kwargs: object) -> ToolInstance:
-    """Dispatch to the appropriate resolver for the validated ToolDef variant.
-
-    Raises:
-        ValueError: If the builtin source is not registered in BUILTIN_TOOL_CATALOG.
-        NotImplementedError: If custom/http resolution has not been implemented yet.
-    """
-    if isinstance(tool_def, BuiltinToolDef):
-        return _resolve_builtin_tool(tool_def, **kwargs)
-    if isinstance(tool_def, CustomToolDef):
-        return resolve_custom_tool(tool_def, **kwargs)
-    if isinstance(tool_def, HTTPToolDef):
-        return _resolve_http_tool(tool_def, **kwargs)
-
-    raise TypeError(f"Unsupported tool definition type: {type(tool_def)!r}")
+def resolve_tool(tool_id: str, **kwargs: object) -> ToolInstance:
+    """Resolve a canonical tool ID to a ToolInstance."""
+    return resolve_tool_id(tool_id, **kwargs)

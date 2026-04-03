@@ -13,13 +13,13 @@ router = APIRouter(prefix="/tools", tags=["Tools"])
 
 _USER_FACING_BUILTIN_TOOLS = (
     ToolListItemResponse(
-        slug="runsight/http",
+        slug="http",
         name="HTTP Requests",
         description="Fetch external APIs.",
         type="builtin",
     ),
     ToolListItemResponse(
-        slug="runsight/file-io",
+        slug="file_io",
         name="Workspace Files",
         description="Read project files.",
         type="builtin",
@@ -40,8 +40,8 @@ async def list_tools() -> List[ToolListItemResponse]:
         items.append(
             ToolListItemResponse(
                 slug=slug,
-                name=_format_tool_name(slug),
-                description=f"Discovered {tool_meta.type} tool from custom/tools.",
+                name=tool_meta.name or _format_tool_name(slug),
+                description=tool_meta.description,
                 type=tool_meta.type,
             )
         )
