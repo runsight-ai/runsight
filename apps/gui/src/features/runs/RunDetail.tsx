@@ -22,9 +22,11 @@ import { RunCanvasNode, CanvasNodeComponent, nodeTypes } from "./RunCanvasNode";
 import type { RunNodeData } from "./RunCanvasNode";
 import { RunInspectorPanel } from "./RunInspectorPanel";
 import { RunBottomPanel } from "./RunBottomPanel";
-import { RunDetailHeader } from "./RunDetailHeader";
 import { HistoricalWorkflowSurface } from "./HistoricalWorkflowSurface";
+import { WorkflowSurfaceTopbar } from "../canvas/WorkflowSurfaceTopbar";
 import { getIconForBlockType, mapRunStatus } from "./runDetailUtils";
+import { createForkDraftWorkflow } from "./useForkWorkflow";
+import { toast } from "sonner";
 
 export { RunCanvasNode };
 
@@ -100,7 +102,46 @@ function RunDetailInner() {
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node<RunNodeData>) => { setSelectedNode(node); }, []);
   const onPaneClick = useCallback(() => { setSelectedNode(null); }, []);
   const logs = useMemo(() => runLogs?.items || [], [runLogs]);
-  const regressionCount = regressionData?.items?.length ?? 0;
+  const regressionCount = regressionData?.count ?? 0;
+  const [isForking, setIsForking] = useState(false);
+  const navigateToWorkflowSurface = useCallback(
+    (path: string, state?: Record<string, unknown>) => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      window.history.pushState(state ?? null, "", path);
+      window.dispatchEvent(new PopStateEvent("popstate", { state }));
+    },
+    [],
+  );
+  const handleOpenWorkflow = useCallback(() => {
+    if (run?.workflow_id) {
+      navigateToWorkflowSurface(`/workflows/${run.workflow_id}/edit`);
+    }
+  }, [navigateToWorkflowSurface, run]);
+  const handleFork = useCallback(async () => {
+    const hasSnapshot = Boolean(run?.commit_sha);
+    const forkDisabled = !run || run.status === "running" || run.status === "pending" || !hasSnapshot;
+    if (forkDisabled || isForking) return;
+
+    setIsForking(true);
+
+    try {
+      const result = await createForkDraftWorkflow({
+        commitSha: run.commit_sha ?? "",
+        workflowPath: `custom/workflows/${run.workflow_id}.yaml`,
+        workflowName: run.workflow_name,
+      });
+
+      navigateToWorkflowSurface(`/workflows/${result.id}/edit`, {
+        workflowSurfaceMode: "fork-draft",
+      });
+    } catch {
+      toast.error("Couldn't create fork. Try again.");
+      setIsForking(false);
+    }
+  }, [isForking, navigateToWorkflowSurface, run]);
 
   if (isLoadingRun || isLoadingNodes) {
     return (
@@ -122,11 +163,22 @@ function RunDetailInner() {
   }
 
   const isFailed = run.status === "failed" || run.status === "error";
+  const hasSnapshot = Boolean(run.commit_sha);
 
   return (
     <HistoricalWorkflowSurface
       runId={run.id}
-      topbar={<RunDetailHeader run={run} metrics={{ total_cost_usd: run.total_cost_usd, total_tokens: run.total_tokens }} />}
+      topbar={
+        <WorkflowSurfaceTopbar
+          mode="historical"
+          workflowName={run.workflow_name}
+          run={run}
+          metrics={{ total_cost_usd: run.total_cost_usd, total_tokens: run.total_tokens }}
+          hasSnapshot={hasSnapshot}
+          onFork={handleFork}
+          onOpenWorkflow={handleOpenWorkflow}
+        />
+      }
       mainContent={
         <>
           <PriorityBanner conditions={[{ type: "regressions", active: regressionCount > 0, message: `${regressionCount} regressions found` }]} />

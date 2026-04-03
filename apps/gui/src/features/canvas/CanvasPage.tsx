@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useParams, useBlocker, useLocation } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { CanvasTopbar } from "./CanvasTopbar";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { FirstTimeTooltip } from "./FirstTimeTooltip";
@@ -14,6 +13,7 @@ import { CommitDialog } from "@/features/git/CommitDialog";
 import { gitApi } from "@/api/git";
 import { WorkflowEditorSurface } from "./WorkflowEditorSurface";
 import { ForkDraftWorkflowSurface } from "./ForkDraftWorkflowSurface";
+import { WorkflowSurfaceTopbar } from "./WorkflowSurfaceTopbar";
 import { YamlEditor } from "./YamlEditor";
 import { getWorkflowSurfaceModeConfig } from "./workflowSurfaceContract";
 import { useCreateRun } from "@/queries/runs";
@@ -38,8 +38,8 @@ export function Component() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("yaml");
   const [isDirty, setIsDirty] = useState(false);
-  const [yamlValid, setYamlValid] = useState(true);
-  const [errorCount, setErrorCount] = useState(0);
+  const [, setYamlValid] = useState(true);
+  const [, setErrorCount] = useState(0);
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const [saveAndRun, setSaveAndRun] = useState(false);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
@@ -47,6 +47,7 @@ export function Component() {
   const [_sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const createRun = useCreateRun();
+  const activeRunId = useCanvasStore((s) => s.activeRunId);
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const blockCount = useCanvasStore((s) => s.blockCount);
   const edgeCount = useCanvasStore((s) => s.edgeCount);
@@ -60,6 +61,7 @@ export function Component() {
   const surfaceMode = location.state?.workflowSurfaceMode === "fork-draft"
     ? "fork-draft"
     : "workflow";
+  const topbarMode = surfaceMode === "workflow" && activeRunId ? "execution" : surfaceMode;
   const workflowSurface = getWorkflowSurfaceModeConfig(surfaceMode);
   const SurfaceComponent =
     surfaceMode === "fork-draft" ? ForkDraftWorkflowSurface : WorkflowEditorSurface;
@@ -106,6 +108,11 @@ export function Component() {
   }, []);
 
   const handleRun = useCallback(async () => {
+    if (activeProviders.length === 0) {
+      handleOpenApiKeyModal();
+      return;
+    }
+
     if (isDirty || !isCommitted) {
       const yamlContent = useCanvasStore.getState().yamlContent;
       const simResult = await gitApi.createSimBranch(id!, yamlContent);
@@ -119,7 +126,7 @@ export function Component() {
         { onSuccess: (result) => setActiveRunId(result.id) },
       );
     }
-  }, [createRun, id, isCommitted, isDirty, setActiveRunId]);
+  }, [activeProviders.length, createRun, handleOpenApiKeyModal, id, isCommitted, isDirty, setActiveRunId]);
 
   const handleApiKeyModalClose = useCallback(
     (open: boolean) => {
@@ -202,15 +209,25 @@ export function Component() {
         isEditable={workflowSurface.regions.center.editable}
         activeCenterRegion={activeTab === "yaml" ? "yaml" : "main"}
         topbar={
-          <CanvasTopbar
-            workflowId={id!}
+          <WorkflowSurfaceTopbar
+            mode={topbarMode}
+            workflowName={workflow?.name ?? "Untitled Workflow"}
             activeTab={activeTab}
-            onValueChange={setActiveTab}
+            onTabChange={setActiveTab}
             isDirty={isDirty}
             onSave={handleSave}
-            yamlValid={yamlValid}
-            errorCount={errorCount}
-            onAddApiKey={handleOpenApiKeyModal}
+            onRun={handleRun}
+            run={
+              topbarMode === "execution" && activeRunId
+                ? {
+                    id: activeRunId,
+                    workflow_id: id!,
+                    workflow_name: workflow?.name ?? "Untitled Workflow",
+                    status: "running",
+                    commit_sha: workflow?.commit_sha ?? null,
+                  }
+                : undefined
+            }
           />
         }
         palette={<PaletteSidebar onCollapse={setSidebarCollapsed} />}

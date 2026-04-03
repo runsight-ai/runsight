@@ -13,6 +13,24 @@ interface UseForkWorkflowOptions {
   workflowName: string;
 }
 
+export async function createForkDraftWorkflow({
+  commitSha,
+  workflowPath,
+  workflowName,
+}: UseForkWorkflowOptions) {
+  const name = generateForkName(workflowName);
+  const { content } = await gitApi.getGitFile(commitSha, workflowPath);
+
+  const doc = parse(content);
+  const modified =
+    doc && typeof doc === "object" && !Array.isArray(doc)
+      ? { ...doc, enabled: false }
+      : { enabled: false };
+  const yaml = stringify(modified);
+
+  return workflowsApi.createWorkflow({ name, yaml, commit: false });
+}
+
 export function useForkWorkflow({
   commitSha,
   workflowPath,
@@ -22,22 +40,12 @@ export function useForkWorkflow({
   const [isForking, setIsForking] = useState(false);
 
   const executeFork = useCallback(async () => {
-    const name = generateForkName(workflowName);
-
     try {
-      // Read YAML at the commit snapshot
-      const { content } = await gitApi.getGitFile(commitSha, workflowPath);
-
-      // Parse YAML and set enabled: false
-      const doc = parse(content);
-      const modified =
-        doc && typeof doc === "object" && !Array.isArray(doc)
-          ? { ...doc, enabled: false }
-          : { enabled: false };
-      const yaml = stringify(modified);
-
-      // Create the new draft workflow (no auto-commit — shows as uncommitted)
-      const result = await workflowsApi.createWorkflow({ name, yaml, commit: false });
+      const result = await createForkDraftWorkflow({
+        commitSha,
+        workflowPath,
+        workflowName,
+      });
 
       // Navigate to the editor for the new workflow
       navigate(`/workflows/${result.id}/edit`, {

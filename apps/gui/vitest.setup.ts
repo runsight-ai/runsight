@@ -2,6 +2,14 @@ import { cleanup } from "@testing-library/react";
 import { afterEach, expect } from "vitest";
 
 expect.extend({
+  toBeDisabled(received: Element) {
+    const pass = received.hasAttribute("disabled");
+
+    return {
+      pass,
+      message: () => `expected element ${pass ? "not " : ""}to be disabled`,
+    };
+  },
   toHaveAttribute(
     received: Element,
     name: string,
