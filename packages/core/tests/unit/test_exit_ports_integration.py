@@ -142,6 +142,9 @@ class TestExistingYamlWorkflowsParse:
             f"Expected at least 2 YAML files in {CUSTOM_WORKFLOWS_DIR}, found {len(yaml_files)}"
         )
 
+    @pytest.mark.xfail(
+        reason="RUN-569 removed mockup_generate_review.yaml (broken soul_refs)", strict=True
+    )
     def test_mockup_generate_review_has_exits_on_gate(self):
         """mockup_generate_review.yaml must declare exits on its gate block.
 
@@ -162,6 +165,9 @@ class TestExistingYamlWorkflowsParse:
         assert "pass" in exit_ids, "Gate block must declare a 'pass' exit"
         assert "fail" in exit_ids, "Gate block must declare a 'fail' exit"
 
+    @pytest.mark.xfail(
+        reason="RUN-569 removed mockup_generate_review.yaml (broken soul_refs)", strict=True
+    )
     def test_mockup_generate_review_loop_has_break_on_exit(self):
         """mockup_generate_review.yaml loop must declare break_on_exit/retry_on_exit.
 
@@ -182,6 +188,9 @@ class TestExistingYamlWorkflowsParse:
             "since it transitions to a gate block that uses exit ports"
         )
 
+    @pytest.mark.xfail(
+        reason="RUN-569 removed mockup_generate_review.yaml (broken soul_refs)", strict=True
+    )
     def test_mockup_generate_review_has_conditional_transitions_for_gate(self):
         """mockup_generate_review.yaml must use conditional_transitions for the gate block.
 

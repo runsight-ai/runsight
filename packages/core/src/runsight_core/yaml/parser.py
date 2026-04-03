@@ -389,6 +389,7 @@ def parse_workflow_yaml(
 
             if tool_def.source == "runsight/delegate":
                 # Find the block that references this soul via soul_ref
+                # (top-level block soul_ref OR fanout exit soul_ref)
                 block_id_for_soul = None
                 block_def_for_soul = None
                 for bid, bdef in file_def.blocks.items():
@@ -396,6 +397,17 @@ def parse_workflow_yaml(
                         block_id_for_soul = bid
                         block_def_for_soul = bdef
                         break
+                    if bdef.exits:
+                        for exit_def in bdef.exits:
+                            if (
+                                isinstance(exit_def, FanOutExitDef)
+                                and exit_def.soul_ref == soul_key
+                            ):
+                                block_id_for_soul = bid
+                                block_def_for_soul = bdef
+                                break
+                        if block_def_for_soul is not None:
+                            break
 
                 exits = getattr(block_def_for_soul, "exits", None) if block_def_for_soul else None
                 if not exits:
