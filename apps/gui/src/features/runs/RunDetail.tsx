@@ -23,6 +23,7 @@ import type { RunNodeData } from "./RunCanvasNode";
 import { RunInspectorPanel } from "./RunInspectorPanel";
 import { RunBottomPanel } from "./RunBottomPanel";
 import { RunDetailHeader } from "./RunDetailHeader";
+import { getWorkflowSurfaceModeConfig } from "../canvas/workflowSurfaceContract";
 import { getIconForBlockType, mapRunStatus } from "./runDetailUtils";
 
 export { RunCanvasNode };
@@ -100,6 +101,7 @@ function RunDetailInner() {
   const onPaneClick = useCallback(() => { setSelectedNode(null); }, []);
   const logs = useMemo(() => runLogs?.items || [], [runLogs]);
   const regressionCount = regressionData?.items?.length ?? 0;
+  const historicalSurface = getWorkflowSurfaceModeConfig("historical");
 
   if (isLoadingRun || isLoadingNodes) {
     return (
@@ -125,7 +127,9 @@ function RunDetailInner() {
   return (
     <div className="flex-1 flex overflow-hidden bg-[var(--surface-primary)]">
       <main className="flex-1 flex flex-col min-w-0">
-        <RunDetailHeader run={run} />
+        {historicalSurface.regions.topbar.visible ? (
+          <RunDetailHeader run={run} />
+        ) : null}
         <PriorityBanner conditions={[{
           type: "regressions",
           active: regressionCount > 0,
@@ -184,7 +188,17 @@ function RunDetailInner() {
           <RunInspectorPanel selectedNode={selectedNode} onClose={() => setSelectedNode(null)} />
         </div>
 
-        <RunBottomPanel logs={logs} executionComplete executionFailed={isFailed} finalDuration={run.duration_seconds || 0} runId={run.id} workflowId={run.workflow_id} currentRunId={run.id} />
+        {historicalSurface.regions.footer.visible ? (
+          <RunBottomPanel
+            logs={logs}
+            executionComplete
+            executionFailed={isFailed}
+            finalDuration={run.duration_seconds || 0}
+            runId={run.id}
+            workflowId={run.workflow_id}
+            currentRunId={run.id}
+          />
+        ) : null}
       </main>
     </div>
   );

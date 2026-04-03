@@ -13,6 +13,7 @@ import { ProviderModal } from "@/components/provider/ProviderModal";
 import { CommitDialog } from "@/features/git/CommitDialog";
 import { gitApi } from "@/api/git";
 import { YamlEditor } from "./YamlEditor";
+import { getWorkflowSurfaceModeConfig } from "./workflowSurfaceContract";
 import { useCreateRun } from "@/queries/runs";
 import { useWorkflow, useWorkflowRegressions } from "@/queries/workflows";
 import { useProviders } from "@/queries/settings";
@@ -45,6 +46,7 @@ export function Component() {
   const { data: regressionsData } = useWorkflowRegressions(id!);
   const activeProviders = (providers?.items ?? []).filter((p) => p.is_active ?? true);
   const isCommitted = Boolean(workflow?.commit_sha);
+  const workflowSurface = getWorkflowSurfaceModeConfig("workflow");
 
   const bannerConditions: BannerCondition[] = [
     {
@@ -177,31 +179,45 @@ export function Component() {
         gridTemplateColumns: sidebarCollapsed ? "48px 1fr" : "240px 1fr",
       }}
     >
-      <CanvasTopbar
-        workflowId={id!}
-        activeTab={activeTab}
-        onValueChange={setActiveTab}
-        isDirty={isDirty}
-        onSave={handleSave}
-        yamlValid={yamlValid}
-        errorCount={errorCount}
-        onAddApiKey={handleOpenApiKeyModal}
-      />
-      <PaletteSidebar onCollapse={setSidebarCollapsed} />
+      {workflowSurface.regions.topbar.visible ? (
+        <CanvasTopbar
+          workflowId={id!}
+          activeTab={activeTab}
+          onValueChange={setActiveTab}
+          isDirty={isDirty}
+          onSave={handleSave}
+          yamlValid={yamlValid}
+          errorCount={errorCount}
+          onAddApiKey={handleOpenApiKeyModal}
+        />
+      ) : null}
+      {workflowSurface.regions.palette.visible ? (
+        <PaletteSidebar onCollapse={setSidebarCollapsed} />
+      ) : null}
       <div className="relative flex flex-col overflow-hidden" style={{ gridColumn: "2", gridRow: "2" }}>
         <PriorityBanner conditions={bannerConditions} />
-        {activeTab === "canvas" ? (
-          <WorkflowCanvas />
-        ) : (
-          <div className="flex-1 overflow-hidden">
-            <YamlEditor workflowId={id!} onDirtyChange={handleDirtyChange} onValidation={handleValidation} />
-          </div>
-        )}
+        {workflowSurface.regions.center.visible ? (
+          activeTab === "canvas" ? (
+            <WorkflowCanvas />
+          ) : (
+            <div className="flex-1 overflow-hidden">
+              <YamlEditor
+                workflowId={id!}
+                onDirtyChange={handleDirtyChange}
+                onValidation={handleValidation}
+              />
+            </div>
+          )
+        ) : null}
       </div>
 
       <FirstTimeTooltip />
-      <CanvasBottomPanel workflowId={id} />
-      <CanvasStatusBar activeTab={activeTab} blockCount={blockCount} edgeCount={edgeCount} />
+      {workflowSurface.regions.footer.visible ? (
+        <CanvasBottomPanel workflowId={id} />
+      ) : null}
+      {workflowSurface.regions.statusBar.visible ? (
+        <CanvasStatusBar activeTab={activeTab} blockCount={blockCount} edgeCount={edgeCount} />
+      ) : null}
 
       {/* Unsaved changes dialog */}
       <Dialog open={blocker.state === "blocked" && !commitDialogOpen}>
