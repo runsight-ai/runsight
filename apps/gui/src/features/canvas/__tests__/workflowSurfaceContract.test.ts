@@ -35,6 +35,21 @@ import type {
   StatusBarContract,
 } from "../workflowSurfaceContract";
 
+// Type-level usage: these variables exercise the type imports so that they serve
+// a testable purpose (verifying the types exist and are exported correctly).
+// At runtime they are no-ops — the real assertions are in the test blocks below.
+const _mode: WorkflowSurfaceMode = "workflow" as WorkflowSurfaceMode;
+const _props: WorkflowSurfaceProps = {} as WorkflowSurfaceProps;
+const _panel: PanelContract = {} as PanelContract;
+const _topbar: TopbarContract = {} as TopbarContract;
+const _palette: PaletteContract = {} as PaletteContract;
+const _canvas: CanvasContract = {} as CanvasContract;
+const _inspector: InspectorContract = {} as InspectorContract;
+const _bottomPanel: BottomPanelContract = {} as BottomPanelContract;
+const _statusBar: StatusBarContract = {} as StatusBarContract;
+void _mode; void _props; void _panel; void _topbar; void _palette;
+void _canvas; void _inspector; void _bottomPanel; void _statusBar;
+
 import {
   WORKFLOW_SURFACE_MODES,
   getContractForMode,
