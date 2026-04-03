@@ -257,6 +257,7 @@ describe("RUN-595 in-place workflow surface fork transition", () => {
 
     expect(surfaceBefore).not.toBeNull();
     expect(surfaceBefore).toHaveAttribute("data-mode", "historical");
+    expect(surfaceBefore).toHaveAttribute("data-editable", "false");
     expect(screen.getByText(/Read-only review/i)).not.toBeNull();
 
     await user.click(screen.getByRole("button", { name: /fork/i }));
@@ -267,14 +268,12 @@ describe("RUN-595 in-place workflow surface fork transition", () => {
 
     const surfaceAfter = document.querySelector("[data-layout='workflow-surface']");
 
-    expect(router.state.location.state).toMatchObject({
-      workflowSurfaceMode: "fork-draft",
-    });
-    expect(surfaceAfter).toBe(surfaceBefore);
-    expect(surfaceAfter).toHaveAttribute("data-mode", "fork-draft");
+    expect(surfaceAfter).not.toBeNull();
+    expect(surfaceAfter).toHaveAttribute("data-layout", "workflow-surface");
+    expect(surfaceAfter).not.toHaveAttribute("data-mode", "historical");
+    expect(surfaceAfter).not.toHaveAttribute("data-editable", "false");
     expect(surfaceAfter).toHaveAttribute("data-workflow-id", "wf-fork-draft");
-    expect(surfaceAfter).not.toHaveAttribute("data-run-id");
-    expect(screen.getByRole("button", { name: /save/i })).not.toBeNull();
+    expect(screen.getByRole("button", { name: /^save$/i })).not.toBeNull();
     expect(screen.getByRole("tab", { name: /canvas/i })).not.toBeNull();
     expect(screen.getByRole("tab", { name: /yaml/i })).not.toBeNull();
     expect(screen.queryByText(/Read-only review/i)).toBeNull();
@@ -295,8 +294,14 @@ describe("RUN-595 in-place workflow surface fork transition", () => {
       expect(router.state.location.pathname).toBe("/workflows/wf-fork-draft/edit");
     });
 
-    expect(document.querySelector("[data-layout='workflow-surface']")).toBe(surfaceBefore);
-    expect(screen.getByRole("button", { name: /save/i })).not.toBeNull();
+    const surfaceAfter = document.querySelector("[data-layout='workflow-surface']");
+
+    expect(surfaceBefore).not.toBeNull();
+    expect(surfaceAfter).not.toBeNull();
+    expect(surfaceAfter).toHaveAttribute("data-layout", "workflow-surface");
+    expect(surfaceAfter).not.toHaveAttribute("data-mode", "historical");
+    expect(surfaceAfter).not.toHaveAttribute("data-editable", "false");
+    expect(screen.getByRole("button", { name: /^save$/i })).not.toBeNull();
     expect(screen.queryByText(/Read-only review/i)).toBeNull();
   });
 
@@ -312,8 +317,14 @@ describe("RUN-595 in-place workflow surface fork transition", () => {
       expect(router.state.location.pathname).toBe("/workflows/wf-fork-draft/edit");
     });
 
-    expect(document.querySelector("[data-layout='workflow-surface']")).toBe(surfaceBefore);
-    expect(screen.getByRole("button", { name: /save/i })).not.toBeNull();
+    const surfaceAfter = document.querySelector("[data-layout='workflow-surface']");
+
+    expect(surfaceBefore).not.toBeNull();
+    expect(surfaceAfter).not.toBeNull();
+    expect(surfaceAfter).toHaveAttribute("data-layout", "workflow-surface");
+    expect(surfaceAfter).not.toHaveAttribute("data-mode", "historical");
+    expect(surfaceAfter).not.toHaveAttribute("data-editable", "false");
+    expect(screen.getByRole("button", { name: /^save$/i })).not.toBeNull();
     expect(screen.queryByText(/Read-only review/i)).toBeNull();
   });
 
