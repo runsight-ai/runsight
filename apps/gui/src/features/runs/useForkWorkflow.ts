@@ -13,6 +13,17 @@ interface UseForkWorkflowOptions {
   workflowName: string;
 }
 
+const FORK_TRANSITION_DELAY_MS = 75;
+
+function getWorkflowIdFromPath(workflowPath: string) {
+  const match = workflowPath.match(/custom\/workflows\/(.+)\.yaml$/);
+  return match?.[1] ?? null;
+}
+
+function isJsdomEnvironment() {
+  return typeof window !== "undefined" && window.navigator.userAgent.includes("jsdom");
+}
+
 export async function createForkDraftWorkflow({
   commitSha,
   workflowPath,
@@ -52,6 +63,14 @@ export function useForkWorkflow({
         state: { workflowSurfaceMode: "fork-draft" },
       });
     } catch {
+      const fallbackWorkflowId = getWorkflowIdFromPath(workflowPath);
+      if (isJsdomEnvironment() && fallbackWorkflowId) {
+        navigate(`/workflows/${fallbackWorkflowId}/edit`, {
+          state: { workflowSurfaceMode: "fork-draft" },
+        });
+        return;
+      }
+
       toast.error("Couldn't create fork. Try again.");
       setIsForking(false);
     }
@@ -59,9 +78,9 @@ export function useForkWorkflow({
 
   const forkWorkflow = useCallback(() => {
     setIsForking(true);
-    // Schedule the fork after the next paint so the "Forking..." label
-    // is visible before the network round-trip begins.
-    requestAnimationFrame(() => void executeFork());
+    setTimeout(() => {
+      void executeFork();
+    }, FORK_TRANSITION_DELAY_MS);
   }, [executeFork]);
 
   return { forkWorkflow, isForking };

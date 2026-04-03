@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, memo } from "react";
+import { useNavigate } from "react-router";
 import {
   ReactFlow,
   Background,
@@ -41,6 +42,7 @@ interface HistoricalRunSurfaceRouteProps {
 }
 
 function HistoricalRunSurfaceRouteInner({ runId }: HistoricalRunSurfaceRouteProps) {
+  const navigate = useNavigate();
   const { data: run, isLoading: isLoadingRun } = useRun(runId, {
     refetchInterval: (query) => {
       const status = (query?.state as { data?: { status: string } })?.data?.status;
@@ -105,22 +107,11 @@ function HistoricalRunSurfaceRouteInner({ runId }: HistoricalRunSurfaceRouteProp
   const logs = useMemo(() => runLogs?.items || [], [runLogs]);
   const regressionCount = regressionData?.count ?? 0;
   const [isForking, setIsForking] = useState(false);
-  const navigateToWorkflowSurface = useCallback(
-    (path: string, state?: Record<string, unknown>) => {
-      if (typeof window === "undefined") {
-        return;
-      }
-
-      window.history.pushState(state ?? null, "", path);
-      window.dispatchEvent(new PopStateEvent("popstate", { state }));
-    },
-    [],
-  );
   const handleOpenWorkflow = useCallback(() => {
     if (run?.workflow_id) {
-      navigateToWorkflowSurface(`/workflows/${run.workflow_id}/edit`);
+      navigate(`/workflows/${run.workflow_id}/edit`);
     }
-  }, [navigateToWorkflowSurface, run]);
+  }, [navigate, run]);
   const handleFork = useCallback(async () => {
     const hasSnapshot = Boolean(run?.commit_sha);
     const forkDisabled = !run || run.status === "running" || run.status === "pending" || !hasSnapshot;
@@ -135,14 +126,14 @@ function HistoricalRunSurfaceRouteInner({ runId }: HistoricalRunSurfaceRouteProp
         workflowName: run.workflow_name,
       });
 
-      navigateToWorkflowSurface(`/workflows/${result.id}/edit`, {
-        workflowSurfaceMode: "fork-draft",
+      navigate(`/workflows/${result.id}/edit`, {
+        state: { workflowSurfaceMode: "fork-draft" },
       });
     } catch {
       toast.error("Couldn't create fork. Try again.");
       setIsForking(false);
     }
-  }, [isForking, navigateToWorkflowSurface, run]);
+  }, [isForking, navigate, run]);
 
   if (isLoadingRun || isLoadingNodes) {
     return (

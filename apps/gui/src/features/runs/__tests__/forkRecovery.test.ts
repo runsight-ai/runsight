@@ -64,12 +64,22 @@ function LocationEcho() {
   return React.createElement("div", null, `location:${location.pathname}`);
 }
 
-function buildRun({
-  status = "completed" as RunStatus,
-  workflowId = "wf_research",
-  workflowName = "Research & Review",
-  commitSha = "abc123def456" as string | null,
+function buildRun(options: {
+  status?: RunStatus;
+  workflowId?: string;
+  workflowName?: string;
+  commitSha?: string | null;
 } = {}) {
+  const {
+    status = "completed" as RunStatus,
+    workflowId = "wf_research",
+    workflowName = "Research & Review",
+  } = options;
+  const hasCommitShaOverride = Object.prototype.hasOwnProperty.call(options, "commitSha");
+  const commitSha = hasCommitShaOverride
+    ? options.commitSha
+    : "abc123def456";
+
   return {
     id: "run_abcdef123456",
     workflow_id: workflowId,
