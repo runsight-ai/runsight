@@ -3,8 +3,8 @@ RUN-281 — Unit-level tests for tool registry: catalog, ToolInstance, registrat
 
 These complement the existing tests in unit/test_tool_catalog.py by covering
 the full catalog state after all built-in tools are auto-registered via the
-parser import side-effect, and by testing the runsight/http, runsight/file-io,
-and runsight/delegate sources are present when the package is fully initialised.
+parser import side-effect, and by testing the canonical builtin ids are present
+when the package is fully initialised.
 
 Tests cover:
   AC1: All three built-in sources registered in BUILTIN_TOOL_CATALOG after import
@@ -61,22 +61,22 @@ class TestBuiltinCatalogPopulated:
     sources must be registered in BUILTIN_TOOL_CATALOG."""
 
     def test_http_source_registered(self):
-        """'runsight/http' key present in BUILTIN_TOOL_CATALOG."""
+        """'http' key present in BUILTIN_TOOL_CATALOG."""
         from runsight_core.tools import BUILTIN_TOOL_CATALOG
 
-        assert "runsight/http" in BUILTIN_TOOL_CATALOG
+        assert "http" in BUILTIN_TOOL_CATALOG
 
     def test_file_io_source_registered(self):
-        """'runsight/file-io' key present in BUILTIN_TOOL_CATALOG."""
+        """'file_io' key present in BUILTIN_TOOL_CATALOG."""
         from runsight_core.tools import BUILTIN_TOOL_CATALOG
 
-        assert "runsight/file-io" in BUILTIN_TOOL_CATALOG
+        assert "file_io" in BUILTIN_TOOL_CATALOG
 
     def test_delegate_source_registered(self):
-        """'runsight/delegate' key present in BUILTIN_TOOL_CATALOG."""
+        """'delegate' key present in BUILTIN_TOOL_CATALOG."""
         from runsight_core.tools import BUILTIN_TOOL_CATALOG
 
-        assert "runsight/delegate" in BUILTIN_TOOL_CATALOG
+        assert "delegate" in BUILTIN_TOOL_CATALOG
 
     def test_catalog_contains_callables(self):
         """Every value in BUILTIN_TOOL_CATALOG must be a callable factory."""

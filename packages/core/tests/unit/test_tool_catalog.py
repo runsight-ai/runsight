@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from textwrap import dedent
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from runsight_core.security import SSRFError
@@ -449,7 +449,9 @@ class TestResolveToolRejectsLegacyInputs:
         with pytest.raises((TypeError, ValueError)):
             resolve_tool(typed_def, base_dir=tmp_path)
 
-    @pytest.mark.parametrize("legacy_source", ["runsight/http", "runsight/file-io"])
+    @pytest.mark.parametrize(
+        "legacy_source", ["runsight/http", "runsight/file-io", "runsight/delegate"]
+    )
     def test_rejects_legacy_builtin_source_strings(self, legacy_source):
         """Legacy source slugs should not leak through the public resolution contract."""
         from runsight_core.tools import resolve_tool
@@ -832,3 +834,101 @@ class TestResolveCanonicalRequestTools:
                 await tool.execute({})
 
         client_instance.request.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_request_tool_oversized_response_invokes_size_policy_and_can_truncate(
+        self, tmp_path
+    ):
+        """Oversized shared request responses should flow through the size policy hook."""
+        from runsight_core.tools import resolve_tool
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "read_large_page",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Read Large Page
+            description: Read a large remote page.
+            parameters:
+              type: object
+              properties: {}
+            request:
+              method: GET
+              url: https://example.com/large
+            """,
+        )
+
+        response_size_policy = Mock(return_value="truncated body")
+        tool = resolve_tool(
+            "read_large_page",
+            base_dir=tmp_path,
+            max_output_bytes=5,
+            response_size_policy=response_size_policy,
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.text = "0123456789"
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute({})
+
+        assert result == "truncated body"
+        response_size_policy.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_request_tool_size_policy_can_fail_closed_for_oversized_response(self, tmp_path):
+        """Size policy failures should be surfaced directly with no fallback body return."""
+        from runsight_core.tools import resolve_tool
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            "read_large_page",
+            """
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Read Large Page
+            description: Read a large remote page.
+            parameters:
+              type: object
+              properties: {}
+            request:
+              method: GET
+              url: https://example.com/large
+            """,
+        )
+
+        response_size_policy = Mock(side_effect=ValueError("response exceeded max_output_bytes"))
+        tool = resolve_tool(
+            "read_large_page",
+            base_dir=tmp_path,
+            max_output_bytes=5,
+            response_size_policy=response_size_policy,
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.text = "0123456789"
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            with pytest.raises(ValueError, match="max_output_bytes"):
+                await tool.execute({})
+
+        response_size_policy.assert_called_once()

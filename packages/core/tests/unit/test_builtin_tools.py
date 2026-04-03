@@ -1,6 +1,5 @@
 """
-Failing tests for RUN-276: built-in tools runsight/http, runsight/file-io,
-runsight/delegate.
+Failing tests for RUN-276: built-in tools http, file_io, delegate.
 
 Tests target:
 - HTTP tool: factory returns ToolInstance(name="http_request"), executes httpx
@@ -32,22 +31,22 @@ class TestCatalogRegistration:
     """All three built-in tools are registered in BUILTIN_TOOL_CATALOG."""
 
     def test_http_registered(self):
-        """'runsight/http' is a key in BUILTIN_TOOL_CATALOG."""
+        """'http' is a key in BUILTIN_TOOL_CATALOG."""
         from runsight_core.tools.http import create_http_tool  # noqa: F401 — side effect
 
-        assert "runsight/http" in BUILTIN_TOOL_CATALOG
+        assert "http" in BUILTIN_TOOL_CATALOG
 
     def test_file_io_registered(self):
-        """'runsight/file-io' is a key in BUILTIN_TOOL_CATALOG."""
+        """'file_io' is a key in BUILTIN_TOOL_CATALOG."""
         from runsight_core.tools.file_io import create_file_io_tool  # noqa: F401
 
-        assert "runsight/file-io" in BUILTIN_TOOL_CATALOG
+        assert "file_io" in BUILTIN_TOOL_CATALOG
 
     def test_delegate_registered(self):
-        """'runsight/delegate' is a key in BUILTIN_TOOL_CATALOG."""
+        """'delegate' is a key in BUILTIN_TOOL_CATALOG."""
         from runsight_core.tools.delegate import create_delegate_tool  # noqa: F401
 
-        assert "runsight/delegate" in BUILTIN_TOOL_CATALOG
+        assert "delegate" in BUILTIN_TOOL_CATALOG
 
 
 # ===========================================================================
@@ -119,25 +118,14 @@ class TestHttpToolFactory:
 
 
 class TestHttpToolExecute:
-    """HTTP tool execute function: httpx requests with SSRF validation."""
-
-    def test_builtin_http_module_does_not_keep_inline_http_execution_logic(self):
-        """RUN-582: builtin http should delegate outbound execution to the shared request path."""
-        http_module = (
-            Path(__file__).resolve().parents[2] / "src" / "runsight_core" / "tools" / "http.py"
-        )
-        source = http_module.read_text(encoding="utf-8")
-
-        assert "import httpx" not in source
-        assert "validate_ssrf" not in source
-        assert '"status_code"' not in source
+    """HTTP tool execute function: canonical request behavior."""
 
     @pytest.mark.asyncio
     async def test_execute_get_returns_normalized_json_payload(self):
         """JSON responses should return the shared normalized payload, not the legacy wrapper."""
-        from runsight_core.tools.http import create_http_tool
+        from runsight_core.tools import resolve_tool
 
-        tool = create_http_tool()
+        tool = resolve_tool("http")
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -145,19 +133,14 @@ class TestHttpToolExecute:
         mock_response.text = '{"ok": true}'
         mock_response.json.return_value = {"ok": True}
 
-        with patch("runsight_core.tools.http.httpx.AsyncClient") as MockClient:
+        with patch("httpx.AsyncClient") as MockClient:
             client_instance = AsyncMock()
             client_instance.request.return_value = mock_response
             client_instance.__aenter__ = AsyncMock(return_value=client_instance)
             client_instance.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = client_instance
 
-            with patch(
-                "runsight_core.tools.http.validate_ssrf", new_callable=AsyncMock
-            ) as mock_ssrf:
-                mock_ssrf.return_value = None
-
-                result = await tool.execute({"method": "GET", "url": "https://example.com/api"})
+            result = await tool.execute({"method": "GET", "url": "https://example.com/api"})
 
         parsed = json.loads(result)
         assert parsed == {"ok": True}
@@ -165,37 +148,32 @@ class TestHttpToolExecute:
     @pytest.mark.asyncio
     async def test_execute_text_response_returns_plain_text_without_wrapper(self):
         """Plain-text responses should round-trip directly without the legacy JSON envelope."""
-        from runsight_core.tools.http import create_http_tool
+        from runsight_core.tools import resolve_tool
 
-        tool = create_http_tool()
+        tool = resolve_tool("http")
 
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.headers = {"content-type": "text/plain"}
         mock_response.text = "hello"
 
-        with patch("runsight_core.tools.http.httpx.AsyncClient") as MockClient:
+        with patch("httpx.AsyncClient") as MockClient:
             client_instance = AsyncMock()
             client_instance.request.return_value = mock_response
             client_instance.__aenter__ = AsyncMock(return_value=client_instance)
             client_instance.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = client_instance
 
-            with patch(
-                "runsight_core.tools.http.validate_ssrf", new_callable=AsyncMock
-            ) as mock_ssrf:
-                mock_ssrf.return_value = None
-
-                result = await tool.execute({"method": "GET", "url": "https://example.com"})
+            result = await tool.execute({"method": "GET", "url": "https://example.com"})
 
         assert result == "hello"
 
     @pytest.mark.asyncio
     async def test_execute_post_with_body_returns_normalized_json_payload(self):
         """POST responses should preserve the shared JSON payload contract as well."""
-        from runsight_core.tools.http import create_http_tool
+        from runsight_core.tools import resolve_tool
 
-        tool = create_http_tool()
+        tool = resolve_tool("http")
 
         mock_response = MagicMock()
         mock_response.status_code = 201
@@ -203,78 +181,48 @@ class TestHttpToolExecute:
         mock_response.text = '{"created": true}'
         mock_response.json.return_value = {"created": True}
 
-        with patch("runsight_core.tools.http.httpx.AsyncClient") as MockClient:
+        with patch("httpx.AsyncClient") as MockClient:
             client_instance = AsyncMock()
             client_instance.request.return_value = mock_response
             client_instance.__aenter__ = AsyncMock(return_value=client_instance)
             client_instance.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = client_instance
 
-            with patch(
-                "runsight_core.tools.http.validate_ssrf", new_callable=AsyncMock
-            ) as mock_ssrf:
-                mock_ssrf.return_value = None
-
-                result = await tool.execute(
-                    {
-                        "method": "POST",
-                        "url": "https://example.com/api",
-                        "body": '{"key": "value"}',
-                    }
-                )
+            result = await tool.execute(
+                {
+                    "method": "POST",
+                    "url": "https://example.com/api",
+                    "body": '{"key": "value"}',
+                }
+            )
 
         parsed = json.loads(result)
         assert parsed == {"created": True}
 
     @pytest.mark.asyncio
-    async def test_execute_calls_validate_ssrf(self):
-        """Execute calls validate_ssrf with the target URL before making the request."""
-        from runsight_core.tools.http import create_http_tool
+    async def test_execute_ssrf_blocks_private_ip(self):
+        """Private IP targets should fail closed before any outbound request is sent."""
+        from runsight_core.tools import resolve_tool
 
-        tool = create_http_tool()
+        tool = resolve_tool("http")
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.headers = {}
-        mock_response.text = ""
-
-        with patch("runsight_core.tools.http.httpx.AsyncClient") as MockClient:
+        with patch("httpx.AsyncClient") as MockClient:
             client_instance = AsyncMock()
-            client_instance.request.return_value = mock_response
             client_instance.__aenter__ = AsyncMock(return_value=client_instance)
             client_instance.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = client_instance
 
-            with patch(
-                "runsight_core.tools.http.validate_ssrf", new_callable=AsyncMock
-            ) as mock_ssrf:
-                mock_ssrf.return_value = None
-
-                await tool.execute({"method": "GET", "url": "https://example.com"})
-
-                mock_ssrf.assert_called_once()
-                call_args = mock_ssrf.call_args
-                assert call_args[0][0] == "https://example.com"
-
-    @pytest.mark.asyncio
-    async def test_execute_ssrf_blocks_private_ip(self):
-        """Execute with a private IP URL raises SSRFError via validate_ssrf."""
-        from runsight_core.tools.http import create_http_tool
-
-        tool = create_http_tool()
-
-        with patch("runsight_core.tools.http.validate_ssrf", new_callable=AsyncMock) as mock_ssrf:
-            mock_ssrf.side_effect = SSRFError("SSRF blocked: 192.168.1.1")
-
             with pytest.raises(SSRFError):
                 await tool.execute({"method": "GET", "url": "http://192.168.1.1/admin"})
+
+        client_instance.request.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_execute_dns_resolution_failure_raises_ssrf_and_skips_request(self):
         """DNS lookup failures must fail closed before any outbound request is made."""
-        from runsight_core.tools.http import create_http_tool
+        from runsight_core.tools import resolve_tool
 
-        tool = create_http_tool()
+        tool = resolve_tool("http")
         fake_loop = Mock()
         fake_loop.getaddrinfo = AsyncMock(side_effect=OSError("temporary DNS failure"))
         mock_response = MagicMock()
@@ -283,7 +231,7 @@ class TestHttpToolExecute:
         mock_response.text = '{"ok": true}'
 
         with patch("runsight_core.security.asyncio.get_running_loop", return_value=fake_loop):
-            with patch("runsight_core.tools.http.httpx.AsyncClient") as MockClient:
+            with patch("httpx.AsyncClient") as MockClient:
                 client_instance = AsyncMock()
                 client_instance.request.return_value = mock_response
                 client_instance.__aenter__ = AsyncMock(return_value=client_instance)
@@ -294,6 +242,31 @@ class TestHttpToolExecute:
                     await tool.execute({"method": "GET", "url": "https://provider.example/api"})
 
                 client_instance.request.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_execute_oversized_response_uses_response_size_policy(self):
+        """Builtin http should route oversized responses through the shared size policy hook."""
+        from runsight_core.tools import resolve_tool
+
+        response_size_policy = Mock(return_value="truncated body")
+        tool = resolve_tool("http", max_output_bytes=5, response_size_policy=response_size_policy)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.text = "0123456789"
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute({"method": "GET", "url": "https://example.com"})
+
+        assert result == "truncated body"
+        response_size_policy.assert_called_once()
 
 
 # ===========================================================================

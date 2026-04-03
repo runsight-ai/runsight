@@ -1490,7 +1490,7 @@ workflow:
             _text_response("Request tool complete."),
         ]
 
-        with patch("runsight_core.tools._catalog.httpx.AsyncClient", _FakeAsyncClient):
+        with patch("httpx.AsyncClient", _FakeAsyncClient):
             runner = RunsightTeamRunner(model_name="gpt-4o")
             result = await runner.execute_task(
                 Task(id="run-532-request", instruction="Fetch answer"),
@@ -1570,17 +1570,7 @@ workflow:
             _text_response("Builtin http complete."),
         ]
 
-        with (
-            patch("runsight_core.tools.http.httpx.AsyncClient", _FakeAsyncClient),
-            patch("runsight_core.tools._catalog.httpx.AsyncClient", _FakeAsyncClient),
-            patch("runsight_core.tools.http.validate_ssrf", new_callable=AsyncMock) as http_ssrf,
-            patch(
-                "runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock
-            ) as catalog_ssrf,
-        ):
-            http_ssrf.return_value = None
-            catalog_ssrf.return_value = None
-
+        with patch("httpx.AsyncClient", _FakeAsyncClient):
             runner = RunsightTeamRunner(model_name="gpt-4o")
             result = await runner.execute_task(
                 Task(id="run-582-builtin-http", instruction="Fetch data"),
