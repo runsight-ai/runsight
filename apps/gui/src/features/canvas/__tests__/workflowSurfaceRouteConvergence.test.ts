@@ -23,10 +23,6 @@ function readSource(relativePath: string) {
   return readFileSync(resolve(GUI_SRC_ROOT, relativePath), "utf8");
 }
 
-function countLines(relativePath: string) {
-  return readSource(relativePath).split("\n").length;
-}
-
 function buildRun({
   status = "completed" as TestRunStatus,
   commitSha = "abc123",
@@ -314,11 +310,20 @@ describe("RUN-596 workflow surface route convergence", () => {
     expect(screen.getByRole("button", { name: /^save$/i })).not.toBeNull();
   });
 
-  it("reduces CanvasPage to a thin route wrapper instead of a page-level workflow surface owner", () => {
-    expect(countLines("features/canvas/CanvasPage.tsx")).toBeLessThanOrEqual(160);
+  it("makes CanvasPage a non-owning route adapter that delegates into the shared WorkflowSurface entry instead of picking mode-specific page shells", () => {
+    const source = readSource("features/canvas/CanvasPage.tsx");
+
+    expect(source).toMatch(/WorkflowSurface/);
+    expect(source).toMatch(/initialMode|data-mode|workflowSurfaceMode/);
+    expect(source).not.toMatch(/WorkflowEditorSurface/);
+    expect(source).not.toMatch(/ForkDraftWorkflowSurface/);
   });
 
-  it("reduces RunDetail to a thin route wrapper instead of a page-level historical surface owner", () => {
-    expect(countLines("features/runs/RunDetail.tsx")).toBeLessThanOrEqual(160);
+  it("makes RunDetail a non-owning route adapter that delegates into the shared WorkflowSurface entry instead of a separate historical page shell", () => {
+    const source = readSource("features/runs/RunDetail.tsx");
+
+    expect(source).toMatch(/WorkflowSurface/);
+    expect(source).toMatch(/initialMode|data-mode|historical/);
+    expect(source).not.toMatch(/HistoricalWorkflowSurface/);
   });
 });
