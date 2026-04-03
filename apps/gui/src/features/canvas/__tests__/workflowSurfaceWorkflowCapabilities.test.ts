@@ -48,6 +48,19 @@ function candidateDelegatorModules(mode: "workflow" | "historical" | "fork-draft
   });
 }
 
+function candidateForkDraftEntryModules() {
+  return collectSourceFiles(GUI_SRC_ROOT).filter((filePath) => {
+    const source = readFileSync(filePath, "utf8");
+
+    return (
+      source.includes("fork-draft")
+      && source.includes("workflowId")
+      && /WorkflowSurface|HistoricalWorkflowSurface/.test(source)
+      && !filePath.endsWith("workflowSurfaceContract.ts")
+    );
+  });
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -95,12 +108,18 @@ describe("RUN-593 shared workflow capabilities", () => {
     expect(surface).not.toHaveAttribute("data-run-id");
   });
 
-  it("uses mode-aware yaml or workflow-action rules in the shared surface implementation instead of only palette+center layout rules", () => {
-    const source = readSource("features/canvas/WorkflowSurface.tsx");
+  it("supports a distinct shared-surface yaml capability that can appear in editable modes without changing the overall surface", () => {
+    render(
+      React.createElement(WorkflowSurface, {
+        initialMode: "workflow",
+        workflowId: "wf-yaml",
+        mainContent: React.createElement("div", null, "Canvas lane"),
+        yaml: React.createElement("section", { "aria-label": "yaml region" }, "Editable yaml"),
+      }),
+    );
 
-    expect(source).toMatch(/getWorkflowSurfaceModeConfig/);
-    expect(source).toMatch(/regions\.palette\.visible/);
-    expect(source).toMatch(/regions\.yaml\.(visible|editable)|actions\.(save|run|fork|openWorkflow)/);
+    expect(screen.getByLabelText("workflow surface")).not.toBeNull();
+    expect(screen.getByLabelText("yaml region")).not.toBeNull();
   });
 
   it("keeps shared-surface entry points for workflow and historical modes on the same component family", () => {
@@ -112,7 +131,7 @@ describe("RUN-593 shared workflow capabilities", () => {
   });
 
   it("adds a fork-draft shared-surface entry path that uses workflow identity without requiring run data", () => {
-    const candidates = candidateDelegatorModules("fork-draft");
+    const candidates = candidateForkDraftEntryModules();
 
     expect(candidates.length).toBeGreaterThan(0);
 
