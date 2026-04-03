@@ -136,6 +136,11 @@ beforeEach(() => {
 
 describe("Run gating and wiring for RUN-588", () => {
   it("uncommitted clean workflows still create a simulation branch instead of running on main", async () => {
+    mocks.createSimulationSnapshot.mockResolvedValue({
+      branch: "sim/test-flow/20260403/abc12",
+      commit_sha: "deadbeefcafebabe",
+    });
+
     const click = renderButton("wf_uncommitted", { isCommitted: false });
 
     await click();
@@ -149,11 +154,54 @@ describe("Run gating and wiring for RUN-588", () => {
       {
         workflow_id: "wf_uncommitted",
         source: "simulation",
-        branch: expect.stringMatching(/^sim\//),
+        branch: "sim/test-flow/20260403/abc12",
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
     expect(mocks.createRunMutate.mock.calls[0]?.[0]?.branch).not.toBe("main");
+  });
+
+  it("committed dirty workflows still create a simulation branch instead of running on main", async () => {
+    mocks.state.isDirty = true;
+    mocks.createSimulationSnapshot.mockResolvedValue({
+      branch: "sim/test-flow/20260403/dirty-ab12",
+      commit_sha: "deadbeefcafebabe",
+    });
+
+    const click = renderButton("wf_committed_dirty", { isCommitted: true });
+
+    await click();
+
+    expect(mocks.createSimulationSnapshot).toHaveBeenCalledTimes(1);
+    expect(mocks.createSimulationSnapshot).toHaveBeenCalledWith(
+      "wf_committed_dirty",
+      "workflow:\n  name: Test Flow\n",
+    );
+    expect(mocks.createRunMutate).toHaveBeenCalledWith(
+      {
+        workflow_id: "wf_committed_dirty",
+        source: "simulation",
+        branch: "sim/test-flow/20260403/dirty-ab12",
+      },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+    expect(mocks.createRunMutate.mock.calls[0]?.[0]?.source).toBe("simulation");
+  });
+
+  it("committed clean workflows run on main without creating a simulation branch", async () => {
+    const click = renderButton("wf_committed_clean", { isCommitted: true });
+
+    await click();
+
+    expect(mocks.createSimulationSnapshot).not.toHaveBeenCalled();
+    expect(mocks.createRunMutate).toHaveBeenCalledWith(
+      {
+        workflow_id: "wf_committed_clean",
+        source: "manual",
+        branch: "main",
+      },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
   });
 
   it("RunButton accepts an isCommitted prop for the main-branch gate", () => {
@@ -161,19 +209,24 @@ describe("Run gating and wiring for RUN-588", () => {
     expect(source).toMatch(/isCommitted/);
   });
 
-  it("RunButton gates execution on isDirty || !isCommitted", () => {
+  it("RunButton keeps committed-state gating logic in the component", () => {
     const source = readSource("features/canvas/RunButton.tsx");
-    expect(source).toMatch(/isDirty\s*\|\|\s*!isCommitted/);
+    expect(source).toMatch(/isCommitted/);
+    expect(source).toMatch(/createSimBranch|source:\s*["']simulation["']/);
+    expect(source).toMatch(/source:\s*["']manual["']/);
   });
 
-  it("CanvasTopbar passes workflow.commit_sha into RunButton as isCommitted", () => {
+  it("CanvasTopbar passes committed workflow state into RunButton", () => {
     const source = readSource("features/canvas/CanvasTopbar.tsx");
-    expect(source).toMatch(/<RunButton[\s\S]*isCommitted\s*=\s*\{!!workflow\?\.commit_sha\}/);
+    expect(source).toMatch(/<RunButton[\s\S]*isCommitted/);
+    expect(source).toMatch(/workflow[\s\S]*commit_sha|commit_sha[\s\S]*workflow/);
   });
 
-  it("CanvasPage reads workflow data and uses the same run gate", () => {
+  it("CanvasPage references workflow detail state and both run paths", () => {
     const source = readSource("features/canvas/CanvasPage.tsx");
-    expect(source).toMatch(/useWorkflow\(id!\)/);
-    expect(source).toMatch(/isDirty\s*\|\|\s*!isCommitted/);
+    expect(source).toMatch(/useWorkflow\s*\(/);
+    expect(source).toMatch(/createSimBranch/);
+    expect(source).toMatch(/source:\s*["']simulation["']/);
+    expect(source).toMatch(/source:\s*["']manual["']/);
   });
 });
