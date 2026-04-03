@@ -406,4 +406,26 @@ describe("RUN-487 canonical /runs page", () => {
       expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
     });
   });
+
+  it("shows commit unavailable instead of 'uncommitted' when a historical run has no commit_sha", async () => {
+    mocks.runsQueryState.data = buildRunList([
+      {
+        ...mocks.productionRuns[0],
+        id: "run_missing_sha",
+        workflow_name: "Missing Commit",
+        commit_sha: null,
+      },
+    ]);
+
+    await renderRunsRoute("/runs");
+
+    const missingRow = await waitFor(() => {
+      const row = findRunRow("Missing Commit");
+      expect(row).toBeTruthy();
+      return row as HTMLElement;
+    });
+
+    expect(within(missingRow).getByLabelText("Commit unavailable")).toBeTruthy();
+    expect(within(missingRow).queryByText("uncommitted")).toBeNull();
+  });
 });

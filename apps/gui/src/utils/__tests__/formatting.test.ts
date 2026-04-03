@@ -47,6 +47,14 @@ describe("formatDuration", () => {
     expect(formatDuration(154)).toBe("2m 34s");
   });
 
+  it("rounds fractional seconds to a whole second", () => {
+    expect(formatDuration(53.92472696304321)).toBe("54s");
+  });
+
+  it("pads seconds to two digits when minutes are shown", () => {
+    expect(formatDuration(125)).toBe("2m 05s");
+  });
+
   it("formats exactly 60 seconds as 1m", () => {
     expect(formatDuration(60)).toBe("1m");
   });
