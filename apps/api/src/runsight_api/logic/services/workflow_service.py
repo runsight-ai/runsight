@@ -76,7 +76,10 @@ class WorkflowService:
     def create_workflow(self, data: Dict[str, Any], *, commit: bool = True) -> WorkflowEntity:
         result = self.workflow_repo.create(data)
         if commit:
-            self._auto_commit(f"Create workflow: {result.name}", [result.id])
+            self._auto_commit(
+                f"Create workflow: {result.name}",
+                [f"custom/workflows/{result.id}.yaml"],
+            )
         return result
 
     def update_workflow(self, id: str, data: Dict[str, Any]) -> WorkflowEntity:
