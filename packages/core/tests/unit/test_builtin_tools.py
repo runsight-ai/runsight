@@ -121,9 +121,20 @@ class TestHttpToolFactory:
 class TestHttpToolExecute:
     """HTTP tool execute function: httpx requests with SSRF validation."""
 
+    def test_builtin_http_module_does_not_keep_inline_http_execution_logic(self):
+        """RUN-582: builtin http should delegate outbound execution to the shared request path."""
+        http_module = (
+            Path(__file__).resolve().parents[2] / "src" / "runsight_core" / "tools" / "http.py"
+        )
+        source = http_module.read_text(encoding="utf-8")
+
+        assert "import httpx" not in source
+        assert "validate_ssrf" not in source
+        assert '"status_code"' not in source
+
     @pytest.mark.asyncio
-    async def test_execute_get_returns_json_with_status_code(self):
-        """Execute with a valid GET returns JSON string containing status_code."""
+    async def test_execute_get_returns_normalized_json_payload(self):
+        """JSON responses should return the shared normalized payload, not the legacy wrapper."""
         from runsight_core.tools.http import create_http_tool
 
         tool = create_http_tool()
@@ -132,6 +143,7 @@ class TestHttpToolExecute:
         mock_response.status_code = 200
         mock_response.headers = {"content-type": "application/json"}
         mock_response.text = '{"ok": true}'
+        mock_response.json.return_value = {"ok": True}
 
         with patch("runsight_core.tools.http.httpx.AsyncClient") as MockClient:
             client_instance = AsyncMock()
@@ -148,11 +160,11 @@ class TestHttpToolExecute:
                 result = await tool.execute({"method": "GET", "url": "https://example.com/api"})
 
         parsed = json.loads(result)
-        assert parsed["status_code"] == 200
+        assert parsed == {"ok": True}
 
     @pytest.mark.asyncio
-    async def test_execute_get_returns_json_with_headers(self):
-        """Execute result JSON contains response headers."""
+    async def test_execute_text_response_returns_plain_text_without_wrapper(self):
+        """Plain-text responses should round-trip directly without the legacy JSON envelope."""
         from runsight_core.tools.http import create_http_tool
 
         tool = create_http_tool()
@@ -176,20 +188,20 @@ class TestHttpToolExecute:
 
                 result = await tool.execute({"method": "GET", "url": "https://example.com"})
 
-        parsed = json.loads(result)
-        assert "headers" in parsed
+        assert result == "hello"
 
     @pytest.mark.asyncio
-    async def test_execute_get_returns_json_with_body(self):
-        """Execute result JSON contains the response body text."""
+    async def test_execute_post_with_body_returns_normalized_json_payload(self):
+        """POST responses should preserve the shared JSON payload contract as well."""
         from runsight_core.tools.http import create_http_tool
 
         tool = create_http_tool()
 
         mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.headers = {"content-type": "text/plain"}
-        mock_response.text = "hello world"
+        mock_response.status_code = 201
+        mock_response.headers = {"content-type": "application/json"}
+        mock_response.text = '{"created": true}'
+        mock_response.json.return_value = {"created": True}
 
         with patch("runsight_core.tools.http.httpx.AsyncClient") as MockClient:
             client_instance = AsyncMock()
@@ -203,10 +215,16 @@ class TestHttpToolExecute:
             ) as mock_ssrf:
                 mock_ssrf.return_value = None
 
-                result = await tool.execute({"method": "GET", "url": "https://example.com"})
+                result = await tool.execute(
+                    {
+                        "method": "POST",
+                        "url": "https://example.com/api",
+                        "body": '{"key": "value"}',
+                    }
+                )
 
         parsed = json.loads(result)
-        assert parsed["body"] == "hello world"
+        assert parsed == {"created": True}
 
     @pytest.mark.asyncio
     async def test_execute_calls_validate_ssrf(self):
@@ -276,41 +294,6 @@ class TestHttpToolExecute:
                     await tool.execute({"method": "GET", "url": "https://provider.example/api"})
 
                 client_instance.request.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_execute_post_with_body(self):
-        """Execute with POST method and body passes body to httpx."""
-        from runsight_core.tools.http import create_http_tool
-
-        tool = create_http_tool()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 201
-        mock_response.headers = {}
-        mock_response.text = '{"created": true}'
-
-        with patch("runsight_core.tools.http.httpx.AsyncClient") as MockClient:
-            client_instance = AsyncMock()
-            client_instance.request.return_value = mock_response
-            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
-            client_instance.__aexit__ = AsyncMock(return_value=False)
-            MockClient.return_value = client_instance
-
-            with patch(
-                "runsight_core.tools.http.validate_ssrf", new_callable=AsyncMock
-            ) as mock_ssrf:
-                mock_ssrf.return_value = None
-
-                result = await tool.execute(
-                    {
-                        "method": "POST",
-                        "url": "https://example.com/api",
-                        "body": '{"key": "value"}',
-                    }
-                )
-
-        parsed = json.loads(result)
-        assert parsed["status_code"] == 201
 
 
 # ===========================================================================

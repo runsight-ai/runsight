@@ -1507,6 +1507,96 @@ workflow:
         ]
         assert json.loads(tool_messages[-1]["content"]) == "42"
 
+    @pytest.mark.asyncio
+    @patch("runsight_core.runner.LiteLLMClient.achat")
+    async def test_builtin_http_tool_pipeline_returns_normalized_json_payload(
+        self,
+        mock_achat: AsyncMock,
+    ) -> None:
+        """RUN-582: builtin http should feed the same normalized JSON payload shape into the loop."""
+        yaml_dict = _workflow_dict(
+            tools=["http"],
+            souls={
+                "agent": {
+                    "id": "agent_1",
+                    "role": "HTTP Agent",
+                    "system_prompt": "Use the builtin http tool.",
+                    "tools": ["http"],
+                }
+            },
+            blocks={"step": {"type": "linear", "soul_ref": "agent"}},
+        )
+
+        workflow = parse_workflow_yaml(yaml_dict)
+        soul = workflow.blocks["step"].soul
+
+        class _FakeResponse:
+            status_code = 200
+            headers = {"content-type": "application/json"}
+
+            def json(self) -> dict[str, Any]:
+                return {"answer": "42"}
+
+            @property
+            def text(self) -> str:
+                return json.dumps(self.json())
+
+        class _FakeAsyncClient:
+            async def __aenter__(self) -> "_FakeAsyncClient":
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb) -> None:
+                return None
+
+            async def request(
+                self,
+                method: str,
+                url: str,
+                headers: dict[str, str] | None = None,
+                content: str | None = None,
+            ) -> _FakeResponse:
+                assert method == "GET"
+                assert url == "https://example.com/data"
+                assert headers is None
+                assert content is None
+                return _FakeResponse()
+
+        mock_achat.side_effect = [
+            _tool_call_response(
+                "http_request",
+                arguments='{"method": "GET", "url": "https://example.com/data"}',
+                call_id="builtin_http_1",
+            ),
+            _text_response("Builtin http complete."),
+        ]
+
+        with (
+            patch("runsight_core.tools.http.httpx.AsyncClient", _FakeAsyncClient),
+            patch("runsight_core.tools._catalog.httpx.AsyncClient", _FakeAsyncClient),
+            patch("runsight_core.tools.http.validate_ssrf", new_callable=AsyncMock) as http_ssrf,
+            patch(
+                "runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock
+            ) as catalog_ssrf,
+        ):
+            http_ssrf.return_value = None
+            catalog_ssrf.return_value = None
+
+            runner = RunsightTeamRunner(model_name="gpt-4o")
+            result = await runner.execute_task(
+                Task(id="run-582-builtin-http", instruction="Fetch data"),
+                soul,
+            )
+
+        assert result.output == "Builtin http complete."
+        assert result.tool_calls_made == ["http_request"]
+
+        tool_messages = [
+            msg
+            for msg in mock_achat.call_args_list[1].kwargs["messages"]
+            if msg.get("role") == "tool"
+        ]
+        assert json.loads(tool_messages[-1]["content"]) == {"answer": "42"}
+
     def test_builtin_custom_and_request_tools_parse_and_resolve_together(
         self,
         tmp_path: Path,

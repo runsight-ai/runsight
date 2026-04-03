@@ -765,3 +765,70 @@ class TestResolveCanonicalRequestTools:
             result = await tool.execute({})
 
         assert result == body
+
+    @pytest.mark.parametrize("location", ["headers", "body_template"])
+    @pytest.mark.asyncio
+    async def test_request_tool_missing_env_secret_fails_closed_before_request(
+        self, tmp_path, location
+    ):
+        """Missing env-secret placeholders in shared request execution should fail closed."""
+        from runsight_core.tools import resolve_tool
+
+        request_block = """
+            request:
+              method: POST
+              url: https://example.com/secure
+              headers:
+                Authorization: Bearer ${MISSING_API_TOKEN}
+              body_template: '{"token":"${MISSING_API_TOKEN}"}'
+            """
+        if location == "headers":
+            request_block = """
+            request:
+              method: GET
+              url: https://example.com/secure
+              headers:
+                Authorization: Bearer ${MISSING_API_TOKEN}
+            """
+        elif location == "body_template":
+            request_block = """
+            request:
+              method: POST
+              url: https://example.com/secure
+              body_template: '{"token":"${MISSING_API_TOKEN}"}'
+            """
+
+        _write_custom_tool_yaml(
+            tmp_path,
+            f"secure_lookup_{location}",
+            f"""
+            version: "1.0"
+            type: custom
+            executor: request
+            name: Secure Lookup
+            description: Fetches a protected resource.
+            parameters:
+              type: object
+              properties: {{}}
+            {request_block}
+            """,
+        )
+
+        tool = resolve_tool(f"secure_lookup_{location}", base_dir=tmp_path)
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.headers = {"content-type": "application/json"}
+            mock_response.text = '{"ok": true}'
+            mock_response.json.return_value = {"ok": True}
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            with pytest.raises(ValueError, match=r"MISSING_API_TOKEN"):
+                await tool.execute({})
+
+        client_instance.request.assert_not_called()
