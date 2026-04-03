@@ -48,6 +48,18 @@ class TestCatalogRegistration:
 
         assert "delegate" in BUILTIN_TOOL_CATALOG
 
+    @pytest.mark.parametrize(
+        "legacy_source",
+        ["runsight/http", "runsight/file-io", "runsight/delegate"],
+    )
+    def test_legacy_builtin_aliases_are_not_registered(self, legacy_source: str):
+        """Legacy builtin aliases must not remain in the internal registry."""
+        from runsight_core.tools.delegate import create_delegate_tool  # noqa: F401
+        from runsight_core.tools.file_io import create_file_io_tool  # noqa: F401
+        from runsight_core.tools.http import create_http_tool  # noqa: F401
+
+        assert legacy_source not in BUILTIN_TOOL_CATALOG
+
 
 # ===========================================================================
 # AC1: runsight/http — HTTP tool
@@ -99,6 +111,13 @@ class TestHttpToolFactory:
         tool = create_http_tool()
         assert "body" in tool.parameters["properties"]
 
+    def test_parameters_schema_has_response_path(self):
+        """Parameters JSON schema includes optional 'response_path' for JSON extraction."""
+        from runsight_core.tools.http import create_http_tool
+
+        tool = create_http_tool()
+        assert "response_path" in tool.parameters["properties"]
+
     def test_parameters_schema_requires_method_and_url(self):
         """Method and url are required parameters."""
         from runsight_core.tools.http import create_http_tool
@@ -145,6 +164,111 @@ class TestHttpToolExecute:
         parsed = json.loads(result)
         assert parsed == {"ok": True}
 
+    @pytest.mark.parametrize(
+        ("response_payload", "response_path", "expected_value"),
+        [
+            ({"data": {"answer": "42"}}, "data.answer", "42"),
+            ({"data": {"items": ["a", "b"]}}, "data.items", ["a", "b"]),
+            ({"data": {"meta": {"count": 2}}}, "data.meta", {"count": 2}),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_execute_json_response_path_returns_extracted_nested_value(
+        self,
+        response_payload,
+        response_path,
+        expected_value,
+    ):
+        """Builtin http should return the extracted nested JSON value when response_path is provided."""
+        from runsight_core.tools import resolve_tool
+
+        tool = resolve_tool("http")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/json"}
+        mock_response.text = json.dumps(response_payload)
+        mock_response.json.return_value = response_payload
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute(
+                {
+                    "method": "GET",
+                    "url": "https://example.com/api",
+                    "response_path": response_path,
+                }
+            )
+
+        assert json.loads(result) == expected_value
+
+    @pytest.mark.asyncio
+    async def test_execute_missing_response_path_segment_raises_valueerror(self):
+        """Missing response_path segments should fail explicitly for builtin http JSON responses."""
+        from runsight_core.tools import resolve_tool
+
+        tool = resolve_tool("http")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/json"}
+        mock_response.text = '{"data": {"answer": "42"}}'
+        mock_response.json.return_value = {"data": {"answer": "42"}}
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            with pytest.raises(ValueError, match=r"Response path 'data.missing' was not found"):
+                await tool.execute(
+                    {
+                        "method": "GET",
+                        "url": "https://example.com/api",
+                        "response_path": "data.missing",
+                    }
+                )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("response_path", ["", "data..answer"])
+    async def test_execute_invalid_response_path_value_raises_valueerror(self, response_path: str):
+        """Invalid response_path values themselves should fail explicitly for builtin http."""
+        from runsight_core.tools import resolve_tool
+
+        tool = resolve_tool("http")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/json"}
+        mock_response.text = '{"data": {"answer": "42"}}'
+        mock_response.json.return_value = {"data": {"answer": "42"}}
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            with pytest.raises(
+                ValueError,
+                match=r"Response path",
+            ):
+                await tool.execute(
+                    {
+                        "method": "GET",
+                        "url": "https://example.com/api",
+                        "response_path": response_path,
+                    }
+                )
+
     @pytest.mark.asyncio
     async def test_execute_text_response_returns_plain_text_without_wrapper(self):
         """Plain-text responses should round-trip directly without the legacy JSON envelope."""
@@ -165,6 +289,35 @@ class TestHttpToolExecute:
             MockClient.return_value = client_instance
 
             result = await tool.execute({"method": "GET", "url": "https://example.com"})
+
+        assert result == "hello"
+
+    @pytest.mark.asyncio
+    async def test_execute_text_response_ignores_response_path_and_returns_plain_text(self):
+        """Plain-text responses should remain unchanged even if response_path is provided."""
+        from runsight_core.tools import resolve_tool
+
+        tool = resolve_tool("http")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.text = "hello"
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute(
+                {
+                    "method": "GET",
+                    "url": "https://example.com",
+                    "response_path": "data.answer",
+                }
+            )
 
         assert result == "hello"
 
@@ -204,6 +357,46 @@ class TestHttpToolExecute:
         assert "<html" not in result.lower()
         assert "<script" not in result.lower()
         assert "console.log" not in result
+
+    @pytest.mark.asyncio
+    async def test_execute_html_response_ignores_response_path_and_returns_normalized_text(self):
+        """HTML normalization should stay unchanged even if response_path is provided."""
+        from runsight_core.tools import resolve_tool
+
+        tool = resolve_tool("http")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/html; charset=utf-8"}
+        mock_response.text = """
+        <html>
+          <body>
+            <main>
+              <h1>Runsight Docs</h1>
+              <p>Keep tool output bounded.</p>
+            </main>
+          </body>
+        </html>
+        """
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute(
+                {
+                    "method": "GET",
+                    "url": "https://example.com/docs",
+                    "response_path": "data.answer",
+                }
+            )
+
+        assert "Runsight Docs" in result
+        assert "Keep tool output bounded." in result
+        assert "<html" not in result.lower()
 
     @pytest.mark.asyncio
     async def test_execute_post_with_body_returns_normalized_json_payload(self):
@@ -304,6 +497,38 @@ class TestHttpToolExecute:
 
         assert result == "truncated body"
         response_size_policy.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_execute_response_size_policy_applies_after_json_extraction(self):
+        """Builtin http should size-check the extracted JSON value, not the pre-extraction payload."""
+        from runsight_core.tools import resolve_tool
+
+        response_size_policy = Mock(return_value="truncated body")
+        tool = resolve_tool("http", max_output_bytes=5, response_size_policy=response_size_policy)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/json"}
+        mock_response.text = '{"data": {"answer": "0123456789"}}'
+        mock_response.json.return_value = {"data": {"answer": "0123456789"}}
+
+        with patch("httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            client_instance.request.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await tool.execute(
+                {
+                    "method": "GET",
+                    "url": "https://example.com/api",
+                    "response_path": "data.answer",
+                }
+            )
+
+        assert result == "truncated body"
+        response_size_policy.assert_called_once_with('"0123456789"', max_output_bytes=5)
 
     @pytest.mark.asyncio
     async def test_execute_uses_default_size_cap_when_no_explicit_limit_is_provided(self):
