@@ -117,9 +117,4 @@ async def delete_workflow(
     force: bool = False,
     service: WorkflowService = Depends(get_workflow_service),
 ):
-    from ...domain.errors import RunsightError
-
-    try:
-        return service.delete_workflow(id, force=force)
-    except RunsightError as exc:
-        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
+    return service.delete_workflow(id, force=force)

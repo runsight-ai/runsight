@@ -69,7 +69,7 @@ class WorkflowService:
         yaml_path = f"custom/workflows/{workflow.id}.yaml"
         return workflow.model_copy(
             update={
-                "commit_sha": self._get_workflow_commit_sha(yaml_path),
+                "commit_sha": self._get_workflow_commit_sha_on_main(yaml_path),
             }
         )
 
@@ -137,6 +137,15 @@ class WorkflowService:
             logger.warning("Skipping workflow auto-commit after create", exc_info=True)
 
     def _get_workflow_commit_sha(self, path: str) -> str | None:
+        if self.git_service is None:
+            return None
+        try:
+            branch = self.git_service.current_branch()
+        except Exception:
+            branch = "main"
+        return self.git_service.get_sha(branch, path)
+
+    def _get_workflow_commit_sha_on_main(self, path: str) -> str | None:
         if self.git_service is None:
             return None
         return self.git_service.get_sha("main", path)
