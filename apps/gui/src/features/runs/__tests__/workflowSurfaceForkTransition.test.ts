@@ -16,15 +16,19 @@ const createWorkflowMock = vi.fn();
 const createRunMutateMock = vi.fn();
 const setActiveRunIdMock = vi.fn();
 
-function buildRun({
-  status = "completed" as TestRunStatus,
-  commitSha = "abc123" as string | null | undefined,
-  source = "manual",
-}: {
+function buildRun(overrides: {
   status?: TestRunStatus;
   commitSha?: string | null | undefined;
   source?: string;
 } = {}) {
+  const {
+    status = "completed" as TestRunStatus,
+    source = "manual",
+  } = overrides;
+  const commitSha = Object.prototype.hasOwnProperty.call(overrides, "commitSha")
+    ? overrides.commitSha
+    : "abc123";
+
   return {
     id: "run_123456",
     workflow_id: "wf-research",

@@ -172,6 +172,7 @@ export function WorkflowSurfaceTopbar({
           <Button
             variant="ghost"
             disabled={forkDisabled}
+            aria-disabled={forkDisabled ? "true" : undefined}
             onClick={onFork}
             aria-label="Fork"
             title={forkTitle}
