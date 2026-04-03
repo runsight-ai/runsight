@@ -48,6 +48,18 @@ class TestCatalogRegistration:
 
         assert "delegate" in BUILTIN_TOOL_CATALOG
 
+    @pytest.mark.parametrize(
+        "legacy_source",
+        ["runsight/http", "runsight/file-io", "runsight/delegate"],
+    )
+    def test_legacy_builtin_aliases_are_not_registered(self, legacy_source: str):
+        """Legacy builtin aliases must not remain in the internal registry."""
+        from runsight_core.tools.delegate import create_delegate_tool  # noqa: F401
+        from runsight_core.tools.file_io import create_file_io_tool  # noqa: F401
+        from runsight_core.tools.http import create_http_tool  # noqa: F401
+
+        assert legacy_source not in BUILTIN_TOOL_CATALOG
+
 
 # ===========================================================================
 # AC1: runsight/http — HTTP tool

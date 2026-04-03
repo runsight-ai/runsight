@@ -268,7 +268,10 @@ class TestResolveToolUnknownSource:
         with pytest.raises((TypeError, ValueError)):
             resolve_tool(tool_def)
 
-    @pytest.mark.parametrize("legacy_source", ["runsight/http", "runsight/delegate"])
+    @pytest.mark.parametrize(
+        "legacy_source",
+        ["runsight/http", "runsight/file-io", "runsight/delegate"],
+    )
     def test_legacy_source_strings_are_rejected(self, legacy_source: str):
         """Legacy source slugs should not be accepted by the runtime resolver."""
         from runsight_core.tools import resolve_tool

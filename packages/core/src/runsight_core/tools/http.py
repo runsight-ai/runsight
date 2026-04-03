@@ -65,4 +65,3 @@ def create_http_tool(
 
 
 register_builtin("http", create_http_tool)
-register_builtin("runsight/http", create_http_tool)
