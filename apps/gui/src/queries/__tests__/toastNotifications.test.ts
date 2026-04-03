@@ -256,7 +256,7 @@ describe("Only mutations have toasts, not queries (RUN-240)", () => {
     { source: runsSource, names: ["useRuns", "useRun", "useRunNodes", "useRunLogs"] },
     {
       source: settingsSource,
-      names: ["useProviders", "useProvider", "useModelDefaults", "useBudgets", "useAppSettings"],
+      names: ["useProviders", "useProvider", "useFallbackTargets", "useBudgets", "useAppSettings"],
     },
     { source: gitSource, names: ["useGitStatus", "useGitLog", "useGitDiff"] },
     { source: dashboardSource, names: ["useDashboardSummary", "useRecentRuns"] },
@@ -301,7 +301,7 @@ describe("Error toasts include error.message in description (RUN-240)", () => {
     { source: settingsSource, hookName: "useUpdateProvider", file: "settings.ts" },
     { source: settingsSource, hookName: "useDeleteProvider", file: "settings.ts" },
     { source: settingsSource, hookName: "useTestProviderConnection", file: "settings.ts" },
-    { source: settingsSource, hookName: "useUpdateModelDefault", file: "settings.ts" },
+    { source: settingsSource, hookName: "useUpdateFallbackTarget", file: "settings.ts" },
     { source: settingsSource, hookName: "useCreateBudget", file: "settings.ts" },
     { source: settingsSource, hookName: "useUpdateBudget", file: "settings.ts" },
     { source: settingsSource, hookName: "useDeleteBudget", file: "settings.ts" },

@@ -8,7 +8,6 @@ from pydantic import BaseModel
 class AppSettingsConfig(BaseModel):
     """Flat app settings stored in .runsight/settings.yaml."""
 
-    default_provider: str | None = None
     auto_save: bool | None = None
     onboarding_completed: bool = False
     fallback_enabled: bool = False
@@ -20,11 +19,3 @@ class FallbackTargetEntry(BaseModel):
     provider_id: str
     fallback_provider_id: str
     fallback_model_id: str
-
-
-class ModelDefaultEntry(BaseModel):
-    """Single model-default entry, keyed by (provider_id, model_id)."""
-
-    provider_id: str
-    model_id: str
-    is_default: bool = False

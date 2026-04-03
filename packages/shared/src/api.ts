@@ -394,15 +394,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/settings/models": {
+    "/api/settings/fallbacks": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Model Defaults */
-        get: operations["list_model_defaults_api_settings_models_get"];
+        /** List Fallback Targets */
+        get: operations["list_fallback_targets_api_settings_fallbacks_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -411,7 +411,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/settings/models/{model_id}": {
+    "/api/settings/fallbacks/{provider_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -419,8 +419,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Update Model Default */
-        put: operations["update_model_default_api_settings_models__model_id__put"];
+        /** Update Fallback Target */
+        put: operations["update_fallback_target_api_settings_fallbacks__provider_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -678,8 +678,6 @@ export interface components {
         AppSettingsOut: {
             /** Base Path */
             base_path?: string | null;
-            /** Default Provider */
-            default_provider?: string | null;
             /** Auto Save */
             auto_save?: boolean | null;
             /** Onboarding Completed */
@@ -802,21 +800,17 @@ export interface components {
             /** Baseline Run Count */
             baseline_run_count: number;
         };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /** ModelDefaultUpdate */
-        ModelDefaultUpdate: {
-            /** Model Name */
-            model_name?: string | null;
-            /** Is Default */
-            is_default?: boolean | null;
+        /** FallbackUpdate */
+        FallbackUpdate: {
             /** Fallback Provider Id */
             fallback_provider_id?: string | null;
             /** Fallback Model Id */
             fallback_model_id?: string | null;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
         };
         /** ModelResponse */
         ModelResponse: {
@@ -1090,19 +1084,17 @@ export interface components {
             /** Reset At */
             reset_at?: string | null;
         };
-        /** SettingsModelDefaultListResponse */
-        SettingsModelDefaultListResponse: {
+        /** SettingsFallbackListResponse */
+        SettingsFallbackListResponse: {
             /** Items */
-            items: components["schemas"]["SettingsModelDefaultResponse"][];
+            items: components["schemas"]["SettingsFallbackResponse"][];
             /** Total */
             total: number;
         };
-        /** SettingsModelDefaultResponse */
-        SettingsModelDefaultResponse: {
+        /** SettingsFallbackResponse */
+        SettingsFallbackResponse: {
             /** Id */
             id: string;
-            /** Model Name */
-            model_name: string;
             /** Provider Id */
             provider_id: string;
             /** Provider Name */
@@ -1111,11 +1103,6 @@ export interface components {
             fallback_provider_id?: string | null;
             /** Fallback Model Id */
             fallback_model_id?: string | null;
-            /**
-             * Is Default
-             * @default false
-             */
-            is_default: boolean;
         };
         /** SettingsProviderListResponse */
         SettingsProviderListResponse: {
@@ -2829,7 +2816,7 @@ export interface operations {
             };
         };
     };
-    list_model_defaults_api_settings_models_get: {
+    list_fallback_targets_api_settings_fallbacks_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -2844,23 +2831,23 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SettingsModelDefaultListResponse"];
+                    "application/json": components["schemas"]["SettingsFallbackListResponse"];
                 };
             };
         };
     };
-    update_model_default_api_settings_models__model_id__put: {
+    update_fallback_target_api_settings_fallbacks__provider_id__put: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                model_id: string;
+                provider_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ModelDefaultUpdate"];
+                "application/json": components["schemas"]["FallbackUpdate"];
             };
         };
         responses: {
@@ -2870,7 +2857,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SettingsModelDefaultResponse"];
+                    "application/json": components["schemas"]["SettingsFallbackResponse"];
                 };
             };
             /** @description Validation Error */

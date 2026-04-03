@@ -1,4 +1,4 @@
-"""RUN-548 red tests for the filesystem settings repository foundation."""
+"""Tests for the filesystem-backed settings repository."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 from runsight_api.data.filesystem.settings_repo import FileSystemSettingsRepo
-from runsight_api.domain.entities.settings import AppSettingsConfig, ModelDefaultEntry
+from runsight_api.domain.entities.settings import AppSettingsConfig
 
 
 def _settings_module():
@@ -31,14 +31,10 @@ def settings_file(tmp_path):
 
 class TestDomainFoundation:
     def test_legacy_fallback_entry_removed_from_settings_module(self):
-        settings_module = _settings_module()
-
-        assert not hasattr(settings_module, "FallbackChainEntry")
+        assert not hasattr(_settings_module(), "FallbackChainEntry")
 
     def test_legacy_fallback_entry_removed_from_entities_module(self):
-        entities_module = _entities_module()
-
-        assert not hasattr(entities_module, "FallbackChainEntry")
+        assert not hasattr(_entities_module(), "FallbackChainEntry")
 
     def test_fallback_target_entry_exported_from_domain_modules(self):
         settings_module = _settings_module()
@@ -46,31 +42,19 @@ class TestDomainFoundation:
 
         assert hasattr(settings_module, "FallbackTargetEntry")
         assert hasattr(entities_module, "FallbackTargetEntry")
-
-    def test_fallback_target_entry_uses_per_provider_target_fields(self):
-        entry_cls = getattr(_settings_module(), "FallbackTargetEntry")
-
-        entry = entry_cls(
-            provider_id="openai",
-            fallback_provider_id="anthropic",
-            fallback_model_id="claude-sonnet-4",
-        )
-
-        assert entry.model_dump() == {
-            "provider_id": "openai",
-            "fallback_provider_id": "anthropic",
-            "fallback_model_id": "claude-sonnet-4",
-        }
+        assert not hasattr(settings_module, "ModelDefaultEntry")
+        assert not hasattr(entities_module, "ModelDefaultEntry")
 
     def test_app_settings_config_defaults_fallback_enabled_false(self):
         settings = AppSettingsConfig()
 
         assert settings.fallback_enabled is False
+        assert not hasattr(settings, "default_provider")
         assert not hasattr(settings, "fallback_chain_enabled")
 
 
 class TestFreshInstallDefaults:
-    def test_get_settings_returns_fallback_enabled_false_for_new_install(self, repo):
+    def test_get_settings_returns_defaults_for_new_install(self, repo):
         settings = repo.get_settings()
 
         assert isinstance(settings, AppSettingsConfig)
@@ -79,6 +63,8 @@ class TestFreshInstallDefaults:
     def test_legacy_fallback_repo_methods_are_removed(self, repo):
         assert not hasattr(repo, "get_fallback_chain")
         assert not hasattr(repo, "update_fallback_chain")
+        assert not hasattr(repo, "list_model_defaults")
+        assert not hasattr(repo, "set_model_default")
 
     def test_get_fallback_map_returns_empty_list_for_new_install(self, repo):
         assert repo.get_fallback_map() == []
@@ -133,9 +119,7 @@ class TestFallbackMapPersistence:
 
 
 class TestCleanSchemaOnly:
-    def test_get_settings_ignores_legacy_fallback_keys_without_rewriting_yaml(
-        self, repo, settings_file
-    ):
+    def test_get_settings_ignores_legacy_keys_without_rewriting_yaml(self, repo, settings_file):
         settings_file.parent.mkdir(parents=True, exist_ok=True)
         settings_file.write_text(
             yaml.safe_dump(
@@ -144,10 +128,6 @@ class TestCleanSchemaOnly:
                     "fallback_chain_enabled": True,
                     "fallback_chain": [
                         {"provider_id": "openai", "model_id": "gpt-4o"},
-                        {
-                            "provider_id": "anthropic",
-                            "model_id": "claude-sonnet-4",
-                        },
                     ],
                     "model_defaults": [
                         {
@@ -163,24 +143,17 @@ class TestCleanSchemaOnly:
 
         settings = repo.get_settings()
 
-        assert settings.default_provider == "openai"
         assert settings.fallback_enabled is False
 
         on_disk = yaml.safe_load(settings_file.read_text())
         assert on_disk["fallback_chain_enabled"] is True
-        assert on_disk["fallback_chain"] == [
-            {"provider_id": "openai", "model_id": "gpt-4o"},
-            {
-                "provider_id": "anthropic",
-                "model_id": "claude-sonnet-4",
-            },
-        ]
+        assert on_disk["fallback_chain"] == [{"provider_id": "openai", "model_id": "gpt-4o"}]
         assert on_disk["model_defaults"] == [
-            ModelDefaultEntry(
-                provider_id="openai",
-                model_id="gpt-4o",
-                is_default=True,
-            ).model_dump()
+            {
+                "provider_id": "openai",
+                "model_id": "gpt-4o",
+                "is_default": True,
+            }
         ]
         assert repo.get_fallback_map() == []
 
@@ -191,7 +164,6 @@ class TestCleanSchemaOnly:
         settings_file.write_text(
             yaml.safe_dump(
                 {
-                    "default_provider": "openai",
                     "fallback_chain": [
                         {"provider_id": "openai", "model_id": "gpt-4o"},
                     ],
@@ -206,6 +178,4 @@ class TestCleanSchemaOnly:
 
         on_disk = yaml.safe_load(settings_file.read_text())
         assert "fallback_enabled" not in on_disk
-        assert on_disk["fallback_chain"] == [
-            {"provider_id": "openai", "model_id": "gpt-4o"},
-        ]
+        assert on_disk["fallback_chain"] == [{"provider_id": "openai", "model_id": "gpt-4o"}]

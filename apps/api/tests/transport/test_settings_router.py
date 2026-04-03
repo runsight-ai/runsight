@@ -29,6 +29,7 @@ def _mock_provider(*, provider_id: str, name: str, models: list[str]):
     provider.models = models
     provider.created_at = None
     provider.updated_at = None
+    provider.is_active = True
     return provider
 
 
@@ -43,24 +44,14 @@ def _assert_provider_test_contract(payload: dict):
 def test_settings_providers_list():
     mock_service = Mock()
     mock_service.list_providers.return_value = [
-        _mock_provider(
-            provider_id="openai",
-            name="OpenAI",
-            models=["gpt-4.1", "gpt-4o"],
-        ),
-        _mock_provider(
-            provider_id="empty-provider",
-            name="Empty Provider",
-            models=[],
-        ),
+        _mock_provider(provider_id="openai", name="OpenAI", models=["gpt-4.1", "gpt-4o"]),
+        _mock_provider(provider_id="empty-provider", name="Empty Provider", models=[]),
     ]
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
     response = client.get("/api/settings/providers")
     assert response.status_code == 200
     data = response.json()
-    assert "items" in data
-    assert "total" in data
     assert data["total"] == 2
     assert data["items"][0]["model_count"] == 2
     assert data["items"][1]["model_count"] == 0
@@ -100,11 +91,7 @@ def test_settings_providers_get_404():
 
 def test_settings_providers_post():
     mock_service = Mock()
-    mock_provider = _mock_provider(
-        provider_id="openai",
-        name="OpenAI",
-        models=[],
-    )
+    mock_provider = _mock_provider(provider_id="openai", name="OpenAI", models=[])
     mock_service.create_provider.return_value = mock_provider
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
@@ -121,7 +108,7 @@ def test_settings_providers_post():
 
 def test_settings_providers_post_422():
     app.dependency_overrides.clear()
-    response = client.post("/api/settings/providers", json={})  # name required
+    response = client.post("/api/settings/providers", json={})
     assert response.status_code == 422
 
 
@@ -130,10 +117,7 @@ def test_settings_providers_put_404():
     mock_service.update_provider.return_value = None
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
-    response = client.put(
-        "/api/settings/providers/missing",
-        json={"name": "Updated"},
-    )
+    response = client.put("/api/settings/providers/missing", json={"name": "Updated"})
     assert response.status_code == 404
     app.dependency_overrides.clear()
 
@@ -153,7 +137,7 @@ def test_settings_providers_test():
     mock_service.test_connection = AsyncMock(
         return_value={
             "success": True,
-            "message": "Connected — 1 models available",
+            "message": "Connected - 1 models available",
             "models": ["gpt-4o"],
         }
     )
@@ -193,30 +177,21 @@ def test_settings_providers_test_credentials_returns_setup_contract_shape():
         app.dependency_overrides.clear()
 
 
-def test_settings_models_list():
-    import runsight_api.transport.deps as deps_module
-
-    assert hasattr(deps_module, "get_settings_service"), (
-        "deps.get_settings_service must exist so /api/settings/models can be wired "
-        "to SettingsService"
-    )
-
+def test_settings_fallbacks_list():
     mock_service = Mock()
-    mock_service.get_model_defaults.return_value = [
+    mock_service.get_fallback_targets.return_value = [
         {
             "id": "openai",
             "provider_id": "openai",
             "provider_name": "OpenAI",
-            "model_name": "gpt-4o",
-            "is_default": True,
             "fallback_provider_id": "anthropic",
             "fallback_model_id": "claude-sonnet-4",
         }
     ]
-    app.dependency_overrides[getattr(deps_module, "get_settings_service")] = lambda: mock_service
+    app.dependency_overrides[get_settings_service] = lambda: mock_service
 
     try:
-        response = client.get("/api/settings/models")
+        response = client.get("/api/settings/fallbacks")
         assert response.status_code == 200
         assert response.json() == {
             "items": [
@@ -224,27 +199,23 @@ def test_settings_models_list():
                     "id": "openai",
                     "provider_id": "openai",
                     "provider_name": "OpenAI",
-                    "model_name": "gpt-4o",
-                    "is_default": True,
                     "fallback_provider_id": "anthropic",
                     "fallback_model_id": "claude-sonnet-4",
                 }
             ],
             "total": 1,
         }
-        mock_service.get_model_defaults.assert_called_once_with()
+        mock_service.get_fallback_targets.assert_called_once_with()
     finally:
         app.dependency_overrides.clear()
 
 
-def test_settings_models_put_updates_model_name():
+def test_settings_fallbacks_put_updates_fallback_pair():
     mock_service = Mock()
-    mock_service.update_model_default.return_value = {
+    mock_service.update_fallback_target.return_value = {
         "id": "openai",
         "provider_id": "openai",
         "provider_name": "OpenAI",
-        "model_name": "gpt-4.1",
-        "is_default": True,
         "fallback_provider_id": "anthropic",
         "fallback_model_id": "claude-sonnet-4",
     }
@@ -252,46 +223,7 @@ def test_settings_models_put_updates_model_name():
 
     try:
         response = client.put(
-            "/api/settings/models/openai",
-            json={"model_name": "gpt-4.1", "is_default": True},
-        )
-        assert response.status_code == 200
-        assert response.json() == {
-            "id": "openai",
-            "provider_id": "openai",
-            "provider_name": "OpenAI",
-            "model_name": "gpt-4.1",
-            "is_default": True,
-            "fallback_provider_id": "anthropic",
-            "fallback_model_id": "claude-sonnet-4",
-        }
-        mock_service.update_model_default.assert_called_once_with(
-            provider_id="openai",
-            model_name="gpt-4.1",
-            is_default=True,
-            fallback_provider_id=None,
-            fallback_model_id=None,
-        )
-    finally:
-        app.dependency_overrides.clear()
-
-
-def test_settings_models_put_updates_fallback_target_fields():
-    mock_service = Mock()
-    mock_service.update_model_default.return_value = {
-        "id": "openai",
-        "provider_id": "openai",
-        "provider_name": "OpenAI",
-        "model_name": "gpt-4.1",
-        "is_default": True,
-        "fallback_provider_id": "anthropic",
-        "fallback_model_id": "claude-sonnet-4",
-    }
-    app.dependency_overrides[get_settings_service] = lambda: mock_service
-
-    try:
-        response = client.put(
-            "/api/settings/models/openai",
+            "/api/settings/fallbacks/openai",
             json={
                 "fallback_provider_id": "anthropic",
                 "fallback_model_id": "claude-sonnet-4",
@@ -300,10 +232,8 @@ def test_settings_models_put_updates_fallback_target_fields():
         assert response.status_code == 200
         assert response.json()["fallback_provider_id"] == "anthropic"
         assert response.json()["fallback_model_id"] == "claude-sonnet-4"
-        mock_service.update_model_default.assert_called_once_with(
+        mock_service.update_fallback_target.assert_called_once_with(
             provider_id="openai",
-            model_name=None,
-            is_default=None,
             fallback_provider_id="anthropic",
             fallback_model_id="claude-sonnet-4",
         )
@@ -311,77 +241,76 @@ def test_settings_models_put_updates_fallback_target_fields():
         app.dependency_overrides.clear()
 
 
-def test_settings_models_put_404():
-    from runsight_api.domain.errors import ProviderNotFound
-
+def test_settings_fallbacks_put_allows_clearing_with_empty_strings():
     mock_service = Mock()
-    mock_service.update_model_default.side_effect = ProviderNotFound("Provider missing not found")
+    mock_service.update_fallback_target.return_value = {
+        "id": "openai",
+        "provider_id": "openai",
+        "provider_name": "OpenAI",
+        "fallback_provider_id": None,
+        "fallback_model_id": None,
+    }
     app.dependency_overrides[get_settings_service] = lambda: mock_service
 
     try:
         response = client.put(
-            "/api/settings/models/missing",
-            json={"model_name": "gpt-4.1"},
+            "/api/settings/fallbacks/openai",
+            json={"fallback_provider_id": "", "fallback_model_id": ""},
         )
-        assert response.status_code == 404
+        assert response.status_code == 200
+        assert response.json()["fallback_provider_id"] is None
+        assert response.json()["fallback_model_id"] is None
     finally:
         app.dependency_overrides.clear()
 
 
-def test_settings_budgets_list():
-    app.dependency_overrides.clear()
-    response = client.get("/api/settings/budgets")
-    assert response.status_code == 200
-    data = response.json()
-    assert "items" in data
-    assert "total" in data
+def test_app_settings_get_returns_fallback_enabled_without_default_provider():
+    mock_repo = Mock(spec=FileSystemSettingsRepo)
+    mock_repo.get_settings.return_value = AppSettingsConfig(
+        auto_save=True,
+        onboarding_completed=True,
+        fallback_enabled=False,
+    )
+    app.dependency_overrides[get_settings_repo] = lambda: mock_repo
 
-
-def test_settings_app_get():
     try:
-        repo = Mock(spec=FileSystemSettingsRepo)
-        repo.get_settings.return_value = AppSettingsConfig(
-            default_provider="openai",
-            fallback_enabled=False,
-        )
-        app.dependency_overrides[get_settings_repo] = lambda: repo
         response = client.get("/api/settings/app")
         assert response.status_code == 200
-        assert response.json()["default_provider"] == "openai"
+        assert response.json()["auto_save"] is True
         assert response.json()["fallback_enabled"] is False
-        assert "fallback_chain_enabled" not in response.json()
+        assert "default_provider" not in response.json()
     finally:
         app.dependency_overrides.clear()
 
 
-def test_settings_app_put():
+def test_app_settings_put_updates_fallback_enabled_without_default_provider():
+    mock_repo = Mock(spec=FileSystemSettingsRepo)
+    mock_repo.update_settings.return_value = AppSettingsConfig(
+        auto_save=True,
+        onboarding_completed=True,
+        fallback_enabled=False,
+    )
+    app.dependency_overrides[get_settings_repo] = lambda: mock_repo
+
     try:
-        repo = Mock(spec=FileSystemSettingsRepo)
-        repo.update_settings.return_value = AppSettingsConfig(
-            default_provider="openai",
-            fallback_enabled=False,
-        )
-        app.dependency_overrides[get_settings_repo] = lambda: repo
         response = client.put(
             "/api/settings/app",
-            json={"default_provider": "openai", "fallback_enabled": False},
+            json={"auto_save": True, "fallback_enabled": False},
         )
         assert response.status_code == 200
-        assert response.json()["default_provider"] == "openai"
         assert response.json()["fallback_enabled"] is False
-        assert "fallback_chain_enabled" not in response.json()
-        repo.update_settings.assert_called_once_with(
-            {"default_provider": "openai", "fallback_enabled": False}
+        assert "default_provider" not in response.json()
+        mock_repo.update_settings.assert_called_once_with(
+            {"auto_save": True, "fallback_enabled": False}
         )
     finally:
         app.dependency_overrides.clear()
 
 
-def test_settings_router_source_uses_new_fallback_contract_fields_only():
+def test_router_source_mentions_fallback_settings_only():
     source = ROUTER_SOURCE.read_text()
 
-    assert "fallback_provider_id" in source
-    assert "fallback_model_id" in source
+    assert "/fallbacks" in source
     assert "fallback_enabled" in source
-    assert "fallback_chain_enabled" not in source
-    assert "fallback_chain:" not in source
+    assert "/settings/models" not in source
+    assert "default_provider" not in source

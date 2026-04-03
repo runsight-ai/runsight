@@ -2,26 +2,27 @@ import { api } from "./client";
 import { z } from "zod";
 import {
   AppSettingsOutSchema,
+  FallbackUpdateSchema,
   ModelResponseSchema,
   ProviderSummarySchema,
   ProviderTestOutSchema,
   SettingsBudgetListResponseSchema,
   SettingsBudgetResponseSchema,
-  SettingsModelDefaultListResponseSchema,
-  SettingsModelDefaultResponseSchema,
+  SettingsFallbackListResponseSchema,
+  SettingsFallbackResponseSchema,
   SettingsProviderListResponseSchema,
   SettingsProviderResponseSchema,
 } from "@runsight/shared/zod";
 import type {
   AppSettingsOut,
-  ModelDefaultUpdate,
+  FallbackUpdate,
   ModelResponse,
   ProviderCreate,
   ProviderSummary,
   ProviderTestOut,
   ProviderUpdate,
   SettingsBudgetResponse,
-  SettingsModelDefaultResponse,
+  SettingsFallbackResponse,
   SettingsProviderResponse,
 } from "@runsight/shared/zod";
 
@@ -38,8 +39,8 @@ export type ProviderCredentialTest = {
   base_url?: string;
 };
 
-export type ModelDefault = SettingsModelDefaultResponse;
-export type UpdateModelDefault = ModelDefaultUpdate;
+export type FallbackTarget = SettingsFallbackResponse;
+export type UpdateFallbackTarget = FallbackUpdate;
 
 export type Budget = SettingsBudgetResponse;
 export type CreateBudget = Partial<Budget>;
@@ -88,13 +89,14 @@ export const settingsApi = {
     return z.array(ModelResponseSchema).parse(res);
   },
 
-  listModelDefaults: async (): Promise<{ items: ModelDefault[]; total: number }> => {
-    const res = await api.get(`/settings/models`);
-    return SettingsModelDefaultListResponseSchema.parse(res);
+  listFallbackTargets: async (): Promise<{ items: FallbackTarget[]; total: number }> => {
+    const res = await api.get(`/settings/fallbacks`);
+    return SettingsFallbackListResponseSchema.parse(res);
   },
-  updateModelDefault: async (id: string, data: UpdateModelDefault): Promise<ModelDefault> => {
-    const res = await api.put(`/settings/models/${id}`, data);
-    return SettingsModelDefaultResponseSchema.parse(res);
+  updateFallbackTarget: async (id: string, data: UpdateFallbackTarget): Promise<FallbackTarget> => {
+    const payload = FallbackUpdateSchema.parse(data);
+    const res = await api.put(`/settings/fallbacks/${id}`, payload);
+    return SettingsFallbackResponseSchema.parse(res);
   },
 
   getBudgets: async (): Promise<{ items: Budget[]; total: number }> => {

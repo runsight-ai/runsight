@@ -15,6 +15,7 @@ from .core.di import container, engine
 from .core.logging import configure_logging
 from .core.secrets import SecretsEnvLoader
 from .data.filesystem.provider_repo import FileSystemProviderRepo
+from .data.filesystem.settings_repo import FileSystemSettingsRepo
 from .data.filesystem.workflow_repo import WorkflowRepository
 from .data.repositories.run_repo import RunRepository
 from .domain.entities.run import Run, RunStatus
@@ -111,9 +112,15 @@ async def lifespan(app: FastAPI):
     run_repo = RunRepository(session)
     workflow_repo = WorkflowRepository(app_settings.base_path)
     provider_repo = FileSystemProviderRepo(base_path=app_settings.base_path)
+    settings_repo = FileSystemSettingsRepo(base_path=app_settings.base_path)
     secrets = SecretsEnvLoader(base_path=app_settings.base_path)
     app.state.execution_service = ExecutionService(
-        run_repo, workflow_repo, provider_repo, engine=engine, secrets=secrets
+        run_repo,
+        workflow_repo,
+        provider_repo,
+        engine=engine,
+        secrets=secrets,
+        settings_repo=settings_repo,
     )
 
     yield

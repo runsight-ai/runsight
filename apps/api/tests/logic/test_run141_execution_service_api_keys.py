@@ -94,6 +94,7 @@ class TestLaunchExecutionPassesApiKeys:
 
         mock_entity = Mock()
         mock_entity.yaml = """
+version: "1.0"
 workflow:
   name: test
   entry: b1
@@ -104,13 +105,22 @@ blocks:
   b1:
     type: linear
     soul_ref: test
-souls: {}
+souls:
+  test:
+    id: soul_1
+    role: tester
+    system_prompt: hello
+    provider: openai
+    model_name: gpt-4o
 config: {}
 """
         workflow_repo.get_by_id.return_value = mock_entity
 
         openai_provider = Mock()
+        openai_provider.id = "openai"
         openai_provider.type = "openai"
+        openai_provider.is_active = True
+        openai_provider.models = ["gpt-4o"]
         openai_provider.api_key = "${OPENAI_API_KEY}"
         provider_repo.list_all.return_value = [openai_provider]
         provider_repo.get_by_type.return_value = openai_provider
