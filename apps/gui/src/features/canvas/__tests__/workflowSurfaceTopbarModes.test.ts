@@ -8,10 +8,6 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const GUI_SRC_ROOT = resolve(import.meta.dirname, "../../..");
-const FEATURE_ROOTS = [
-  resolve(GUI_SRC_ROOT, "features/canvas"),
-  resolve(GUI_SRC_ROOT, "features/runs"),
-];
 
 function collectSourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -35,7 +31,7 @@ function collectSourceFiles(dir: string): string[] {
 }
 
 function candidateSharedTopbarModules() {
-  return FEATURE_ROOTS.flatMap((root) => collectSourceFiles(root))
+  return collectSourceFiles(GUI_SRC_ROOT)
     .filter((filePath) => filePath.endsWith(".tsx"));
 }
 
@@ -69,13 +65,13 @@ async function loadSharedTopbarComponent() {
   expect(candidates.length).toBeGreaterThan(0);
 
   for (const candidate of candidates) {
-    const module = (await import(pathToFileURL(candidate).href)) as Record<string, unknown>;
+    try {
+      const module = (await import(pathToFileURL(candidate).href)) as Record<string, unknown>;
 
-    for (const [key, value] of Object.entries(module)) {
-      if ((key === "default" || /^[A-Z]/.test(key)) && typeof value === "function") {
-        const component = value as React.ComponentType<Record<string, unknown>>;
+      for (const [key, value] of Object.entries(module)) {
+        if ((key === "default" || /^[A-Z]/.test(key)) && typeof value === "function") {
+          const component = value as React.ComponentType<Record<string, unknown>>;
 
-        try {
           const { rerender, unmount } = render(
             React.createElement(component, {
               mode: "workflow",
@@ -112,10 +108,10 @@ async function loadSharedTopbarComponent() {
           if (workflowMatches && historicalMatches) {
             return component;
           }
-        } catch {
-          cleanup();
         }
       }
+    } catch {
+      cleanup();
     }
   }
 
@@ -256,6 +252,46 @@ describe("RUN-594 shared workflow surface topbar", () => {
     expect(screen.getByRole("tab", { name: /yaml/i })).not.toBeNull();
     expect(screen.queryByText(/Total Cost/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /fork/i })).toBeNull();
+  });
+
+  it("keeps workflow and execution transitions on the same shared topbar component family", async () => {
+    const SharedTopbar = await loadSharedTopbarComponent();
+
+    const { rerender } = render(
+      React.createElement(SharedTopbar, {
+        mode: "workflow",
+        workflowName: "Research Workflow",
+        activeTab: "yaml",
+        onTabChange: vi.fn(),
+        isDirty: true,
+        onSave: vi.fn(),
+        onRun: vi.fn(),
+      }),
+    );
+
+    expect(screen.getByRole("button", { name: /save/i })).not.toBeNull();
+    expect(screen.getByRole("tab", { name: /canvas/i })).not.toBeNull();
+    expect(screen.getByRole("tab", { name: /yaml/i })).not.toBeNull();
+    expect(screen.queryByText(/Total Cost/i)).toBeNull();
+
+    rerender(
+      React.createElement(SharedTopbar, {
+        mode: "execution",
+        workflowName: "Research Workflow",
+        run: buildRun("running"),
+        metrics: {
+          total_cost_usd: 0.128,
+          total_tokens: 512,
+        },
+      }),
+    );
+
+    expect(screen.getByText(/running/i)).not.toBeNull();
+    expect(screen.getByText(/Total Cost/i)).not.toBeNull();
+    expect(screen.getByText(/Tokens/i)).not.toBeNull();
+    expect(screen.queryByRole("button", { name: /save/i })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /canvas/i })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /yaml/i })).toBeNull();
   });
 
   it("keeps fork-draft mode on the shared topbar with editable workflow actions", async () => {
