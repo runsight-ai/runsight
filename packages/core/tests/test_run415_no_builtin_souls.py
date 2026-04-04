@@ -167,7 +167,7 @@ workflow:
     @pytest.mark.xfail(
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
-    def test_explicit_soul_fanout_block(self):
+    def test_explicit_soul_dispatch_block(self):
         """YAML with inline soul definitions parses a dispatch block successfully."""
         yaml_content = """\
 version: "1.0"
@@ -181,7 +181,7 @@ souls:
     role: Peer Reviewer
     system_prompt: You are a strict peer reviewer.
 blocks:
-  fanout_block:
+  dispatch_block:
     type: dispatch
     exits:
       - id: exit_research
@@ -193,15 +193,15 @@ blocks:
         soul_ref: reviewer
         task: Review the topic
 workflow:
-  name: test_explicit_fanout
-  entry: fanout_block
+  name: test_explicit_dispatch
+  entry: dispatch_block
   transitions:
-    - from: fanout_block
+    - from: dispatch_block
       to: null
 """
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
-        assert workflow.name == "test_explicit_fanout"
+        assert workflow.name == "test_explicit_dispatch"
 
     @pytest.mark.xfail(
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True

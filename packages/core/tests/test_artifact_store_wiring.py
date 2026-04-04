@@ -305,11 +305,11 @@ class TestLoopBlockArtifactStoreSharing:
 # ==============================================================================
 
 
-class TestFanOutBlockArtifactStoreSharing:
+class TestDispatchBlockArtifactStoreSharing:
     """DispatchBlock parallel executions should see the same artifact_store."""
 
     @pytest.mark.asyncio
-    async def test_fanout_state_preserves_artifact_store(self):
+    async def test_dispatch_state_preserves_artifact_store(self):
         """DispatchBlock returned state should still have the artifact_store."""
         from unittest.mock import AsyncMock, Mock
 

@@ -156,11 +156,11 @@ class TestLinearBlockEmitsBlockResult:
 # ==============================================================================
 
 
-class TestFanOutBlockEmitsBlockResult:
+class TestDispatchBlockEmitsBlockResult:
     """DispatchBlock.execute must write BlockResult to state.results."""
 
     @pytest.mark.asyncio
-    async def test_fanout_block_writes_block_result_not_raw_string(
+    async def test_dispatch_block_writes_block_result_not_raw_string(
         self, mock_runner, sample_soul, sample_task
     ):
         """DispatchBlock must emit BlockResult(output=...) instead of raw json.dumps string."""
@@ -180,12 +180,12 @@ class TestFanOutBlockEmitsBlockResult:
             DispatchBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Do work")
             for s in [soul_a, soul_b]
         ]
-        block = DispatchBlock("fanout1", branches, mock_runner)
+        block = DispatchBlock("dispatch1", branches, mock_runner)
         state = _make_state(current_task=sample_task)
 
         result_state = await block.execute(state)
 
-        assert isinstance(result_state.results["fanout1"], BlockResult)
+        assert isinstance(result_state.results["dispatch1"], BlockResult)
 
 
 # ==============================================================================
@@ -457,7 +457,7 @@ class TestNoRawStringsInResultsAfterExecution:
     """After executing any block, state.results must contain ONLY BlockResult instances."""
 
     @pytest.mark.asyncio
-    async def test_all_results_are_block_result_after_linear_and_fanout(
+    async def test_all_results_are_block_result_after_linear_and_dispatch(
         self, mock_runner, sample_soul, sample_task
     ):
         """After running LinearBlock then DispatchBlock, all results are BlockResult."""

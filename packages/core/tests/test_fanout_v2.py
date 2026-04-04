@@ -87,10 +87,10 @@ def _make_exec_result(task_id, soul_id, output, cost=0.0, tokens=0):
 # ===========================================================================
 
 
-class TestFanOutBranchDataclass:
+class TestDispatchBranchDataclass:
     """DispatchBranch is a dataclass with exit_id, label, soul, task_instruction."""
 
-    def test_importable_from_fanout_module(self):
+    def test_importable_from_dispatch_module(self):
         """DispatchBranch is importable from runsight_core.blocks.dispatch."""
         from runsight_core.blocks.dispatch import DispatchBranch
 
@@ -125,7 +125,7 @@ class TestFanOutBranchDataclass:
 # ===========================================================================
 
 
-class TestFanOutBlockNewConstructor:
+class TestDispatchBlockNewConstructor:
     """DispatchBlock constructor takes (block_id, branches, runner)."""
 
     def test_accepts_branches_parameter(self, soul_analyst, mock_runner):
@@ -140,15 +140,15 @@ class TestFanOutBlockNewConstructor:
                 task_instruction="Analyze this",
             ),
         ]
-        block = DispatchBlock("fanout_1", branches, mock_runner)
-        assert block.block_id == "fanout_1"
+        block = DispatchBlock("dispatch_1", branches, mock_runner)
+        assert block.block_id == "dispatch_1"
 
     def test_empty_branches_raises_valueerror(self, mock_runner):
         """DispatchBlock with empty branches list raises ValueError mentioning 'branches'."""
         from runsight_core.blocks.dispatch import DispatchBlock
 
         with pytest.raises(ValueError, match="branches"):
-            DispatchBlock("fanout_1", [], mock_runner)
+            DispatchBlock("dispatch_1", [], mock_runner)
 
     def test_branches_attribute_accessible(self, soul_analyst, soul_reviewer, mock_runner):
         """DispatchBlock.branches is accessible and contains the provided branches."""
@@ -168,7 +168,7 @@ class TestFanOutBlockNewConstructor:
                 task_instruction="Review this",
             ),
         ]
-        block = DispatchBlock("fanout_1", branches, mock_runner)
+        block = DispatchBlock("dispatch_1", branches, mock_runner)
         assert len(block.branches) == 2
         assert block.branches[0].exit_id == "exit_a"
         assert block.branches[1].exit_id == "exit_b"
@@ -251,12 +251,12 @@ class TestPerExitTaskDifferentiation:
 
         mock_runner.execute_task = AsyncMock(side_effect=_capture)
 
-        block = DispatchBlock("my_fanout", branches, mock_runner)
+        block = DispatchBlock("my_dispatch", branches, mock_runner)
         state = WorkflowState(current_task=Task(id="parent", instruction="Parent instruction"))
         await block.execute(state)
 
-        assert captured_tasks["analyst"].id == "my_fanout_exit_a"
-        assert captured_tasks["reviewer"].id == "my_fanout_exit_b"
+        assert captured_tasks["analyst"].id == "my_dispatch_exit_a"
+        assert captured_tasks["reviewer"].id == "my_dispatch_exit_b"
 
 
 # ===========================================================================
@@ -594,7 +594,7 @@ class TestCostTokenAggregation:
 # ===========================================================================
 
 
-class TestFanOutBlockDefSchema:
+class TestDispatchBlockDefSchema:
     """DispatchBlockDef validates with exits (DispatchExitDef list), rejects old soul_refs."""
 
     def test_old_soul_refs_rejected(self):

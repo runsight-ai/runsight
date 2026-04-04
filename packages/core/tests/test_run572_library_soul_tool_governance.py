@@ -388,15 +388,15 @@ class TestSoulsWithoutToolsPassSilently:
 
 
 # ===========================================================================
-# AC5: Fanout exit soul_refs are also validated
+# AC5: Dispatch exit soul_refs are also validated
 # ===========================================================================
 
 
-class TestFanoutExitSoulRefsValidated:
+class TestDispatchExitSoulRefsValidated:
     """Tool governance must also check souls referenced by dispatch exit soul_refs."""
 
-    def test_fanout_exit_soul_with_undeclared_tool_raises(self):
-        """AC5: Fanout exit's soul_ref points to a soul with undeclared tools -> error."""
+    def test_dispatch_exit_soul_with_undeclared_tool_raises(self):
+        """AC5: Dispatch exit's soul_ref points to a soul with undeclared tools -> error."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(
@@ -433,7 +433,7 @@ class TestFanoutExitSoulRefsValidated:
                         soul_ref: plain_branch
                         task: Do task B
                 workflow:
-                  name: fanout_tool_gov_test
+                  name: dispatch_tool_gov_test
                   entry: fan
                   transitions:
                     - from: fan
@@ -446,8 +446,8 @@ class TestFanoutExitSoulRefsValidated:
             assert "branch_agent" in error_msg
             assert "http" in error_msg
 
-    def test_fanout_exit_soul_with_declared_tool_passes(self):
-        """AC5: Fanout exit's soul_ref with properly declared tools -> passes."""
+    def test_dispatch_exit_soul_with_declared_tool_passes(self):
+        """AC5: Dispatch exit's soul_ref with properly declared tools -> passes."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(
@@ -486,7 +486,7 @@ class TestFanoutExitSoulRefsValidated:
                         soul_ref: plain_branch
                         task: Do task B
                 workflow:
-                  name: fanout_declared_tool_test
+                  name: dispatch_declared_tool_test
                   entry: fan
                   transitions:
                     - from: fan

@@ -277,7 +277,7 @@ class TestRetryConfigOnAllBlockTypes:
         assert block.retry_config.backoff == "exponential"
         assert block.retry_config.backoff_base_seconds == 2.0
 
-    def test_fanout_block_with_retry_config(self):
+    def test_dispatch_block_with_retry_config(self):
         block = _validate_block(
             {
                 "type": "dispatch",

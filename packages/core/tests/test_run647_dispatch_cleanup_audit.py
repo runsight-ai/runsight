@@ -62,6 +62,7 @@ SOURCE_SUFFIXES = {".py", ".ts", ".tsx"}
 
 SEMANTIC_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
     "fanout": (
+        re.compile(r"fanout", re.IGNORECASE),
         re.compile(r"\bFanOut(?:Block|Branch|BlockDef)?\b"),
         re.compile(r"runsight_core\.blocks\.fanout"),
         re.compile(r"from\s+runsight_core\.blocks\.fanout\s+import"),

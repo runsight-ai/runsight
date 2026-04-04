@@ -39,7 +39,7 @@ def _make_state(task_instruction: str = "Coordinate work") -> WorkflowState:
 
 
 def _make_result_envelope(
-    block_id: str = "fanout_1",
+    block_id: str = "dispatch_1",
     delegate_artifacts: dict | None = None,
     output: str = "coordination complete",
     exit_handle: str = "done",
@@ -63,13 +63,13 @@ def _execute_wrapper(wrapper, state):
     return asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
 
 
-def _make_wrapped_fanout(branches):
+def _make_wrapped_dispatch(branches):
     """Create a DispatchBlock wrapped in IsolatedBlockWrapper."""
     from runsight_core.isolation.wrapper import IsolatedBlockWrapper
 
     runner = MagicMock()
-    inner = DispatchBlock("fanout_1", branches, runner)
-    return IsolatedBlockWrapper("fanout_1", inner)
+    inner = DispatchBlock("dispatch_1", branches, runner)
+    return IsolatedBlockWrapper("dispatch_1", inner)
 
 
 # ==============================================================================
@@ -77,10 +77,10 @@ def _make_wrapped_fanout(branches):
 # ==============================================================================
 
 
-class TestFanOutSingleSubprocess:
+class TestDispatchSingleSubprocess:
     """Dispatch must execute in exactly ONE subprocess, not one per branch."""
 
-    def test_fanout_context_envelope_contains_all_branch_info(self):
+    def test_dispatch_context_envelope_contains_all_branch_info(self):
         """The single ContextEnvelope sent to the subprocess must carry
         information about all branches so the coordinator can delegate."""
         branches = [
@@ -97,7 +97,7 @@ class TestFanOutSingleSubprocess:
                 task_instruction="write draft",
             ),
         ]
-        wrapper = _make_wrapped_fanout(branches)
+        wrapper = _make_wrapped_dispatch(branches)
 
         captured_envelope = None
 
@@ -124,7 +124,7 @@ class TestFanOutSingleSubprocess:
         assert "research" in branch_ports
         assert "write" in branch_ports
 
-    def test_fanout_envelope_branches_carry_task_instructions(self):
+    def test_dispatch_envelope_branches_carry_task_instructions(self):
         """Each branch in the envelope must carry its task_instruction
         so the coordinator knows what to delegate."""
         branches = [
@@ -135,7 +135,7 @@ class TestFanOutSingleSubprocess:
                 task_instruction="do alpha work",
             ),
         ]
-        wrapper = _make_wrapped_fanout(branches)
+        wrapper = _make_wrapped_dispatch(branches)
 
         captured_envelope = None
 
@@ -224,7 +224,7 @@ class TestWrapperRoutesDelegateArtifacts:
                 exit_id="port_b", label="B", soul=_make_soul("s2"), task_instruction="do B"
             ),
         ]
-        wrapper = _make_wrapped_fanout(branches)
+        wrapper = _make_wrapped_dispatch(branches)
 
         result_env = _make_result_envelope(
             delegate_artifacts={
@@ -237,24 +237,24 @@ class TestWrapperRoutesDelegateArtifacts:
         new_state = _execute_wrapper(wrapper, _make_state())
 
         # Per-port results must exist
-        assert "fanout_1.port_a" in new_state.results, (
+        assert "dispatch_1.port_a" in new_state.results, (
             "Wrapper must write per-port results from delegate_artifacts"
         )
-        assert "fanout_1.port_b" in new_state.results
+        assert "dispatch_1.port_b" in new_state.results
 
         # Each per-port result has the delegate task as output
-        assert new_state.results["fanout_1.port_a"].output == "analyze the data"
-        assert new_state.results["fanout_1.port_a"].exit_handle == "port_a"
+        assert new_state.results["dispatch_1.port_a"].output == "analyze the data"
+        assert new_state.results["dispatch_1.port_a"].exit_handle == "port_a"
 
-        assert new_state.results["fanout_1.port_b"].output == "write the summary"
-        assert new_state.results["fanout_1.port_b"].exit_handle == "port_b"
+        assert new_state.results["dispatch_1.port_b"].output == "write the summary"
+        assert new_state.results["dispatch_1.port_b"].exit_handle == "port_b"
 
     def test_per_port_results_are_block_result_instances(self):
         """Each per-port result must be a BlockResult, not a raw dict."""
         branches = [
             DispatchBranch(exit_id="p1", label="P1", soul=_make_soul(), task_instruction="t1"),
         ]
-        wrapper = _make_wrapped_fanout(branches)
+        wrapper = _make_wrapped_dispatch(branches)
 
         result_env = _make_result_envelope(
             delegate_artifacts={"p1": DelegateArtifact(task="task one")}
@@ -263,17 +263,17 @@ class TestWrapperRoutesDelegateArtifacts:
 
         new_state = _execute_wrapper(wrapper, _make_state())
 
-        assert "fanout_1.p1" in new_state.results, (
+        assert "dispatch_1.p1" in new_state.results, (
             "Wrapper must create per-port BlockResult from delegate_artifacts"
         )
-        assert isinstance(new_state.results["fanout_1.p1"], BlockResult)
+        assert isinstance(new_state.results["dispatch_1.p1"], BlockResult)
 
     def test_block_level_result_also_present(self):
         """state.results[block_id] should also exist alongside per-port results."""
         branches = [
             DispatchBranch(exit_id="p1", label="P1", soul=_make_soul(), task_instruction="t1"),
         ]
-        wrapper = _make_wrapped_fanout(branches)
+        wrapper = _make_wrapped_dispatch(branches)
 
         result_env = _make_result_envelope(
             delegate_artifacts={"p1": DelegateArtifact(task="task one")}
@@ -283,8 +283,8 @@ class TestWrapperRoutesDelegateArtifacts:
         new_state = _execute_wrapper(wrapper, _make_state())
 
         # Both block-level AND per-port results must exist
-        assert "fanout_1" in new_state.results
-        assert "fanout_1.p1" in new_state.results
+        assert "dispatch_1" in new_state.results
+        assert "dispatch_1.p1" in new_state.results
 
 
 # ==============================================================================
@@ -303,7 +303,7 @@ class TestDownstreamReceivesDelegateTask:
                 exit_id="analyze", label="Analyze", soul=_make_soul(), task_instruction="analyze"
             ),
         ]
-        wrapper = _make_wrapped_fanout(branches)
+        wrapper = _make_wrapped_dispatch(branches)
 
         delegate_task = "Analyze quarterly revenue trends and identify anomalies"
         result_env = _make_result_envelope(
@@ -313,7 +313,7 @@ class TestDownstreamReceivesDelegateTask:
 
         new_state = _execute_wrapper(wrapper, _make_state())
 
-        port_result = new_state.results["fanout_1.analyze"]
+        port_result = new_state.results["dispatch_1.analyze"]
         assert port_result.output == delegate_task
         assert port_result.exit_handle == "analyze"
 
@@ -328,7 +328,7 @@ class TestDownstreamReceivesDelegateTask:
                 exit_id="review", label="V", soul=_make_soul("s3"), task_instruction="v"
             ),
         ]
-        wrapper = _make_wrapped_fanout(branches)
+        wrapper = _make_wrapped_dispatch(branches)
 
         result_env = _make_result_envelope(
             delegate_artifacts={
@@ -341,9 +341,9 @@ class TestDownstreamReceivesDelegateTask:
 
         new_state = _execute_wrapper(wrapper, _make_state())
 
-        assert new_state.results["fanout_1.research"].output == "Find papers on quantum computing"
-        assert new_state.results["fanout_1.draft"].output == "Write introduction section"
-        assert new_state.results["fanout_1.review"].output == "Check for factual errors"
+        assert new_state.results["dispatch_1.research"].output == "Find papers on quantum computing"
+        assert new_state.results["dispatch_1.draft"].output == "Write introduction section"
+        assert new_state.results["dispatch_1.review"].output == "Check for factual errors"
 
 
 # ==============================================================================
@@ -368,7 +368,7 @@ class TestMissingPortSkipped:
                 exit_id="port_c", label="C", soul=_make_soul("s3"), task_instruction="c"
             ),
         ]
-        wrapper = _make_wrapped_fanout(branches)
+        wrapper = _make_wrapped_dispatch(branches)
 
         # Coordinator only delegates to port_a and port_c, skips port_b
         result_env = _make_result_envelope(
@@ -382,11 +382,11 @@ class TestMissingPortSkipped:
         new_state = _execute_wrapper(wrapper, _make_state())
 
         # port_a and port_c have per-port results
-        assert "fanout_1.port_a" in new_state.results
-        assert "fanout_1.port_c" in new_state.results
+        assert "dispatch_1.port_a" in new_state.results
+        assert "dispatch_1.port_c" in new_state.results
 
         # port_b was NOT delegated — should NOT appear as per-port result
-        assert "fanout_1.port_b" not in new_state.results
+        assert "dispatch_1.port_b" not in new_state.results
 
     def test_empty_delegate_artifacts_produces_no_per_port_results(self):
         """When coordinator delegates to no ports, no per-port results are created,
@@ -399,7 +399,7 @@ class TestMissingPortSkipped:
                 exit_id="other_port", label="Other", soul=_make_soul("s2"), task_instruction="t2"
             ),
         ]
-        wrapper = _make_wrapped_fanout(branches)
+        wrapper = _make_wrapped_dispatch(branches)
 
         # First set up a result with non-empty artifacts to verify routing works
         result_env_with = _make_result_envelope(
@@ -409,11 +409,11 @@ class TestMissingPortSkipped:
         state_with = _execute_wrapper(wrapper, _make_state())
 
         # Verify per-port result was created for the delegated port
-        assert "fanout_1.only_port" in state_with.results, (
+        assert "dispatch_1.only_port" in state_with.results, (
             "Wrapper must create per-port result from delegate_artifacts"
         )
         # And the undelegated port has no result
-        assert "fanout_1.other_port" not in state_with.results
+        assert "dispatch_1.other_port" not in state_with.results
 
 
 # ==============================================================================
@@ -430,7 +430,7 @@ class TestDuplicatePortLastWins:
         branches = [
             DispatchBranch(exit_id="port_a", label="A", soul=_make_soul(), task_instruction="a"),
         ]
-        wrapper = _make_wrapped_fanout(branches)
+        wrapper = _make_wrapped_dispatch(branches)
 
         # Dict semantics: last write wins
         result_env = _make_result_envelope(
@@ -443,10 +443,10 @@ class TestDuplicatePortLastWins:
         new_state = _execute_wrapper(wrapper, _make_state())
 
         # The per-port result must reflect the final delegate task
-        assert "fanout_1.port_a" in new_state.results, (
+        assert "dispatch_1.port_a" in new_state.results, (
             "Wrapper must route delegate_artifacts to per-port results"
         )
-        assert new_state.results["fanout_1.port_a"].output == "SECOND call wins"
+        assert new_state.results["dispatch_1.port_a"].output == "SECOND call wins"
 
 
 # ==============================================================================

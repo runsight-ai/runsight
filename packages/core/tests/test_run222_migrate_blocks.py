@@ -115,7 +115,7 @@ class TestBlockDefImportable:
 
         assert GateBlockDef.model_fields["type"].default == "gate"
 
-    def test_fanout_block_def_importable(self):
+    def test_dispatch_block_def_importable(self):
         from runsight_core.blocks.dispatch import DispatchBlockDef
 
         assert DispatchBlockDef.model_fields["type"].default == "dispatch"
@@ -159,7 +159,7 @@ class TestBuildFunctionExists:
 
         assert callable(build)
 
-    def test_fanout_build_function(self):
+    def test_dispatch_build_function(self):
         from runsight_core.blocks.dispatch import build
 
         assert callable(build)

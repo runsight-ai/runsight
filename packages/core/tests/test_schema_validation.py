@@ -73,7 +73,7 @@ class TestTypeDiscrimination:
         with pytest.raises(ValidationError):
             _validate_block({"type": "conditional"})
 
-    def test_fanout_valid(self):
+    def test_dispatch_valid(self):
         block = _validate_block(
             {
                 "type": "dispatch",

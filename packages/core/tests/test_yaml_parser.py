@@ -178,13 +178,13 @@ workflow:
         assert isinstance(workflow, Workflow)
 
 
-class TestFanOutBlock:
+class TestDispatchBlock:
     """Tests for DispatchBlock (block type: dispatch)."""
 
     @pytest.mark.xfail(
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
-    def test_fanout_block_valid_yaml(self):
+    def test_dispatch_block_valid_yaml(self):
         """AC-4: Parse valid dispatch block with exits."""
         yaml_content = """
 version: "1.0"
@@ -198,7 +198,7 @@ souls:
     role: Peer Reviewer
     system_prompt: You review topics.
 blocks:
-  fanout_block:
+  dispatch_block:
     type: dispatch
     exits:
       - id: exit_research
@@ -210,41 +210,41 @@ blocks:
         soul_ref: reviewer
         task: Review the topic
 workflow:
-  name: test_fanout
-  entry: fanout_block
+  name: test_dispatch
+  entry: dispatch_block
   transitions:
-    - from: fanout_block
+    - from: dispatch_block
       to: null
 """
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
-        assert workflow.name == "test_fanout"
+        assert workflow.name == "test_dispatch"
 
-    def test_fanout_block_missing_exits_raises_error(self):
+    def test_dispatch_block_missing_exits_raises_error(self):
         """AC-5: DispatchBlock without exits raises ValidationError."""
         yaml_content = """
 version: "1.0"
 blocks:
-  fanout_block:
+  dispatch_block:
     type: dispatch
 workflow:
-  name: test_fanout
-  entry: fanout_block
+  name: test_dispatch
+  entry: dispatch_block
 """
         with pytest.raises((ValueError, Exception), match="exits"):
             parse_workflow_yaml(yaml_content)
 
-    def test_fanout_block_empty_exits_raises_error(self):
+    def test_dispatch_block_empty_exits_raises_error(self):
         """AC-6: DispatchBlock with empty exits raises ValueError."""
         yaml_content = """
 version: "1.0"
 blocks:
-  fanout_block:
+  dispatch_block:
     type: dispatch
     exits: []
 workflow:
-  name: test_fanout
-  entry: fanout_block
+  name: test_dispatch
+  entry: dispatch_block
 """
         with pytest.raises(ValueError, match="exits"):
             parse_workflow_yaml(yaml_content)
@@ -807,7 +807,7 @@ workflow:
 # TestBlockTypeRegistry: 2
 # TestBuiltInSouls: 2
 # TestLinearBlock: 3
-# TestFanOutBlock: 3
+# TestDispatchBlock: 3
 # TestSynthesizeBlock: 3
 # TestSoulResolution: 2
 # TestInvalidYAML: 3

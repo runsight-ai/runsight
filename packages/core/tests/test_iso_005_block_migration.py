@@ -107,7 +107,7 @@ class TestIsolatedBlockWrapperWrapsBlocks:
         wrapper = IsolatedBlockWrapper(block_id="synth1", inner_block=inner)
         assert wrapper.block_id == "synth1"
 
-    def test_wraps_fanout_block(self):
+    def test_wraps_dispatch_block(self):
         """IsolatedBlockWrapper can wrap a DispatchBlock."""
         from unittest.mock import MagicMock
 
@@ -1007,7 +1007,7 @@ workflow:
     @pytest.mark.xfail(
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
-    def test_parser_returns_wrapped_blocks_for_fanout(self):
+    def test_parser_returns_wrapped_blocks_for_dispatch(self):
         """parse_workflow_yaml wraps dispatch blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
 

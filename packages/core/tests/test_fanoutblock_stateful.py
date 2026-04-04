@@ -94,7 +94,7 @@ def _souls_to_branches(souls):
     ]
 
 
-def _make_stateful_fanout(block_id, souls, runner):
+def _make_stateful_dispatch(block_id, souls, runner):
     """Helper to create a stateful DispatchBlock."""
     block = DispatchBlock(block_id, _souls_to_branches(souls), runner)
     block.stateful = True
@@ -135,7 +135,7 @@ async def test_stateful_first_invocation_creates_per_soul_histories(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task)
 
     new_state = await block.execute(state)
@@ -168,7 +168,7 @@ async def test_stateful_first_invocation_stores_correct_user_and_assistant(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task)
     # With per-exit branches, prompt is built from the branch's task instruction
     branch_task = Task(id="t", instruction="Execute task")
@@ -205,7 +205,7 @@ async def test_stateful_first_invocation_user_message_includes_context(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task_with_context)
     # Prompt is built from branch task instruction + context from current_task
     branch_task = Task(id="t", instruction="Execute task", context="Budget is $10k")
@@ -250,7 +250,7 @@ async def test_stateful_continuation_passes_per_soul_history_to_runner(
 
     mock_runner.execute_task = AsyncMock(side_effect=_capture_side_effect)
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(
         current_task=sample_task,
         conversation_histories={
@@ -299,7 +299,7 @@ async def test_stateful_continuation_appends_new_pair_per_soul(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(
         current_task=sample_task,
         conversation_histories={
@@ -352,7 +352,7 @@ async def test_stateful_parallel_history_independence(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task)
 
     new_state = await block.execute(state)
@@ -392,7 +392,7 @@ async def test_stateful_three_souls_independent_histories(
         },
     )
 
-    block = _make_stateful_fanout("dispatch", souls, mock_runner)
+    block = _make_stateful_dispatch("dispatch", souls, mock_runner)
     state = WorkflowState(current_task=sample_task)
     state_r1 = await block.execute(state)
 
@@ -449,7 +449,7 @@ async def test_stateful_single_model_copy_update(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task)
 
     new_state = await block.execute(state)
@@ -483,7 +483,7 @@ async def test_stateful_preserves_other_block_histories(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(
         current_task=sample_task,
         conversation_histories={"other_block_other_soul": other_history},
@@ -520,12 +520,12 @@ async def test_stateful_history_key_format(
         },
     )
 
-    block = _make_stateful_fanout("my_fanout", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("my_dispatch", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task)
 
     new_state = await block.execute(state)
 
-    expected_keys = {"my_fanout_soul_alpha", "my_fanout_soul_beta"}
+    expected_keys = {"my_dispatch_soul_alpha", "my_dispatch_soul_beta"}
     actual_keys = set(new_state.conversation_histories.keys())
     assert actual_keys == expected_keys
 
@@ -551,7 +551,7 @@ async def test_stateful_windowing_called_per_soul(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task)
 
     from runsight_core.memory.budget import BudgetedContext, BudgetReport
@@ -615,7 +615,7 @@ async def test_stateful_windowing_prunes_large_history(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(
         current_task=sample_task,
         conversation_histories={
@@ -657,7 +657,7 @@ async def test_stateful_windowing_uses_soul_specific_model(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_gamma_with_model], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_gamma_with_model], mock_runner)
     state = WorkflowState(current_task=sample_task)
 
     models_seen = []
@@ -720,7 +720,7 @@ async def test_stateful_windowing_falls_back_to_runner_model(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha], mock_runner)
     state = WorkflowState(current_task=sample_task)
 
     from runsight_core.memory.budget import BudgetedContext, BudgetReport
@@ -783,7 +783,7 @@ async def test_stateful_no_system_messages_stored(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task)
 
     new_state = await block.execute(state)
@@ -919,7 +919,7 @@ async def test_stateful_still_stores_result_and_log(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(
         current_task=sample_task,
         total_cost_usd=0.10,
@@ -960,7 +960,7 @@ async def test_stateful_does_not_mutate_original_state(
         },
     )
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
 
     original_histories = {}
     state = WorkflowState(
@@ -999,7 +999,7 @@ async def test_stateful_gather_failure_writes_no_history(
 
     mock_runner.execute_task = AsyncMock(side_effect=_failing_side_effect)
 
-    block = _make_stateful_fanout("review", [soul_alpha, soul_beta], mock_runner)
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(current_task=sample_task)
 
     with pytest.raises(RuntimeError, match="Soul beta LLM failure"):

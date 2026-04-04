@@ -162,7 +162,7 @@ class TestSoulRefResolvesFromLibrary:
             assert inner.soul.role == "Summarizer"
             assert inner.soul.id == "s1"
 
-    def test_fanout_exit_soul_ref_resolves_from_library(self):
+    def test_dispatch_exit_soul_ref_resolves_from_library(self):
         """A dispatch block's per-exit soul_ref should resolve to souls in custom/souls/."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
@@ -187,7 +187,7 @@ class TestSoulRefResolvesFromLibrary:
                         soul_ref: agent_b
                         task: Do task B
                 workflow:
-                  name: fanout_library_test
+                  name: dispatch_library_test
                   entry: fan
                   transitions:
                     - from: fan

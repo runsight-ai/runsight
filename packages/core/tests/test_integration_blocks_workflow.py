@@ -71,11 +71,11 @@ async def test_all_three_blocks_import_and_instantiate(mock_runner, sample_souls
     assert linear.block_id == "linear1"
 
     dispatch = DispatchBlock(
-        "fanout1",
+        "dispatch1",
         _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
         mock_runner,
     )
-    assert dispatch.block_id == "fanout1"
+    assert dispatch.block_id == "dispatch1"
 
     synthesize = SynthesizeBlock(
         "synth1", ["block_a", "block_b"], sample_souls["synthesizer"], mock_runner
@@ -130,7 +130,7 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
 
 
 @pytest.mark.asyncio
-async def test_workflow_linear_to_fanout_workflow(mock_runner, sample_souls):
+async def test_workflow_linear_to_dispatch_workflow(mock_runner, sample_souls):
     """
     CROSS-FEATURE TEST: Workflow orchestrates Linear → Dispatch.
 
@@ -182,7 +182,7 @@ async def test_workflow_linear_to_fanout_workflow(mock_runner, sample_souls):
 
 
 @pytest.mark.asyncio
-async def test_workflow_fanout_to_synthesize_workflow(mock_runner, sample_souls):
+async def test_workflow_dispatch_to_synthesize_workflow(mock_runner, sample_souls):
     """
     CROSS-FEATURE TEST: Workflow orchestrates Dispatch → Synthesize.
 

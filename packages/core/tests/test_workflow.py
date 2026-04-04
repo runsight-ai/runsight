@@ -271,7 +271,9 @@ def test_resolve_next_default_fallback():
     wf.add_conditional_transition("dispatch", {"yes": "path_a", "default": "default_path"})
 
     # Unknown decision value
-    state = WorkflowState(metadata={"router_decision": "unknown"})
+    state = WorkflowState(
+        results={"dispatch": BlockResult(output="unknown", exit_handle="unknown")}
+    )
     next_id = wf._resolve_next("dispatch", state)
     assert next_id == "default_path"
 
@@ -284,7 +286,9 @@ def test_resolve_next_no_default_raises_key_error():
     wf.add_conditional_transition("dispatch", {"yes": "path_a"})
 
     # Unknown decision, no default
-    state = WorkflowState(metadata={"router_decision": "unknown"})
+    state = WorkflowState(
+        results={"dispatch": BlockResult(output="unknown", exit_handle="unknown")}
+    )
     with pytest.raises(KeyError):
         wf._resolve_next("dispatch", state)
 
@@ -621,9 +625,9 @@ async def test_dynamic_routing():
     approved_block2 = MockBlock("approve_path2", "Approved2")
     rejected_block2 = MockBlock("reject_path2", "Rejected2")
 
-    class RouterMockScoped(BaseBlock):
+    class DispatchMockScoped(BaseBlock):
         def __init__(self) -> None:
-            super().__init__("router2")
+            super().__init__("dispatch2")
 
         async def execute(self, state: WorkflowState) -> WorkflowState:
             # Set exit_handle on BlockResult for routing decision
@@ -634,21 +638,21 @@ async def test_dynamic_routing():
                         self.block_id: BlockResult(output="rejected", exit_handle="rejected"),
                     },
                     "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block router2] RouterMockScoped"}],
+                    + [{"role": "system", "content": "[Block dispatch2] DispatchMockScoped"}],
                 }
             )
 
     wf2 = Workflow(name="routing_test2")
-    wf2.add_block(RouterMockScoped())
+    wf2.add_block(DispatchMockScoped())
     wf2.add_block(approved_block2)
     wf2.add_block(rejected_block2)
     wf2.add_conditional_transition(
-        "router2",
+        "dispatch2",
         {"approved": "approve_path2", "rejected": "reject_path2", "default": "approve_path2"},
     )
     wf2.add_transition("approve_path2", None)
     wf2.add_transition("reject_path2", None)
-    wf2.set_entry("router2")
+    wf2.set_entry("dispatch2")
 
     state2 = WorkflowState()
     _ = await wf2.run(state2)
@@ -659,9 +663,9 @@ async def test_dynamic_routing():
     default_target = MockBlock("default_path", "Default output")
     unknown_path = MockBlock("unknown_path", "Should not run")
 
-    class RouterMockUnknown(BaseBlock):
+    class DispatchMockUnknown(BaseBlock):
         def __init__(self) -> None:
-            super().__init__("router3")
+            super().__init__("dispatch3")
 
         async def execute(self, state: WorkflowState) -> WorkflowState:
             return state.model_copy(
@@ -673,21 +677,21 @@ async def test_dynamic_routing():
                         ),
                     },
                     "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block router3] RouterMockUnknown"}],
+                    + [{"role": "system", "content": "[Block dispatch3] DispatchMockUnknown"}],
                 }
             )
 
     wf3 = Workflow(name="routing_test3")
-    wf3.add_block(RouterMockUnknown())
+    wf3.add_block(DispatchMockUnknown())
     wf3.add_block(default_target)
     wf3.add_block(unknown_path)
     wf3.add_conditional_transition(
-        "router3",
+        "dispatch3",
         {"known": "unknown_path", "default": "default_path"},
     )
     wf3.add_transition("default_path", None)
     wf3.add_transition("unknown_path", None)
-    wf3.set_entry("router3")
+    wf3.set_entry("dispatch3")
 
     state3 = WorkflowState()
     _ = await wf3.run(state3)
@@ -696,9 +700,9 @@ async def test_dynamic_routing():
     assert unknown_path.executed is False
 
     # ── Scenario 4: KeyError when no matching key and no default ───────
-    class RouterMockNoDefault(BaseBlock):
+    class DispatchMockNoDefault(BaseBlock):
         def __init__(self) -> None:
-            super().__init__("router4")
+            super().__init__("dispatch4")
 
         async def execute(self, state: WorkflowState) -> WorkflowState:
             return state.model_copy(
@@ -708,18 +712,18 @@ async def test_dynamic_routing():
                         self.block_id: BlockResult(output="missing", exit_handle="missing"),
                     },
                     "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block router4] RouterMockNoDefault"}],
+                    + [{"role": "system", "content": "[Block dispatch4] DispatchMockNoDefault"}],
                 }
             )
 
     fallback_block = MockBlock("fallback", "Fallback output")
 
     wf4 = Workflow(name="routing_test4")
-    wf4.add_block(RouterMockNoDefault())
+    wf4.add_block(DispatchMockNoDefault())
     wf4.add_block(fallback_block)
-    wf4.add_conditional_transition("router4", {"only_key": "fallback"})
+    wf4.add_conditional_transition("dispatch4", {"only_key": "fallback"})
     wf4.add_transition("fallback", None)
-    wf4.set_entry("router4")
+    wf4.set_entry("dispatch4")
 
     state4 = WorkflowState()
     with pytest.raises(KeyError):
