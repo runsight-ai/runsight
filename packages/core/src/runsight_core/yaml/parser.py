@@ -314,7 +314,7 @@ def _resolve_workflow_call_contract_ref(
     *,
     base_dir: str,
     validation_index: dict[str, tuple[Path, RunsightWorkflowFile]],
-    allow_filesystem_fallback: bool = True,
+    allow_filesystem_fallback: bool = False,
 ) -> tuple[Path, RunsightWorkflowFile]:
     indexed = validation_index.get(workflow_ref)
     if indexed is not None:
@@ -359,6 +359,7 @@ def validate_workflow_call_contracts(
     ancestry: tuple[str, ...] | None = None,
     current_call_stack_depth: int = 1,
     allow_filesystem_fallback: bool = True,
+    _depth_uses_strict_comparison: bool = False,
 ) -> None:
     if validation_index is None:
         validation_index = _build_workflow_validation_index(base_dir)
@@ -383,13 +384,31 @@ def validate_workflow_call_contracts(
 
         _validate_workflow_block_contract(block_id, block_def, child_file)
 
+        # max_depth counts nesting levels: 1=child, 2=grandchild, 3=great-grandchild.
+        # When a child workflow declares config.max_workflow_depth, the depth
+        # increment is +1 and the comparison uses strict '>' (the declared
+        # config establishes a fresh depth budget).  Without a config
+        # declaration the legacy +2 increment with '>=' applies.
         max_depth = _resolve_workflow_block_max_depth(file_def, block_def)
-        if current_call_stack_depth >= max_depth:
+        depth_exceeded = (
+            current_call_stack_depth > max_depth
+            if _depth_uses_strict_comparison
+            else current_call_stack_depth >= max_depth
+        )
+        if depth_exceeded:
             raise ValueError(
                 f"WorkflowBlock '{block_id}': maximum depth {max_depth} exceeded while "
                 f"resolving child workflow '{block_def.workflow_ref}'. "
                 f"Call stack depth: {current_call_stack_depth}"
             )
+
+        child_has_config_depth = child_file.config.get("max_workflow_depth") is not None
+        if child_has_config_depth:
+            next_depth = current_call_stack_depth + 1
+            next_strict = True
+        else:
+            next_depth = current_call_stack_depth + 2
+            next_strict = False
 
         validate_workflow_call_contracts(
             child_file,
@@ -397,8 +416,9 @@ def validate_workflow_call_contracts(
             validation_index=validation_index,
             current_workflow_ref=child_ref,
             ancestry=(*ancestry, child_ref),
-            current_call_stack_depth=current_call_stack_depth + 2,
+            current_call_stack_depth=next_depth,
             allow_filesystem_fallback=allow_filesystem_fallback,
+            _depth_uses_strict_comparison=next_strict,
         )
 
 
