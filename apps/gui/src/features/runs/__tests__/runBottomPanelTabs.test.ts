@@ -21,7 +21,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -29,18 +29,9 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const SRC_DIR = resolve(__dirname, "../../..");
-const RUNS_FEATURE_DIR = resolve(__dirname, "..");
 
 function readSource(relativePath: string): string {
   return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
-}
-
-function readFeatureFile(filename: string): string {
-  return readFileSync(resolve(RUNS_FEATURE_DIR, filename), "utf-8");
-}
-
-function fileExists(relativePath: string): boolean {
-  return existsSync(resolve(SRC_DIR, relativePath));
 }
 
 // ---------------------------------------------------------------------------
@@ -256,9 +247,6 @@ describe("AC6: Regressions tab hidden when 0 regressions (RUN-560)", () => {
     const src = readSource(BOTTOM_PANEL_PATH);
     // The tab array should be dynamically computed, not static
     // The current static `as const` array must be replaced with dynamic filtering
-    const isStaticTabArray = /const\s+tabs\s*=\s*\[[\s\S]*?\]\s*as\s+const/.test(src);
-    // If tabs are still declared as a static `as const` tuple, they can't be conditionally filtered
-    // The implementation needs dynamic tab computation
     const hasDynamicTabs = /useMemo|\.filter|computed|visibleTabs/.test(src);
     expect(
       hasDynamicTabs,

@@ -15,14 +15,14 @@ function getCssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-/** Convert any CSS color (hsl, rgb, hex, named) to a 6-digit hex string. */
+/** Convert any CSS color token to a 6-digit hex string. */
 function toHex(color: string): string {
   const ctx = document.createElement("canvas").getContext("2d")!;
   ctx.fillStyle = color;
-  // fillStyle normalizes to #rrggbb or rgba(...)
+  // fillStyle normalizes to a hex string or functional color string.
   const norm = ctx.fillStyle;
   if (norm.startsWith("#")) return norm.slice(1);
-  // rgba(r, g, b, a) fallback
+  // Functional-color fallback: extract the first three numeric channels.
   const m = norm.match(/(\d+)/g);
   if (!m) return "cccccc";
   return m

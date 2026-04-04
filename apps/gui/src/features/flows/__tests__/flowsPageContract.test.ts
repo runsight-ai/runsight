@@ -526,23 +526,6 @@ async function renderWorkflowsTab() {
   };
 }
 
-function countLoadingPlaceholders(elements: Array<{ type: unknown; props: Record<string, unknown> }>) {
-  return elements.filter(({ type, props }) => {
-    if (type !== "div" && type !== "li") {
-      return false;
-    }
-
-    const className = String(props.className ?? "");
-
-    return (
-      props["data-testid"] === "workflow-skeleton-row" ||
-      props["aria-label"] === "Loading workflow row" ||
-      /\bworkflow-skeleton-row\b/.test(className) ||
-      (/\banimate-pulse\b/.test(className) && /\b(round|rounded|border)\b/.test(className))
-    );
-  }).length;
-}
-
 beforeEach(() => {
   vi.resetModules();
   mocks.stateValues.length = 0;

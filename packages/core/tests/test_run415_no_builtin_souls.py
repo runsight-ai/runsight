@@ -15,6 +15,8 @@ Tests verify:
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import parse_workflow_yaml
@@ -47,9 +49,7 @@ class TestBuiltInSoulsRemoved:
 
 
 class TestEmptySoulsMapByDefault:
-    """parse_workflow_yaml must start with an empty souls_map, so any
-    soul_ref that is not defined in the YAML's ``souls:`` section must
-    raise ValueError."""
+    """parse_workflow_yaml must fail when no library soul can resolve a soul_ref."""
 
     def test_undefined_soul_ref_raises_value_error(self):
         """soul_ref: researcher without a souls: section must raise ValueError."""
@@ -66,8 +66,9 @@ workflow:
     - from: linear_block
       to: null
 """
-        with pytest.raises(ValueError, match="researcher"):
-            parse_workflow_yaml(yaml_content)
+        with patch("runsight_core.yaml.parser._discovery_module._discover_souls", return_value={}):
+            with pytest.raises(ValueError, match="researcher"):
+                parse_workflow_yaml(yaml_content)
 
     def test_undefined_soul_ref_with_empty_souls_section(self):
         """soul_ref: reviewer with an empty souls: {} section must raise ValueError."""
@@ -85,8 +86,9 @@ workflow:
     - from: linear_block
       to: null
 """
-        with pytest.raises(ValueError, match="reviewer"):
-            parse_workflow_yaml(yaml_content)
+        with patch("runsight_core.yaml.parser._discovery_module._discover_souls", return_value={}):
+            with pytest.raises(ValueError, match="reviewer"):
+                parse_workflow_yaml(yaml_content)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -104,8 +106,7 @@ PREVIOUSLY_BUILTIN_NAMES = [
 
 
 class TestNoPreviouslyBuiltInNamesAreSpecial:
-    """Each of the 6 formerly-built-in soul names must raise ValueError
-    when referenced without an explicit definition in the YAML."""
+    """Formerly built-in names must not resolve unless library discovery finds them."""
 
     @pytest.mark.parametrize("soul_name", PREVIOUSLY_BUILTIN_NAMES)
     def test_previously_builtin_soul_raises_without_definition(self, soul_name: str):
@@ -123,8 +124,9 @@ workflow:
     - from: linear_block
       to: null
 """
-        with pytest.raises(ValueError, match=soul_name):
-            parse_workflow_yaml(yaml_content)
+        with patch("runsight_core.yaml.parser._discovery_module._discover_souls", return_value={}):
+            with pytest.raises(ValueError, match=soul_name):
+                parse_workflow_yaml(yaml_content)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

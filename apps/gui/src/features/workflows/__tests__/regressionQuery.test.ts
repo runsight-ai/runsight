@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   WorkflowRegressionSchema,
   WorkflowRegressionsResponseSchema,
-  type WorkflowRegression,
-  type WorkflowRegressionsResponse,
 } from "../../../types/schemas/regressions";
 
 // ---------------------------------------------------------------------------

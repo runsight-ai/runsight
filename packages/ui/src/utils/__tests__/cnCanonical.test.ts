@@ -55,7 +55,7 @@ describe("RUN-513 cn behavior stability", () => {
 
   it("preserves clsx-style conditional and nested inputs for existing consumers", () => {
     expect(
-      cn("inline-flex", ["items-center", false && "hidden"], {
+      cn("inline-flex", ["items-center", undefined], {
         "font-medium": true,
         hidden: false,
       }),

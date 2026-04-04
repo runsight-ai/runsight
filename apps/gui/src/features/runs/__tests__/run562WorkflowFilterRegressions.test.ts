@@ -414,7 +414,7 @@ describe("RUN-562 Regressions column", () => {
   it('displays "—" when regression_count is 0', async () => {
     await renderRunsRoute("/runs");
 
-    const pipelineRow = await waitFor(() => {
+    await waitFor(() => {
       const row = findRunRow("Content Pipeline");
       expect(row).toBeTruthy();
       return row as HTMLElement;

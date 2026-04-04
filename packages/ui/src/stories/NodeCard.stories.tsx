@@ -119,13 +119,13 @@ export const WithPorts: Story = {
         ]}
       />
 
-      {/* 3-route router — default dot colour */}
+      {/* 3-route dispatch example — default dot colour */}
       <NodeCard
-        title="Intent Router"
+        title="Intent Dispatch"
         category="block-logic"
         icon={<GitBranchIcon size={14} />}
         inputPort
-        meta={["Router", "3 routes"]}
+        meta={["Dispatch", "3 routes"]}
         ports={[
           { name: "support", type: "default" },
           { name: "sales", type: "default" },

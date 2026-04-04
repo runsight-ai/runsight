@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 import pytest
 from pydantic import ValidationError
 from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
-from runsight_core.primitives import Task
+from runsight_core.primitives import Soul, Task
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import (
     parse_task_yaml,
@@ -82,13 +82,6 @@ workflow:
 version: "1.0"
 config:
   model_name: gpt-4o-mini
-souls:
-  my_soul:
-    id: my_soul_1
-    role: Custom Researcher
-    system_prompt: Do research
-    provider: anthropic
-    model_name: claude-sonnet-4
 blocks:
   linear_block:
     type: linear
@@ -100,25 +93,33 @@ workflow:
     - from: linear_block
       to: null
 """
-        with patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner:
+        souls_map = {
+            "my_soul": Soul(
+                id="my_soul_1",
+                role="Custom Researcher",
+                system_prompt="Do research",
+                provider="anthropic",
+                model_name="claude-sonnet-4",
+            )
+        }
+        with (
+            patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner,
+            patch(
+                "runsight_core.yaml.parser._discovery_module._discover_souls",
+                return_value=souls_map,
+            ),
+        ):
             mock_runner.return_value = Mock()
             parse_workflow_yaml(yaml_content)
 
         assert mock_runner.call_args is not None
-        assert mock_runner.call_args.kwargs["model_name"] != "gpt-4o-mini"
+        assert mock_runner.call_args.kwargs["model_name"] == "claude-sonnet-4"
 
     def test_parse_workflow_yaml_does_not_fall_back_to_hidden_gpt_4o_runner_model(self):
         """RUN-585: parser must not keep the legacy hidden gpt-4o runner path alive."""
         yaml_content = """
 version: "1.0"
 config: {}
-souls:
-  my_soul:
-    id: my_soul_1
-    role: Custom Researcher
-    system_prompt: Do research
-    provider: anthropic
-    model_name: claude-sonnet-4
 blocks:
   linear_block:
     type: linear
@@ -130,12 +131,27 @@ workflow:
     - from: linear_block
       to: null
 """
-        with patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner:
+        souls_map = {
+            "my_soul": Soul(
+                id="my_soul_1",
+                role="Custom Researcher",
+                system_prompt="Do research",
+                provider="anthropic",
+                model_name="claude-sonnet-4",
+            )
+        }
+        with (
+            patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner,
+            patch(
+                "runsight_core.yaml.parser._discovery_module._discover_souls",
+                return_value=souls_map,
+            ),
+        ):
             mock_runner.return_value = Mock()
             parse_workflow_yaml(yaml_content)
 
         assert mock_runner.call_args is not None
-        assert mock_runner.call_args.kwargs["model_name"] != "gpt-4o"
+        assert mock_runner.call_args.kwargs["model_name"] == "claude-sonnet-4"
 
     def test_linear_block_missing_soul_ref_raises_error(self):
         """AC-2: LinearBlock without soul_ref raises ValueError."""
