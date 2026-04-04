@@ -18,7 +18,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const [activeRunId, setRunId] = useState(initialRunId);
 
   const handleForkTransition = useCallback((newWorkflowId: string) => {
-    setMode("fork-draft");
+    setMode("edit");
     setWorkflowId(newWorkflowId);
     setRunId(undefined);
     window.history.replaceState(null, "", `/workflows/${newWorkflowId}/edit`);

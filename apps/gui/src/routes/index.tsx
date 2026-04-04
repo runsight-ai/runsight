@@ -6,12 +6,12 @@ import { WorkflowSurface } from "@/features/canvas/WorkflowSurface";
 
 function WorkflowEditRoute() {
   const { id } = useParams<{ id: string }>();
-  return <WorkflowSurface mode="workflow" workflowId={id!} />;
+  return <WorkflowSurface mode="edit" workflowId={id!} />;
 }
 
 function HistoricalRunRoute() {
   const { id } = useParams<{ id: string }>();
-  return <WorkflowSurface mode="historical" runId={id!} />;
+  return <WorkflowSurface mode="readonly" runId={id!} />;
 }
 
 export const router = createBrowserRouter([

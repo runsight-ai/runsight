@@ -1,7 +1,7 @@
 /**
- * WorkflowSurface mode model and UI contract (RUN-591).
+ * WorkflowSurface mode model and UI contract (RUN-649).
  *
- * Defines the four surface modes (workflow, execution, historical, fork-draft)
+ * Defines the three surface modes (readonly, edit, sim)
  * and the per-panel UI rules for each mode. Pure data — no React, no rendering.
  */
 
@@ -10,10 +10,9 @@
 // ---------------------------------------------------------------------------
 
 export const WORKFLOW_SURFACE_MODES = [
-  "workflow",
-  "execution",
-  "historical",
-  "fork-draft",
+  "readonly",
+  "edit",
+  "sim",
 ] as const;
 
 export type WorkflowSurfaceMode = (typeof WORKFLOW_SURFACE_MODES)[number];
@@ -63,6 +62,7 @@ export interface PanelContract {
   inspector: InspectorContract;
   bottomPanel: BottomPanelContract;
   statusBar: StatusBarContract;
+  inspectorVisible: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ export interface WorkflowSurfaceProps {
 // ---------------------------------------------------------------------------
 
 const contracts: Record<WorkflowSurfaceMode, PanelContract> = {
-  workflow: {
+  edit: {
     topbar: {
       nameEditable: true,
       metricsVisible: false,
@@ -97,20 +97,21 @@ const contracts: Record<WorkflowSurfaceMode, PanelContract> = {
     inspector: { trigger: "double-click", fieldsEditable: true },
     bottomPanel: { defaultState: "collapsed" },
     statusBar: { stepCountFormat: "steps-and-edges", metricsVisibility: "hidden" },
+    inspectorVisible: false,
   },
 
-  execution: {
+  sim: {
     topbar: {
       nameEditable: false,
       metricsVisible: true,
       metricsStyle: "live",
-      saveButton: "disabled",
+      saveButton: "hidden",
     },
-    palette: { visible: true, dimmed: true, searchEditable: false },
+    palette: { visible: true, dimmed: false, searchEditable: true },
     canvas: {
-      draggable: false,
-      connectionsAllowed: false,
-      deletionAllowed: false,
+      draggable: true,
+      connectionsAllowed: true,
+      deletionAllowed: true,
       costBadgeStyle: "live",
     },
     inspector: { trigger: "single-click", fieldsEditable: false },
@@ -119,16 +120,17 @@ const contracts: Record<WorkflowSurfaceMode, PanelContract> = {
       stepCountFormat: "progress",
       metricsVisibility: "elapsed-and-cost",
     },
+    inspectorVisible: true,
   },
 
-  historical: {
+  readonly: {
     topbar: {
       nameEditable: false,
       metricsVisible: true,
       metricsStyle: "static",
       saveButton: "hidden",
     },
-    palette: { visible: true, dimmed: true, searchEditable: false },
+    palette: { visible: false, dimmed: false, searchEditable: false },
     canvas: {
       draggable: false,
       connectionsAllowed: false,
@@ -141,25 +143,7 @@ const contracts: Record<WorkflowSurfaceMode, PanelContract> = {
       stepCountFormat: "progress",
       metricsVisibility: "duration-and-cost",
     },
-  },
-
-  "fork-draft": {
-    topbar: {
-      nameEditable: true,
-      metricsVisible: false,
-      metricsStyle: "none",
-      saveButton: "dirty-dependent",
-    },
-    palette: { visible: true, dimmed: false, searchEditable: true },
-    canvas: {
-      draggable: true,
-      connectionsAllowed: true,
-      deletionAllowed: true,
-      costBadgeStyle: "estimated",
-    },
-    inspector: { trigger: "double-click", fieldsEditable: true },
-    bottomPanel: { defaultState: "collapsed" },
-    statusBar: { stepCountFormat: "steps-and-edges", metricsVisibility: "hidden" },
+    inspectorVisible: true,
   },
 };
 
@@ -168,7 +152,11 @@ const contracts: Record<WorkflowSurfaceMode, PanelContract> = {
 // ---------------------------------------------------------------------------
 
 export function getContractForMode(mode: WorkflowSurfaceMode): PanelContract {
-  return contracts[mode];
+  const contract = contracts[mode];
+  if (!contract) {
+    throw new Error(`Unknown workflow surface mode: ${mode}`);
+  }
+  return contract;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,40 +164,36 @@ export function getContractForMode(mode: WorkflowSurfaceMode): PanelContract {
 // ---------------------------------------------------------------------------
 
 export function isEditable(mode: WorkflowSurfaceMode): boolean {
-  return contracts[mode].inspector.fieldsEditable;
+  return getContractForMode(mode).inspector.fieldsEditable || getContractForMode(mode).canvas.draggable;
 }
 
 export function isDraggable(mode: WorkflowSurfaceMode): boolean {
-  return contracts[mode].canvas.draggable;
+  return getContractForMode(mode).canvas.draggable;
 }
 
 export function canCreateConnections(mode: WorkflowSurfaceMode): boolean {
-  return contracts[mode].canvas.connectionsAllowed;
+  return getContractForMode(mode).canvas.connectionsAllowed;
 }
 
 export function canDeleteNodes(mode: WorkflowSurfaceMode): boolean {
-  return contracts[mode].canvas.deletionAllowed;
+  return getContractForMode(mode).canvas.deletionAllowed;
 }
 
 const tabMap: Record<
   WorkflowSurfaceMode,
   { inspector: string[]; bottomPanel: string[] }
 > = {
-  workflow: {
+  edit: {
     inspector: ["Overview", "Prompt", "Conditions"],
     bottomPanel: ["Logs", "Runs"],
   },
-  execution: {
+  sim: {
     inspector: ["Overview", "Results", "Conditions"],
     bottomPanel: ["Logs", "Runs"],
   },
-  historical: {
+  readonly: {
     inspector: ["Overview", "Output", "Eval", "Error"],
     bottomPanel: ["Logs", "Runs", "Regressions"],
-  },
-  "fork-draft": {
-    inspector: ["Overview", "Prompt", "Conditions"],
-    bottomPanel: ["Logs", "Runs"],
   },
 };
 
@@ -223,13 +207,13 @@ export function getAvailableTabs(
 export function getInspectorTrigger(
   mode: WorkflowSurfaceMode,
 ): "double-click" | "single-click" {
-  return contracts[mode].inspector.trigger;
+  return getContractForMode(mode).inspector.trigger;
 }
 
 export function getBottomPanelDefault(
   mode: WorkflowSurfaceMode,
 ): "collapsed" | "expanded" {
-  return contracts[mode].bottomPanel.defaultState;
+  return getContractForMode(mode).bottomPanel.defaultState;
 }
 
 export function getActionButton(mode: WorkflowSurfaceMode): {
@@ -237,12 +221,12 @@ export function getActionButton(mode: WorkflowSurfaceMode): {
   variant: string;
 } {
   switch (mode) {
-    case "execution":
+    case "edit":
+      return { label: "Save+Run", variant: "primary" };
+    case "sim":
       return { label: "Cancel", variant: "danger" };
-    case "historical":
+    case "readonly":
       return { label: "Fork", variant: "primary" };
-    default:
-      return { label: "Run", variant: "primary" };
   }
 }
 
@@ -250,9 +234,9 @@ export function getSaveButtonState(
   mode: WorkflowSurfaceMode,
   isDirty: boolean,
 ): string {
-  const button = contracts[mode].topbar.saveButton;
+  const button = getContractForMode(mode).topbar.saveButton;
   if (button === "dirty-dependent") {
-    return isDirty ? "primary" : "ghost";
+    return isDirty ? "enabled" : "disabled";
   }
   return button;
 }
@@ -260,19 +244,19 @@ export function getSaveButtonState(
 export function getCostBadgeStyle(
   mode: WorkflowSurfaceMode,
 ): "estimated" | "live" | "final" {
-  return contracts[mode].canvas.costBadgeStyle;
+  return getContractForMode(mode).canvas.costBadgeStyle;
 }
 
 export function getStepCountFormat(
   mode: WorkflowSurfaceMode,
 ): "steps-and-edges" | "progress" {
-  return contracts[mode].statusBar.stepCountFormat;
+  return getContractForMode(mode).statusBar.stepCountFormat;
 }
 
 export function getMetricsVisibility(
   mode: WorkflowSurfaceMode,
 ): "hidden" | "elapsed-and-cost" | "duration-and-cost" {
-  return contracts[mode].statusBar.metricsVisibility;
+  return getContractForMode(mode).statusBar.metricsVisibility;
 }
 
 export function getCanvasYamlToggleVisibility(mode: WorkflowSurfaceMode): {
@@ -280,11 +264,11 @@ export function getCanvasYamlToggleVisibility(mode: WorkflowSurfaceMode): {
   yaml: boolean;
 } {
   switch (mode) {
-    case "execution":
+    case "sim":
       return { canvas: true, yaml: false };
-    case "historical":
+    case "readonly":
       return { canvas: false, yaml: false };
-    default:
+    case "edit":
       return { canvas: true, yaml: true };
   }
 }
