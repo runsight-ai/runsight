@@ -29,7 +29,7 @@ interface CanvasTopbarProps {
   forkDisabled?: boolean;
 }
 
-export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid: _yamlValid = true, errorCount: _errorCount = 0, onAddApiKey, metricsVisible = false, metricsStyle = "none", actionButton, nameEditable = true, saveButton = "ghost", toggleVisibility, runStatus, forkDisabled: _forkDisabled }: CanvasTopbarProps) {
+export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid: _yamlValid = true, errorCount: _errorCount = 0, onAddApiKey, metricsVisible = false, metricsStyle = "none", actionButton, nameEditable = true, saveButton = "ghost", toggleVisibility: _toggleVisibility, runStatus, forkDisabled: _forkDisabled }: CanvasTopbarProps) {
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
 
