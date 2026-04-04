@@ -409,3 +409,170 @@ async def test_launch_execution_rejects_child_workflow_without_public_interface_
     assert "interface" in updated.error.lower()
     assert "child" in updated.error.lower()
     assert svc._run_workflow.await_count == 0
+
+
+# ---------------------------------------------------------------------------
+# Item 3b: Branch-scoped snapshot resolution — name-alias + branch mismatch
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_launch_execution_resolves_name_aliased_child_from_branch_snapshot(
+    tmp_path: Path,
+) -> None:
+    """RUN-606 branch-scoped resolution with name alias: child workflow
+    exists on ``feature-a`` with a ``workflow.name`` that differs from the
+    filename.  Parent references the child by its ``workflow.name``, not
+    by the filesystem path.
+
+    When launching with ``branch="feature-a"``, the snapshot-backed
+    registry must discover the child by scanning committed YAML files on
+    that branch and matching ``workflow.name`` to ``workflow_ref``.
+
+    This currently FAILS because ``build_runnable_workflow_registry()``
+    only tries path-based candidate guesses via ``_read_workflow_from_source``
+    and never consults the ``workflow.name`` alias index when resolving
+    children from a branch snapshot.
+    """
+    from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+    from runsight_api.logic.services.execution_service import ExecutionService
+    from runsight_api.logic.services.git_service import GitService
+
+    parent_yaml = """
+    version: "1.0"
+    blocks:
+      call_child:
+        type: workflow
+        workflow_ref: my-special-child
+    workflow:
+      name: Parent Workflow
+      entry: call_child
+      transitions:
+        - from: call_child
+          to: null
+    config: {}
+    """
+
+    # The child file is named differently from its workflow.name
+    child_yaml = """
+    version: "1.0"
+    interface:
+      inputs: []
+      outputs:
+        - name: summary
+          source: results.writer
+    workflow:
+      name: my-special-child
+      entry: finish
+      transitions: []
+    """
+
+    # Set up git repo with both parent and child on feature-a.
+    # The child filename (child-impl.yaml) != workflow.name (my-special-child).
+    repo = tmp_path / "repo"
+    workflows_dir = repo / "custom" / "workflows"
+    workflows_dir.mkdir(parents=True, exist_ok=True)
+
+    (workflows_dir / "parent.yaml").write_text(dedent(parent_yaml).strip() + "\n", encoding="utf-8")
+    (workflows_dir / "child-impl.yaml").write_text(
+        dedent(child_yaml).strip() + "\n", encoding="utf-8"
+    )
+
+    subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@runsight.dev"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Runsight Tests"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    # Commit parent only on main
+    subprocess.run(
+        ["git", "add", "custom/workflows/parent.yaml"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "parent only on main"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+    # Create feature-a with both parent and child
+    subprocess.run(
+        ["git", "checkout", "-b", "feature-a"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add child-impl on feature-a"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "checkout", "main"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    # After checkout main, child-impl.yaml should not exist in working tree
+    # (it was only committed on feature-a). Remove it if it lingers.
+    child_impl_path = workflows_dir / "child-impl.yaml"
+    if child_impl_path.exists():
+        child_impl_path.unlink()
+
+    run_repo = Mock()
+    provider_repo = Mock()
+    provider_repo.list_all.return_value = [
+        Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"], api_key=None)
+    ]
+    workflow_repo = WorkflowRepository(base_path=str(repo))
+    git_service = GitService(repo_path=repo)
+
+    svc = ExecutionService(
+        run_repo=run_repo,
+        workflow_repo=workflow_repo,
+        provider_repo=provider_repo,
+        git_service=git_service,
+    )
+    svc._run_workflow = AsyncMock()
+
+    with (
+        patch.object(
+            svc,
+            "_prepare_runtime_workflow",
+            side_effect=lambda *, yaml_content, api_keys: (yaml.safe_load(yaml_content), Mock()),
+        ),
+        patch("runsight_api.logic.services.execution_service.parse_workflow_yaml") as mock_parse,
+    ):
+        mock_parse.return_value = Mock(name="parsed_workflow")
+
+        await svc.launch_execution(
+            "run_name_alias_branch",
+            "parent",
+            {"instruction": "execute with name-aliased child"},
+            branch="feature-a",
+        )
+        await asyncio.sleep(0.05)
+
+    # Name-alias resolution from branch snapshot should succeed
+    error_calls = [
+        c
+        for c in run_repo.update_run.call_args_list
+        if hasattr(c.args[0], "error") and c.args[0].error is not None
+    ]
+    assert len(error_calls) == 0, (
+        f"Expected no error when resolving child by workflow.name from branch snapshot. "
+        f"Got: {error_calls[0].args[0].error if error_calls else 'N/A'}"
+    )
+    assert svc._run_workflow.await_count == 1
