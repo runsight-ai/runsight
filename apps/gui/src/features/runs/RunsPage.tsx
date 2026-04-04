@@ -462,7 +462,13 @@ export function Component() {
                               title={formatCommit(run.commit_sha) ?? undefined}
                             />
                           ) : (
-                            <span className="italic text-muted">uncommitted</span>
+                            <span
+                              aria-label="Commit unavailable"
+                              className="text-muted"
+                              title="Commit unavailable"
+                            >
+                              —
+                            </span>
                           )}
                         </TableCell>
                         {sourceFilter === "all" ? (
