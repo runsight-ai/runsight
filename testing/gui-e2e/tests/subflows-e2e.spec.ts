@@ -11,6 +11,11 @@ type WorkflowResponse = {
   yaml?: string | null;
 };
 
+type TrackedWorkflow = {
+  id: string;
+  name: string | null;
+};
+
 type WorkflowListResponse = {
   items: WorkflowResponse[];
   total: number;
@@ -77,6 +82,17 @@ async function apiDelete(path: string): Promise<void> {
   }
 }
 
+async function apiGetOptional<T>(path: string): Promise<T | null> {
+  const response = await fetch(`${API}${path}`);
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(`GET ${path} failed with ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 function workflowUrlId(url: string): string {
   const match = url.match(/\/workflows\/([^/]+)\/edit/);
   if (!match) {
@@ -141,6 +157,7 @@ async function createWorkflowViaUi(
   page: Page,
   name: string,
   yaml: string,
+  onCreated: (workflow: TrackedWorkflow) => void,
 ): Promise<{ id: string; name: string }> {
   await page.goto("/flows");
   await page.waitForLoadState("networkidle");
@@ -149,6 +166,8 @@ async function createWorkflowViaUi(
   await expect(page).toHaveURL(/\/workflows\/[^/]+\/edit/, { timeout: 15000 });
 
   const workflowId = workflowUrlId(page.url());
+  const trackedWorkflow: TrackedWorkflow = { id: workflowId, name: name };
+  onCreated(trackedWorkflow);
   await setWorkflowYaml(page, yaml);
   await saveWorkflow(page, workflowId, yaml);
 
@@ -157,6 +176,7 @@ async function createWorkflowViaUi(
     return workflow.name ?? null;
   }).toBe(name);
 
+  trackedWorkflow.name = name;
   return { id: workflowId, name };
 }
 
@@ -255,13 +275,15 @@ async function assertProviderGateOpensFromEditor(page: Page, workflowId: string)
   });
 }
 
-async function deleteWorkflowViaUi(page: Page, workflow: { id: string; name: string }) {
+async function deleteWorkflowViaUi(page: Page, workflow: TrackedWorkflow) {
   await page.goto("/flows");
   await expect(page.getByTestId("flows-search-workflows-input")).toBeVisible({ timeout: 10000 });
 
   const search = page.getByTestId("flows-search-workflows-input");
-  await search.fill(workflow.name);
-  await page.waitForTimeout(300);
+  if (workflow.name) {
+    await search.fill(workflow.name);
+    await page.waitForTimeout(300);
+  }
 
   const row = page.getByTestId(`workflow-row-${workflow.id}`);
   await expect(row).toBeVisible({ timeout: 5000 });
@@ -272,9 +294,38 @@ async function deleteWorkflowViaUi(page: Page, workflow: { id: string; name: str
   await dialog.getByTestId("delete-confirm-submit-button").click();
 
   await expect.poll(async () => {
-    const workflows = await apiGet<WorkflowListResponse>("/workflows");
-    return workflows.items.some((item) => item.name === workflow.name);
-  }).toBe(false);
+    const workflowEntity = await apiGetOptional<WorkflowResponse>(`/workflows/${workflow.id}`);
+    return workflowEntity === null;
+  }).toBe(true);
+
+  await expect.poll(async () => {
+    const runs = await apiGet<RunListResponse>(`/runs?workflow_id=${workflow.id}&limit=20`);
+    return runs.total;
+  }, { timeout: 30000 }).toBe(0);
+}
+
+async function cleanupWorkflow(page: Page, workflow: TrackedWorkflow) {
+  const workflowEntity = await apiGetOptional<WorkflowResponse>(`/workflows/${workflow.id}`);
+  if (!workflowEntity) {
+    return;
+  }
+
+  workflow.name = workflowEntity.name ?? workflow.name;
+
+  if (!page.isClosed()) {
+    try {
+      await deleteWorkflowViaUi(page, workflow);
+      return;
+    } catch {
+      // Fall through to API cleanup when the GUI is no longer usable.
+    }
+  }
+
+  await apiDelete(`/workflows/${workflow.id}`);
+  await expect.poll(async () => {
+    const deletedWorkflow = await apiGetOptional<WorkflowResponse>(`/workflows/${workflow.id}`);
+    return deletedWorkflow === null;
+  }).toBe(true);
 
   await expect.poll(async () => {
     const runs = await apiGet<RunListResponse>(`/runs?workflow_id=${workflow.id}&limit=20`);
@@ -399,7 +450,7 @@ function buildFailingParentYaml(workflowName: string, childWorkflowRef: string):
 
 test("subflows run end to end through the GUI for happy and failing paths", async ({ page }) => {
   test.setTimeout(180000);
-  const createdWorkflows: Array<{ id: string; name: string }> = [];
+  const createdWorkflows: TrackedWorkflow[] = [];
   let createdProviderId: string | null = null;
   const createdRunIds: string[] = [];
 
@@ -413,29 +464,29 @@ test("subflows run end to end through the GUI for happy and failing paths", asyn
       page,
       happyChildName,
       buildHappyChildYaml(happyChildName),
+      (workflow) => createdWorkflows.push(workflow),
     );
-    createdWorkflows.push(happyChild);
 
     const failingChild = await createWorkflowViaUi(
       page,
       failingChildName,
       buildFailingChildYaml(failingChildName),
+      (workflow) => createdWorkflows.push(workflow),
     );
-    createdWorkflows.push(failingChild);
 
     const happyParent = await createWorkflowViaUi(
       page,
       happyParentName,
       buildHappyParentYaml(happyParentName, happyChild.id),
+      (workflow) => createdWorkflows.push(workflow),
     );
-    createdWorkflows.push(happyParent);
 
     const failingParent = await createWorkflowViaUi(
       page,
       failingParentName,
       buildFailingParentYaml(failingParentName, failingChild.id),
+      (workflow) => createdWorkflows.push(workflow),
     );
-    createdWorkflows.push(failingParent);
 
     if (!(await hasActiveProvider())) {
       await assertProviderGateOpensFromEditor(page, happyParent.id);
@@ -503,7 +554,7 @@ test("subflows run end to end through the GUI for happy and failing paths", asyn
     expect(failingChildRun.workflow_name).toBe(failingChild.name);
   } finally {
     for (const workflow of [...createdWorkflows].reverse()) {
-      await deleteWorkflowViaUi(page, workflow);
+      await cleanupWorkflow(page, workflow);
     }
 
     for (const runId of createdRunIds) {
