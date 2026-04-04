@@ -517,13 +517,20 @@ class Workflow:
             while queue:
                 current_block_id, block = queue.popleft()
 
+                from runsight_core.blocks.workflow_block import WorkflowBlock
+
                 block_type = type(block).__name__
                 soul = getattr(block, "soul", None)
+                start_kwargs = {"soul": soul} if soul is not None else {}
                 if observer:
                     try:
-                        soul_kwargs = {"soul": soul} if soul is not None else {}
+                        if isinstance(block, WorkflowBlock):
+                            child_workflow_id = getattr(block, "workflow_ref", None)
+                            if child_workflow_id:
+                                start_kwargs["child_workflow_id"] = child_workflow_id
+                            start_kwargs["child_workflow_name"] = block.child_workflow.name
                         observer.on_block_start(
-                            self.name, current_block_id, block_type, **soul_kwargs
+                            self.name, current_block_id, block_type, **start_kwargs
                         )
                     except Exception:
                         logger.warning("Observer.on_block_start failed", exc_info=True)
@@ -532,7 +539,6 @@ class Workflow:
 
                 # Step 3: Execute block with context propagation for WorkflowBlock and LoopBlock
                 from runsight_core.blocks.loop import LoopBlock
-                from runsight_core.blocks.workflow_block import WorkflowBlock
 
                 try:
                     kwargs_for_context = {
@@ -566,7 +572,7 @@ class Workflow:
                                 block_type,
                                 block_duration,
                                 state,
-                                **soul_kwargs,
+                                **({"soul": soul} if soul is not None else {}),
                             )
                         except Exception:
                             logger.warning("Observer.on_block_complete failed", exc_info=True)

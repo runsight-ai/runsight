@@ -4,8 +4,6 @@ import tempfile
 from pathlib import Path
 from textwrap import dedent
 
-import pytest
-from pydantic import ValidationError
 from runsight_core.yaml.discovery import discover_custom_assets
 
 
@@ -67,11 +65,19 @@ class TestDiscoverSoulFieldPreservation:
             assert soul.max_tokens is None
             assert soul.avatar_color is None
 
-    def test_discover_soul_missing_required_fields_raises_validation_error(self):
+    def test_discover_soul_missing_required_fields_is_skipped(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             custom_dir = Path(tmpdir)
             souls_dir = custom_dir / "souls"
             souls_dir.mkdir()
+
+            (souls_dir / "valid_soul.yaml").write_text(
+                dedent("""
+                id: valid_soul_1
+                role: Valid Soul
+                system_prompt: Keep loading valid souls.
+                """)
+            )
 
             (souls_dir / "invalid_soul.yaml").write_text(
                 dedent("""
@@ -80,8 +86,10 @@ class TestDiscoverSoulFieldPreservation:
                 """)
             )
 
-            with pytest.raises(ValidationError):
-                discover_custom_assets(custom_dir)
+            _, souls, _ = discover_custom_assets(custom_dir)
+
+            assert "valid_soul" in souls
+            assert "invalid_soul" not in souls
 
     def test_discover_soul_ignores_unknown_extra_keys(self):
         with tempfile.TemporaryDirectory() as tmpdir:

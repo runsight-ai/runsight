@@ -15,6 +15,8 @@ All tests should FAIL until the implementation exists.
 from __future__ import annotations
 
 import pytest
+from runsight_core.observer import CompositeObserver, build_child_observer
+from runsight_core.state import BlockResult, WorkflowState
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
@@ -345,6 +347,66 @@ class TestParentNodeStoresChildRunId:
             assert child_run is not None, (
                 f"child_run_id '{node.child_run_id}' should reference an existing Run"
             )
+
+    def test_child_observer_persists_child_nodes_on_child_run(self, db_engine):
+        """Child workflow events must be persisted on the child run, not the parent run."""
+        with Session(db_engine) as session:
+            _create_run(
+                session,
+                run_id="parent_run_nested",
+                workflow_id="wf_parent",
+                workflow_name="Parent",
+                status=RunStatus.running,
+                depth=0,
+            )
+
+        parent_observer = CompositeObserver(
+            ExecutionObserver(engine=db_engine, run_id="parent_run_nested")
+        )
+        parent_observer.on_block_start(
+            "Parent",
+            "call_child",
+            "WorkflowBlock",
+            child_workflow_id="wf_real_child",
+            child_workflow_name="Child Workflow",
+        )
+
+        child_observer, child_run_id = build_child_observer(parent_observer, block_id="call_child")
+        assert child_run_id is not None, "workflow block start should allocate a child run id"
+
+        child_state = WorkflowState().model_copy(
+            update={
+                "results": {
+                    "child_step": BlockResult(output="child ok"),
+                    "final_summary": "child ok",
+                }
+            }
+        )
+
+        child_observer.on_workflow_start("Child", WorkflowState())
+        child_observer.on_block_start("Child", "child_step", "CodeBlock")
+        child_observer.on_block_complete("Child", "child_step", "CodeBlock", 0.1, child_state)
+        child_observer.on_workflow_complete("Child", child_state, 0.2)
+
+        with Session(db_engine) as session:
+            parent_run = session.get(Run, "parent_run_nested")
+            child_run = session.get(Run, child_run_id)
+            parent_node = session.get(RunNode, "parent_run_nested:call_child")
+            child_node = session.get(RunNode, f"{child_run_id}:child_step")
+
+            assert parent_run is not None
+            assert child_run is not None
+            assert parent_node is not None
+            assert child_node is not None
+
+            assert parent_run.status == RunStatus.running
+            assert parent_node.child_run_id == child_run_id
+            assert child_run.parent_run_id == "parent_run_nested"
+            assert child_run.workflow_id == "wf_real_child"
+            assert child_run.workflow_name == "Child Workflow"
+            assert child_run.status == RunStatus.completed
+            assert child_node.run_id == child_run_id
+            assert child_node.status == "completed"
 
 
 # ---------------------------------------------------------------------------

@@ -713,6 +713,59 @@ class TestRunStatusTransitions:
 
 class TestExecutionRuntimeResolution:
     @pytest.mark.asyncio
+    async def test_launch_execution_allows_code_only_workflow_without_souls_section(self):
+        ExecutionService = _import_execution_service()
+        run_repo = Mock()
+        workflow_repo = Mock()
+        provider_repo = Mock()
+        settings_repo = Mock()
+
+        mock_entity = Mock()
+        mock_entity.yaml = """
+version: "1.0"
+workflow:
+  name: code-only
+  entry: b1
+  transitions:
+    - from: b1
+      to: null
+blocks:
+  b1:
+    type: code
+    code: |
+      def main(data):
+          return "ok"
+config: {}
+"""
+        workflow_repo.get_by_id.return_value = mock_entity
+        workflow_repo._get_path.return_value = "/fake/workflows/wf_1.yaml"
+        provider_repo.list_all.return_value = []
+        settings_repo.get_settings.return_value = Mock(fallback_enabled=False)
+        settings_repo.get_fallback_map.return_value = []
+
+        svc = ExecutionService(
+            run_repo=run_repo,
+            workflow_repo=workflow_repo,
+            provider_repo=provider_repo,
+            settings_repo=settings_repo,
+        )
+
+        with (
+            patch(
+                "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+            ) as mock_parse,
+            patch.object(svc, "_fail_run_on_prepare_error") as mock_fail,
+        ):
+            mock_wf = Mock()
+            mock_wf.run = AsyncMock()
+            mock_parse.return_value = mock_wf
+
+            await svc.launch_execution("run_code_only", "wf_1", {"instruction": "do stuff"})
+
+        mock_fail.assert_not_called()
+        assert "run_code_only" in svc._running_tasks
+
+    @pytest.mark.asyncio
     async def test_launch_execution_rejects_providerless_modeless_soul_without_workflow_model(self):
         ExecutionService = _import_execution_service()
         run_repo = Mock()

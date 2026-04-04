@@ -30,6 +30,11 @@ class StreamingObserver:
         self.queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
         self.is_done: bool = False
 
+    def clone_for_child_run(self, *, child_run_id: str) -> "StreamingObserver":
+        child = StreamingObserver(run_id=child_run_id, parent_run_id=self.run_id)
+        child.queue = self.queue
+        return child
+
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
         self.queue.put_nowait({"event": SSE_RUN_STARTED, "data": {"run_id": self.run_id}})
 

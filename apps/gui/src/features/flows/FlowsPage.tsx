@@ -39,6 +39,7 @@ export function Component() {
             type="button"
             onClick={handleCreateWorkflow}
             disabled={createWorkflow.isPending}
+            data-testid="flows-create-workflow-button"
           >
             New Workflow
           </Button>

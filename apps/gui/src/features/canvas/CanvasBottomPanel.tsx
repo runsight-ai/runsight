@@ -171,6 +171,7 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
     >
       <div role="tablist" className="flex items-center h-9 px-3 gap-3 shrink-0">
         <button
+          data-testid="workflow-logs-tab"
           role="tab"
           aria-label="Expand logs panel"
           aria-selected={activeTab === "logs"}
@@ -183,6 +184,7 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
           Logs
         </button>
         <button
+          data-testid="workflow-runs-tab"
           role="tab"
           aria-label="Expand runs panel"
           aria-selected={activeTab === "runs"}
@@ -196,6 +198,7 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
         </button>
         {count > 0 && (
           <button
+            data-testid="workflow-regressions-tab"
             role="tab"
             aria-label="Expand regressions panel"
             aria-selected={activeTab === "regressions"}
@@ -211,6 +214,7 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
         <button
           type="button"
           aria-label={isExpanded ? "Collapse panel" : "Expand panel"}
+          data-testid="workflow-bottom-panel-toggle"
           onClick={() => setIsExpanded((prev) => !prev)}
           className="ml-auto bg-transparent border-none text-muted cursor-pointer text-sm hover:text-primary"
         >
@@ -218,7 +222,7 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
         </button>
       </div>
       {isExpanded && activeTab === "logs" && (
-        <div ref={logsRef} className="overflow-auto flex-1">
+        <div ref={logsRef} data-testid="workflow-logs-panel" className="overflow-auto flex-1">
           {entries.map((entry, i) => (
             <div key={i} className="text-xs font-mono px-2 py-0.5">
               <span className="text-muted-foreground">{entry.timestamp}</span>{" "}
@@ -229,10 +233,11 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
         </div>
       )}
       {isExpanded && activeTab === "runs" && (
-        <div className="overflow-auto flex-1">
+        <div data-testid="workflow-runs-panel" className="overflow-auto flex-1">
           {runs.map((run) => (
             <div
               key={run.id}
+              data-testid={`workflow-run-row-${run.id}`}
               className="text-xs font-mono px-2 py-1 cursor-pointer hover:bg-muted"
               onClick={() => onRunSelect(run.id)}
             >

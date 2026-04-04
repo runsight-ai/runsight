@@ -95,16 +95,12 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
   function saveName() {
     setIsEditing(false);
     const trimmed = editName.trim();
-    if (!workflow || typeof workflow.yaml !== "string") {
-      return;
-    }
-
     if (trimmed && trimmed !== workflowName) {
       updateWorkflow.mutate({
         id: workflowId,
         data: {
           name: trimmed,
-          yaml: workflow.yaml,
+          yaml: typeof workflow?.yaml === "string" ? workflow.yaml : "",
         },
       });
     }
@@ -153,12 +149,14 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
               onChange={(e) => setEditName(e.target.value)}
               onBlur={saveName}
               onKeyDown={handleKeyDown}
+              data-testid="workflow-name-input"
               autoFocus
             />
           ) : (
             <span
               className="text-lg font-medium text-heading cursor-pointer border border-transparent rounded-sm px-1 py-[2px] hover:bg-surface-hover"
               onClick={startEditing}
+              data-testid="workflow-name-display"
             >
               {workflowName}
             </span>
@@ -179,12 +177,12 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
           <Tabs value={activeTab} onValueChange={onValueChange}>
             <TabsList variant="contained">
               {toggleVisibility.canvas && (
-                <TabsTrigger value="canvas" className="opacity-50">
+                <TabsTrigger value="canvas" className="opacity-50" data-testid="workflow-tab-canvas">
                   Canvas
                 </TabsTrigger>
               )}
               {toggleVisibility.yaml && (
-                <TabsTrigger value="yaml">YAML</TabsTrigger>
+                <TabsTrigger value="yaml" data-testid="workflow-tab-yaml">YAML</TabsTrigger>
               )}
             </TabsList>
           </Tabs>
@@ -210,6 +208,7 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
             size="sm"
             onClick={onSave}
             disabled={saveButton === "disabled"}
+            data-testid="workflow-save-button"
           >
             <Save className="w-4 h-4" />
             Save

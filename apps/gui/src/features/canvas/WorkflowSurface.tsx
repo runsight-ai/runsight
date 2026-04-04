@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Node } from "@xyflow/react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./workflowSurfaceContract";
 import { getContractForMode, getCanvasYamlToggleVisibility, getSaveButtonState, getActionButton, isEditable } from "./workflowSurfaceContract";
 import { CanvasTopbar } from "./CanvasTopbar";
@@ -10,12 +11,17 @@ import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { RunInspectorPanel } from "../runs/RunInspectorPanel";
 import type { RunNodeData } from "../runs/RunCanvasNode";
+import { ProviderModal } from "@/components/provider/ProviderModal";
 import { useCanvasStore } from "@/store/canvas";
+import { useUpdateWorkflow } from "@/queries/workflows";
 
 export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflowId = "", runId: initialRunId }: WorkflowSurfaceProps) {
   const [mode, setMode] = useState<WorkflowSurfaceMode>(initialMode);
   const [workflowId, setWorkflowId] = useState(initialWorkflowId);
   const [activeRunId, setRunId] = useState(initialRunId);
+  const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const updateWorkflow = useUpdateWorkflow();
 
   const handleForkTransition = useCallback((newWorkflowId: string) => {
     setMode("edit");
@@ -45,6 +51,9 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const [selectedNode, setSelectedNode] = useState<Node<RunNodeData> | null>(null);
 
   const nodes = useCanvasStore((s) => s.nodes);
+  const yamlContent = useCanvasStore((s) => s.yamlContent);
+  const toPersistedState = useCanvasStore((s) => s.toPersistedState);
+  const markSaved = useCanvasStore((s) => s.markSaved);
 
   // Inspector trigger: open on single-click or double-click depending on mode
   const handleNodeClickForInspector = useCallback(
@@ -69,6 +78,19 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     setSelectedNode(null);
   }, []);
 
+  const handleOpenApiKeyModal = useCallback(() => {
+    setApiKeyModalOpen(true);
+  }, []);
+
+  const handleApiKeyModalOpenChange = useCallback((open: boolean) => {
+    setApiKeyModalOpen(open);
+  }, []);
+
+  const handleProviderSaveSuccess = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ["providers"] });
+    setApiKeyModalOpen(false);
+  }, [queryClient]);
+
   // Force canvas tab when yaml is unavailable (execution/historical modes)
   useEffect(() => {
     if (!toggleVisibility.yaml) {
@@ -76,8 +98,25 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     }
   }, [toggleVisibility.yaml]);
 
+  const handleSave = useCallback(async () => {
+    if (!editable || !workflowId) {
+      return;
+    }
+
+    await updateWorkflow.mutateAsync({
+      id: workflowId,
+      data: {
+        yaml: yamlContent,
+        canvas_state: toPersistedState(),
+      },
+    });
+
+    markSaved();
+    setIsDirty(false);
+  }, [editable, markSaved, toPersistedState, updateWorkflow, workflowId, yamlContent]);
+
   const saveButtonState = getSaveButtonState(mode, isDirty);
-  const actionButton = getActionButton(mode);
+  const actionButton = mode === "edit" ? undefined : getActionButton(mode);
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
@@ -147,13 +186,16 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
           activeTab={activeTab}
           onValueChange={(v) => setActiveTab(v as "canvas" | "yaml")}
           isDirty={isDirty}
-          onSave={() => {}}
+          onSave={() => {
+            void handleSave();
+          }}
           nameEditable={nameEditable}
           toggleVisibility={toggleVisibility}
           saveButton={saveButtonState}
           metricsVisible={topbar.metricsVisible}
           metricsStyle={topbar.metricsStyle}
           actionButton={actionButton}
+          onAddApiKey={editable ? handleOpenApiKeyModal : undefined}
           onForkTransition={handleForkTransition}
         />
       </div>
@@ -224,6 +266,13 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
           metricsVisibility={metricsVisibility}
         />
       </div>
+
+      <ProviderModal
+        mode="canvas"
+        open={apiKeyModalOpen}
+        onOpenChange={handleApiKeyModalOpenChange}
+        onSaveSuccess={handleProviderSaveSuccess}
+      />
     </div>
   );
 }
