@@ -231,6 +231,7 @@ class TestInterfaceBoundExecution:
         assert "child_cost_usd" in br.metadata
         assert "child_tokens" in br.metadata
         assert "child_duration_s" in br.metadata
+        assert "child_run_id" in br.metadata
 
         # Must NOT leak raw child results
         assert "writer" not in br.metadata
@@ -361,3 +362,28 @@ class TestInterfaceBoundExecution:
 
         with pytest.raises((KeyError, ValueError)):
             await wb.execute(parent_state)
+
+    async def test_workflow_block_rejects_dotted_path_input_bindings(self) -> None:
+        """
+        AC4: Callable sub-workflows cannot be invoked via raw child dotted-path
+        bindings.  Inputs keyed by dotted child paths must be rejected at
+        construction time.
+
+        The error must be a ValueError explicitly about the dotted key, not a
+        generic TypeError from a missing parameter.
+        """
+        interface = _make_interface(
+            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
+        )
+
+        child_block = _EchoBlock("echo", copy_key="topic")
+        child_wf = _build_child_workflow("child_wf", child_block)
+
+        with pytest.raises(ValueError, match=r"[Dd]otted|\."):
+            WorkflowBlock(
+                block_id="invoke_child",
+                child_workflow=child_wf,
+                inputs={"shared_memory.topic": "shared_memory.parent_topic"},
+                outputs={},
+                interface=interface,
+            )
