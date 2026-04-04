@@ -227,6 +227,9 @@ export const RunResponseSchema = z.object({
   eval_pass_pct: z.number().nullable().optional(),
   regression_count: z.number().nullable().default(null),
   node_summary: NodeSummarySchema.nullable().optional(),
+  parent_run_id: z.string().nullable().optional(),
+  root_run_id: z.string().nullable().optional(),
+  depth: z.number().optional().default(0),
 });
 export type RunResponse = z.infer<typeof RunResponseSchema>;
 
@@ -256,6 +259,8 @@ export const RunNodeResponseSchema = z.object({
   eval_score: z.number().nullable().optional(),
   eval_passed: z.boolean().nullable().optional(),
   eval_results: z.record(z.string(), z.unknown()).nullable().optional(),
+  child_run_id: z.string().nullable().optional(),
+  exit_handle: z.string().nullable().optional(),
 });
 export type RunNodeResponse = z.infer<typeof RunNodeResponseSchema>;
 

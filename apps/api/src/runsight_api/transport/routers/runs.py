@@ -224,7 +224,55 @@ async def get_run(
             pending=summaries["pending"],
             failed=summaries["failed"],
         ),
+        parent_run_id=getattr(run, "parent_run_id", None),
+        root_run_id=getattr(run, "root_run_id", None),
+        depth=getattr(run, "depth", 0),
     )
+
+
+@router.get("/{run_id}/children", response_model=List[RunResponse])
+async def get_run_children(
+    run_id: str,
+    run_service: RunService = Depends(get_run_service),
+    eval_service: EvalService = Depends(get_eval_service),
+):
+    children = run_service.list_children(run_id)
+    summaries_map = run_service.get_node_summaries_batch(run_ids=[c.id for c in children])
+    response_items = []
+    for child in children:
+        summaries = summaries_map.get(child.id, {})
+        reg_result = eval_service.get_run_regressions(child.id)
+        response_items.append(
+            RunResponse(
+                id=child.id,
+                workflow_id=child.workflow_id,
+                workflow_name=child.workflow_name,
+                status=child.status,
+                started_at=child.started_at,
+                completed_at=child.completed_at,
+                duration_seconds=child.duration_s,
+                total_cost_usd=summaries.get("total_cost_usd", 0.0),
+                total_tokens=summaries.get("total_tokens", 0),
+                created_at=child.created_at,
+                branch=_run_response_field(child, "branch", "main"),
+                source=_run_response_field(child, "source", "manual"),
+                commit_sha=_run_response_field(child, "commit_sha", None),
+                run_number=_run_metric_field(child, "run_number"),
+                eval_pass_pct=_run_metric_field(child, "eval_pass_pct"),
+                regression_count=reg_result["count"] if reg_result else 0,
+                node_summary=NodeSummary(
+                    total=summaries.get("total", 0),
+                    completed=summaries.get("completed", 0),
+                    running=summaries.get("running", 0),
+                    pending=summaries.get("pending", 0),
+                    failed=summaries.get("failed", 0),
+                ),
+                parent_run_id=getattr(child, "parent_run_id", None),
+                root_run_id=getattr(child, "root_run_id", None),
+                depth=getattr(child, "depth", 0),
+            )
+        )
+    return response_items
 
 
 @router.post("/{run_id}/cancel")
@@ -286,6 +334,8 @@ async def get_run_nodes(run_id: str, run_service: RunService = Depends(get_run_s
             eval_score=n.eval_score,
             eval_passed=n.eval_passed,
             eval_results=n.eval_results,
+            child_run_id=getattr(n, "child_run_id", None),
+            exit_handle=getattr(n, "exit_handle", None),
         )
         for n in nodes
     ]

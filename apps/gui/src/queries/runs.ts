@@ -101,6 +101,14 @@ export function useRunRegressions(runId: string) {
   });
 }
 
+export function useChildRuns(runId: string) {
+  return useQuery({
+    queryKey: queryKeys.runs.children(runId),
+    queryFn: () => runsApi.getChildRuns(runId),
+    enabled: !!runId,
+  });
+}
+
 export function useActiveRuns() {
   const queryClient = useQueryClient();
 
