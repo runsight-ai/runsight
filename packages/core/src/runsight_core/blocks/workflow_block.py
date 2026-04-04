@@ -6,6 +6,7 @@ Co-located: runtime class + BlockDef schema + build() function.
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 
 from pydantic import model_validator
@@ -16,6 +17,7 @@ from runsight_core.state import BlockResult, WorkflowState
 if TYPE_CHECKING:
     from runsight_core.workflow import Workflow
     from runsight_core.yaml.registry import WorkflowRegistry
+    from runsight_core.yaml.schema import WorkflowInterfaceDef
 
 
 class WorkflowBlock(BaseBlock):
@@ -37,12 +39,27 @@ class WorkflowBlock(BaseBlock):
         inputs: Dict[str, str],
         outputs: Dict[str, str],
         max_depth: int = 10,
+        interface: Optional["WorkflowInterfaceDef"] = None,
     ):
         super().__init__(block_id)
         self.child_workflow = child_workflow
         self.inputs = inputs
         self.outputs = outputs
         self.max_depth = max_depth
+        self.interface = interface
+
+        # Validate: when interface is present, input binding keys must be plain
+        # interface names (no dotted child paths).
+        if self.interface is not None:
+            for binding_name in self.inputs:
+                if "." in binding_name:
+                    raise ValueError(
+                        f"WorkflowBlock '{self.block_id}': input binding key "
+                        f"'{binding_name}' contains a dotted path. When an "
+                        f"interface is provided, input keys must be plain "
+                        f"interface names (e.g. 'topic'), not child dotted "
+                        f"paths (e.g. 'shared_memory.topic')."
+                    )
 
     async def execute(
         self,
@@ -75,23 +92,40 @@ class WorkflowBlock(BaseBlock):
 
         # Step 4: Run child workflow (propagate observer for monitoring)
         observer = kwargs.get("observer")
+        start_time = time.monotonic()
         child_final_state = await self.child_workflow.run(
             child_state,
             call_stack=call_stack + [self.child_workflow.name],
             workflow_registry=workflow_registry,
             observer=observer,
         )
+        duration_s = time.monotonic() - start_time
 
-        # Step 5: Map outputs (child -> parent)
-        new_parent_state = self._map_outputs(state, child_final_state, self.outputs)
+        # Step 5: Merge child results into parent, then apply output mappings
+        merged_parent = state.model_copy(
+            update={
+                "results": {**state.results, **child_final_state.results},
+            }
+        )
+        new_parent_state = self._map_outputs(merged_parent, child_final_state, self.outputs)
 
-        # Step 6: Propagate costs and add system message
+        # Step 6: Propagate costs and add system message with compact metadata
+        child_metadata = {
+            "child_status": "completed",
+            "child_cost_usd": child_final_state.total_cost_usd,
+            "child_tokens": child_final_state.total_tokens,
+            "child_duration_s": round(duration_s, 4),
+            "child_run_id": None,
+        }
+
         return new_parent_state.model_copy(
             update={
                 "results": {
                     **new_parent_state.results,
                     self.block_id: BlockResult(
-                        output=f"WorkflowBlock '{self.child_workflow.name}' completed"
+                        output=f"WorkflowBlock '{self.child_workflow.name}' completed",
+                        exit_handle="completed",
+                        metadata=child_metadata,
                     ),
                 },
                 "execution_log": new_parent_state.execution_log
@@ -181,9 +215,23 @@ class WorkflowBlock(BaseBlock):
     ) -> WorkflowState:
         child_state = WorkflowState(artifact_store=parent_state.artifact_store)
 
-        for child_key, parent_path in inputs.items():
-            value = self._resolve_dotted(parent_state, parent_path, context="parent state")
-            child_state = self._write_dotted(child_state, child_key, value)
+        if self.interface is not None:
+            # Interface-mediated: keys are interface names, resolve via target
+            input_lookup = {idef.name: idef.target for idef in self.interface.inputs}
+            for interface_name, parent_path in inputs.items():
+                target = input_lookup.get(interface_name)
+                if target is None:
+                    raise ValueError(
+                        f"WorkflowBlock '{self.block_id}': input binding "
+                        f"'{interface_name}' does not match any interface input."
+                    )
+                value = self._resolve_dotted(parent_state, parent_path, context="parent state")
+                child_state = self._write_dotted(child_state, target, value)
+        else:
+            # Legacy: keys are child dotted paths directly
+            for child_key, parent_path in inputs.items():
+                value = self._resolve_dotted(parent_state, parent_path, context="parent state")
+                child_state = self._write_dotted(child_state, child_key, value)
 
         return child_state
 
@@ -195,9 +243,23 @@ class WorkflowBlock(BaseBlock):
     ) -> WorkflowState:
         new_parent = parent_state
 
-        for parent_path, child_path in outputs.items():
-            value = self._resolve_dotted(child_final_state, child_path, context="child state")
-            new_parent = self._write_dotted(new_parent, parent_path, value)
+        if self.interface is not None:
+            # Interface-mediated: values are interface names, resolve via source
+            output_lookup = {odef.name: odef.source for odef in self.interface.outputs}
+            for parent_path, interface_name in outputs.items():
+                source = output_lookup.get(interface_name)
+                if source is None:
+                    raise ValueError(
+                        f"WorkflowBlock '{self.block_id}': output binding "
+                        f"'{interface_name}' does not match any interface output."
+                    )
+                value = self._resolve_dotted(child_final_state, source, context="child state")
+                new_parent = self._write_dotted(new_parent, parent_path, value)
+        else:
+            # Legacy: values are child dotted paths directly
+            for parent_path, child_path in outputs.items():
+                value = self._resolve_dotted(child_final_state, child_path, context="child state")
+                new_parent = self._write_dotted(new_parent, parent_path, value)
 
         return new_parent
 

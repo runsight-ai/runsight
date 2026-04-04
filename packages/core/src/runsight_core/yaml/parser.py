@@ -545,6 +545,7 @@ def parse_workflow_yaml(
                 inputs=block_def.inputs or {},
                 outputs=block_def.outputs or {},
                 max_depth=_resolve_workflow_block_max_depth(file_def, block_def),
+                interface=child_file.interface,
             )
 
             built_blocks[block_id] = block
