@@ -122,6 +122,29 @@ class TestWorkerUsesLiteLLMClient:
 
         assert isinstance(runner, RunsightTeamRunner)
 
+    def test_reconstruct_soul_preserves_extended_runtime_fields(self):
+        """Worker soul reconstruction keeps provider/runtime tool-contract fields."""
+        from runsight_core.isolation.worker import reconstruct_soul
+
+        soul = reconstruct_soul(
+            SoulEnvelope(
+                id="soul_1",
+                role="Tester",
+                system_prompt="You test things.",
+                model_name="gpt-4o",
+                provider="openai",
+                temperature=0.0,
+                max_tokens=128,
+                required_tool_calls=["http_request", "slack_webhook"],
+                max_tool_iterations=5,
+            )
+        )
+
+        assert soul.provider == "openai"
+        assert soul.temperature == 0.0
+        assert soul.max_tokens == 128
+        assert soul.required_tool_calls == ["http_request", "slack_webhook"]
+
 
 # ==============================================================================
 # AC2: IPCClient for tools only — tools are IPC stubs, not real implementations

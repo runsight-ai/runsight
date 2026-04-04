@@ -5,6 +5,7 @@ import { Button } from "@runsight/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@runsight/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
 import { cn } from "@runsight/ui/utils";
+import { formatCost } from "@/utils/formatting";
 import {
   ChevronLeft,
   ArrowUpRight,
@@ -116,7 +117,7 @@ export function RunDetailHeader({ run, activeTab, onTabChange }: RunDetailHeader
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[var(--surface-raised)] border border-[var(--border-default)]">
           <DollarSign className="w-3.5 h-3.5 text-[var(--text-muted)]" />
           <span className="text-xs text-[var(--text-muted)]">Total Cost</span>
-          <span className="font-mono text-sm text-[var(--text-primary)]">${run.total_cost_usd.toFixed(3)}</span>
+          <span className="font-mono text-sm text-[var(--text-primary)]">{formatCost(run.total_cost_usd)}</span>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[var(--surface-raised)] border border-[var(--border-default)]">
           <Activity className="w-3.5 h-3.5 text-[var(--text-muted)]" />

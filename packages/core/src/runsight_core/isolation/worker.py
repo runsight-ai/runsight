@@ -54,6 +54,10 @@ def reconstruct_soul(
         role=soul_envelope.role,
         system_prompt=soul_envelope.system_prompt,
         model_name=soul_envelope.model_name,
+        provider=soul_envelope.provider or None,
+        temperature=soul_envelope.temperature,
+        max_tokens=soul_envelope.max_tokens,
+        required_tool_calls=list(soul_envelope.required_tool_calls),
         max_tool_iterations=soul_envelope.max_tool_iterations,
         resolved_tools=resolved_tools,
     )

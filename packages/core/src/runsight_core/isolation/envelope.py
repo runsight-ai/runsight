@@ -15,6 +15,10 @@ class SoulEnvelope(BaseModel):
     role: str
     system_prompt: str
     model_name: str
+    provider: str = ""
+    temperature: float | None = None
+    max_tokens: int | None = None
+    required_tool_calls: list[str] = Field(default_factory=list)
     max_tool_iterations: int
 
 

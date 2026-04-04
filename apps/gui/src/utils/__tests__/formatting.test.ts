@@ -182,6 +182,10 @@ describe("formatCost", () => {
   it("formats integer cost with decimals", () => {
     expect(formatCost(42)).toBe("$42.000");
   });
+
+  it("formats sub-milli-cent cost values with more precision", () => {
+    expect(formatCost(0.0001132)).toBe("$0.000113");
+  });
 });
 
 // ---------------------------------------------------------------------------

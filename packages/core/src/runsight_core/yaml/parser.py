@@ -99,15 +99,8 @@ def _resolve_soul_tool_definition(tool_ref: str, workflow_tools: Collection[str]
     return tool_ref if tool_ref in workflow_tools else None
 
 
-def validate_tool_governance(
-    file_def: RunsightWorkflowFile,
-    souls_map: Dict[str, Soul] | None = None,
-) -> None:
-    """Validate workflow tool declarations against referenced library souls."""
-    if souls_map is None:
-        souls_map = {}
-
-    declared_tools = set(file_def.tools)
+def _collect_referenced_soul_keys(file_def: RunsightWorkflowFile) -> set[str]:
+    """Return every library soul key referenced by workflow blocks and exits."""
     referenced_souls: set[str] = set()
     for block_def in file_def.blocks.values():
         soul_ref = getattr(block_def, "soul_ref", None)
@@ -117,8 +110,19 @@ def validate_tool_governance(
             for exit_def in block_def.exits:
                 if isinstance(exit_def, FanOutExitDef) and exit_def.soul_ref:
                     referenced_souls.add(exit_def.soul_ref)
+    return referenced_souls
 
-    for soul_key in referenced_souls:
+
+def validate_tool_governance(
+    file_def: RunsightWorkflowFile,
+    souls_map: Dict[str, Soul] | None = None,
+) -> None:
+    """Validate workflow tool declarations against referenced library souls."""
+    if souls_map is None:
+        souls_map = {}
+
+    declared_tools = set(file_def.tools)
+    for soul_key in _collect_referenced_soul_keys(file_def):
         soul = souls_map.get(soul_key)
         if soul is None or not soul.tools:
             continue
@@ -613,12 +617,14 @@ def parse_workflow_yaml(
     )
 
     # 6.6c: Resolve ToolInstance objects per soul
-    for soul_key, soul_def in file_def.souls.items():
-        if not soul_def.tools:
+    referenced_souls = _collect_referenced_soul_keys(file_def)
+    for soul_key in referenced_souls:
+        soul = souls_map.get(soul_key)
+        if soul is None or not soul.tools:
             continue
 
         resolved_tools = []
-        for tool_name in soul_def.tools:
+        for tool_name in soul.tools:
             tool_id = _resolve_soul_tool_definition(tool_name, file_def.tools)
             if tool_id is None:
                 continue
@@ -629,6 +635,11 @@ def parse_workflow_yaml(
                 block_def_for_soul = None
                 for bid, bdef in file_def.blocks.items():
                     if getattr(bdef, "soul_ref", None) == soul_key:
+                        block_id_for_soul = bid
+                        block_def_for_soul = bdef
+                        break
+                    exits = getattr(bdef, "exits", None) or []
+                    if any(getattr(exit_def, "soul_ref", None) == soul_key for exit_def in exits):
                         block_id_for_soul = bid
                         block_def_for_soul = bdef
                         break
@@ -659,10 +670,7 @@ def parse_workflow_yaml(
                     )
                 )
 
-        # Attach resolved tools to the soul in souls_map
-        soul = souls_map.get(soul_key)
-        if soul is not None:
-            soul.resolved_tools = resolved_tools
+        soul.resolved_tools = resolved_tools
 
     # Step 6.5: Validate input references and detect circular dependencies
     # Build input dependency graph for cycle detection

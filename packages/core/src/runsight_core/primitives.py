@@ -24,6 +24,10 @@ class Soul(BaseModel):
     tools: Optional[List[str]] = Field(
         default=None, description="Optional list of tool name references"
     )
+    required_tool_calls: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of LLM-facing tool function names that must be called before completion",
+    )
     max_tool_iterations: int = Field(
         default=5, description="Maximum number of tool-use iterations per execution"
     )

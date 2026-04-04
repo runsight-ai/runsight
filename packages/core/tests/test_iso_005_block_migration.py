@@ -181,6 +181,51 @@ class TestWrapperExposesSoul:
         wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
         assert compute_soul_version(wrapper.soul) is not None
 
+    @pytest.mark.asyncio
+    async def test_wrapper_envelope_preserves_extended_soul_runtime_fields(self):
+        """Subprocess envelope keeps provider/runtime tool-contract fields intact."""
+        from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
+
+        soul = Soul(
+            id="tool_soul",
+            role="Tester",
+            system_prompt="Use tools carefully.",
+            model_name="gpt-4o-mini",
+            provider="openai",
+            temperature=0.0,
+            max_tokens=256,
+            required_tool_calls=["http_request", "slack_webhook"],
+        )
+        inner = LinearBlock("blk1", soul, MagicMock())
+        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        captured = {}
+
+        async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
+            captured["envelope"] = envelope
+            return ResultEnvelope(
+                block_id="blk1",
+                output="ok",
+                exit_handle="done",
+                cost_usd=0.0,
+                total_tokens=0,
+                tool_calls_made=0,
+                delegate_artifacts={},
+                conversation_history=[],
+                error=None,
+                error_type=None,
+            )
+
+        wrapper._run_in_subprocess = _capture
+        await wrapper.execute(_make_state())
+
+        envelope = captured["envelope"]
+        assert envelope.soul.provider == "openai"
+        assert envelope.soul.temperature == 0.0
+        assert envelope.soul.max_tokens == 256
+        assert envelope.soul.required_tool_calls == ["http_request", "slack_webhook"]
+
 
 # ==============================================================================
 # AC3: Existing block code runs unchanged inside subprocess
