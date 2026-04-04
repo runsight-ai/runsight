@@ -152,12 +152,12 @@ class DispatchBlock(BaseBlock):
 
 # -- Schema definition (co-located) -----------------------------------------
 
-from runsight_core.yaml.schema import BaseBlockDef, FanOutExitDef  # noqa: E402
+from runsight_core.yaml.schema import BaseBlockDef, DispatchExitDef  # noqa: E402
 
 
 class DispatchBlockDef(BaseBlockDef):
     type: Literal["dispatch"] = "dispatch"
-    exits: List[FanOutExitDef]
+    exits: List[DispatchExitDef]
 
 
 # Explicit registration (PEP 563 workaround)

@@ -28,7 +28,7 @@ from runsight_core.yaml.discovery import discover_custom_tools
 from runsight_core.yaml.schema import (
     ConditionDef,
     ConditionGroupDef,
-    FanOutExitDef,
+    DispatchExitDef,
     InputRef,
     RunsightTaskFile,
     RunsightWorkflowFile,
@@ -115,7 +115,7 @@ def validate_tool_governance(
             referenced_souls.add(soul_ref)
         if block_def.exits:
             for exit_def in block_def.exits:
-                if isinstance(exit_def, FanOutExitDef) and exit_def.soul_ref:
+                if isinstance(exit_def, DispatchExitDef) and exit_def.soul_ref:
                     referenced_souls.add(exit_def.soul_ref)
 
     for soul_key in referenced_souls:

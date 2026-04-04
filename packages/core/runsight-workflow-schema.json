@@ -372,7 +372,7 @@
         },
         "exits": {
           "items": {
-            "$ref": "#/$defs/FanOutExitDef"
+            "$ref": "#/$defs/DispatchExitDef"
           },
           "title": "Exits",
           "type": "array"
@@ -422,28 +422,9 @@
       "title": "DispatchBlockDef",
       "type": "object"
     },
-    "ExitDef": {
-      "description": "Named exit port on a block definition.",
-      "properties": {
-        "id": {
-          "title": "Id",
-          "type": "string"
-        },
-        "label": {
-          "title": "Label",
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "label"
-      ],
-      "title": "ExitDef",
-      "type": "object"
-    },
-    "FanOutExitDef": {
+    "DispatchExitDef": {
       "additionalProperties": false,
-      "description": "Exit port on a FanOut block with per-exit soul and task.",
+      "description": "Exit port on a dispatch block with per-exit soul and task.",
       "properties": {
         "id": {
           "title": "Id",
@@ -468,7 +449,26 @@
         "soul_ref",
         "task"
       ],
-      "title": "FanOutExitDef",
+      "title": "DispatchExitDef",
+      "type": "object"
+    },
+    "ExitDef": {
+      "description": "Named exit port on a block definition.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "ExitDef",
       "type": "object"
     },
     "GateBlockDef": {

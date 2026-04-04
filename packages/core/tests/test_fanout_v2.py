@@ -14,7 +14,7 @@ Tests cover ALL acceptance criteria:
 - Stateful mode: per-exit conversation histories keyed by exit_id
 - Cost/token aggregation
 - DispatchBlockDef with old soul_refs rejects
-- DispatchBlockDef with exits (FanOutExitDef list) validates
+- DispatchBlockDef with exits (DispatchExitDef list) validates
 - build() resolves soul_refs and creates DispatchBranch list
 - Empty branches raises ValueError at build time
 - Same soul on multiple exits: independent histories in stateful mode
@@ -28,7 +28,7 @@ from pydantic import ValidationError
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.yaml.schema import FanOutExitDef
+from runsight_core.yaml.schema import DispatchExitDef
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -595,7 +595,7 @@ class TestCostTokenAggregation:
 
 
 class TestFanOutBlockDefSchema:
-    """DispatchBlockDef validates with exits (FanOutExitDef list), rejects old soul_refs."""
+    """DispatchBlockDef validates with exits (DispatchExitDef list), rejects old soul_refs."""
 
     def test_old_soul_refs_rejected(self):
         """DispatchBlockDef with soul_refs raises ValidationError (extra='forbid')."""
@@ -607,12 +607,12 @@ class TestFanOutBlockDefSchema:
                 soul_refs=["analyst", "reviewer"],
             )
 
-    def test_exits_with_fanout_exit_defs_validates(self):
-        """DispatchBlockDef with exits list of FanOutExitDef objects validates."""
+    def test_exits_with_dispatch_exit_defs_validates(self):
+        """DispatchBlockDef with exits list of DispatchExitDef objects validates."""
         from runsight_core.blocks.dispatch import DispatchBlockDef
 
-        exit_a = FanOutExitDef(id="exit_a", label="Exit A", soul_ref="analyst", task="Analyze")
-        exit_b = FanOutExitDef(id="exit_b", label="Exit B", soul_ref="reviewer", task="Review")
+        exit_a = DispatchExitDef(id="exit_a", label="Exit A", soul_ref="analyst", task="Analyze")
+        exit_b = DispatchExitDef(id="exit_b", label="Exit B", soul_ref="reviewer", task="Review")
         block_def = DispatchBlockDef(type="dispatch", exits=[exit_a, exit_b])
 
         assert len(block_def.exits) == 2
@@ -626,15 +626,15 @@ class TestFanOutBlockDefSchema:
         with pytest.raises(ValidationError, match="exits"):
             DispatchBlockDef(type="dispatch")
 
-    def test_exits_field_typed_as_fanout_exit_def(self):
-        """DispatchBlockDef.exits is typed as List[FanOutExitDef] (not List[ExitDef])."""
+    def test_exits_field_typed_as_dispatch_exit_def(self):
+        """DispatchBlockDef.exits is typed as List[DispatchExitDef] (not List[ExitDef])."""
         from runsight_core.blocks.dispatch import DispatchBlockDef
 
-        # The field annotation for exits should reference FanOutExitDef
+        # The field annotation for exits should reference DispatchExitDef
         exits_field = DispatchBlockDef.model_fields["exits"]
         annotation_str = str(exits_field.annotation)
-        assert "FanOutExitDef" in annotation_str, (
-            f"Expected exits field to be typed as List[FanOutExitDef], "
+        assert "DispatchExitDef" in annotation_str, (
+            f"Expected exits field to be typed as List[DispatchExitDef], "
             f"got annotation: {annotation_str}"
         )
 
@@ -657,10 +657,10 @@ class TestBuildFunction:
         """build() reads block_def.exits and returns DispatchBlock with branches."""
         from runsight_core.blocks.dispatch import DispatchBlockDef, build
 
-        exit_a = FanOutExitDef(
+        exit_a = DispatchExitDef(
             id="exit_a", label="Exit A", soul_ref="analyst", task="Analyze the data"
         )
-        exit_b = FanOutExitDef(
+        exit_b = DispatchExitDef(
             id="exit_b", label="Exit B", soul_ref="reviewer", task="Review the data"
         )
         block_def = DispatchBlockDef(type="dispatch", exits=[exit_a, exit_b])
@@ -680,7 +680,12 @@ class TestBuildFunction:
         """build() raises ValueError when a soul_ref is not in souls_map."""
         from runsight_core.blocks.dispatch import DispatchBlockDef, build
 
-        exit_a = FanOutExitDef(id="exit_a", label="Exit A", soul_ref="nonexistent", task="Do stuff")
+        exit_a = DispatchExitDef(
+            id="exit_a",
+            label="Exit A",
+            soul_ref="nonexistent",
+            task="Do stuff",
+        )
         block_def = DispatchBlockDef(type="dispatch", exits=[exit_a])
 
         with pytest.raises(ValueError, match="nonexistent"):
