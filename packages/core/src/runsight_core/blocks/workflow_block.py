@@ -93,7 +93,10 @@ class WorkflowBlock(BaseBlock):
         child_state = self._map_inputs(state, self.inputs)
 
         # Step 4: Run child workflow (propagate observer for monitoring)
-        observer = kwargs.get("observer")
+        from runsight_core.observer import ChildObserverWrapper
+
+        parent_observer = kwargs.get("observer")
+        observer = ChildObserverWrapper(parent_observer) if parent_observer else None
         start_time = time.monotonic()
         try:
             child_final_state = await self.child_workflow.run(
@@ -139,6 +142,43 @@ class WorkflowBlock(BaseBlock):
                 }
             )
         duration_s = time.monotonic() - start_time
+
+        # Step 4b: Detect soft failures in child results (blocks that captured
+        # errors into BlockResults with exit_handle="error" rather than raising).
+        if self.on_error == "catch":
+            for _bid, _br in child_final_state.results.items():
+                if isinstance(_br, BlockResult) and _br.exit_handle == "error":
+                    child_metadata = {
+                        "child_status": "failed",
+                        "child_error": _br.output,
+                        "child_cost_usd": child_final_state.total_cost_usd,
+                        "child_tokens": child_final_state.total_tokens,
+                        "child_duration_s": round(duration_s, 4),
+                        "child_run_id": None,
+                    }
+                    return state.model_copy(
+                        update={
+                            "results": {
+                                **state.results,
+                                self.block_id: BlockResult(
+                                    output=f"WorkflowBlock '{self.child_workflow.name}' failed",
+                                    exit_handle="error",
+                                    metadata=child_metadata,
+                                ),
+                            },
+                            "execution_log": state.execution_log
+                            + [
+                                {
+                                    "role": "system",
+                                    "content": (
+                                        f"[Block {self.block_id}] WorkflowBlock "
+                                        f"'{self.child_workflow.name}' "
+                                        f"failed (on_error=catch, soft error in block '{_bid}')"
+                                    ),
+                                }
+                            ],
+                        }
+                    )
 
         # Step 5: Merge child results into parent, then apply output mappings
         merged_parent = state.model_copy(

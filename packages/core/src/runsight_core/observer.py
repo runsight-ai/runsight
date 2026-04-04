@@ -295,6 +295,75 @@ class FileObserver:
 _composite_logger = logging.getLogger("runsight.observer.composite")
 
 
+class ChildObserverWrapper:
+    """Wraps a parent observer, forwarding non-terminal events and intercepting terminal ones.
+
+    When a child workflow runs inside a WorkflowBlock, its completion/error
+    events are local to the child — they must NOT propagate to the parent's
+    observer (e.g. StreamingObserver) because the parent workflow is still
+    running.  Block-level events (start, complete, error, heartbeat) are
+    forwarded normally so the parent observer can track child block progress.
+    """
+
+    def __init__(self, parent_observer: WorkflowObserver, child_run_id: Optional[str] = None):
+        self._parent = parent_observer
+        self.child_run_id = child_run_id
+
+    # -- Forwarded events (block-level) ------------------------------------
+
+    def on_block_start(
+        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+    ) -> None:
+        self._parent.on_block_start(workflow_name, block_id, block_type, soul=soul)
+
+    def on_block_complete(
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        duration_s: float,
+        state: WorkflowState,
+        *,
+        soul: Optional[Soul] = None,
+    ) -> None:
+        self._parent.on_block_complete(
+            workflow_name, block_id, block_type, duration_s, state, soul=soul
+        )
+
+    def on_block_error(
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        duration_s: float,
+        error: Exception,
+    ) -> None:
+        self._parent.on_block_error(workflow_name, block_id, block_type, duration_s, error)
+
+    def on_block_heartbeat(
+        self,
+        workflow_name: str,
+        block_id: str,
+        phase: str,
+        detail: str,
+        timestamp: datetime,
+    ) -> None:
+        self._parent.on_block_heartbeat(workflow_name, block_id, phase, detail, timestamp)
+
+    # -- Intercepted events (workflow-level terminal) -----------------------
+
+    def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
+        pass  # child start is not a parent event
+
+    def on_workflow_complete(
+        self, workflow_name: str, state: WorkflowState, duration_s: float
+    ) -> None:
+        pass  # child completion is NOT terminal for parent
+
+    def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
+        pass  # child error is NOT terminal for parent
+
+
 class CompositeObserver:
     """Fan-out observer that delegates to multiple observers.
 

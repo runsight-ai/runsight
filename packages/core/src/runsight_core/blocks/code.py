@@ -241,7 +241,10 @@ class CodeBlock(BaseBlock):
                 update={
                     "results": {
                         **state.results,
-                        self.block_id: BlockResult(output=f"Error: {error_msg}"),
+                        self.block_id: BlockResult(
+                            output=f"Error: {error_msg}",
+                            exit_handle="error",
+                        ),
                     },
                     "execution_log": state.execution_log
                     + [

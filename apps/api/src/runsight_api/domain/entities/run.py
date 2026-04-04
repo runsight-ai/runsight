@@ -113,6 +113,7 @@ class RunNode(SQLModel, table=True):
 
     # Nested-run linkage (RUN-607)
     child_run_id: Optional[str] = Field(default=None)
+    exit_handle: Optional[str] = Field(default=None)
 
 
 class BaselineStats(BaseModel):
