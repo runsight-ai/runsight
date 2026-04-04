@@ -172,14 +172,18 @@ describe("Action button adapts per mode (RUN-594 AC2)", () => {
 
   it("CanvasTopbar does NOT hardcode RunButton as the sole primary action", () => {
     const source = readSource(CANVAS_TOPBAR_PATH);
-    // RunButton should not be the only action. In execution mode the action
-    // is Cancel, in historical it is Fork. The topbar must support all three.
-    // Look for evidence that the action area renders different labels/variants.
-    const hasMultipleActionSupport =
-      /Cancel/.test(source) || /Fork/.test(source);
+    // The topbar should render the action button dynamically from the
+    // actionButton prop (label + variant), not hardcode a single <RunButton>.
+    // "Cancel" and "Fork" are actionButton.label values passed by
+    // WorkflowSurface, so they won't appear literally in the topbar source.
+    // Instead, verify the topbar renders the actionButton prop dynamically.
+    const rendersActionButtonDynamically =
+      /actionButton\.label/.test(source) ||
+      /\{actionButton\.label\}/.test(source) ||
+      /actionButton\?\.label/.test(source);
     expect(
-      hasMultipleActionSupport,
-      "Expected CanvasTopbar to support Cancel and Fork action labels, not just Run",
+      rendersActionButtonDynamically,
+      "Expected CanvasTopbar to render actionButton.label dynamically, not hardcode RunButton",
     ).toBe(true);
   });
 
@@ -364,17 +368,19 @@ describe("No duplicate topbar implementations (RUN-594 Visual AC)", () => {
     expect(source).not.toMatch(/<RunDetailHeader/);
   });
 
-  it("CanvasTopbar subsumes RunDetailHeader functionality (fork button, status badge, breadcrumb)", () => {
+  it("CanvasTopbar subsumes RunDetailHeader functionality (dynamic action button, status badge)", () => {
     const source = readSource(CANVAS_TOPBAR_PATH);
     // The unified topbar must include capabilities from RunDetailHeader:
-    // - Fork button (for historical mode)
+    // - Dynamic action button rendering (fork is delivered via actionButton.label
+    //   from WorkflowSurface, not hardcoded in the topbar)
     // - Status badge (for execution/historical)
-    // At least Fork and status badge should appear in the unified topbar
-    const hasForkCapability = /Fork|fork|GitFork/.test(source);
+    const rendersActionButtonDynamically =
+      /actionButton\.label/.test(source) ||
+      /actionButton\.variant/.test(source);
     const hasStatusBadge = /status.*badge|statusBadge|StatusBadge|run.*status/i.test(source);
     expect(
-      hasForkCapability,
-      "Expected unified topbar to include Fork button capability from RunDetailHeader",
+      rendersActionButtonDynamically,
+      "Expected unified topbar to render actionButton dynamically (fork delivered via actionButton.label)",
     ).toBe(true);
     expect(
       hasStatusBadge,
