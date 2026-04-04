@@ -75,6 +75,22 @@ vi.mock("@/features/canvas/CanvasPage", () => ({
     ),
 }));
 
+// RUN-590: /workflows/:id/edit now uses WorkflowEditRoute which renders WorkflowSurface
+vi.mock("@/features/canvas/WorkflowSurface", () => ({
+  WorkflowSurface: () =>
+    React.createElement(
+      "section",
+      null,
+      React.createElement("h1", null, "Workflow editor"),
+      React.createElement(
+        "button",
+        { type: "button" },
+        "Save workflow",
+      ),
+      React.createElement(RouteEcho, { label: "workflow-surface" }),
+    ),
+}));
+
 vi.mock("@/features/canvas/WorkflowCanvas", () => ({
   Component: () => React.createElement(RouteEcho, { label: "legacy-canvas" }),
   WorkflowCanvas: () => React.createElement(RouteEcho, { label: "legacy-canvas" }),

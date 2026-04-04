@@ -57,7 +57,7 @@ function badgeVariant(status: string): "success" | "error" | "pending" {
 // Component
 // ---------------------------------------------------------------------------
 
-export function RunInspectorPanel({ selectedNode, onClose, trigger: _trigger = "double-click" }: RunInspectorPanelProps) {
+export function RunInspectorPanel({ selectedNode, onClose, trigger = "double-click" }: RunInspectorPanelProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "execution">("execution");
 
   if (!selectedNode) return null;
@@ -66,7 +66,7 @@ export function RunInspectorPanel({ selectedNode, onClose, trigger: _trigger = "
   const status = d.status || "idle";
 
   return (
-    <aside data-testid="right-inspector" className="w-[320px] min-w-[280px] max-w-[480px] bg-[var(--surface-secondary)] border-l border-[var(--border-default)] flex flex-col z-50 animate-in slide-in-from-right duration-200">
+    <aside data-testid="right-inspector" data-trigger={trigger} className="w-[320px] min-w-[280px] max-w-[480px] bg-[var(--surface-secondary)] border-l border-[var(--border-default)] flex flex-col z-50 animate-in slide-in-from-right duration-200">
       {/* Header */}
       <div className="h-12 px-3 border-b border-[var(--border-default)] flex items-center justify-between shrink-0">
         <h2 className="text-base font-medium text-[var(--text-primary)] truncate">{d.name}</h2>

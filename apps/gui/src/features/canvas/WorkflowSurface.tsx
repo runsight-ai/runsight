@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import type { Node } from "@xyflow/react";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./workflowSurfaceContract";
 import { getContractForMode, getCanvasYamlToggleVisibility, getSaveButtonState, getActionButton, isEditable } from "./workflowSurfaceContract";
 import { CanvasTopbar } from "./CanvasTopbar";
@@ -8,6 +9,8 @@ import { YamlEditor } from "./YamlEditor";
 import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { RunInspectorPanel } from "../runs/RunInspectorPanel";
+import type { RunNodeData } from "../runs/RunCanvasNode";
+import { useCanvasStore } from "@/store/canvas";
 
 export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflowId = "", runId: initialRunId }: WorkflowSurfaceProps) {
   const [mode, setMode] = useState<WorkflowSurfaceMode>(initialMode);
@@ -39,6 +42,32 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
 
   const [activeTab, setActiveTab] = useState<"canvas" | "yaml">("canvas");
   const [isDirty, setIsDirty] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<Node<RunNodeData> | null>(null);
+
+  const nodes = useCanvasStore((s) => s.nodes);
+
+  // Inspector trigger: open on single-click or double-click depending on mode
+  const handleNodeClickForInspector = useCallback(
+    (nodeId: string) => {
+      if (trigger !== "single-click") return;
+      const node = nodes.find((n) => n.id === nodeId);
+      if (node) setSelectedNode(node as Node<RunNodeData>);
+    },
+    [trigger, nodes],
+  );
+
+  const handleNodeDoubleClickForInspector = useCallback(
+    (nodeId: string) => {
+      if (trigger !== "double-click") return;
+      const node = nodes.find((n) => n.id === nodeId);
+      if (node) setSelectedNode(node as Node<RunNodeData>);
+    },
+    [trigger, nodes],
+  );
+
+  const handleCloseInspector = useCallback(() => {
+    setSelectedNode(null);
+  }, []);
 
   // Force canvas tab when yaml is unavailable (execution/historical modes)
   useEffect(() => {
@@ -54,6 +83,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     e.preventDefault();
   }
 
+  const setNodes = useCanvasStore((s) => s.setNodes);
+
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     if (!editable) return;
@@ -61,11 +92,44 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     const blockData = e.dataTransfer.getData("application/runsight-block");
     const soulData = e.dataTransfer.getData("application/runsight-soul");
 
+    // Calculate drop position relative to the canvas container
+    const bounds = e.currentTarget.getBoundingClientRect();
+    const position = {
+      x: e.clientX - bounds.left,
+      y: e.clientY - bounds.top,
+    };
+
     if (blockData) {
-      // TODO: process block drop
+      try {
+        const parsed = JSON.parse(blockData) as { type: string; label: string };
+        const id = `block_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        const newNode: Node = {
+          id,
+          type: "task",
+          position,
+          data: { label: parsed.label, blockType: parsed.label },
+        };
+        const currentNodes = useCanvasStore.getState().nodes;
+        setNodes([...currentNodes, newNode]);
+      } catch {
+        // Ignore malformed drag data
+      }
     }
     if (soulData) {
-      // TODO: process soul drop
+      try {
+        const parsed = JSON.parse(soulData) as { type: string; label: string };
+        const id = `soul_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        const newNode: Node = {
+          id,
+          type: "soul",
+          position,
+          data: { label: parsed.label, soulRef: parsed.label },
+        };
+        const currentNodes = useCanvasStore.getState().nodes;
+        setNodes([...currentNodes, newNode]);
+      } catch {
+        // Ignore malformed drag data
+      }
     }
   }
 
@@ -115,6 +179,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
             connectionsAllowed={connectionsAllowed}
             deletionAllowed={deletionAllowed}
             runId={activeRunId}
+            onNodeClick={handleNodeClickForInspector}
+            onNodeDoubleClick={handleNodeDoubleClickForInspector}
           />
         ) : activeTab === "yaml" ? (
           <YamlEditor
@@ -130,8 +196,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         style={{ gridColumn: "3", gridRow: "2" }}
       >
         <RunInspectorPanel
-          selectedNode={null}
-          onClose={() => {}}
+          selectedNode={selectedNode}
+          onClose={handleCloseInspector}
           trigger={trigger}
         />
       </div>

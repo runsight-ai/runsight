@@ -70,17 +70,17 @@ describe("Route /workflows/:id/edit exists (AC1)", () => {
     expect(source).toMatch(/workflows\/:id\/edit/);
   });
 
-  it("the edit route lazy-imports CanvasPage", () => {
+  it("the edit route renders via WorkflowSurface", () => {
     source = readSource(ROUTES_PATH);
-    // Should have: import("@/features/canvas/CanvasPage") in the edit route
-    expect(source).toMatch(/canvas\/CanvasPage/);
+    // RUN-590: routes now use WorkflowSurface instead of lazy-importing CanvasPage
+    expect(source).toMatch(/WorkflowSurface/);
   });
 
-  it("the old workflows/:id route still exists (renders WorkflowCanvas)", () => {
+  it("the edit route uses WorkflowEditRoute inline component", () => {
     source = readSource(ROUTES_PATH);
-    // Verify the old route is preserved alongside the new one
-    expect(source).toMatch(/canvas\/WorkflowCanvas/);
-    expect(source).toMatch(/path:\s*["']workflows\/:id["']/);
+    // RUN-590: WorkflowEditRoute wraps WorkflowSurface with mode="workflow"
+    expect(source).toMatch(/WorkflowEditRoute/);
+    expect(source).toMatch(/mode.*workflow/);
   });
 });
 

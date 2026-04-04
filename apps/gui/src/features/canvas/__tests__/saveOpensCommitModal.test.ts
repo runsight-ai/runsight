@@ -157,6 +157,12 @@ vi.mock("@/api/git", () => ({
 }));
 
 vi.mock("@/queries/workflows", () => ({
+  useWorkflow: () => ({
+    data: { name: "Test Flow", commit_sha: "abc123" },
+  }),
+  useWorkflowRegressions: () => ({
+    data: { count: 0, items: [] },
+  }),
   useUpdateWorkflow: () => ({
     mutate: mocks.updateWorkflowMutate,
   }),
