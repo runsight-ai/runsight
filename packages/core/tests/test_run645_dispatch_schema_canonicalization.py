@@ -62,6 +62,30 @@ class TestDispatchCanonicalBranchingSchema:
         assert dispatch_type_props["default"] == "dispatch"
 
 
+class TestDispatchExitDefinitionRename:
+    """Dispatch exits should use DispatchExitDef with no FanOutExitDef alias."""
+
+    def test_dispatch_exit_def_is_publicly_exported(self):
+        from runsight_core.yaml import schema as schema_module
+
+        assert hasattr(schema_module, "DispatchExitDef")
+        assert not hasattr(schema_module, "FanOutExitDef")
+
+    def test_dispatch_block_exits_reference_dispatch_exit_def(self):
+        checked_in = _load_checked_in_schema()
+        exits_items = checked_in["$defs"]["DispatchBlockDef"]["properties"]["exits"]["items"]
+
+        assert exits_items["$ref"] == "#/$defs/DispatchExitDef"
+        assert "FanOutExitDef" not in checked_in["$defs"]
+
+    def test_checked_in_schema_definitions_include_dispatch_exit_def(self):
+        checked_in = _load_checked_in_schema()
+        defs = checked_in["$defs"]
+
+        assert "DispatchExitDef" in defs
+        assert "FanOutExitDef" not in defs
+
+
 class TestSchemaTextSemantics:
     """Schema descriptions/examples must avoid workflow-block router semantics."""
 
