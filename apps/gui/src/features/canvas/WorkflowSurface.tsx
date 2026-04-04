@@ -9,9 +9,9 @@ import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { RunInspectorPanel } from "../runs/RunInspectorPanel";
 
-export function WorkflowSurface({ mode: initialMode, workflowId: initialworkflowId, runId: initialRunId }: WorkflowSurfaceProps) {
+export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflowId, runId: initialRunId }: WorkflowSurfaceProps) {
   const [mode, setMode] = useState<WorkflowSurfaceMode>(initialMode);
-  const [workflowId, setWorkflowId] = useState(initialworkflowId);
+  const [workflowId, setWorkflowId] = useState(initialWorkflowId);
   const [activeRunId, setRunId] = useState(initialRunId);
 
   const handleForkTransition = useCallback((newWorkflowId: string) => {

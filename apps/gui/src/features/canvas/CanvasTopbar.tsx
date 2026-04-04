@@ -9,6 +9,7 @@ import { useCanvasStore } from "@/store/canvas";
 import { useRun } from "@/queries/runs";
 import { Save } from "lucide-react";
 import { cn } from "@runsight/ui/utils";
+import { useForkWorkflow } from "../runs/useForkWorkflow";
 
 interface CanvasTopbarProps {
   workflowId: string;
@@ -27,11 +28,19 @@ interface CanvasTopbarProps {
   toggleVisibility?: { canvas: boolean; yaml: boolean };
   runStatus?: string;
   forkDisabled?: boolean;
+  onForkTransition?: (newWorkflowId: string) => void;
 }
 
-export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid: _yamlValid = true, errorCount: _errorCount = 0, onAddApiKey, metricsVisible = false, metricsStyle = "none", actionButton, nameEditable = true, saveButton = "ghost", toggleVisibility: _toggleVisibility, runStatus, forkDisabled: _forkDisabled }: CanvasTopbarProps) {
+export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid: _yamlValid = true, errorCount: _errorCount = 0, onAddApiKey, metricsVisible = false, metricsStyle = "none", actionButton, nameEditable = true, saveButton = "ghost", toggleVisibility: _toggleVisibility, runStatus, forkDisabled: _forkDisabled, onForkTransition }: CanvasTopbarProps) {
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
+
+  const { forkWorkflow, isForking } = useForkWorkflow({
+    commitSha: workflow?.commit_sha ?? "",
+    workflowPath: `custom/workflows/${workflowId}.yaml`,
+    workflowName: workflow?.name ?? "Untitled Workflow",
+    onTransition: onForkTransition,
+  });
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -193,10 +202,10 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
         {actionButton ? (
           <Button
             variant={actionButton.variant as "primary" | "danger" | "ghost"}
-            onClick={actionButton.onClick}
-            disabled={snapshotUnavailable && actionButton.label === "Fork"}
+            onClick={actionButton.label === "Fork" ? forkWorkflow : actionButton.onClick}
+            disabled={(snapshotUnavailable || isForking) && actionButton.label === "Fork"}
           >
-            {actionButton.label}
+            {actionButton.label === "Fork" && isForking ? "Forking..." : actionButton.label}
           </Button>
         ) : (
           <RunButton

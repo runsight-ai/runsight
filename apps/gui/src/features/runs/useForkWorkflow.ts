@@ -10,7 +10,7 @@ interface UseForkWorkflowOptions {
   commitSha: string;
   workflowPath: string;
   workflowName: string;
-  onTransition: (id: string) => void;
+  onTransition?: (id: string) => void;
 }
 
 export function useForkWorkflow({
@@ -47,7 +47,7 @@ export function useForkWorkflow({
       });
 
       setForkedWorkflowId(result.id);
-      onTransition(result.id);
+      if (onTransition) onTransition(result.id);
     } catch {
       toast.error("Couldn't create fork. Try again.");
       setIsForking(false);
