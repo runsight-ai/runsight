@@ -69,6 +69,10 @@ def _ensure_sqlite_columns(engine) -> None:
             "branch": "VARCHAR NOT NULL DEFAULT 'main'",
             "source": "VARCHAR NOT NULL DEFAULT 'manual'",
             "commit_sha": "VARCHAR",
+            "parent_run_id": "TEXT",
+            "parent_node_id": "TEXT",
+            "root_run_id": "TEXT",
+            "depth": "INTEGER DEFAULT 0",
         },
         "runnode": {
             "last_phase": "VARCHAR",
@@ -77,6 +81,8 @@ def _ensure_sqlite_columns(engine) -> None:
             "eval_score": "FLOAT",
             "eval_passed": "BOOLEAN",
             "eval_results": "JSON",
+            "child_run_id": "TEXT",
+            "exit_handle": "TEXT",
         },
     }
 

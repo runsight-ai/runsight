@@ -797,43 +797,30 @@ class TestCodeBlockResolvedInputs:
 class TestWorkflowBlockDefFields:
     """Tests that WorkflowBlock inputs/outputs fields don't collide with BaseBlockDef."""
 
-    def test_workflow_block_inputs_outputs_are_dict_str_str(self):
-        """WorkflowBlockDef's inputs/outputs are Dict[str, str] (workflow-mapping type),
-        not InputRef type from BaseBlockDef.
-
-        Whether the implementation uses renamed fields (workflow_inputs/workflow_outputs)
-        or overrides with type: ignore, the schema must accept Dict[str, str] for
-        workflow block input/output mappings.
-        """
+    def test_workflow_block_inputs_outputs_bind_interface_names(self):
+        """WorkflowBlockDef callsites bind public interface names, not child dotted paths."""
         from pydantic import TypeAdapter
         from runsight_core.yaml.schema import BlockDef
 
-        # Parse a workflow-type block with Dict[str, str] inputs/outputs
         block_data = {
             "type": "workflow",
             "workflow_ref": "child_workflow",
-            "inputs": {"child_key": "parent_step.result"},
-            "outputs": {"parent_key": "child_step.output"},
+            "inputs": {"topic": "parent_step.result"},
+            "outputs": {"parent_key": "summary"},
         }
         adapter = TypeAdapter(BlockDef)
         block_def = adapter.validate_python(block_data)
 
-        # inputs and outputs should be Dict[str, str] — workflow mapping type
         assert block_def.inputs is not None
         assert isinstance(block_def.inputs, dict)
-        assert block_def.inputs["child_key"] == "parent_step.result"
+        assert block_def.inputs["topic"] == "parent_step.result"
 
         assert block_def.outputs is not None
         assert isinstance(block_def.outputs, dict)
-        assert block_def.outputs["parent_key"] == "child_step.output"
+        assert block_def.outputs["parent_key"] == "summary"
 
-    def test_workflow_block_yaml_with_workflow_inputs_outputs(self):
-        """YAML with inputs/outputs on a workflow block parses correctly.
-
-        If the implementation renames to workflow_inputs/workflow_outputs, this
-        test should be updated to use those field names. Currently tests the
-        override approach where inputs/outputs on workflow blocks are Dict[str, str].
-        """
+    def test_workflow_block_yaml_with_interface_name_bindings(self):
+        """YAML with interface-name bindings on a workflow block parses correctly."""
         from runsight_core.yaml.schema import RunsightWorkflowFile
 
         yaml_data = {
@@ -842,8 +829,8 @@ class TestWorkflowBlockDefFields:
                 "child_runner": {
                     "type": "workflow",
                     "workflow_ref": "analysis_pipeline",
-                    "inputs": {"data": "fetcher.result"},
-                    "outputs": {"summary": "analyzer.output"},
+                    "inputs": {"topic": "fetcher.result"},
+                    "outputs": {"results.summary": "summary"},
                 },
             },
             "workflow": {
@@ -854,8 +841,8 @@ class TestWorkflowBlockDefFields:
         }
         file_def = RunsightWorkflowFile.model_validate(yaml_data)
         block = file_def.blocks["child_runner"]
-        assert block.inputs == {"data": "fetcher.result"}
-        assert block.outputs == {"summary": "analyzer.output"}
+        assert block.inputs == {"topic": "fetcher.result"}
+        assert block.outputs == {"results.summary": "summary"}
 
     def test_non_workflow_block_inputs_are_inputref_type(self):
         """Non-workflow blocks should have inputs parsed as InputRef (dict with 'from' key),

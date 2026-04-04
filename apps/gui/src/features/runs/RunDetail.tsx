@@ -14,10 +14,12 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { useRun, useRunNodes, useRunLogs, useRunRegressions } from "@/queries/runs";
+import { useWorkflow } from "@/queries/workflows";
 import { CanvasErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { Card } from "@runsight/ui/card";
 import { Button } from "@runsight/ui/button";
 import { PriorityBanner } from "@/components/shared";
+import { LazyMonacoEditor } from "@/features/canvas/LazyMonacoEditor";
 import { RunCanvasNode, CanvasNodeComponent, nodeTypes } from "./RunCanvasNode";
 import type { RunNodeData } from "./RunCanvasNode";
 import { RunInspectorPanel } from "./RunInspectorPanel";
@@ -54,10 +56,12 @@ function RunDetailInner() {
   } = useRunNodes(id || "");
   const { data: runLogs } = useRunLogs(id || "", undefined, { refetchInterval: undefined });
   const { data: regressionData } = useRunRegressions(id || "");
+  const { data: workflow } = useWorkflow(run?.workflow_id ?? "");
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<RunNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNode, setSelectedNode] = useState<Node<RunNodeData> | null>(null);
+  const [activeTab, setActiveTab] = useState<"canvas" | "yaml">("canvas");
 
   const buildCanvasFromRun = useCallback(() => {
     if (!runNodes) return;
@@ -125,7 +129,7 @@ function RunDetailInner() {
   return (
     <div className="flex-1 flex overflow-hidden bg-[var(--surface-primary)]">
       <main className="flex-1 flex flex-col min-w-0">
-        <RunDetailHeader run={run} />
+        <RunDetailHeader run={run} activeTab={activeTab} onTabChange={setActiveTab} />
         <PriorityBanner conditions={[{
           type: "regressions",
           active: regressionCount > 0,
@@ -133,55 +137,69 @@ function RunDetailInner() {
         }]} />
 
         <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 relative">
-            {isRunNodesError ? (
-              <div className="flex h-full items-center justify-center p-6">
-                <Card className="w-full max-w-xl px-6 py-6">
-                  <div className="space-y-3">
-                    <h2 className="text-lg font-semibold text-heading">Unable to load run graph</h2>
-                    <p className="text-sm leading-6 text-secondary">
-                      Runsight could not read the node response for this run. Retry to fetch the
-                      graph again.
-                    </p>
-                    {runNodesError instanceof Error ? (
-                      <p className="text-sm text-secondary">{runNodesError.message}</p>
-                    ) : null}
-                    <div className="pt-2">
-                      <Button variant="primary" onClick={() => void refetchRunNodes()}>
-                        Retry
-                      </Button>
-                    </div>
+          {activeTab === "yaml" ? (
+            <div className="flex-1 overflow-hidden">
+              <LazyMonacoEditor
+                language="yaml"
+                theme="runsight-yaml"
+                value={workflow?.yaml ?? ""}
+                height="100%"
+                options={{ readOnly: true }}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="flex-1 relative">
+                {isRunNodesError ? (
+                  <div className="flex h-full items-center justify-center p-6">
+                    <Card className="w-full max-w-xl px-6 py-6">
+                      <div className="space-y-3">
+                        <h2 className="text-lg font-semibold text-heading">Unable to load run graph</h2>
+                        <p className="text-sm leading-6 text-secondary">
+                          Runsight could not read the node response for this run. Retry to fetch the
+                          graph again.
+                        </p>
+                        {runNodesError instanceof Error ? (
+                          <p className="text-sm text-secondary">{runNodesError.message}</p>
+                        ) : null}
+                        <div className="pt-2">
+                          <Button variant="primary" onClick={() => void refetchRunNodes()}>
+                            Retry
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
                   </div>
-                </Card>
+                ) : (
+                  <CanvasErrorBoundary>
+                    <ReactFlow
+                      nodes={nodes} edges={edges}
+                      onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+                      onNodeClick={onNodeClick} onPaneClick={onPaneClick}
+                      nodeTypes={nodeTypes} nodesDraggable={false} nodesConnectable={false}
+                      elementsSelectable fitView fitViewOptions={{ padding: 0.2 }}
+                      minZoom={0.1} maxZoom={4} className="bg-[var(--surface-primary)]"
+                    >
+                      <Background color="var(--border-default)" gap={20} size={1} style={{ opacity: 0.3 }} />
+                      <Controls className="!bg-[var(--surface-secondary)] !border-[var(--border-default)]" />
+                      <MiniMap
+                        className="!bg-[var(--surface-secondary)]/90 !border-[var(--border-default)]"
+                        nodeColor={(node) => {
+                          const s = (node.data as RunNodeData)?.status;
+                          if (s === "completed") return "var(--success-9)";
+                          if (s === "failed") return "var(--danger-9)";
+                          if (s === "pending") return "var(--text-muted)";
+                          return "var(--interactive-default)";
+                        }}
+                        maskColor="var(--background-70)"
+                      />
+                    </ReactFlow>
+                  </CanvasErrorBoundary>
+                )}
               </div>
-            ) : (
-              <CanvasErrorBoundary>
-                <ReactFlow
-                  nodes={nodes} edges={edges}
-                  onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-                  onNodeClick={onNodeClick} onPaneClick={onPaneClick}
-                  nodeTypes={nodeTypes} nodesDraggable={false} nodesConnectable={false}
-                  elementsSelectable fitView fitViewOptions={{ padding: 0.2 }}
-                  minZoom={0.1} maxZoom={4} className="bg-[var(--surface-primary)]"
-                >
-                  <Background color="var(--border-default)" gap={20} size={1} style={{ opacity: 0.3 }} />
-                  <Controls className="!bg-[var(--surface-secondary)] !border-[var(--border-default)]" />
-                  <MiniMap
-                    className="!bg-[var(--surface-secondary)]/90 !border-[var(--border-default)]"
-                    nodeColor={(node) => {
-                      const s = (node.data as RunNodeData)?.status;
-                      if (s === "completed") return "var(--success-9)";
-                      if (s === "failed") return "var(--danger-9)";
-                      if (s === "pending") return "var(--text-muted)";
-                      return "var(--interactive-default)";
-                    }}
-                    maskColor="var(--background-70)"
-                  />
-                </ReactFlow>
-              </CanvasErrorBoundary>
-            )}
-          </div>
-          <RunInspectorPanel selectedNode={selectedNode} onClose={() => setSelectedNode(null)} />
+              <RunInspectorPanel selectedNode={selectedNode} onClose={() => setSelectedNode(null)} />
+            </>
+          )}
         </div>
 
         <RunBottomPanel logs={logs} executionComplete executionFailed={isFailed} finalDuration={run.duration_seconds || 0} runId={run.id} workflowId={run.workflow_id} currentRunId={run.id} />

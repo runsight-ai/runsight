@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { Button } from "@runsight/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@runsight/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
 import { cn } from "@runsight/ui/utils";
 import {
@@ -21,13 +22,15 @@ import { useForkWorkflow } from "./useForkWorkflow";
 
 interface RunDetailHeaderProps {
   run: RunResponse;
+  activeTab: "canvas" | "yaml";
+  onTabChange: (tab: "canvas" | "yaml") => void;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function RunDetailHeader({ run }: RunDetailHeaderProps) {
+export function RunDetailHeader({ run, activeTab, onTabChange }: RunDetailHeaderProps) {
   const navigate = useNavigate();
 
   const isFailed = run.status === "failed" || run.status === "error";
@@ -75,7 +78,7 @@ export function RunDetailHeader({ run }: RunDetailHeaderProps) {
   );
 
   return (
-    <header className="h-12 bg-[var(--surface-secondary)] border-b border-[var(--border-default)] flex items-center justify-between px-4 z-40">
+    <header className="h-[var(--header-height)] border-b border-border-subtle flex items-center justify-between px-4 z-40">
       {/* Left: Breadcrumb */}
       <div className="flex items-center gap-2">
         <Link to="/runs">
@@ -92,6 +95,16 @@ export function RunDetailHeader({ run }: RunDetailHeaderProps) {
         <span className={cn("ml-2 px-2 py-0.5 rounded text-xs font-medium", isCompleted ? "bg-success-3 text-[var(--success-9)]" : isFailed ? "bg-danger-3 text-[var(--danger-9)]" : "bg-neutral-3 text-muted")}>
           {isCompleted ? "Completed" : isFailed ? "Failed" : run.status}
         </span>
+      </div>
+
+      {/* Center: Canvas | YAML toggle */}
+      <div className="flex items-center">
+        <Tabs value={activeTab} onValueChange={(v) => onTabChange(v as "canvas" | "yaml")}>
+          <TabsList variant="contained">
+            <TabsTrigger value="canvas">Canvas</TabsTrigger>
+            <TabsTrigger value="yaml">YAML</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Right: Actions */}

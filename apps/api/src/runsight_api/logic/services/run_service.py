@@ -25,6 +25,9 @@ class RunService:
     def list_runs(self) -> List[Run]:
         return self.run_repo.list_runs()
 
+    def list_children(self, parent_run_id: str) -> List[Run]:
+        return self.run_repo.list_children(parent_run_id)
+
     def list_runs_paginated(
         self,
         offset: int,

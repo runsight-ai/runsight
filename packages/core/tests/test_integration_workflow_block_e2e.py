@@ -58,16 +58,16 @@ class TestSchemaParsingIntegration:
             {
                 "type": "workflow",
                 "workflow_ref": "child_pipeline",
-                "inputs": {"task.name": "task.id"},
-                "outputs": {"results.out": "results.data"},
+                "inputs": {"task": "task.id"},
+                "outputs": {"results.out": "summary"},
                 "max_depth": 8,
             }
         )
 
         assert block_def.type == "workflow"
         assert block_def.workflow_ref == "child_pipeline"
-        assert block_def.inputs == {"task.name": "task.id"}
-        assert block_def.outputs == {"results.out": "results.data"}
+        assert block_def.inputs == {"task": "task.id"}
+        assert block_def.outputs == {"results.out": "summary"}
         assert block_def.max_depth == 8
 
     def test_schema_allows_workflow_with_minimal_fields(self):

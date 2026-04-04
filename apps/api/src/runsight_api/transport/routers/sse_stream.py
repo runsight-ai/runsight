@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from ...domain.errors import RunNotFound, ServiceUnavailable
+from ...domain.events import SSE_TERMINAL_EVENTS
 from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
 from ..deps import get_execution_service, get_run_service
@@ -47,7 +48,7 @@ async def stream_run_events(
             event_data = json.dumps(event["data"])
             yield f"event:{event_type}\ndata:{event_data}\n\n"
 
-            if event_type in ("run_completed", "run_failed"):
+            if event_type in SSE_TERMINAL_EVENTS:
                 break
 
     return StreamingResponse(

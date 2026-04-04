@@ -119,6 +119,11 @@ export const runsApi = {
     const res = await api.get(`/runs/${id}/regressions`);
     return RunRegressionsResponseSchema.parse(res);
   },
+
+  getChildRuns: async (id: string): Promise<RunResponse[]> => {
+    const res = await api.get(`/runs/${id}/children`);
+    return z.array(RunResponseSchema).parse(res);
+  },
 };
 
 export type { RunLogResponse };

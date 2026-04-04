@@ -51,6 +51,12 @@ class RunRepository:
         statement = select(Run).order_by(Run.created_at.desc())
         return list(self.session.exec(statement).all())
 
+    def list_children(self, parent_run_id: str) -> List[Run]:
+        statement = (
+            select(Run).where(Run.parent_run_id == parent_run_id).order_by(Run.created_at.desc())
+        )
+        return list(self.session.exec(statement).all())
+
     def list_runs_paginated(
         self,
         offset: int,

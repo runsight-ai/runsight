@@ -15,6 +15,8 @@ SSE_NODE_STARTED: str = "node_started"
 SSE_NODE_COMPLETED: str = "node_completed"
 SSE_NODE_FAILED: str = "node_failed"
 
+SSE_CHILD_RUN_COMPLETED: str = "child_run_completed"
+
 # Terminal events that signal the end of an SSE stream.
 SSE_TERMINAL_EVENTS: tuple[str, ...] = (SSE_RUN_COMPLETED, SSE_RUN_FAILED)
 

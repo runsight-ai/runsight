@@ -225,6 +225,203 @@ def _find_project_root(start: Path) -> str:
     return str(start)
 
 
+def _validate_workflow_block_contract(
+    block_id: str,
+    block_def: Any,
+    child_file: RunsightWorkflowFile,
+) -> None:
+    child_interface = child_file.interface
+    if child_interface is None:
+        raise ValueError(
+            f"WorkflowBlock '{block_id}': child workflow '{block_def.workflow_ref}' "
+            "must declare an interface"
+        )
+
+    declared_inputs = {item.name: item for item in child_interface.inputs}
+    declared_outputs = {item.name for item in child_interface.outputs}
+
+    for binding_name in (block_def.inputs or {}).keys():
+        if binding_name not in declared_inputs:
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': unknown interface input '{binding_name}'. "
+                f"Declared child inputs: {sorted(declared_inputs)}"
+            )
+
+    missing_required = [
+        item.name
+        for item in child_interface.inputs
+        if item.required and item.default is None and item.name not in (block_def.inputs or {})
+    ]
+    if missing_required:
+        raise ValueError(
+            f"WorkflowBlock '{block_id}': missing required interface inputs {missing_required}"
+        )
+
+    for binding_name in (block_def.outputs or {}).values():
+        if binding_name not in declared_outputs:
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': unknown interface output '{binding_name}'. "
+                f"Declared child outputs: {sorted(declared_outputs)}"
+            )
+
+
+def _resolve_workflow_block_max_depth(
+    file_def: RunsightWorkflowFile,
+    block_def: Any,
+) -> int:
+    """Resolve the max_depth value a workflow block will enforce at runtime."""
+    if block_def.max_depth is not None:
+        return block_def.max_depth
+    return file_def.config.get("max_workflow_depth", 10)
+
+
+def _build_workflow_validation_index(
+    base_dir: str,
+) -> dict[str, tuple[Path, RunsightWorkflowFile]]:
+    root = Path(base_dir).resolve()
+    workflows_dir = root / "custom" / "workflows"
+    validation_index: dict[str, tuple[Path, RunsightWorkflowFile]] = {}
+
+    if not workflows_dir.is_dir():
+        return validation_index
+
+    for pattern in ("*.yaml", "*.yml"):
+        for workflow_path in workflows_dir.rglob(pattern):
+            with open(workflow_path, "r", encoding="utf-8") as workflow_file_handle:
+                raw_data = yaml.safe_load(workflow_file_handle)
+
+            workflow_file = RunsightWorkflowFile.model_validate(raw_data)
+            resolved_path = workflow_path.resolve()
+
+            aliases = {str(resolved_path), workflow_path.stem}
+            try:
+                aliases.add(str(resolved_path.relative_to(root)))
+            except ValueError:
+                pass
+
+            workflow_name = getattr(workflow_file.workflow, "name", None)
+            if workflow_name:
+                aliases.add(workflow_name)
+
+            for alias in aliases:
+                validation_index[alias] = (resolved_path, workflow_file)
+
+    return validation_index
+
+
+def _resolve_workflow_call_contract_ref(
+    workflow_ref: str,
+    *,
+    base_dir: str,
+    validation_index: dict[str, tuple[Path, RunsightWorkflowFile]],
+    allow_filesystem_fallback: bool = False,
+) -> tuple[Path, RunsightWorkflowFile]:
+    indexed = validation_index.get(workflow_ref)
+    if indexed is not None:
+        return indexed
+
+    root = Path(base_dir).resolve()
+    ref_path = Path(workflow_ref)
+    candidate_paths: list[Path] = []
+    if ref_path.is_absolute():
+        candidate_paths.append(ref_path)
+    else:
+        candidate_paths.append(root / ref_path)
+        candidate_paths.append(root / "custom" / "workflows" / ref_path)
+        if ref_path.suffix == "":
+            candidate_paths.append(root / "custom" / "workflows" / f"{workflow_ref}.yaml")
+            candidate_paths.append(root / "custom" / "workflows" / f"{workflow_ref}.yml")
+
+    if allow_filesystem_fallback:
+        for candidate_path in candidate_paths:
+            resolved_path = candidate_path.resolve()
+            indexed = validation_index.get(str(resolved_path))
+            if indexed is not None:
+                return indexed
+            if resolved_path.exists():
+                with open(resolved_path, "r", encoding="utf-8") as workflow_file_handle:
+                    raw_data = yaml.safe_load(workflow_file_handle)
+                workflow_file = RunsightWorkflowFile.model_validate(raw_data)
+                return resolved_path, workflow_file
+
+    raise ValueError(
+        f"WorkflowRegistry: cannot resolve ref '{workflow_ref}'. "
+        "Not found as named workflow or filesystem path."
+    )
+
+
+def validate_workflow_call_contracts(
+    file_def: RunsightWorkflowFile,
+    *,
+    base_dir: str,
+    validation_index: dict[str, tuple[Path, RunsightWorkflowFile]] | None = None,
+    current_workflow_ref: str | None = None,
+    ancestry: tuple[str, ...] | None = None,
+    current_call_stack_depth: int = 1,
+    allow_filesystem_fallback: bool = True,
+    _depth_uses_strict_comparison: bool = False,
+) -> None:
+    if validation_index is None:
+        validation_index = _build_workflow_validation_index(base_dir)
+    if ancestry is None:
+        root_ref = current_workflow_ref or getattr(file_def.workflow, "name", "<root>")
+        ancestry = (root_ref,)
+
+    for block_id, block_def in file_def.blocks.items():
+        if block_def.type != "workflow":
+            continue
+
+        child_path, child_file = _resolve_workflow_call_contract_ref(
+            block_def.workflow_ref,
+            base_dir=base_dir,
+            validation_index=validation_index,
+            allow_filesystem_fallback=allow_filesystem_fallback,
+        )
+        child_ref = str(child_path)
+        if child_ref in ancestry:
+            cycle_path = " -> ".join([*ancestry, child_ref])
+            raise ValueError(f"Circular workflow reference cycle detected: {cycle_path}")
+
+        _validate_workflow_block_contract(block_id, block_def, child_file)
+
+        # max_depth counts nesting levels: 1=child, 2=grandchild, 3=great-grandchild.
+        # When a child workflow declares config.max_workflow_depth, the depth
+        # increment is +1 and the comparison uses strict '>' (the declared
+        # config establishes a fresh depth budget).  Without a config
+        # declaration the legacy +2 increment with '>=' applies.
+        max_depth = _resolve_workflow_block_max_depth(file_def, block_def)
+        depth_exceeded = (
+            current_call_stack_depth > max_depth
+            if _depth_uses_strict_comparison
+            else current_call_stack_depth >= max_depth
+        )
+        if depth_exceeded:
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': maximum depth {max_depth} exceeded while "
+                f"resolving child workflow '{block_def.workflow_ref}'. "
+                f"Call stack depth: {current_call_stack_depth}"
+            )
+
+        child_has_config_depth = child_file.config.get("max_workflow_depth") is not None
+        if child_has_config_depth:
+            next_depth = current_call_stack_depth + 1
+            next_strict = True
+        else:
+            next_depth = current_call_stack_depth + 2
+            next_strict = False
+
+        validate_workflow_call_contracts(
+            child_file,
+            base_dir=_find_project_root(child_path.parent),
+            validation_index=validation_index,
+            current_workflow_ref=child_ref,
+            ancestry=(*ancestry, child_ref),
+            current_call_stack_depth=next_depth,
+            allow_filesystem_fallback=allow_filesystem_fallback,
+            _depth_uses_strict_comparison=next_strict,
+        )
+
+
 def parse_workflow_yaml(
     yaml_str_or_dict: Union[str, Dict[str, Any]],
     *,
@@ -326,6 +523,7 @@ def parse_workflow_yaml(
 
             # Resolve child workflow file (registry returns RunsightWorkflowFile)
             child_file = workflow_registry.get(block_def.workflow_ref)
+            _validate_workflow_block_contract(block_id, block_def, child_file)
 
             # Normalize to dict so parse_workflow_yaml receives Union[str, Dict] not model instance
             child_raw = child_file.model_dump() if hasattr(child_file, "model_dump") else child_file
@@ -338,13 +536,6 @@ def parse_workflow_yaml(
                 _base_dir=workflow_base_dir,
             )
 
-            # Read max_depth: block-level override -> global config -> default 10
-            max_depth_value = (
-                block_def.max_depth
-                if block_def.max_depth is not None
-                else file_def.config.get("max_workflow_depth", 10)
-            )
-
             # Instantiate WorkflowBlock
             from runsight_core.blocks.workflow_block import WorkflowBlock
 
@@ -353,7 +544,9 @@ def parse_workflow_yaml(
                 child_workflow=child_wf,
                 inputs=block_def.inputs or {},
                 outputs=block_def.outputs or {},
-                max_depth=max_depth_value,
+                max_depth=_resolve_workflow_block_max_depth(file_def, block_def),
+                interface=child_file.interface,
+                on_error=block_def.on_error,
             )
 
             built_blocks[block_id] = block

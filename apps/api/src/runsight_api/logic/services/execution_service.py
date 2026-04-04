@@ -50,6 +50,16 @@ class ExecutionService:
     # Ghost run detection
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _has_workflow_blocks(workflow_definition: Dict[str, Any]) -> bool:
+        blocks = workflow_definition.get("blocks", {})
+        if not isinstance(blocks, dict):
+            return False
+        return any(
+            isinstance(block_def, dict) and block_def.get("type") == "workflow"
+            for block_def in blocks.values()
+        )
+
     def fail_ghost_runs(self) -> None:
         """Mark all runs stuck in 'running' status as failed.
 
@@ -177,9 +187,22 @@ class ExecutionService:
                 yaml_content=yaml_content,
                 api_keys=api_keys,
             )
+            workflow_registry = None
+            if self._has_workflow_blocks(workflow_definition):
+                workflow_registry = self.workflow_repo.build_runnable_workflow_registry(
+                    workflow_id,
+                    yaml_content,
+                    git_ref=branch if self.git_service else None,
+                    git_service=self.git_service,
+                )
 
             # Parse workflow YAML into runnable Workflow
-            wf = parse_workflow_yaml(workflow_definition, api_keys=api_keys, runner=runner)
+            wf = parse_workflow_yaml(
+                workflow_definition,
+                workflow_registry=workflow_registry,
+                api_keys=api_keys,
+                runner=runner,
+            )
 
             # Store branch + commit_sha on Run record
             self._store_branch_and_sha(run_id, branch, commit_sha)

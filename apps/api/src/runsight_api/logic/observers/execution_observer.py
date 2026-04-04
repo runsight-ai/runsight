@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import traceback
+import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -99,9 +100,38 @@ class ExecutionObserver:
                 status=NodeStatus.running,
                 started_at=time.time(),
             )
-            with Session(self.engine) as session:
-                session.add(node)
-                session.commit()
+
+            # If the block is a workflow call, create a child Run record
+            if block_type == "workflow":
+                child_run_id = f"{self.run_id}:child:{block_id}:{uuid.uuid4().hex[:8]}"
+                parent_run = self._get_run()
+                parent_depth = parent_run.depth if parent_run else 0
+                parent_root = parent_run.root_run_id if parent_run else None
+                # Root run has root_run_id=None; children point to the outermost ancestor
+                root_run_id = parent_root if parent_root is not None else self.run_id
+
+                child_run = Run(
+                    id=child_run_id,
+                    workflow_id=f"wf_child_{block_id}",
+                    workflow_name=workflow_name,
+                    status=RunStatus.running,
+                    task_json="{}",
+                    parent_run_id=self.run_id,
+                    parent_node_id=f"{self.run_id}:{block_id}",
+                    root_run_id=root_run_id,
+                    depth=parent_depth + 1,
+                    started_at=time.time(),
+                )
+                node.child_run_id = child_run_id
+
+                with Session(self.engine) as session:
+                    session.add(node)
+                    session.add(child_run)
+                    session.commit()
+            else:
+                with Session(self.engine) as session:
+                    session.add(node)
+                    session.commit()
 
             self._insert_log(
                 "info",
@@ -339,6 +369,15 @@ class ExecutionObserver:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _get_run(self) -> Optional[Run]:
+        """Load the Run record for this observer's run_id."""
+        try:
+            with Session(self.engine) as session:
+                return session.get(Run, self.run_id)
+        except Exception:
+            logger.warning("ExecutionObserver._get_run failed", exc_info=True)
+            return None
 
     def _persist_execution_log(self, state: WorkflowState, node_id: Optional[str] = None) -> None:
         """Persist new execution_log entries since the last high-water mark."""
