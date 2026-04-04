@@ -66,6 +66,12 @@ vi.mock("@/features/runs/RunDetail", () => ({
   Component: () => React.createElement(RouteEcho, { label: "run-detail" }),
 }));
 
+// RUN-590: /runs/:id now renders HistoricalRunRoute which uses WorkflowSurface
+vi.mock("@/features/canvas/WorkflowSurface", () => ({
+  WorkflowSurface: ({ runId }: { runId?: string }) =>
+    React.createElement(RouteEcho, { label: `run-surface-${runId ?? "unknown"}` }),
+}));
+
 vi.mock("@/features/health/HealthPage", () => ({
   Component: () => React.createElement("div", null, "Health page"),
 }));
@@ -136,14 +142,16 @@ describe("RUN-431 legacy list route cleanup", () => {
     expect(routesSource).not.toMatch(/path:\s*"steps"/);
   });
 
-  it("keeps the /workflows/:id/edit route definition wired to CanvasPage", () => {
+  it("keeps the /workflows/:id/edit route definition wired to WorkflowSurface", () => {
     expect(routesSource).toMatch(/path:\s*"workflows\/:id\/edit"/);
-    expect(routesSource).toMatch(/features\/canvas\/CanvasPage/);
+    // RUN-590: routes now use WorkflowSurface via WorkflowEditRoute
+    expect(routesSource).toMatch(/WorkflowSurface/);
   });
 
   it("keeps /runs/:id working", async () => {
     await renderAppAt("/runs/run_123");
 
-    expect(await screen.findByText("run-detail:/runs/run_123")).toBeTruthy();
+    // RUN-590: /runs/:id now renders WorkflowSurface (HistoricalRunRoute) instead of RunDetail
+    expect(await screen.findByText("run-surface-run_123:/runs/run_123")).toBeTruthy();
   });
 });

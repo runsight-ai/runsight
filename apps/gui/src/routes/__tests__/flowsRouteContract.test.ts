@@ -21,7 +21,8 @@ describe("RUN-426 /flows route contract", () => {
     const source = readSource(ROUTES_PATH);
 
     expect(source).toMatch(/path:\s*["']workflows\/:id\/edit["']/);
-    expect(source).toMatch(/CanvasPage/);
+    // RUN-590: routes now use WorkflowSurface via WorkflowEditRoute instead of CanvasPage
+    expect(source).toMatch(/WorkflowSurface/);
   });
 
   it("points the sidebar Flows nav item at /flows instead of the legacy /workflows list", () => {

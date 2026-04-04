@@ -1,7 +1,18 @@
-import { createBrowserRouter, Navigate } from "react-router";
+import { createBrowserRouter, Navigate, useParams } from "react-router";
 import { ShellLayout } from "./layouts/ShellLayout";
 import { createSetupGuardLoader, createReverseGuardLoader } from "./guards";
 import { queryClient } from "@/lib/queryClient";
+import { WorkflowSurface } from "@/features/canvas/WorkflowSurface";
+
+function WorkflowEditRoute() {
+  const { id } = useParams<{ id: string }>();
+  return <WorkflowSurface mode="edit" workflowId={id!} />;
+}
+
+function HistoricalRunRoute() {
+  const { id } = useParams<{ id: string }>();
+  return <WorkflowSurface mode="readonly" runId={id!} />;
+}
 
 export const router = createBrowserRouter([
   {
@@ -39,10 +50,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "workflows/:id/edit",
-        lazy: () =>
-          import("@/features/canvas/CanvasPage").then((m) => ({
-            Component: m.Component,
-          })),
+        Component: WorkflowEditRoute,
       },
       {
         path: "runs",
@@ -53,10 +61,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "runs/:id",
-        lazy: () =>
-          import("@/features/runs/RunDetail").then((m) => ({
-            Component: m.Component,
-          })),
+        Component: HistoricalRunRoute,
       },
       {
         path: "souls",

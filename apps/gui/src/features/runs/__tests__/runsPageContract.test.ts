@@ -194,6 +194,12 @@ vi.mock("@/features/canvas/CanvasPage", () => ({
   Component: () => React.createElement(RouteEcho, { label: "workflow-editor" }),
 }));
 
+// RUN-590: /runs/:id now renders HistoricalRunRoute which uses WorkflowSurface
+vi.mock("@/features/canvas/WorkflowSurface", () => ({
+  WorkflowSurface: () =>
+    React.createElement(RouteEcho, { label: "run-detail" }),
+}));
+
 let activeRouter: { dispose?: () => void; state?: { location: Location } } | null = null;
 
 afterEach(() => {
@@ -405,5 +411,27 @@ describe("RUN-487 canonical /runs page", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
     });
+  });
+
+  it("shows commit unavailable instead of 'uncommitted' when a historical run has no commit_sha", async () => {
+    mocks.runsQueryState.data = buildRunList([
+      {
+        ...mocks.productionRuns[0],
+        id: "run_missing_sha",
+        workflow_name: "Missing Commit",
+        commit_sha: null,
+      },
+    ]);
+
+    await renderRunsRoute("/runs");
+
+    const missingRow = await waitFor(() => {
+      const row = findRunRow("Missing Commit");
+      expect(row).toBeTruthy();
+      return row as HTMLElement;
+    });
+
+    expect(within(missingRow).getByLabelText("Commit unavailable")).toBeTruthy();
+    expect(within(missingRow).queryByText("uncommitted")).toBeNull();
   });
 });

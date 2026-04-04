@@ -14,15 +14,32 @@ import "@xyflow/react/dist/style.css";
 import { useCanvasStore } from "@/store/canvas";
 import { nodeTypes } from "./nodes";
 
-export function WorkflowCanvas() {
+interface WorkflowCanvasProps {
+  isDraggable?: boolean;
+  connectionsAllowed?: boolean;
+  deletionAllowed?: boolean;
+  runId?: string;
+  onNodeClick?: (nodeId: string) => void;
+  onNodeDoubleClick?: (nodeId: string) => void;
+}
+
+export function WorkflowCanvas({ isDraggable = true, connectionsAllowed = true, deletionAllowed = true, onNodeClick: onNodeClickProp, onNodeDoubleClick: onNodeDoubleClickProp }: WorkflowCanvasProps) {
   const { nodes, edges, onNodesChange, onEdgesChange, selectNode } =
     useCanvasStore();
 
-  const onNodeClick: NodeMouseHandler = useCallback(
+  const handleNodeClick: NodeMouseHandler = useCallback(
     (_, node) => {
       selectNode(node.id);
+      onNodeClickProp?.(node.id);
     },
-    [selectNode]
+    [selectNode, onNodeClickProp]
+  );
+
+  const handleNodeDoubleClick: NodeMouseHandler = useCallback(
+    (_, node) => {
+      onNodeDoubleClickProp?.(node.id);
+    },
+    [onNodeDoubleClickProp]
   );
 
   const onPaneClick = useCallback(() => {
@@ -38,9 +55,13 @@ export function WorkflowCanvas() {
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onNodeClick={onNodeClick}
+          onNodeClick={handleNodeClick}
+          onNodeDoubleClick={handleNodeDoubleClick}
           onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
+          nodesDraggable={isDraggable}
+          nodesConnectable={connectionsAllowed}
+          deleteKeyCode={deletionAllowed ? "Backspace" : null}
           fitView
           fitViewOptions={{ padding: 0.3 }}
           defaultEdgeOptions={{

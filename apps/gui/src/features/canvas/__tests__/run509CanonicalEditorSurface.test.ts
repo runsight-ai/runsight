@@ -40,6 +40,49 @@ vi.mock("react-router", () => ({
 
 vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => mocks.queryClient,
+  useQuery: () => ({ data: undefined, isLoading: false, error: null }),
+}));
+
+// RUN-590: Mock CanvasTopbar to render functional tab buttons
+// so CanvasPage tab switching can be tested without the full topbar wiring
+vi.mock("../CanvasTopbar", () => ({
+  CanvasTopbar: ({
+    onValueChange,
+    isDirty,
+  }: {
+    workflowId: string;
+    onValueChange?: (value: string) => void;
+    isDirty?: boolean;
+    [key: string]: unknown;
+  }) =>
+    React.createElement(
+      "header",
+      null,
+      React.createElement("span", null, "Canonical workflow"),
+      React.createElement(
+        "button",
+        { type: "button", onClick: () => onValueChange?.("canvas") },
+        "Canvas",
+      ),
+      React.createElement(
+        "button",
+        { type: "button", onClick: () => onValueChange?.("yaml") },
+        "YAML",
+      ),
+      isDirty
+        ? React.createElement(
+            "button",
+            { type: "button" },
+            React.createElement("span", null, "save"),
+            "Save",
+          )
+        : React.createElement(
+            "button",
+            { type: "button" },
+            React.createElement("span", null, "save"),
+            "Save",
+          ),
+    ),
 }));
 
 vi.mock("../WorkflowCanvas", () => ({
@@ -80,6 +123,10 @@ vi.mock("@/components/provider/ProviderModal", () => ({
 
 vi.mock("@/features/git/CommitDialog", () => ({
   CommitDialog: () => null,
+}));
+
+vi.mock("@/components/shared/PriorityBanner", () => ({
+  PriorityBanner: () => null,
 }));
 
 vi.mock("@runsight/ui/dialog", () => ({
@@ -202,11 +249,22 @@ vi.mock("@/api/git", () => ({
 
 vi.mock("@/queries/workflows", () => ({
   useWorkflow: () => ({
-    data: { name: "Canonical workflow" },
+    data: { name: "Canonical workflow", commit_sha: "abc123" },
+  }),
+  useWorkflowRegressions: () => ({
+    data: { count: 0, items: [] },
   }),
   useUpdateWorkflow: () => ({
     mutate: mocks.updateWorkflowMutate,
   }),
+}));
+
+vi.mock("@/queries/settings", () => ({
+  useProviders: () => ({ data: { items: [], total: 0 } }),
+}));
+
+vi.mock("@/queries/git", () => ({
+  useGitStatus: () => ({ data: { is_clean: true, uncommitted_files: [] } }),
 }));
 
 vi.mock("@/queries/runs", () => ({

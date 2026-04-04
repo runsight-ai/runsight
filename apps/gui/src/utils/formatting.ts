@@ -9,15 +9,16 @@
 export function formatDuration(seconds: number | null | undefined): string {
   if (!seconds || seconds <= 0) return "\u2014";
 
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
+  const totalSeconds = Math.max(1, Math.round(seconds));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
 
   if (hours > 0) {
     return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
   }
   if (minutes > 0) {
-    return secs > 0 ? `${minutes}m ${secs}s` : `${minutes}m`;
+    return secs > 0 ? `${minutes}m ${String(secs).padStart(2, "0")}s` : `${minutes}m`;
   }
   return `${secs}s`;
 }
