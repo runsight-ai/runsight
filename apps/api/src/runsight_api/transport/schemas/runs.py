@@ -23,6 +23,7 @@ class RunResponse(BaseModel):
     workflow_id: str
     workflow_name: str
     status: str
+    error: Optional[str] = None
     started_at: Optional[float]
     completed_at: Optional[float]
     duration_seconds: Optional[float]

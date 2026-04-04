@@ -104,6 +104,7 @@ function RunDetailInner() {
   const onPaneClick = useCallback(() => { setSelectedNode(null); }, []);
   const logs = useMemo(() => runLogs?.items || [], [runLogs]);
   const regressionCount = regressionData?.items?.length ?? 0;
+  const hasNodeGraph = (runNodes?.length ?? 0) > 0;
 
   if (isLoadingRun || isLoadingNodes) {
     return (
@@ -166,6 +167,20 @@ function RunDetailInner() {
                           <Button variant="primary" onClick={() => void refetchRunNodes()}>
                             Retry
                           </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                ) : !hasNodeGraph && run.error ? (
+                  <div className="flex h-full items-center justify-center p-6">
+                    <Card className="w-full max-w-xl px-6 py-6">
+                      <div className="space-y-3">
+                        <h2 className="text-lg font-semibold text-heading">Run failed before execution started</h2>
+                        <p className="text-sm leading-6 text-secondary">
+                          Runsight could not prepare this workflow for execution, so no nodes were started.
+                        </p>
+                        <div className="rounded-md border border-[var(--danger-9)]/30 bg-danger-3 p-3 font-mono text-xs leading-relaxed text-[var(--danger-9)]">
+                          {run.error}
                         </div>
                       </div>
                     </Card>

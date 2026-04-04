@@ -1032,6 +1032,8 @@ export interface components {
             workflow_name: string;
             /** Status */
             status: string;
+            /** Error */
+            error?: string | null;
             /** Started At */
             started_at: number | null;
             /** Completed At */

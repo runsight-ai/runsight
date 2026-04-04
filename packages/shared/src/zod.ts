@@ -214,6 +214,7 @@ export const RunResponseSchema = z.object({
   workflow_id: z.string(),
   workflow_name: z.string(),
   status: z.string(),
+  error: z.string().nullable().optional(),
   started_at: z.number().nullable(),
   completed_at: z.number().nullable(),
   duration_seconds: z.number().nullable(),

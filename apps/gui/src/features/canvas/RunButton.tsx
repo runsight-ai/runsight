@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router";
 import { Button } from "@runsight/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
 import { useCreateRun, useCancelRun, useRun } from "@/queries/runs";
@@ -14,6 +15,7 @@ interface RunButtonProps {
 }
 
 export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunButtonProps) {
+  const navigate = useNavigate();
   const activeRunId = useCanvasStore((s) => s.activeRunId);
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const nodes = useCanvasStore((s) => s.nodes);
@@ -34,6 +36,7 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
 
   const status = run?.status;
   const isRunning = activeRunId && status === "running";
+  const hasYamlContent = yamlContent.trim().length > 0;
 
   // Clear activeRunId on terminal states: completed, failed, cancelled
   useEffect(() => {
@@ -42,9 +45,10 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
     }
   }, [activeRunId, status, setActiveRunId]);
 
-  const isEmpty = !nodes.length && !blockCount;
+  const isEmpty = !hasYamlContent && !nodes.length && !blockCount;
   const isPending = createRun.isPending || cancelRun.isPending;
   const shouldRunOnSimulation = isDirty || !isCommitted;
+  const taskData = { instruction: "Execute workflow" };
 
   async function handleClick() {
     if (isRunning) {
@@ -52,13 +56,28 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
     } else if (shouldRunOnSimulation) {
       const simResult = await gitApi.createSimBranch(workflowId, yamlContent);
       createRun.mutate(
-        { workflow_id: workflowId, source: "simulation", branch: simResult.branch },
-        { onSuccess: (result) => setActiveRunId(result.id) },
+        {
+          workflow_id: workflowId,
+          task_data: taskData,
+          source: "simulation",
+          branch: simResult.branch,
+        },
+        {
+          onSuccess: (result) => {
+            setActiveRunId(result.id);
+            navigate(`/runs/${result.id}`);
+          },
+        },
       );
     } else {
       createRun.mutate(
-        { workflow_id: workflowId, source: "manual", branch: "main" },
-        { onSuccess: (result) => setActiveRunId(result.id) },
+        { workflow_id: workflowId, task_data: taskData, source: "manual", branch: "main" },
+        {
+          onSuccess: (result) => {
+            setActiveRunId(result.id);
+            navigate(`/runs/${result.id}`);
+          },
+        },
       );
     }
   }
@@ -68,6 +87,7 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
       <Button
         variant="primary"
         onClick={() => onAddApiKey?.()}
+        data-testid="workflow-add-api-key-button"
       >
         <Key className="size-4" />
         Add API Key
@@ -81,6 +101,7 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
       disabled={isEmpty && !isRunning}
       loading={isPending}
       onClick={handleClick}
+      data-testid="workflow-run-button"
     >
       {isRunning ? (
         <>

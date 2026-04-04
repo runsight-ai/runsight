@@ -1,4 +1,8 @@
 version: "1.0"
+tools:
+  - http
+  - slack_payload_builder
+  - slack_webhook
 blocks:
   send_digest:
     type: linear
