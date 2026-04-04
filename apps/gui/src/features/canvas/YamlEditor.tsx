@@ -7,11 +7,12 @@ import { useCanvasStore } from "@/store/canvas";
 
 interface YamlEditorProps {
   workflowId: string;
+  readOnly?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
   onValidation?: (state: ValidationState) => void;
 }
 
-export function YamlEditor({ workflowId, onDirtyChange, onValidation }: YamlEditorProps) {
+export function YamlEditor({ workflowId, readOnly = false, onDirtyChange, onValidation }: YamlEditorProps) {
   const { data: workflow } = useWorkflow(workflowId);
   const [isDirty, setIsDirty] = useState(false);
   const contentRef = useRef(workflow?.yaml ?? "");
@@ -54,6 +55,7 @@ export function YamlEditor({ workflowId, onDirtyChange, onValidation }: YamlEdit
         onChange={onChange}
         onMount={onMount}
         beforeMount={handleEditorMount}
+        options={{ readOnly }}
       />
     </div>
   );

@@ -31,7 +31,7 @@ interface CanvasTopbarProps {
   onForkTransition?: (newWorkflowId: string) => void;
 }
 
-export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid: _yamlValid = true, errorCount: _errorCount = 0, onAddApiKey, metricsVisible = false, metricsStyle = "none", actionButton, nameEditable = true, saveButton = "ghost", toggleVisibility: _toggleVisibility, runStatus, forkDisabled: _forkDisabled, onForkTransition }: CanvasTopbarProps) {
+export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid: _yamlValid = true, errorCount: _errorCount = 0, onAddApiKey, metricsVisible = false, metricsStyle = "none", actionButton, nameEditable = true, saveButton = "ghost", toggleVisibility, runStatus, forkDisabled: _forkDisabled, onForkTransition }: CanvasTopbarProps) {
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
 
@@ -164,16 +164,22 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
       </div>
 
       {/* Center: Canvas | YAML toggle */}
-      <div className="flex items-center">
-        <Tabs value={activeTab} onValueChange={onValueChange}>
-          <TabsList variant="contained">
-            <TabsTrigger value="canvas" className="opacity-50">
-              Canvas
-            </TabsTrigger>
-            <TabsTrigger value="yaml">YAML</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+      {toggleVisibility && (toggleVisibility.canvas || toggleVisibility.yaml) && (
+        <div className="flex items-center">
+          <Tabs value={activeTab} onValueChange={onValueChange}>
+            <TabsList variant="contained">
+              {toggleVisibility.canvas && (
+                <TabsTrigger value="canvas" className="opacity-50">
+                  Canvas
+                </TabsTrigger>
+              )}
+              {toggleVisibility.yaml && (
+                <TabsTrigger value="yaml">YAML</TabsTrigger>
+              )}
+            </TabsList>
+          </Tabs>
+        </div>
+      )}
 
       {/* Right: actions */}
       <div className="flex items-center gap-2 flex-1 justify-end">

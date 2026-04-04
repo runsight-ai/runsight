@@ -17,7 +17,13 @@ const BLOCK_TYPES = [
   { label: "FileWriter", icon: FileOutput },
 ] as const;
 
-export function PaletteSidebar({ onCollapse }: { onCollapse?: (collapsed: boolean) => void }) {
+interface PaletteSidebarProps {
+  onCollapse?: (collapsed: boolean) => void;
+  dimmed?: boolean;
+  interactive?: boolean;
+}
+
+export function PaletteSidebar({ onCollapse, dimmed = false, interactive = true }: PaletteSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [search, setSearch] = useState("");
   const { data: souls } = useSouls();
@@ -44,7 +50,7 @@ export function PaletteSidebar({ onCollapse }: { onCollapse?: (collapsed: boolea
 
   return (
     <aside
-      className="flex flex-col bg-surface-secondary border-r border-border-subtle overflow-y-auto shrink-0"
+      className={`flex flex-col bg-surface-secondary border-r border-border-subtle overflow-y-auto shrink-0${dimmed ? " opacity-50" : ""}${!interactive ? " pointer-events-none" : ""}`}
       style={{ width, gridColumn: "1", gridRow: "2" }}
     >
       {/* Header with title + notch button */}

@@ -15,6 +15,7 @@ import type { RunNodeData } from "./RunCanvasNode";
 interface RunInspectorPanelProps {
   selectedNode: Node<RunNodeData> | null;
   onClose: () => void;
+  trigger?: "single-click" | "double-click";
 }
 
 // ---------------------------------------------------------------------------
@@ -56,7 +57,7 @@ function badgeVariant(status: string): "success" | "error" | "pending" {
 // Component
 // ---------------------------------------------------------------------------
 
-export function RunInspectorPanel({ selectedNode, onClose }: RunInspectorPanelProps) {
+export function RunInspectorPanel({ selectedNode, onClose, trigger: _trigger = "double-click" }: RunInspectorPanelProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "execution">("execution");
 
   if (!selectedNode) return null;

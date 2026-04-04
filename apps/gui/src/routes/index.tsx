@@ -11,7 +11,7 @@ function WorkflowEditRoute() {
 
 function HistoricalRunRoute() {
   const { id } = useParams<{ id: string }>();
-  return <WorkflowSurface mode="historical" workflowId={id!} runId={id} />;
+  return <WorkflowSurface mode="historical" runId={id!} />;
 }
 
 export const router = createBrowserRouter([

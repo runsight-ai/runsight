@@ -71,7 +71,7 @@ export interface PanelContract {
 
 export interface WorkflowSurfaceProps {
   mode: WorkflowSurfaceMode;
-  workflowId: string;
+  workflowId?: string;
   runId?: string;
 }
 

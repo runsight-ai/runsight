@@ -14,7 +14,14 @@ import "@xyflow/react/dist/style.css";
 import { useCanvasStore } from "@/store/canvas";
 import { nodeTypes } from "./nodes";
 
-export function WorkflowCanvas() {
+interface WorkflowCanvasProps {
+  isDraggable?: boolean;
+  connectionsAllowed?: boolean;
+  deletionAllowed?: boolean;
+  runId?: string;
+}
+
+export function WorkflowCanvas({ isDraggable = true, connectionsAllowed = true, deletionAllowed = true }: WorkflowCanvasProps) {
   const { nodes, edges, onNodesChange, onEdgesChange, selectNode } =
     useCanvasStore();
 
@@ -41,6 +48,9 @@ export function WorkflowCanvas() {
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
+          nodesDraggable={isDraggable}
+          nodesConnectable={connectionsAllowed}
+          deleteKeyCode={deletionAllowed ? "Backspace" : null}
           fitView
           fitViewOptions={{ padding: 0.3 }}
           defaultEdgeOptions={{

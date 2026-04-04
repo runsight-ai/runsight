@@ -14,6 +14,7 @@ interface LogEntry {
 interface CanvasBottomPanelProps {
   runId?: string;
   workflowId?: string;
+  defaultState?: "collapsed" | "expanded";
 }
 
 function sseEventToLogEntry(
@@ -57,8 +58,8 @@ function sseEventToLogEntry(
   }
 }
 
-export function CanvasBottomPanel({ runId: initialRunId, workflowId }: CanvasBottomPanelProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultState = "collapsed" }: CanvasBottomPanelProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultState === "expanded");
   const [activeTab, setActiveTab] = useState<"logs" | "runs" | "regressions">("logs");
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>(initialRunId);
   const logsRef = useRef<HTMLDivElement>(null);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./workflowSurfaceContract";
-import { getContractForMode, getCanvasYamlToggleVisibility, getStepCountFormat, getMetricsVisibility, getInspectorTrigger, getBottomPanelDefault, getSaveButtonState, getActionButton, isEditable } from "./workflowSurfaceContract";
+import { getContractForMode, getCanvasYamlToggleVisibility, getSaveButtonState, getActionButton, isEditable } from "./workflowSurfaceContract";
 import { CanvasTopbar } from "./CanvasTopbar";
 import { PaletteSidebar } from "./PaletteSidebar";
 import { WorkflowCanvas } from "./WorkflowCanvas";
@@ -9,7 +9,7 @@ import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { RunInspectorPanel } from "../runs/RunInspectorPanel";
 
-export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflowId, runId: initialRunId }: WorkflowSurfaceProps) {
+export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflowId = "", runId: initialRunId }: WorkflowSurfaceProps) {
   const [mode, setMode] = useState<WorkflowSurfaceMode>(initialMode);
   const [workflowId, setWorkflowId] = useState(initialWorkflowId);
   const [activeRunId, setRunId] = useState(initialRunId);
@@ -49,12 +49,6 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
 
   const saveButtonState = getSaveButtonState(mode, isDirty);
   const actionButton = getActionButton(mode);
-
-  // Suppress unused-variable lint by referencing mode helpers
-  void getStepCountFormat;
-  void getMetricsVisibility;
-  void getInspectorTrigger;
-  void getBottomPanelDefault;
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
@@ -102,7 +96,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
 
       <div
         data-testid="surface-palette"
-        className={`flex flex-col overflow-hidden ${dimmed ? "opacity-50 pointer-events-none" : ""}`}
+        className="flex flex-col overflow-hidden"
         style={{ gridColumn: "1", gridRow: "2" }}
       >
         <PaletteSidebar interactive={!dimmed} dimmed={dimmed} />
