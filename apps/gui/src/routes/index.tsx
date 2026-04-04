@@ -4,6 +4,8 @@ import { createSetupGuardLoader, createReverseGuardLoader } from "./guards";
 import { queryClient } from "@/lib/queryClient";
 import { WorkflowSurface } from "@/features/canvas/WorkflowSurface";
 
+const ROUTE_HYDRATE_FALLBACK = <div aria-hidden="true" />;
+
 function WorkflowEditRoute() {
   const { id } = useParams<{ id: string }>();
   return <WorkflowSurface mode="edit" workflowId={id!} />;
@@ -17,6 +19,7 @@ function HistoricalRunRoute() {
 export const router = createBrowserRouter([
   {
     path: "setup/unavailable",
+    hydrateFallbackElement: ROUTE_HYDRATE_FALLBACK,
     lazy: () =>
       import("@/features/setup/SetupUnavailablePage").then((m) => ({
         Component: m.Component,
@@ -25,6 +28,7 @@ export const router = createBrowserRouter([
   {
     path: "setup/start",
     loader: createReverseGuardLoader(queryClient),
+    hydrateFallbackElement: ROUTE_HYDRATE_FALLBACK,
     lazy: () =>
       import("@/features/setup/SetupStartPage").then((m) => ({
         Component: m.Component,
@@ -36,6 +40,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
+        hydrateFallbackElement: ROUTE_HYDRATE_FALLBACK,
         lazy: () =>
           import("@/features/dashboard/DashboardOrOnboarding").then((m) => ({
             Component: m.Component,
@@ -43,6 +48,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "flows",
+        hydrateFallbackElement: ROUTE_HYDRATE_FALLBACK,
         lazy: () =>
           import("@/features/flows/FlowsPage").then((m) => ({
             Component: m.Component,
@@ -54,6 +60,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "runs",
+        hydrateFallbackElement: ROUTE_HYDRATE_FALLBACK,
         lazy: () =>
           import("@/features/runs/RunsPage").then((m) => ({
             Component: m.Component,
@@ -65,6 +72,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "souls",
+        hydrateFallbackElement: ROUTE_HYDRATE_FALLBACK,
         lazy: () =>
           import("@/features/souls/SoulLibraryPage").then((m) => ({
             Component: m.Component,
@@ -72,6 +80,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "souls/new",
+        hydrateFallbackElement: ROUTE_HYDRATE_FALLBACK,
         lazy: () =>
           import("@/features/souls/SoulFormPage").then((m) => ({
             Component: m.Component,
@@ -79,6 +88,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "souls/:id/edit",
+        hydrateFallbackElement: ROUTE_HYDRATE_FALLBACK,
         lazy: () =>
           import("@/features/souls/SoulFormPage").then((m) => ({
             Component: m.Component,
@@ -86,6 +96,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "settings",
+        hydrateFallbackElement: ROUTE_HYDRATE_FALLBACK,
         lazy: () =>
           import("@/features/settings/SettingsPage").then((m) => ({
             Component: m.Component,

@@ -26,7 +26,7 @@ export function Component() {
     try {
       const name = selection === "template" ? "Research & Review" : "Untitled Workflow";
       const yaml = selection === "template" ? TEMPLATE_YAML : "";
-      const result = await createWorkflow.mutateAsync({ name, yaml });
+      const result = await createWorkflow.mutateAsync({ name, yaml, commit: false });
       await updateAppSettings.mutateAsync({ onboarding_completed: true });
       navigate(`/workflows/${result.id}/edit`, { replace: true });
     } catch {

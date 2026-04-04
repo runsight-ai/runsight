@@ -95,8 +95,18 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
   function saveName() {
     setIsEditing(false);
     const trimmed = editName.trim();
+    if (!workflow || typeof workflow.yaml !== "string") {
+      return;
+    }
+
     if (trimmed && trimmed !== workflowName) {
-      updateWorkflow.mutate({ id: workflowId, data: { name: trimmed } });
+      updateWorkflow.mutate({
+        id: workflowId,
+        data: {
+          name: trimmed,
+          yaml: workflow.yaml,
+        },
+      });
     }
   }
 

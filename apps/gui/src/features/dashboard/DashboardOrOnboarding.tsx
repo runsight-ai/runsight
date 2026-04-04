@@ -18,20 +18,28 @@ import {
   TableRow,
 } from "@runsight/ui/table";
 import { useWorkflows, useCreateWorkflow } from "@/queries/workflows";
-import { useDashboardKPIs, useAttentionItems } from "@/queries/dashboard";
+import { useDashboardKPIs, useAttentionItems, useRecentRuns } from "@/queries/dashboard";
 import { useActiveRuns } from "@/queries/runs";
+
+const DASHBOARD_SUBTITLE = "Here's what's happening with your workflows today.";
+const EVAL_KPI_WARNING_THRESHOLD = 0.1;
+const EVAL_KPI_SUCCESS_THRESHOLD = 0.05;
 
 function formatElapsed(started_at: number | null | undefined): string {
   if (!started_at) return "--";
   const elapsed = Math.floor(Date.now() / 1000 - started_at);
-  const mins = Math.floor(elapsed / 60);
+  const hours = Math.floor(elapsed / 3600);
+  const mins = Math.floor((elapsed % 3600) / 60);
   const secs = elapsed % 60;
-  return `${mins}m ${secs}s`;
+  if (hours > 0) {
+    return `${hours}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+  return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
 function formatCost(total_cost_usd: number | null | undefined): string {
   if (total_cost_usd == null) return "$0.00";
-  return `$${total_cost_usd.toFixed(4)}`;
+  return `$${total_cost_usd.toFixed(2)}`;
 }
 
 function formatCurrency(value: number): string {
@@ -78,8 +86,50 @@ function getRegressionDeltaTone(
   return current < previous ? "positive" : "negative";
 }
 
+function getEvalCardVariant(
+  current: number | null | undefined,
+  previous: number | null | undefined,
+): "default" | "success" | "warning" {
+  if (current == null) return "default";
+  if (previous != null) {
+    const delta = current - previous;
+    if (delta <= -EVAL_KPI_WARNING_THRESHOLD) {
+      return "warning";
+    }
+    if (delta >= EVAL_KPI_SUCCESS_THRESHOLD) {
+      return "success";
+    }
+  }
+  return "default";
+}
+
 function formatAttentionType(type: string): string {
   return type.replaceAll("_", " ");
+}
+
+function formatAttentionNodeLabel(title: string): string | null {
+  const parts = title.split("·");
+  const rawNode = parts[1]?.trim();
+  if (!rawNode) return null;
+  return rawNode.replaceAll("_", " ");
+}
+
+function formatAttentionTitle(
+  itemTitle: string,
+  runInfo: { workflow_name: string; run_number?: number | null } | undefined,
+): string {
+  if (!runInfo) return itemTitle;
+  if (typeof runInfo.run_number === "number") {
+    return `${runInfo.workflow_name} #${runInfo.run_number}`;
+  }
+  return runInfo.workflow_name;
+}
+
+function formatAttentionDescription(title: string, description: string): string {
+  const nodeLabel = formatAttentionNodeLabel(title);
+  if (!nodeLabel) return description;
+  const sentenceNodeLabel = nodeLabel.charAt(0).toUpperCase() + nodeLabel.slice(1);
+  return `${sentenceNodeLabel}: ${description}`;
 }
 
 function formatRunStatus(status: string): string {
@@ -90,6 +140,13 @@ function formatRunId(runId: string): string {
   return runId.length > 10 ? runId.slice(-8) : runId;
 }
 
+function formatRunNumber(runNumber: number | null | undefined, runId: string): string {
+  if (typeof runNumber === "number") {
+    return `#${runNumber}`;
+  }
+  return `#${formatRunId(runId)}`;
+}
+
 export function Component() {
   const navigate = useNavigate();
   const createWorkflow = useCreateWorkflow();
@@ -97,10 +154,12 @@ export function Component() {
   const { activeRuns, subscribeToRunStream, isLoading, isError: isRunsError } = useActiveRuns();
   const { data, isPending, isError, refetch } = useDashboardKPIs();
   const { data: attentionData } = useAttentionItems();
+  const { data: recentRunsData } = useRecentRuns(50);
   const attentionItems = attentionData?.items ?? [];
   const visibleAttentionItems = attentionItems.slice(0, 3);
   const visibleActiveRuns = activeRuns.slice(0, 5);
   const eventSourcesRef = useRef<Map<string, EventSource>>(new Map());
+  const recentRunsById = new Map((recentRunsData?.items ?? []).map((run) => [run.id, run]));
 
   // SSE: subscribe to each active run's EventSource stream
   useEffect(() => {
@@ -127,7 +186,7 @@ export function Component() {
   }, [activeRuns, subscribeToRunStream]);
 
   async function handleNewWorkflow() {
-    const result = await createWorkflow.mutateAsync({ yaml: "" });
+    const result = await createWorkflow.mutateAsync({ yaml: "", commit: false });
     navigate(`/workflows/${result.id}/edit`);
   }
 
@@ -204,7 +263,7 @@ export function Component() {
           <StatCard
             label="Eval Pass Rate"
             value={evalPassDisplay}
-            variant={eval_pass_rate != null && eval_pass_rate >= 0.8 ? "success" : "default"}
+            variant={getEvalCardVariant(eval_pass_rate, evalPassYesterday)}
             delta={evalDelta}
             deltaTone={
               eval_pass_rate != null && evalPassYesterday != null
@@ -237,7 +296,7 @@ export function Component() {
   if (runsToday === 0) {
     return (
       <div className="flex-1 flex flex-col">
-        <PageHeader title="Home" actions={headerActions} />
+        <PageHeader title="Home" subtitle={DASHBOARD_SUBTITLE} actions={headerActions} />
         {errorBanner}
         {kpiGrid}
         <div className="flex-1 flex items-center justify-center px-6 pb-8">
@@ -254,17 +313,20 @@ export function Component() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <PageHeader title="Home" actions={headerActions} />
+      <PageHeader title="Home" subtitle={DASHBOARD_SUBTITLE} actions={headerActions} />
       {errorBanner}
       {kpiGrid}
       <div className="space-y-6 px-6 pb-8">
         {attentionItems.length > 0 && (
           <section aria-label="Items needing attention" className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-mono text-xs text-muted uppercase tracking-wider">ATTENTION</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-heading">
+                <span className="sr-only font-mono text-xs uppercase tracking-wider text-muted">ATTENTION</span>
+                Attention
+              </h2>
               {attentionItems.length > 3 && (
                 <button
-                  className="text-xs text-muted hover:text-primary"
+                  className="text-sm font-medium text-interactive-default hover:text-accent-11"
                   onClick={() => navigate("/runs?attention=only")}
                 >
                   see all →
@@ -274,28 +336,35 @@ export function Component() {
             <div className="space-y-2">
               {visibleAttentionItems.map((item) => {
                 const isInfo = item.type === "new_baseline";
+                const runInfo = recentRunsById.get(item.run_id);
                 return (
                   <Card
                     key={`${item.run_id}-${item.type}`}
                     interactive
-                    className="px-3 py-3"
+                    className="rounded-md bg-surface-tertiary px-3 py-3"
                     onClick={() => navigate(`/runs/${item.run_id}`)}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={isInfo ? "mt-0.5 text-info-11" : "mt-0.5 text-warning-11"}>
-                        {isInfo ? (
-                          <Activity className="h-4 w-4" />
-                        ) : (
-                          <AlertTriangle className="h-4 w-4" />
-                        )}
+                      <div
+                        className={
+                          isInfo
+                            ? "flex size-8 shrink-0 items-center justify-center rounded-full bg-info-3 text-info-11"
+                            : "flex size-8 shrink-0 items-center justify-center rounded-full bg-warning-3 text-warning-11"
+                        }
+                      >
+                        {isInfo ? <Activity className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                           <div className="min-w-0">
-                            <p className="text-sm font-medium leading-5 text-heading">{item.title}</p>
-                            <p className="mt-1 line-clamp-2 text-sm leading-5 text-secondary">{item.description}</p>
+                            <p className="text-sm font-medium leading-5 text-heading">
+                              {formatAttentionTitle(item.title, runInfo)}
+                            </p>
+                            <p className="mt-0.5 line-clamp-2 text-2xs leading-5 text-muted">
+                              {formatAttentionDescription(item.title, item.description)}
+                            </p>
                           </div>
-                          <Badge variant={isInfo ? "info" : "warning"} className="w-fit">
+                          <Badge variant={isInfo ? "info" : "warning"} className="w-fit shrink-0">
                             {formatAttentionType(item.type)}
                           </Badge>
                         </div>
@@ -309,13 +378,14 @@ export function Component() {
         )}
         {(isLoading || activeRuns.length > 0) && (
           <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-mono text-xs text-muted uppercase tracking-wider">
-                ACTIVE RUNS
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-heading">
+                <span className="sr-only font-mono text-xs uppercase tracking-wider text-muted">ACTIVE RUNS</span>
+                Active Runs
               </h2>
               {activeRuns.length > 5 && (
                 <button
-                  className="text-xs text-muted hover:text-primary"
+                  className="text-sm font-medium text-interactive-default hover:text-accent-11"
                   onClick={() => navigate("/runs?status=active")}
                 >
                   see all →
@@ -323,11 +393,21 @@ export function Component() {
               )}
             </div>
             <Card className="overflow-hidden">
-              <Table>
+              <Table className="table-fixed">
+                <colgroup>
+                  <col style={{ width: "40px" }} />
+                  <col style={{ width: "42%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "22%" }} />
+                </colgroup>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-10">
+                      <span className="sr-only">Status</span>
+                    </TableHead>
                     <TableHead>Workflow</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Run</TableHead>
                     <TableHead className="text-right">Elapsed</TableHead>
                     <TableHead className="text-right">Cost</TableHead>
                   </TableRow>
@@ -336,12 +416,12 @@ export function Component() {
                   {isLoading ? (
                     <>
                       <TableRow className="hover:bg-transparent">
-                        <TableCell colSpan={4} className="py-3">
+                        <TableCell colSpan={5} className="py-3">
                           <Skeleton className="h-10 w-full" />
                         </TableCell>
                       </TableRow>
                       <TableRow className="hover:bg-transparent">
-                        <TableCell colSpan={4} className="py-3">
+                        <TableCell colSpan={5} className="py-3">
                           <Skeleton className="h-10 w-full" />
                         </TableCell>
                       </TableRow>
@@ -350,34 +430,36 @@ export function Component() {
                     visibleActiveRuns.map((run) => (
                       <TableRow
                         key={run.id}
-                        className="cursor-pointer"
-                        onClick={() =>
-                          navigate(`/workflows/${run.workflow_id}/edit`, {
-                            state: { run_id: run.id },
-                          })
-                        }
+                        className="cursor-pointer bg-surface-primary hover:bg-surface-primary"
+                        onClick={() => navigate(`/runs/${run.id}`)}
                       >
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-sm font-medium text-heading">{run.workflow_name}</span>
-                            <span className="font-mono text-xs text-muted">
-                              Run {formatRunId(run.id)}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="inline-flex items-center gap-2">
+                        <TableCell className="align-middle">
+                          <div className="flex items-center justify-center">
                             <StatusDot
                               variant={run.status === "running" ? "active" : "neutral"}
                               animate={run.status === "running" ? "pulse" : "none"}
+                              title={formatRunStatus(run.status)}
                             />
-                            <span className="text-sm text-primary">{formatRunStatus(run.status)}</span>
+                            <span className="sr-only">{formatRunStatus(run.status)}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm text-muted">
+                        <TableCell>
+                          <span className="font-medium text-heading">{run.workflow_name}</span>
+                        </TableCell>
+                        <TableCell data-type="id" className="text-muted">
+                          {formatRunNumber(run.run_number, run.id)}
+                        </TableCell>
+                        <TableCell data-type="metric" className="text-right text-muted">
                           {formatElapsed(run.started_at)}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm text-muted">
+                        <TableCell
+                          data-type="metric"
+                          className={
+                            run.status === "running"
+                              ? "text-right text-success-11"
+                              : "text-right text-muted"
+                          }
+                        >
                           {formatCost(run.total_cost_usd)}
                         </TableCell>
                       </TableRow>

@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { runsApi, type RunQueryParams } from "../api/runs";
 import { queryKeys } from "./keys";
 
+const PRODUCTION_RUN_SOURCES = new Set(["manual", "webhook", "schedule"]);
+
 export function useRuns(
   params?: RunQueryParams,
   options?: { refetchInterval?: number | false }
@@ -105,18 +107,44 @@ export function useActiveRuns() {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: [...queryKeys.runs.all, { status: ["running", "pending"] }],
+    queryKey: [
+      ...queryKeys.runs.all,
+      {
+        status: ["running", "pending"],
+        source: ["manual", "webhook", "schedule"],
+        branch: "main",
+      },
+    ],
     queryFn: () => {
       const params = new URLSearchParams();
       params.append("status", "running");
       params.append("status", "pending");
+      params.append("source", "manual");
+      params.append("source", "webhook");
+      params.append("source", "schedule");
+      params.append("branch", "main");
       return runsApi.listRuns(params);
     },
     refetchInterval: 5000,
     refetchIntervalInBackground: false,
   });
 
-  const activeRuns = useMemo(() => query.data?.items ?? [], [query.data?.items]);
+  const activeRuns = useMemo(
+    () =>
+      [...(query.data?.items ?? [])]
+        .filter((run) => run.branch === "main" && PRODUCTION_RUN_SOURCES.has(run.source))
+        .sort((left, right) => {
+          const leftPriority = left.status === "running" ? 0 : 1;
+          const rightPriority = right.status === "running" ? 0 : 1;
+
+          if (leftPriority !== rightPriority) {
+            return leftPriority - rightPriority;
+          }
+
+          return right.created_at - left.created_at;
+        }),
+    [query.data?.items],
+  );
 
   // SSE: subscribe to each active run's stream for real-time updates
   // Connect EventSource to /api/runs/${run.id}/stream for each active run

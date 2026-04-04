@@ -67,6 +67,24 @@ const mocks = vi.hoisted(() => ({
       created_at: 1_774_407_199,
     },
   ],
+  attentionItems: {
+    items: [
+      {
+        run_id: "run_research_7",
+        workflow_id: "wf_research",
+        type: "assertion_regression",
+        title: "Research & Review · score",
+        description: "Eval failed on the latest production run.",
+      },
+      {
+        run_id: "run_pipeline_12",
+        workflow_id: "wf_pipeline",
+        type: "quality_drop",
+        title: "Content Pipeline · score",
+        description: "Eval score dropped vs the previous production run.",
+      },
+    ] as Array<Record<string, unknown>>,
+  },
   runsQueryCalls: [] as unknown[],
   refetchRuns: vi.fn(),
   runsQueryState: {
@@ -122,6 +140,37 @@ function getWorkflowParam(params: unknown): string | null {
   return null;
 }
 
+function getStatusParams(params: unknown): string[] {
+  if (params instanceof URLSearchParams) {
+    return params.getAll("status");
+  }
+
+  if (params && typeof params === "object") {
+    const record = params as Record<string, unknown>;
+    if (Array.isArray(record.status)) {
+      return record.status.filter((value): value is string => typeof value === "string");
+    }
+    if (typeof record.status === "string") {
+      return [record.status];
+    }
+  }
+
+  return [];
+}
+
+function getBranchParam(params: unknown): string | null {
+  if (params instanceof URLSearchParams) {
+    return params.get("branch");
+  }
+
+  if (params && typeof params === "object") {
+    const record = params as Record<string, unknown>;
+    return typeof record.branch === "string" ? record.branch : null;
+  }
+
+  return null;
+}
+
 function buildRunList(items: Array<Record<string, unknown>>) {
   return {
     items,
@@ -140,6 +189,7 @@ vi.mock("@/queries/runs", () => ({
     mocks.runsQueryCalls.push(params);
     const requestedSources = normalizeSources(params);
     const workflowId = getWorkflowParam(params);
+    const statuses = getStatusParams(params);
 
     let items = requestedSources.length === 0
       ? [...mocks.productionRuns]
@@ -150,6 +200,10 @@ vi.mock("@/queries/runs", () => ({
       items = items.filter((r) => r.workflow_id === workflowId);
     }
 
+    if (statuses.includes("running") || statuses.includes("pending")) {
+      items = items.filter((r) => ["running", "pending"].includes(String(r.status)));
+    }
+
     return {
       data: mocks.runsQueryState.data ?? buildRunList(items),
       isLoading: mocks.runsQueryState.isLoading,
@@ -157,6 +211,10 @@ vi.mock("@/queries/runs", () => ({
       refetch: mocks.refetchRuns,
     };
   },
+}));
+
+vi.mock("@/queries/dashboard", () => ({
+  useAttentionItems: () => ({ data: mocks.attentionItems }),
 }));
 
 vi.mock("@runsight/ui/skeleton", () => ({
@@ -217,6 +275,22 @@ beforeEach(() => {
   mocks.runsQueryState.data = null;
   mocks.runsQueryState.isLoading = false;
   mocks.runsQueryState.error = null;
+  mocks.attentionItems.items = [
+    {
+      run_id: "run_research_7",
+      workflow_id: "wf_research",
+      type: "assertion_regression",
+      title: "Research & Review · score",
+      description: "Eval failed on the latest production run.",
+    },
+    {
+      run_id: "run_pipeline_12",
+      workflow_id: "wf_pipeline",
+      type: "quality_drop",
+      title: "Content Pipeline · score",
+      description: "Eval score dropped vs the previous production run.",
+    },
+  ];
 });
 
 /* ------------------------------------------------------------------ */
@@ -373,6 +447,89 @@ describe("RUN-562 filtered page header", () => {
     expect(heading.textContent).toBe("Runs");
     expect(screen.queryByRole("button", { name: /clear/i })).toBeNull();
   });
+
+  it('shows "Runs — Attention" when the attention filter is active', async () => {
+    await renderRunsRoute("/runs?attention=only");
+
+    const heading = await screen.findByRole("heading", { level: 1 });
+    expect(heading.textContent).toBe("Runs — Attention");
+  });
+
+  it("lets the user toggle the attention filter directly from the runs page", async () => {
+    const { router, user } = await renderRunsRoute("/runs");
+
+    const attentionButton = await screen.findByRole("button", {
+      name: "Needs attention",
+    });
+
+    await user.click(attentionButton);
+
+    await waitFor(() => {
+      expect(router.state?.location.search).toContain("attention=only");
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+        "Runs — Attention",
+      );
+    });
+
+    await user.click(screen.getByRole("button", { name: "Needs attention" }));
+
+    await waitFor(() => {
+      expect(router.state?.location.search).not.toContain("attention=only");
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Runs");
+    });
+  });
+
+  it("filters runs using the dashboard attention feed", async () => {
+    await renderRunsRoute("/runs?attention=only");
+
+    await waitFor(() => {
+      expect(screen.getByText("Research & Review")).toBeTruthy();
+      expect(screen.getByText("Content Pipeline")).toBeTruthy();
+    });
+
+    expect(screen.queryByText("Daily Digest")).toBeNull();
+  });
+
+  it('shows "Runs — Active" when the active filter is active', async () => {
+    await renderRunsRoute("/runs?status=active");
+
+    const heading = await screen.findByRole("heading", { level: 1 });
+    expect(heading.textContent).toBe("Runs — Active");
+  });
+
+  it("lets the user toggle the active filter directly from the runs page", async () => {
+    const { router, user } = await renderRunsRoute("/runs");
+
+    const activeButton = await screen.findByRole("button", {
+      name: "Active",
+    });
+
+    await user.click(activeButton);
+
+    await waitFor(() => {
+      expect(router.state?.location.search).toContain("status=active");
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+        "Runs — Active",
+      );
+    });
+
+    await user.click(screen.getByRole("button", { name: "Active" }));
+
+    await waitFor(() => {
+      expect(router.state?.location.search).not.toContain("status=active");
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Runs");
+    });
+  });
+
+  it("passes branch=main when the active filter is active", async () => {
+    await renderRunsRoute("/runs?status=active");
+
+    await waitFor(() => {
+      const lastCall = mocks.runsQueryCalls.at(-1);
+      expect(getStatusParams(lastCall)).toEqual(["running", "pending"]);
+      expect(getBranchParam(lastCall)).toBe("main");
+    });
+  });
 });
 
 /* ================================================================== */
@@ -403,8 +560,8 @@ describe("RUN-562 Regressions column", () => {
     });
 
     // Research & Review has regression_count: 3
-    expect(within(researchRow).getByText(/⚠/)).toBeTruthy();
     expect(within(researchRow).getByText(/3/)).toBeTruthy();
+    expect(researchRow.querySelector("svg")).toBeTruthy();
   });
 
   /* ================================================================ */

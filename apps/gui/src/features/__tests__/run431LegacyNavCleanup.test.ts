@@ -51,6 +51,7 @@ vi.mock("@/queries/workflows", () => ({
 vi.mock("@/queries/dashboard", () => ({
   useDashboardKPIs: () => mocks.dashboardKpis,
   useAttentionItems: () => mocks.attentionItems,
+  useRecentRuns: () => ({ data: { items: [], total: 0 } }),
 }));
 
 vi.mock("@/queries/runs", () => ({
@@ -155,7 +156,7 @@ describe("RUN-431 dashboard list-navigation cleanup", () => {
     expect(screen.getByText("location:/flows")).toBeTruthy();
   });
 
-  it('sends the attention overflow "see all" action directly to /runs', async () => {
+  it('sends the attention overflow "see all" action directly to the attention filter', async () => {
     mocks.dashboardKpis.data = {
       runs_today: 4,
       cost_today_usd: 1.25,
@@ -177,9 +178,9 @@ describe("RUN-431 dashboard list-navigation cleanup", () => {
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/runs");
-      expect(router.state.location.search).toBe("");
+      expect(router.state.location.search).toBe("?attention=only");
     });
-    expect(screen.getByText("location:/runs")).toBeTruthy();
+    expect(screen.getByText("location:/runs?attention=only")).toBeTruthy();
   });
 });
 

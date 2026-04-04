@@ -82,11 +82,10 @@ function getProviderLogoTone(name: string): CSSProperties {
     (acc, char) => acc + char.charCodeAt(0),
     0,
   );
-  return PROVIDER_LOGO_TONES[hash % PROVIDER_LOGO_TONES.length];
+  return PROVIDER_LOGO_TONES[hash % PROVIDER_LOGO_TONES.length] ?? PROVIDER_LOGO_TONES[0];
 }
 
 function ProviderLogo({ name }: { name: string }) {
-
   return (
     <div
       style={getProviderLogoTone(name)}

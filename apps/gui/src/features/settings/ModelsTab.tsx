@@ -42,10 +42,10 @@ function FallbackTargetRow({
   onClear: (providerId: string) => Promise<void>;
 }) {
   const [draftFallbackProvider, setDraftFallbackProvider] = useState<string | null>(
-    fallbackTarget.fallback_provider_id,
+    fallbackTarget.fallback_provider_id ?? null,
   );
   const [draftFallbackModel, setDraftFallbackModel] = useState<string | null>(
-    fallbackTarget.fallback_model_id,
+    fallbackTarget.fallback_model_id ?? null,
   );
   const selectedFallbackProvider = useMemo(
     () => enabledSiblingProviders.find((provider) => provider.id === draftFallbackProvider) ?? null,
@@ -53,8 +53,8 @@ function FallbackTargetRow({
   );
 
   useEffect(() => {
-    setDraftFallbackProvider(fallbackTarget.fallback_provider_id);
-    setDraftFallbackModel(fallbackTarget.fallback_model_id);
+    setDraftFallbackProvider(fallbackTarget.fallback_provider_id ?? null);
+    setDraftFallbackModel(fallbackTarget.fallback_model_id ?? null);
   }, [fallbackTarget.fallback_model_id, fallbackTarget.fallback_provider_id]);
 
   const handleFallbackProviderChange = useCallback(

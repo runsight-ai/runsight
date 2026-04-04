@@ -8,7 +8,7 @@
  * AC2: "ACTIVE RUNS" section label exists in the dashboard
  * AC3: useActiveRuns hook exists and queries with status filter
  * AC4: StatusDot has animate="pulse" for running runs
- * AC5: Click navigates to /workflows/:id/edit
+ * AC5: Click navigates to /runs/:id
  * AC6: Section hidden when no active runs (conditional rendering)
  * AC7: useNavigate used for run click navigation
  * AC9: Run removed from active list when completed/failed via SSE
@@ -103,12 +103,12 @@ describe("Dashboard imports StatusDot (AC1)", () => {
 // 3. "ACTIVE RUNS" section label (AC2)
 // ===========================================================================
 
-describe("ACTIVE RUNS section label (AC2)", () => {
+describe("Active Runs section label (AC2)", () => {
   let source: string;
 
-  it("contains 'ACTIVE RUNS' text in the dashboard", () => {
+  it("contains Active Runs text in the dashboard", () => {
     source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/ACTIVE RUNS/);
+    expect(source).toMatch(/Active Runs/);
   });
 
   it("uses monospace and muted styling for the label", () => {
@@ -147,10 +147,10 @@ describe("StatusDot animate='pulse' for running (AC4)", () => {
 });
 
 // ===========================================================================
-// 5. Click navigates to workflow canvas (AC5, AC7)
+// 5. Click navigates to run detail (AC5, AC7)
 // ===========================================================================
 
-describe("Click navigates to /workflows/:id/edit (AC5, AC7)", () => {
+describe("Click navigates to /runs/:id (AC5, AC7)", () => {
   let source: string;
 
   it("imports useNavigate from react-router", () => {
@@ -158,11 +158,9 @@ describe("Click navigates to /workflows/:id/edit (AC5, AC7)", () => {
     expect(source).toMatch(/import.*useNavigate.*from\s*["']react-router["']/);
   });
 
-  it("navigates to /workflows/:id/edit using run's workflow_id", () => {
+  it("navigates to /runs/:id using the run id", () => {
     source = readSource(DASHBOARD_PATH);
-    // Should build a path like `/workflows/${run.workflow_id}/edit`
-    // This must reference workflow_id from the run object (not from workflow creation)
-    expect(source).toMatch(/workflow_id.*\/edit|\/workflows\/\$\{.*workflow_id/);
+    expect(source).toMatch(/\/runs\/\$\{.*run\.id|navigate\(\s*`\/runs\/\$\{run\.id\}`/);
   });
 
   it("has an onClick handler on the active run row", () => {

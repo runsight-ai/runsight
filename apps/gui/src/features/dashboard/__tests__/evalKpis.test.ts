@@ -6,7 +6,7 @@
  *
  * AC1: StatCard for "Eval Pass" shows percentage format (not "—") when data exists
  * AC2: StatCard for "Regressions" uses "success" variant when 0, "warning" when >0
- * AC3: Eval Pass StatCard uses "success" variant when >= 80%
+ * AC3: Eval Pass stripe is driven by delta thresholds
  *
  * Expected failures (current state):
  *   - Eval Pass card has no variant logic (always "default")
@@ -98,10 +98,10 @@ describe("Regressions StatCard variant logic (AC2)", () => {
 });
 
 // ===========================================================================
-// 3. Eval Pass uses "success" variant when >= 80% (AC3)
+// 3. Eval Pass stripe is driven by delta: <= -10 warning, >= +5 success, else default
 // ===========================================================================
 
-describe("Eval Pass StatCard uses success variant for high pass rate (AC3)", () => {
+describe("Eval Pass StatCard variant logic (AC3)", () => {
   it('Eval Pass card has variant logic (not always "default")', () => {
     const source = readSource(DASHBOARD_PATH);
     // The Eval Pass Rate StatCard should have a variant prop that is conditionally set.
@@ -116,29 +116,30 @@ describe("Eval Pass StatCard uses success variant for high pass rate (AC3)", () 
     expect(cardTag).toMatch(/variant\s*=/);
   });
 
-  it('uses "success" variant when eval_pass_rate >= 0.8', () => {
+  it('uses "warning" only when eval pass rate drops by at least 10 points', () => {
     const source = readSource(DASHBOARD_PATH);
-    // Pattern: eval_pass_rate >= 0.8 ? "success" : "default"
-    // or: eval_pass_rate != null && eval_pass_rate >= 0.8 ? "success" : ...
-    const hasSuccessThreshold =
-      /eval.*pass.*>=?\s*0\.8.*["']success["']/.test(source) ||
-      /eval.*pass.*>=?\s*80.*["']success["']/.test(source);
+    const hasDeclineWarning =
+      /delta\s*<=\s*-EVAL_KPI_WARNING_THRESHOLD[\s\S]*return\s+["']warning["']/.test(source) ||
+      /getEvalCardVariant[\s\S]*delta\s*<=\s*-EVAL_KPI_WARNING_THRESHOLD[\s\S]*["']warning["']/.test(source);
     expect(
-      hasSuccessThreshold,
-      'Expected "success" variant when eval pass rate >= 80%',
+      hasDeclineWarning,
+      'Expected "warning" variant only for 10+ point eval pass rate drops',
     ).toBe(true);
   });
 
-  it('uses "default" or "neutral" variant when eval_pass_rate < 80%', () => {
+  it('uses "success" only when eval pass rate improves by at least 5 points', () => {
     const source = readSource(DASHBOARD_PATH);
-    // The eval pass card should not show success when below threshold
-    // Should have a conditional: >= 0.8 ? "success" : "default"
-    const hasConditional =
-      /eval.*pass.*>=?\s*0\.8\s*\?\s*["']success["']\s*:\s*["']default["']/.test(source) ||
-      /eval.*pass.*>=?\s*80\s*\?\s*["']success["']\s*:\s*["']default["']/.test(source);
+    const hasHealthySuccess =
+      /delta\s*>=\s*EVAL_KPI_SUCCESS_THRESHOLD[\s\S]*return\s+["']success["']/.test(source) ||
+      /getEvalCardVariant[\s\S]*delta\s*>=\s*EVAL_KPI_SUCCESS_THRESHOLD[\s\S]*["']success["']/.test(source);
     expect(
-      hasConditional,
-      "Expected conditional variant with default fallback for < 80% pass rate",
+      hasHealthySuccess,
+      'Expected "success" variant for 5+ point eval pass rate increases',
     ).toBe(true);
+  });
+
+  it('uses "default" when eval pass rate change stays between the warning and success thresholds', () => {
+    const source = readSource(DASHBOARD_PATH);
+    expect(source).toMatch(/return\s+["']default["']/);
   });
 });

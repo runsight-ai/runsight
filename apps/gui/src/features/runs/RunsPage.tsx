@@ -24,6 +24,7 @@ import { AlertTriangle, ChevronDown, Play, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useRuns } from "@/queries/runs";
+import { useAttentionItems } from "@/queries/dashboard";
 import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
 
 type SortColumn =
@@ -124,25 +125,10 @@ function EvalCell({ evalPassPct }: { evalPassPct: number | null | undefined }) {
   }
 
   const formattedEval = formatEval(evalPassPct);
-
-  if (evalPassPct >= 90) {
-    return <Badge variant="success">{formattedEval}</Badge>;
-  }
-
-  const variant = evalPassPct >= 75 ? "warning" : "danger";
-
   return (
-    <Badge
-      variant={variant}
-      aria-label={formattedEval}
-      title={formattedEval}
-    >
-      <span
-        aria-hidden="true"
-        className="before:content-[attr(data-eval)]"
-        data-eval={formattedEval}
-      />
-    </Badge>
+    <span className="text-primary" aria-label={formattedEval} title={formattedEval}>
+      {formattedEval}
+    </span>
   );
 }
 
@@ -233,10 +219,13 @@ export function Component() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const workflowFilter = searchParams.get("workflow");
+  const attentionOnly = searchParams.get("attention") === "only";
+  const activeOnly = searchParams.get("status") === "active";
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("production");
   const [sortColumn, setSortColumn] = useState<SortColumn>("started");
   const [sortDirection, setSortDirection] = useState<SortDirection>("descending");
+  const { data: attentionData } = useAttentionItems(100);
 
   const queryParams = useMemo(() => {
     const params: Record<string, string | string[]> =
@@ -246,9 +235,22 @@ export function Component() {
       params.workflow_id = workflowFilter;
     }
 
+    if (activeOnly) {
+      params.status = ["running", "pending"];
+      params.branch = "main";
+    }
+
+    if (attentionOnly) {
+      params.limit = "100";
+    }
+
     return Object.keys(params).length > 0 ? params : undefined;
-  }, [sourceFilter, workflowFilter]);
+  }, [activeOnly, attentionOnly, sourceFilter, workflowFilter]);
   const { data, isLoading, error, refetch } = useRuns(queryParams);
+  const attentionRunIds = useMemo(
+    () => new Set((attentionData?.items ?? []).map((item) => item.run_id)),
+    [attentionData?.items],
+  );
   const visibleColumns = useMemo(
     () =>
       sourceFilter === "all"
@@ -262,10 +264,36 @@ export function Component() {
     ? runs[0]?.workflow_name ?? workflowFilter
     : null;
 
-  const clearWorkflowFilter = () => {
+  const clearFilters = () => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete("workflow");
+      next.delete("attention");
+      next.delete("status");
+      return next;
+    });
+  };
+
+  const setAttentionFilter = (enabled: boolean) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (enabled) {
+        next.set("attention", "only");
+      } else {
+        next.delete("attention");
+      }
+      return next;
+    });
+  };
+
+  const setActiveFilter = (enabled: boolean) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (enabled) {
+        next.set("status", "active");
+      } else {
+        next.delete("status");
+      }
       return next;
     });
   };
@@ -275,15 +303,18 @@ export function Component() {
     const matchingRuns = normalizedQuery
       ? runs.filter((run) => run.workflow_name.toLowerCase().includes(normalizedQuery))
       : runs;
+    const attentionFilteredRuns = attentionOnly
+      ? matchingRuns.filter((run) => attentionRunIds.has(run.id))
+      : matchingRuns;
 
-    return [...matchingRuns].sort((left, right) =>
+    return [...attentionFilteredRuns].sort((left, right) =>
       compareValues(
         getSortValue(left, sortColumn),
         getSortValue(right, sortColumn),
         sortDirection,
       ),
     );
-  }, [runs, searchQuery, sortColumn, sortDirection]);
+  }, [attentionOnly, attentionRunIds, runs, searchQuery, sortColumn, sortDirection]);
 
   const handleSort = (column: SortColumn) => {
     if (column === sortColumn) {
@@ -311,15 +342,23 @@ export function Component() {
   return (
     <div className="flex h-full flex-col bg-surface-primary">
       <PageHeader
-        title={filteredWorkflowName ? `Runs \u2014 ${filteredWorkflowName}` : "Runs"}
+        title={
+          filteredWorkflowName
+            ? `Runs \u2014 ${filteredWorkflowName}`
+            : attentionOnly
+              ? "Runs \u2014 Attention"
+              : activeOnly
+                ? "Runs \u2014 Active"
+                : "Runs"
+        }
         actions={
-          filteredWorkflowName ? (
+          filteredWorkflowName || attentionOnly || activeOnly ? (
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label="Clear workflow filter"
-              onClick={clearWorkflowFilter}
+              aria-label="Clear run filters"
+              onClick={clearFilters}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -366,6 +405,24 @@ export function Component() {
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button
+              type="button"
+              variant={activeOnly ? "secondary" : "ghost"}
+              aria-pressed={activeOnly}
+              onClick={() => setActiveFilter(!activeOnly)}
+              className="w-full md:w-auto"
+            >
+              Active
+            </Button>
+            <Button
+              type="button"
+              variant={attentionOnly ? "secondary" : "ghost"}
+              aria-pressed={attentionOnly}
+              onClick={() => setAttentionFilter(!attentionOnly)}
+              className="w-full md:w-auto"
+            >
+              Needs attention
+            </Button>
           </div>
 
           <div className="flex-1 pt-4">
@@ -396,8 +453,12 @@ export function Component() {
             ) : filteredRuns.length === 0 ? (
               <EmptyState
                 icon={Play}
-                title="No matching runs"
-                description="Try another workflow name."
+                title={attentionOnly ? "No runs need attention" : "No matching runs"}
+                description={
+                  attentionOnly
+                    ? "Production runs with dashboard attention items will appear here."
+                    : "Try another workflow name."
+                }
               />
             ) : (
               <div className="overflow-hidden rounded-lg border border-border-default bg-surface-secondary">
@@ -416,7 +477,14 @@ export function Component() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRuns.map((run) => (
+                    {filteredRuns.map((run) => {
+                      const rowHasAttention =
+                        run.source !== "simulation" && attentionRunIds.has(run.id);
+                      const firstCellClass = rowHasAttention
+                        ? "border-l-[3px] border-l-[var(--warning-9)]"
+                        : undefined;
+
+                      return (
                       <TableRow
                         key={run.id}
                         className={
@@ -433,7 +501,7 @@ export function Component() {
                           }
                         }}
                       >
-                        <TableCell>
+                        <TableCell className={firstCellClass}>
                           <Badge variant={getRunStatusVariant(run.status)}>
                             <BadgeDot />
                             {run.status}
@@ -486,7 +554,8 @@ export function Component() {
                         </TableCell>
                         <TableCell data-type="timestamp">{formatStartedAt(run.started_at)}</TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

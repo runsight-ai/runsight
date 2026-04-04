@@ -89,6 +89,9 @@ const mocks = vi.hoisted(() => ({
     isLoading: false,
     error: null as Error | null,
   },
+  attentionItems: {
+    items: [] as Array<Record<string, unknown>>,
+  },
 }));
 
 function normalizeSources(params: unknown): string[] {
@@ -155,6 +158,10 @@ vi.mock("@/queries/runs", () => ({
   },
 }));
 
+vi.mock("@/queries/dashboard", () => ({
+  useAttentionItems: () => ({ data: mocks.attentionItems }),
+}));
+
 vi.mock("@runsight/ui/skeleton", () => ({
   Skeleton: (props: Record<string, unknown>) =>
     React.createElement("div", {
@@ -215,6 +222,7 @@ beforeEach(() => {
   mocks.runsQueryState.data = null;
   mocks.runsQueryState.isLoading = false;
   mocks.runsQueryState.error = null;
+  mocks.attentionItems.items = [];
 });
 
 async function renderRunsRoute(initialPath = "/runs") {
