@@ -77,6 +77,12 @@ class Run(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 
+    # Nested-run linkage (RUN-607)
+    parent_run_id: Optional[str] = Field(default=None)
+    parent_node_id: Optional[str] = Field(default=None)
+    root_run_id: Optional[str] = Field(default=None)
+    depth: int = Field(default=0)
+
 
 class RunNode(SQLModel, table=True):
     id: str = Field(primary_key=True)  # Composite: {run_id}:{node_id}
@@ -104,6 +110,9 @@ class RunNode(SQLModel, table=True):
     eval_results: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
+
+    # Nested-run linkage (RUN-607)
+    child_run_id: Optional[str] = Field(default=None)
 
 
 class BaselineStats(BaseModel):
