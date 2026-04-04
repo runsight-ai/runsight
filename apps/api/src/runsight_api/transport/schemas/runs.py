@@ -36,6 +36,9 @@ class RunResponse(BaseModel):
     eval_pass_pct: Optional[float] = None
     regression_count: Optional[int] = None
     node_summary: Optional[NodeSummary] = None
+    parent_run_id: Optional[str] = None
+    root_run_id: Optional[str] = None
+    depth: int = 0
 
 
 class RunListResponse(BaseModel):
@@ -63,6 +66,8 @@ class RunNodeResponse(BaseModel):
     eval_score: Optional[float] = None
     eval_passed: Optional[bool] = None
     eval_results: Optional[Dict[str, Any]] = None
+    child_run_id: Optional[str] = None
+    exit_handle: Optional[str] = None
 
 
 class LogResponse(BaseModel):
