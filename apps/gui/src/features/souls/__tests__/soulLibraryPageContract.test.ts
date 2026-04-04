@@ -35,20 +35,24 @@ const mocks = vi.hoisted(() => ({
       {
         id: "soul_alpha",
         role: "Researcher",
+        system_prompt: "You are a senior researcher.",
         model_name: "gpt-4o",
         provider: "openai",
         avatar_color: "info",
         tools: ["http", "request_lookup", "python_helper"],
         workflow_count: 10,
+        modified_at: 1_775_000_000,
       },
       {
         id: "soul_beta",
         role: "Analyst",
+        system_prompt: "",
         model_name: "claude-3-5-sonnet",
         provider: "anthropic",
         avatar_color: "success",
         tools: ["orphaned_tool"],
         workflow_count: 2,
+        modified_at: 1_774_000_000,
       },
     ],
     isLoading: false,
@@ -130,17 +134,25 @@ describe("RUN-452 SoulLibraryPage behavior", () => {
     const tableProps = mocks.dataTableProps[0] as {
       columns: Array<{ key: string; header: string; sortable?: boolean }>;
       data: Array<Record<string, unknown>>;
+      searchable?: boolean;
+      searchPlaceholder?: string;
+      variant?: string;
+      emptyState?: unknown;
       onRowClick?: (row: Record<string, unknown>) => void;
     };
 
     expect(tableProps.columns.map((column) => column.header)).toEqual(
-      expect.arrayContaining(["Name", "Model", "Provider", "Tools", "Used In"]),
+      expect.arrayContaining(["Name", "Model", "Provider", "Tools", "Used In", "Modified"]),
     );
-    expect(tableProps.columns.some((column) => /Last Modified/i.test(column.header))).toBe(false);
+    expect(tableProps.columns.some((column) => column.header === "Modified")).toBe(true);
     expect(tableProps.columns.some((column) => column.header === "Used In")).toBe(true);
     expect(tableProps.data).toEqual(mocks.soulsQuery.data);
+    expect(tableProps.searchable).toBe(true);
+    expect(tableProps.searchPlaceholder).toBe("Search souls...");
+    expect(tableProps.variant).toBe("minimal");
+    expect(tableProps.emptyState).toBeTruthy();
     expect(String(tableProps.columns.find((column) => column.header === "Name")?.render)).toMatch(
-      /avatar_color|bg-|charAt|toUpperCase|text-on-accent/,
+      /avatar_color|bg-|charAt|toUpperCase|text-on-accent|system_prompt/,
     );
   });
 

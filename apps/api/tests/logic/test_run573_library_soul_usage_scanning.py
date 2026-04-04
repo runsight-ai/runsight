@@ -4,6 +4,7 @@ Verify that _extract_workflow_soul_ids() and its consumers work correctly
 under the library-only model (no inline souls: section in workflows).
 """
 
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -191,6 +192,32 @@ blocks:
         web_researcher = result[0]
         assert web_researcher.workflow_count == 1
 
+    def test_soul_ref_matches_filename_stem_when_yaml_id_differs(self):
+        """Workflow soul_ref values should match the soul filename stem, not only the embedded YAML id."""
+        soul_repo = Mock()
+        workflow_repo = Mock()
+        souls = [SoulEntity(id="researcher_1", role="Researcher")]
+        soul_repo.list_all.return_value = souls
+        soul_repo._resolve_existing_path.side_effect = lambda soul_id: Path(
+            f"/tmp/custom/souls/{'researcher' if soul_id == 'researcher_1' else soul_id}.yaml"
+        )
+        workflow_repo.list_all.return_value = [
+            workflow_entity(
+                "wf_1",
+                "Research",
+                """
+blocks:
+  step1:
+    type: linear
+    soul_ref: researcher
+""",
+            ),
+        ]
+        service = SoulService(soul_repo)
+        result = service.list_souls(workflow_repo=workflow_repo)
+
+        assert result[0].workflow_count == 1
+
 
 # ---------------------------------------------------------------------------
 # AC3: Delete pre-check lists correct workflows for a library soul
@@ -250,6 +277,31 @@ blocks:
         assert "wf_2" not in workflow_ids
         assert "wf_3" in workflow_ids
         assert len(usages) == 2
+
+    def test_get_soul_usages_matches_filename_stem_when_yaml_id_differs(self):
+        """Usage scanning should still find workflows when the file stem and embedded soul id differ."""
+        soul_repo, service = make_service()
+        workflow_repo = Mock()
+        soul_repo.get_by_id.return_value = SoulEntity(id="researcher_1", role="Researcher")
+        soul_repo._resolve_existing_path.side_effect = lambda soul_id: Path(
+            f"/tmp/custom/souls/{'researcher' if soul_id == 'researcher_1' else soul_id}.yaml"
+        )
+        workflow_repo.list_all.return_value = [
+            workflow_entity(
+                "wf_1",
+                "Research Pipeline",
+                """
+blocks:
+  step1:
+    type: linear
+    soul_ref: researcher
+""",
+            ),
+        ]
+
+        usages = service.get_soul_usages("researcher_1", workflow_repo)
+
+        assert usages == [{"workflow_id": "wf_1", "workflow_name": "Research Pipeline"}]
 
     def test_delete_blocked_when_soul_in_use_library_only(self):
         """Delete is blocked with SoulInUse when library soul is referenced."""

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Bot, Plus } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -7,6 +7,17 @@ import { useAvailableTools, useSouls } from "@/queries/souls";
 import { useProviders } from "@/queries/settings";
 import { Badge } from "@runsight/ui/badge";
 import { Button } from "@runsight/ui/button";
+import { EmptyState } from "@runsight/ui/empty-state";
+import { Skeleton } from "@runsight/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@runsight/ui/table";
 import type { SoulListResponse, SoulResponse } from "@runsight/shared/zod";
 
 function normalizeSoulData(data: SoulListResponse | SoulResponse[] | undefined): SoulResponse[] {
@@ -65,6 +76,35 @@ function formatMetadataLabel(value: string, kind: "origin" | "executor"): string
     .join(" ");
 }
 
+function formatWorkflowCount(count: number) {
+  return `${count} workflow${count === 1 ? "" : "s"}`;
+}
+
+function formatRelativeTime(timestamp: number | null | undefined) {
+  if (!timestamp) {
+    return "—";
+  }
+
+  const secondsAgo = Math.max(0, Math.floor(Date.now() / 1000 - timestamp));
+
+  if (secondsAgo < 60) {
+    return "just now";
+  }
+
+  const minutesAgo = Math.floor(secondsAgo / 60);
+  if (minutesAgo < 60) {
+    return `${minutesAgo}m ago`;
+  }
+
+  const hoursAgo = Math.floor(minutesAgo / 60);
+  if (hoursAgo < 24) {
+    return `${hoursAgo}h ago`;
+  }
+
+  const daysAgo = Math.floor(hoursAgo / 24);
+  return `${daysAgo}d ago`;
+}
+
 function buildColumns(
   providerStateById: Map<string, { name: string; isActive: boolean }>,
   toolMetaById: Map<string, AvailableTool>,
@@ -77,19 +117,52 @@ function buildColumns(
       render: (row) => {
         const avatarColor = row.avatar_color as string | null;
         const role = (row.role as string | null) || "Unnamed Soul";
+        const hasPromptWarning = !String(row.system_prompt ?? "").trim();
         const soulInitial = role.trim().charAt(0).toUpperCase() || "S";
         return (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3.5">
             <span
-              className={`inline-flex size-6 items-center justify-center rounded-full border border-border-default text-[10px] font-semibold leading-none ${
+              className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold leading-none ${
                 avatarColor
-                  ? AVATAR_COLOR_CLASSES[avatarColor] ?? "bg-surface-tertiary text-primary"
-                  : "bg-surface-tertiary text-primary"
+                  ? AVATAR_COLOR_CLASSES[avatarColor] ?? "bg-surface-secondary text-primary"
+                  : "bg-surface-secondary text-primary"
               }`}
             >
               {soulInitial}
             </span>
-            <span>{role}</span>
+            <span className="inline-flex items-center gap-1.5 font-semibold text-heading">
+              <span>{role}</span>
+              {hasPromptWarning ? (
+                <TooltipProvider delay={200}>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <span
+                          className="inline-flex items-center"
+                          aria-label="Soul prompt warning"
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning-9" />
+                        </span>
+                      }
+                    />
+                    <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3">
+                      <div className="flex items-start gap-2.5">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-9" />
+                        <div className="min-w-0">
+                          <div className="text-md font-medium text-primary">
+                            Missing system prompt
+                          </div>
+                          <div className="mt-1 text-sm leading-5 text-secondary">
+                            This soul is incomplete for workflow use. Add a prompt before
+                            assigning it to a workflow.
+                          </div>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+            </span>
           </div>
         );
       },
@@ -98,7 +171,11 @@ function buildColumns(
       key: "model_name",
       header: "Model",
       sortable: true,
-      render: (row) => (row.model_name as string | null) || "—",
+      render: (row) => (
+        <span className="font-mono text-sm text-muted">
+          {(row.model_name as string | null) || "—"}
+        </span>
+      ),
     },
     {
       key: "provider",
@@ -107,7 +184,7 @@ function buildColumns(
       render: (row) => {
         const providerId = row.provider as string | null;
         if (!providerId) {
-          return "—";
+          return <span className="text-muted">—</span>;
         }
 
         const providerState = providerStateById.get(providerId);
@@ -116,7 +193,7 @@ function buildColumns(
 
         return (
           <div className="space-y-1">
-            <div>{providerLabel}</div>
+            <div className="text-secondary">{providerLabel}</div>
             {isDisabled ? (
               <div className="flex items-center gap-1.5 text-xs text-warning-11">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning-9" />
@@ -136,11 +213,11 @@ function buildColumns(
         const visibleTools = tools.filter((toolId) => toolId !== "delegate");
 
         if (visibleTools.length === 0) {
-          return "—";
+          return <span className="text-muted">—</span>;
         }
 
         return (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {visibleTools.map((toolId) => {
               const meta = toolMetaById.get(toolId);
               const metadataLabels = [
@@ -153,7 +230,11 @@ function buildColumns(
               ];
 
               return (
-                <Badge key={toolId} variant="outline" className="gap-1.5">
+                <Badge
+                  key={toolId}
+                  variant="outline"
+                  className="gap-1.5 border-border-subtle bg-surface-secondary text-secondary"
+                >
                   <span>{meta?.name ?? toolId}</span>
                   {metadataLabels.length > 0 ? (
                     <span className="text-muted">{metadataLabels.join(" / ")}</span>
@@ -170,9 +251,72 @@ function buildColumns(
       header: "Used In",
       sortable: true,
       sortValue: (row) => Number(row.workflow_count ?? 0),
-      render: (row) => String(Number(row.workflow_count ?? 0)),
+      render: (row) => {
+        const workflowCount = Number(row.workflow_count ?? 0);
+        return <span className="text-secondary">{formatWorkflowCount(workflowCount)}</span>;
+      },
+    },
+    {
+      key: "modified_at",
+      header: "Modified",
+      sortable: true,
+      sortValue: (row) => Number(row.modified_at ?? 0),
+      render: (row) => (
+        <span className="text-muted">
+          {formatRelativeTime(row.modified_at as number | null | undefined)}
+        </span>
+      ),
     },
   ];
+}
+
+function SoulTableSkeleton() {
+  return (
+    <div className="flex flex-col gap-3">
+      <Skeleton className="h-8 w-full rounded-md" />
+      <Table>
+        <TableHeader>
+          <TableRow className="border-b border-border-subtle hover:bg-transparent">
+            {["Name", "Model", "Provider", "Tools", "Used In", "Modified"].map((header) => (
+              <TableHead key={header} className="h-9 px-2.5 border-b-0">
+                {header}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <TableRow key={index} className="h-[var(--control-height-lg)] hover:bg-transparent">
+              <TableCell className="border-b-0 px-2.5 py-0">
+                <div className="flex items-center gap-3.5">
+                  <Skeleton variant="avatar" className="size-7" />
+                  <Skeleton className="h-4 w-28" />
+                </div>
+              </TableCell>
+              <TableCell className="border-b-0 px-2.5 py-0">
+                <Skeleton className="h-4 w-20" />
+              </TableCell>
+              <TableCell className="border-b-0 px-2.5 py-0">
+                <Skeleton className="h-4 w-24" />
+              </TableCell>
+              <TableCell className="border-b-0 px-2.5 py-0">
+                <div className="flex gap-2">
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="h-5 w-14 rounded-full" />
+                </div>
+              </TableCell>
+              <TableCell className="border-b-0 px-2.5 py-0">
+                <Skeleton className="h-4 w-20" />
+              </TableCell>
+              <TableCell className="border-b-0 px-2.5 py-0">
+                <Skeleton className="h-4 w-16" />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
 }
 
 export function Component() {
@@ -195,31 +339,45 @@ export function Component() {
   const columns = buildColumns(providerStateById, toolMetaById);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-surface-primary">
       <PageHeader
         title="Souls"
-        subtitle={`${souls.length} soul${souls.length === 1 ? "" : "s"}`}
-        actions={
+        actions={(
           <Button onClick={() => navigate("/souls/new")}>
+            <Plus className="h-4 w-4" />
             New Soul
           </Button>
-        }
+        )}
       />
 
-      <div className="flex-1 px-6 pb-6">
+      <main className="flex-1 overflow-auto px-6 pb-6">
         {soulsQuery.isError ? (
-          <div className="rounded-lg border border-border-default bg-surface-secondary px-4 py-6 text-sm text-muted">
-            Failed to load souls.
-          </div>
+          <EmptyState
+            icon={AlertTriangle}
+            title="Couldn't load souls"
+            description="Check file permissions on the custom/souls/ directory."
+            action={{ label: "Retry", onClick: () => void soulsQuery.refetch() }}
+            className="min-h-[320px]"
+          />
         ) : soulsQuery.isLoading ? (
-          <div className="rounded-lg border border-border-default bg-surface-secondary px-4 py-6 text-sm text-muted">
-            Loading souls...
-          </div>
+          <SoulTableSkeleton />
         ) : (
           <DataTable
             columns={columns}
             data={souls}
+            searchable
             sortable
+            variant="minimal"
+            searchPlaceholder="Search souls..."
+            emptyState={
+              <EmptyState
+                icon={Bot}
+                title="No souls yet"
+                description="Souls define your AI agents: their role, model, and behavior. Create one to use in your workflows."
+                action={{ label: "Create Your First Soul", onClick: () => navigate("/souls/new") }}
+                className="min-h-[320px]"
+              />
+            }
             onRowClick={(row) => {
               const id = row.id;
 
@@ -229,7 +387,7 @@ export function Component() {
             }}
           />
         )}
-      </div>
+      </main>
     </div>
   );
 }

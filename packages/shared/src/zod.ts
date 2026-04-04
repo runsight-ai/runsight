@@ -371,6 +371,7 @@ export const SoulResponseSchema = z.object({
   max_tokens: z.number().nullable().optional(),
   avatar_color: z.string().nullable().optional(),
   workflow_count: z.number().optional().default(0),
+  modified_at: z.number().nullable().optional(),
 });
 export type SoulResponse = z.infer<typeof SoulResponseSchema>;
 

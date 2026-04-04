@@ -1231,6 +1231,8 @@ export interface components {
              * @default 0
              */
             workflow_count: number;
+            /** Modified At */
+            modified_at?: number | null;
         };
         /** SoulUpdate */
         SoulUpdate: {

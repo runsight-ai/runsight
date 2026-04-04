@@ -25,6 +25,7 @@ interface DataTableProps {
   data: Record<string, unknown>[];
   searchable?: boolean;
   sortable?: boolean;
+  variant?: "default" | "minimal";
   searchPlaceholder?: string;
   className?: string;
   emptyState?: React.ReactNode;
@@ -36,6 +37,7 @@ export function DataTable({
   data,
   searchable = false,
   sortable = false,
+  variant = "default",
   searchPlaceholder = "Search...",
   className,
   emptyState,
@@ -104,6 +106,8 @@ export function DataTable({
     return <div className={className}>{emptyState}</div>;
   }
 
+  const isMinimal = variant === "minimal";
+
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       {searchable && (
@@ -114,20 +118,35 @@ export function DataTable({
             placeholder={searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className={cn(
+              "pl-9",
+              isMinimal && "bg-surface-secondary border-border-default hover:border-border-hover",
+            )}
           />
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-border-default">
+      <div
+        className={cn(
+          "overflow-hidden",
+          isMinimal ? "rounded-none border-0" : "rounded-lg border border-border-default",
+        )}
+      >
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-border-default hover:bg-transparent">
+            <TableRow
+              className={cn(
+                "hover:bg-transparent",
+                isMinimal ? "border-b border-border-subtle" : "border-b border-border-default",
+              )}
+            >
               {columns.map((column) => (
                 <TableHead
                   key={column.key}
                   className={cn(
-                    "h-11 px-3 text-xs font-medium uppercase tracking-wide text-muted",
+                    isMinimal
+                      ? "h-9 px-2.5 border-b-0 text-2xs font-medium uppercase tracking-wider text-muted"
+                      : "h-11 px-3 text-xs font-medium uppercase tracking-wide text-muted",
                     column.width && `w-[${column.width}]`,
                     sortable && column.sortable && "cursor-pointer select-none"
                   )}
@@ -164,13 +183,22 @@ export function DataTable({
                 <TableRow
                   key={rowIndex}
                   className={cn(
-                    "border-b border-border-default transition-colors hover:bg-surface-tertiary/50",
+                    isMinimal
+                      ? "h-[var(--control-height-lg)] transition-colors hover:bg-surface-hover"
+                      : "border-b border-border-default transition-colors hover:bg-surface-tertiary/50",
                     onRowClick && "cursor-pointer"
                   )}
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((column) => (
-                    <TableCell key={column.key} className="px-3 py-2.5 text-sm">
+                    <TableCell
+                      key={column.key}
+                      className={cn(
+                        isMinimal
+                          ? "px-2.5 py-0 text-sm border-b-0"
+                          : "px-3 py-2.5 text-sm",
+                      )}
+                    >
                       {column.render
                         ? column.render(row)
                         : (row[column.key] as React.ReactNode)}
