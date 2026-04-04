@@ -40,6 +40,7 @@ class WorkflowBlock(BaseBlock):
         outputs: Dict[str, str],
         max_depth: int = 10,
         interface: Optional["WorkflowInterfaceDef"] = None,
+        on_error: str = "raise",
     ):
         super().__init__(block_id)
         self.child_workflow = child_workflow
@@ -47,6 +48,7 @@ class WorkflowBlock(BaseBlock):
         self.outputs = outputs
         self.max_depth = max_depth
         self.interface = interface
+        self.on_error = on_error
 
         # Validate: when interface is present, input binding keys must be plain
         # interface names (no dotted child paths).
@@ -93,12 +95,49 @@ class WorkflowBlock(BaseBlock):
         # Step 4: Run child workflow (propagate observer for monitoring)
         observer = kwargs.get("observer")
         start_time = time.monotonic()
-        child_final_state = await self.child_workflow.run(
-            child_state,
-            call_stack=call_stack + [self.child_workflow.name],
-            workflow_registry=workflow_registry,
-            observer=observer,
-        )
+        try:
+            child_final_state = await self.child_workflow.run(
+                child_state,
+                call_stack=call_stack + [self.child_workflow.name],
+                workflow_registry=workflow_registry,
+                observer=observer,
+            )
+        except Exception as exc:
+            duration_s = time.monotonic() - start_time
+            if self.on_error != "catch":
+                raise
+            # on_error="catch": swallow exception, skip output mapping,
+            # return parent state with an error BlockResult.
+            child_metadata = {
+                "child_status": "failed",
+                "child_error": str(exc),
+                "child_cost_usd": 0,
+                "child_tokens": 0,
+                "child_duration_s": round(duration_s, 4),
+                "child_run_id": None,
+            }
+            return state.model_copy(
+                update={
+                    "results": {
+                        **state.results,
+                        self.block_id: BlockResult(
+                            output=f"WorkflowBlock '{self.child_workflow.name}' failed",
+                            exit_handle="error",
+                            metadata=child_metadata,
+                        ),
+                    },
+                    "execution_log": state.execution_log
+                    + [
+                        {
+                            "role": "system",
+                            "content": (
+                                f"[Block {self.block_id}] WorkflowBlock '{self.child_workflow.name}' "
+                                f"failed (on_error=catch): {exc}"
+                            ),
+                        }
+                    ],
+                }
+            )
         duration_s = time.monotonic() - start_time
 
         # Step 5: Merge child results into parent, then apply output mappings
@@ -283,6 +322,7 @@ class WorkflowBlockDef(BaseBlockDef):
     inputs: Optional[Dict[str, str]] = None  # type: ignore[assignment]  # child_state_key -> parent_path
     outputs: Optional[Dict[str, str]] = None  # parent_path -> child_dotted_path
     max_depth: Optional[int] = None
+    on_error: Literal["raise", "catch"] = "raise"
 
     @model_validator(mode="after")
     def _validate_interface_bindings(self) -> "WorkflowBlockDef":
