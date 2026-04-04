@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./workflowSurfaceContract";
 import { getContractForMode, getCanvasYamlToggleVisibility, getStepCountFormat, getMetricsVisibility, getInspectorTrigger, getBottomPanelDefault, getSaveButtonState, getActionButton, isEditable } from "./workflowSurfaceContract";
 import { CanvasTopbar } from "./CanvasTopbar";
@@ -9,9 +9,19 @@ import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { RunInspectorPanel } from "../runs/RunInspectorPanel";
 
-export function WorkflowSurface({ mode, workflowId, runId }: WorkflowSurfaceProps) {
+export function WorkflowSurface({ mode: initialMode, workflowId: initialworkflowId, runId: initialRunId }: WorkflowSurfaceProps) {
+  const [mode, setMode] = useState<WorkflowSurfaceMode>(initialMode);
+  const [workflowId, setWorkflowId] = useState(initialworkflowId);
+  const [activeRunId, setRunId] = useState(initialRunId);
+
+  const handleForkTransition = useCallback((newWorkflowId: string) => {
+    setMode("fork-draft");
+    setWorkflowId(newWorkflowId);
+    setRunId(undefined);
+    window.history.replaceState(null, "", `/workflows/${newWorkflowId}/edit`);
+  }, []);
+
   const contract = getContractForMode(mode);
-  const activeMode: WorkflowSurfaceMode = mode;
 
   const { topbar, palette, canvas, inspector, bottomPanel, statusBar } = contract;
 
@@ -24,8 +34,8 @@ export function WorkflowSurface({ mode, workflowId, runId }: WorkflowSurfaceProp
   const trigger = inspector.trigger;
   const stepCountFormat = statusBar.stepCountFormat;
   const metricsVisibility = statusBar.metricsVisibility;
-  const toggleVisibility = getCanvasYamlToggleVisibility(activeMode);
-  const editable = isEditable(activeMode);
+  const toggleVisibility = getCanvasYamlToggleVisibility(mode);
+  const editable = isEditable(mode);
 
   const [activeTab, setActiveTab] = useState<"canvas" | "yaml">("canvas");
   const [isDirty, setIsDirty] = useState(false);
@@ -37,8 +47,8 @@ export function WorkflowSurface({ mode, workflowId, runId }: WorkflowSurfaceProp
     }
   }, [toggleVisibility.yaml]);
 
-  const saveButtonState = getSaveButtonState(activeMode, isDirty);
-  const actionButton = getActionButton(activeMode);
+  const saveButtonState = getSaveButtonState(mode, isDirty);
+  const actionButton = getActionButton(mode);
 
   // Suppress unused-variable lint by referencing mode helpers
   void getStepCountFormat;
@@ -86,6 +96,7 @@ export function WorkflowSurface({ mode, workflowId, runId }: WorkflowSurfaceProp
           metricsVisible={topbar.metricsVisible}
           metricsStyle={topbar.metricsStyle}
           actionButton={actionButton}
+          onForkTransition={handleForkTransition}
         />
       </div>
 
@@ -109,7 +120,7 @@ export function WorkflowSurface({ mode, workflowId, runId }: WorkflowSurfaceProp
             isDraggable={isDraggable}
             connectionsAllowed={connectionsAllowed}
             deletionAllowed={deletionAllowed}
-            runId={runId}
+            runId={activeRunId}
           />
         ) : activeTab === "yaml" ? (
           <YamlEditor

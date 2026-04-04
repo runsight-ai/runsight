@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { parse, stringify } from "yaml";
 
@@ -11,15 +10,19 @@ interface UseForkWorkflowOptions {
   commitSha: string;
   workflowPath: string;
   workflowName: string;
+  onTransition: (id: string) => void;
 }
 
 export function useForkWorkflow({
   commitSha,
   workflowPath,
   workflowName,
+  onTransition,
 }: UseForkWorkflowOptions) {
-  const navigate = useNavigate();
   const [isForking, setIsForking] = useState(false);
+  const [forkedWorkflowId, setForkedWorkflowId] = useState<string | undefined>(
+    undefined,
+  );
 
   const executeFork = useCallback(async () => {
     const name = generateForkName(workflowName);
@@ -37,15 +40,19 @@ export function useForkWorkflow({
       const yaml = stringify(modified);
 
       // Create the new draft workflow (no auto-commit — shows as uncommitted)
-      const result = await workflowsApi.createWorkflow({ name, yaml, commit: false });
+      const result = await workflowsApi.createWorkflow({
+        name,
+        yaml,
+        commit: false,
+      });
 
-      // Navigate to the editor for the new workflow
-      navigate(`/workflows/${result.id}/edit`);
+      setForkedWorkflowId(result.id);
+      onTransition(result.id);
     } catch {
       toast.error("Couldn't create fork. Try again.");
       setIsForking(false);
     }
-  }, [commitSha, workflowPath, workflowName, navigate]);
+  }, [commitSha, workflowPath, workflowName, onTransition]);
 
   const forkWorkflow = useCallback(() => {
     setIsForking(true);
@@ -54,5 +61,5 @@ export function useForkWorkflow({
     requestAnimationFrame(() => void executeFork());
   }, [executeFork]);
 
-  return { forkWorkflow, isForking };
+  return { forkWorkflow, isForking, forkedWorkflowId };
 }
