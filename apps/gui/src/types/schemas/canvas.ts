@@ -1,22 +1,43 @@
 import type { Node, Edge } from "@xyflow/react";
 
-/** All 13 block types from Runsight core (spec §2.5) */
+/** All known block types from Runsight core (spec §2.5), plus any custom string */
 export type StepType =
   | "linear"
   | "fanout"
-  | "debate"
-  | "message_bus"
   | "router"
   | "gate"
   | "synthesize"
   | "workflow"
-  | "retry"
+  | "loop"
   | "team_lead"
   | "engineering_manager"
-  | "placeholder"
-  | "file_writer";
+  | "file_writer"
+  | "code"
+  | "http_request"
+  | (string & {});
 
 export type RunStatus = "idle" | "running" | "completed" | "failed" | "paused" | "pending";
+
+export interface ConditionDef {
+  eval_key: string;
+  operator: string;
+  value?: string | number | boolean | null;
+}
+
+export interface ConditionGroupDef {
+  combinator?: "and" | "or";
+  conditions: ConditionDef[];
+}
+
+export interface CaseDef {
+  case_id: string;
+  condition_group?: ConditionGroupDef;
+  default?: boolean;
+}
+
+export interface InputRef {
+  from: string;
+}
 
 /** Node data for canvas steps — maps to BlockDef in RunsightWorkflowFile */
 export interface StepNodeData extends Record<string, unknown> {
@@ -30,21 +51,51 @@ export interface StepNodeData extends Record<string, unknown> {
 
   /** Soul references — varies by block type */
   soulRef?: string;      // linear, synthesize, router, gate, team_lead, engineering_manager
-  soulRefs?: string[];   // fanout, message_bus
-  soulARef?: string;     // debate
-  soulBRef?: string;     // debate
+  soulRefs?: string[];   // fanout
 
   /** Block-specific fields */
-  iterations?: number;          // debate, message_bus
   workflowRef?: string;         // workflow (nested)
   evalKey?: string;             // gate
   extractField?: string;        // gate
-  innerBlockRef?: string;       // retry
-  maxRetries?: number;          // retry
+  innerBlockRefs?: string[];    // loop
+  maxRounds?: number;           // loop
+  breakCondition?: Record<string, unknown> | string;  // loop
+  carryContext?: Record<string, unknown>;   // loop
   inputBlockIds?: string[];     // synthesize
   outputPath?: string;         // file_writer
   contentKey?: string;          // file_writer
   failureContextKeys?: string[]; // team_lead
+  retryConfig?: Record<string, unknown>;  // universal
+  stateful?: boolean;                     // universal
+  conditionRef?: string;         // router
+
+  // CodeBlock fields
+  code?: string;
+  timeoutSeconds?: number;
+  allowedImports?: string[];
+
+  // HTTP Request fields
+  url?: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  bodyType?: string;
+  authType?: string;
+  authConfig?: Record<string, string>;
+  retryCount?: number;
+  retryBackoff?: number | string;
+  expectedStatusCodes?: number[];
+  allowPrivateIps?: boolean;
+
+  // Universal fields (from BaseBlockDef)
+  outputConditions?: CaseDef[];
+  inputs?: Record<string, InputRef>;
+  outputs?: Record<string, string>;
+
+  // WorkflowBlock additional
+  workflowInputs?: Record<string, string>;
+  workflowOutputs?: Record<string, string>;
+  maxDepth?: number;
 
   /** Runtime state (not persisted to YAML) */
   status: RunStatus;
@@ -88,32 +139,51 @@ export type CanvasMode = "dag" | "state-machine";
 
 export interface SoulDef {
   id: string;
-  role?: string;
+  role: string;
+  system_prompt: string;
+  tools?: Array<Record<string, unknown>>;
   model_name?: string;
-  system_prompt?: string;
 }
 
 export interface BlockDef {
   type: StepType;
   soul_ref?: string;
   soul_refs?: string[];
-  soul_a_ref?: string;
-  soul_b_ref?: string;
   input_block_ids?: string[];
-  inner_block_ref?: string;
-  iterations?: number;
-  max_retries?: number;
+  inner_block_refs?: string[];
+  max_rounds?: number;
+  break_condition?: Record<string, unknown> | string;
+  carry_context?: Record<string, unknown>;
+  retry_config?: Record<string, unknown>;
   workflow_ref?: string;
-  inputs?: Record<string, string>;
+  inputs?: Record<string, InputRef> | Record<string, string>;  // InputRef for most blocks, string for WorkflowBlock
   outputs?: Record<string, string>;
   max_depth?: number;
   eval_key?: string;
   extract_field?: string;
   output_path?: string;
   content_key?: string;
-  provide_error_context?: boolean;
   condition_ref?: string;
   failure_context_keys?: string[];
+  code?: string;
+  timeout_seconds?: number;
+  allowed_imports?: string[];
+  // HTTP Request fields (snake_case)
+  url?: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  body_type?: string;
+  auth_type?: string;
+  auth_config?: Record<string, string>;
+  retry_count?: number;
+  retry_backoff?: number | string;
+  expected_status_codes?: number[];
+  allow_private_ips?: boolean;
+  output_conditions?: CaseDef[];
+  stateful?: boolean;
+  /** Allow arbitrary fields for unknown block types */
+  [key: string]: unknown;
 }
 
 export interface TransitionDef {
@@ -137,7 +207,6 @@ export interface WorkflowDef {
 export interface RunsightWorkflowFile {
   version: string;
   config?: Record<string, unknown>;
-  souls?: Record<string, SoulDef>;
   blocks: Record<string, BlockDef>;
   workflow: WorkflowDef;
 }

@@ -1,21 +1,81 @@
 import { api } from "./client";
 import {
-  RunCreate,
+  type RunCreate,
   RunResponseSchema,
-  RunResponse,
+  type RunResponse,
   RunListResponseSchema,
-  RunListResponse,
+  type RunListResponse,
   RunNodeResponseSchema,
-  RunNodeResponse,
+  type RunNodeResponse,
   PaginatedLogsResponseSchema,
-  PaginatedLogsResponse,
-  CancelRunResponseSchema,
-  CancelRunResponse,
-} from "../types/schemas/runs";
+  type PaginatedLogsResponse,
+  type runsight_api__transport__schemas__runs__LogResponse as RunLogResponse,
+} from "@runsight/shared/zod";
+import { z } from "zod";
+
+// ---------------------------------------------------------------------------
+// Regressions
+// ---------------------------------------------------------------------------
+
+export const RunRegressionSchema = z.object({
+  node_id: z.string(),
+  node_name: z.string(),
+  type: z.enum(["assertion_regression", "cost_spike", "quality_drop"]),
+  delta: z.record(z.string(), z.unknown()),
+});
+
+export type RunRegression = z.infer<typeof RunRegressionSchema>;
+
+export const RunRegressionsResponseSchema = z.object({
+  count: z.number(),
+  issues: z.array(RunRegressionSchema),
+});
+
+export type RunRegressionsResponse = z.infer<typeof RunRegressionsResponseSchema>;
+
+/** Map frontend shorthand status values to actual RunStatus enum values. */
+const STATUS_ALIASES: Record<string, string[]> = {
+  active: ["running", "pending"],
+};
+
+export type RunQueryParams = Record<string, string | string[]> | URLSearchParams;
+
+function buildQueryString(params: RunQueryParams): string {
+  if (params instanceof URLSearchParams) {
+    return params.toString();
+  }
+
+  const sp = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const values = Array.isArray(value) ? value : [value];
+
+    if (key === "status") {
+      for (const statusValue of values) {
+        const aliases = STATUS_ALIASES[statusValue];
+        if (aliases) {
+          for (const v of aliases) {
+            sp.append(key, v);
+          }
+          continue;
+        }
+
+        const parts = statusValue.split(",");
+        for (const part of parts) {
+          sp.append(key, part);
+        }
+      }
+    } else {
+      for (const entry of values) {
+        sp.append(key, entry);
+      }
+    }
+  }
+  return sp.toString();
+}
 
 export const runsApi = {
-  listRuns: async (params?: Record<string, string>): Promise<RunListResponse> => {
-    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+  listRuns: async (params?: RunQueryParams): Promise<RunListResponse> => {
+    const qs = params ? `?${buildQueryString(params)}` : "";
     const res = await api.get(`/runs${qs}`);
     return RunListResponseSchema.parse(res);
   },
@@ -30,9 +90,8 @@ export const runsApi = {
     return RunResponseSchema.parse(res);
   },
   
-  cancelRun: async (id: string): Promise<CancelRunResponse> => {
-    const res = await api.post(`/runs/${id}/cancel`);
-    return CancelRunResponseSchema.parse(res);
+  cancelRun: async (id: string): Promise<unknown> => {
+    return api.post(`/runs/${id}/cancel`);
   },
   
   deleteRun: async (id: string): Promise<{ id: string; deleted: boolean }> => {
@@ -41,13 +100,13 @@ export const runsApi = {
   },
 
   getRunNodes: async (id: string): Promise<RunNodeResponse[]> => {
-    // Note: Depends on backend implementation, but typically nodes are listed at /runs/:id/nodes
     const res = await api.get(`/runs/${id}/nodes`);
-    // Assuming backend returns an array or an object with an array under `items`
-    if (Array.isArray(res)) {
-       return res.map(node => RunNodeResponseSchema.parse(node));
+    const parsed = z.array(RunNodeResponseSchema).safeParse(res);
+    if (!parsed.success) {
+      throw new Error("Run node response contract invalid");
     }
-    return []; 
+
+    return parsed.data;
   },
 
   getRunLogs: async (id: string, params?: Record<string, string>): Promise<PaginatedLogsResponse> => {
@@ -55,4 +114,11 @@ export const runsApi = {
     const res = await api.get(`/runs/${id}/logs${qs}`);
     return PaginatedLogsResponseSchema.parse(res);
   },
+
+  getRunRegressions: async (id: string): Promise<RunRegressionsResponse> => {
+    const res = await api.get(`/runs/${id}/regressions`);
+    return RunRegressionsResponseSchema.parse(res);
+  },
 };
+
+export type { RunLogResponse };

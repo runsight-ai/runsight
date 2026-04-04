@@ -1,7 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { soulsApi } from "../api/souls";
 import { queryKeys } from "./keys";
-import { SoulCreate, SoulUpdate } from "../types/schemas/souls";
+import type { SoulCreate, SoulUpdate } from "@runsight/shared/zod";
+
+type DeleteSoulVariables =
+  | string
+  | {
+      id: string;
+      force?: boolean;
+    };
 
 export function useSouls() {
   return useQuery({
@@ -18,12 +26,31 @@ export function useSoul(id: string) {
   });
 }
 
+export function useSoulUsages(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.souls.usages(id!),
+    queryFn: () => soulsApi.getSoulUsages(id!),
+    enabled: !!id,
+  });
+}
+
+export function useAvailableTools() {
+  return useQuery({
+    queryKey: queryKeys.souls.tools,
+    queryFn: soulsApi.listAvailableTools,
+  });
+}
+
 export function useCreateSoul() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: SoulCreate) => soulsApi.createSoul(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.souls.all });
+      toast.success("Soul created");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to create soul", { description: error.message });
     },
   });
 }
@@ -36,6 +63,10 @@ export function useUpdateSoul() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.souls.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.souls.detail(variables.id) });
+      toast.success("Soul updated");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to update soul", { description: error.message });
     },
   });
 }
@@ -43,9 +74,19 @@ export function useUpdateSoul() {
 export function useDeleteSoul() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => soulsApi.deleteSoul(id),
+    mutationFn: (variables: DeleteSoulVariables) => {
+      if (typeof variables === "string") {
+        return soulsApi.deleteSoul(variables);
+      }
+
+      return soulsApi.deleteSoul(variables.id, variables.force ?? false);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.souls.all });
+      toast.success("Soul deleted");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to delete soul", { description: error.message });
     },
   });
 }

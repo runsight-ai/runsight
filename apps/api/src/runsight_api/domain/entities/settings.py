@@ -1,20 +1,21 @@
-from sqlmodel import SQLModel, Field
-import time
+from pydantic import BaseModel
+
+# ---------------------------------------------------------------------------
+# Pydantic models for filesystem-backed settings (RUN-233)
+# ---------------------------------------------------------------------------
 
 
-class AppSettings(SQLModel, table=True):
-    key: str = Field(primary_key=True)
-    value: str
-    updated_at: float = Field(default_factory=time.time)
+class AppSettingsConfig(BaseModel):
+    """Flat app settings stored in .runsight/settings.yaml."""
+
+    auto_save: bool | None = None
+    onboarding_completed: bool = False
+    fallback_enabled: bool = False
 
 
-class FallbackChain(SQLModel, table=True):
-    position: int = Field(primary_key=True)
+class FallbackTargetEntry(BaseModel):
+    """Single per-provider fallback target."""
+
     provider_id: str
-    model_id: str
-
-
-class ModelDefault(SQLModel, table=True):
-    provider_id: str = Field(primary_key=True)
-    model_id: str = Field(primary_key=True)
-    is_default: bool = Field(default=False)
+    fallback_provider_id: str
+    fallback_model_id: str

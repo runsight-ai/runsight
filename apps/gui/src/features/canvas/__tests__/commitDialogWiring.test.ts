@@ -1,0 +1,146 @@
+/**
+ * RED-TEAM tests for RUN-422: Wire CommitDialog reachable from banner Save link.
+ *
+ * These tests verify the wiring acceptance criteria by reading source files
+ * and asserting observable properties:
+ *
+ * AC1: CanvasPage imports and renders CommitDialog
+ * AC2: CanvasPage has state to control CommitDialog open/close
+ * AC3: UncommittedBanner does NOT navigate to /settings (no <Link to="/settings">)
+ * AC4: UncommittedBanner triggers CommitDialog via callback prop or click handler
+ * AC5: CommitDialog is functional (sanity — should already pass)
+ */
+
+import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const SRC_DIR = resolve(__dirname, "../../..");
+
+function readSource(relativePath: string): string {
+  return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
+}
+
+// ---------------------------------------------------------------------------
+// File paths
+// ---------------------------------------------------------------------------
+
+const CANVAS_PAGE_PATH = "features/canvas/CanvasPage.tsx";
+const COMMIT_DIALOG_PATH = "features/git/CommitDialog.tsx";
+
+// ===========================================================================
+// AC1: CanvasPage imports and renders CommitDialog
+// ===========================================================================
+
+describe("CanvasPage imports and renders CommitDialog (AC1)", () => {
+  it("imports CommitDialog from the git feature", () => {
+    const source = readSource(CANVAS_PAGE_PATH);
+    expect(
+      source,
+      "CanvasPage must import CommitDialog from features/git/CommitDialog",
+    ).toMatch(/import\s+\{[^}]*CommitDialog[^}]*\}\s+from\s+["'][^"']*CommitDialog["']/);
+  });
+
+  it("renders <CommitDialog in JSX", () => {
+    const source = readSource(CANVAS_PAGE_PATH);
+    expect(
+      source,
+      "CanvasPage must render <CommitDialog ... /> somewhere in its JSX",
+    ).toMatch(/<CommitDialog[\s/>]/);
+  });
+
+  it("passes open prop to CommitDialog", () => {
+    const source = readSource(CANVAS_PAGE_PATH);
+    expect(
+      source,
+      "CanvasPage must pass an 'open' prop to CommitDialog",
+    ).toMatch(/<CommitDialog[^>]*\bopen[=\s{]/);
+  });
+
+  it("passes onOpenChange prop to CommitDialog", () => {
+    const source = readSource(CANVAS_PAGE_PATH);
+    expect(
+      source,
+      "CanvasPage must pass an 'onOpenChange' prop to CommitDialog",
+    ).toMatch(/<CommitDialog[^>]*\bonOpenChange[=\s{]/);
+  });
+
+  it("passes files prop to CommitDialog", () => {
+    const source = readSource(CANVAS_PAGE_PATH);
+    expect(
+      source,
+      "CanvasPage must pass a 'files' prop to CommitDialog",
+    ).toMatch(/<CommitDialog[^>]*\bfiles[=\s{]/);
+  });
+});
+
+// ===========================================================================
+// AC2: CanvasPage has state to control CommitDialog open/close
+// ===========================================================================
+
+describe("CanvasPage has CommitDialog open/close state (AC2)", () => {
+  it("has useState for commit dialog open state", () => {
+    const source = readSource(CANVAS_PAGE_PATH);
+    // Should have something like useState(false) for commitDialogOpen or similar
+    expect(
+      source,
+      "CanvasPage must have a useState for controlling CommitDialog visibility",
+    ).toMatch(/useState.*commit|commit.*useState/i);
+  });
+
+  it("has a handler or setter to open the commit dialog", () => {
+    const source = readSource(CANVAS_PAGE_PATH);
+    // Should have a function/callback that sets commit dialog state to true
+    expect(
+      source,
+      "CanvasPage must have a way to open the commit dialog (setter or handler)",
+    ).toMatch(/setCommitDialog|commitDialog.*true|openCommitDialog|handleOpenCommit|handleCommit/i);
+  });
+});
+
+// ===========================================================================
+// AC3 & AC4: Removed — UncommittedBanner was deleted in RUN-559
+// (commit flow is now wired through PriorityBanner conditions in CanvasPage)
+// ===========================================================================
+
+// ===========================================================================
+// AC5: CommitDialog is functional (sanity — should already pass)
+// ===========================================================================
+
+describe("CommitDialog is functional (AC5 — sanity)", () => {
+  it("exports CommitDialog component", () => {
+    const source = readSource(COMMIT_DIALOG_PATH);
+    expect(source).toMatch(/export\s+function\s+CommitDialog/);
+  });
+
+  it("accepts open, onOpenChange, and files props", () => {
+    const source = readSource(COMMIT_DIALOG_PATH);
+    expect(source).toMatch(/open:\s*boolean/);
+    expect(source).toMatch(/onOpenChange:\s*\(open:\s*boolean\)\s*=>\s*void/);
+    expect(source).toMatch(/files:\s*FileStatus\[\]/);
+  });
+
+  it("uses the explicit workflow save mutation for git operations", () => {
+    const source = readSource(COMMIT_DIALOG_PATH);
+    expect(source).toMatch(/useCommitWorkflow\(/);
+  });
+
+  it("renders DiffView for showing diffs", () => {
+    const source = readSource(COMMIT_DIALOG_PATH);
+    expect(source).toMatch(/<DiffView/);
+  });
+
+  it("has a commit message textarea", () => {
+    const source = readSource(COMMIT_DIALOG_PATH);
+    expect(source).toMatch(/<textarea/);
+  });
+
+  it("has submit handler that calls the workflow save mutation", () => {
+    const source = readSource(COMMIT_DIALOG_PATH);
+    expect(source).toMatch(/commitWorkflow\.mutate/);
+  });
+});

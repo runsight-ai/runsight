@@ -1,4 +1,4 @@
-import { load } from "js-yaml";
+import { parse } from "yaml";
 import type { Edge, Node } from "@xyflow/react";
 import type { PersistedCanvasState } from "../../store/canvas";
 import type { BlockDef, RunsightWorkflowFile, StepNodeData, StepType } from "../../types/schemas/canvas";
@@ -8,6 +8,7 @@ export interface ParseWorkflowResult {
   edges: Edge[];
   viewport?: PersistedCanvasState["viewport"];
   error?: { message: string };
+  config?: Record<string, unknown>;
 }
 
 type ParsedWorkflow = Partial<RunsightWorkflowFile> & {
@@ -17,15 +18,79 @@ type ParsedWorkflow = Partial<RunsightWorkflowFile> & {
     transitions?: Array<{ from: string; to: string | null }>;
     conditional_transitions?: Array<Record<string, string | null>>;
   };
+  /** @deprecated RUN-574: retained only to detect legacy YAML and emit a warning */
+  souls?: Record<string, unknown>;
 };
 
-const DEFAULT_STEP_TYPE: StepType = "placeholder";
 const DEFAULT_GRID_X = 280;
 const DEFAULT_GRID_Y = 160;
 
-function toStepType(value: unknown): StepType {
-  if (typeof value !== "string") return DEFAULT_STEP_TYPE;
-  return value as StepType;
+function toStepType(value: unknown): { type: StepType; error?: string } {
+  if (typeof value !== "string") return { type: "linear" as StepType, error: `Invalid block type: expected string, got ${typeof value}` };
+  return { type: value as StepType };
+}
+
+// ---------------------------------------------------------------------------
+// Recursive snake_case → camelCase key conversion for nested objects
+// ---------------------------------------------------------------------------
+
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+}
+
+function convertKeysToCamel(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(convertKeysToCamel);
+  if (value !== null && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      result[snakeToCamel(k)] = convertKeysToCamel(v);
+    }
+    return result;
+  }
+  return value;
+}
+
+/**
+ * Build StepNodeData from a block ID and its YAML BlockDef.
+ * Uses a single generic path for all block types — no hardcoded field lists.
+ */
+function buildNodeData(nodeId: string, block: BlockDef): { data: StepNodeData; error?: string } {
+  const stepTypeResult = toStepType(block.type);
+  const data: StepNodeData = {
+    stepId: nodeId,
+    name: nodeId,
+    stepType: stepTypeResult.type,
+    status: "idle",
+  };
+
+  const isWorkflow = block.type === "workflow";
+
+  for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
+    if (key === "type") continue;
+    if (value === undefined || value === null) continue;
+
+    // Workflow special case: inputs → workflowInputs, outputs → workflowOutputs
+    if (isWorkflow && key === "inputs") {
+      data.workflowInputs = value as Record<string, string>;
+      continue;
+    }
+    if (isWorkflow && key === "outputs") {
+      data.workflowOutputs = value as Record<string, string>;
+      continue;
+    }
+
+    const camelKey = snakeToCamel(key);
+    // Apply recursive key conversion only to plain objects (config objects like
+    // carry_context, retry_config, auth_config). Arrays (like output_conditions,
+    // inner_block_refs) are passed through as-is to preserve their schema structure.
+    if (typeof value === "object" && !Array.isArray(value)) {
+      data[camelKey] = convertKeysToCamel(value);
+    } else {
+      data[camelKey] = value;
+    }
+  }
+
+  return { data, error: stepTypeResult.error };
 }
 
 function findPersistedPosition(
@@ -61,7 +126,11 @@ export function parseWorkflowYamlToGraph(
 ): ParseWorkflowResult {
   let parsed: ParsedWorkflow;
   try {
-    parsed = ((yamlText?.trim() ? load(yamlText) : {}) as ParsedWorkflow | null) ?? {};
+    const raw = yamlText?.trim() ? parse(yamlText) : {};
+    if (raw !== null && typeof raw === "object" && !Array.isArray(raw) && "" in (raw as Record<string, unknown>)) {
+      throw new Error("Invalid YAML: empty key at top level");
+    }
+    parsed = (raw as ParsedWorkflow | null) ?? {};
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid YAML";
     return {
@@ -75,11 +144,15 @@ export function parseWorkflowYamlToGraph(
   const blocks = parsed.blocks ?? {};
 
   const nodeIds = Object.keys(blocks);
+  const buildErrors: string[] = [];
   const nodes: Node<StepNodeData>[] = nodeIds.map((nodeId, index) => {
-    const block = blocks[nodeId] ?? { type: DEFAULT_STEP_TYPE };
+    const block = blocks[nodeId] ?? ({ type: "linear" } as BlockDef);
     const persisted = findPersistedPosition(canvasState, nodeId);
     const row = Math.floor(index / 4);
     const col = index % 4;
+
+    const built = buildNodeData(nodeId, block);
+    if (built.error) buildErrors.push(`Block "${nodeId}": ${built.error}`);
 
     return {
       id: nodeId,
@@ -88,23 +161,24 @@ export function parseWorkflowYamlToGraph(
         x: col * DEFAULT_GRID_X,
         y: row * DEFAULT_GRID_Y,
       },
-      data: {
-        stepId: nodeId,
-        name: nodeId,
-        stepType: toStepType(block.type),
-        status: "idle",
-      },
+      data: built.data,
     };
   });
 
   const edges: Edge[] = [];
-  const addEdge = (source: string, target: string | null | undefined, idSuffix: string) => {
+  const addEdge = (
+    source: string,
+    target: string | null | undefined,
+    idSuffix: string,
+    sourceHandle?: string | null,
+  ) => {
     if (!target) return;
     if (!nodeIds.includes(source) || !nodeIds.includes(target)) return;
     edges.push({
       id: `${source}->${target}:${idSuffix}`,
       source,
       target,
+      sourceHandle: sourceHandle ?? null,
       type: "smoothstep",
     });
   };
@@ -120,9 +194,22 @@ export function parseWorkflowYamlToGraph(
     if (!from) return;
     Object.entries(conditional).forEach(([key, target]) => {
       if (key === "from") return;
-      addEdge(from, target, `c${index}:${key}`);
+      // Set sourceHandle to the decision key so the compiler can reconstruct
+      // conditional_transitions correctly. "default" key maps to sourceHandle
+      // null (the compiler treats null as "default").
+      const handle = key === "default" ? null : key;
+      addEdge(from, target, `c${index}:${key}`, handle);
     });
   });
 
-  return { nodes, edges, viewport: canvasState?.viewport };
+  const result: ParseWorkflowResult = { nodes, edges, viewport: canvasState?.viewport };
+  if (buildErrors.length > 0) result.error = { message: buildErrors.join("; ") };
+  if (parsed.souls !== undefined) {
+    const soulsWarning = "Deprecated: inline souls section is no longer supported. Define souls as standalone YAML files instead.";
+    result.error = result.error
+      ? { message: `${result.error.message}; ${soulsWarning}` }
+      : { message: soulsWarning };
+  }
+  if (parsed.config !== undefined) result.config = parsed.config;
+  return result;
 }

@@ -1,5 +1,6 @@
-from pydantic import BaseModel
-from typing import Optional
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class NodeTokens(BaseModel):
@@ -18,7 +19,6 @@ class NodeSummary(BaseModel):
     running: int = 0
     pending: int = 0
     failed: int = 0
-    killed: int = 0
 
 
 class CostSummary(BaseModel):
@@ -30,22 +30,49 @@ class CostSummary(BaseModel):
 class WorkflowEntity(BaseModel):
     id: str
     name: Optional[str] = None
+    yaml: Optional[str] = None
+    valid: bool = True
+    enabled: bool = False
+    validation_error: Optional[str] = None
+    filename: Optional[str] = None
     model_config = {"extra": "allow"}
 
 
 class SoulEntity(BaseModel):
     id: str
-    name: Optional[str] = None
+    role: Optional[str] = None
+    system_prompt: Optional[str] = None
+    tools: Optional[List[str]] = None
+    max_tool_iterations: int = Field(default=5)
+    model_name: Optional[str] = None
+    assertions: Optional[List[Dict[str, Any]]] = None
+    provider: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    avatar_color: Optional[str] = None
+    workflow_count: int = Field(default=0)
     model_config = {"extra": "allow"}
 
 
 class TaskEntity(BaseModel):
     id: str
     name: Optional[str] = None
-    model_config = {"extra": "allow"}
+    model_config = {"extra": "ignore"}
 
 
 class StepEntity(BaseModel):
     id: str
     name: Optional[str] = None
+    model_config = {"extra": "ignore"}
+
+
+class ProviderEntity(BaseModel):
+    id: str
+    name: Optional[str] = None
+    type: Optional[str] = None
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+    is_active: bool = True
+    status: Optional[str] = None
+    models: list = []
     model_config = {"extra": "allow"}

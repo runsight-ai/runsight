@@ -1,5 +1,7 @@
-from fastapi.testclient import TestClient
 from unittest.mock import Mock
+
+from fastapi.testclient import TestClient
+
 from runsight_api.main import app
 from runsight_api.transport.deps import get_run_service
 
@@ -14,10 +16,10 @@ def test_dashboard_get():
     response = client.get("/api/dashboard")
     assert response.status_code == 200
     data = response.json()
-    assert "active_runs" in data
-    assert "completed_runs" in data
-    assert "total_cost_usd" in data
-    assert "recent_errors" in data
-    assert "system_status" in data
-    assert data["system_status"] == "online"
+    assert "runs_today" in data
+    assert "cost_today_usd" in data
+    assert "eval_pass_rate" in data
+    assert "regressions" in data
+    assert "period_hours" in data
+    assert data["period_hours"] == 24
     app.dependency_overrides.clear()

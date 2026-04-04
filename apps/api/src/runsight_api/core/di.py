@@ -1,4 +1,5 @@
 from sqlmodel import create_engine
+
 from .config import settings
 
 # SQLite :memory: needs check_same_thread=False for TestClient/async usage

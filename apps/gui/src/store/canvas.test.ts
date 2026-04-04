@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
+import type { PersistedCanvasState } from "./canvas";
 import { useCanvasStore } from "./canvas";
 
 function makeNode(id: string, x = 0, y = 0): Node {
@@ -40,6 +41,23 @@ describe("useCanvasStore", () => {
     expect(state.viewport).toEqual({ x: 5, y: 6, zoom: 0.7 });
     expect(state.selectedNodeId).toBe("n1");
     expect(state.canvasMode).toBe("state-machine");
+    expect(state.isDirty).toBe(false);
+  });
+
+  it("ignores legacy camelCase persisted keys during hydrate", () => {
+    const legacyPersisted = {
+      nodes: [makeNode("n1", 7, 8) as unknown as Record<string, unknown>],
+      edges: [makeEdge("e1", "n1", "n2") as unknown as Record<string, unknown>],
+      viewport: { x: 1, y: 2, zoom: 0.5 },
+      selectedNodeId: "n1",
+      canvasMode: "state-machine",
+    } as unknown as PersistedCanvasState;
+
+    useCanvasStore.getState().hydrateFromPersisted(legacyPersisted);
+
+    const state = useCanvasStore.getState();
+    expect(state.selectedNodeId).toBeNull();
+    expect(state.canvasMode).toBe("dag");
     expect(state.isDirty).toBe(false);
   });
 

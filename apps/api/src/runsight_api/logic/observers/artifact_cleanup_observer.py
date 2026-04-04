@@ -1,0 +1,92 @@
+"""ArtifactCleanupObserver: triggers artifact cleanup when the root workflow finishes."""
+
+import asyncio
+import logging
+from datetime import datetime
+from typing import Optional
+
+from runsight_core.artifacts import ArtifactStore
+from runsight_core.observer import WorkflowObserver
+from runsight_core.primitives import Soul
+from runsight_core.state import WorkflowState
+
+logger = logging.getLogger(__name__)
+
+
+class ArtifactCleanupObserver(WorkflowObserver):
+    """Implements WorkflowObserver protocol. Cleans up artifacts when the root workflow
+    completes or errors. Child workflow events are ignored."""
+
+    def __init__(self, artifact_store: ArtifactStore, root_workflow_name: str) -> None:
+        self.artifact_store = artifact_store
+        self.root_workflow_name = root_workflow_name
+        self._cleanup_task: asyncio.Task | None = None
+
+    # ------------------------------------------------------------------
+    # Cleanup helper
+    # ------------------------------------------------------------------
+
+    def _schedule_cleanup(self) -> None:
+        """Schedule async cleanup, storing task reference to prevent GC."""
+
+        async def _do_cleanup() -> None:
+            try:
+                await self.artifact_store.cleanup()
+            except Exception:
+                logger.warning("ArtifactCleanupObserver: cleanup failed", exc_info=True)
+
+        self._cleanup_task = asyncio.create_task(_do_cleanup())
+
+    # ------------------------------------------------------------------
+    # WorkflowObserver protocol methods
+    # ------------------------------------------------------------------
+
+    def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
+        pass
+
+    def on_block_start(
+        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+    ) -> None:
+        pass
+
+    def on_block_complete(
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        duration_s: float,
+        state: WorkflowState,
+        *,
+        soul: Optional[Soul] = None,
+    ) -> None:
+        pass
+
+    def on_block_error(
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        duration_s: float,
+        error: Exception,
+    ) -> None:
+        pass
+
+    def on_workflow_complete(
+        self, workflow_name: str, state: WorkflowState, duration_s: float
+    ) -> None:
+        if workflow_name == self.root_workflow_name:
+            self._schedule_cleanup()
+
+    def on_block_heartbeat(
+        self,
+        workflow_name: str,
+        block_id: str,
+        phase: str,
+        detail: str,
+        timestamp: datetime,
+    ) -> None:
+        pass
+
+    def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
+        if workflow_name == self.root_workflow_name:
+            self._schedule_cleanup()

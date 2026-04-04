@@ -1,9 +1,21 @@
 import { api } from "./client";
-import { DashboardResponse, DashboardResponseSchema } from "../types/schemas/dashboard";
+import {
+  DashboardKPIsResponseSchema,
+  AttentionItemsResponseSchema,
+} from "@runsight/shared/zod";
+import type {
+  AttentionItemsResponse,
+  DashboardKPIsResponse,
+} from "@runsight/shared/zod";
 
 export const dashboardApi = {
-  getOverview: async (): Promise<DashboardResponse> => {
+  getKPIs: async (): Promise<DashboardKPIsResponse> => {
     const res = await api.get(`/dashboard`);
-    return DashboardResponseSchema.parse(res);
+    return DashboardKPIsResponseSchema.parse(res);
+  },
+  getAttentionItems: async (limit?: number): Promise<AttentionItemsResponse> => {
+    const qs = limit != null ? `?limit=${limit}` : "";
+    const res = await api.get(`/dashboard/attention${qs}`);
+    return AttentionItemsResponseSchema.parse(res);
   },
 };

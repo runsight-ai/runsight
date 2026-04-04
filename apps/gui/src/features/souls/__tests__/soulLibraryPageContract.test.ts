@@ -1,0 +1,250 @@
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  pageHeaderProps: [] as Array<Record<string, unknown>>,
+  dataTableProps: [] as Array<Record<string, unknown>>,
+  buttonProps: [] as Array<Record<string, unknown>>,
+  availableTools: [
+    {
+      id: "http",
+      name: "HTTP Requests",
+      description: "Fetch external APIs.",
+      origin: "builtin",
+      executor: "native",
+    },
+    {
+      id: "request_lookup",
+      name: "Request Lookup",
+      description: "Fetch live report data.",
+      origin: "custom",
+      executor: "request",
+    },
+    {
+      id: "python_helper",
+      name: "Python Helper",
+      description: "Run a local analysis helper.",
+      origin: "custom",
+      executor: "python",
+    },
+  ],
+  soulsQuery: {
+    data: [
+      {
+        id: "soul_alpha",
+        role: "Researcher",
+        model_name: "gpt-4o",
+        provider: "openai",
+        avatar_color: "info",
+        tools: ["http", "request_lookup", "python_helper"],
+        workflow_count: 10,
+      },
+      {
+        id: "soul_beta",
+        role: "Analyst",
+        model_name: "claude-3-5-sonnet",
+        provider: "anthropic",
+        avatar_color: "success",
+        tools: ["orphaned_tool"],
+        workflow_count: 2,
+      },
+    ],
+    isLoading: false,
+    isError: false,
+  } as {
+    data: Array<Record<string, unknown>>;
+    isLoading: boolean;
+    isError: boolean;
+  },
+}));
+
+vi.mock("react-router", () => ({
+  useNavigate: () => mocks.navigate,
+}));
+
+vi.mock("@/queries/souls", () => ({
+  useSouls: () => mocks.soulsQuery,
+  useAvailableTools: () => ({
+    data: mocks.availableTools,
+    isLoading: false,
+    isError: false,
+  }),
+}));
+
+vi.mock("@/queries/settings", () => ({
+  useProviders: () => ({
+    data: {
+      items: [
+        { id: "openai", name: "OpenAI", is_active: true },
+        { id: "anthropic", name: "Anthropic", is_active: false },
+      ],
+    },
+  }),
+}));
+
+vi.mock("@/components/shared/PageHeader", () => ({
+  PageHeader: (props: Record<string, unknown>) => {
+    mocks.pageHeaderProps.push(props);
+    return React.createElement("page-header", null, props.actions, props.children);
+  },
+}));
+
+vi.mock("@/components/shared/DataTable", () => ({
+  DataTable: (props: Record<string, unknown>) => {
+    mocks.dataTableProps.push(props);
+    return React.createElement("data-table", null);
+  },
+}));
+
+vi.mock("@runsight/ui/button", () => ({
+  Button: (props: Record<string, unknown>) => {
+    mocks.buttonProps.push(props);
+    return React.createElement("button", { type: "button", ...props }, props.children);
+  },
+}));
+
+function resetMocks() {
+  mocks.navigate.mockReset();
+  mocks.pageHeaderProps.length = 0;
+  mocks.dataTableProps.length = 0;
+  mocks.buttonProps.length = 0;
+}
+
+beforeEach(() => {
+  resetMocks();
+});
+
+describe("RUN-452 SoulLibraryPage behavior", () => {
+  it("builds the page from PageHeader and DataTable directly, with canonical tool identity surfaced in the tools column", async () => {
+    const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
+
+    renderToStaticMarkup(
+      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
+    );
+
+    expect(mocks.pageHeaderProps).toHaveLength(1);
+    expect(mocks.dataTableProps).toHaveLength(1);
+
+    const tableProps = mocks.dataTableProps[0] as {
+      columns: Array<{ key: string; header: string; sortable?: boolean }>;
+      data: Array<Record<string, unknown>>;
+      onRowClick?: (row: Record<string, unknown>) => void;
+    };
+
+    expect(tableProps.columns.map((column) => column.header)).toEqual(
+      expect.arrayContaining(["Name", "Model", "Provider", "Tools", "Used In"]),
+    );
+    expect(tableProps.columns.some((column) => /Last Modified/i.test(column.header))).toBe(false);
+    expect(tableProps.columns.some((column) => column.header === "Used In")).toBe(true);
+    expect(tableProps.data).toEqual(mocks.soulsQuery.data);
+    expect(String(tableProps.columns.find((column) => column.header === "Name")?.render)).toMatch(
+      /avatar_color|bg-|charAt|toUpperCase|text-on-accent/,
+    );
+  });
+
+  it("shows a warning in the provider column when a soul points at a disabled provider", async () => {
+    const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
+
+    renderToStaticMarkup(
+      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
+    );
+
+    const tableProps = mocks.dataTableProps[0] as {
+      columns: Array<{
+        header: string;
+        render?: (row: Record<string, unknown>) => React.ReactNode;
+      }>;
+      data: Array<Record<string, unknown>>;
+    };
+
+    const providerColumn = tableProps.columns.find((column) => column.header === "Provider");
+    expect(providerColumn?.render).toBeTypeOf("function");
+
+    const markup = renderToStaticMarkup(
+      React.createElement(React.Fragment, null, providerColumn?.render?.(tableProps.data[1])),
+    );
+
+    expect(markup).toContain("Anthropic");
+    expect(markup).toContain("Provider disabled");
+  });
+
+  it("renders builtin and custom request/python tool badges from canonical ids without a hardcoded legacy tool map", async () => {
+    const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
+
+    renderToStaticMarkup(
+      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
+    );
+
+    const tableProps = mocks.dataTableProps[0] as {
+      columns: Array<{
+        header: string;
+        render?: (row: Record<string, unknown>) => React.ReactNode;
+      }>;
+      data: Array<Record<string, unknown>>;
+    };
+
+    const toolsColumn = tableProps.columns.find((column) => column.header === "Tools");
+    expect(toolsColumn?.render).toBeTypeOf("function");
+
+    const markup = renderToStaticMarkup(
+      React.createElement(React.Fragment, null, toolsColumn?.render?.(tableProps.data[0])),
+    );
+
+    expect(markup).toContain("HTTP Requests");
+    expect(markup).toContain("Request Lookup");
+    expect(markup).toContain("Python Helper");
+    expect(markup).not.toContain("runsight/http");
+  });
+
+  it("keeps rendering a soul's canonical tool id when the API no longer returns metadata for it", async () => {
+    const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
+
+    renderToStaticMarkup(
+      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
+    );
+
+    const tableProps = mocks.dataTableProps[0] as {
+      columns: Array<{
+        header: string;
+        render?: (row: Record<string, unknown>) => React.ReactNode;
+      }>;
+      data: Array<Record<string, unknown>>;
+    };
+
+    const toolsColumn = tableProps.columns.find((column) => column.header === "Tools");
+    expect(toolsColumn?.render).toBeTypeOf("function");
+
+    const markup = renderToStaticMarkup(
+      React.createElement(React.Fragment, null, toolsColumn?.render?.(tableProps.data[1])),
+    );
+
+    expect(markup).toContain("orphaned_tool");
+  });
+
+  it("navigates to /souls/new from the create action and /souls/:id/edit from row selection", async () => {
+    const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
+
+    renderToStaticMarkup(
+      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
+    );
+
+    const createButton = mocks.buttonProps.find(
+      (props) => typeof props.onClick === "function",
+    ) as { onClick?: () => void } | undefined;
+
+    expect(createButton).toBeDefined();
+    createButton?.onClick?.();
+    expect(mocks.navigate).toHaveBeenCalledWith("/souls/new");
+
+    const tableProps = mocks.dataTableProps[0] as {
+      onRowClick?: (row: Record<string, unknown>) => void;
+      data: Array<Record<string, unknown>>;
+    };
+
+    expect(tableProps.onRowClick).toBeTypeOf("function");
+    tableProps.onRowClick?.(tableProps.data[0]);
+    expect(mocks.navigate).toHaveBeenCalledWith("/souls/soul_alpha/edit");
+  });
+});

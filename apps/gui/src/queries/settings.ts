@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { settingsApi } from "../api/settings";
 import { queryKeys } from "./keys";
 
@@ -17,12 +18,31 @@ export function useProvider(id: string) {
   });
 }
 
+export function useModelProviders() {
+  return useQuery({
+    queryKey: queryKeys.models.providers,
+    queryFn: () => settingsApi.listModelProviders(),
+  });
+}
+
+export function useModelsForProvider(provider: string | null) {
+  return useQuery({
+    queryKey: queryKeys.models.byProvider(provider),
+    queryFn: () => settingsApi.listModelsForProvider(provider!),
+    enabled: !!provider,
+  });
+}
+
 export function useCreateProvider() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: settingsApi.createProvider,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.providers });
+      toast.success("Provider added");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to add provider", { description: error.message });
     },
   });
 }
@@ -35,6 +55,10 @@ export function useUpdateProvider() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.providers });
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.provider(id) });
+      toast.success("Provider updated");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to update provider", { description: error.message });
     },
   });
 }
@@ -45,6 +69,10 @@ export function useDeleteProvider() {
     mutationFn: settingsApi.deleteProvider,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.providers });
+      toast.success("Provider deleted");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to delete provider", { description: error.message });
     },
   });
 }
@@ -55,24 +83,38 @@ export function useTestProviderConnection() {
     mutationFn: settingsApi.testProviderConnection,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.providers });
+      toast.success("Connection successful");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to test connection", { description: error.message });
     },
   });
 }
 
-export function useModelDefaults() {
-  return useQuery({
-    queryKey: queryKeys.settings.modelDefaults,
-    queryFn: settingsApi.listModelDefaults,
+export function useTestProviderCredentials() {
+  return useMutation({
+    mutationFn: settingsApi.testProviderCredentials,
   });
 }
 
-export function useUpdateModelDefault() {
+export function useFallbackTargets() {
+  return useQuery({
+    queryKey: queryKeys.settings.fallback,
+    queryFn: settingsApi.listFallbackTargets,
+  });
+}
+
+export function useUpdateFallbackTarget() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof settingsApi.updateModelDefault>[1] }) =>
-      settingsApi.updateModelDefault(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof settingsApi.updateFallbackTarget>[1] }) =>
+      settingsApi.updateFallbackTarget(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.settings.modelDefaults });
+      queryClient.invalidateQueries({ queryKey: queryKeys.settings.fallback });
+      toast.success("Fallback target updated");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to update fallback target", { description: error.message });
     },
   });
 }
@@ -90,6 +132,10 @@ export function useCreateBudget() {
     mutationFn: settingsApi.createBudget,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.budgets });
+      toast.success("Budget created");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to create budget", { description: error.message });
     },
   });
 }
@@ -101,6 +147,10 @@ export function useUpdateBudget() {
       settingsApi.updateBudget(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.budgets });
+      toast.success("Budget updated");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to update budget", { description: error.message });
     },
   });
 }
@@ -111,6 +161,10 @@ export function useDeleteBudget() {
     mutationFn: settingsApi.deleteBudget,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.budgets });
+      toast.success("Budget deleted");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to delete budget", { description: error.message });
     },
   });
 }
@@ -136,11 +190,13 @@ export function useUpdateAppSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.appSettings });
+      toast.success("Settings saved");
     },
-    onError: (_err, _vars, context) => {
+    onError: (error: Error, _vars, context) => {
       if (context?.prev) {
         queryClient.setQueryData(queryKeys.settings.appSettings, context.prev);
       }
+      toast.error("Failed to save settings", { description: error.message });
     },
   });
 }

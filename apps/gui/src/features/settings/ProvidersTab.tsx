@@ -5,70 +5,111 @@ import {
   useTestProviderConnection,
   useUpdateProvider,
 } from "@/queries/settings";
-import { StatusBadge } from "@/components/shared";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { DeleteConfirmDialog } from "@/components/shared";
+import { BadgeDot } from "@runsight/ui/badge";
+import { EmptyState } from "@runsight/ui/empty-state";
+import { Button } from "@runsight/ui/button";
+import { Skeleton } from "@runsight/ui/skeleton";
+import { Switch } from "@runsight/ui/switch";
 import {
-  Plus,
-  Pencil,
-  Trash2,
-  CheckCircle2,
-  XCircle,
-  Server,
-} from "lucide-react";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableMonoCell,
+  TableRow,
+} from "@runsight/ui/table";
+import { Server, AlertCircle, RotateCcw } from "lucide-react";
 import { AddProviderDialog } from "./AddProviderDialog";
 import type { EditingProvider } from "@/components/provider/ProviderSetup";
-import { cn } from "@/utils/helpers";
-import type { Provider } from "@/types/schemas/settings";
+import { cn } from "@runsight/ui/utils";
+import type { Provider } from "@/api/settings";
+import type { CSSProperties } from "react";
 
-// Provider icon/logo component
-function ProviderLogo({ name, status }: { name: string; status: string }) {
-  const getInitials = (name: string) => {
-    return name
-      .split(/\s+/)
-      .map((word) => word[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 3);
-  };
+const PROVIDER_LOGO_TONES = [
+  {
+    backgroundColor: "var(--neutral-6)",
+    borderColor: "var(--neutral-6)",
+    color: "var(--text-primary)",
+  },
+  {
+    backgroundColor: "var(--accent-8)",
+    borderColor: "var(--accent-8)",
+    color: "var(--text-on-accent)",
+  },
+  {
+    backgroundColor: "var(--info-9)",
+    borderColor: "var(--info-9)",
+    color: "var(--text-on-accent)",
+  },
+  {
+    backgroundColor: "var(--success-9)",
+    borderColor: "var(--success-9)",
+    color: "var(--text-on-accent)",
+  },
+  {
+    backgroundColor: "var(--warning-9)",
+    borderColor: "var(--warning-9)",
+    color: "var(--warning-11)",
+  },
+  {
+    backgroundColor: "var(--danger-9)",
+    borderColor: "var(--danger-9)",
+    color: "var(--text-on-accent)",
+  },
+] as const;
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "connected":
-      case "active":
-        return "text-foreground";
-      case "rate-limited":
-        return "text-[var(--warning)]";
-      case "error":
-        return "text-[var(--error)]";
-      default:
-        return "text-muted-foreground";
-    }
-  };
+function getProviderInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 3);
+}
+
+function getProviderLogoTone(name: string): CSSProperties {
+  const normalized = name.trim().toLowerCase();
+  if (normalized === "anthropic") {
+    return PROVIDER_LOGO_TONES[1];
+  }
+  if (normalized === "openai") {
+    return PROVIDER_LOGO_TONES[0];
+  }
+
+  const hash = [...normalized].reduce(
+    (acc, char) => acc + char.charCodeAt(0),
+    0,
+  );
+  return PROVIDER_LOGO_TONES[hash % PROVIDER_LOGO_TONES.length];
+}
+
+function ProviderLogo({ name }: { name: string }) {
 
   return (
-    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-card">
-      <span className={cn("text-xs font-semibold", getStatusColor(status))}>
-        {getInitials(name)}
-      </span>
+    <div
+      style={getProviderLogoTone(name)}
+      className={cn(
+        "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border",
+      )}
+    >
+      <span className="text-xs font-semibold">{getProviderInitials(name)}</span>
     </div>
   );
 }
 
-// Status mapping from provider status to StatusBadge variant
-function getStatusVariant(
-  status: string
-): "success" | "warning" | "error" | "pending" {
+function getStatusDotClass(status: string): string {
   switch (status) {
     case "connected":
     case "active":
-      return "success";
+      return "text-success-9";
     case "rate-limited":
-      return "warning";
+      return "text-warning-9";
     case "error":
-      return "error";
+      return "text-danger-9";
     default:
-      return "pending";
+      return "text-neutral-9";
   }
 }
 
@@ -76,9 +117,9 @@ function getStatusLabel(status: string): string {
   switch (status) {
     case "connected":
     case "active":
-      return "Active";
+      return "Connected";
     case "rate-limited":
-      return "Rate Limited";
+      return "Rate limited";
     case "error":
       return "Error";
     case "offline":
@@ -88,31 +129,27 @@ function getStatusLabel(status: string): string {
   }
 }
 
-// Provider Card Component
-function ProviderCard({
+function ProviderRow({
   provider,
   onEdit,
   onDelete,
 }: {
   provider: Provider;
   onEdit: (provider: Provider) => void;
-  onDelete: (id: string) => void;
+  onDelete: (provider: Provider) => void;
 }) {
   const testConnection = useTestProviderConnection();
   const updateProvider = useUpdateProvider();
-  const [testStatus, setTestStatus] = useState<
-    "idle" | "testing" | "success" | "error"
-  >("idle");
+  const [testStatus, setTestStatus] = useState<"idle" | "testing">("idle");
 
   const handleTest = async () => {
     setTestStatus("testing");
     try {
-      const result = await testConnection.mutateAsync(provider.id);
-      setTestStatus(result.success ? "success" : "error");
-      setTimeout(() => setTestStatus("idle"), 3000);
+      await testConnection.mutateAsync(provider.id);
     } catch {
-      setTestStatus("error");
-      setTimeout(() => setTestStatus("idle"), 3000);
+      // surfaced by toast and refreshed provider status
+    } finally {
+      setTestStatus("idle");
     }
   };
 
@@ -123,231 +160,234 @@ function ProviderCard({
     });
   };
 
-  // Mask API key - show last 4 chars
-  const maskApiKey = (key: string | null | undefined) => {
-    if (!key) return "(none configured)";
-    const last4 = key.slice(-4);
-    return `••••••••••••••••${last4}`;
-  };
-
-  const isEnabled =
-    provider.status !== "offline" && provider.status !== "error";
+  const isEnabled = provider.is_active ?? true;
+  const keyPreview = provider.api_key_preview
+    ? provider.api_key_preview
+    : provider.api_key_env?.startsWith("$")
+      ? `Configured via ${provider.api_key_env}`
+      : "(none configured)";
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
-          <ProviderLogo name={provider.name} status={provider.status} />
-
-          {/* Provider Info */}
-          <div className="flex-1">
-            <div className="mb-1 flex items-center gap-3">
-              <h3 className="text-base font-medium text-foreground">
-                {provider.name}
-              </h3>
-              <StatusBadge
-                status={getStatusVariant(provider.status)}
-                label={getStatusLabel(provider.status)}
-              />
-            </div>
-
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="w-20 text-xs uppercase tracking-wider text-muted-foreground">
-                  API Key
-                </span>
-                <span className="font-mono text-muted-foreground">
-                  {maskApiKey(provider.api_key_env)}
-                </span>
-              </div>
-
-              {provider.base_url && (
-                <div className="flex items-center gap-2">
-                  <span className="w-20 text-xs uppercase tracking-wider text-muted-foreground">
-                    Base URL
-                  </span>
-                  <span className="text-muted-foreground">
-                    {provider.base_url}
-                  </span>
-                </div>
-              )}
-
-              <div className="mt-3 flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Models
-                  </span>
-                  <span className="font-medium text-foreground">
-                    {provider.models?.length || 0} available
-                  </span>
-                </div>
-              </div>
-            </div>
+    <TableRow>
+      <TableCell className="border-b-0 py-3">
+        <div className="flex items-center gap-2.5">
+          <ProviderLogo name={provider.name} />
+          <div className="min-w-0">
+            <div className="text-md font-medium text-heading">{provider.name}</div>
+            {provider.base_url ? (
+              <div className="truncate text-xs text-muted">{provider.base_url}</div>
+            ) : null}
           </div>
         </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-3">
+      </TableCell>
+      <TableMonoCell className="border-b-0 py-3 text-secondary">{keyPreview}</TableMonoCell>
+      <TableCell className="border-b-0 py-3">
+        <div
+          aria-label={`Provider ${provider.name} status ${getStatusLabel(provider.status)}`}
+          className="inline-flex items-center gap-1.5 text-sm text-secondary"
+        >
+          <BadgeDot className={getStatusDotClass(provider.status)} />
+          <span>{getStatusLabel(provider.status)}</span>
+        </div>
+      </TableCell>
+      <TableCell className="border-b-0 py-3 text-sm text-secondary">
+        {(provider.models?.length || 0) === 1
+          ? "1 model"
+          : `${provider.models?.length || 0} models`}
+      </TableCell>
+      <TableCell className="w-[1%] border-b-0 py-3 whitespace-nowrap">
+        <div className="flex items-center gap-1.5">
           <Switch
             checked={isEnabled}
             onCheckedChange={handleToggle}
-            aria-label={`Toggle ${provider.name}`}
+            aria-label={`Enable ${provider.name} provider`}
+            wrapperClassName="mr-1"
+            className="scale-90"
           />
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTest}
-              disabled={testStatus === "testing"}
-              className="text-xs"
-            >
-              {testStatus === "testing" ? (
-                "Testing..."
-              ) : testStatus === "success" ? (
-                <>
-                  <CheckCircle2 className="mr-1 h-3 w-3 text-[var(--success)]" />
-                  Connected
-                </>
-              ) : testStatus === "error" ? (
-                <>
-                  <XCircle className="mr-1 h-3 w-3 text-[var(--error)]" />
-                  Failed
-                </>
-              ) : (
-                "Test Connection"
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onEdit(provider)}
-              title="Edit provider"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onDelete(provider.id)}
-              className="text-[var(--error)] hover:text-[var(--error)]"
-              title="Remove provider"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={handleTest}
+            disabled={testStatus === "testing"}
+            className="px-1.5 text-secondary"
+            aria-label={`Test ${provider.name} connection`}
+          >
+            {testStatus === "testing" ? "Testing..." : "Test"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => onEdit(provider)}
+            className="px-1.5 text-secondary"
+            aria-label={`Edit ${provider.name} provider`}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => onDelete(provider)}
+            className="text-[var(--danger-11)] hover:bg-[var(--danger-3)] hover:text-[var(--danger-11)]"
+            aria-label={`Delete ${provider.name} provider`}
+          >
+            Delete
+          </Button>
         </div>
-      </div>
-    </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
-// Empty State Component
-function EmptyProvidersState({ onAdd }: { onAdd: () => void }) {
+function ProviderTableSkeleton() {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border bg-card/50 p-12 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
-        <Server className="h-6 w-6 text-muted-foreground" />
-      </div>
-      <div className="flex flex-col gap-1">
-        <h3 className="text-sm font-medium text-foreground">
-          No providers configured
-        </h3>
-        <p className="max-w-xs text-xs text-muted-foreground">
-          Add an AI provider to start using Runsight with models like GPT-4,
-          Claude, or local Ollama instances.
-        </p>
-      </div>
-      <Button onClick={onAdd} size="sm">
-        <Plus className="mr-1 h-4 w-4" />
-        Add Provider
-      </Button>
+    <div>
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Provider</TableHead>
+            <TableHead>API Key</TableHead>
+            <TableHead className="w-[140px]">Status</TableHead>
+            <TableHead className="w-[140px]">Models</TableHead>
+            <TableHead className="w-[220px] text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {[1, 2, 3].map((index) => (
+            <TableRow key={index}>
+              <TableCell colSpan={5}>
+                <div className="flex items-center gap-4 py-2">
+                  <Skeleton variant="avatar" className="h-7 w-7 rounded-full" />
+                  <div className="grid flex-1 grid-cols-[1.1fr_1fr_140px_120px_180px] gap-4">
+                    <Skeleton className="w-36" />
+                    <Skeleton className="w-40" />
+                    <Skeleton className="w-24" />
+                    <Skeleton className="w-20" />
+                    <Skeleton variant="button" className="w-24" />
+                  </div>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
 
-function toEditing(p: Provider): EditingProvider {
-  return {
-    id: p.id,
-    name: p.name,
-    type: p.name.toLowerCase().replace(/\s+/g, "_"),
-    baseUrl: p.base_url,
-    hasKey: !!p.api_key_env,
-  };
+interface ProvidersTabProps {
+  onAddProvider: () => void;
+  onEditProvider: (provider: Provider) => void;
+  dialogOpen: boolean;
+  onDialogOpenChange: (open: boolean) => void;
+  editing?: EditingProvider;
 }
 
-export function ProvidersTab() {
-  const { data, isLoading } = useProviders();
+export function ProvidersTab({
+  onAddProvider,
+  onEditProvider,
+  dialogOpen,
+  onDialogOpenChange,
+  editing,
+}: ProvidersTabProps) {
+  const { data, isLoading, error, refetch } = useProviders();
   const deleteProvider = useDeleteProvider();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<EditingProvider | undefined>(undefined);
+  const [itemToDelete, setItemToDelete] = useState<Provider | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const providers = data?.items || [];
 
-  const handleAdd = () => {
-    setEditing(undefined);
-    setDialogOpen(true);
+  const handleDelete = (provider: Provider) => {
+    setItemToDelete(provider);
   };
 
-  const handleEdit = (provider: Provider) => {
-    setEditing(toEditing(provider));
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = (open: boolean) => {
-    if (!open) {
-      setDialogOpen(false);
-      setEditing(undefined);
-    }
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to remove this provider?")) {
-      deleteProvider.mutate(id);
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRetrying(false);
     }
   };
 
   return (
-    <div className="mx-auto max-w-4xl">
-      {/* Page Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-          Providers
-        </h2>
-        <Button onClick={handleAdd}>
-          <Plus className="mr-1 h-4 w-4" />
-          Add Provider
-        </Button>
-      </div>
-
-      {/* Provider List */}
+    <div className="w-full">
       {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-32 animate-pulse rounded-lg border border-border bg-card"
-            />
-          ))}
+        <ProviderTableSkeleton />
+      ) : error ? (
+        <div className="flex items-center justify-center rounded-lg border border-border-default bg-surface-secondary p-8">
+          <div className="max-w-md text-center">
+            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-danger" />
+            <h3 className="mb-2 text-lg font-medium text-primary">
+              Failed to load providers
+            </h3>
+            <p className="mb-4 text-sm text-muted">
+              {error instanceof Error
+                ? error.message
+                : "An error occurred while fetching providers."}
+            </p>
+            <Button
+              onClick={handleRetry}
+              variant="secondary"
+              disabled={isRetrying}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {isRetrying ? "Retrying..." : "Retry"}
+            </Button>
+          </div>
         </div>
       ) : providers.length === 0 ? (
-        <EmptyProvidersState onAdd={handleAdd} />
+        <div className="rounded-lg border border-border-default bg-surface-primary p-8">
+          <EmptyState
+            icon={Server}
+            title="No providers configured"
+            description="Add an AI provider to start using Runsight with models like GPT-4, Claude, or local Ollama instances."
+            action={{ label: "Add Provider", onClick: onAddProvider }}
+          />
+        </div>
       ) : (
-        <div className="space-y-4">
-          {providers.map((provider) => (
-            <ProviderCard
-              key={provider.id}
-              provider={provider}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          ))}
+        <div>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Provider</TableHead>
+                <TableHead>API Key</TableHead>
+                <TableHead className="w-[140px]">Status</TableHead>
+                <TableHead className="w-[140px]">Models</TableHead>
+                <TableHead className="w-[220px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {providers.map((provider) => (
+                <ProviderRow
+                  key={provider.id}
+                  provider={provider}
+                  onEdit={onEditProvider}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
       <AddProviderDialog
         open={dialogOpen}
-        onOpenChange={handleCloseDialog}
+        onOpenChange={onDialogOpenChange}
         editing={editing}
+      />
+
+      <DeleteConfirmDialog
+        open={!!itemToDelete}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={() => {
+          if (!itemToDelete) return;
+          deleteProvider.mutate(itemToDelete.id, {
+            onSuccess: () => setItemToDelete(null),
+          });
+        }}
+        isPending={deleteProvider.isPending}
+        resourceName="Provider"
+        itemName={itemToDelete ? itemToDelete.name : undefined}
       />
     </div>
   );

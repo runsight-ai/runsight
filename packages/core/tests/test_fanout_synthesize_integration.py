@@ -1,0 +1,817 @@
+"""
+Integration tests for RUN-287: FanOut v2 + SynthesizeBlock end-to-end pipeline.
+
+Tests the full integration chain:
+1. Full pipeline: parse YAML -> FanOutBlock (per-exit tasks) -> SynthesizeBlock -> verify
+2. Per-exit references: SynthesizeBlock reads individual branch outputs via dotted keys
+3. Stateful + loop: FanOut with stateful=true inside LoopBlock -> histories preserved
+4. Context inheritance: workflow current_task context -> each branch inherits context
+
+All tests mock LiteLLMClient.achat to return different outputs per branch.
+"""
+
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from runsight_core.blocks.fanout import FanOutBlock, FanOutBranch
+from runsight_core.blocks.loop import LoopBlock
+from runsight_core.blocks.synthesize import SynthesizeBlock
+from runsight_core.primitives import Soul, Task
+from runsight_core.runner import ExecutionResult
+from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.yaml.parser import parse_workflow_yaml
+
+# ---------------------------------------------------------------------------
+# Shared YAML fixture
+# ---------------------------------------------------------------------------
+
+FANOUT_SYNTHESIZE_YAML = """\
+version: "1.0"
+souls:
+  researcher:
+    id: researcher
+    role: Senior Researcher
+    system_prompt: "You research topics."
+  coder:
+    id: coder
+    role: Software Engineer
+    system_prompt: "You write code."
+  synthesizer:
+    id: synthesizer
+    role: Synthesis Agent
+    system_prompt: "You synthesize inputs."
+
+blocks:
+  fanout_work:
+    type: fanout
+    exits:
+      - id: researcher
+        label: Research Agent
+        soul_ref: researcher
+        task: "Find papers on quantum computing"
+      - id: coder
+        label: Code Agent
+        soul_ref: coder
+        task: "Implement Grover's algorithm"
+
+  merge_results:
+    type: synthesize
+    soul_ref: synthesizer
+    input_block_ids: [fanout_work]
+
+workflow:
+  name: fanout_v2_test
+  entry: fanout_work
+  transitions:
+    - from: fanout_work
+      to: merge_results
+    - from: merge_results
+      to: null
+"""
+
+PER_EXIT_REF_YAML = """\
+version: "1.0"
+souls:
+  researcher:
+    id: researcher
+    role: Senior Researcher
+    system_prompt: "You research topics."
+  coder:
+    id: coder
+    role: Software Engineer
+    system_prompt: "You write code."
+  synthesizer:
+    id: synthesizer
+    role: Synthesis Agent
+    system_prompt: "You synthesize inputs."
+
+blocks:
+  fanout_work:
+    type: fanout
+    exits:
+      - id: researcher
+        label: Research Agent
+        soul_ref: researcher
+        task: "Find papers on quantum computing"
+      - id: coder
+        label: Code Agent
+        soul_ref: coder
+        task: "Implement Grover's algorithm"
+
+  merge_results:
+    type: synthesize
+    soul_ref: synthesizer
+    input_block_ids: ["fanout_work.researcher", "fanout_work.coder"]
+
+workflow:
+  name: fanout_v2_per_exit_test
+  entry: fanout_work
+  transitions:
+    - from: fanout_work
+      to: merge_results
+    - from: merge_results
+      to: null
+"""
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_exec_result(task_id, soul_id, output, cost=0.0, tokens=0):
+    """Create an ExecutionResult with controlled values."""
+    return ExecutionResult(
+        task_id=task_id,
+        soul_id=soul_id,
+        output=output,
+        cost_usd=cost,
+        total_tokens=tokens,
+    )
+
+
+def _mock_runner():
+    """Build a MagicMock runner with _build_prompt wired."""
+    runner = MagicMock()
+    runner.execute_task = AsyncMock()
+    runner.model_name = "gpt-4o"
+    runner._build_prompt = MagicMock(
+        side_effect=lambda task: (
+            task.instruction
+            if not task.context
+            else f"{task.instruction}\n\nContext:\n{task.context}"
+        )
+    )
+    return runner
+
+
+# ===========================================================================
+# Scenario 1: Full pipeline — parse YAML, run FanOut, run Synthesize
+# ===========================================================================
+
+
+class TestFullPipeline:
+    """Parse YAML with FanOut v2 (per-exit tasks) -> SynthesizeBlock -> verify
+    each branch got its own task, synthesize got combined output."""
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.llm.client.acompletion")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
+    async def test_full_pipeline_parse_and_run(self, mock_acompletion):
+        """Full YAML -> parse -> run workflow -> verify FanOut per-exit + Synthesize."""
+        call_count = 0
+
+        async def _mock_acompletion(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            messages = kwargs.get("messages", [])
+            # Determine which branch by inspecting the prompt content
+            prompt_text = " ".join(m.get("content", "") for m in messages)
+
+            if "quantum computing" in prompt_text.lower():
+                content = "Research: Found 3 papers on quantum computing applications."
+                cost_tokens = 100
+            elif "grover" in prompt_text.lower():
+                content = (
+                    "Code: Implemented Grover's algorithm in Python with O(sqrt(N)) complexity."
+                )
+                cost_tokens = 120
+            else:
+                # Synthesize call
+                content = (
+                    "Synthesis: Quantum computing research identified 3 key papers. "
+                    "Grover's algorithm was implemented with optimal complexity."
+                )
+                cost_tokens = 150
+
+            mock_response = MagicMock()
+            mock_response.choices = [MagicMock()]
+            mock_response.choices[0].message.content = content
+            mock_response.choices[0].message.tool_calls = None
+            mock_response.choices[0].finish_reason = "stop"
+            mock_response.usage = MagicMock()
+            mock_response.usage.prompt_tokens = cost_tokens
+            mock_response.usage.completion_tokens = cost_tokens
+            mock_response.usage.total_tokens = cost_tokens * 2
+            return mock_response
+
+        mock_acompletion.side_effect = _mock_acompletion
+
+        with patch("runsight_core.llm.client.completion_cost", return_value=0.01):
+            wf = parse_workflow_yaml(FANOUT_SYNTHESIZE_YAML)
+            task = Task(id="main_task", instruction="Explore quantum computing")
+            state = WorkflowState(current_task=task)
+            final_state = await wf.run(state)
+
+        # FanOut per-exit results keyed correctly
+        assert "fanout_work.researcher" in final_state.results
+        assert "fanout_work.coder" in final_state.results
+        assert "fanout_work" in final_state.results
+
+        # Each branch got different output
+        researcher_output = final_state.results["fanout_work.researcher"].output
+        coder_output = final_state.results["fanout_work.coder"].output
+        assert "Research" in researcher_output
+        assert "quantum computing" in researcher_output.lower()
+        assert "Code" in coder_output or "Grover" in coder_output
+
+        # SynthesizeBlock produced a result
+        assert "merge_results" in final_state.results
+        synth_output = final_state.results["merge_results"].output
+        assert "Synthesis" in synth_output or "quantum" in synth_output.lower()
+
+        # Cost and tokens accumulated from all 3 LLM calls
+        assert final_state.total_cost_usd > 0
+        assert final_state.total_tokens > 0
+
+        # At least 3 LLM calls: 2 fanout branches + 1 synthesize
+        assert call_count >= 3
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.llm.client.acompletion")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
+    async def test_fanout_branches_receive_different_tasks(self, mock_acompletion):
+        """Verify each FanOut branch receives its own task instruction, not a shared one."""
+        captured_prompts = []
+
+        async def _mock_acompletion(**kwargs):
+            messages = kwargs.get("messages", [])
+            # Capture user messages (prompts)
+            for m in messages:
+                if m.get("role") == "user":
+                    captured_prompts.append(m["content"])
+
+            mock_response = MagicMock()
+            mock_response.choices = [MagicMock()]
+            mock_response.choices[0].message.content = "OK"
+            mock_response.choices[0].message.tool_calls = None
+            mock_response.choices[0].finish_reason = "stop"
+            mock_response.usage = MagicMock()
+            mock_response.usage.prompt_tokens = 50
+            mock_response.usage.completion_tokens = 50
+            mock_response.usage.total_tokens = 100
+            return mock_response
+
+        mock_acompletion.side_effect = _mock_acompletion
+
+        with patch("runsight_core.llm.client.completion_cost", return_value=0.001):
+            wf = parse_workflow_yaml(FANOUT_SYNTHESIZE_YAML)
+            task = Task(id="main_task", instruction="Do the work")
+            state = WorkflowState(current_task=task)
+            await wf.run(state)
+
+        # The first two LLM calls are the FanOut branches. Prompts must differ.
+        assert len(captured_prompts) >= 2
+        # One prompt mentions quantum computing / papers, the other mentions Grover's
+        fanout_prompts = captured_prompts[:2]
+        assert fanout_prompts[0] != fanout_prompts[1], (
+            f"FanOut branches must get different prompts, got identical: {fanout_prompts[0]}"
+        )
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.llm.client.acompletion")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
+    async def test_synthesize_receives_combined_fanout_output(self, mock_acompletion):
+        """SynthesizeBlock with input_block_ids: [fanout_work] reads the combined JSON output."""
+        captured_synth_context = []
+
+        async def _mock_acompletion(**kwargs):
+            messages = kwargs.get("messages", [])
+            prompt_text = " ".join(m.get("content", "") for m in messages)
+
+            # Identify synthesize call by checking for "Synthesize" instruction
+            if "synthesize" in prompt_text.lower() or "=== Output from" in prompt_text:
+                for m in messages:
+                    if m.get("role") == "user":
+                        captured_synth_context.append(m["content"])
+
+            mock_response = MagicMock()
+            mock_response.choices = [MagicMock()]
+            mock_response.choices[0].message.content = "Synthesized result"
+            mock_response.choices[0].message.tool_calls = None
+            mock_response.choices[0].finish_reason = "stop"
+            mock_response.usage = MagicMock()
+            mock_response.usage.prompt_tokens = 50
+            mock_response.usage.completion_tokens = 50
+            mock_response.usage.total_tokens = 100
+            return mock_response
+
+        mock_acompletion.side_effect = _mock_acompletion
+
+        with patch("runsight_core.llm.client.completion_cost", return_value=0.001):
+            wf = parse_workflow_yaml(FANOUT_SYNTHESIZE_YAML)
+            task = Task(id="main_task", instruction="Do the work")
+            state = WorkflowState(current_task=task)
+            await wf.run(state)
+
+        # The synthesize call should have received the combined FanOut output
+        assert len(captured_synth_context) >= 1
+        synth_prompt = captured_synth_context[0]
+        # The SynthesizeBlock prefixes each input with "=== Output from {bid} ==="
+        assert "fanout_work" in synth_prompt
+
+    @pytest.mark.asyncio
+    async def test_cost_tokens_accumulated_correctly(self):
+        """Verify cost and tokens from all branches + synthesize are summed in final state."""
+        runner = _mock_runner()
+
+        # FanOut branch results
+        runner.execute_task.side_effect = [
+            _make_exec_result("fanout_work_researcher", "researcher", "Research output", 0.05, 100),
+            _make_exec_result("fanout_work_coder", "coder", "Code output", 0.08, 150),
+            # Synthesize result
+            _make_exec_result(
+                "merge_results_synthesis", "synthesizer", "Synthesis output", 0.10, 200
+            ),
+        ]
+
+        # Build blocks manually (unit-level integration)
+        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
+        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
+        synth_soul = Soul(id="synthesizer", role="Synthesizer", system_prompt="Synthesize.")
+
+        fanout = FanOutBlock(
+            "fanout_work",
+            [
+                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
+                FanOutBranch("coder", "Code Agent", coder_soul, "Implement algorithm"),
+            ],
+            runner,
+        )
+        synthesize = SynthesizeBlock(
+            "merge_results",
+            input_block_ids=["fanout_work"],
+            synthesizer_soul=synth_soul,
+            runner=runner,
+        )
+
+        task = Task(id="main", instruction="Work")
+        state = WorkflowState(current_task=task)
+
+        # Execute FanOut
+        state = await fanout.execute(state)
+        # Execute Synthesize
+        state = await synthesize.execute(state)
+
+        # Total cost = 0.05 + 0.08 + 0.10 = 0.23
+        assert state.total_cost_usd == pytest.approx(0.23)
+        # Total tokens = 100 + 150 + 200 = 450
+        assert state.total_tokens == 450
+
+
+# ===========================================================================
+# Scenario 2: Per-exit references — SynthesizeBlock reads individual branch outputs
+# ===========================================================================
+
+
+class TestPerExitReferences:
+    """SynthesizeBlock with input_block_ids: ["fanout_work.researcher", "fanout_work.coder"]
+    reads individual branch outputs rather than the combined JSON."""
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.llm.client.acompletion")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
+    async def test_per_exit_ref_yaml_parses(self, mock_acompletion):
+        """YAML with input_block_ids referencing per-exit keys parses without error."""
+
+        async def _mock_acompletion(**kwargs):
+            mock_response = MagicMock()
+            mock_response.choices = [MagicMock()]
+            mock_response.choices[0].message.content = "output"
+            mock_response.choices[0].message.tool_calls = None
+            mock_response.choices[0].finish_reason = "stop"
+            mock_response.usage = MagicMock()
+            mock_response.usage.prompt_tokens = 10
+            mock_response.usage.completion_tokens = 10
+            mock_response.usage.total_tokens = 20
+            return mock_response
+
+        mock_acompletion.side_effect = _mock_acompletion
+
+        with patch("runsight_core.llm.client.completion_cost", return_value=0.001):
+            wf = parse_workflow_yaml(PER_EXIT_REF_YAML)
+            assert wf.name == "fanout_v2_per_exit_test"
+
+            task = Task(id="main", instruction="Do work")
+            state = WorkflowState(current_task=task)
+            final_state = await wf.run(state)
+
+        # Synthesize should have run successfully
+        assert "merge_results" in final_state.results
+
+    @pytest.mark.asyncio
+    async def test_synthesize_reads_per_exit_keys(self):
+        """SynthesizeBlock with per-exit input_block_ids reads each branch output individually."""
+        runner = _mock_runner()
+        synth_soul = Soul(id="synthesizer", role="Synthesizer", system_prompt="Synthesize.")
+
+        runner.execute_task.return_value = _make_exec_result(
+            "merge_synthesis", "synthesizer", "Synthesized from individual branches", 0.05, 100
+        )
+
+        synthesize = SynthesizeBlock(
+            "merge_results",
+            input_block_ids=["fanout_work.researcher", "fanout_work.coder"],
+            synthesizer_soul=synth_soul,
+            runner=runner,
+        )
+
+        # Pre-populate state with per-exit results (as FanOut v2 would produce)
+        state = WorkflowState(
+            results={
+                "fanout_work.researcher": BlockResult(
+                    output="Research: Found 3 papers.", exit_handle="researcher"
+                ),
+                "fanout_work.coder": BlockResult(
+                    output="Code: Implemented Grover's algorithm.", exit_handle="coder"
+                ),
+                "fanout_work": BlockResult(output='[{"exit_id":"researcher","output":"..."}]'),
+            }
+        )
+
+        final_state = await synthesize.execute(state)
+
+        assert "merge_results" in final_state.results
+
+        # Verify the synthesize task received both per-exit outputs
+        call_args = runner.execute_task.call_args
+        task_arg = call_args[0][0]
+        assert "Research: Found 3 papers." in task_arg.context
+        assert "Code: Implemented Grover's algorithm." in task_arg.context
+        # Both per-exit keys should be referenced in the context
+        assert "fanout_work.researcher" in task_arg.context
+        assert "fanout_work.coder" in task_arg.context
+
+    @pytest.mark.asyncio
+    async def test_synthesize_fails_if_per_exit_key_missing(self):
+        """SynthesizeBlock raises ValueError if a per-exit key is missing from state.results."""
+        runner = _mock_runner()
+        synth_soul = Soul(id="synthesizer", role="Synthesizer", system_prompt="Synthesize.")
+
+        synthesize = SynthesizeBlock(
+            "merge_results",
+            input_block_ids=["fanout_work.researcher", "fanout_work.coder"],
+            synthesizer_soul=synth_soul,
+            runner=runner,
+        )
+
+        # Only researcher result is present, coder is missing
+        state = WorkflowState(
+            results={
+                "fanout_work.researcher": BlockResult(output="Research output"),
+            }
+        )
+
+        with pytest.raises(ValueError, match="missing inputs.*fanout_work.coder"):
+            await synthesize.execute(state)
+
+
+# ===========================================================================
+# Scenario 3: Stateful + loop — FanOut with stateful=true inside LoopBlock
+# ===========================================================================
+
+
+class TestStatefulFanOutInLoop:
+    """FanOut with stateful=true inside a LoopBlock: per-exit histories preserved across rounds."""
+
+    @pytest.mark.asyncio
+    async def test_stateful_fanout_preserves_histories_across_loop_rounds(self):
+        """Per-exit conversation histories accumulate across LoopBlock rounds."""
+        runner = _mock_runner()
+
+        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
+        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
+
+        fanout = FanOutBlock(
+            "fanout_work",
+            [
+                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
+                FanOutBranch("coder", "Code Agent", coder_soul, "Write code"),
+            ],
+            runner,
+        )
+        fanout.stateful = True
+
+        # Round 1 results
+        round1_results = [
+            _make_exec_result("fanout_work_researcher", "researcher", "Round 1 research", 0.02, 50),
+            _make_exec_result("fanout_work_coder", "coder", "Round 1 code", 0.03, 60),
+        ]
+        # Round 2 results
+        round2_results = [
+            _make_exec_result("fanout_work_researcher", "researcher", "Round 2 research", 0.02, 50),
+            _make_exec_result("fanout_work_coder", "coder", "Round 2 code", 0.03, 60),
+        ]
+
+        runner.execute_task.side_effect = round1_results + round2_results
+
+        loop = LoopBlock(
+            block_id="loop_fanout",
+            inner_block_refs=["fanout_work"],
+            max_rounds=2,
+        )
+
+        task = Task(id="main", instruction="Iterate")
+        state = WorkflowState(current_task=task)
+
+        # Execute the loop with the fanout block in the blocks dict
+        final_state = await loop.execute(state, blocks={"fanout_work": fanout})
+
+        # After 2 rounds, conversation histories should exist for each branch
+        histories = final_state.conversation_histories
+        researcher_key = "fanout_work_researcher"
+        coder_key = "fanout_work_coder"
+
+        assert researcher_key in histories, (
+            f"Expected history key '{researcher_key}' in {list(histories.keys())}"
+        )
+        assert coder_key in histories, (
+            f"Expected history key '{coder_key}' in {list(histories.keys())}"
+        )
+
+        # Each branch history should have grown across rounds
+        # Round 1 adds user+assistant (2 messages on top of any prior)
+        # Round 2 reads round 1 history, adds user+assistant (so total = 4)
+        researcher_hist = histories[researcher_key]
+        coder_hist = histories[coder_key]
+        assert len(researcher_hist) >= 4, (
+            f"Expected researcher history >= 4 messages after 2 rounds, got {len(researcher_hist)}"
+        )
+        assert len(coder_hist) >= 4, (
+            f"Expected coder history >= 4 messages after 2 rounds, got {len(coder_hist)}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_stateful_fanout_round2_receives_round1_history(self):
+        """In round 2, runner.execute_task is called with messages from round 1."""
+        runner = _mock_runner()
+
+        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
+        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
+
+        fanout = FanOutBlock(
+            "fanout_work",
+            [
+                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
+                FanOutBranch("coder", "Code Agent", coder_soul, "Write code"),
+            ],
+            runner,
+        )
+        fanout.stateful = True
+
+        runner.execute_task.side_effect = [
+            # Round 1
+            _make_exec_result("fanout_work_researcher", "researcher", "R1 research", 0.01, 20),
+            _make_exec_result("fanout_work_coder", "coder", "R1 code", 0.01, 20),
+            # Round 2
+            _make_exec_result("fanout_work_researcher", "researcher", "R2 research", 0.01, 20),
+            _make_exec_result("fanout_work_coder", "coder", "R2 code", 0.01, 20),
+        ]
+
+        loop = LoopBlock(
+            block_id="loop_fanout",
+            inner_block_refs=["fanout_work"],
+            max_rounds=2,
+        )
+
+        task = Task(id="main", instruction="Iterate")
+        state = WorkflowState(current_task=task)
+
+        await loop.execute(state, blocks={"fanout_work": fanout})
+
+        # Inspect calls to runner.execute_task
+        all_calls = runner.execute_task.call_args_list
+
+        # Round 2 calls (calls 2 and 3, since round 1 was calls 0 and 1)
+        # Each should have messages= containing the round 1 conversation
+        round2_calls = all_calls[2:4]
+        for call in round2_calls:
+            # messages kwarg or positional arg
+            kwargs = call.kwargs
+            positional = call.args
+            if "messages" in kwargs:
+                messages = kwargs["messages"]
+            elif len(positional) > 2:
+                messages = positional[2]
+            else:
+                messages = None
+
+            assert messages is not None, "Round 2 calls must include messages from round 1"
+            assert len(messages) >= 2, (
+                f"Round 2 should have prior history, got {len(messages)} messages"
+            )
+
+    @pytest.mark.asyncio
+    async def test_histories_are_independent_per_exit(self):
+        """Each branch's history is independent -- researcher doesn't see coder's history."""
+        runner = _mock_runner()
+
+        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
+        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
+
+        fanout = FanOutBlock(
+            "fanout_work",
+            [
+                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
+                FanOutBranch("coder", "Code Agent", coder_soul, "Write code"),
+            ],
+            runner,
+        )
+        fanout.stateful = True
+
+        runner.execute_task.side_effect = [
+            _make_exec_result("fanout_work_researcher", "researcher", "RESEARCH_ONLY_R1", 0.01, 20),
+            _make_exec_result("fanout_work_coder", "coder", "CODE_ONLY_R1", 0.01, 20),
+            _make_exec_result("fanout_work_researcher", "researcher", "RESEARCH_ONLY_R2", 0.01, 20),
+            _make_exec_result("fanout_work_coder", "coder", "CODE_ONLY_R2", 0.01, 20),
+        ]
+
+        loop = LoopBlock(
+            block_id="loop_fanout",
+            inner_block_refs=["fanout_work"],
+            max_rounds=2,
+        )
+
+        task = Task(id="main", instruction="Iterate")
+        state = WorkflowState(current_task=task)
+
+        final_state = await loop.execute(state, blocks={"fanout_work": fanout})
+
+        # Researcher history should contain RESEARCH_ONLY, not CODE_ONLY
+        researcher_hist = final_state.conversation_histories["fanout_work_researcher"]
+        researcher_text = " ".join(
+            m.get("content", "") for m in researcher_hist if isinstance(m.get("content"), str)
+        )
+        assert "RESEARCH_ONLY" in researcher_text
+        assert "CODE_ONLY" not in researcher_text
+
+        # Coder history should contain CODE_ONLY, not RESEARCH_ONLY
+        coder_hist = final_state.conversation_histories["fanout_work_coder"]
+        coder_text = " ".join(
+            m.get("content", "") for m in coder_hist if isinstance(m.get("content"), str)
+        )
+        assert "CODE_ONLY" in coder_text
+        assert "RESEARCH_ONLY" not in coder_text
+
+
+# ===========================================================================
+# Scenario 4: Context inheritance — current_task context flows to branches
+# ===========================================================================
+
+
+class TestContextInheritance:
+    """Workflow current_task has context -> each branch inherits context but has its own instruction."""
+
+    @pytest.mark.asyncio
+    async def test_branches_inherit_current_task_context(self):
+        """Each FanOut branch gets current_task.context passed through to its Task."""
+        runner = _mock_runner()
+
+        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
+        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
+
+        fanout = FanOutBlock(
+            "fanout_work",
+            [
+                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers"),
+                FanOutBranch("coder", "Code Agent", coder_soul, "Write code"),
+            ],
+            runner,
+        )
+
+        runner.execute_task.side_effect = [
+            _make_exec_result("fanout_work_researcher", "researcher", "Research done", 0.01, 20),
+            _make_exec_result("fanout_work_coder", "coder", "Code done", 0.01, 20),
+        ]
+
+        shared_context = "Project: Quantum Computing Initiative, Budget: $50k, Deadline: Q2 2026"
+        task = Task(id="main", instruction="Do the work", context=shared_context)
+        state = WorkflowState(current_task=task)
+
+        await fanout.execute(state)
+
+        # Both calls to runner.execute_task should have the context
+        assert runner.execute_task.call_count == 2
+
+        for call in runner.execute_task.call_args_list:
+            task_arg = call.args[0]
+            assert task_arg.context is not None, "Branch task should inherit context"
+            assert shared_context in task_arg.context, (
+                f"Branch task context should contain '{shared_context}', got '{task_arg.context}'"
+            )
+
+    @pytest.mark.asyncio
+    async def test_branches_have_different_instructions_same_context(self):
+        """Each branch has its own instruction but shares the same context."""
+        runner = _mock_runner()
+
+        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
+        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
+
+        fanout = FanOutBlock(
+            "fanout_work",
+            [
+                FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers on QC"),
+                FanOutBranch("coder", "Code Agent", coder_soul, "Implement Grover's algorithm"),
+            ],
+            runner,
+        )
+
+        runner.execute_task.side_effect = [
+            _make_exec_result("fanout_work_researcher", "researcher", "Research done", 0.01, 20),
+            _make_exec_result("fanout_work_coder", "coder", "Code done", 0.01, 20),
+        ]
+
+        context = "Focus on efficiency"
+        task = Task(id="main", instruction="Work", context=context)
+        state = WorkflowState(current_task=task)
+
+        await fanout.execute(state)
+
+        calls = runner.execute_task.call_args_list
+        task_0 = calls[0].args[0]
+        task_1 = calls[1].args[0]
+
+        # Different instructions
+        assert task_0.instruction != task_1.instruction
+        # Same context on both
+        assert context in (task_0.context or "")
+        assert context in (task_1.context or "")
+
+    @pytest.mark.asyncio
+    async def test_no_context_when_current_task_is_none(self):
+        """When current_task is None, branches still execute without crashing (context is None)."""
+        runner = _mock_runner()
+
+        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
+
+        fanout = FanOutBlock(
+            "fanout_work",
+            [FanOutBranch("researcher", "Research Agent", researcher_soul, "Find papers")],
+            runner,
+        )
+
+        runner.execute_task.return_value = _make_exec_result(
+            "fanout_work_researcher", "researcher", "Done", 0.01, 20
+        )
+
+        # No current_task set
+        state = WorkflowState()
+
+        final_state = await fanout.execute(state)
+
+        # Should complete without error
+        assert "fanout_work.researcher" in final_state.results
+        # The task passed to runner should have context=None
+        task_arg = runner.execute_task.call_args.args[0]
+        assert task_arg.context is None
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.llm.client.acompletion")
+    @pytest.mark.xfail(
+        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
+    )
+    async def test_context_inheritance_through_full_yaml_pipeline(self, mock_acompletion):
+        """Full YAML pipeline: context set on WorkflowState.current_task flows to FanOut branches."""
+        captured_messages = []
+
+        async def _mock_acompletion(**kwargs):
+            messages = kwargs.get("messages", [])
+            captured_messages.append(messages)
+
+            mock_response = MagicMock()
+            mock_response.choices = [MagicMock()]
+            mock_response.choices[0].message.content = "Done"
+            mock_response.choices[0].message.tool_calls = None
+            mock_response.choices[0].finish_reason = "stop"
+            mock_response.usage = MagicMock()
+            mock_response.usage.prompt_tokens = 10
+            mock_response.usage.completion_tokens = 10
+            mock_response.usage.total_tokens = 20
+            return mock_response
+
+        mock_acompletion.side_effect = _mock_acompletion
+
+        with patch("runsight_core.llm.client.completion_cost", return_value=0.001):
+            wf = parse_workflow_yaml(FANOUT_SYNTHESIZE_YAML)
+            important_context = "IMPORTANT_PROJECT_CONTEXT_XYZ"
+            task = Task(id="main", instruction="Work", context=important_context)
+            state = WorkflowState(current_task=task)
+            await wf.run(state)
+
+        # The first two LLM calls (FanOut branches) should contain the context
+        assert len(captured_messages) >= 2
+        for branch_messages in captured_messages[:2]:
+            all_content = " ".join(m.get("content", "") for m in branch_messages)
+            assert important_context in all_content, (
+                f"Branch LLM call should contain context '{important_context}', "
+                f"got: {all_content[:200]}"
+            )

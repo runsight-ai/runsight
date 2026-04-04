@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from runsight_api.main import app
 
 client = TestClient(app)

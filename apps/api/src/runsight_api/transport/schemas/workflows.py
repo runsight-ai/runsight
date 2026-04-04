@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Literal
-import uuid
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field, StrictBool
 
 
 class CanvasViewport(BaseModel):
@@ -17,14 +17,27 @@ class WorkflowCanvasState(BaseModel):
     canvas_mode: Literal["dag", "state-machine"] = "dag"
 
 
+class WorkflowHealthMetrics(BaseModel):
+    run_count: int = 0
+    eval_pass_pct: float | None = None
+    eval_health: Literal["success", "warning", "danger"] | None = None
+    total_cost_usd: float = 0.0
+    regression_count: int = 0
+
+
 class WorkflowResponse(BaseModel):
     id: str
     name: Optional[str] = None
     description: Optional[str] = None
     yaml: Optional[str] = None
-    blocks: Dict[str, Any] = Field(default_factory=dict)
-    edges: List[Dict[str, Any]] = Field(default_factory=list)
     canvas_state: Optional[WorkflowCanvasState] = None
+    valid: bool = True
+    validation_error: Optional[str] = None
+    block_count: int = 0
+    modified_at: float | None = None
+    enabled: bool = False
+    commit_sha: str | None = None
+    health: WorkflowHealthMetrics = Field(default_factory=WorkflowHealthMetrics)
 
 
 class WorkflowListResponse(BaseModel):
@@ -33,19 +46,47 @@ class WorkflowListResponse(BaseModel):
 
 
 class WorkflowCreate(BaseModel):
-    id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))
     name: Optional[str] = None
     description: Optional[str] = None
-    yaml: Optional[str] = None
-    blocks: Dict[str, Any] = Field(default_factory=dict)
-    edges: List[Dict[str, Any]] = Field(default_factory=list)
+    yaml: str
     canvas_state: Optional[WorkflowCanvasState] = None
+    commit: bool = True
 
 
 class WorkflowUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    yaml: Optional[str] = None
-    blocks: Optional[Dict[str, Any]] = None
-    edges: Optional[List[Dict[str, Any]]] = None
+    yaml: str
     canvas_state: Optional[WorkflowCanvasState] = None
+
+
+class WorkflowCommitCreate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    yaml: str
+    canvas_state: Optional[WorkflowCanvasState] = None
+    message: str = Field(min_length=1)
+
+
+class WorkflowCommitResponse(BaseModel):
+    hash: str
+    message: str
+
+
+class WorkflowSimulationCreate(BaseModel):
+    yaml: str
+
+
+class WorkflowSimulationResponse(BaseModel):
+    branch: str
+    commit_sha: str
+
+
+class WorkflowDeleteResponse(BaseModel):
+    id: str
+    deleted: bool
+    runs_deleted: int
+
+
+class WorkflowEnabledUpdate(BaseModel):
+    enabled: StrictBool

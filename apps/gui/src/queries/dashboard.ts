@@ -1,34 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "./keys";
 import { api } from "../api/client";
-import type { RunResponse } from "../types/schemas/runs";
+import { dashboardApi } from "../api/dashboard";
+import type { DashboardKPIsResponse } from "@runsight/shared/zod";
+import type { RunResponse } from "@runsight/shared/zod";
+import {
+  DashboardKPIsResponseSchema,
+} from "@runsight/shared/zod";
+import type { AttentionItemsResponse } from "@runsight/shared/zod";
 
-export interface DashboardSummary {
-  total_runs: number;
-  active_runs: number;
-  total_cost_usd: number;
-  completed_runs: number;
-  failed_runs: number;
-}
-
-export function useDashboardSummary() {
+export function useDashboardKPIs() {
   return useQuery({
-    queryKey: queryKeys.dashboard.summary,
-    queryFn: async (): Promise<DashboardSummary> => {
-      const res = await api.get<{
-        active_runs: number;
-        completed_runs: number;
-        total_cost_usd: number;
-        recent_errors: number;
-      }>("/dashboard");
-      return {
-        total_runs: res.active_runs + res.completed_runs + res.recent_errors,
-        active_runs: res.active_runs,
-        total_cost_usd: res.total_cost_usd,
-        completed_runs: res.completed_runs,
-        failed_runs: res.recent_errors,
-      };
+    queryKey: queryKeys.dashboard.kpis,
+    queryFn: async (): Promise<DashboardKPIsResponse> => {
+      const res = await api.get("/dashboard");
+      return DashboardKPIsResponseSchema.parse(res);
     },
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -41,5 +30,16 @@ export function useRecentRuns(limit: number = 10) {
       );
       return res;
     },
+  });
+}
+
+export function useAttentionItems(limit?: number) {
+  return useQuery({
+    queryKey: [...queryKeys.dashboard.attention, limit ?? "default"],
+    queryFn: async (): Promise<AttentionItemsResponse> => {
+      return dashboardApi.getAttentionItems(limit);
+    },
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }

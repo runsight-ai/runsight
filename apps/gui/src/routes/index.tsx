@@ -1,23 +1,37 @@
-import { createBrowserRouter, Navigate } from "react-router";
+import { createBrowserRouter, Navigate, useParams } from "react-router";
 import { ShellLayout } from "./layouts/ShellLayout";
-import ComponentShowcase from "@/features/dev/ComponentShowcase";
+import { createSetupGuardLoader, createReverseGuardLoader } from "./guards";
+import { queryClient } from "@/lib/queryClient";
+import { WorkflowSurface } from "@/features/canvas/WorkflowSurface";
+
+function WorkflowEditRoute() {
+  const { id } = useParams<{ id: string }>();
+  return <WorkflowSurface mode="edit" workflowId={id!} />;
+}
+
+function HistoricalRunRoute() {
+  const { id } = useParams<{ id: string }>();
+  return <WorkflowSurface mode="readonly" runId={id!} />;
+}
 
 export const router = createBrowserRouter([
   {
-    path: "landing",
+    path: "setup/unavailable",
     lazy: () =>
-      import("@/features/landing/LandingPage").then((m) => ({
+      import("@/features/setup/SetupUnavailablePage").then((m) => ({
         Component: m.Component,
       })),
   },
   {
-    path: "onboarding",
+    path: "setup/start",
+    loader: createReverseGuardLoader(queryClient),
     lazy: () =>
-      import("@/features/onboarding/OnboardingWizard").then((m) => ({
+      import("@/features/setup/SetupStartPage").then((m) => ({
         Component: m.Component,
       })),
   },
   {
+    loader: createSetupGuardLoader(queryClient),
     element: <ShellLayout />,
     children: [
       {
@@ -28,65 +42,45 @@ export const router = createBrowserRouter([
           })),
       },
       {
-        path: "workflows",
+        path: "flows",
         lazy: () =>
-          import("@/features/workflows/WorkflowList").then((m) => ({
+          import("@/features/flows/FlowsPage").then((m) => ({
             Component: m.Component,
           })),
       },
       {
-        path: "workflows/:id",
-        lazy: () =>
-          import("@/features/canvas/WorkflowCanvas").then((m) => ({
-            Component: m.Component,
-          })),
+        path: "workflows/:id/edit",
+        Component: WorkflowEditRoute,
       },
       {
         path: "runs",
         lazy: () =>
-          import("@/features/runs/RunList").then((m) => ({
+          import("@/features/runs/RunsPage").then((m) => ({
             Component: m.Component,
           })),
       },
       {
         path: "runs/:id",
-        lazy: () =>
-          import("@/features/runs/RunDetail").then((m) => ({
-            Component: m.Component,
-          })),
+        Component: HistoricalRunRoute,
       },
       {
         path: "souls",
         lazy: () =>
-          import("@/features/sidebar/SoulList").then((m) => ({
+          import("@/features/souls/SoulLibraryPage").then((m) => ({
             Component: m.Component,
           })),
       },
       {
-        path: "tasks",
+        path: "souls/new",
         lazy: () =>
-          import("@/features/sidebar/TaskList").then((m) => ({
+          import("@/features/souls/SoulFormPage").then((m) => ({
             Component: m.Component,
           })),
       },
       {
-        path: "steps",
+        path: "souls/:id/edit",
         lazy: () =>
-          import("@/features/sidebar/StepList").then((m) => ({
-            Component: m.Component,
-          })),
-      },
-      {
-        path: "templates",
-        lazy: () =>
-          import("@/features/templates/TemplatesPage").then((m) => ({
-            Component: m.Component,
-          })),
-      },
-      {
-        path: "health",
-        lazy: () =>
-          import("@/features/health/HealthPage").then((m) => ({
+          import("@/features/souls/SoulFormPage").then((m) => ({
             Component: m.Component,
           })),
       },
@@ -96,10 +90,6 @@ export const router = createBrowserRouter([
           import("@/features/settings/SettingsPage").then((m) => ({
             Component: m.Component,
           })),
-      },
-      {
-        path: "test-components",
-        element: <ComponentShowcase />,
       },
       { path: "*", element: <Navigate to="/" replace /> },
     ],

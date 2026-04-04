@@ -8,6 +8,7 @@ import {
   type NodeChange,
   type Viewport,
 } from "@xyflow/react";
+import type { RunStatus, StepNodeData } from "../types/schemas/canvas";
 
 export type CanvasMode = "dag" | "state-machine";
 
@@ -26,6 +27,13 @@ interface CanvasState {
   isDirty: boolean;
   selectedNodeId: string | null;
   canvasMode: CanvasMode;
+  validationErrors: string[];
+  hasValidationErrors: boolean;
+  activeRunId: string | null;
+  runCost: number;
+  yamlContent: string;
+  blockCount: number;
+  edgeCount: number;
   setNodes: (nodes: Node[], markDirty?: boolean) => void;
   setEdges: (edges: Edge[], markDirty?: boolean) => void;
   onNodesChange: (changes: NodeChange[]) => void;
@@ -33,6 +41,12 @@ interface CanvasState {
   setViewport: (viewport: Viewport, markDirty?: boolean) => void;
   selectNode: (id: string | null) => void;
   setCanvasMode: (mode: CanvasMode) => void;
+  setValidationErrors: (errors: string[]) => void;
+  setActiveRunId: (runId: string | null) => void;
+  setRunCost: (cost: number) => void;
+  setYamlContent: (content: string) => void;
+  setNodeStatus: (nodeId: string, status: RunStatus) => void;
+  resetNodeStatuses: () => void;
   hydrateFromPersisted: (state: PersistedCanvasState | null | undefined) => void;
   toPersistedState: () => PersistedCanvasState;
   markSaved: () => void;
@@ -48,6 +62,13 @@ const initialState = {
   isDirty: false,
   selectedNodeId: null as string | null,
   canvasMode: "dag" as CanvasMode,
+  validationErrors: [] as string[],
+  hasValidationErrors: false,
+  activeRunId: null as string | null,
+  runCost: 0,
+  yamlContent: "",
+  blockCount: 0,
+  edgeCount: 0,
 };
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -68,6 +89,33 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ viewport, isDirty: markDirty || get().isDirty }),
   selectNode: (id) => set({ selectedNodeId: id }),
   setCanvasMode: (mode) => set({ canvasMode: mode, isDirty: true }),
+  setValidationErrors: (errors) =>
+    set({ validationErrors: errors, hasValidationErrors: errors.length > 0 }),
+  setActiveRunId: (runId) => set({ activeRunId: runId }),
+  setRunCost: (cost) => set({ runCost: cost }),
+  setYamlContent: (content) => {
+    // Parse blocks from YAML content — count top-level "steps:" entries
+    const blockMatches = content.match(/^[ ]{2}\w/gm);
+    // Parse edge count from YAML — count transition entries (lines with "target:" under transitions blocks)
+    const transitionMatches = content.match(/^\s+target\s*:/gm);
+    const edgeCount = transitionMatches ? transitionMatches.length : 0;
+    set({ yamlContent: content, blockCount: blockMatches ? blockMatches.length : 0, edgeCount });
+  },
+  setNodeStatus: (nodeId, status) =>
+    set((state) => ({
+      nodes: state.nodes.map((node) =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, status } as StepNodeData }
+          : node,
+      ),
+    })),
+  resetNodeStatuses: () =>
+    set((state) => ({
+      nodes: state.nodes.map((node) => ({
+        ...node,
+        data: { ...node.data, status: "idle" } as StepNodeData,
+      })),
+    })),
   hydrateFromPersisted: (state) => {
     if (!state) {
       set({ ...initialState });

@@ -1,57 +1,38 @@
-import { NavLink, Outlet, useLocation } from "react-router";
-import { useProviders } from "@/queries/settings";
+import { NavLink, Outlet } from "react-router";
+import { RouteErrorBoundary } from "@/components/shared/ErrorBoundary";
 import {
   LayoutDashboard,
   Workflow,
+  Activity,
   Bot,
-  ListTodo,
-  CheckSquare,
-  Play,
   Settings,
-  Search,
-  Bell,
-  PanelLeftClose,
-  PanelLeft,
 } from "lucide-react";
-import { useUiStore } from "@/store/ui";
-import { cn } from "@/utils/helpers";
+import { cn } from "@runsight/ui/utils";
 
 const NAV_ITEMS = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true },
-  { to: "/workflows", icon: Workflow, label: "Workflows" },
+  { to: "/", icon: LayoutDashboard, label: "Home", end: true },
+  { to: "/flows", icon: Workflow, label: "Flows" },
+  { to: "/runs", icon: Activity, label: "Runs" },
   { to: "/souls", icon: Bot, label: "Souls" },
-  { to: "/tasks", icon: ListTodo, label: "Tasks" },
-  { to: "/steps", icon: CheckSquare, label: "Steps" },
-  { to: "/runs", icon: Play, label: "Runs" },
 ] as const;
 
 const BOTTOM_NAV = [
   { to: "/settings", icon: Settings, label: "Settings" },
 ] as const;
 
-function pageTitleFromPath(pathname: string): string {
-  const segment = pathname.split("/").filter(Boolean)[0] ?? "dashboard";
-  return segment.charAt(0).toUpperCase() + segment.slice(1);
-}
-
 export function ShellLayout() {
-  const sidebarOpen = useUiStore((s) => s.sidebarOpen);
-  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
-  const { data: providersData } = useProviders();
-  const providerCount = providersData?.total ?? 0;
-  const location = useLocation();
-
   return (
-    <div className="h-screen flex overflow-hidden bg-background text-foreground">
+    <div className="h-screen flex overflow-hidden bg-surface-primary text-primary">
       {/* Sidebar */}
       <aside
-        className={cn(
-          "flex flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
-          sidebarOpen ? "w-[240px]" : "w-[52px]",
-        )}
+        style={{
+          backgroundColor: "var(--sidebar-bg)",
+          width: "var(--sidebar-width-expanded)",
+        }}
+        className="flex flex-col border-r border-border-subtle"
       >
         {/* Logo */}
-        <div className="h-12 px-3 border-b border-sidebar-border flex items-center gap-2 shrink-0">
+        <div className="flex h-14 shrink-0 items-center gap-2 px-4">
           <svg
             width="24"
             height="24"
@@ -59,26 +40,26 @@ export function ShellLayout() {
             fill="none"
             className="shrink-0"
           >
-            <circle cx="12" cy="5" r="2.5" fill="var(--primary)" />
+            <circle cx="12" cy="5" r="2.5" fill="var(--interactive-default)" />
             <circle
               cx="5"
               cy="17"
               r="2.5"
-              fill="var(--primary)"
+              fill="var(--interactive-default)"
               opacity="0.7"
             />
             <circle
               cx="19"
               cy="17"
               r="2.5"
-              fill="var(--primary)"
+              fill="var(--interactive-default)"
               opacity="0.7"
             />
             <circle
               cx="12"
               cy="13"
               r="1.5"
-              fill="var(--primary)"
+              fill="var(--interactive-default)"
               opacity="0.5"
             />
             <line
@@ -86,7 +67,7 @@ export function ShellLayout() {
               y1="7.5"
               x2="12"
               y2="11.5"
-              stroke="var(--primary)"
+              stroke="var(--interactive-default)"
               strokeWidth="1.5"
               strokeLinecap="round"
             />
@@ -95,7 +76,7 @@ export function ShellLayout() {
               y1="14"
               x2="6.5"
               y2="15.5"
-              stroke="var(--primary)"
+              stroke="var(--interactive-default)"
               strokeWidth="1.5"
               strokeLinecap="round"
               opacity="0.6"
@@ -105,17 +86,18 @@ export function ShellLayout() {
               y1="14"
               x2="17.5"
               y2="15.5"
-              stroke="var(--primary)"
+              stroke="var(--interactive-default)"
               strokeWidth="1.5"
               strokeLinecap="round"
               opacity="0.6"
             />
           </svg>
-          {sidebarOpen && (
-            <span className="text-[13px] font-semibold tracking-[0.08em] uppercase text-foreground">
-              Runsight
-            </span>
-          )}
+          <span
+            className="text-lg font-bold tracking-tight text-primary"
+            style={{ fontFamily: "'Geist', sans-serif" }}
+          >
+            Runsight
+          </span>
         </div>
 
         {/* Main nav */}
@@ -127,36 +109,62 @@ export function ShellLayout() {
               end={"end" in rest}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 h-9 px-3 rounded-md text-sm transition-colors",
+                  "relative flex items-center gap-2 px-2 rounded-md transition-colors",
+                  "gap-[var(--space-2-5)] rounded-md pl-[var(--space-4)] pr-3 transition-colors",
+                  "text-[length:var(--font-size-md)] font-medium",
+                  "h-[var(--control-height-md)]",
                   isActive
-                    ? "bg-primary/12 text-primary"
-                    : "text-muted-foreground hover:bg-surface-elevated hover:text-foreground",
+                    ? "bg-[var(--surface-selected)] text-[var(--text-heading)]"
+                    : "text-[var(--sidebar-fg)] hover:bg-[var(--sidebar-hover)]",
                 )
               }
             >
-              <Icon className="size-[18px] shrink-0" strokeWidth={1.5} />
-              {sidebarOpen && <span>{label}</span>}
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span
+                      className="absolute bottom-0 left-0 top-0 w-[var(--border-width-thick)] rounded-r-sm"
+                      style={{ background: "var(--sidebar-active-indicator)" }}
+                    />
+                  )}
+                  <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
+                  <span>{label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
 
         {/* Bottom nav */}
-        <div className="p-2 border-t border-sidebar-border">
+        <div className="p-2">
           {BOTTOM_NAV.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 h-9 px-3 rounded-md text-sm transition-colors",
+                  "relative flex items-center gap-2 px-2 rounded-md transition-colors",
+                  "gap-[var(--space-2-5)] rounded-md pl-[var(--space-4)] pr-3 transition-colors",
+                  "text-[length:var(--font-size-md)] font-medium",
+                  "h-[var(--control-height-md)]",
                   isActive
-                    ? "bg-primary/12 text-primary"
-                    : "text-muted-foreground hover:bg-surface-elevated hover:text-foreground",
+                    ? "bg-[var(--surface-selected)] text-[var(--text-heading)]"
+                    : "text-[var(--sidebar-fg)] hover:bg-[var(--sidebar-hover)]",
                 )
               }
             >
-              <Icon className="size-[18px] shrink-0" strokeWidth={1.5} />
-              {sidebarOpen && <span>{label}</span>}
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span
+                      className="absolute bottom-0 left-0 top-0 w-[var(--border-width-thick)] rounded-r-sm"
+                      style={{ background: "var(--sidebar-active-indicator)" }}
+                    />
+                  )}
+                  <Icon style={{ width: "var(--icon-size-md)", height: "var(--icon-size-md)" }} className="shrink-0" strokeWidth={1.5} />
+                  <span>{label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </div>
@@ -164,50 +172,13 @@ export function ShellLayout() {
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        <header className="h-12 bg-card border-b border-border flex items-center justify-between px-4 shrink-0">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleSidebar}
-              className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {sidebarOpen ? (
-                <PanelLeftClose className="size-[18px]" strokeWidth={1.5} />
-              ) : (
-                <PanelLeft className="size-[18px]" strokeWidth={1.5} />
-              )}
-            </button>
-            <h1 className="text-base font-medium tracking-tight">
-              {pageTitleFromPath(location.pathname)}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted-foreground hover:text-foreground transition-colors">
-              <Search className="size-[18px]" strokeWidth={1.5} />
-            </button>
-            <button className="size-8 flex items-center justify-center rounded-md hover:bg-surface-elevated text-muted-foreground hover:text-foreground transition-colors">
-              <Bell className="size-[18px]" strokeWidth={1.5} />
-            </button>
-          </div>
-        </header>
-
         {/* Page content */}
         <main className="flex-1 flex flex-col overflow-y-auto">
-          <Outlet />
+          <RouteErrorBoundary>
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
 
-        {/* Bottom bar */}
-        <footer className="h-7 bg-card border-t border-border flex items-center px-4 text-xs text-muted-foreground shrink-0">
-          <span>Runsight v0.1.0</span>
-          <span className="mx-2 text-border">|</span>
-          <span className="flex items-center gap-1.5">
-            <span className={`size-1.5 rounded-full ${providerCount > 0 ? "bg-success" : "bg-muted-foreground"}`} />
-            {providerCount > 0
-              ? `${providerCount} provider${providerCount > 1 ? "s" : ""} connected`
-              : "No providers configured"}
-          </span>
-        </footer>
       </div>
     </div>
   );

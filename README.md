@@ -20,7 +20,7 @@ Runsight is a meta-framework and visual observability platform designed specific
 
 ### Core Features
 
-- 📊 **Live DAG Visualization:** Watch your agents think, debate, and act in real-time. See exactly which node is running, pending, or failed.
+- 📊 **Live DAG Visualization:** Watch your agents think, reason, and act in real-time. See exactly which node is running, pending, or failed.
 - ⏸️ **Runtime Intervention:** The only platform that lets you **pause, kill, or message** a running agent mid-execution directly from a visual UI.
 - 💸 **Real-Time Cost Tracking:** Watch the cost tick up live. Track token spend per node, per workflow, and per day. Set hard budgets that kill rogue agents automatically.
 - 📝 **Declarative Workflows:** Define your agent teams, tasks, and state machines as version-controlled YAML files on disk. 
@@ -31,7 +31,7 @@ Runsight is a meta-framework and visual observability platform designed specific
 Runsight is built on three distinct layers:
 
 1. **The Builder (Terraform):** Define workflows, souls (agent identities), and tasks using simple YAML files.
-2. **The Runtime (Kubernetes):** A deterministic execution engine that handles state, retries, fan-outs, and multi-agent debate patterns.
+2. **The Runtime (Kubernetes):** A deterministic execution engine that handles state, retries, fan-outs, and multi-agent collaboration patterns.
 3. **Mission Control (Grafana):** A React/Next.js frontend that connects to the runtime via SSE (Server-Sent Events) to stream logs, status, and costs live.
 
 ## 🏁 Quick Start
@@ -49,6 +49,47 @@ pip install -e .
 # Start the Mission Control UI
 runsight ui start
 ```
+
+## Code Indexing With Codebones
+
+Runsight contributors use `codebones` for local code search and structural lookups.
+Use the `uv` tool install flow so each checkout picks up the fixed indexer behavior:
+
+```bash
+uv tool install codebones
+# or, if you already have it installed
+uv tool upgrade codebones
+```
+
+Verify the CLI that your current checkout will use before relying on the local index:
+
+```bash
+uv tool list
+codebones --version
+```
+
+Indexes are local cache artifacts, not shared repo state. Rebuild or reindex from the
+root of the checkout, clone, or worktree you are actively using:
+
+```bash
+codebones index .
+```
+
+Run `codebones index .` again after pulling large changes, switching branches, or
+deleting or moving files. Reindexing should rebuild search results so removed files no
+longer appear in named searches or in `codebones search ""`.
+
+The cache lives in a local `codebones.db` file for that checkout/worktree/clone. If an
+older cache breaks after an upgrade or starts returning stale data, delete the cache and
+rebuild it in place:
+
+```bash
+rm -f codebones.db
+codebones index .
+```
+
+If you keep multiple worktrees open, repeat that reset in each one separately because
+each checkout has its own `codebones.db`.
 
 ## 📄 License & Open Core
 
