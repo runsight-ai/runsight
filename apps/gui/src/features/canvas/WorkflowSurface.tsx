@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./workflowSurfaceContract";
-import { getContractForMode, getCanvasYamlToggleVisibility, getStepCountFormat, getMetricsVisibility, getInspectorTrigger, getBottomPanelDefault, getSaveButtonState, isEditable } from "./workflowSurfaceContract";
+import { getContractForMode, getCanvasYamlToggleVisibility, getStepCountFormat, getMetricsVisibility, getInspectorTrigger, getBottomPanelDefault, getSaveButtonState, getActionButton, isEditable } from "./workflowSurfaceContract";
 import { CanvasTopbar } from "./CanvasTopbar";
 import { PaletteSidebar } from "./PaletteSidebar";
 import { WorkflowCanvas } from "./WorkflowCanvas";
@@ -38,6 +38,7 @@ export function WorkflowSurface({ mode, workflowId, runId }: WorkflowSurfaceProp
   }, [toggleVisibility.yaml]);
 
   const saveButtonState = getSaveButtonState(activeMode, isDirty);
+  const actionButton = getActionButton(activeMode);
 
   // Suppress unused-variable lint by referencing mode helpers
   void getStepCountFormat;
@@ -82,6 +83,9 @@ export function WorkflowSurface({ mode, workflowId, runId }: WorkflowSurfaceProp
           nameEditable={nameEditable}
           toggleVisibility={toggleVisibility}
           saveButton={saveButtonState}
+          metricsVisible={topbar.metricsVisible}
+          metricsStyle={topbar.metricsStyle}
+          actionButton={actionButton}
         />
       </div>
 

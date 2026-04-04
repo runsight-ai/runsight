@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Link } from "react-router";
 import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
 import { Tabs, TabsList, TabsTrigger } from "@runsight/ui/tabs";
 import { Button } from "@runsight/ui/button";
@@ -7,6 +8,7 @@ import { ExecutionMetrics } from "./ExecutionMetrics";
 import { useCanvasStore } from "@/store/canvas";
 import { useRun } from "@/queries/runs";
 import { Save } from "lucide-react";
+import { cn } from "@runsight/ui/utils";
 
 interface CanvasTopbarProps {
   workflowId: string;
@@ -17,9 +19,17 @@ interface CanvasTopbarProps {
   yamlValid?: boolean;
   errorCount?: number;
   onAddApiKey?: () => void;
+  metricsVisible?: boolean;
+  metricsStyle?: "live" | "static" | "none";
+  actionButton?: { label: string; variant: string; onClick?: () => void };
+  nameEditable?: boolean;
+  saveButton?: string;
+  toggleVisibility?: { canvas: boolean; yaml: boolean };
+  runStatus?: string;
+  forkDisabled?: boolean;
 }
 
-export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid: _yamlValid = true, errorCount: _errorCount = 0, onAddApiKey }: CanvasTopbarProps) {
+export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid: _yamlValid = true, errorCount: _errorCount = 0, onAddApiKey, metricsVisible = false, metricsStyle = "none", actionButton, nameEditable = true, saveButton = "ghost", toggleVisibility, runStatus, forkDisabled: _forkDisabled }: CanvasTopbarProps) {
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
 
@@ -87,6 +97,28 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
     }
   }
 
+  // Determine if the snapshot is unavailable for fork (historical mode)
+  const snapshotUnavailable = !workflow?.commit_sha;
+
+  // Run status badge rendering
+  const statusBadge = runStatus ? (
+    <span
+      className={cn(
+        "ml-2 px-2 py-0.5 rounded text-xs font-medium",
+        runStatus === "completed" || runStatus === "success"
+          ? "bg-success-3 text-success-9"
+          : runStatus === "failed" || runStatus === "error"
+            ? "bg-danger-3 text-danger-9"
+            : "bg-neutral-3 text-muted",
+      )}
+    >
+      {runStatus}
+    </span>
+  ) : null;
+
+  // Metrics for historical (static) mode: cost, tokens, duration
+  const metricsRunId = metricsStyle === "live" ? lastTerminalRunId : lastTerminalRunId;
+
   return (
     <header
       className="flex items-center h-[var(--header-height)] border-b border-border-subtle px-4"
@@ -94,23 +126,32 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
     >
       {/* Left: Workflow name */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        {isEditing ? (
-          <input
-            className="font-sans text-lg font-medium text-heading bg-transparent border border-transparent rounded-sm px-1 py-[2px] outline-none hover:bg-surface-hover focus:border-border-focus"
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            onBlur={saveName}
-            onKeyDown={handleKeyDown}
-            autoFocus
-          />
+        {nameEditable ? (
+          isEditing ? (
+            <input
+              className="font-sans text-lg font-medium text-heading bg-transparent border border-transparent rounded-sm px-1 py-[2px] outline-none hover:bg-surface-hover focus:border-border-focus"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={handleKeyDown}
+              autoFocus
+            />
+          ) : (
+            <span
+              className="text-lg font-medium text-heading cursor-pointer border border-transparent rounded-sm px-1 py-[2px] hover:bg-surface-hover"
+              onClick={startEditing}
+            >
+              {workflowName}
+            </span>
+          )
         ) : (
-          <span
-            className="text-lg font-medium text-heading cursor-pointer border border-transparent rounded-sm px-1 py-[2px] hover:bg-surface-hover"
-            onClick={startEditing}
-          >
-            {workflowName}
+          <span className="text-lg font-medium text-heading px-1 py-[2px]">
+            <Link to={`/workflows/${workflowId}/edit`} className="hover:underline">
+              {workflowName}
+            </Link>
           </span>
         )}
+        {statusBadge}
       </div>
 
       {/* Center: Canvas | YAML toggle */}
@@ -127,21 +168,43 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
 
       {/* Right: actions */}
       <div className="flex items-center gap-2 flex-1 justify-end">
+        {metricsVisible && metricsStyle === "static" && (
+          <div className="flex items-center gap-2 text-xs text-muted">
+            <span>cost: —</span>
+            <span>tokens: —</span>
+            <span>duration: —</span>
+          </div>
+        )}
+        {metricsVisible && metricsStyle === "live" && (
+          <ExecutionMetrics runId={metricsRunId} />
+        )}
         {isDirty && <span className="h-2 w-2 rounded-full bg-interactive-default" aria-label="unsaved indicator" />}
-        <Button
-          variant={isDirty ? "primary" : "ghost"}
-          size="sm"
-          onClick={onSave}
-        >
-          <Save className="w-4 h-4" />
-          Save
-        </Button>
-        <ExecutionMetrics runId={lastTerminalRunId} />
-        <RunButton
-          workflowId={workflowId}
-          isCommitted={Boolean(workflow?.commit_sha)}
-          onAddApiKey={onAddApiKey}
-        />
+        {saveButton !== "hidden" && (
+          <Button
+            variant={saveButton === "primary" || isDirty ? "primary" : "ghost"}
+            size="sm"
+            onClick={onSave}
+            disabled={saveButton === "disabled"}
+          >
+            <Save className="w-4 h-4" />
+            Save
+          </Button>
+        )}
+        {actionButton ? (
+          <Button
+            variant={actionButton.variant as "primary" | "danger" | "ghost"}
+            onClick={actionButton.onClick}
+            disabled={snapshotUnavailable && actionButton.label === "Fork"}
+          >
+            {actionButton.label}
+          </Button>
+        ) : (
+          <RunButton
+            workflowId={workflowId}
+            isCommitted={Boolean(workflow?.commit_sha)}
+            onAddApiKey={onAddApiKey}
+          />
+        )}
       </div>
     </header>
   );
