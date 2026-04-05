@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Deque, Dict, List, Optional, Tuple
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, evaluate_output_conditions
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 
 if TYPE_CHECKING:
     from runsight_core.blocks.registry import BlockRegistry
@@ -599,7 +599,45 @@ class Workflow:
                             )
                         except Exception:
                             logger.warning("Observer.on_block_error failed", exc_info=True)
-                    raise
+
+                    error_target_id = self._error_routes.get(current_block_id)
+                    if error_target_id is None:
+                        raise
+                    if error_target_id not in self._blocks:
+                        raise ValueError(
+                            f"error_route from '{current_block_id}' to unknown block "
+                            f"'{error_target_id}'"
+                        ) from e
+
+                    error_type = type(e).__name__
+                    error_message = str(e)
+                    error_info = {
+                        "type": error_type,
+                        "message": error_message,
+                    }
+                    state = state.model_copy(
+                        update={
+                            "results": {
+                                **state.results,
+                                current_block_id: BlockResult(
+                                    output=error_message,
+                                    exit_handle="error",
+                                    metadata={
+                                        "error_type": error_type,
+                                        "error_message": error_message,
+                                        "block_id": current_block_id,
+                                    },
+                                ),
+                            },
+                            "shared_memory": {
+                                **state.shared_memory,
+                                f"__error__{current_block_id}": error_info,
+                            },
+                        }
+                    )
+                    queue.clear()
+                    queue.append((error_target_id, self._blocks[error_target_id]))
+                    continue
 
                 # Step 4: Resolve successor BEFORE checking injection
                 next_block_id = self._resolve_next(current_block_id, state)
