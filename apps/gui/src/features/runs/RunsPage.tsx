@@ -33,9 +33,6 @@ import { useRuns } from "@/queries/runs";
 import { useAttentionItems } from "@/queries/dashboard";
 import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
 import { useRunRegressions } from "@/queries/runs";
-import {
-  REGRESSION_TOOLTIP_CLASSES,
-} from "../workflows/regressionBadge.styles";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import { RunStatusDot } from "./RunStatusDot";
 import {
@@ -193,14 +190,17 @@ function RegressionCell({
             </span>
           }
         />
-        <TooltipContent className={REGRESSION_TOOLTIP_CLASSES}>
-          <div className="text-xs">
-            <p className="mb-1 font-medium">{tooltip.header}</p>
+        <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-9" />
+            <div className="min-w-0 text-sm">
+              <p className="mb-1 font-medium text-primary">{tooltip.header}</p>
             {tooltip.lines.map((line, index) => (
-              <p key={`${runId}-${index}`} className="text-muted">
+              <p key={`${runId}-${index}`} className="leading-5 text-secondary">
                 {line}
               </p>
             ))}
+          </div>
           </div>
         </TooltipContent>
       </Tooltip>
@@ -508,13 +508,18 @@ export function Component() {
                         <TableHead
                           key={column.key}
                           aria-sort={getAriaSort(column.key)}
+                          aria-label={column.key === "status" ? "Status" : column.label}
                           onClick={() => handleSort(column.key)}
                           className={cn(
                             RUN_TABLE_HEAD_CLASS,
                             column.key === "status" && RUN_TABLE_STATUS_HEAD_CLASS,
                           )}
                         >
-                          {column.label}
+                          {column.key === "status" ? (
+                            <span className="sr-only">Status</span>
+                          ) : (
+                            column.label
+                          )}
                         </TableHead>
                       ))}
                     </TableRow>

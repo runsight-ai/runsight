@@ -1,19 +1,17 @@
-import { useCallback } from "react";
-import { Link, useNavigate } from "react-router";
-
 import { Badge, BadgeDot } from "@runsight/ui/badge";
 import { Button } from "@runsight/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@runsight/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
 import { formatCost, formatDuration } from "@/utils/formatting";
 import {
-  ChevronLeft,
   ArrowUpRight,
   GitFork,
 } from "lucide-react";
 import type { RunResponse } from "@runsight/shared/zod";
 
 import { useForkWorkflow } from "./useForkWorkflow";
+import { useCallback } from "react";
+import { useNavigate } from "react-router";
+import { WorkflowTopbar } from "@/components/shared";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -104,59 +102,52 @@ export function RunDetailHeader({
   );
 
   return (
-    <header className="flex h-[var(--header-height)] items-center gap-3 border-b border-border-subtle px-4">
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <Link to="/runs">
-          <Button variant="ghost" size="icon-sm" className="w-8 h-8" aria-label="Back to runs">
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-        </Link>
-        <span className="truncate text-lg font-medium text-heading">{run.workflow_name}</span>
-      </div>
-
-      <div className="flex items-center gap-3 font-mono text-2xs text-muted">
+    <WorkflowTopbar
+      backTo="/runs"
+      backLabel="Back to runs"
+      title={<span className="truncate text-lg font-medium text-heading">{run.workflow_name}</span>}
+      titleAfter={
         <Badge variant={getRunStatusBadgeVariant(run.status)}>
           <BadgeDot />
           {isCompleted ? "Completed" : isFailed ? "Failed" : run.status}
         </Badge>
-        <Badge variant="warning">Read-only review</Badge>
-        <div className="flex items-center gap-3 whitespace-nowrap">
-          <span>{formatDuration(run.duration_seconds)}</span>
-          <span>{formatTokenCount(run.total_tokens)} tok</span>
-          <span className="text-success-11">{formatCost(run.total_cost_usd)}</span>
+      }
+      metrics={
+        <div className="flex items-center gap-3 font-mono text-2xs text-muted">
+          <Badge variant="warning">Read-only review</Badge>
+          <div className="flex items-center gap-3 whitespace-nowrap">
+            <span>{formatDuration(run.duration_seconds)}</span>
+            <span>{formatTokenCount(run.total_tokens)} tok</span>
+            <span className="text-success-11">{formatCost(run.total_cost_usd)}</span>
+          </div>
         </div>
-      </div>
-
-      <div className="flex items-center">
-        <Tabs value={activeTab} onValueChange={(v) => onTabChange(v as "canvas" | "yaml")}>
-          <TabsList variant="contained">
-            <TabsTrigger value="canvas">Canvas</TabsTrigger>
-            <TabsTrigger value="yaml">YAML</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
-      <div className="ml-auto flex items-center gap-2">
-        {run.workflow_id ? (
-          <Button
-            variant="secondary"
-            onClick={handleOpenWorkflow}
-          >
-            <ArrowUpRight className="w-4 h-4 mr-2" />
-            Open Workflow
-          </Button>
-        ) : null}
-        {forkTooltip ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger render={forkButton} />
-              <TooltipContent>{forkTooltip}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : (
-          forkButton
-        )}
-      </div>
-    </header>
+      }
+      actions={
+        <>
+          {run.workflow_id ? (
+            <Button
+              variant="secondary"
+              onClick={handleOpenWorkflow}
+            >
+              <ArrowUpRight className="w-4 h-4 mr-2" />
+              Open Workflow
+            </Button>
+          ) : null}
+          {forkTooltip ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger render={forkButton} />
+                <TooltipContent>{forkTooltip}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            forkButton
+          )}
+        </>
+      }
+      activeTab={activeTab}
+      onValueChange={(value) => onTabChange(value as "canvas" | "yaml")}
+      toggleVisibility={{ canvas: true, yaml: true }}
+    />
   );
 }

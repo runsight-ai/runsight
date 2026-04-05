@@ -140,6 +140,14 @@ function getSearchParam(params: unknown): string | null {
   return null;
 }
 
+function findAllRunsSelectOption() {
+  return (
+    screen.queryByRole("option", { name: "All runs" }) ??
+    screen.queryByRole("menuitemradio", { name: "All runs" }) ??
+    screen.getByText("All runs")
+  );
+}
+
 vi.mock("@/queries/runs", () => ({
   useRuns: (params?: unknown) => {
     mocks.runsQueryCalls.push(params);
@@ -294,7 +302,8 @@ describe("RUN-487 canonical /runs page", () => {
     const { user } = await renderRunsRoute("/runs");
 
     await user.click(await screen.findByLabelText("Filter runs by source"));
-    await user.click(await screen.findByText("All runs"));
+    await screen.findByText("All runs");
+    await user.click(findAllRunsSelectOption());
 
     await waitFor(() => {
       expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([]);
@@ -309,7 +318,8 @@ describe("RUN-487 canonical /runs page", () => {
     const { user } = await renderRunsRoute("/runs");
 
     await user.click(await screen.findByLabelText("Filter runs by source"));
-    await user.click(await screen.findByText("All runs"));
+    await screen.findByText("All runs");
+    await user.click(findAllRunsSelectOption());
 
     await waitFor(() => {
       expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([]);
@@ -363,7 +373,8 @@ describe("RUN-487 canonical /runs page", () => {
     const { router, user } = await renderRunsRoute("/runs");
 
     await user.click(await screen.findByLabelText("Filter runs by source"));
-    await user.click(await screen.findByText("All runs"));
+    await screen.findByText("All runs");
+    await user.click(findAllRunsSelectOption());
     await user.type(screen.getByRole("searchbox", { name: "Search runs" }), "content");
     await user.click(screen.getByRole("columnheader", { name: "Eval" }));
 
