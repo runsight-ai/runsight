@@ -190,6 +190,37 @@ class TestInterfaceBoundExecution:
         assert analysis is not None
         assert str(analysis) == "child analysis output"
 
+    async def test_workflow_block_unwraps_parent_block_results_for_interface_inputs(self) -> None:
+        """
+        Interface input bindings may point at ``results.some_block`` on the parent.
+        The child must receive the BlockResult.output string, not the BlockResult object.
+        """
+        interface = _make_interface(
+            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
+            outputs=[{"name": "summary", "source": "results.echo"}],
+        )
+
+        child_block = _EchoBlock("echo", copy_key="topic")
+        child_wf = _build_child_workflow("child_wf", child_block)
+
+        wb = WorkflowBlock(
+            block_id="invoke_child",
+            child_workflow=child_wf,
+            inputs={"topic": "results.prepare_input"},
+            outputs={"results.analysis": "summary"},
+            interface=interface,
+        )
+
+        parent_state = WorkflowState(
+            results={"prepare_input": BlockResult(output="climate change")},
+        )
+
+        result_state = await wb.execute(parent_state)
+
+        analysis = result_state.results.get("analysis")
+        assert analysis is not None
+        assert str(analysis) == "climate change"
+
     async def test_workflow_block_returns_compact_metadata(self) -> None:
         """
         After execution ``BlockResult.metadata`` MUST contain:

@@ -105,6 +105,14 @@ class EvalObserver:
         self.sse_queue = sse_queue
         self.assertion_configs = assertion_configs
 
+    def clone_for_child_run(self, *, child_run_id: str) -> "EvalObserver":
+        return EvalObserver(
+            engine=self.engine,
+            run_id=child_run_id,
+            sse_queue=self.sse_queue,
+            assertion_configs=self.assertion_configs,
+        )
+
     # ------------------------------------------------------------------
     # No-op protocol methods
     # ------------------------------------------------------------------
@@ -113,7 +121,13 @@ class EvalObserver:
         pass
 
     def on_block_start(
-        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        *,
+        soul: Optional[Soul] = None,
+        **kwargs: Any,
     ) -> None:
         pass
 

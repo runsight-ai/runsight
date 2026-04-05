@@ -54,6 +54,32 @@ async def test_execute_task(mock_achat, sample_soul, sample_task):
 
 
 @pytest.mark.asyncio
+@patch("runsight_core.runner.LiteLLMClient.achat")
+async def test_execute_task_forwards_temperature_and_max_tokens(mock_achat, sample_task):
+    mock_achat.return_value = {
+        "content": "Hello!",
+        "cost_usd": 0.001,
+        "total_tokens": 10,
+    }
+
+    runner = RunsightTeamRunner(model_name="gpt-4o")
+    soul = Soul(
+        id="configured_soul",
+        role="Configured Agent",
+        system_prompt="Use the configured runtime params.",
+        provider="openai",
+        model_name="gpt-4o",
+        temperature=0.0,
+        max_tokens=128,
+    )
+    await runner.execute_task(sample_task, soul)
+
+    kwargs = mock_achat.call_args.kwargs
+    assert kwargs["temperature"] == 0.0
+    assert kwargs["max_tokens"] == 128
+
+
+@pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.astream_chat")
 async def test_stream_task(mock_astream_chat, sample_soul, sample_task):
     async def mock_stream_response(*args, **kwargs):

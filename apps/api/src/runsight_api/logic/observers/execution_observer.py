@@ -7,7 +7,7 @@ import time
 import traceback
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
@@ -45,6 +45,40 @@ class ExecutionObserver:
         self.run_id = run_id
         self._last_cumulative_cost: float = 0.0
         self._log_hwm: int = 0
+
+    @staticmethod
+    def _is_workflow_block_type(block_type: str) -> bool:
+        normalized = block_type.strip().lower()
+        return normalized in {"workflow", "workflowblock"}
+
+    @classmethod
+    def _serialize_result_value(cls, value: Any) -> Any:
+        if hasattr(value, "model_dump"):
+            return value.model_dump()
+        if isinstance(value, dict):
+            return {key: cls._serialize_result_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [cls._serialize_result_value(item) for item in value]
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        return str(value)
+
+    def get_child_run_id_for_block(self, block_id: str) -> Optional[str]:
+        try:
+            with Session(self.engine) as session:
+                node = session.get(RunNode, f"{self.run_id}:{block_id}")
+                return node.child_run_id if node else None
+        except Exception:
+            logger.warning(
+                "ExecutionObserver.get_child_run_id_for_block failed for run %s block %s",
+                self.run_id,
+                block_id,
+                exc_info=True,
+            )
+            return None
+
+    def clone_for_child_run(self, *, child_run_id: str) -> "ExecutionObserver":
+        return ExecutionObserver(engine=self.engine, run_id=child_run_id)
 
     # ------------------------------------------------------------------
     # on_workflow_start
@@ -88,7 +122,13 @@ class ExecutionObserver:
     # ------------------------------------------------------------------
 
     def on_block_start(
-        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        *,
+        soul: Optional[Soul] = None,
+        **kwargs: Any,
     ) -> None:
         try:
             bind_block_context(block_id)
@@ -102,18 +142,20 @@ class ExecutionObserver:
             )
 
             # If the block is a workflow call, create a child Run record
-            if block_type == "workflow":
+            if self._is_workflow_block_type(block_type):
                 child_run_id = f"{self.run_id}:child:{block_id}:{uuid.uuid4().hex[:8]}"
                 parent_run = self._get_run()
                 parent_depth = parent_run.depth if parent_run else 0
                 parent_root = parent_run.root_run_id if parent_run else None
                 # Root run has root_run_id=None; children point to the outermost ancestor
                 root_run_id = parent_root if parent_root is not None else self.run_id
+                child_workflow_id = kwargs.get("child_workflow_id") or f"wf_child_{block_id}"
+                child_workflow_name = kwargs.get("child_workflow_name") or workflow_name
 
                 child_run = Run(
                     id=child_run_id,
-                    workflow_id=f"wf_child_{block_id}",
-                    workflow_name=workflow_name,
+                    workflow_id=child_workflow_id,
+                    workflow_name=child_workflow_name,
                     status=RunStatus.running,
                     task_json="{}",
                     parent_run_id=self.run_id,
@@ -293,7 +335,10 @@ class ExecutionObserver:
                     run.total_cost_usd = state.total_cost_usd
                     run.total_tokens = state.total_tokens
                     run.results_json = json.dumps(
-                        {k: v.model_dump() for k, v in state.results.items()}
+                        {
+                            key: self._serialize_result_value(value)
+                            for key, value in state.results.items()
+                        }
                     )
                     run.updated_at = time.time()
                     session.add(run)

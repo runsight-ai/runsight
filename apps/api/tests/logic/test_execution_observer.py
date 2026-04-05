@@ -400,6 +400,27 @@ class TestOnWorkflowComplete:
             parsed = json.loads(run.results_json)
             assert parsed["block_a"]["output"] == "output_a"
 
+    def test_stores_scalar_results_json(self, observer):
+        """on_workflow_complete serializes interface-mapped scalar results too."""
+        obs, engine, run_id = observer
+        state = WorkflowState().model_copy(
+            update={
+                "results": {
+                    "block_a": BlockResult(output="output_a"),
+                    "final_summary": "plain scalar output",
+                }
+            }
+        )
+
+        obs.on_workflow_complete("wf", state, 5.0)
+
+        with Session(engine) as session:
+            run = session.get(Run, run_id)
+            assert run.results_json is not None
+            parsed = json.loads(run.results_json)
+            assert parsed["block_a"]["output"] == "output_a"
+            assert parsed["final_summary"] == "plain scalar output"
+
     def test_inserts_log_entry(self, observer):
         """on_workflow_complete INSERTs a LogEntry."""
         obs, engine, run_id = observer

@@ -54,6 +54,8 @@ export function formatTimestamp(
 
 export function formatCost(cost: number | null | undefined): string {
   if (cost === null || cost === undefined) return "\u2014";
+  if (cost === 0) return "$0.000";
+  if (cost < 0.001) return `$${cost.toFixed(6)}`;
   return `$${cost.toFixed(3)}`;
 }
 

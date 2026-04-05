@@ -14,12 +14,14 @@ class TestSoulFieldAdditions:
             temperature=0.7,
             max_tokens=4096,
             avatar_color="#44aa88",
+            required_tool_calls=["http_request", "slack_webhook"],
         )
 
         assert soul.provider == "openai"
         assert soul.temperature == 0.7
         assert soul.max_tokens == 4096
         assert soul.avatar_color == "#44aa88"
+        assert soul.required_tool_calls == ["http_request", "slack_webhook"]
 
     def test_soul_new_fields_default_to_none(self):
         soul = Soul(
@@ -61,12 +63,14 @@ class TestSoulDefFieldAdditions:
             temperature=0.5,
             max_tokens=2048,
             avatar_color="hsl(210 60% 50%)",
+            required_tool_calls=["http_request"],
         )
 
         assert soul_def.provider == "anthropic"
         assert soul_def.temperature == 0.5
         assert soul_def.max_tokens == 2048
         assert soul_def.avatar_color == "hsl(210 60% 50%)"
+        assert soul_def.required_tool_calls == ["http_request"]
 
     def test_souldef_new_fields_default_to_none(self):
         soul_def = SoulDef(
@@ -79,3 +83,4 @@ class TestSoulDefFieldAdditions:
         assert soul_def.temperature is None
         assert soul_def.max_tokens is None
         assert soul_def.avatar_color is None
+        assert soul_def.required_tool_calls is None

@@ -73,6 +73,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/children": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run Children */
+        get: operations["get_run_children_api_runs__run_id__children_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}/cancel": {
         parameters: {
             query?: never;
@@ -99,6 +116,23 @@ export interface paths {
         };
         /** Get Run Logs */
         get: operations["get_run_logs_api_runs__run_id__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/regressions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run Regressions */
+        get: operations["get_run_regressions_api_runs__run_id__regressions_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -189,6 +223,40 @@ export interface paths {
         put?: never;
         /** Create Workflow Simulation */
         post: operations["create_workflow_simulation_api_workflows__id__simulations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workflows/{id}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Workflow Enabled */
+        patch: operations["patch_workflow_enabled_api_workflows__id__enabled_patch"];
+        trace?: never;
+    };
+    "/api/workflows/{id}/regressions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Regressions */
+        get: operations["get_workflow_regressions_api_workflows__id__regressions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -565,6 +633,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/git/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Git File Read
+         * @description Read a file from a specific git ref (branch name or commit SHA).
+         */
+        get: operations["git_file_read_api_git_file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/git/sim-branch": {
         parameters: {
             query?: never;
@@ -807,6 +895,13 @@ export interface components {
             /** Fallback Model Id */
             fallback_model_id?: string | null;
         };
+        /** FileReadResponse */
+        FileReadResponse: {
+            /** Content */
+            content: string;
+            /** Ref */
+            ref: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1021,6 +1116,24 @@ export interface components {
             };
             /** Error */
             error: string | null;
+            /** Output */
+            output?: string | null;
+            /** Soul Id */
+            soul_id?: string | null;
+            /** Model Name */
+            model_name?: string | null;
+            /** Eval Score */
+            eval_score?: number | null;
+            /** Eval Passed */
+            eval_passed?: boolean | null;
+            /** Eval Results */
+            eval_results?: {
+                [key: string]: unknown;
+            } | null;
+            /** Child Run Id */
+            child_run_id?: string | null;
+            /** Exit Handle */
+            exit_handle?: string | null;
         };
         /** RunResponse */
         RunResponse: {
@@ -1032,6 +1145,8 @@ export interface components {
             workflow_name: string;
             /** Status */
             status: string;
+            /** Error */
+            error?: string | null;
             /** Started At */
             started_at: number | null;
             /** Completed At */
@@ -1060,7 +1175,22 @@ export interface components {
             run_number?: number | null;
             /** Eval Pass Pct */
             eval_pass_pct?: number | null;
+            /** Eval Score Avg */
+            eval_score_avg?: number | null;
+            /** Regression Count */
+            regression_count?: number | null;
+            /** Regression Types */
+            regression_types?: string[];
             node_summary?: components["schemas"]["NodeSummary"] | null;
+            /** Parent Run Id */
+            parent_run_id?: string | null;
+            /** Root Run Id */
+            root_run_id?: string | null;
+            /**
+             * Depth
+             * @default 0
+             */
+            depth: number;
         };
         /** SettingsBudgetListResponse */
         SettingsBudgetListResponse: {
@@ -1231,6 +1361,8 @@ export interface components {
              * @default 0
              */
             workflow_count: number;
+            /** Modified At */
+            modified_at?: number | null;
         };
         /** SoulUpdate */
         SoulUpdate: {
@@ -1471,6 +1603,11 @@ export interface components {
             /** Yaml */
             yaml: string;
             canvas_state?: components["schemas"]["WorkflowCanvasState"] | null;
+            /**
+             * Commit
+             * @default true
+             */
+            commit: boolean;
         };
         /** WorkflowDeleteResponse */
         WorkflowDeleteResponse: {
@@ -1480,6 +1617,11 @@ export interface components {
             deleted: boolean;
             /** Runs Deleted */
             runs_deleted: number;
+        };
+        /** WorkflowEnabledUpdate */
+        WorkflowEnabledUpdate: {
+            /** Enabled */
+            enabled: boolean;
         };
         /** WorkflowHealthMetrics */
         WorkflowHealthMetrics: {
@@ -1757,6 +1899,37 @@ export interface operations {
             };
         };
     };
+    get_run_children_api_runs__run_id__children_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cancel_run_api_runs__run_id__cancel_post: {
         parameters: {
             query?: never;
@@ -1809,6 +1982,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedLogsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_regressions_api_runs__run_id__regressions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -2075,6 +2279,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkflowSimulationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_workflow_enabled_api_workflows__id__enabled_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowEnabledUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_workflow_regressions_api_workflows__id__regressions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -3092,6 +3362,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["runsight_api__transport__routers__git__LogResponse"];
+                };
+            };
+        };
+    };
+    git_file_read_api_git_file_get: {
+        parameters: {
+            query: {
+                ref: string;
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileReadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

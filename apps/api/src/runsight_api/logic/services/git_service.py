@@ -80,7 +80,13 @@ class GitService:
     def create_sim_branch(
         self, workflow_slug: str, yaml_content: str, yaml_path: str
     ) -> SimBranchResult:
-        """Create a simulation branch with YAML content committed to it."""
+        """Create a simulation branch with the current worktree snapshot committed to it.
+
+        The simulation snapshot starts from ``HEAD``, stages the current worktree into
+        a temporary index, then force-overrides the requested workflow file with the
+        in-memory YAML draft. This keeps parent/child workflow resolution branch-
+        consistent even when related workflow files only exist in the local worktree.
+        """
         short_id = uuid.uuid4().hex[:5]
         today = date.today().strftime("%Y%m%d")
         branch_name = f"sim/{workflow_slug}/{today}/{short_id}"
@@ -91,6 +97,7 @@ class GitService:
         with tempfile.NamedTemporaryFile() as tmp_index:
             env = {**os.environ, "GIT_INDEX_FILE": tmp_index.name}
             self._run("read-tree", base_commit, env=env)
+            self._run("add", "-A", env=env)
             self._run(
                 "update-index", "--add", "--cacheinfo", "100644", blob_sha, repo_yaml_path, env=env
             )

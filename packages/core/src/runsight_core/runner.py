@@ -184,6 +184,18 @@ class RunsightTeamRunner:
             }
         )
 
+    @staticmethod
+    def _outstanding_required_tool_calls(soul: Soul, tool_calls_made: List[str]) -> List[str]:
+        required_tool_calls = soul.required_tool_calls or []
+        if not required_tool_calls:
+            return []
+
+        remaining: List[str] = []
+        for tool_name in required_tool_calls:
+            if tool_name not in tool_calls_made and tool_name not in remaining:
+                remaining.append(tool_name)
+        return remaining
+
     async def _achat_with_failover(
         self,
         soul: Soul,
@@ -192,16 +204,24 @@ class RunsightTeamRunner:
         system_prompt: Optional[str],
         tools: Optional[List[dict]] = None,
         tool_choice: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
         allow_failover: bool = True,
     ) -> tuple[Dict[str, Any], Soul, bool]:
         active_soul = soul
         client = self._get_client(active_soul)
+        request_kwargs: Dict[str, Any] = {}
+        if temperature is not None:
+            request_kwargs["temperature"] = temperature
+        if max_tokens is not None:
+            request_kwargs["max_tokens"] = max_tokens
         try:
             response = await client.achat(
                 messages=messages,
                 system_prompt=system_prompt,
                 tools=tools,
                 tool_choice=tool_choice,
+                **request_kwargs,
             )
             return response, active_soul, allow_failover
         except Exception as exc:
@@ -214,6 +234,7 @@ class RunsightTeamRunner:
                 system_prompt=system_prompt,
                 tools=tools,
                 tool_choice=tool_choice,
+                **request_kwargs,
             )
             return response, fallback_soul, False
 
@@ -237,6 +258,8 @@ class RunsightTeamRunner:
                 active_soul,
                 messages=all_messages,
                 system_prompt=active_soul.system_prompt,
+                temperature=active_soul.temperature,
+                max_tokens=active_soul.max_tokens,
                 allow_failover=allow_failover,
             )
             return ExecutionResult(
@@ -264,20 +287,33 @@ class RunsightTeamRunner:
         response: Dict[str, Any] = {}
 
         while iteration < max_iters:
+            outstanding_required_tool_calls = self._outstanding_required_tool_calls(
+                active_soul, tool_calls_made
+            )
             is_last = iteration == max_iters - 1
-            tools_for_llm = [] if is_last else tool_schemas
+            requires_more_tools = bool(outstanding_required_tool_calls)
+            tools_for_llm = tool_schemas if requires_more_tools or not is_last else []
+            tool_choice = "required" if requires_more_tools else None
 
             response, active_soul, allow_failover = await self._achat_with_failover(
                 active_soul,
                 messages=all_messages,
                 system_prompt=active_soul.system_prompt,
                 tools=tools_for_llm,
+                tool_choice=tool_choice,
+                temperature=active_soul.temperature,
+                max_tokens=active_soul.max_tokens,
                 allow_failover=allow_failover,
             )
             accumulated_cost += response["cost_usd"]
             accumulated_tokens += response["total_tokens"]
 
             if not response.get("tool_calls"):
+                if outstanding_required_tool_calls:
+                    missing = ", ".join(outstanding_required_tool_calls)
+                    raise ValueError(
+                        f"Soul '{active_soul.id}' stopped before required tool calls completed: {missing}"
+                    )
                 # LLM responded with text -- done
                 return ExecutionResult(
                     task_id=task.id,
@@ -317,12 +353,23 @@ class RunsightTeamRunner:
 
             iteration += 1
 
+        outstanding_required_tool_calls = self._outstanding_required_tool_calls(
+            active_soul, tool_calls_made
+        )
+        if outstanding_required_tool_calls:
+            missing = ", ".join(outstanding_required_tool_calls)
+            raise ValueError(
+                f"Soul '{active_soul.id}' exhausted max_tool_iterations before required tool calls completed: {missing}"
+            )
+
         # Max iterations exhausted -- force a final text response with no tools
         response, active_soul, _ = await self._achat_with_failover(
             active_soul,
             messages=all_messages,
             system_prompt=active_soul.system_prompt,
             tools=[],
+            temperature=active_soul.temperature,
+            max_tokens=active_soul.max_tokens,
             allow_failover=allow_failover,
         )
         accumulated_cost += response["cost_usd"]

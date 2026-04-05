@@ -293,6 +293,52 @@
         }
       }
     },
+    "/api/runs/{run_id}/children": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Get Run Children",
+        "operationId": "get_run_children_api_runs__run_id__children_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunResponse"
+                  },
+                  "title": "Response Get Run Children Api Runs  Run Id  Children Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runs/{run_id}/cancel": {
       "post": {
         "tags": [
@@ -379,6 +425,46 @@
                 "schema": {
                   "$ref": "#/components/schemas/PaginatedLogsResponse"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/regressions": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Get Run Regressions",
+        "operationId": "get_run_regressions_api_runs__run_id__regressions_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -779,6 +865,98 @@
                 "schema": {
                   "$ref": "#/components/schemas/WorkflowSimulationResponse"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workflows/{id}/enabled": {
+      "patch": {
+        "tags": [
+          "Workflows"
+        ],
+        "summary": "Patch Workflow Enabled",
+        "operationId": "patch_workflow_enabled_api_workflows__id__enabled_patch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowEnabledUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workflows/{id}/regressions": {
+      "get": {
+        "tags": [
+          "Workflows"
+        ],
+        "summary": "Get Workflow Regressions",
+        "operationId": "get_workflow_regressions_api_workflows__id__regressions_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -2156,6 +2334,58 @@
         }
       }
     },
+    "/api/git/file": {
+      "get": {
+        "tags": [
+          "Git"
+        ],
+        "summary": "Git File Read",
+        "description": "Read a file from a specific git ref (branch name or commit SHA).",
+        "operationId": "git_file_read_api_git_file_get",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ref"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileReadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/git/sim-branch": {
       "post": {
         "tags": [
@@ -2780,6 +3010,24 @@
         },
         "type": "object",
         "title": "FallbackUpdate"
+      },
+      "FileReadResponse": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content",
+          "ref"
+        ],
+        "title": "FileReadResponse"
       },
       "HTTPValidationError": {
         "properties": {
@@ -3429,6 +3677,95 @@
               }
             ],
             "title": "Error"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "soul_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Soul Id"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "eval_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Score"
+          },
+          "eval_passed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Passed"
+          },
+          "eval_results": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Results"
+          },
+          "child_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Run Id"
+          },
+          "exit_handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Handle"
           }
         },
         "type": "object",
@@ -3464,6 +3801,17 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
           },
           "started_at": {
             "anyOf": [
@@ -3553,6 +3901,35 @@
             ],
             "title": "Eval Pass Pct"
           },
+          "eval_score_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eval Score Avg"
+          },
+          "regression_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regression Count"
+          },
+          "regression_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regression Types"
+          },
           "node_summary": {
             "anyOf": [
               {
@@ -3562,6 +3939,33 @@
                 "type": "null"
               }
             ]
+          },
+          "parent_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Run Id"
+          },
+          "root_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Run Id"
+          },
+          "depth": {
+            "type": "integer",
+            "title": "Depth",
+            "default": 0
           }
         },
         "type": "object",
@@ -4126,6 +4530,17 @@
             "type": "integer",
             "title": "Workflow Count",
             "default": 0
+          },
+          "modified_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified At"
           }
         },
         "type": "object",
@@ -4906,6 +5321,11 @@
                 "type": "null"
               }
             ]
+          },
+          "commit": {
+            "type": "boolean",
+            "title": "Commit",
+            "default": true
           }
         },
         "type": "object",
@@ -4936,6 +5356,19 @@
           "runs_deleted"
         ],
         "title": "WorkflowDeleteResponse"
+      },
+      "WorkflowEnabledUpdate": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "WorkflowEnabledUpdate"
       },
       "WorkflowHealthMetrics": {
         "properties": {

@@ -140,6 +140,14 @@ function getSearchParam(params: unknown): string | null {
   return null;
 }
 
+function findAllRunsSelectOption() {
+  return (
+    screen.queryByRole("option", { name: "All runs" }) ??
+    screen.queryByRole("menuitemradio", { name: "All runs" }) ??
+    screen.getByText("All runs")
+  );
+}
+
 vi.mock("@/queries/runs", () => ({
   useRuns: (params?: unknown) => {
     mocks.runsQueryCalls.push(params);
@@ -156,6 +164,14 @@ vi.mock("@/queries/runs", () => ({
       refetch: mocks.refetchRuns,
     };
   },
+  useRunRegressions: (runId?: string) => ({
+    data: runId
+      ? {
+          count: 0,
+          issues: [],
+        }
+      : undefined,
+  }),
 }));
 
 vi.mock("@/queries/dashboard", () => ({
@@ -251,10 +267,7 @@ function getVisibleWorkflowOrder() {
   return within(table)
     .getAllByRole("row")
     .slice(1)
-    .map((row) => {
-      const workflowButton = within(row).getByRole("button");
-      return workflowButton.textContent ?? "";
-    });
+    .map((row) => within(row).getAllByRole("cell")[1]?.textContent ?? "");
 }
 
 describe("RUN-487 canonical /runs page", () => {
@@ -281,7 +294,7 @@ describe("RUN-487 canonical /runs page", () => {
     ]);
 
     const table = await screen.findByRole("table");
-    expect(within(table).queryByRole("columnheader", { name: "Source" })).toBeNull();
+    expect(within(table).getByRole("columnheader", { name: "Source" })).toBeTruthy();
     expect(screen.queryByText("simulation")).toBeNull();
   });
 
@@ -289,7 +302,8 @@ describe("RUN-487 canonical /runs page", () => {
     const { user } = await renderRunsRoute("/runs");
 
     await user.click(await screen.findByLabelText("Filter runs by source"));
-    await user.click(await screen.findByText("All runs"));
+    await screen.findByText("All runs");
+    await user.click(findAllRunsSelectOption());
 
     await waitFor(() => {
       expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([]);
@@ -304,7 +318,8 @@ describe("RUN-487 canonical /runs page", () => {
     const { user } = await renderRunsRoute("/runs");
 
     await user.click(await screen.findByLabelText("Filter runs by source"));
-    await user.click(await screen.findByText("All runs"));
+    await screen.findByText("All runs");
+    await user.click(findAllRunsSelectOption());
 
     await waitFor(() => {
       expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([]);
@@ -358,7 +373,8 @@ describe("RUN-487 canonical /runs page", () => {
     const { router, user } = await renderRunsRoute("/runs");
 
     await user.click(await screen.findByLabelText("Filter runs by source"));
-    await user.click(await screen.findByText("All runs"));
+    await screen.findByText("All runs");
+    await user.click(findAllRunsSelectOption());
     await user.type(screen.getByRole("searchbox", { name: "Search runs" }), "content");
     await user.click(screen.getByRole("columnheader", { name: "Eval" }));
 
@@ -406,7 +422,7 @@ describe("RUN-487 canonical /runs page", () => {
     });
   });
 
-  it("opens /workflows/:id/edit when the user activates the workflow name", async () => {
+  it("opens /runs/:id when the user activates the workflow name", async () => {
     const { router, user } = await renderRunsRoute("/runs");
     const researchRow = await waitFor(() => {
       const row = findRunRow("Research & Review");
@@ -417,7 +433,7 @@ describe("RUN-487 canonical /runs page", () => {
     await user.click(within(researchRow).getByText("Research & Review"));
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
+      expect(router.state.location.pathname).toBe("/runs/run_research_7");
     });
   });
 

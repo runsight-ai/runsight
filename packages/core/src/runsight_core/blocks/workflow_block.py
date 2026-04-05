@@ -38,6 +38,7 @@ class WorkflowBlock(BaseBlock):
         child_workflow: "Workflow",
         inputs: Dict[str, str],
         outputs: Dict[str, str],
+        workflow_ref: Optional[str] = None,
         max_depth: int = 10,
         interface: Optional["WorkflowInterfaceDef"] = None,
         on_error: str = "raise",
@@ -46,6 +47,7 @@ class WorkflowBlock(BaseBlock):
         self.child_workflow = child_workflow
         self.inputs = inputs
         self.outputs = outputs
+        self.workflow_ref = workflow_ref
         self.max_depth = max_depth
         self.interface = interface
         self.on_error = on_error
@@ -93,10 +95,13 @@ class WorkflowBlock(BaseBlock):
         child_state = self._map_inputs(state, self.inputs)
 
         # Step 4: Run child workflow (propagate observer for monitoring)
-        from runsight_core.observer import ChildObserverWrapper
+        from runsight_core.observer import build_child_observer
 
         parent_observer = kwargs.get("observer")
-        observer = ChildObserverWrapper(parent_observer) if parent_observer else None
+        observer = None
+        child_run_id = None
+        if parent_observer:
+            observer, child_run_id = build_child_observer(parent_observer, block_id=self.block_id)
         start_time = time.monotonic()
         try:
             child_final_state = await self.child_workflow.run(
@@ -117,7 +122,7 @@ class WorkflowBlock(BaseBlock):
                 "child_cost_usd": 0,
                 "child_tokens": 0,
                 "child_duration_s": round(duration_s, 4),
-                "child_run_id": None,
+                "child_run_id": child_run_id,
             }
             return state.model_copy(
                 update={
@@ -154,7 +159,7 @@ class WorkflowBlock(BaseBlock):
                         "child_cost_usd": child_final_state.total_cost_usd,
                         "child_tokens": child_final_state.total_tokens,
                         "child_duration_s": round(duration_s, 4),
-                        "child_run_id": None,
+                        "child_run_id": child_run_id,
                     }
                     return state.model_copy(
                         update={
@@ -194,7 +199,7 @@ class WorkflowBlock(BaseBlock):
             "child_cost_usd": child_final_state.total_cost_usd,
             "child_tokens": child_final_state.total_tokens,
             "child_duration_s": round(duration_s, 4),
-            "child_run_id": None,
+            "child_run_id": child_run_id,
         }
 
         return new_parent_state.model_copy(
@@ -305,6 +310,8 @@ class WorkflowBlock(BaseBlock):
                         f"'{interface_name}' does not match any interface input."
                     )
                 value = self._resolve_dotted(parent_state, parent_path, context="parent state")
+                if isinstance(value, BlockResult):
+                    value = value.output
                 child_state = self._write_dotted(child_state, target, value)
         else:
             # Legacy: keys are child dotted paths directly
@@ -333,6 +340,8 @@ class WorkflowBlock(BaseBlock):
                         f"'{interface_name}' does not match any interface output."
                     )
                 value = self._resolve_dotted(child_final_state, source, context="child state")
+                if isinstance(value, BlockResult):
+                    value = value.output
                 new_parent = self._write_dotted(new_parent, parent_path, value)
         else:
             # Legacy: values are child dotted paths directly

@@ -130,6 +130,7 @@ export function Component({ onCreateWorkflow }: WorkflowsTabProps) {
           value: searchQuery,
           placeholder: "Search workflows...",
           "aria-label": "Search workflows",
+          "data-testid": "flows-search-workflows-input",
           onChange: (event: { target: { value: string } }) =>
             setSearchQuery(event.target.value),
         }),

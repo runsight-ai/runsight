@@ -1,0 +1,20 @@
+version: "1.0"
+type: custom
+executor: request
+name: Slack Webhook
+description: Send a message to the configured Slack incoming webhook.
+parameters:
+  type: object
+  properties:
+    payload_json:
+      type: string
+      description: Complete JSON payload to send to Slack, such as output from slack_payload_builder.
+  required:
+    - payload_json
+request:
+  method: POST
+  url: https://hooks.slack.com/services/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
+  headers:
+    Content-type: application/json
+  body_template: "{{ payload_json }}"
+timeout_seconds: 10

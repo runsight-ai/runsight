@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "react-router";
+import { Link, useInRouterContext } from "react-router";
 import { useWorkflow, useUpdateWorkflow } from "@/queries/workflows";
-import { Tabs, TabsList, TabsTrigger } from "@runsight/ui/tabs";
 import { Button } from "@runsight/ui/button";
+import { Badge } from "@runsight/ui/badge";
 import { RunButton } from "./RunButton";
 import { ExecutionMetrics } from "./ExecutionMetrics";
 import { useCanvasStore } from "@/store/canvas";
 import { useRun } from "@/queries/runs";
 import { Save } from "lucide-react";
-import { cn } from "@runsight/ui/utils";
 import { useForkWorkflow } from "../runs/useForkWorkflow";
+import { WorkflowTopbar } from "@/components/shared";
 
 interface CanvasTopbarProps {
   workflowId: string;
@@ -29,9 +29,40 @@ interface CanvasTopbarProps {
   runStatus?: string;
   forkDisabled?: boolean;
   onForkTransition?: (newWorkflowId: string) => void;
+  backTo?: string;
+  backLabel?: string;
+  titleOverride?: React.ReactNode;
+  titleAfter?: React.ReactNode;
+  metricsOverride?: React.ReactNode;
+  actionsOverride?: React.ReactNode;
 }
 
-export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, onSave, yamlValid: _yamlValid = true, errorCount: _errorCount = 0, onAddApiKey, metricsVisible = false, metricsStyle = "none", actionButton, nameEditable = true, saveButton = "ghost", toggleVisibility, runStatus, forkDisabled: _forkDisabled, onForkTransition }: CanvasTopbarProps) {
+export function CanvasTopbar({
+  workflowId,
+  activeTab,
+  onValueChange,
+  isDirty,
+  onSave,
+  yamlValid: _yamlValid = true,
+  errorCount: _errorCount = 0,
+  onAddApiKey,
+  metricsVisible = false,
+  metricsStyle = "none",
+  actionButton,
+  nameEditable = true,
+  saveButton = "ghost",
+  toggleVisibility,
+  runStatus,
+  forkDisabled: _forkDisabled,
+  onForkTransition,
+  backTo = "/flows",
+  backLabel = "Back to flows",
+  titleOverride,
+  titleAfter,
+  metricsOverride,
+  actionsOverride,
+}: CanvasTopbarProps) {
+  const hasRouter = useInRouterContext();
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
 
@@ -95,16 +126,12 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
   function saveName() {
     setIsEditing(false);
     const trimmed = editName.trim();
-    if (!workflow || typeof workflow.yaml !== "string") {
-      return;
-    }
-
     if (trimmed && trimmed !== workflowName) {
       updateWorkflow.mutate({
         id: workflowId,
         data: {
           name: trimmed,
-          yaml: workflow.yaml,
+          yaml: typeof workflow?.yaml === "string" ? workflow.yaml : "",
         },
       });
     }
@@ -121,95 +148,77 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
 
   // Run status badge rendering
   const statusBadge = runStatus ? (
-    <span
-      className={cn(
-        "ml-2 px-2 py-0.5 rounded text-xs font-medium",
+    <Badge
+      variant={
         runStatus === "completed" || runStatus === "success"
-          ? "bg-success-3 text-success-9"
+          ? "success"
           : runStatus === "failed" || runStatus === "error"
-            ? "bg-danger-3 text-danger-9"
-            : "bg-neutral-3 text-muted",
-      )}
+            ? "danger"
+            : "warning"
+      }
     >
       {runStatus}
-    </span>
+    </Badge>
   ) : null;
 
   // Metrics for historical (static) mode: cost, tokens, duration
-  const metricsRunId = metricsStyle === "live" ? lastTerminalRunId : lastTerminalRunId;
+  const metricsRunId = lastTerminalRunId;
 
-  return (
-    <header
-      className="flex items-center h-[var(--header-height)] border-b border-border-subtle px-4"
-      style={{ gridColumn: "1 / -1", gridRow: "1" }}
-    >
-      {/* Left: Workflow name */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        {nameEditable ? (
-          isEditing ? (
-            <input
-              className="font-sans text-lg font-medium text-heading bg-transparent border border-transparent rounded-sm px-1 py-[2px] outline-none hover:bg-surface-hover focus:border-border-focus"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onBlur={saveName}
-              onKeyDown={handleKeyDown}
-              autoFocus
-            />
-          ) : (
-            <span
-              className="text-lg font-medium text-heading cursor-pointer border border-transparent rounded-sm px-1 py-[2px] hover:bg-surface-hover"
-              onClick={startEditing}
-            >
-              {workflowName}
-            </span>
-          )
+  const titleNode = titleOverride ?? (
+    <>
+      {nameEditable ? (
+        isEditing ? (
+          <input
+            className="font-sans text-lg font-medium text-heading bg-transparent border border-transparent rounded-sm px-1 py-[2px] outline-none hover:bg-surface-hover focus:border-border-focus"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={handleKeyDown}
+            data-testid="workflow-name-input"
+            autoFocus
+          />
         ) : (
-          <span className="text-lg font-medium text-heading px-1 py-[2px]">
+          <span
+            className="text-lg font-medium text-heading cursor-pointer border border-transparent rounded-sm px-1 py-[2px] hover:bg-surface-hover"
+            onClick={startEditing}
+            data-testid="workflow-name-display"
+          >
+            {workflowName}
+          </span>
+        )
+      ) : (
+        <span className="text-lg font-medium text-heading px-1 py-[2px]">
+          {hasRouter ? (
             <Link to={`/workflows/${workflowId}/edit`} className="hover:underline">
               {workflowName}
             </Link>
-          </span>
-        )}
-        {statusBadge}
-      </div>
-
-      {/* Center: Canvas | YAML toggle */}
-      {toggleVisibility && (toggleVisibility.canvas || toggleVisibility.yaml) && (
-        <div className="flex items-center">
-          <Tabs value={activeTab} onValueChange={onValueChange}>
-            <TabsList variant="contained">
-              {toggleVisibility.canvas && (
-                <TabsTrigger value="canvas" className="opacity-50">
-                  Canvas
-                </TabsTrigger>
-              )}
-              {toggleVisibility.yaml && (
-                <TabsTrigger value="yaml">YAML</TabsTrigger>
-              )}
-            </TabsList>
-          </Tabs>
-        </div>
+          ) : (
+            <a href={`/workflows/${workflowId}/edit`} className="hover:underline">
+              {workflowName}
+            </a>
+          )}
+        </span>
       )}
+      {statusBadge}
+    </>
+  );
 
-      {/* Right: actions */}
-      <div className="flex items-center gap-2 flex-1 justify-end">
-        {metricsVisible && metricsStyle === "static" && (
-          <div className="flex items-center gap-2 text-xs text-muted">
-            <span>cost: —</span>
-            <span>tokens: —</span>
-            <span>duration: —</span>
-          </div>
-        )}
-        {metricsVisible && metricsStyle === "live" && (
-          <ExecutionMetrics runId={metricsRunId} />
-        )}
-        {isDirty && <span className="h-2 w-2 rounded-full bg-interactive-default" aria-label="unsaved indicator" />}
+  const metricsNode =
+    metricsOverride ??
+    (metricsVisible && metricsStyle === "live" ? <ExecutionMetrics runId={metricsRunId} /> : null);
+
+  const actionsNode =
+    actionsOverride ??
+    (
+      <>
+        {isDirty ? <span className="h-2 w-2 rounded-full bg-interactive-default" aria-label="unsaved indicator" /> : null}
         {saveButton !== "hidden" && (
           <Button
             variant={saveButton === "primary" || isDirty ? "primary" : "ghost"}
             size="sm"
             onClick={onSave}
             disabled={saveButton === "disabled"}
+            data-testid="workflow-save-button"
           >
             <Save className="w-4 h-4" />
             Save
@@ -230,7 +239,20 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
             onAddApiKey={onAddApiKey}
           />
         )}
-      </div>
-    </header>
+      </>
+    );
+
+  return (
+    <WorkflowTopbar
+      backTo={backTo}
+      backLabel={backLabel}
+      title={titleNode}
+      titleAfter={titleAfter}
+      metrics={metricsNode}
+      actions={actionsNode}
+      activeTab={activeTab}
+      onValueChange={onValueChange}
+      toggleVisibility={toggleVisibility}
+    />
   );
 }

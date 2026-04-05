@@ -175,6 +175,8 @@ class TestLibrarySoulToolWithMatchingWorkflowTools:
             block = wf.blocks["step"]
             inner = getattr(block, "inner_block", block)
             assert inner.soul.role == "Fetcher"
+            assert inner.soul.resolved_tools is not None
+            assert [tool.name for tool in inner.soul.resolved_tools] == ["http_request"]
 
     def test_soul_with_multiple_tools_all_declared_passes(self):
         """AC2: Soul with multiple tools all declared in workflow -> passes."""
@@ -213,6 +215,11 @@ class TestLibrarySoulToolWithMatchingWorkflowTools:
             block = wf.blocks["step"]
             inner = getattr(block, "inner_block", block)
             assert inner.soul.role == "Agent"
+            assert inner.soul.resolved_tools is not None
+            assert {tool.name for tool in inner.soul.resolved_tools} == {
+                "http_request",
+                "file_io",
+            }
 
 
 # ===========================================================================

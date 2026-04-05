@@ -1,0 +1,19 @@
+version: "1.0"
+type: custom
+executor: python
+name: Slack Payload Builder
+description: Build a JSON payload string for the Slack incoming webhook.
+parameters:
+  type: object
+  properties:
+    text:
+      type: string
+      description: Message text to encode for Slack.
+  required:
+    - text
+code: |
+  import json
+
+  def main(args):
+      text = str(args.get("text", ""))
+      return {"payload_json": json.dumps({"text": text})}

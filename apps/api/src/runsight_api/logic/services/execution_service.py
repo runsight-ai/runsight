@@ -416,7 +416,7 @@ class ExecutionService:
         *,
         yaml_content: str,
         api_keys: Dict[str, str],
-    ) -> tuple[dict[str, Any], RunsightTeamRunner]:
+    ) -> tuple[dict[str, Any], RunsightTeamRunner | None]:
         raw = yaml.safe_load(yaml_content)
         if not isinstance(raw, dict):
             raise ValueError("Workflow YAML must parse to a mapping")
@@ -472,9 +472,11 @@ class ExecutionService:
             None,
         )
         if runner_model_name is None:
-            raise ValueError(
-                "Workflow must include at least one soul with explicit provider and model_name"
-            )
+            if souls_section:
+                raise ValueError(
+                    "Workflow must include at least one soul with explicit provider and model_name"
+                )
+            return raw, None
 
         runner = RunsightTeamRunner(
             model_name=runner_model_name,

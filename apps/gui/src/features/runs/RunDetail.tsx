@@ -14,12 +14,11 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { useRun, useRunNodes, useRunLogs, useRunRegressions } from "@/queries/runs";
-import { useWorkflow } from "@/queries/workflows";
 import { CanvasErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { Card } from "@runsight/ui/card";
 import { Button } from "@runsight/ui/button";
 import { PriorityBanner } from "@/components/shared";
-import { LazyMonacoEditor } from "@/features/canvas/LazyMonacoEditor";
+import { YamlEditor } from "@/features/canvas/YamlEditor";
 import { RunCanvasNode, CanvasNodeComponent, nodeTypes } from "./RunCanvasNode";
 import type { RunNodeData } from "./RunCanvasNode";
 import { RunInspectorPanel } from "./RunInspectorPanel";
@@ -56,7 +55,6 @@ function RunDetailInner() {
   } = useRunNodes(id || "");
   const { data: runLogs } = useRunLogs(id || "", undefined, { refetchInterval: undefined });
   const { data: regressionData } = useRunRegressions(id || "");
-  const { data: workflow } = useWorkflow(run?.workflow_id ?? "");
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<RunNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -103,7 +101,8 @@ function RunDetailInner() {
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node<RunNodeData>) => { setSelectedNode(node); }, []);
   const onPaneClick = useCallback(() => { setSelectedNode(null); }, []);
   const logs = useMemo(() => runLogs?.items || [], [runLogs]);
-  const regressionCount = regressionData?.items?.length ?? 0;
+  const regressionCount = regressionData?.count ?? 0;
+  const hasNodeGraph = (runNodes?.length ?? 0) > 0;
 
   if (isLoadingRun || isLoadingNodes) {
     return (
@@ -139,13 +138,13 @@ function RunDetailInner() {
         <div className="flex-1 flex overflow-hidden">
           {activeTab === "yaml" ? (
             <div className="flex-1 overflow-hidden">
-              <LazyMonacoEditor
-                language="yaml"
-                theme="runsight-yaml"
-                value={workflow?.yaml ?? ""}
-                height="100%"
-                options={{ readOnly: true }}
-              />
+              {run.workflow_id ? (
+                <YamlEditor workflowId={run.workflow_id} readOnly={true} />
+              ) : (
+                <div className="flex h-full items-center justify-center text-muted">
+                  YAML unavailable for this run
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -166,6 +165,20 @@ function RunDetailInner() {
                           <Button variant="primary" onClick={() => void refetchRunNodes()}>
                             Retry
                           </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                ) : !hasNodeGraph && run.error ? (
+                  <div className="flex h-full items-center justify-center p-6">
+                    <Card className="w-full max-w-xl px-6 py-6">
+                      <div className="space-y-3">
+                        <h2 className="text-lg font-semibold text-heading">Run failed before execution started</h2>
+                        <p className="text-sm leading-6 text-secondary">
+                          Runsight could not prepare this workflow for execution, so no nodes were started.
+                        </p>
+                        <div className="rounded-md border border-[var(--danger-9)]/30 bg-danger-3 p-3 font-mono text-xs leading-relaxed text-[var(--danger-9)]">
+                          {run.error}
                         </div>
                       </div>
                     </Card>

@@ -721,6 +721,73 @@ class TestToolErrorFeedback:
         assert result.output == "Survived ValueError."
 
 
+class TestRequiredToolCalls:
+    """Souls can require specific tool calls before the runner accepts completion."""
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.runner.LiteLLMClient.achat")
+    async def test_runner_fails_when_required_tool_calls_are_missing(
+        self, mock_achat: AsyncMock, tmp_path: Path
+    ) -> None:
+        from runsight_core.tools import resolve_tool
+
+        echo_tool_id = _write_echo_tool_yaml(tmp_path)
+        soul = Soul(
+            id="agent_1",
+            role="Test Agent",
+            system_prompt="Use the echo tool.",
+            tools=[echo_tool_id],
+            required_tool_calls=["echo", "slack_webhook"],
+            max_tool_iterations=3,
+            provider="openai",
+            model_name="gpt-4o",
+            resolved_tools=[resolve_tool(echo_tool_id, base_dir=tmp_path)],
+        )
+
+        mock_achat.side_effect = [
+            _tool_call_response("echo", arguments='{"message": "hello"}', call_id="c1"),
+            _text_response("Done."),
+        ]
+
+        runner = RunsightTeamRunner(model_name="gpt-4o")
+        task = Task(id="t_required_missing", instruction="Call every required tool.")
+        with pytest.raises(ValueError, match=r"required tool calls completed: slack_webhook"):
+            await runner.execute_task(task, soul)
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.runner.LiteLLMClient.achat")
+    async def test_runner_requires_tools_while_required_calls_remain(
+        self, mock_achat: AsyncMock, tmp_path: Path
+    ) -> None:
+        from runsight_core.tools import resolve_tool
+
+        echo_tool_id = _write_echo_tool_yaml(tmp_path)
+        soul = Soul(
+            id="agent_1",
+            role="Test Agent",
+            system_prompt="Use the echo tool.",
+            tools=[echo_tool_id],
+            required_tool_calls=["echo"],
+            max_tool_iterations=3,
+            provider="openai",
+            model_name="gpt-4o",
+            resolved_tools=[resolve_tool(echo_tool_id, base_dir=tmp_path)],
+        )
+
+        mock_achat.side_effect = [
+            _tool_call_response("echo", arguments='{"message": "hello"}', call_id="c1"),
+            _text_response("Done."),
+        ]
+
+        runner = RunsightTeamRunner(model_name="gpt-4o")
+        task = Task(id="t_required_choice", instruction="Call the required tool.")
+        result = await runner.execute_task(task, soul)
+
+        assert result.output == "Done."
+        assert mock_achat.call_args_list[0].kwargs["tool_choice"] == "required"
+        assert mock_achat.call_args_list[1].kwargs.get("tool_choice") is None
+
+
 # ===========================================================================
 # Scenario 5: Parse validation — undeclared tool ref and unknown source
 # ===========================================================================

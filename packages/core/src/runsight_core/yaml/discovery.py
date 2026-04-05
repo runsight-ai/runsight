@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import yaml
+from pydantic import ValidationError
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul
@@ -47,6 +49,7 @@ class ToolMeta:
 
 
 RESERVED_BUILTIN_TOOL_IDS = frozenset({"http", "file_io", "delegate"})
+logger = logging.getLogger(__name__)
 
 
 def _to_snake_case(name: str) -> str:
@@ -347,7 +350,12 @@ def _discover_souls(souls_dir: Path) -> Dict[str, Soul]:
         if soul_data is None:
             continue
 
-        soul = Soul.model_validate(soul_data)
+        try:
+            soul = Soul.model_validate(soul_data)
+        except ValidationError as exc:
+            logger.warning("Skipping invalid soul file %s: %s", yaml_file, exc)
+            continue
+
         souls[soul_key] = soul
 
     return souls

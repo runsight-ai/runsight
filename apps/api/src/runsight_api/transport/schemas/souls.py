@@ -15,6 +15,7 @@ class SoulResponse(BaseModel):
     max_tokens: Optional[int] = None
     avatar_color: Optional[str] = None
     workflow_count: int = 0
+    modified_at: Optional[float] = None
 
 
 class SoulListResponse(BaseModel):

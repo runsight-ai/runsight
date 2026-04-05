@@ -11,11 +11,6 @@ function WorkflowEditRoute() {
   return <WorkflowSurface mode="edit" workflowId={id!} />;
 }
 
-function HistoricalRunRoute() {
-  const { id } = useParams<{ id: string }>();
-  return <WorkflowSurface mode="readonly" runId={id!} />;
-}
-
 export const router = createBrowserRouter([
   {
     path: "setup/unavailable",
@@ -68,7 +63,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "runs/:id",
-        Component: HistoricalRunRoute,
+        hydrateFallbackElement: ROUTE_HYDRATE_FALLBACK,
+        lazy: () =>
+          import("@/features/runs/RunDetail").then((m) => ({
+            Component: m.Component,
+          })),
       },
       {
         path: "souls",

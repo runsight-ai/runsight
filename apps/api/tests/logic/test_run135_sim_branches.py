@@ -318,6 +318,39 @@ class TestReadFileFromSimBranch:
 
 
 # ---------------------------------------------------------------------------
+# 5. Worktree snapshot support
+# ---------------------------------------------------------------------------
+
+
+class TestSimBranchWorktreeSnapshot:
+    """Simulation branches should include related local workflow drafts."""
+
+    def test_untracked_worktree_files_are_available_on_sim_branch(self, tmp_path: Path):
+        from runsight_api.logic.services.git_service import GitService
+
+        repo = _init_repo(tmp_path)
+        (repo / "custom" / "workflows").mkdir(parents=True, exist_ok=True)
+        (repo / "custom" / "workflows" / "child-subflow.yaml").write_text(
+            'version: "1.0"\nworkflow:\n  name: child-subflow\n  entry: done\n',
+            encoding="utf-8",
+        )
+
+        svc = GitService(repo_path=str(repo))
+        result = svc.create_sim_branch(
+            workflow_slug="parent-flow",
+            yaml_content=SAMPLE_YAML,
+            yaml_path="custom/workflows/parent-flow.yaml",
+        )
+
+        child_content = _git(
+            repo,
+            "show",
+            f"{result.branch}:custom/workflows/child-subflow.yaml",
+        )
+        assert "child-subflow" in child_content
+
+
+# ---------------------------------------------------------------------------
 # 5. Multiple sim branches coexist for the same workflow
 # ---------------------------------------------------------------------------
 

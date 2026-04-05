@@ -23,6 +23,7 @@ export function YamlEditor({ workflowId, readOnly = false, onDirtyChange, onVali
       contentRef.current = workflow.yaml;
       setIsDirty(false);
       useCanvasStore.getState().setYamlContent(workflow.yaml);
+      useCanvasStore.getState().markSaved();
     }
   }, [workflow?.yaml]);
 
@@ -46,7 +47,7 @@ export function YamlEditor({ workflowId, readOnly = false, onDirtyChange, onVali
   }
 
   return (
-    <div className="flex-1 h-full">
+    <div data-testid="workflow-yaml-editor" className="flex-1 h-full">
       <LazyMonacoEditor
         language="yaml"
         theme="runsight-yaml"

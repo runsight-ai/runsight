@@ -51,6 +51,7 @@ class SoulEntity(BaseModel):
     max_tokens: Optional[int] = None
     avatar_color: Optional[str] = None
     workflow_count: int = Field(default=0)
+    modified_at: Optional[float] = None
     model_config = {"extra": "allow"}
 
 

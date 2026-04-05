@@ -111,6 +111,10 @@ class IsolatedBlockWrapper(BaseBlock):
             role=soul.role if soul else "",
             system_prompt=soul.system_prompt if soul else "",
             model_name=soul.model_name or "" if soul else "",
+            provider=soul.provider or "" if soul else "",
+            temperature=soul.temperature if soul else None,
+            max_tokens=soul.max_tokens if soul else None,
+            required_tool_calls=list(soul.required_tool_calls or []) if soul else [],
             max_tool_iterations=soul.max_tool_iterations
             if soul and hasattr(soul, "max_tool_iterations")
             else 5,

@@ -1,20 +1,17 @@
-import { useCallback } from "react";
-import { Link, useNavigate } from "react-router";
-
+import { Badge, BadgeDot } from "@runsight/ui/badge";
 import { Button } from "@runsight/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@runsight/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
-import { cn } from "@runsight/ui/utils";
+import { formatCost, formatDuration } from "@/utils/formatting";
 import {
-  ChevronLeft,
   ArrowUpRight,
-  DollarSign,
-  Activity,
   GitFork,
 } from "lucide-react";
 import type { RunResponse } from "@runsight/shared/zod";
 
 import { useForkWorkflow } from "./useForkWorkflow";
+import { useCallback } from "react";
+import { useNavigate } from "react-router";
+import { WorkflowTopbar } from "@/components/shared";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -22,15 +19,40 @@ import { useForkWorkflow } from "./useForkWorkflow";
 
 interface RunDetailHeaderProps {
   run: RunResponse;
-  activeTab: "canvas" | "yaml";
-  onTabChange: (tab: "canvas" | "yaml") => void;
+  activeTab?: "canvas" | "yaml";
+  onTabChange?: (tab: "canvas" | "yaml") => void;
+}
+
+function getRunStatusBadgeVariant(status: string) {
+  switch (status) {
+    case "completed":
+    case "success":
+      return "success" as const;
+    case "failed":
+    case "error":
+      return "danger" as const;
+    default:
+      return "warning" as const;
+  }
+}
+
+function formatTokenCount(totalTokens: number) {
+  if (totalTokens >= 1000) {
+    return `${(totalTokens / 1000).toFixed(1)}k`;
+  }
+
+  return totalTokens.toLocaleString();
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function RunDetailHeader({ run, activeTab, onTabChange }: RunDetailHeaderProps) {
+export function RunDetailHeader({
+  run,
+  activeTab = "canvas",
+  onTabChange = () => undefined,
+}: RunDetailHeaderProps) {
   const navigate = useNavigate();
 
   const isFailed = run.status === "failed" || run.status === "error";
@@ -44,6 +66,7 @@ export function RunDetailHeader({ run, activeTab, onTabChange }: RunDetailHeader
     commitSha: run.commit_sha ?? "",
     workflowPath: `custom/workflows/${run.workflow_id}.yaml`,
     workflowName: run.workflow_name,
+    onTransition: (newWorkflowId) => navigate(`/workflows/${newWorkflowId}/edit`),
   });
 
   const handleOpenWorkflow = useCallback(() => {
@@ -67,7 +90,8 @@ export function RunDetailHeader({ run, activeTab, onTabChange }: RunDetailHeader
 
   const forkButton = (
     <Button
-      variant="ghost"
+      variant="primary"
+      size="sm"
       disabled={forkDisabled || isForking}
       onClick={handleFork}
       aria-label="Fork"
@@ -78,71 +102,52 @@ export function RunDetailHeader({ run, activeTab, onTabChange }: RunDetailHeader
   );
 
   return (
-    <header className="h-[var(--header-height)] border-b border-border-subtle flex items-center justify-between px-4 z-40">
-      {/* Left: Breadcrumb */}
-      <div className="flex items-center gap-2">
-        <Link to="/runs">
-          <Button variant="ghost" size="icon-sm" className="w-8 h-8" aria-label="Back to runs">
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-        </Link>
-        <span className="text-[var(--text-muted)]">/</span>
-        <span className="text-[var(--text-muted)] text-sm">Runs</span>
-        <span className="text-[var(--text-muted)]">/</span>
-        <span className="text-[var(--text-primary)] text-sm font-medium truncate max-w-[200px]">
-          {run.workflow_name} — Run #{run.id.slice(-6)}
-        </span>
-        <span className={cn("ml-2 px-2 py-0.5 rounded text-xs font-medium", isCompleted ? "bg-success-3 text-[var(--success-9)]" : isFailed ? "bg-danger-3 text-[var(--danger-9)]" : "bg-neutral-3 text-muted")}>
+    <WorkflowTopbar
+      backTo="/runs"
+      backLabel="Back to runs"
+      title={<span className="truncate text-lg font-medium text-heading">{run.workflow_name}</span>}
+      titleAfter={
+        <Badge variant={getRunStatusBadgeVariant(run.status)}>
+          <BadgeDot />
           {isCompleted ? "Completed" : isFailed ? "Failed" : run.status}
-        </span>
-      </div>
-
-      {/* Center: Canvas | YAML toggle */}
-      <div className="flex items-center">
-        <Tabs value={activeTab} onValueChange={(v) => onTabChange(v as "canvas" | "yaml")}>
-          <TabsList variant="contained">
-            <TabsTrigger value="canvas">Canvas</TabsTrigger>
-            <TabsTrigger value="yaml">YAML</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
-      {/* Right: Actions */}
-      <div className="flex items-center gap-3">
-        <div className="h-6 px-2 rounded bg-[var(--accent-2)] border border-[var(--interactive-default)]/30 flex items-center gap-1.5 text-[11px] font-medium text-[var(--interactive-default)]">
-          <Activity className="w-3 h-3" />
-          Read-only review
+        </Badge>
+      }
+      metrics={
+        <div className="flex items-center gap-3 font-mono text-2xs text-muted">
+          <Badge variant="warning">Read-only review</Badge>
+          <div className="flex items-center gap-3 whitespace-nowrap">
+            <span>{formatDuration(run.duration_seconds)}</span>
+            <span>{formatTokenCount(run.total_tokens)} tok</span>
+            <span className="text-success-11">{formatCost(run.total_cost_usd)}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[var(--surface-raised)] border border-[var(--border-default)]">
-          <DollarSign className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-          <span className="text-xs text-[var(--text-muted)]">Total Cost</span>
-          <span className="font-mono text-sm text-[var(--text-primary)]">${run.total_cost_usd.toFixed(3)}</span>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[var(--surface-raised)] border border-[var(--border-default)]">
-          <Activity className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-          <span className="text-xs text-[var(--text-muted)]">Tokens</span>
-          <span className="font-mono text-sm text-[var(--text-primary)]">{run.total_tokens.toLocaleString()}</span>
-        </div>
-        {forkTooltip ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger render={forkButton} />
-              <TooltipContent>{forkTooltip}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : (
-          forkButton
-        )}
-        {run.workflow_id ? (
-          <Button
-            className="h-9 px-4 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-on-accent"
-            onClick={handleOpenWorkflow}
-          >
-            <ArrowUpRight className="w-4 h-4 mr-2" />
-            Open Workflow
-          </Button>
-        ) : null}
-      </div>
-    </header>
+      }
+      actions={
+        <>
+          {run.workflow_id ? (
+            <Button
+              variant="secondary"
+              onClick={handleOpenWorkflow}
+            >
+              <ArrowUpRight className="w-4 h-4 mr-2" />
+              Open Workflow
+            </Button>
+          ) : null}
+          {forkTooltip ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger render={forkButton} />
+                <TooltipContent>{forkTooltip}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            forkButton
+          )}
+        </>
+      }
+      activeTab={activeTab}
+      onValueChange={(value) => onTabChange(value as "canvas" | "yaml")}
+      toggleVisibility={{ canvas: true, yaml: true }}
+    />
   );
 }

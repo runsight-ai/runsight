@@ -46,7 +46,13 @@ class WorkflowObserver(Protocol):
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None: ...
 
     def on_block_start(
-        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        *,
+        soul: Optional[Soul] = None,
+        **kwargs: Any,
     ) -> None: ...
 
     def on_block_complete(
@@ -98,7 +104,13 @@ class LoggingObserver:
         self.logger.log(self.level, "[%s] Workflow started", workflow_name)
 
     def on_block_start(
-        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        *,
+        soul: Optional[Soul] = None,
+        **kwargs: Any,
     ) -> None:
         self.logger.log(
             self.level, "[%s] Block started: %s (type: %s)", workflow_name, block_id, block_type
@@ -202,7 +214,13 @@ class FileObserver:
         self._write("workflow_start", {"workflow": workflow_name})
 
     def on_block_start(
-        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        *,
+        soul: Optional[Soul] = None,
+        **kwargs: Any,
     ) -> None:
         self._write(
             "block_start",
@@ -312,9 +330,15 @@ class ChildObserverWrapper:
     # -- Forwarded events (block-level) ------------------------------------
 
     def on_block_start(
-        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        *,
+        soul: Optional[Soul] = None,
+        **kwargs: Any,
     ) -> None:
-        self._parent.on_block_start(workflow_name, block_id, block_type, soul=soul)
+        self._parent.on_block_start(workflow_name, block_id, block_type, soul=soul, **kwargs)
 
     def on_block_complete(
         self,
@@ -364,6 +388,29 @@ class ChildObserverWrapper:
         pass  # child error is NOT terminal for parent
 
 
+def build_child_observer(
+    parent_observer: WorkflowObserver,
+    *,
+    block_id: str,
+) -> tuple[WorkflowObserver, Optional[str]]:
+    """Derive a child observer when the parent can expose child-run context.
+
+    For simple observers, fall back to ChildObserverWrapper so child terminal
+    events do not bubble up to the parent observer. When the parent observer
+    chain can provide a concrete child run id and child-specific clones, return
+    those instead so nested runs get their own persisted lifecycle.
+    """
+
+    getter = getattr(parent_observer, "get_child_run_id_for_block", None)
+    child_run_id = getter(block_id) if callable(getter) else None
+
+    cloner = getattr(parent_observer, "clone_for_child_run", None)
+    if child_run_id and callable(cloner):
+        return cloner(child_run_id=child_run_id), child_run_id
+
+    return ChildObserverWrapper(parent_observer), child_run_id
+
+
 class CompositeObserver:
     """Fan-out observer that delegates to multiple observers.
 
@@ -373,6 +420,26 @@ class CompositeObserver:
 
     def __init__(self, *observers: WorkflowObserver):
         self.observers = list(observers)
+
+    def get_child_run_id_for_block(self, block_id: str) -> Optional[str]:
+        for obs in self.observers:
+            getter = getattr(obs, "get_child_run_id_for_block", None)
+            if not callable(getter):
+                continue
+            child_run_id = getter(block_id)
+            if child_run_id:
+                return child_run_id
+        return None
+
+    def clone_for_child_run(self, *, child_run_id: str) -> "CompositeObserver":
+        child_observers: list[WorkflowObserver] = []
+        for obs in self.observers:
+            cloner = getattr(obs, "clone_for_child_run", None)
+            if callable(cloner):
+                child_observers.append(cloner(child_run_id=child_run_id))
+            else:
+                child_observers.append(ChildObserverWrapper(obs))
+        return CompositeObserver(*child_observers)
 
     def _safe_call(
         self, obs: WorkflowObserver, method_name: str, *args: Any, **kwargs: Any
@@ -390,9 +457,15 @@ class CompositeObserver:
             self._safe_call(obs, "on_workflow_start", workflow_name, state)
 
     def on_block_start(
-        self, workflow_name: str, block_id: str, block_type: str, *, soul: Optional[Soul] = None
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        *,
+        soul: Optional[Soul] = None,
+        **kwargs: Any,
     ) -> None:
-        kwargs: Dict[str, Any] = {}
+        kwargs = dict(kwargs)
         if soul is not None:
             kwargs["soul"] = soul
         for obs in self.observers:

@@ -9,3 +9,9 @@ class SoulRepository(BaseYamlRepository[SoulEntity]):
     subdir = "souls"
     not_found_error = SoulNotFound
     entity_label = "Soul"
+
+    def get_file_mtime(self, soul_id: str) -> float | None:
+        yaml_path = self._resolve_existing_path(soul_id)
+        if not yaml_path.exists():
+            return None
+        return yaml_path.stat().st_mtime

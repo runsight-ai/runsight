@@ -79,6 +79,7 @@ class SoulDef(BaseModel):
     role: str
     system_prompt: str
     tools: Optional[List[str]] = None
+    required_tool_calls: Optional[List[str]] = None
     max_tool_iterations: int = 5
     model_name: Optional[str] = None
     provider: Optional[str] = None

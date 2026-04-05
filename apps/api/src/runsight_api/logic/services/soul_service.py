@@ -1,5 +1,6 @@
 import uuid
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
@@ -85,31 +86,41 @@ class SoulService:
                 s for s in souls if query in s.id.lower() or (s.role and query in s.role.lower())
             ]
         workflow_repo = self._resolve_workflow_repo(workflow_repo)
+        enriched_souls = [
+            soul.model_copy(update={"modified_at": self.soul_repo.get_file_mtime(soul.id)})
+            for soul in souls
+        ]
         if workflow_repo:
-            counts = self._compute_workflow_counts(souls, workflow_repo)
-            souls = [
-                soul.model_copy(update={"workflow_count": counts.get(soul.id, 0)}) for soul in souls
+            counts = self._compute_workflow_counts(enriched_souls, workflow_repo)
+            enriched_souls = [
+                soul.model_copy(update={"workflow_count": counts.get(soul.id, 0)})
+                for soul in enriched_souls
             ]
-        return souls
+        return enriched_souls
 
     def get_soul(self, id: str) -> Optional[SoulEntity]:
-        return self.soul_repo.get_by_id(id)
+        soul = self.soul_repo.get_by_id(id)
+        if soul is None:
+            return None
+        return soul.model_copy(update={"modified_at": self.soul_repo.get_file_mtime(soul.id)})
 
     def get_soul_usages(self, id: str, workflow_repo=None) -> List[Dict[str, Optional[str]]]:
         soul = self.get_soul(id)
         if not soul:
             raise SoulNotFound(f"Soul {id} not found")
         workflow_repo = self._resolve_workflow_repo(workflow_repo)
-        return self._get_workflow_soul_refs(id, workflow_repo)
+        return self._get_workflow_soul_refs(soul, workflow_repo)
 
     def _get_workflow_soul_refs(
-        self, soul_id: str, workflow_repo
+        self, soul: SoulEntity, workflow_repo
     ) -> List[Dict[str, Optional[str]]]:
         usages: List[Dict[str, Optional[str]]] = []
         if not workflow_repo:
             return usages
+        aliases = self._soul_reference_aliases(soul)
         for workflow in workflow_repo.list_all():
-            if soul_id in self._extract_workflow_soul_ids(workflow):
+            workflow_soul_ids = self._extract_workflow_soul_ids(workflow)
+            if any(soul_id in aliases for soul_id in workflow_soul_ids):
                 usages.append({"workflow_id": workflow.id, "workflow_name": workflow.name})
         return usages
 
@@ -120,11 +131,32 @@ class SoulService:
         if not workflow_repo:
             return counts
 
+        aliases_to_soul_ids: Dict[str, set[str]] = {}
+        for soul in souls:
+            for alias in self._soul_reference_aliases(soul):
+                aliases_to_soul_ids.setdefault(alias, set()).add(soul.id)
+
         for workflow in workflow_repo.list_all():
             for soul_id in self._extract_workflow_soul_ids(workflow):
-                if soul_id in counts:
-                    counts[soul_id] += 1
+                for matching_soul_id in aliases_to_soul_ids.get(soul_id, ()):
+                    counts[matching_soul_id] += 1
         return counts
+
+    def _soul_reference_aliases(self, soul: SoulEntity) -> set[str]:
+        aliases = {soul.id}
+        resolve_existing_path = getattr(self.soul_repo, "_resolve_existing_path", None)
+        if not callable(resolve_existing_path):
+            return aliases
+
+        try:
+            file_path = resolve_existing_path(soul.id)
+        except Exception:
+            return aliases
+
+        if isinstance(file_path, Path) and file_path.suffix == ".yaml":
+            aliases.add(file_path.stem)
+
+        return aliases
 
     def create_soul(self, data: Dict[str, Any]) -> SoulEntity:
         data = self._normalize_soul_payload(data)
@@ -166,7 +198,7 @@ class SoulService:
 
         workflow_repo = self._resolve_workflow_repo(workflow_repo)
         if workflow_repo and not force:
-            usages = self._get_workflow_soul_refs(id, workflow_repo)
+            usages = self._get_workflow_soul_refs(soul, workflow_repo)
             if usages:
                 raise SoulInUse(
                     f"Soul {id!r} is referenced by {len(usages)} workflow(s)",

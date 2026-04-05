@@ -12,3 +12,4 @@ export {
   type BannerCondition,
   type PriorityBannerProps,
 } from "./PriorityBanner";
+export { WorkflowTopbar } from "./WorkflowTopbar";

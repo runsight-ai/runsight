@@ -1,4 +1,5 @@
 import React from "react";
+import { Button } from "@runsight/ui/button";
 
 // ---------------------------------------------------------------------------
 // Shared types
@@ -84,6 +85,16 @@ export class RouteErrorBoundary extends React.Component<
     this.setState({ hasError: false });
   }
 
+  retryRoute(): void {
+    this.resetError();
+    window.location.reload();
+  }
+
+  goToDashboard(): void {
+    this.resetError();
+    window.location.assign("/");
+  }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -96,18 +107,20 @@ export class RouteErrorBoundary extends React.Component<
               Something went wrong while rendering this page.
             </p>
             <div className="flex items-center justify-center gap-3">
-              <a
-                href="/"
-                className="px-4 py-2 rounded-md border border-border-default bg-surface-primary text-sm font-medium text-primary hover:bg-surface-raised"
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => this.goToDashboard()}
               >
                 Go to Dashboard
-              </a>
-              <button
-                className="px-4 py-2 rounded-md bg-interactive-default text-on-accent text-sm font-medium"
-                onClick={() => this.resetError()}
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => this.retryRoute()}
               >
                 Retry
-              </button>
+              </Button>
             </div>
           </div>
         </div>

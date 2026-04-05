@@ -206,6 +206,7 @@ export function Component({ workflow, onDelete, onToggleEnabled }: WorkflowRowPr
 
   return (
     <li
+      data-testid={`workflow-row-${workflow.id}`}
       className="group flex items-start gap-3 rounded-md border border-border-subtle bg-surface-secondary px-4 py-3 transition-colors hover:bg-surface-hover focus-within:bg-surface-hover"
       tabIndex={0}
       role="listitem"
@@ -286,6 +287,7 @@ export function Component({ workflow, onDelete, onToggleEnabled }: WorkflowRowPr
           variant="icon-only"
           size="sm"
           aria-label={`Delete ${name} workflow`}
+          data-testid={`workflow-delete-${workflow.id}`}
           className="rounded-md text-muted opacity-0 transition-all hover:bg-surface-hover hover:text-primary group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
           onClick={handleDeleteClick}
         >

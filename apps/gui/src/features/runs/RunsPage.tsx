@@ -2,15 +2,21 @@ import { PageHeader } from "@/components/shared";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { Input } from "@runsight/ui/input";
 import { Button } from "@runsight/ui/button";
-import { Badge, BadgeDot } from "@runsight/ui/badge";
+import { Badge } from "@runsight/ui/badge";
 import { Skeleton } from "@runsight/ui/skeleton";
+import { cn } from "@runsight/ui/utils";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@runsight/ui/dropdown-menu";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@runsight/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@runsight/ui/select";
 import {
   Table,
   TableBody,
@@ -20,12 +26,26 @@ import {
   TableRow,
 } from "@runsight/ui/table";
 import type { RunResponse } from "@runsight/shared/zod";
-import { AlertTriangle, ChevronDown, Play, X } from "lucide-react";
+import { AlertTriangle, Play, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useRuns } from "@/queries/runs";
 import { useAttentionItems } from "@/queries/dashboard";
 import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
+import { useRunRegressions } from "@/queries/runs";
+import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
+import { RunStatusDot } from "./RunStatusDot";
+import {
+  RUN_TABLE_CELL_CLASS,
+  RUN_TABLE_CLASS,
+  RUN_TABLE_CONTAINER_CLASS,
+  RUN_TABLE_HEAD_CLASS,
+  RUN_TABLE_HEADER_ROW_CLASS,
+  RUN_TABLE_REGRESSION_STRIPE_CLASS,
+  RUN_TABLE_ROW_CLASS,
+  RUN_TABLE_STATUS_CELL_CLASS,
+  RUN_TABLE_STATUS_HEAD_CLASS,
+} from "./runTable.styles";
 
 type SortColumn =
   | "status"
@@ -47,29 +67,10 @@ const SOURCE_FILTER_LABELS: Record<SourceFilter, string> = {
   all: "All runs",
 };
 
-function getRunStatusVariant(status: string) {
-  switch (status.toLowerCase()) {
-    case "completed":
-    case "success":
-      return "success";
-    case "failed":
-    case "killed":
-      return "danger";
-    case "running":
-      return "info";
-    case "partial":
-    case "paused":
-    case "stalled":
-      return "warning";
-    default:
-      return "neutral";
-  }
-}
-
 function RunSkeletonRow({ index }: { index: number }) {
   return (
     <tr key={index} aria-label="Loading run row">
-      <td colSpan={8} className="border-b border-border-subtle px-3 py-3">
+      <td colSpan={RUN_COLUMNS.length} className="border-b border-border-subtle px-3 py-3">
         <Skeleton className="w-full" />
       </td>
     </tr>
@@ -84,12 +85,31 @@ function formatRunNumber(runNumber: number | null | undefined) {
   return typeof runNumber === "number" ? `#${runNumber}` : "—";
 }
 
-function formatEval(evalPassPct: number | null | undefined) {
-  if (typeof evalPassPct !== "number") {
-    return "—";
+function formatEval(
+  evalPassPct: number | null | undefined,
+  evalScoreAvg: number | null | undefined,
+) {
+  if (typeof evalPassPct === "number") {
+    return `${Math.round(evalPassPct)}%`;
   }
 
-  return `${Math.round(evalPassPct)}%`;
+  if (typeof evalScoreAvg === "number") {
+    return evalScoreAvg.toFixed(2);
+  }
+
+  return "—";
+}
+
+function getEvalSortValue(run: RunResponse) {
+  if (typeof run.eval_pass_pct === "number") {
+    return run.eval_pass_pct;
+  }
+
+  if (typeof run.eval_score_avg === "number") {
+    return run.eval_score_avg * 100;
+  }
+
+  return null;
 }
 
 function formatStartedAt(startedAt: number | null | undefined) {
@@ -119,12 +139,17 @@ function SourceBadge({ source }: { source: RunResponse["source"] }) {
   return <Badge variant={getSourceVariant(source)}>{source}</Badge>;
 }
 
-function EvalCell({ evalPassPct }: { evalPassPct: number | null | undefined }) {
-  if (typeof evalPassPct !== "number") {
+function EvalCell({
+  evalPassPct,
+  evalScoreAvg,
+}: {
+  evalPassPct: number | null | undefined;
+  evalScoreAvg: number | null | undefined;
+}) {
+  const formattedEval = formatEval(evalPassPct, evalScoreAvg);
+  if (formattedEval === "—") {
     return <span className="text-muted">—</span>;
   }
-
-  const formattedEval = formatEval(evalPassPct);
   return (
     <span className="text-primary" aria-label={formattedEval} title={formattedEval}>
       {formattedEval}
@@ -133,19 +158,53 @@ function EvalCell({ evalPassPct }: { evalPassPct: number | null | undefined }) {
 }
 
 function RegressionCell({
+  runId,
   regressionCount,
+  regressionTypes: _regressionTypes,
 }: {
+  runId: string;
   regressionCount: number | null | undefined;
+  regressionTypes: string[] | null | undefined;
 }) {
+  const { data: regressionData } = useRunRegressions(regressionCount ? runId : "");
+
   if (!regressionCount) {
     return <span className="text-muted">—</span>;
   }
 
+  const tooltip = regressionData?.issues?.length
+    ? formatRegressionTooltip(regressionData.issues)
+    : {
+        header: `${regressionCount} ${regressionCount === 1 ? "regression" : "regressions"}`,
+        lines: ["Regression detected"],
+      };
+
   return (
-    <span className="inline-flex items-center gap-1" style={{ color: "var(--warning-11)" }}>
-      <AlertTriangle className="h-3.5 w-3.5" />
-      {regressionCount}
-    </span>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <span className="inline-flex items-center gap-1" style={{ color: "var(--warning-11)" }}>
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {regressionCount}
+            </span>
+          }
+        />
+        <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-9" />
+            <div className="min-w-0 text-sm">
+              <p className="mb-1 font-medium text-primary">{tooltip.header}</p>
+            {tooltip.lines.map((line, index) => (
+              <p key={`${runId}-${index}`} className="leading-5 text-secondary">
+                {line}
+              </p>
+            ))}
+          </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -194,7 +253,7 @@ function getSortValue(run: RunResponse, column: SortColumn) {
     case "cost":
       return run.total_cost_usd ?? -1;
     case "eval":
-      return run.eval_pass_pct;
+      return getEvalSortValue(run);
     case "regressions":
       return run.regression_count;
     case "started":
@@ -226,6 +285,10 @@ export function Component() {
   const [sortColumn, setSortColumn] = useState<SortColumn>("started");
   const [sortDirection, setSortDirection] = useState<SortDirection>("descending");
   const { data: attentionData } = useAttentionItems(100);
+  const attentionRunIds = useMemo(
+    () => new Set((attentionData?.items ?? []).map((item) => item.run_id)),
+    [attentionData?.items],
+  );
 
   const queryParams = useMemo(() => {
     const params: Record<string, string | string[]> =
@@ -247,17 +310,7 @@ export function Component() {
     return Object.keys(params).length > 0 ? params : undefined;
   }, [activeOnly, attentionOnly, sourceFilter, workflowFilter]);
   const { data, isLoading, error, refetch } = useRuns(queryParams);
-  const attentionRunIds = useMemo(
-    () => new Set((attentionData?.items ?? []).map((item) => item.run_id)),
-    [attentionData?.items],
-  );
-  const visibleColumns = useMemo(
-    () =>
-      sourceFilter === "all"
-        ? RUN_COLUMNS
-        : RUN_COLUMNS.filter((column) => column.key !== "source"),
-    [sourceFilter],
-  );
+  const visibleColumns = RUN_COLUMNS;
 
   const runs = useMemo(() => data?.items ?? [], [data?.items]);
   const filteredWorkflowName = workflowFilter
@@ -335,10 +388,6 @@ export function Component() {
     navigate(`/runs/${runId}`);
   };
 
-  const openWorkflow = (workflowId: string) => {
-    navigate(`/workflows/${workflowId}/edit`);
-  };
-
   return (
     <div className="flex h-full flex-col bg-surface-primary">
       <PageHeader
@@ -379,32 +428,22 @@ export function Component() {
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    aria-label="Filter runs by source"
-                    className="w-full justify-between md:w-48"
-                  >
+            <div className="w-full md:w-48">
+              <Select
+                value={sourceFilter}
+                onValueChange={(value) => setSourceFilter(value as SourceFilter)}
+              >
+                <SelectTrigger aria-label="Filter runs by source">
+                  <span className="flex flex-1 text-left">
                     {SOURCE_FILTER_LABELS[sourceFilter]}
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuRadioGroup
-                  value={sourceFilter}
-                  onValueChange={(value) => setSourceFilter(value as SourceFilter)}
-                >
-                  <DropdownMenuRadioItem value="production">
-                    Production runs
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="all">All runs</DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  </span>
+                </SelectTrigger>
+                <SelectContent align="end" sideOffset={8}>
+                  <SelectItem value="production">Production runs</SelectItem>
+                  <SelectItem value="all">All runs</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               type="button"
               variant={activeOnly ? "secondary" : "ghost"}
@@ -461,99 +500,116 @@ export function Component() {
                 }
               />
             ) : (
-              <div className="overflow-hidden rounded-lg border border-border-default bg-surface-secondary">
-                <Table>
+              <div className={RUN_TABLE_CONTAINER_CLASS}>
+                <Table className={RUN_TABLE_CLASS}>
                   <TableHeader>
-                    <TableRow className="bg-surface-primary hover:bg-surface-primary">
+                    <TableRow className={cn("bg-surface-primary", RUN_TABLE_HEADER_ROW_CLASS)}>
                       {visibleColumns.map((column) => (
                         <TableHead
                           key={column.key}
                           aria-sort={getAriaSort(column.key)}
+                          aria-label={column.key === "status" ? "Status" : column.label}
                           onClick={() => handleSort(column.key)}
+                          className={cn(
+                            RUN_TABLE_HEAD_CLASS,
+                            column.key === "status" && RUN_TABLE_STATUS_HEAD_CLASS,
+                          )}
                         >
-                          {column.label}
+                          {column.key === "status" ? (
+                            <span className="sr-only">Status</span>
+                          ) : (
+                            column.label
+                          )}
                         </TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredRuns.map((run) => {
-                      const rowHasAttention =
-                        run.source !== "simulation" && attentionRunIds.has(run.id);
-                      const firstCellClass = rowHasAttention
-                        ? "border-l-[3px] border-l-[var(--warning-9)]"
-                        : undefined;
+                      const rowHasRegression = (run.regression_count ?? 0) > 0;
 
                       return (
-                      <TableRow
-                        key={run.id}
-                        className={
-                          run.source === "simulation"
-                            ? "cursor-pointer bg-surface-secondary text-muted"
-                            : "cursor-pointer"
-                        }
-                        tabIndex={0}
-                        onClick={() => openRun(run.id)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openRun(run.id);
-                          }
-                        }}
-                      >
-                        <TableCell className={firstCellClass}>
-                          <Badge variant={getRunStatusVariant(run.status)}>
-                            <BadgeDot />
-                            {run.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-auto p-0 font-medium text-primary hover:bg-transparent hover:text-primary"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openWorkflow(run.workflow_id);
-                            }}
-                          >
-                            {run.workflow_name}
-                          </Button>
-                        </TableCell>
-                        <TableCell data-type="data">{formatRunNumber(run.run_number)}</TableCell>
-                        <TableCell data-type="id">
-                          {formatCommit(run.commit_sha) ? (
-                            <span
-                              aria-label={formatCommit(run.commit_sha) ?? undefined}
-                              className="before:content-[attr(data-commit)]"
-                              data-commit={formatCommit(run.commit_sha) ?? ""}
-                              title={formatCommit(run.commit_sha) ?? undefined}
-                            />
-                          ) : (
-                            <span
-                              aria-label="Commit unavailable"
-                              className="text-muted"
-                              title="Commit unavailable"
-                            >
-                              —
-                            </span>
+                        <TableRow
+                          key={run.id}
+                          className={cn(
+                            RUN_TABLE_ROW_CLASS,
+                            run.source === "simulation" && "bg-surface-secondary text-muted",
                           )}
-                        </TableCell>
-                        {sourceFilter === "all" ? (
-                          <TableCell data-type="data">
+                          tabIndex={0}
+                          onClick={() => openRun(run.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openRun(run.id);
+                            }
+                          }}
+                        >
+                          <TableCell
+                            className={cn(
+                              RUN_TABLE_STATUS_CELL_CLASS,
+                              rowHasRegression && RUN_TABLE_REGRESSION_STRIPE_CLASS,
+                            )}
+                          >
+                            <RunStatusDot status={run.status} className="w-full justify-center" />
+                          </TableCell>
+                          <TableCell className={RUN_TABLE_CELL_CLASS}>
+                            <span className="font-medium text-heading">
+                              {run.workflow_name}
+                            </span>
+                          </TableCell>
+                          <TableCell data-type="data" className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}>
+                            {formatRunNumber(run.run_number)}
+                          </TableCell>
+                          <TableCell
+                            data-type="id"
+                            className={cn(RUN_TABLE_CELL_CLASS, "text-2xs text-muted")}
+                          >
+                            {formatCommit(run.commit_sha) ? (
+                              <span
+                                aria-label={formatCommit(run.commit_sha) ?? undefined}
+                                className="before:content-[attr(data-commit)]"
+                                data-commit={formatCommit(run.commit_sha) ?? ""}
+                                title={formatCommit(run.commit_sha) ?? undefined}
+                              />
+                            ) : (
+                              <span
+                                aria-label="Commit unavailable"
+                                className="text-muted"
+                                title="Commit unavailable"
+                              >
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell data-type="data" className={RUN_TABLE_CELL_CLASS}>
                             <SourceBadge source={run.source} />
                           </TableCell>
-                        ) : null}
-                        <TableCell data-type="metric">{formatDuration(run.duration_seconds)}</TableCell>
-                        <TableCell data-type="metric">{formatCost(run.total_cost_usd)}</TableCell>
-                        <TableCell data-type="metric">
-                          <EvalCell evalPassPct={run.eval_pass_pct} />
-                        </TableCell>
-                        <TableCell data-type="metric">
-                          <RegressionCell regressionCount={run.regression_count} />
-                        </TableCell>
-                        <TableCell data-type="timestamp">{formatStartedAt(run.started_at)}</TableCell>
-                      </TableRow>
+                          <TableCell data-type="metric" className={cn(RUN_TABLE_CELL_CLASS, "text-secondary")}>
+                            {formatDuration(run.duration_seconds)}
+                          </TableCell>
+                          <TableCell data-type="metric" className={cn(RUN_TABLE_CELL_CLASS, "text-success-11")}>
+                            {formatCost(run.total_cost_usd)}
+                          </TableCell>
+                          <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>
+                            <EvalCell
+                              evalPassPct={run.eval_pass_pct}
+                              evalScoreAvg={run.eval_score_avg}
+                            />
+                          </TableCell>
+                          <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>
+                            <RegressionCell
+                              runId={run.id}
+                              regressionCount={run.regression_count}
+                              regressionTypes={run.regression_types}
+                            />
+                          </TableCell>
+                          <TableCell
+                            data-type="timestamp"
+                            className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}
+                          >
+                            {formatStartedAt(run.started_at)}
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
                   </TableBody>
