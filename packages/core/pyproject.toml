@@ -16,6 +16,7 @@ dependencies = [
     "jsonschema>=4.0",
     "editdistance>=0.6",
     "rouge-score>=0.1",
+    "jsonpath-ng>=1.6",
 ]
 
 [project.optional-dependencies]

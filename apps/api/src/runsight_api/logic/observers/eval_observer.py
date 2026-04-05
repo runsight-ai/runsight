@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from runsight_core.assertions.base import AssertionContext, GradingResult
-from runsight_core.assertions.registry import NOT_PREFIX, _get_handler
+from runsight_core.assertions.registry import NOT_PREFIX, _apply_transform, _get_handler
 from runsight_core.assertions.scoring import AssertionsResult
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
@@ -25,8 +25,15 @@ def _run_assertion_sync(
     value: Any = "",
     threshold: float | None = None,
     weight: float = 1.0,
+    transform: str | None = None,
 ) -> GradingResult:
     """Dispatch a single assertion synchronously, forwarding all kwargs to the handler."""
+    if transform is not None:
+        transformed = _apply_transform(transform, output)
+        if isinstance(transformed, GradingResult):
+            return transformed
+        output = transformed
+
     negated = type.startswith(NOT_PREFIX)
     base_type = type[len(NOT_PREFIX) :] if negated else type
 
@@ -75,6 +82,7 @@ def _run_assertions_sync(
             value=cfg.get("value", ""),
             threshold=cfg.get("threshold"),
             weight=weight,
+            transform=cfg.get("transform"),
         )
         if cfg.get("metric"):
             result.named_scores[cfg["metric"]] = result.score
