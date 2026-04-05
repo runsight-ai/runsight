@@ -14,12 +14,11 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { useRun, useRunNodes, useRunLogs, useRunRegressions } from "@/queries/runs";
-import { useWorkflow } from "@/queries/workflows";
 import { CanvasErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { Card } from "@runsight/ui/card";
 import { Button } from "@runsight/ui/button";
 import { PriorityBanner } from "@/components/shared";
-import { LazyMonacoEditor } from "@/features/canvas/LazyMonacoEditor";
+import { YamlEditor } from "@/features/canvas/YamlEditor";
 import { RunCanvasNode, CanvasNodeComponent, nodeTypes } from "./RunCanvasNode";
 import type { RunNodeData } from "./RunCanvasNode";
 import { RunInspectorPanel } from "./RunInspectorPanel";
@@ -56,7 +55,6 @@ function RunDetailInner() {
   } = useRunNodes(id || "");
   const { data: runLogs } = useRunLogs(id || "", undefined, { refetchInterval: undefined });
   const { data: regressionData } = useRunRegressions(id || "");
-  const { data: workflow } = useWorkflow(run?.workflow_id ?? "");
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<RunNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -140,13 +138,13 @@ function RunDetailInner() {
         <div className="flex-1 flex overflow-hidden">
           {activeTab === "yaml" ? (
             <div className="flex-1 overflow-hidden">
-              <LazyMonacoEditor
-                language="yaml"
-                theme="runsight-yaml"
-                value={workflow?.yaml ?? ""}
-                height="100%"
-                options={{ readOnly: true }}
-              />
+              {run.workflow_id ? (
+                <YamlEditor workflowId={run.workflow_id} readOnly={true} />
+              ) : (
+                <div className="flex h-full items-center justify-center text-muted">
+                  YAML unavailable for this run
+                </div>
+              )}
             </div>
           ) : (
             <>

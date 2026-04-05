@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { AlertTriangle } from "lucide-react";
-import { Badge } from "@runsight/ui/badge";
+import { cn } from "@runsight/ui/utils";
 import {
   Table,
   TableBody,
@@ -14,6 +14,18 @@ import { useWorkflowRegressions } from "@/queries/workflows";
 import { useCanvasStore } from "@/store/canvas";
 import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
 import { mapSSEEventToStoreAction } from "./useRunStream";
+import { useNavigate } from "react-router";
+import { RunStatusDot } from "../runs/RunStatusDot";
+import {
+  RUN_TABLE_CELL_CLASS,
+  RUN_TABLE_CLASS,
+  RUN_TABLE_CONTAINER_CLASS,
+  RUN_TABLE_HEAD_CLASS,
+  RUN_TABLE_HEADER_ROW_CLASS,
+  RUN_TABLE_ROW_CLASS,
+  RUN_TABLE_STATUS_CELL_CLASS,
+  RUN_TABLE_STATUS_HEAD_CLASS,
+} from "../runs/runTable.styles";
 
 interface LogEntry {
   timestamp: string | number;
@@ -74,6 +86,7 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>(initialRunId);
   const logsRef = useRef<HTMLDivElement>(null);
   const [sseEntries, setSseEntries] = useState<LogEntry[]>([]);
+  const navigate = useNavigate();
 
   const activeRunId = useCanvasStore((s) => s.activeRunId);
   const setNodeStatus = useCanvasStore((s) => s.setNodeStatus);
@@ -269,49 +282,56 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
               No runs found for this workflow.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-surface-primary hover:bg-surface-primary">
-                  <TableHead>Status</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Cost</TableHead>
-                  <TableHead>Eval</TableHead>
-                  <TableHead>Run</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedRuns.map((run) => (
-                  <TableRow
-                    key={run.id}
-                    data-testid={`workflow-run-row-${run.id}`}
-                    className={currentRunId === run.id ? "bg-surface-selected" : "cursor-pointer"}
-                    onClick={() => onRunSelect(run.id)}
-                  >
-                    <TableCell>
-                      <Badge variant={run.status === "completed" ? "success" : run.status === "failed" ? "danger" : "neutral"}>
-                        {run.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell data-type="data">{run.source}</TableCell>
-                    <TableCell data-type="timestamp">
-                      {run.started_at ? getTimeAgo(new Date(run.started_at * 1000).toISOString()) : "—"}
-                    </TableCell>
-                    <TableCell data-type="metric">{formatDuration(run.duration_seconds)}</TableCell>
-                    <TableCell data-type="metric">{formatCost(run.total_cost_usd)}</TableCell>
-                    <TableCell data-type="metric">
-                      {typeof run.eval_pass_pct === "number"
-                        ? `${Math.round(run.eval_pass_pct)}%`
-                        : typeof run.eval_score_avg === "number"
-                          ? run.eval_score_avg.toFixed(2)
-                          : "—"}
-                    </TableCell>
-                    <TableCell data-type="id">{run.id}</TableCell>
+            <div className={RUN_TABLE_CONTAINER_CLASS}>
+              <Table className={RUN_TABLE_CLASS}>
+                <TableHeader>
+                  <TableRow className={RUN_TABLE_HEADER_ROW_CLASS}>
+                    <TableHead className={cn(RUN_TABLE_HEAD_CLASS, RUN_TABLE_STATUS_HEAD_CLASS)}>
+                      Status
+                    </TableHead>
+                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Source</TableHead>
+                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Started</TableHead>
+                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Duration</TableHead>
+                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Cost</TableHead>
+                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Eval</TableHead>
+                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Run</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {sortedRuns.map((run) => (
+                    <TableRow
+                      key={run.id}
+                      data-testid={`workflow-run-row-${run.id}`}
+                      className={cn(
+                        RUN_TABLE_ROW_CLASS,
+                        currentRunId === run.id && "bg-surface-selected",
+                      )}
+                      onClick={() => onRunSelect(run.id)}
+                    >
+                      <TableCell className={RUN_TABLE_STATUS_CELL_CLASS}>
+                        <RunStatusDot status={run.status} className="w-full justify-center" />
+                      </TableCell>
+                      <TableCell data-type="data" className={RUN_TABLE_CELL_CLASS}>{run.source}</TableCell>
+                      <TableCell data-type="timestamp" className={RUN_TABLE_CELL_CLASS}>
+                        {run.started_at ? getTimeAgo(new Date(run.started_at * 1000).toISOString()) : "—"}
+                      </TableCell>
+                      <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>{formatDuration(run.duration_seconds)}</TableCell>
+                      <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>{formatCost(run.total_cost_usd)}</TableCell>
+                      <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>
+                        {typeof run.eval_pass_pct === "number"
+                          ? `${Math.round(run.eval_pass_pct)}%`
+                          : typeof run.eval_score_avg === "number"
+                            ? run.eval_score_avg.toFixed(2)
+                            : "—"}
+                      </TableCell>
+                      <TableCell data-type="data" className={RUN_TABLE_CELL_CLASS}>
+                        {run.run_number != null ? `#${run.run_number}` : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
       )}
@@ -325,7 +345,12 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
             regressionsItems.map((regression, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 border-b border-border-subtle px-3 py-2 text-xs font-mono last:border-b-0"
+                className="flex cursor-pointer items-center gap-3 border-b border-border-subtle px-3 py-2 text-xs font-mono last:border-b-0 hover:bg-surface-hover"
+                onClick={() => {
+                  if (regression.run_id) {
+                    navigate(`/runs/${regression.run_id}`);
+                  }
+                }}
               >
                 <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning-9)] shrink-0" />
                 <span className="inline-block min-w-[10rem] text-primary">{regression.node_name}</span>

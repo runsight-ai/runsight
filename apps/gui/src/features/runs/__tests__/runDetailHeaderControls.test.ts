@@ -1,15 +1,31 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider, useLocation } from "react-router";
+
+const mocks = vi.hoisted(() => ({
+  forkWorkflow: vi.fn(),
+}));
+
+vi.mock("../useForkWorkflow", () => ({
+  useForkWorkflow: (options: { onTransition?: (id: string) => void }) => ({
+    isForking: false,
+    forkedWorkflowId: undefined,
+    forkWorkflow: () => {
+      mocks.forkWorkflow();
+      options.onTransition?.("wf_forked");
+    },
+  }),
+}));
 
 import { RunDetailHeader } from "../RunDetailHeader";
 
 afterEach(() => {
   cleanup();
+  mocks.forkWorkflow.mockReset();
 });
 
 type RunStatus = "completed" | "failed" | "running";
@@ -35,6 +51,7 @@ function buildRun({
     workflow_id: workflowId ?? undefined,
     workflow_name: "Research & Review",
     status,
+    commit_sha: "abc123def456",
     total_cost_usd: 0.123,
     total_tokens: 456,
   };
@@ -128,5 +145,17 @@ describe("Run detail header controls (RUN-510)", () => {
     expect(screen.queryByRole("button", { name: /open workflow/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /run again/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
+  });
+
+  it("opens the new forked workflow editor after forking from a run", async () => {
+    const { router, user } = renderHeader({ status: "completed" });
+
+    await user.click(screen.getByRole("button", { name: "Fork" }));
+
+    await waitFor(() => {
+      expect(mocks.forkWorkflow).toHaveBeenCalledTimes(1);
+      expect(router.state.location.pathname).toBe("/workflows/wf_forked/edit");
+      expect(router.state.location.search).toBe("");
+    });
   });
 });

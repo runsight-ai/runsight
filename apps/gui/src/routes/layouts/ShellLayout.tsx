@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { RouteErrorBoundary } from "@/components/shared/ErrorBoundary";
 import {
   LayoutDashboard,
@@ -21,6 +21,8 @@ const BOTTOM_NAV = [
 ] as const;
 
 export function ShellLayout() {
+  const location = useLocation();
+
   return (
     <div className="h-screen flex overflow-hidden bg-surface-primary text-primary">
       {/* Sidebar */}
@@ -174,7 +176,7 @@ export function ShellLayout() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Page content */}
         <main className="flex-1 flex flex-col overflow-y-auto">
-          <RouteErrorBoundary>
+          <RouteErrorBoundary key={`${location.pathname}${location.search}`}>
             <Outlet />
           </RouteErrorBoundary>
         </main>

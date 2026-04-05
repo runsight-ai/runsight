@@ -3,10 +3,29 @@ import { useNavigate } from "react-router";
 
 import { cn } from "@runsight/ui/utils";
 import { Badge } from "@runsight/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@runsight/ui/table";
 import { formatTimestamp, formatDuration } from "@/utils/formatting";
 import { CheckCircle, XCircle, FileText, List, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { useRuns, useRunRegressions } from "@/queries/runs";
 import type { RunLogResponse as LogResponse } from "@/api/runs";
+import { RunStatusDot } from "./RunStatusDot";
+import {
+  RUN_TABLE_CELL_CLASS,
+  RUN_TABLE_CLASS,
+  RUN_TABLE_CONTAINER_CLASS,
+  RUN_TABLE_HEAD_CLASS,
+  RUN_TABLE_HEADER_ROW_CLASS,
+  RUN_TABLE_ROW_CLASS,
+  RUN_TABLE_STATUS_CELL_CLASS,
+  RUN_TABLE_STATUS_HEAD_CLASS,
+} from "./runTable.styles";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -136,37 +155,49 @@ export function RunBottomPanel({
               {sortedRuns.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm">No runs found for this workflow.</div>
               ) : (
-                <table className="w-full text-xs font-mono">
-                  <thead>
-                    <tr className="border-b border-[var(--border-default)] text-[var(--text-muted)]">
-                      <th className="text-left px-3 py-1.5">Status</th>
-                      <th className="text-left px-3 py-1.5">Commit SHA</th>
-                      <th className="text-left px-3 py-1.5">Started</th>
-                      <th className="text-left px-3 py-1.5">Duration</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedRuns.map((run) => (
-                      <tr
-                        key={run.id}
-                        onClick={() => navigate(`/runs/${run.id}`)}
-                        className={cn(
-                          "cursor-pointer hover:bg-[var(--surface-raised)] transition-colors",
-                          run.id === currentRunId && "bg-[var(--surface-selected)]",
-                        )}
-                      >
-                        <td className="px-3 py-1.5">
-                          <Badge variant={run.status === "completed" ? "success" : run.status === "failed" ? "danger" : "neutral"}>
-                            {run.status}
-                          </Badge>
-                        </td>
-                        <td className="px-3 py-1.5 text-[var(--text-muted)]">{run.commit_sha ? run.commit_sha.slice(0, 7) : "—"}</td>
-                        <td className="px-3 py-1.5 text-[var(--text-muted)]">{run.started_at ? formatTimestamp(run.started_at) : "—"}</td>
-                        <td className="px-3 py-1.5 text-[var(--text-muted)]">{run.duration_seconds ? formatDuration(run.duration_seconds) : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className={RUN_TABLE_CONTAINER_CLASS}>
+                  <Table className={RUN_TABLE_CLASS}>
+                    <TableHeader>
+                      <TableRow className={RUN_TABLE_HEADER_ROW_CLASS}>
+                        <TableHead className={cn(RUN_TABLE_HEAD_CLASS, RUN_TABLE_STATUS_HEAD_CLASS)}>
+                          Status
+                        </TableHead>
+                        <TableHead className={RUN_TABLE_HEAD_CLASS}>Run</TableHead>
+                        <TableHead className={RUN_TABLE_HEAD_CLASS}>Commit</TableHead>
+                        <TableHead className={RUN_TABLE_HEAD_CLASS}>Started</TableHead>
+                        <TableHead className={RUN_TABLE_HEAD_CLASS}>Duration</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedRuns.map((run) => (
+                        <TableRow
+                          key={run.id}
+                          onClick={() => navigate(`/runs/${run.id}`)}
+                          className={cn(
+                            RUN_TABLE_ROW_CLASS,
+                            run.id === currentRunId && "bg-[var(--surface-selected)]",
+                          )}
+                        >
+                          <TableCell className={RUN_TABLE_STATUS_CELL_CLASS}>
+                            <RunStatusDot status={run.status} className="w-full justify-center" />
+                          </TableCell>
+                          <TableCell data-type="data" className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}>
+                            {run.run_number != null ? `#${run.run_number}` : "—"}
+                          </TableCell>
+                          <TableCell data-type="id" className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}>
+                            {run.commit_sha ? run.commit_sha.slice(0, 7) : "—"}
+                          </TableCell>
+                          <TableCell data-type="timestamp" className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}>
+                            {run.started_at ? formatTimestamp(run.started_at) : "—"}
+                          </TableCell>
+                          <TableCell data-type="metric" className={cn(RUN_TABLE_CELL_CLASS, "text-secondary")}>
+                            {run.duration_seconds ? formatDuration(run.duration_seconds) : "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </div>
           )}

@@ -94,7 +94,7 @@ export function PriorityBanner({ conditions }: PriorityBannerProps) {
 
   return (
     <div
-      className={`flex items-center gap-2 mx-3 mt-2 px-3 py-2 text-sm rounded-md ${style.bg} border ${style.border} ${style.text}`}
+      className={`flex items-center gap-2 mx-3 mt-2 mb-2 px-3 py-2 text-sm rounded-md ${style.bg} border ${style.border} ${style.text}`}
       role="status"
     >
       <Icon className="size-4 shrink-0" />

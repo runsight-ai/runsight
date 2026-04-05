@@ -3,6 +3,7 @@ import { useCreateWorkflow } from "@/queries/workflows";
 import { Button } from "@runsight/ui/button";
 import type { WorkflowCreate } from "@runsight/shared/zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@runsight/ui/tabs";
+import { Plus } from "lucide-react";
 import { useNavigate } from "react-router";
 import { WorkflowsTab } from "./WorkflowsTab";
 
@@ -41,6 +42,7 @@ export function Component() {
             disabled={createWorkflow.isPending}
             data-testid="flows-create-workflow-button"
           >
+            <Plus className="h-4 w-4" />
             New Workflow
           </Button>
         )}

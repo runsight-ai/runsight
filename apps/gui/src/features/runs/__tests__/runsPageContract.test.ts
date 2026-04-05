@@ -156,6 +156,14 @@ vi.mock("@/queries/runs", () => ({
       refetch: mocks.refetchRuns,
     };
   },
+  useRunRegressions: (runId?: string) => ({
+    data: runId
+      ? {
+          count: 0,
+          issues: [],
+        }
+      : undefined,
+  }),
 }));
 
 vi.mock("@/queries/dashboard", () => ({
