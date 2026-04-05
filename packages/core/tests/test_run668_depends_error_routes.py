@@ -321,10 +321,14 @@ class TestErrorRouteParserPlumbing:
         child_file = RunsightWorkflowFile.model_validate(
             {
                 "version": "1.0",
+                "interface": {
+                    "inputs": [],
+                    "outputs": [],
+                },
                 "blocks": {
                     "child_step": {
                         "type": "code",
-                        "code": "result = 'ok'",
+                        "code": "def main(data):\n    return {'status': 'ok'}",
                     }
                 },
                 "workflow": {
@@ -348,7 +352,7 @@ class TestErrorRouteParserPlumbing:
                 },
                 "handler": {
                     "type": "code",
-                    "code": "result = 'handled'",
+                    "code": "def main(data):\n    return {'status': 'handled'}",
                 },
             },
             "workflow": {
