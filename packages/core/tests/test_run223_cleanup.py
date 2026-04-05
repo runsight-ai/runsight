@@ -239,7 +239,7 @@ workflow:
     def test_block_classes_importable_from_own_modules(self):
         """All block classes should be importable directly from their own modules."""
         from runsight_core.blocks.code import CodeBlock
-        from runsight_core.blocks.fanout import FanOutBlock
+        from runsight_core.blocks.dispatch import DispatchBlock
         from runsight_core.blocks.gate import GateBlock
         from runsight_core.blocks.linear import LinearBlock
         from runsight_core.blocks.loop import LoopBlock
@@ -248,7 +248,7 @@ workflow:
 
         # Verify they are actual classes
         assert callable(LinearBlock)
-        assert callable(FanOutBlock)
+        assert callable(DispatchBlock)
         assert callable(SynthesizeBlock)
         assert callable(LoopBlock)
         assert callable(GateBlock)
@@ -262,7 +262,7 @@ workflow:
 
         # These should all be accessible
         assert hasattr(runsight_core, "LinearBlock")
-        assert hasattr(runsight_core, "FanOutBlock")
+        assert hasattr(runsight_core, "DispatchBlock")
         assert hasattr(runsight_core, "SynthesizeBlock")
         assert hasattr(runsight_core, "LoopBlock")
         assert hasattr(runsight_core, "GateBlock")
@@ -277,7 +277,7 @@ workflow:
         block_types = get_all_block_types()
         expected_types = {
             "linear",
-            "fanout",
+            "dispatch",
             "synthesize",
             "loop",
             "gate",

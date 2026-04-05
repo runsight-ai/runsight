@@ -226,8 +226,8 @@ class ExitDef(BaseModel):
     label: str
 
 
-class FanOutExitDef(ExitDef):
-    """Exit port on a FanOut block with per-exit soul and task."""
+class DispatchExitDef(ExitDef):
+    """Exit port on a dispatch block with per-exit soul and task."""
 
     model_config = ConfigDict(extra="forbid")
     soul_ref: str
@@ -295,7 +295,7 @@ class ConditionalTransitionDef(BaseModel):
 
     YAML structure:
         conditional_transitions:
-          - from: router_block
+          - from: branch_block
             approved: approve_block
             rejected: reject_block
             default: reject_block   # optional fallback

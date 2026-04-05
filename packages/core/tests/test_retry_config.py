@@ -12,7 +12,7 @@ Tests cover:
 import pytest
 from pydantic import TypeAdapter, ValidationError
 from runsight_core.blocks.code import CodeBlockDef
-from runsight_core.blocks.fanout import FanOutBlockDef
+from runsight_core.blocks.dispatch import DispatchBlockDef
 from runsight_core.blocks.gate import GateBlockDef
 from runsight_core.blocks.linear import LinearBlockDef
 from runsight_core.blocks.loop import LoopBlockDef
@@ -277,10 +277,10 @@ class TestRetryConfigOnAllBlockTypes:
         assert block.retry_config.backoff == "exponential"
         assert block.retry_config.backoff_base_seconds == 2.0
 
-    def test_fanout_block_with_retry_config(self):
+    def test_dispatch_block_with_retry_config(self):
         block = _validate_block(
             {
-                "type": "fanout",
+                "type": "dispatch",
                 "exits": [
                     {"id": "e1", "label": "E1", "soul_ref": "s1", "task": "Do A"},
                     {"id": "e2", "label": "E2", "soul_ref": "s2", "task": "Do B"},
@@ -288,7 +288,7 @@ class TestRetryConfigOnAllBlockTypes:
                 "retry_config": {"max_attempts": 3},
             }
         )
-        assert isinstance(block, FanOutBlockDef)
+        assert isinstance(block, DispatchBlockDef)
         assert block.retry_config is not None
 
     def test_gate_block_with_retry_config(self):
@@ -479,7 +479,7 @@ class TestBackwardCompatibility:
         [
             {"type": "linear", "soul_ref": "s1"},
             {
-                "type": "fanout",
+                "type": "dispatch",
                 "exits": [{"id": "e1", "label": "E1", "soul_ref": "s1", "task": "Do"}],
             },
             {"type": "synthesize", "soul_ref": "s1", "input_block_ids": ["b1"]},
@@ -490,7 +490,7 @@ class TestBackwardCompatibility:
         ],
         ids=[
             "linear",
-            "fanout",
+            "dispatch",
             "synthesize",
             "gate",
             "code",

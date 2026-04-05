@@ -176,14 +176,14 @@ class TestExitHandleRoutesViaConditionalTransitions:
         """exit_handle with an arbitrary key routes through the condition_map."""
         wf = Workflow(name="eh_custom")
 
-        wf.add_block(StubBlock("router"))
+        wf.add_block(StubBlock("dispatch"))
         wf.add_block(StubBlock("branch_a"))
         wf.add_block(StubBlock("branch_b"))
         wf.add_block(StubBlock("branch_c"))
-        wf.set_entry("router")
+        wf.set_entry("dispatch")
 
         wf.add_conditional_transition(
-            "router",
+            "dispatch",
             {
                 "case_a": "branch_a",
                 "case_b": "branch_b",
@@ -195,12 +195,12 @@ class TestExitHandleRoutesViaConditionalTransitions:
         state = _fresh_state().model_copy(
             update={
                 "results": {
-                    "router": BlockResult(output="routed", exit_handle="case_b"),
+                    "dispatch": BlockResult(output="routed", exit_handle="case_b"),
                 },
             }
         )
 
-        next_id = wf._resolve_next("router", state)
+        next_id = wf._resolve_next("dispatch", state)
         assert next_id == "branch_b"
 
     def test_exit_handle_takes_priority_over_metadata(self):

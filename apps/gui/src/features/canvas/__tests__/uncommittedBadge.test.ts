@@ -41,8 +41,6 @@ function fileExists(relativePath: string): boolean {
 const GIT_BADGE_PATH = "features/git/GitBadge.tsx";
 const COMMIT_DIALOG_PATH = "features/git/CommitDialog.tsx";
 const DIFF_VIEW_PATH = "features/git/DiffView.tsx";
-const CANVAS_TOPBAR_PATH = "features/canvas/CanvasTopbar.tsx";
-
 // ===========================================================================
 // 1. GitBadge component exists (AC1)
 // ===========================================================================

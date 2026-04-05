@@ -265,12 +265,12 @@ describe("Round-trip after cleanup: known types use generic path", () => {
     expect(doc2.blocks["sub"]).toEqual(doc1.blocks["sub"]);
   });
 
-  it("fanout block round-trips", () => {
-    const node = mockNode("b1", "fanout", {
+  it("dispatch block round-trips with soul_refs", () => {
+    const node = mockNode("b1", "dispatch", {
       soulRefs: ["analyst1", "analyst2"],
     });
     const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
-    expect(getBlock(doc1, "b1").type).toBe("fanout");
+    expect(getBlock(doc1, "b1").type).toBe("dispatch");
     expect(getBlock(doc1, "b1").soul_refs).toEqual(["analyst1", "analyst2"]);
     expect(doc2.blocks["b1"]).toEqual(doc1.blocks["b1"]);
   });
@@ -289,14 +289,17 @@ describe("Round-trip after cleanup: known types use generic path", () => {
     expect(doc2.blocks["b1"]).toEqual(doc1.blocks["b1"]);
   });
 
-  it("router block round-trips", () => {
-    const node = mockNode("b1", "router", {
-      soulRef: "router_soul",
-      conditionRef: "my_condition",
+  it("dispatch block round-trips without condition_ref", () => {
+    const node = mockNode("b1", "dispatch", {
+      soulRef: "dispatch_soul",
+      outputConditions: [{ case_id: "default", default: true }],
     });
     const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
-    expect(getBlock(doc1, "b1").type).toBe("router");
-    expect(getBlock(doc1, "b1").condition_ref).toBe("my_condition");
+    expect(getBlock(doc1, "b1").type).toBe("dispatch");
+    expect(getBlock(doc1, "b1").output_conditions).toEqual([
+      { case_id: "default", default: true },
+    ]);
+    expect(getBlock(doc1, "b1")).not.toHaveProperty("condition_ref");
     expect(doc2.blocks["b1"]).toEqual(doc1.blocks["b1"]);
   });
 });
@@ -408,5 +411,27 @@ describe("Parse from YAML: known types via generic path", () => {
     // nested auth_config keys should be converted
     const ac = data.authConfig as Record<string, unknown>;
     expect(ac.tokenEnv).toBe("API_TOKEN");
+  });
+});
+
+// ===========================================================================
+// 6. RUN-646 editor type surface contract
+// ===========================================================================
+
+describe("RUN-646 editor type surface contract", () => {
+  const source = readSourceFile("../../types/schemas/canvas.ts");
+
+  it("StepType includes dispatch and removes fanout/router workflow block identities", () => {
+    expect(source).toMatch(/\|\s*"dispatch"/);
+    expect(source).not.toMatch(/\|\s*"fanout"/);
+    expect(source).not.toMatch(/\|\s*"router"/);
+  });
+
+  it("StepNodeData no longer exposes conditionRef", () => {
+    expect(source).not.toMatch(/\bconditionRef\?\s*:/);
+  });
+
+  it("BlockDef no longer exposes condition_ref", () => {
+    expect(source).not.toMatch(/\bcondition_ref\?\s*:/);
   });
 });

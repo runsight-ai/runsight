@@ -76,15 +76,15 @@ function roundTrip(input: CompileInput) {
 }
 
 // ===========================================================================
-// 1. Per-type round-trip (14 block types)
+// 1. Per-type round-trip
 // ===========================================================================
 
 describe("Per-type round-trip", () => {
   test.each<[string, StepType, Partial<StepNodeData>]>([
     ["linear", "linear", { soulRef: "researcher" }],
-    ["fanout", "fanout", { soulRefs: ["a", "b"] }],
+    ["dispatch fanout-style", "dispatch", { soulRefs: ["a", "b"] }],
     ["synthesize", "synthesize", { soulRef: "synth", inputBlockIds: ["a", "b"] }],
-    ["router", "router", { soulRef: "router_soul", conditionRef: "cond1" }],
+    ["dispatch conditional-style", "dispatch", { soulRef: "dispatcher" }],
     ["gate", "gate", { soulRef: "gatekeeper", evalKey: "quality", extractField: "score" }],
     ["team_lead", "team_lead", { soulRef: "lead", failureContextKeys: ["err"] }],
     ["engineering_manager", "engineering_manager", { soulRef: "em" }],
@@ -325,7 +325,7 @@ describe("Full workflow round-trip", () => {
 
     const nodes = [
       mockNode("plan", "linear", { soulRef: "planner" }),
-      mockNode("implement", "fanout", { soulRefs: ["coder", "planner"] }),
+      mockNode("implement", "dispatch", { soulRefs: ["coder", "planner"] }),
       mockNode("review", "gate", {
         soulRef: "planner",
         evalKey: "quality",
@@ -527,7 +527,7 @@ describe("Edge cases", () => {
   it("YAML string equality implies full lossless round-trip", () => {
     const nodes = [
       mockNode("a", "linear", { soulRef: "agent" }),
-      mockNode("b", "fanout", { soulRefs: ["agent", "agent"] }),
+      mockNode("b", "dispatch", { soulRefs: ["agent", "agent"] }),
       mockNode("c", "code", { code: "x = 1", timeoutSeconds: 10, allowedImports: [] }),
     ];
     const edges = [mockEdge("a", "b"), mockEdge("b", "c")];
@@ -540,5 +540,60 @@ describe("Edge cases", () => {
     });
 
     expect(yaml2).toBe(yaml1);
+  });
+});
+
+// ===========================================================================
+// 8. RUN-646 dispatch-only round-trip contract
+// ===========================================================================
+
+describe("RUN-646 dispatch-only round-trip contract", () => {
+  it("dispatch node round-trips with conditional transitions and no conditionRef field", () => {
+    const nodes = [
+      mockNode("dispatch_step", "dispatch", {
+        soulRef: "classifier",
+        outputConditions: [
+          {
+            case_id: "approved",
+            condition_group: {
+              combinator: "and",
+              conditions: [{ eval_key: "result.status", operator: "eq", value: "approved" }],
+            },
+          },
+          { case_id: "rejected", default: true },
+        ],
+      }),
+      mockNode("approve", "linear"),
+      mockNode("reject", "linear"),
+    ];
+
+    const edges = [
+      mockEdge("dispatch_step", "approve", "approved"),
+      mockEdge("dispatch_step", "reject"),
+    ];
+
+    const { doc1, doc2 } = roundTrip({ nodes, edges });
+    expect((doc1.blocks["dispatch_step"] as Record<string, unknown>).type).toBe("dispatch");
+    expect((doc1.blocks["dispatch_step"] as Record<string, unknown>)).not.toHaveProperty("condition_ref");
+    expect(doc2.blocks["dispatch_step"]).toEqual(doc1.blocks["dispatch_step"]);
+  });
+
+  it("legacy fanout node type is rejected at compile time", () => {
+    const nodes = [mockNode("legacy_fanout", "fanout", { soulRefs: ["a", "b"] })];
+    expect(() => roundTrip({ nodes, edges: [] })).toThrow(
+      /fanout|dispatch|unsupported/i,
+    );
+  });
+
+  it("legacy router node type is rejected at compile time", () => {
+    const nodes = [
+      mockNode("legacy_router", "router", {
+        soulRef: "classifier",
+        conditionRef: "route_cond",
+      }),
+    ];
+    expect(() => roundTrip({ nodes, edges: [] })).toThrow(
+      /router|dispatch|unsupported/i,
+    );
   });
 });

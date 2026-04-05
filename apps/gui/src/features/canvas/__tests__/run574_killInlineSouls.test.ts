@@ -223,7 +223,7 @@ describe("AC4: Parser handles old YAML with souls gracefully", () => {
     const yaml = makeYaml(
       {
         step1: { type: "linear", soul_ref: "analyst" },
-        step2: { type: "fanout", soul_refs: ["a", "b"] },
+        step2: { type: "dispatch", soul_refs: ["a", "b"] },
       },
       {
         souls: {

@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 import pytest
 from pydantic import ValidationError
 from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
-from runsight_core.primitives import Task
+from runsight_core.primitives import Soul, Task
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import (
     parse_task_yaml,
@@ -28,7 +28,7 @@ class TestBlockTypeRegistry:
         """Verify BLOCK_TYPE_REGISTRY contains all 7 block types."""
         expected_types = {
             "linear",
-            "fanout",
+            "dispatch",
             "synthesize",
             "loop",
             "gate",
@@ -82,13 +82,6 @@ workflow:
 version: "1.0"
 config:
   model_name: gpt-4o-mini
-souls:
-  my_soul:
-    id: my_soul_1
-    role: Custom Researcher
-    system_prompt: Do research
-    provider: anthropic
-    model_name: claude-sonnet-4
 blocks:
   linear_block:
     type: linear
@@ -100,25 +93,33 @@ workflow:
     - from: linear_block
       to: null
 """
-        with patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner:
+        souls_map = {
+            "my_soul": Soul(
+                id="my_soul_1",
+                role="Custom Researcher",
+                system_prompt="Do research",
+                provider="anthropic",
+                model_name="claude-sonnet-4",
+            )
+        }
+        with (
+            patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner,
+            patch(
+                "runsight_core.yaml.parser._discovery_module._discover_souls",
+                return_value=souls_map,
+            ),
+        ):
             mock_runner.return_value = Mock()
             parse_workflow_yaml(yaml_content)
 
         assert mock_runner.call_args is not None
-        assert mock_runner.call_args.kwargs["model_name"] != "gpt-4o-mini"
+        assert mock_runner.call_args.kwargs["model_name"] == "claude-sonnet-4"
 
     def test_parse_workflow_yaml_does_not_fall_back_to_hidden_gpt_4o_runner_model(self):
         """RUN-585: parser must not keep the legacy hidden gpt-4o runner path alive."""
         yaml_content = """
 version: "1.0"
 config: {}
-souls:
-  my_soul:
-    id: my_soul_1
-    role: Custom Researcher
-    system_prompt: Do research
-    provider: anthropic
-    model_name: claude-sonnet-4
 blocks:
   linear_block:
     type: linear
@@ -130,12 +131,27 @@ workflow:
     - from: linear_block
       to: null
 """
-        with patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner:
+        souls_map = {
+            "my_soul": Soul(
+                id="my_soul_1",
+                role="Custom Researcher",
+                system_prompt="Do research",
+                provider="anthropic",
+                model_name="claude-sonnet-4",
+            )
+        }
+        with (
+            patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner,
+            patch(
+                "runsight_core.yaml.parser._discovery_module._discover_souls",
+                return_value=souls_map,
+            ),
+        ):
             mock_runner.return_value = Mock()
             parse_workflow_yaml(yaml_content)
 
         assert mock_runner.call_args is not None
-        assert mock_runner.call_args.kwargs["model_name"] != "gpt-4o"
+        assert mock_runner.call_args.kwargs["model_name"] == "claude-sonnet-4"
 
     def test_linear_block_missing_soul_ref_raises_error(self):
         """AC-2: LinearBlock without soul_ref raises ValueError."""
@@ -178,14 +194,14 @@ workflow:
         assert isinstance(workflow, Workflow)
 
 
-class TestFanOutBlock:
-    """Tests for FanOutBlock (block type: fanout)."""
+class TestDispatchBlock:
+    """Tests for DispatchBlock (block type: dispatch)."""
 
     @pytest.mark.xfail(
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
-    def test_fanout_block_valid_yaml(self):
-        """AC-4: Parse valid fanout block with exits."""
+    def test_dispatch_block_valid_yaml(self):
+        """AC-4: Parse valid dispatch block with exits."""
         yaml_content = """
 version: "1.0"
 souls:
@@ -198,8 +214,8 @@ souls:
     role: Peer Reviewer
     system_prompt: You review topics.
 blocks:
-  fanout_block:
-    type: fanout
+  dispatch_block:
+    type: dispatch
     exits:
       - id: exit_research
         label: Research
@@ -210,41 +226,41 @@ blocks:
         soul_ref: reviewer
         task: Review the topic
 workflow:
-  name: test_fanout
-  entry: fanout_block
+  name: test_dispatch
+  entry: dispatch_block
   transitions:
-    - from: fanout_block
+    - from: dispatch_block
       to: null
 """
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
-        assert workflow.name == "test_fanout"
+        assert workflow.name == "test_dispatch"
 
-    def test_fanout_block_missing_exits_raises_error(self):
-        """AC-5: FanOutBlock without exits raises ValidationError."""
+    def test_dispatch_block_missing_exits_raises_error(self):
+        """AC-5: DispatchBlock without exits raises ValidationError."""
         yaml_content = """
 version: "1.0"
 blocks:
-  fanout_block:
-    type: fanout
+  dispatch_block:
+    type: dispatch
 workflow:
-  name: test_fanout
-  entry: fanout_block
+  name: test_dispatch
+  entry: dispatch_block
 """
         with pytest.raises((ValueError, Exception), match="exits"):
             parse_workflow_yaml(yaml_content)
 
-    def test_fanout_block_empty_exits_raises_error(self):
-        """AC-6: FanOutBlock with empty exits raises ValueError."""
+    def test_dispatch_block_empty_exits_raises_error(self):
+        """AC-6: DispatchBlock with empty exits raises ValueError."""
         yaml_content = """
 version: "1.0"
 blocks:
-  fanout_block:
-    type: fanout
+  dispatch_block:
+    type: dispatch
     exits: []
 workflow:
-  name: test_fanout
-  entry: fanout_block
+  name: test_dispatch
+  entry: dispatch_block
 """
         with pytest.raises(ValueError, match="exits"):
             parse_workflow_yaml(yaml_content)
@@ -494,7 +510,7 @@ blocks:
     type: linear
     soul_ref: researcher
   review_block:
-    type: fanout
+    type: dispatch
     exits:
       - id: exit_reviewer
         label: Reviewer
@@ -807,7 +823,7 @@ workflow:
 # TestBlockTypeRegistry: 2
 # TestBuiltInSouls: 2
 # TestLinearBlock: 3
-# TestFanOutBlock: 3
+# TestDispatchBlock: 3
 # TestSynthesizeBlock: 3
 # TestSoulResolution: 2
 # TestInvalidYAML: 3

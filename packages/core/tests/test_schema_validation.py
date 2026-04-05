@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 from pydantic import TypeAdapter, ValidationError
 from runsight_core.blocks.code import CodeBlockDef
-from runsight_core.blocks.fanout import FanOutBlockDef
+from runsight_core.blocks.dispatch import DispatchBlockDef
 from runsight_core.blocks.gate import GateBlockDef
 from runsight_core.blocks.linear import LinearBlockDef
 from runsight_core.blocks.loop import LoopBlockDef
@@ -73,17 +73,17 @@ class TestTypeDiscrimination:
         with pytest.raises(ValidationError):
             _validate_block({"type": "conditional"})
 
-    def test_fanout_valid(self):
+    def test_dispatch_valid(self):
         block = _validate_block(
             {
-                "type": "fanout",
+                "type": "dispatch",
                 "exits": [
                     {"id": "e1", "label": "E1", "soul_ref": "s1", "task": "Do A"},
                     {"id": "e2", "label": "E2", "soul_ref": "s2", "task": "Do B"},
                 ],
             }
         )
-        assert isinstance(block, FanOutBlockDef)
+        assert isinstance(block, DispatchBlockDef)
 
     def test_synthesize_valid(self):
         block = _validate_block(
@@ -324,7 +324,7 @@ class TestExtraForbid:
         [
             {"type": "linear", "soul_ref": "s1"},
             {
-                "type": "fanout",
+                "type": "dispatch",
                 "exits": [{"id": "e1", "label": "E1", "soul_ref": "s1", "task": "Do"}],
             },
             {"type": "synthesize", "soul_ref": "s1", "input_block_ids": ["b1"]},
@@ -335,7 +335,7 @@ class TestExtraForbid:
         ],
         ids=[
             "linear",
-            "fanout",
+            "dispatch",
             "synthesize",
             "gate",
             "code",

@@ -72,14 +72,6 @@ vi.mock("lucide-react", () => ({
 
 const { DataTable } = await import("../DataTable");
 
-function renderTable(props: Record<string, unknown>) {
-  mocks.stateCursor = 0;
-
-  return (
-    DataTable as unknown as (value: Record<string, unknown>) => React.ReactElement | null
-  )(props);
-}
-
 function textContent(node: React.ReactNode): string {
   if (node == null || typeof node === "boolean") {
     return "";
@@ -96,43 +88,11 @@ function textContent(node: React.ReactNode): string {
   return React.Children.toArray(node.props.children).map(textContent).join("");
 }
 
-function findElement(
-  node: React.ReactNode,
-  predicate: (element: React.ReactElement) => boolean,
-): React.ReactElement | undefined {
-  if (!React.isValidElement(node)) {
-    return undefined;
-  }
-
-  if (predicate(node)) {
-    return node;
-  }
-
-  for (const child of React.Children.toArray(node.props.children)) {
-    const match = findElement(child, predicate);
-    if (match) {
-      return match;
-    }
-  }
-
-  return undefined;
-}
-
 function bodyMarkup(markup: string): string {
   const start = markup.indexOf("<tbody");
   const end = markup.indexOf("</tbody>");
 
   return start >= 0 && end >= 0 ? markup.slice(start, end) : markup;
-}
-
-function readBodyRows(tree: React.ReactNode): string[][] {
-  const tbody = findElement(tree, (element) => element.type === "tbody");
-
-  expect(tbody).toBeDefined();
-
-  return React.Children.toArray(tbody?.props.children).map((row) =>
-    React.Children.toArray((row as React.ReactElement).props.children).map(textContent),
-  );
 }
 
 beforeEach(() => {

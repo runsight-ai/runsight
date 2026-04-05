@@ -3,8 +3,7 @@ import type { Node, Edge } from "@xyflow/react";
 /** All known block types from Runsight core (spec §2.5), plus any custom string */
 export type StepType =
   | "linear"
-  | "fanout"
-  | "router"
+  | "dispatch"
   | "gate"
   | "synthesize"
   | "workflow"
@@ -50,8 +49,8 @@ export interface StepNodeData extends Record<string, unknown> {
   stepType: StepType;
 
   /** Soul references — varies by block type */
-  soulRef?: string;      // linear, synthesize, router, gate, team_lead, engineering_manager
-  soulRefs?: string[];   // fanout
+  soulRef?: string;      // linear, synthesize, gate, team_lead, engineering_manager
+  soulRefs?: string[];   // dispatch
 
   /** Block-specific fields */
   workflowRef?: string;         // workflow (nested)
@@ -67,7 +66,6 @@ export interface StepNodeData extends Record<string, unknown> {
   failureContextKeys?: string[]; // team_lead
   retryConfig?: Record<string, unknown>;  // universal
   stateful?: boolean;                     // universal
-  conditionRef?: string;         // router
 
   // CodeBlock fields
   code?: string;
@@ -163,7 +161,6 @@ export interface BlockDef {
   extract_field?: string;
   output_path?: string;
   content_key?: string;
-  condition_ref?: string;
   failure_context_keys?: string[];
   code?: string;
   timeout_seconds?: number;

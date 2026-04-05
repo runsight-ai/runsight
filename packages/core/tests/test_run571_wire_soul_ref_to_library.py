@@ -3,7 +3,7 @@ Failing tests for RUN-571: Wire ``soul_ref`` to library discovery.
 
 After implementation:
 1. ``parse_workflow_yaml()`` calls ``_discover_souls(custom/souls/)`` to build souls_map
-2. ``soul_ref`` in linear, gate, synthesize, and fanout blocks resolves against library souls
+2. ``soul_ref`` in linear, gate, synthesize, and dispatch blocks resolves against library souls
 3. Missing soul produces error with available souls listed and guidance to create the file
 4. Discovery is called once per parse (not per block)
 5. Existing block builder signatures unchanged (``_resolve_soul(ref, souls_map)``)
@@ -48,7 +48,7 @@ def _write_soul_file(base_dir: Path, name: str, *, soul_id: str, role: str, prom
 
 
 # ===========================================================================
-# AC1: soul_ref in linear, gate, synthesize, and fanout blocks resolves
+# AC1: soul_ref in linear, gate, synthesize, and dispatch blocks resolves
 #      against custom/souls/
 # ===========================================================================
 
@@ -162,8 +162,8 @@ class TestSoulRefResolvesFromLibrary:
             assert inner.soul.role == "Summarizer"
             assert inner.soul.id == "s1"
 
-    def test_fanout_exit_soul_ref_resolves_from_library(self):
-        """A fanout block's per-exit soul_ref should resolve to souls in custom/souls/."""
+    def test_dispatch_exit_soul_ref_resolves_from_library(self):
+        """A dispatch block's per-exit soul_ref should resolve to souls in custom/souls/."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(base, "agent_a", soul_id="a1", role="Agent A", prompt="You are A.")
@@ -176,7 +176,7 @@ class TestSoulRefResolvesFromLibrary:
                   model_name: gpt-4o
                 blocks:
                   fan:
-                    type: fanout
+                    type: dispatch
                     exits:
                       - id: branch_a
                         label: Branch A
@@ -187,7 +187,7 @@ class TestSoulRefResolvesFromLibrary:
                         soul_ref: agent_b
                         task: Do task B
                 workflow:
-                  name: fanout_library_test
+                  name: dispatch_library_test
                   entry: fan
                   transitions:
                     - from: fan

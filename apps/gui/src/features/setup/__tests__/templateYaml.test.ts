@@ -15,7 +15,6 @@
 import { describe, it, expect } from "vitest";
 
 // This import will fail until the constant is implemented.
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-expect-error — module does not exist yet
 import { TEMPLATE_YAML } from "../constants";
 

@@ -336,7 +336,7 @@ describe("Round-trip: stateful field", () => {
   test.each<[string, StepType, Partial<StepNodeData>]>([
     ["linear", "linear", { soulRef: "agent1", stateful: true } as Partial<StepNodeData>],
     ["loop", "loop", { innerBlockRefs: ["step_a"], maxRounds: 3, stateful: true } as Partial<StepNodeData>],
-    ["fanout", "fanout", { soulRefs: ["a", "b"], stateful: true } as Partial<StepNodeData>],
+    ["dispatch", "dispatch", { soulRefs: ["a", "b"], stateful: true } as Partial<StepNodeData>],
   ])("stateful: true round-trips on %s block type", (_label, stepType, fields) => {
     const node = mockNode("block1", stepType, fields);
 
@@ -406,7 +406,7 @@ describe("Edge cases: stateful field", () => {
       mockNode("plain_b", "linear", {
         soulRef: "agent2",
       }),
-      mockNode("stateful_c", "fanout", {
+      mockNode("stateful_c", "dispatch", {
         soulRefs: ["agent1", "agent2"],
         stateful: false,
       } as Partial<StepNodeData>),

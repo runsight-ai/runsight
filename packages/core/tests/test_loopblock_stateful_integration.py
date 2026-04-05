@@ -6,7 +6,7 @@ These tests validate that everything works together when a stateful block runs i
 a LoopBlock across multiple rounds:
 
 1. Stateful LinearBlock inside LoopBlock, 3 rounds — history grows 2*N after N rounds
-2. Stateful FanOutBlock (3 souls) inside LoopBlock, 2 rounds — per-soul independent histories
+2. Stateful DispatchBlock (3 souls) inside LoopBlock, 2 rounds — per-soul independent histories
 3. Windowing activates within loop — history exceeds token budget, gets pruned
 4. Break condition works with BlockResult.output — evaluates string, not BlockResult object
 """
@@ -15,11 +15,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from runsight_core import (
-    FanOutBlock,
+    DispatchBlock,
     LinearBlock,
     LoopBlock,
 )
-from runsight_core.blocks.fanout import FanOutBranch
+from runsight_core.blocks.dispatch import DispatchBranch
 from runsight_core.conditions.engine import Condition
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
@@ -68,16 +68,16 @@ def _make_stateful_linear(block_id, soul, runner):
 
 
 def _souls_to_branches(souls):
-    """Convert a list of Soul objects to FanOutBranch objects."""
+    """Convert a list of Soul objects to DispatchBranch objects."""
     return [
-        FanOutBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
+        DispatchBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
         for s in souls
     ]
 
 
-def _make_stateful_fanout(block_id, souls, runner):
-    """Helper to create a stateful FanOutBlock."""
-    block = FanOutBlock(block_id, _souls_to_branches(souls), runner)
+def _make_stateful_dispatch(block_id, souls, runner):
+    """Helper to create a stateful DispatchBlock."""
+    block = DispatchBlock(block_id, _souls_to_branches(souls), runner)
     block.stateful = True
     return block
 
@@ -265,12 +265,12 @@ class TestStatefulLinearBlockInsideLoop:
 
 
 # ===========================================================================
-# 2. Stateful FanOutBlock (3 souls) inside LoopBlock — 2 rounds
+# 2. Stateful DispatchBlock (3 souls) inside LoopBlock — 2 rounds
 # ===========================================================================
 
 
-class TestStatefulFanOutBlockInsideLoop:
-    """Stateful FanOutBlock with 3 souls inside LoopBlock across 2 rounds.
+class TestStatefulDispatchBlockInsideLoop:
+    """Stateful DispatchBlock with 3 souls inside LoopBlock across 2 rounds.
     Each soul must have independent 2-round history."""
 
     @pytest.mark.asyncio
@@ -290,7 +290,7 @@ class TestStatefulFanOutBlockInsideLoop:
 
         runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        inner = _make_stateful_fanout("review", [soul_a, soul_b, soul_c], runner)
+        inner = _make_stateful_dispatch("review", [soul_a, soul_b, soul_c], runner)
         loop = LoopBlock(
             block_id="loop",
             inner_block_refs=["review"],
@@ -325,7 +325,7 @@ class TestStatefulFanOutBlockInsideLoop:
 
         runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        inner = _make_stateful_fanout("review", [soul_a, soul_b, soul_c], runner)
+        inner = _make_stateful_dispatch("review", [soul_a, soul_b, soul_c], runner)
         loop = LoopBlock(
             block_id="loop",
             inner_block_refs=["review"],
@@ -367,7 +367,7 @@ class TestStatefulFanOutBlockInsideLoop:
 
         runner.execute_task = AsyncMock(side_effect=_capture_side_effect)
 
-        inner = _make_stateful_fanout("fan", [soul_a, soul_b, soul_c], runner)
+        inner = _make_stateful_dispatch("fan", [soul_a, soul_b, soul_c], runner)
         loop = LoopBlock(
             block_id="loop",
             inner_block_refs=["fan"],
@@ -391,7 +391,7 @@ class TestStatefulFanOutBlockInsideLoop:
             )
 
     @pytest.mark.asyncio
-    async def test_fanout_inside_loop_via_workflow_run(self):
+    async def test_dispatch_inside_loop_via_workflow_run(self):
         """Integration through Workflow.run()."""
         runner = _make_mock_runner()
         soul_a = Soul(id="soul_a", role="A", system_prompt="A.")
@@ -403,14 +403,14 @@ class TestStatefulFanOutBlockInsideLoop:
 
         runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        inner = _make_stateful_fanout("fan", [soul_a, soul_b], runner)
+        inner = _make_stateful_dispatch("fan", [soul_a, soul_b], runner)
         loop = LoopBlock(
             block_id="loop",
             inner_block_refs=["fan"],
             max_rounds=2,
         )
 
-        wf = Workflow(name="stateful_fanout_loop_wf")
+        wf = Workflow(name="stateful_dispatch_loop_wf")
         wf.add_block(inner)
         wf.add_block(loop)
         wf.add_transition("loop", None)
@@ -505,7 +505,7 @@ class TestWindowingActivatesInsideLoop:
         assert history[-1]["content"] == "Response 5"
 
     @pytest.mark.asyncio
-    async def test_windowing_prunes_fanout_per_soul_inside_loop(self):
+    async def test_windowing_prunes_dispatch_per_soul_inside_loop(self):
         """Budget fitting should prune per-soul histories independently inside a loop."""
         runner = _make_mock_runner()
         soul_a = Soul(id="soul_a", role="A", system_prompt="A.")
@@ -517,7 +517,7 @@ class TestWindowingActivatesInsideLoop:
 
         runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        inner = _make_stateful_fanout("fan", [soul_a, soul_b], runner)
+        inner = _make_stateful_dispatch("fan", [soul_a, soul_b], runner)
         loop = LoopBlock(
             block_id="loop",
             inner_block_refs=["fan"],
@@ -557,7 +557,7 @@ class TestWindowingActivatesInsideLoop:
         state = WorkflowState(current_task=task)
 
         with patch(
-            "runsight_core.blocks.fanout.fit_to_budget",
+            "runsight_core.blocks.dispatch.fit_to_budget",
             side_effect=_aggressive_budget,
         ):
             result_state = await loop.execute(state, blocks=blocks)
@@ -730,8 +730,8 @@ class TestBreakConditionWithBlockResult:
         assert meta["broke_early"] is True
 
     @pytest.mark.asyncio
-    async def test_break_condition_with_stateful_fanout_output(self):
-        """Break condition works when inner block is a stateful FanOutBlock
+    async def test_break_condition_with_stateful_dispatch_output(self):
+        """Break condition works when inner block is a stateful DispatchBlock
         that stores BlockResult with JSON output."""
         runner = _make_mock_runner()
         soul_a = Soul(id="soul_a", role="A", system_prompt="A.")
@@ -747,8 +747,8 @@ class TestBreakConditionWithBlockResult:
 
         runner.execute_task = AsyncMock(side_effect=_side_effect)
 
-        inner = _make_stateful_fanout("fan", [soul_a, soul_b], runner)
-        # FanOutBlock output is JSON containing "soul_a_out" — use 'contains'
+        inner = _make_stateful_dispatch("fan", [soul_a, soul_b], runner)
+        # DispatchBlock output is JSON containing "soul_a_out" — use 'contains'
         break_cond = Condition(eval_key="fan", operator="contains", value="soul_a_out")
         loop = LoopBlock(
             block_id="loop",

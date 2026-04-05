@@ -5,7 +5,7 @@ Tests cover:
 1. WorkflowState.artifact_store field (Optional, default None, excluded from serialization)
 2. WorkflowBlock child state propagation (same artifact_store reference)
 3. LoopBlock round sharing (same artifact_store across rounds via shallow copy)
-4. FanOutBlock parallel sharing (same artifact_store across parallel tasks)
+4. DispatchBlock parallel sharing (same artifact_store across parallel tasks)
 5. Programmatic usage (explicit construction, default None)
 """
 
@@ -301,23 +301,23 @@ class TestLoopBlockArtifactStoreSharing:
 
 
 # ==============================================================================
-# 4. FanOutBlock — same artifact_store across parallel tasks
+# 4. DispatchBlock — same artifact_store across parallel tasks
 # ==============================================================================
 
 
-class TestFanOutBlockArtifactStoreSharing:
-    """FanOutBlock parallel executions should see the same artifact_store."""
+class TestDispatchBlockArtifactStoreSharing:
+    """DispatchBlock parallel executions should see the same artifact_store."""
 
     @pytest.mark.asyncio
-    async def test_fanout_state_preserves_artifact_store(self):
-        """FanOutBlock returned state should still have the artifact_store."""
+    async def test_dispatch_state_preserves_artifact_store(self):
+        """DispatchBlock returned state should still have the artifact_store."""
         from unittest.mock import AsyncMock, Mock
 
-        from runsight_core import FanOutBlock
+        from runsight_core import DispatchBlock
         from runsight_core.artifacts import InMemoryArtifactStore
         from runsight_core.primitives import Soul, Task
 
-        store = InMemoryArtifactStore(run_id="fanout-run")
+        store = InMemoryArtifactStore(run_id="dispatch-run")
 
         soul1 = Soul(id="s1", role="Writer", system_prompt="Write.")
         soul2 = Soul(id="s2", role="Critic", system_prompt="Critique.")
@@ -330,13 +330,13 @@ class TestFanOutBlockArtifactStoreSharing:
         mock_result.total_tokens = 10
         mock_runner.execute_task = AsyncMock(return_value=mock_result)
 
-        from runsight_core.blocks.fanout import FanOutBranch
+        from runsight_core.blocks.dispatch import DispatchBranch
 
         branches = [
-            FanOutBranch(exit_id="s1", label="S1", soul=soul1, task_instruction="Do work"),
-            FanOutBranch(exit_id="s2", label="S2", soul=soul2, task_instruction="Do work"),
+            DispatchBranch(exit_id="s1", label="S1", soul=soul1, task_instruction="Do work"),
+            DispatchBranch(exit_id="s2", label="S2", soul=soul2, task_instruction="Do work"),
         ]
-        block = FanOutBlock(block_id="fanout", branches=branches, runner=mock_runner)
+        block = DispatchBlock(block_id="dispatch", branches=branches, runner=mock_runner)
 
         state = WorkflowState(
             artifact_store=store,

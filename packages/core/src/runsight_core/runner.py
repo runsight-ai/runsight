@@ -104,7 +104,7 @@ class RunsightTeamRunner:
 
             If ``_resolve_key_for_model`` (or any helper called here) ever
             becomes async, this turns into a race condition under
-            ``asyncio.gather`` (e.g. FanOutBlock launching parallel souls).
+            ``asyncio.gather`` (e.g. DispatchBlock launching parallel souls).
             In that case, replace with an ``asyncio.Lock`` guarding the
             check-then-set block.
         """

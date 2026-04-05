@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from runsight_core import (
-    FanOutBlock,
+    DispatchBlock,
     LinearBlock,
     SynthesizeBlock,
 )
@@ -128,9 +128,9 @@ async def test_linear_block_preserves_existing_messages(mock_runner, sample_soul
 
 
 @pytest.mark.asyncio
-async def test_fanout_block_parallel(mock_runner):
-    """AC-6: FanOutBlock executes multiple branches in parallel."""
-    from runsight_core.blocks.fanout import FanOutBranch
+async def test_dispatch_block_parallel(mock_runner):
+    """AC-6: DispatchBlock executes multiple branches in parallel."""
+    from runsight_core.blocks.dispatch import DispatchBranch
 
     souls = [
         Soul(id="s1", role="R1", system_prompt="P1"),
@@ -138,7 +138,7 @@ async def test_fanout_block_parallel(mock_runner):
         Soul(id="s3", role="R3", system_prompt="P3"),
     ]
     branches = [
-        FanOutBranch(exit_id=f"exit_{s.id}", label=s.role, soul=s, task_instruction="Review this")
+        DispatchBranch(exit_id=f"exit_{s.id}", label=s.role, soul=s, task_instruction="Review this")
         for s in souls
     ]
 
@@ -148,14 +148,14 @@ async def test_fanout_block_parallel(mock_runner):
         ExecutionResult(task_id="t1", soul_id="s3", output="Output from s3"),
     ]
 
-    block = FanOutBlock("fanout1", branches, mock_runner)
+    block = DispatchBlock("dispatch1", branches, mock_runner)
     task = Task(id="t1", instruction="Review this")
     state = WorkflowState(current_task=task)
 
     result_state = await block.execute(state)
 
     # Verify JSON output format (now uses exit_id instead of soul_id)
-    outputs = json.loads(result_state.results["fanout1"].output)
+    outputs = json.loads(result_state.results["dispatch1"].output)
     assert len(outputs) == 3
     assert outputs[0] == {"exit_id": "exit_s1", "output": "Output from s1"}
     assert outputs[1] == {"exit_id": "exit_s2", "output": "Output from s2"}
@@ -166,10 +166,10 @@ async def test_fanout_block_parallel(mock_runner):
 
 
 @pytest.mark.asyncio
-async def test_fanout_block_empty_branches(mock_runner):
-    """FanOutBlock raises ValueError for empty branches list."""
+async def test_dispatch_block_empty_branches(mock_runner):
+    """DispatchBlock raises ValueError for empty branches list."""
     with pytest.raises(ValueError, match="branches"):
-        FanOutBlock("fanout1", [], mock_runner)
+        DispatchBlock("dispatch1", [], mock_runner)
 
 
 @pytest.mark.asyncio

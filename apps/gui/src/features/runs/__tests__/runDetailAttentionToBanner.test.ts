@@ -26,14 +26,9 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const SRC_DIR = resolve(__dirname, "../../..");
-const RUNS_FEATURE_DIR = resolve(__dirname, "..");
 
 function readSource(relativePath: string): string {
   return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
-}
-
-function readFeatureFile(filename: string): string {
-  return readFileSync(resolve(RUNS_FEATURE_DIR, filename), "utf-8");
 }
 
 // ---------------------------------------------------------------------------

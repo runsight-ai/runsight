@@ -22,7 +22,7 @@ _SOUL_ATTR_MAP = {
 }
 
 # LLM block types that should be wrapped at build time
-LLM_BLOCK_TYPES = frozenset({"linear", "gate", "synthesize", "fanout"})
+LLM_BLOCK_TYPES = frozenset({"linear", "gate", "synthesize", "dispatch"})
 
 
 def _get_soul(inner_block: BaseBlock) -> Any:
@@ -138,7 +138,7 @@ class IsolatedBlockWrapper(BaseBlock):
             state.conversation_histories.get(history_key, []) if self.inner_block.stateful else []
         )
 
-        # Populate block_config with branch metadata for FanOut blocks
+        # Populate block_config with branch metadata for dispatch blocks
         block_config: dict[str, Any] = {}
         if hasattr(self.inner_block, "branches"):
             block_config["branches"] = [
@@ -189,7 +189,7 @@ class IsolatedBlockWrapper(BaseBlock):
             ),
         }
 
-        # Route delegate artifacts to per-port state results for FanOut blocks
+        # Route delegate artifacts to per-port state results for dispatch blocks
         for port, artifact in result.delegate_artifacts.items():
             updated_results[f"{self.block_id}.{port}"] = BlockResult(
                 output=artifact.task,

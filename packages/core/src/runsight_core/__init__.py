@@ -4,7 +4,7 @@ Runsight Agent OS Core Engine
 
 from .blocks.base import BaseBlock
 from .blocks.code import CodeBlock
-from .blocks.fanout import FanOutBlock
+from .blocks.dispatch import DispatchBlock
 from .blocks.gate import GateBlock
 from .blocks.linear import LinearBlock
 from .blocks.loop import CarryContextConfig, LoopBlock, LoopBlockDef
@@ -28,7 +28,7 @@ __all__ = [
     "WorkflowState",
     "BaseBlock",
     "LinearBlock",
-    "FanOutBlock",
+    "DispatchBlock",
     "SynthesizeBlock",
     "LoopBlock",
     "GateBlock",

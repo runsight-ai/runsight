@@ -137,7 +137,7 @@ class TestInitSubclassRegistration:
 
     EXPECTED_BLOCK_TYPES = {
         "linear",
-        "fanout",
+        "dispatch",
         "synthesize",
         "gate",
         "code",
@@ -192,7 +192,7 @@ class TestInitSubclassRegistration:
         """Each registered class has the expected Literal type value."""
         from runsight_core.blocks._registry import BLOCK_DEF_REGISTRY
         from runsight_core.blocks.code import CodeBlockDef
-        from runsight_core.blocks.fanout import FanOutBlockDef
+        from runsight_core.blocks.dispatch import DispatchBlockDef
         from runsight_core.blocks.gate import GateBlockDef
         from runsight_core.blocks.linear import LinearBlockDef
         from runsight_core.blocks.loop import LoopBlockDef
@@ -201,7 +201,7 @@ class TestInitSubclassRegistration:
 
         expected_mapping = {
             "linear": LinearBlockDef,
-            "fanout": FanOutBlockDef,
+            "dispatch": DispatchBlockDef,
             "synthesize": SynthesizeBlockDef,
             "gate": GateBlockDef,
             "code": CodeBlockDef,
