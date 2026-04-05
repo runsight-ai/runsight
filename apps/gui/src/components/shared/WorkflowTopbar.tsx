@@ -39,10 +39,10 @@ export function WorkflowTopbar({
 
   return (
     <header
-      className="flex items-center h-[var(--header-height)] border-b border-border-subtle px-4"
+      className="flex h-[var(--header-height)] items-center gap-3 border-b border-border-subtle px-4"
       style={{ gridColumn: "1 / -1", gridRow: "1" }}
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="topbar__left flex min-w-0 flex-1 items-center gap-2">
         {hasRouter ? <Link to={backTo}>{backButton}</Link> : <a href={backTo}>{backButton}</a>}
         <div className="flex min-w-0 items-center gap-2">
           {title}
@@ -50,8 +50,11 @@ export function WorkflowTopbar({
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="topbar__metrics flex shrink-0 items-center gap-2">
         {metrics}
+      </div>
+
+      <div className="topbar__center flex shrink-0 items-center">
         {toggleVisibility && (toggleVisibility.canvas || toggleVisibility.yaml) ? (
           <Tabs value={activeTab} onValueChange={onValueChange}>
             <TabsList variant="contained">
@@ -70,7 +73,7 @@ export function WorkflowTopbar({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2 flex-1 justify-end">{actions}</div>
+      <div className="topbar__actions flex shrink-0 items-center gap-2">{actions}</div>
     </header>
   );
 }

@@ -59,6 +59,22 @@ def _build_tool_envelopes(soul: Any) -> list[ToolDefEnvelope]:
     return tool_envelopes
 
 
+def _serialize_scoped_results(results: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Normalize workflow results for the subprocess envelope.
+
+    WorkflowBlock output mappings may write plain strings/dicts back into
+    ``state.results`` instead of BlockResult instances. The isolation envelope
+    still needs a uniform object shape for worker-side reconstruction.
+    """
+    serialized: dict[str, dict[str, Any]] = {}
+    for key, value in results.items():
+        if isinstance(value, BlockResult):
+            serialized[key] = value.model_dump()
+        else:
+            serialized[key] = {"output": value}
+    return serialized
+
+
 class IsolatedBlockWrapper(BaseBlock):
     """Wraps an LLM block to execute it in an isolated subprocess.
 
@@ -158,7 +174,7 @@ class IsolatedBlockWrapper(BaseBlock):
             soul=soul_envelope,
             tools=_build_tool_envelopes(soul),
             task=task_envelope,
-            scoped_results={k: v.model_dump() for k, v in state.results.items()},
+            scoped_results=_serialize_scoped_results(state.results),
             scoped_shared_memory=dict(state.shared_memory),
             conversation_history=conversation_history,
             timeout_seconds=300,

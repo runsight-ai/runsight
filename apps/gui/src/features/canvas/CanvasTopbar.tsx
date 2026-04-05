@@ -6,8 +6,8 @@ import { Badge } from "@runsight/ui/badge";
 import { RunButton } from "./RunButton";
 import { ExecutionMetrics } from "./ExecutionMetrics";
 import { useCanvasStore } from "@/store/canvas";
-import { useRun } from "@/queries/runs";
-import { Save } from "lucide-react";
+import { useCancelRun, useRun } from "@/queries/runs";
+import { Save, X } from "lucide-react";
 import { useForkWorkflow } from "../runs/useForkWorkflow";
 import { WorkflowTopbar } from "@/components/shared";
 
@@ -35,6 +35,7 @@ interface CanvasTopbarProps {
   titleAfter?: React.ReactNode;
   metricsOverride?: React.ReactNode;
   actionsOverride?: React.ReactNode;
+  runId?: string;
 }
 
 export function CanvasTopbar({
@@ -61,10 +62,12 @@ export function CanvasTopbar({
   titleAfter,
   metricsOverride,
   actionsOverride,
+  runId,
 }: CanvasTopbarProps) {
   const hasRouter = useInRouterContext();
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();
+  const cancelRun = useCancelRun();
 
   const { forkWorkflow, isForking } = useForkWorkflow({
     commitSha: workflow?.commit_sha ?? "",
@@ -117,6 +120,12 @@ export function CanvasTopbar({
   }, [handleKeyboardSave]);
 
   const workflowName = workflow?.name ?? "Untitled Workflow";
+  const targetRunId = runId ?? activeRunId ?? null;
+  const { data: actionRun } = useRun(targetRunId ?? "", {
+    refetchInterval: actionButton?.label === "Cancel" && targetRunId ? 2000 : false,
+  });
+  const isCancelableRun =
+    actionRun?.status === "running" || actionRun?.status === "pending";
 
   function startEditing() {
     setEditName(workflowName);
@@ -227,9 +236,23 @@ export function CanvasTopbar({
         {actionButton ? (
           <Button
             variant={actionButton.variant as "primary" | "danger" | "ghost"}
-            onClick={actionButton.label === "Fork" ? forkWorkflow : actionButton.onClick}
-            disabled={(snapshotUnavailable || isForking) && actionButton.label === "Fork"}
+            loading={actionButton.label === "Cancel" ? cancelRun.isPending : false}
+            onClick={
+              actionButton.label === "Fork"
+                ? forkWorkflow
+                : actionButton.label === "Cancel"
+                  ? () => {
+                      if (!targetRunId || !isCancelableRun) return;
+                      cancelRun.mutate(targetRunId);
+                    }
+                  : actionButton.onClick
+            }
+            disabled={
+              ((snapshotUnavailable || isForking) && actionButton.label === "Fork")
+              || (actionButton.label === "Cancel" && (!targetRunId || !isCancelableRun))
+            }
           >
+            {actionButton.label === "Cancel" ? <X className="w-4 h-4" /> : null}
             {actionButton.label === "Fork" && isForking ? "Forking..." : actionButton.label}
           </Button>
         ) : (

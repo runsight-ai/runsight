@@ -211,6 +211,14 @@ vi.mock("@/queries/runs", () => ({
       refetch: mocks.refetchRuns,
     };
   },
+  useRunRegressions: (runId?: string) => ({
+    data: runId
+      ? {
+          count: 0,
+          issues: [],
+        }
+      : undefined,
+  }),
 }));
 
 vi.mock("@/queries/dashboard", () => ({
@@ -323,10 +331,7 @@ function getVisibleWorkflowOrder() {
   return within(table)
     .getAllByRole("row")
     .slice(1)
-    .map((row) => {
-      const workflowButton = within(row).getByRole("button");
-      return workflowButton.textContent ?? "";
-    });
+    .map((row) => within(row).getAllByRole("cell")[1]?.textContent ?? "");
 }
 
 function findRunRow(workflowName: string) {

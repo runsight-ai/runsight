@@ -5,6 +5,7 @@ import { formatCost, formatDuration } from "@/utils/formatting";
 import {
   ArrowUpRight,
   GitFork,
+  X,
 } from "lucide-react";
 import type { RunResponse } from "@runsight/shared/zod";
 
@@ -12,6 +13,7 @@ import { useForkWorkflow } from "./useForkWorkflow";
 import { useCallback } from "react";
 import { useNavigate } from "react-router";
 import { WorkflowTopbar } from "@/components/shared";
+import { useCancelRun } from "@/queries/runs";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -59,6 +61,7 @@ export function RunDetailHeader({
   const isCompleted = run.status === "completed" || run.status === "success";
   const isActive = run.status === "running" || run.status === "pending";
   const hasSnapshot = !!run.commit_sha;
+  const cancelRun = useCancelRun();
 
   const forkDisabled = isActive || !hasSnapshot;
 
@@ -79,6 +82,11 @@ export function RunDetailHeader({
     if (forkDisabled || isForking) return;
     forkWorkflow();
   }, [forkDisabled, isForking, forkWorkflow]);
+
+  const handleCancel = useCallback(() => {
+    if (!isActive || cancelRun.isPending) return;
+    cancelRun.mutate(run.id);
+  }, [cancelRun, isActive, run.id]);
 
   // Tooltip message for disabled fork states
   let forkTooltip: string | null = null;
@@ -124,7 +132,18 @@ export function RunDetailHeader({
       }
       actions={
         <>
-          {run.workflow_id ? (
+          {isActive ? (
+            <Button
+              variant="danger"
+              loading={cancelRun.isPending}
+              onClick={handleCancel}
+              aria-label="Cancel run"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Cancel
+            </Button>
+          ) : null}
+          {run.workflow_id && !isActive ? (
             <Button
               variant="secondary"
               onClick={handleOpenWorkflow}

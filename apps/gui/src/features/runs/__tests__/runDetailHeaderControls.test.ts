@@ -8,6 +8,7 @@ import { createMemoryRouter, RouterProvider, useLocation } from "react-router";
 
 const mocks = vi.hoisted(() => ({
   forkWorkflow: vi.fn(),
+  cancelRun: vi.fn(),
 }));
 
 vi.mock("../useForkWorkflow", () => ({
@@ -21,11 +22,19 @@ vi.mock("../useForkWorkflow", () => ({
   }),
 }));
 
+vi.mock("@/queries/runs", () => ({
+  useCancelRun: () => ({
+    mutate: mocks.cancelRun,
+    isPending: false,
+  }),
+}));
+
 import { RunDetailHeader } from "../RunDetailHeader";
 
 afterEach(() => {
   cleanup();
   mocks.forkWorkflow.mockReset();
+  mocks.cancelRun.mockReset();
 });
 
 type RunStatus = "completed" | "failed" | "running";
@@ -145,6 +154,18 @@ describe("Run detail header controls (RUN-510)", () => {
     expect(screen.queryByRole("button", { name: /open workflow/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /run again/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
+  });
+
+  it("shows a live cancel control for active runs and calls the cancel mutation", async () => {
+    const { user } = renderHeader({ status: "running" });
+
+    expect(screen.getByRole("button", { name: /cancel run/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /open workflow/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "Fork" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /cancel run/i }));
+
+    expect(mocks.cancelRun).toHaveBeenCalledWith("run_123456");
   });
 
   it("opens the new forked workflow editor after forking from a run", async () => {

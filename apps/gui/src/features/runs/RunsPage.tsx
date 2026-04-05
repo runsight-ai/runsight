@@ -281,7 +281,7 @@ export function Component() {
   const attentionOnly = searchParams.get("attention") === "only";
   const activeOnly = searchParams.get("status") === "active";
   const [searchQuery, setSearchQuery] = useState("");
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("production");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("started");
   const [sortDirection, setSortDirection] = useState<SortDirection>("descending");
   const { data: attentionData } = useAttentionItems(100);

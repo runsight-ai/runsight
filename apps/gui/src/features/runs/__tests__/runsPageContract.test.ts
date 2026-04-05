@@ -63,7 +63,7 @@ const mocks = vi.hoisted(() => ({
   simulationRun: {
     id: "run_research_sim_8",
     workflow_id: "wf_research",
-    workflow_name: "Research & Review",
+    workflow_name: "Research & Review (Sim)",
     run_number: 8,
     status: "running",
     commit_sha: "9c1deaf77777777",
@@ -74,7 +74,7 @@ const mocks = vi.hoisted(() => ({
     duration_seconds: 4.8,
     total_cost_usd: 0.01,
     total_tokens: 320,
-    eval_pass_pct: null,
+    eval_pass_pct: 88,
     created_at: 1_774_416_199,
   },
   runsQueryCalls: [] as unknown[],
@@ -140,11 +140,11 @@ function getSearchParam(params: unknown): string | null {
   return null;
 }
 
-function findAllRunsSelectOption() {
+function findSourceSelectOption(label: "All runs" | "Production runs") {
   return (
-    screen.queryByRole("option", { name: "All runs" }) ??
-    screen.queryByRole("menuitemradio", { name: "All runs" }) ??
-    screen.getByText("All runs")
+    screen.queryByRole("option", { name: label }) ??
+    screen.queryByRole("menuitemradio", { name: label }) ??
+    screen.getByText(label)
   );
 }
 
@@ -279,50 +279,55 @@ describe("RUN-487 canonical /runs page", () => {
     expect(document.activeElement).toBe(searchInput);
   });
 
-  it("renders the canonical runs page at /runs with Production runs selected by default", async () => {
+  it("renders the canonical runs page at /runs with All runs selected by default", async () => {
     await renderRunsRoute("/runs");
 
     expect(await screen.findByRole("heading", { name: "Runs" })).toBeTruthy();
     expect(screen.queryByRole("tab", { name: /runs/i })).toBeNull();
     expect(screen.getByLabelText("Filter runs by source").textContent).toContain(
-      "Production runs",
+      "All runs",
     );
-    expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([
-      "manual",
-      "schedule",
-      "webhook",
-    ]);
+    expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([]);
+
+    const table = await screen.findByRole("table");
+    expect(within(table).getByRole("columnheader", { name: "Source" })).toBeTruthy();
+    expect(screen.getByText("simulation")).toBeTruthy();
+    expect(findRunRow("Research & Review (Sim)")?.textContent).toContain("88%");
+  });
+
+  it("switches to Production runs, adds the source filter, and hides simulation rows", async () => {
+    const { user } = await renderRunsRoute("/runs");
+
+    await user.click(await screen.findByLabelText("Filter runs by source"));
+    await screen.findByText("Production runs");
+    await user.click(findSourceSelectOption("Production runs"));
+
+    await waitFor(() => {
+      expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([
+        "manual",
+        "schedule",
+        "webhook",
+      ]);
+    });
 
     const table = await screen.findByRole("table");
     expect(within(table).getByRole("columnheader", { name: "Source" })).toBeTruthy();
     expect(screen.queryByText("simulation")).toBeNull();
   });
 
-  it("switches to All runs, removes the source filter, and reveals simulation rows", async () => {
+  it("keeps search client-side after switching to Production runs", async () => {
     const { user } = await renderRunsRoute("/runs");
 
     await user.click(await screen.findByLabelText("Filter runs by source"));
-    await screen.findByText("All runs");
-    await user.click(findAllRunsSelectOption());
+    await screen.findByText("Production runs");
+    await user.click(findSourceSelectOption("Production runs"));
 
     await waitFor(() => {
-      expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([]);
-    });
-
-    const table = await screen.findByRole("table");
-    expect(within(table).getByRole("columnheader", { name: "Source" })).toBeTruthy();
-    expect(screen.getByText("simulation")).toBeTruthy();
-  });
-
-  it("keeps search client-side after switching to All runs", async () => {
-    const { user } = await renderRunsRoute("/runs");
-
-    await user.click(await screen.findByLabelText("Filter runs by source"));
-    await screen.findByText("All runs");
-    await user.click(findAllRunsSelectOption());
-
-    await waitFor(() => {
-      expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([]);
+      expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([
+        "manual",
+        "schedule",
+        "webhook",
+      ]);
     });
 
     await user.clear(screen.getByRole("searchbox", { name: "Search runs" }));
@@ -330,7 +335,11 @@ describe("RUN-487 canonical /runs page", () => {
 
     const finalRequest = mocks.runsQueryCalls.at(-1);
 
-    expect(normalizeSources(finalRequest)).toEqual([]);
+    expect(normalizeSources(finalRequest)).toEqual([
+      "manual",
+      "schedule",
+      "webhook",
+    ]);
     expect(getSearchParam(finalRequest)).toBeNull();
     expect(screen.queryByText("Research & Review")).toBeNull();
     expect(screen.getByText("Content Pipeline")).toBeTruthy();
@@ -373,8 +382,8 @@ describe("RUN-487 canonical /runs page", () => {
     const { router, user } = await renderRunsRoute("/runs");
 
     await user.click(await screen.findByLabelText("Filter runs by source"));
-    await screen.findByText("All runs");
-    await user.click(findAllRunsSelectOption());
+    await screen.findByText("Production runs");
+    await user.click(findSourceSelectOption("Production runs"));
     await user.type(screen.getByRole("searchbox", { name: "Search runs" }), "content");
     await user.click(screen.getByRole("columnheader", { name: "Eval" }));
 
@@ -383,7 +392,9 @@ describe("RUN-487 canonical /runs page", () => {
       expect(screen.getByRole("columnheader", { name: "Eval" }).getAttribute("aria-sort")).toBe(
         "ascending",
       );
-      expect(screen.getByLabelText("Filter runs by source").textContent).toContain("All runs");
+      expect(screen.getByLabelText("Filter runs by source").textContent).toContain(
+        "Production runs",
+      );
     });
 
     await router.navigate("/runs/run_research_7");
@@ -399,9 +410,7 @@ describe("RUN-487 canonical /runs page", () => {
         }) as HTMLInputElement
       ).value,
     ).toBe("");
-    expect(screen.getByLabelText("Filter runs by source").textContent).toContain(
-      "Production runs",
-    );
+    expect(screen.getByLabelText("Filter runs by source").textContent).toContain("All runs");
     expect(screen.getByRole("columnheader", { name: "Started" }).getAttribute("aria-sort")).toBe(
       "descending",
     );

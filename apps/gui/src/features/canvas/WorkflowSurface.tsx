@@ -221,6 +221,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
       <div data-testid="surface-topbar" style={{ gridColumn: "1 / -1", gridRow: "1" }}>
         <CanvasTopbar
           workflowId={workflowId}
+          runId={activeRunId ?? initialRunId}
           activeTab={activeTab}
           onValueChange={(v) => setActiveTab(v as "canvas" | "yaml")}
           isDirty={isDirty}

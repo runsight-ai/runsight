@@ -1,0 +1,307 @@
+version: "1.0"
+tools:
+  - http
+  - file_io
+  - slack_payload_builder
+  - slack_webhook
+blocks:
+  prepare_manifest:
+    type: code
+    timeout_seconds: 15
+    code: |
+      import datetime
+
+      def main(data):
+          return {
+              "workflow_name": "Provider Pulse Release Digest",
+              "report_path": "custom/outputs/provider-pulse-release-digest.md",
+              "primary_trace_path": "custom/outputs/provider-trace-primary.md",
+              "secondary_trace_path": "custom/outputs/provider-trace-secondary.md",
+              "report_date": str(datetime.date.today()),
+              "runtime_target_minutes": 5,
+              "primary_hint": "primary synthesis pass",
+              "secondary_hint": "verification pass",
+          }
+
+  dispatch_source_branches:
+    type: dispatch
+    timeout_seconds: 60
+    exits:
+      - id: product_angle
+        label: Product Angle
+        soul_ref: release_web_analyst_openai
+        task: >
+          Working from the current task and any carried round context, identify
+          the most important provider/model updates and delivery implications for
+          the digest. Use HTTP when you need source confirmation. Return concise bullets.
+      - id: risk_angle
+        label: Risk Angle
+        soul_ref: release_quality_reviewer_anthropic
+        task: >
+          Working from the current task and any carried round context, identify
+          caveats, contradictions, and cost/runtime concerns. Use HTTP when you
+          need direct confirmation. Return concise bullets.
+
+  prepare_primary_phase:
+    type: code
+    timeout_seconds: 10
+    code: |
+      import json
+
+      def main(data):
+          manifest = json.loads(data["results"].get("prepare_manifest", "{}"))
+          return {
+              "phase": "primary_pass",
+              "trace_hint": "primary section refinement",
+              "trace_path": manifest.get(
+                  "primary_trace_path",
+                  "custom/outputs/provider-trace-primary.md",
+              ),
+              "manifest_json": data["results"].get("prepare_manifest", "{}"),
+          }
+
+  subflow_primary:
+    type: workflow
+    workflow_ref: reusable-release-trace-subflow
+    timeout_seconds: 90
+    retry_config:
+      max_attempts: 2
+      backoff: fixed
+      backoff_base_seconds: 1.0
+    inputs:
+      task: current_task
+      manifest_json: results.prepare_manifest
+      phase_payload: results.prepare_primary_phase
+    outputs:
+      results.primary_packaged: packaged_result
+      shared_memory.primary_trace_path: trace_path
+      metadata.primary_quality: quality_status
+
+  capture_primary_package:
+    type: code
+    timeout_seconds: 10
+    code: |
+      import json
+
+      def _load_json(raw, fallback):
+          if isinstance(raw, dict):
+              return raw
+          if isinstance(raw, str):
+              try:
+                  return json.loads(raw)
+              except Exception:
+                  return fallback
+          return fallback
+
+      def main(data):
+          packaged = _load_json(data["results"].get("primary_packaged", "{}"), {})
+          return {
+              "phase": packaged.get("phase", "primary_pass"),
+              "summary": packaged.get("summary", ""),
+              "quality_status": packaged.get("quality_status", ""),
+              "trace_path": packaged.get("trace_path", ""),
+              "trace_write_result": packaged.get("trace_write_result", ""),
+          }
+
+  prepare_secondary_phase:
+    type: code
+    timeout_seconds: 10
+    code: |
+      import json
+
+      def main(data):
+          manifest = json.loads(data["results"].get("prepare_manifest", "{}"))
+          return {
+              "phase": "verification_pass",
+              "trace_hint": "secondary verification refinement",
+              "trace_path": manifest.get(
+                  "secondary_trace_path",
+                  "custom/outputs/provider-trace-secondary.md",
+              ),
+              "manifest_json": data["results"].get("prepare_manifest", "{}"),
+          }
+
+  subflow_secondary:
+    type: workflow
+    workflow_ref: reusable-release-trace-subflow
+    timeout_seconds: 90
+    retry_config:
+      max_attempts: 2
+      backoff: fixed
+      backoff_base_seconds: 1.0
+    inputs:
+      task: current_task
+      manifest_json: results.prepare_manifest
+      phase_payload: results.prepare_secondary_phase
+    outputs:
+      results.secondary_packaged: packaged_result
+      shared_memory.secondary_trace_path: trace_path
+      metadata.secondary_quality: quality_status
+
+  capture_secondary_package:
+    type: code
+    timeout_seconds: 10
+    code: |
+      import json
+
+      def _load_json(raw, fallback):
+          if isinstance(raw, dict):
+              return raw
+          if isinstance(raw, str):
+              try:
+                  return json.loads(raw)
+              except Exception:
+                  return fallback
+          return fallback
+
+      def main(data):
+          packaged = _load_json(data["results"].get("secondary_packaged", "{}"), {})
+          return {
+              "phase": packaged.get("phase", "verification_pass"),
+              "summary": packaged.get("summary", ""),
+              "quality_status": packaged.get("quality_status", ""),
+              "trace_path": packaged.get("trace_path", ""),
+              "trace_write_result": packaged.get("trace_write_result", ""),
+          }
+
+  merge_round_outputs:
+    type: synthesize
+    soul_ref: release_synthesizer_openai
+    input_block_ids:
+      - dispatch_source_branches
+      - capture_primary_package
+      - capture_secondary_package
+    timeout_seconds: 60
+
+  round_gate:
+    type: gate
+    soul_ref: release_gate_anthropic
+    eval_key: merge_round_outputs
+    timeout_seconds: 45
+
+  parent_review_loop:
+    type: loop
+    inner_block_refs:
+      - dispatch_source_branches
+      - prepare_primary_phase
+      - subflow_primary
+      - capture_primary_package
+      - prepare_secondary_phase
+      - subflow_secondary
+      - capture_secondary_package
+      - merge_round_outputs
+      - round_gate
+    max_rounds: 2
+    break_on_exit: pass
+    retry_on_exit: fail
+    carry_context:
+      enabled: true
+      mode: all
+      source_blocks:
+        - dispatch_source_branches
+        - capture_primary_package
+        - capture_secondary_package
+        - merge_round_outputs
+        - round_gate
+      inject_as: parent_round_memory
+
+  route_after_parent_loop:
+    type: code
+    timeout_seconds: 10
+    output_conditions:
+      - case_id: fact_check
+        condition_group:
+          combinator: and
+          conditions:
+            - eval_key: needs_fact_check
+              operator: equals
+              value: true
+      - case_id: ready
+        default: true
+    code: |
+      def main(data):
+          loop_meta = data["shared_memory"].get("__loop__parent_review_loop", {})
+          gate_output = data["results"].get("round_gate", "")
+          return {
+              "needs_fact_check": not loop_meta.get("broke_early", False),
+              "loop_meta": loop_meta,
+              "gate_output": gate_output,
+          }
+
+  fact_check_addendum:
+    type: linear
+    soul_ref: release_quality_reviewer_anthropic
+    stateful: true
+    timeout_seconds: 45
+
+  write_final_report:
+    type: linear
+    soul_ref: release_report_writer_openai
+    timeout_seconds: 45
+    retry_config:
+      max_attempts: 2
+      backoff: fixed
+      backoff_base_seconds: 1.0
+
+  send_slack_digest:
+    type: linear
+    soul_ref: release_slack_reporter_openai
+    timeout_seconds: 30
+    retry_config:
+      max_attempts: 2
+      backoff: fixed
+      backoff_base_seconds: 2.0
+
+  finalize_run:
+    type: code
+    timeout_seconds: 15
+    code: |
+      import json
+
+      def _load_json(raw, fallback):
+          if isinstance(raw, dict):
+              return raw
+          if isinstance(raw, str):
+              try:
+                  return json.loads(raw)
+              except Exception:
+                  return fallback
+          return fallback
+
+      def main(data):
+          manifest = _load_json(data["results"].get("prepare_manifest", "{}"), {})
+          route = _load_json(data["results"].get("route_after_parent_loop", "{}"), {})
+          return {
+              "report_path": manifest.get(
+                  "report_path",
+                  "custom/outputs/provider-pulse-release-digest.md",
+              ),
+              "primary_trace_path": data["shared_memory"].get("primary_trace_path"),
+              "secondary_trace_path": data["shared_memory"].get("secondary_trace_path"),
+              "primary_quality": data["metadata"].get("primary_quality"),
+              "secondary_quality": data["metadata"].get("secondary_quality"),
+              "post_loop_route": route,
+              "report_write_result": data["results"].get("write_final_report", ""),
+              "slack_result": data["results"].get("send_slack_digest", ""),
+          }
+workflow:
+  name: Provider Pulse Release Digest
+  entry: prepare_manifest
+  conditional_transitions:
+    - from: route_after_parent_loop
+      fact_check: fact_check_addendum
+      ready: write_final_report
+      default: fact_check_addendum
+  transitions:
+    - from: prepare_manifest
+      to: parent_review_loop
+    - from: parent_review_loop
+      to: route_after_parent_loop
+    - from: fact_check_addendum
+      to: write_final_report
+    - from: write_final_report
+      to: send_slack_digest
+    - from: send_slack_digest
+      to: finalize_run
+    - from: finalize_run
+      to: null
