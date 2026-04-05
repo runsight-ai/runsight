@@ -201,3 +201,78 @@ class TestInlineSoulSchemaValidation:
             match=r"(key/id mismatch|writer.*reviewer.*match)",
         ):
             RunsightWorkflowFile.model_validate(raw)
+
+
+class TestInlineSoulBackwardsCompatibility:
+    """Existing workflows without inline souls should keep working unchanged."""
+
+    def test_parse_workflow_yaml_without_souls_section_still_uses_external_souls(
+        self, tmp_path: Path
+    ):
+        _write_soul_file(
+            tmp_path,
+            "writer",
+            soul_id="writer_external",
+            role="External Writer",
+            prompt="Use the library prompt.",
+        )
+        workflow_path = _write_workflow_file(
+            tmp_path,
+            """\
+            version: "1.0"
+            config:
+              model_name: gpt-4o
+            blocks:
+              draft:
+                type: linear
+                soul_ref: writer
+            workflow:
+              name: no_inline_souls
+              entry: draft
+              transitions:
+                - from: draft
+                  to: null
+            """,
+        )
+
+        workflow = parse_workflow_yaml(workflow_path)
+
+        block = _unwrap_runtime_block(workflow.blocks["draft"])
+        assert block.soul.id == "writer_external"
+        assert block.soul.role == "External Writer"
+        assert block.soul.system_prompt == "Use the library prompt."
+
+    def test_empty_souls_mapping_is_a_no_op_for_external_soul_resolution(self, tmp_path: Path):
+        _write_soul_file(
+            tmp_path,
+            "writer",
+            soul_id="writer_external",
+            role="External Writer",
+            prompt="Use the library prompt.",
+        )
+        workflow_path = _write_workflow_file(
+            tmp_path,
+            """\
+            version: "1.0"
+            config:
+              model_name: gpt-4o
+            souls: {}
+            blocks:
+              draft:
+                type: linear
+                soul_ref: writer
+            workflow:
+              name: empty_inline_souls
+              entry: draft
+              transitions:
+                - from: draft
+                  to: null
+            """,
+        )
+
+        workflow = parse_workflow_yaml(workflow_path)
+
+        block = _unwrap_runtime_block(workflow.blocks["draft"])
+        assert block.soul.id == "writer_external"
+        assert block.soul.role == "External Writer"
+        assert block.soul.system_prompt == "Use the library prompt."
