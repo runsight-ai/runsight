@@ -182,6 +182,7 @@ class TestRun347FixturesUseLibrarySouls:
     def test_all_yaml_fixtures_still_have_soul_ref_in_blocks(self):
         """Every block that references a soul must use soul_ref, not inline souls."""
         yaml_dicts = _extract_yaml_constants(_TEST_RUN347_PATH)
+        missing = []
         for yaml_dict in yaml_dicts:
             blocks = yaml_dict.get("blocks", {})
             for block_id, block_def in blocks.items():
@@ -189,7 +190,11 @@ class TestRun347FixturesUseLibrarySouls:
                     # soul_ref is present — this is correct
                     continue
                 # If a block previously relied on a soul, it must now have soul_ref
-                # (blocks with type != linear may not need soul_ref, which is fine)
+                if isinstance(block_def, dict):
+                    missing.append(f"Block '{block_id}' is missing soul_ref")
+        assert not missing, f"Blocks missing soul_ref in {_TEST_RUN347_PATH.name}:\n" + "\n".join(
+            missing
+        )
 
     def test_no_soul_level_assertions_remain_in_valid_fixtures(self):
         """Valid YAML fixtures must not have assertions inside soul definitions.
