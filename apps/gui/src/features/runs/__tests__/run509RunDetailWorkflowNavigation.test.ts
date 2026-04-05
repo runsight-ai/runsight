@@ -5,6 +5,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider, useLocation } from "react-router";
+import { vi } from "vitest";
+
+vi.mock("@/queries/runs", () => ({
+  useCancelRun: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
 
 import { RunDetailHeader } from "../RunDetailHeader";
 

@@ -24,12 +24,19 @@
  */
 
 import React from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider, useLocation } from "react-router";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+
+vi.mock("@/queries/runs", () => ({
+  useCancelRun: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
 
 import { RunDetailHeader } from "../RunDetailHeader";
 
@@ -64,12 +71,19 @@ function LocationEcho() {
   return React.createElement("div", null, `location:${location.pathname}`);
 }
 
-function buildRun({
-  status = "completed" as RunStatus,
-  workflowId = "wf_research",
-  workflowName = "Research & Review",
-  commitSha = "abc123def456" as string | null,
+function buildRun(options: {
+  status?: RunStatus;
+  workflowId?: string;
+  workflowName?: string;
+  commitSha?: string | null;
 } = {}) {
+  const status = options.status ?? "completed";
+  const workflowId = options.workflowId ?? "wf_research";
+  const workflowName = options.workflowName ?? "Research & Review";
+  const commitSha = Object.prototype.hasOwnProperty.call(options, "commitSha")
+    ? options.commitSha
+    : "abc123def456";
+
   return {
     id: "run_abcdef123456",
     workflow_id: workflowId,
