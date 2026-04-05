@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import yaml
+from pydantic import BaseModel, ValidationError
 
 if TYPE_CHECKING:
     from runsight_core.yaml.registry import WorkflowRegistry
@@ -24,7 +25,6 @@ from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
-from runsight_core.yaml import discovery as _discovery_module
 from runsight_core.yaml.discovery import discover_custom_tools
 from runsight_core.yaml.schema import (
     ConditionDef,
@@ -77,11 +77,65 @@ def _merge_inline_souls(
         return external_souls
 
     inline_souls = {
-        soul_key: Soul.model_validate(soul_def.model_dump())
-        for soul_key, soul_def in file_def.souls.items()
+        soul_key: _coerce_inline_soul(soul_def) for soul_key, soul_def in file_def.souls.items()
     }
 
     return {**external_souls, **inline_souls}
+
+
+def _coerce_inline_soul(soul_def: object) -> Soul:
+    """Convert schema models, dicts, or lightweight doubles into runtime Soul objects."""
+    if isinstance(soul_def, Soul):
+        return soul_def
+    if isinstance(soul_def, BaseModel):
+        return Soul.model_validate(soul_def.model_dump())
+    if isinstance(soul_def, dict):
+        return Soul.model_validate(soul_def)
+    raw_attrs = vars(soul_def)
+    explicit_fields = {
+        field_name: raw_attrs[field_name]
+        for field_name in Soul.model_fields
+        if field_name in raw_attrs
+    }
+    if explicit_fields:
+        return Soul.model_validate(explicit_fields)
+    return Soul.model_validate(soul_def, from_attributes=True)
+
+
+def _discover_external_souls(
+    souls_dir: Path,
+    *,
+    inline_soul_keys: Collection[str],
+) -> Dict[str, Soul]:
+    """Discover external soul files while letting inline collisions override them."""
+    if not souls_dir.exists():
+        return {}
+
+    inline_soul_key_set = set(inline_soul_keys)
+    external_souls: Dict[str, Soul] = {}
+
+    for yaml_file in souls_dir.glob("*.yaml"):
+        soul_key = yaml_file.stem
+        if soul_key in inline_soul_key_set:
+            logger.warning("Inline soul '%s' overrides external soul file", soul_key)
+            continue
+
+        try:
+            with open(yaml_file, "r", encoding="utf-8") as soul_file_handle:
+                soul_data = yaml.safe_load(soul_file_handle)
+        except (OSError, yaml.YAMLError) as exc:
+            logger.warning("Skipping invalid soul file %s: %s", yaml_file, exc)
+            continue
+
+        if soul_data is None:
+            continue
+
+        try:
+            external_souls[soul_key] = Soul.model_validate(soul_data)
+        except ValidationError as exc:
+            logger.warning("Skipping invalid soul file %s: %s", yaml_file, exc)
+
+    return external_souls
 
 
 def _convert_condition(cond_def: ConditionDef) -> Condition:
@@ -518,15 +572,10 @@ def parse_workflow_yaml(
 
     # Step 3: Discover library souls from custom/souls/.
     souls_dir = Path(workflow_base_dir) / "custom" / "souls"
-    colliding_inline_soul_keys = [
-        soul_key for soul_key in file_def.souls if (souls_dir / f"{soul_key}.yaml").exists()
-    ]
-    external_souls = _discovery_module._discover_souls(souls_dir)
+    external_souls = _discover_external_souls(souls_dir, inline_soul_keys=file_def.souls)
 
     # Step 3.5: Merge inline workflow souls over discovered external soul files.
     souls_map: Dict[str, Soul] = _merge_inline_souls(file_def, external_souls)
-    for soul_key in colliding_inline_soul_keys:
-        logger.warning("Inline soul '%s' overrides external soul file", soul_key)
 
     # Step 4: Instantiate runner (shared across all blocks in this workflow)
     if runner is None:

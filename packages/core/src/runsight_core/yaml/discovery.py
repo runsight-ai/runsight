@@ -344,12 +344,8 @@ def _discover_souls(souls_dir: Path) -> Dict[str, Soul]:
     for yaml_file in souls_dir.glob("*.yaml"):
         soul_key = yaml_file.stem
 
-        try:
-            with open(yaml_file, "r", encoding="utf-8") as f:
-                soul_data = yaml.safe_load(f)
-        except (OSError, yaml.YAMLError) as exc:
-            logger.warning("Skipping invalid soul file %s: %s", yaml_file, exc)
-            continue
+        with open(yaml_file, "r", encoding="utf-8") as f:
+            soul_data = yaml.safe_load(f)
 
         if soul_data is None:
             continue
