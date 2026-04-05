@@ -349,12 +349,12 @@ class RunsightWorkflowFile(BaseModel):
         return tool_ids
 
     @model_validator(mode="after")
-    def _reject_inline_souls(self) -> "RunsightWorkflowFile":
-        if self.souls:
-            raise ValueError(
-                "Inline souls are not supported. "
-                "Define souls in custom/souls/ and reference them via soul_ref."
-            )
+    def _validate_inline_soul_ids(self) -> "RunsightWorkflowFile":
+        for soul_key, soul_def in self.souls.items():
+            if soul_key != soul_def.id:
+                raise ValueError(
+                    f"Inline soul key/id mismatch: key '{soul_key}' must match id '{soul_def.id}'"
+                )
         return self
 
 

@@ -5,6 +5,7 @@ Exports: parse_workflow_yaml, parse_task_yaml
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Collection
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
@@ -39,6 +40,7 @@ from runsight_core.yaml.schema import (
 # 2. Gate migration logic on ``file_def.version`` before the block-building loop.
 SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
 _UNSET_RUNNER_MODEL_NAME = "__runsight_explicit_model_required__"
+logger = logging.getLogger(__name__)
 
 
 def _resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
@@ -64,6 +66,22 @@ def _bootstrap_runner_model_name(souls_map: Dict[str, Soul]) -> str:
         if isinstance(soul.model_name, str) and soul.model_name.strip():
             return soul.model_name
     return _UNSET_RUNNER_MODEL_NAME
+
+
+def _merge_inline_souls(
+    file_def: RunsightWorkflowFile,
+    external_souls: Dict[str, Soul],
+) -> Dict[str, Soul]:
+    """Merge inline workflow souls over external soul files."""
+    if not file_def.souls:
+        return external_souls
+
+    inline_souls = {
+        soul_key: Soul.model_validate(soul_def.model_dump())
+        for soul_key, soul_def in file_def.souls.items()
+    }
+
+    return {**external_souls, **inline_souls}
 
 
 def _convert_condition(cond_def: ConditionDef) -> Condition:
@@ -500,7 +518,15 @@ def parse_workflow_yaml(
 
     # Step 3: Discover library souls from custom/souls/.
     souls_dir = Path(workflow_base_dir) / "custom" / "souls"
-    souls_map: Dict[str, Soul] = _discovery_module._discover_souls(souls_dir)
+    colliding_inline_soul_keys = [
+        soul_key for soul_key in file_def.souls if (souls_dir / f"{soul_key}.yaml").exists()
+    ]
+    external_souls = _discovery_module._discover_souls(souls_dir)
+
+    # Step 3.5: Merge inline workflow souls over discovered external soul files.
+    souls_map: Dict[str, Soul] = _merge_inline_souls(file_def, external_souls)
+    for soul_key in colliding_inline_soul_keys:
+        logger.warning("Inline soul '%s' overrides external soul file", soul_key)
 
     # Step 4: Instantiate runner (shared across all blocks in this workflow)
     if runner is None:
