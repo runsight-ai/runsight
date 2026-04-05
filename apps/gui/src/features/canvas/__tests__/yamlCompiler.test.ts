@@ -94,7 +94,7 @@ describe("Per-type block field emission", () => {
     expect(block).toHaveProperty("input_block_ids", ["a", "b"]);
   });
 
-  it("dispatch: emits soul_ref and does not emit condition_ref", () => {
+  it("dispatch: emits soul_ref", () => {
     const { block } = compileOne(
       mockNode("b1", "dispatch", {
         soulRef: "dispatch_soul",
@@ -102,7 +102,6 @@ describe("Per-type block field emission", () => {
     );
     expect(block.type).toBe("dispatch");
     expect(block).toHaveProperty("soul_ref", "dispatch_soul");
-    expect(block).not.toHaveProperty("condition_ref");
   });
 
   it("team_lead: emits soul_ref and failure_context_keys", () => {
@@ -605,36 +604,19 @@ describe("CompiledWorkflow blocks use full BlockDef shape", () => {
 });
 
 // ===========================================================================
-// 8. RUN-646 dispatch-only editor compile contract
+// 8. Generic editor compile contract
 // ===========================================================================
 
-describe("RUN-646 dispatch-only compile contract", () => {
-  it("dispatch block does not emit legacy condition_ref", () => {
+describe("Generic editor compile contract", () => {
+  it("unknown block types compile through the generic path", () => {
     const { block } = compileOne(
-      mockNode("b1", "dispatch", {
+      mockNode("b1", "custom_branch", {
         soulRef: "branch_soul",
-        conditionRef: "legacy_condition",
+        customFlag: "enabled",
       }),
     );
-    expect(block.type).toBe("dispatch");
-    expect(block).not.toHaveProperty("condition_ref");
-  });
-
-  it("legacy fanout editor block type is rejected at compile time", () => {
-    expect(() =>
-      compileOne(mockNode("b1", "fanout", { soulRefs: ["s1", "s2"] })),
-    ).toThrow(/fanout|dispatch|unsupported/i);
-  });
-
-  it("legacy router editor block type is rejected at compile time", () => {
-    expect(() =>
-      compileOne(
-        mockNode("b1", "router", {
-          soulRef: "router_soul",
-          conditionRef: "route_cond",
-        }),
-      ),
-    ).toThrow(/router|dispatch|unsupported/i);
+    expect(block.type).toBe("custom_branch");
+    expect(block).toHaveProperty("custom_flag", "enabled");
   });
 });
 
@@ -920,13 +902,13 @@ describe("Conditional transitions compilation", () => {
 
   it("edges from node with output_conditions go into conditional_transitions, not transitions", () => {
     const nodes = [
-      mockNodeWithConditions("router", "linear", ["approved", "rejected", "default"]),
+      mockNodeWithConditions("decision", "linear", ["approved", "rejected", "default"]),
       mockNode("approve_step", "linear", { soulRef: "s1" }),
       mockNode("reject_step", "linear", { soulRef: "s2" }),
     ];
     const edges = [
-      mockEdge("router", "approve_step", "approved"),
-      mockEdge("router", "reject_step", "rejected"),
+      mockEdge("decision", "approve_step", "approved"),
+      mockEdge("decision", "reject_step", "rejected"),
     ];
     const result = compileGraphToWorkflowYaml({ nodes, edges });
     const wf = result.workflowDocument.workflow as Record<string, unknown>;
@@ -937,8 +919,8 @@ describe("Conditional transitions compilation", () => {
 
     // Should NOT appear in plain transitions
     const transitions = wf.transitions as Array<{ from: string; to: string }>;
-    const plainFromRouter = transitions.filter((t) => t.from === "router");
-    expect(plainFromRouter).toHaveLength(0);
+    const plainFromDecision = transitions.filter((t) => t.from === "decision");
+    expect(plainFromDecision).toHaveLength(0);
   });
 
   it("edges from node WITHOUT output_conditions stay in transitions", () => {
@@ -1093,20 +1075,20 @@ describe("Conditional transitions compilation", () => {
 
   it("YAML string contains conditional_transitions section", () => {
     const nodes = [
-      mockNodeWithConditions("router_block", "linear", ["approved", "rejected", "default"]),
+      mockNodeWithConditions("decision_block", "linear", ["approved", "rejected", "default"]),
       mockNode("approve_block", "linear"),
       mockNode("reject_block", "linear"),
       mockNode("fallback_block", "linear"),
     ];
     const edges = [
-      mockEdge("router_block", "approve_block", "approved"),
-      mockEdge("router_block", "reject_block", "rejected"),
-      mockEdge("router_block", "fallback_block"),   // default
+      mockEdge("decision_block", "approve_block", "approved"),
+      mockEdge("decision_block", "reject_block", "rejected"),
+      mockEdge("decision_block", "fallback_block"),   // default
     ];
     const result = compileGraphToWorkflowYaml({ nodes, edges });
 
     expect(result.yaml).toContain("conditional_transitions:");
-    expect(result.yaml).toContain("from: router_block");
+    expect(result.yaml).toContain("from: decision_block");
     expect(result.yaml).toContain("approved: approve_block");
     expect(result.yaml).toContain("rejected: reject_block");
     expect(result.yaml).toContain("default: fallback_block");

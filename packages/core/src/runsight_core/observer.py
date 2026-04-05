@@ -412,7 +412,7 @@ def build_child_observer(
 
 
 class CompositeObserver:
-    """Fan-out observer that delegates to multiple observers.
+    """Composite observer that delegates to multiple observers.
 
     Each observer call is isolated with try/except so that one failing
     observer never prevents the remaining observers from firing.

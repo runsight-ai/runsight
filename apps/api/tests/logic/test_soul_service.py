@@ -194,11 +194,11 @@ blocks:
         ),
         workflow_entity(
             "wf_5",
-            "Fanout Flow",
+            "Dispatch Flow",
             """
 blocks:
   route:
-    type: fanout
+    type: dispatch
     exits:
       - id: research
         label: Research
@@ -213,7 +213,7 @@ blocks:
 
     assert usages == [
         {"workflow_id": "wf_1", "workflow_name": "Research Flow"},
-        {"workflow_id": "wf_5", "workflow_name": "Fanout Flow"},
+        {"workflow_id": "wf_5", "workflow_name": "Dispatch Flow"},
     ]
 
 

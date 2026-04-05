@@ -157,7 +157,7 @@ class TestStreamingObserverInCompositeChain:
     @pytest.mark.asyncio
     async def test_streaming_observer_receives_events_via_composite(self):
         """When wf.run() triggers observer events, the StreamingObserver queue
-        must receive them through the CompositeObserver fan-out.
+        must receive them through the CompositeObserver broadcast path.
 
         Currently FAILS because StreamingObserver is not in the chain.
         """

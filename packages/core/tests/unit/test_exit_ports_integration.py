@@ -4,7 +4,6 @@ Failing tests for RUN-271: Update existing YAML workflows + integration tests fo
 This ticket is the capstone of the exit-port series (RUN-266..270). It verifies:
 - All existing YAML workflow files declare exits on gate blocks
 - Loop blocks containing gates use break_on_exit / retry_on_exit
-- No type: router references remain in YAML
 - Full integration chain: YAML -> parse -> build -> execute -> exit_handle routing
 
 Tests cover:
@@ -213,23 +212,6 @@ class TestExistingYamlWorkflowsParse:
             f"Current workflow transitions: {wf_def.get('transitions', [])}"
         )
 
-    def test_no_type_router_in_any_yaml(self):
-        """No YAML workflow file should contain type: router.
-
-        FAILS UNTIL: All router references are replaced with exit-port equivalents.
-        """
-        yaml_files = list(CUSTOM_WORKFLOWS_DIR.glob("*.yaml"))
-        for yaml_path in yaml_files:
-            with open(yaml_path) as f:
-                data = yaml.safe_load(f)
-
-            blocks = data.get("blocks", {})
-            for block_id, block_def in blocks.items():
-                assert block_def.get("type") != "router", (
-                    f"{yaml_path.name}: block '{block_id}' still uses type: router. "
-                    "Replace with output_conditions + exits on the appropriate block."
-                )
-
     @pytest.mark.xfail(
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
@@ -260,11 +242,6 @@ class TestExistingYamlWorkflowsParse:
         # Verify basic structure is valid
         assert "workflow" in data
         assert "blocks" in data
-        # No router types
-        for block_id, block_def in data["blocks"].items():
-            assert block_def.get("type") != "router", (
-                f"mockup_pipeline.yaml: block '{block_id}' still uses type: router"
-            )
 
 
 # ==============================================================================

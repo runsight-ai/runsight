@@ -27,7 +27,7 @@ def _make_soul(soul_id: str = "coordinator") -> Soul:
     return Soul(
         id=soul_id,
         role="Coordinator",
-        system_prompt="You coordinate fan-out tasks.",
+        system_prompt="You coordinate parallel dispatch tasks.",
         model_name="gpt-4o-mini",
     )
 

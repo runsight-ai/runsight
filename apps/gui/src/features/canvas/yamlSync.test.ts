@@ -70,7 +70,7 @@ describe("yamlCompiler", () => {
         data: {
           stepId: "step_b",
           name: "Step B",
-          stepType: "fanout",
+          stepType: "dispatch",
           status: "idle",
         },
         width: 300,

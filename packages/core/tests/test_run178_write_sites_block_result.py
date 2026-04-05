@@ -23,8 +23,6 @@ Tests cover every write site in implementations.py:
   - DispatchBlock           (line 141)
   - SynthesizeBlock       (line 228)
   - LoopBlock             (line 381)
-  - RouterBlock — Soul    (line 707)
-  - RouterBlock — Callable(line 707)
   - WorkflowBlock         (line 856)
   - GateBlock             (line 1124)
   - FileWriterBlock       (line 1186)

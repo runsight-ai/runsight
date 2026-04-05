@@ -172,12 +172,12 @@ blocks:
         soul_repo.list_all.return_value = souls
         workflow_repo.list_all.return_value = [
             workflow_entity(
-                "wf_fanout",
-                "Fanout",
+                "wf_dispatch",
+                "Dispatch",
                 """
 blocks:
   route:
-    type: fanout
+    type: dispatch
     exits:
       - id: research_exit
         label: Research
@@ -262,7 +262,7 @@ blocks:
     type: linear
     soul_ref: web_researcher
   step2:
-    type: fanout
+    type: dispatch
     exits:
       - id: e1
         soul_ref: web_researcher
@@ -489,7 +489,7 @@ blocks:
                 """
 blocks:
   route:
-    type: fanout
+    type: dispatch
     exits:
       - id: e1
         soul_ref: web_researcher
@@ -617,7 +617,7 @@ blocks:
     type: linear
     soul_ref: researcher
   step3:
-    type: fanout
+    type: dispatch
     exits:
       - id: e1
         soul_ref: researcher

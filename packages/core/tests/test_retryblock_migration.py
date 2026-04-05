@@ -5,7 +5,7 @@ Validates:
 1. No stale RetryBlock comments remain in migrated test files
 2. LoopBlock integration tests replace removed RetryBlock integration tests:
    - LoopBlock in full workflow with upstream block (chain pattern)
-   - LoopBlock in cross-feature workflow (LoopBlock + Router conditional branching)
+   - LoopBlock in cross-feature workflow with conditional branching
    - LoopBlock with retry_config in full workflow (retry-on-error + loop-for-iteration)
 3. LoopBlock nested workflow integration (sub-workflow inside loop)
 """
@@ -128,17 +128,16 @@ class TestStaleRetryBlockComments:
     """
 
     def test_integration_advanced_blocks_file_deleted(self):
-        """test_integration_advanced_blocks.py was deleted with RouterBlock removal."""
+        """test_integration_advanced_blocks.py was deleted during branching cleanup."""
         assert not (CORE_TESTS / "test_integration_advanced_blocks.py").exists(), (
-            "test_integration_advanced_blocks.py should have been deleted "
-            "as part of RouterBlock removal"
+            "test_integration_advanced_blocks.py should have been deleted during branching cleanup"
         )
 
     def test_integration_cross_feature_file_deleted(self):
-        """test_integration_cross_feature_boundaries.py was deleted with RouterBlock removal."""
+        """test_integration_cross_feature_boundaries.py was deleted during branching cleanup."""
         assert not (CORE_TESTS / "test_integration_cross_feature_boundaries.py").exists(), (
             "test_integration_cross_feature_boundaries.py should have been deleted "
-            "as part of RouterBlock removal"
+            "during branching cleanup"
         )
 
     def test_no_stale_retryblock_comment_in_yaml_parser(self):

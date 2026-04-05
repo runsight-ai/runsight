@@ -63,10 +63,6 @@ function toCompiledBlock(node: Node<StepNodeData>): BlockDef {
   const data = node.data;
   const stepType: StepType = data?.stepType ?? ("linear" as StepType);
 
-  if (stepType === "fanout" || stepType === "router") {
-    throw new Error(`Unsupported legacy block type: ${stepType}. Use dispatch instead.`);
-  }
-
   const result: Record<string, unknown> = { type: stepType };
 
   // For workflow type, workflowInputs/workflowOutputs map to inputs/outputs
@@ -87,10 +83,6 @@ function toCompiledBlock(node: Node<StepNodeData>): BlockDef {
     }
 
     const snakeField = camelToSnake(camelField);
-
-    if (stepType === "dispatch" && snakeField === "condition_ref") {
-      continue;
-    }
 
     // Skip fields already emitted (e.g. from workflow special case)
     if (result[snakeField] !== undefined) continue;

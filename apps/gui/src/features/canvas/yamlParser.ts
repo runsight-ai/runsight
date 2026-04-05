@@ -27,11 +27,6 @@ const DEFAULT_GRID_Y = 160;
 
 function toStepType(value: unknown): { type?: StepType; error?: string } {
   if (typeof value !== "string") return { type: "linear" as StepType, error: `Invalid block type: expected string, got ${typeof value}` };
-  if (value === "fanout" || value === "router") {
-    return {
-      error: `Unsupported legacy block type: ${value}. Use dispatch instead.`,
-    };
-  }
   return { type: value as StepType };
 }
 

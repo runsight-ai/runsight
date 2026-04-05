@@ -31,7 +31,7 @@ Runsight is a meta-framework and visual observability platform designed specific
 Runsight is built on three distinct layers:
 
 1. **The Builder (Terraform):** Define workflows, souls (agent identities), and tasks using simple YAML files.
-2. **The Runtime (Kubernetes):** A deterministic execution engine that handles state, retries, fan-outs, and multi-agent collaboration patterns.
+2. **The Runtime (Kubernetes):** A deterministic execution engine that handles state, retries, dispatch branches, and multi-agent collaboration patterns.
 3. **Mission Control (Grafana):** A React/Next.js frontend that connects to the runtime via SSE (Server-Sent Events) to stream logs, status, and costs live.
 
 ## 🏁 Quick Start

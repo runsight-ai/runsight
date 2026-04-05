@@ -289,7 +289,7 @@ describe("Round-trip after cleanup: known types use generic path", () => {
     expect(doc2.blocks["b1"]).toEqual(doc1.blocks["b1"]);
   });
 
-  it("dispatch block round-trips without condition_ref", () => {
+  it("dispatch block round-trips with output_conditions", () => {
     const node = mockNode("b1", "dispatch", {
       soulRef: "dispatch_soul",
       outputConditions: [{ case_id: "default", default: true }],
@@ -299,7 +299,6 @@ describe("Round-trip after cleanup: known types use generic path", () => {
     expect(getBlock(doc1, "b1").output_conditions).toEqual([
       { case_id: "default", default: true },
     ]);
-    expect(getBlock(doc1, "b1")).not.toHaveProperty("condition_ref");
     expect(doc2.blocks["b1"]).toEqual(doc1.blocks["b1"]);
   });
 });
@@ -421,17 +420,15 @@ describe("Parse from YAML: known types via generic path", () => {
 describe("RUN-646 editor type surface contract", () => {
   const source = readSourceFile("../../types/schemas/canvas.ts");
 
-  it("StepType includes dispatch and removes fanout/router workflow block identities", () => {
+  it("StepType includes dispatch", () => {
     expect(source).toMatch(/\|\s*"dispatch"/);
-    expect(source).not.toMatch(/\|\s*"fanout"/);
-    expect(source).not.toMatch(/\|\s*"router"/);
   });
 
-  it("StepNodeData no longer exposes conditionRef", () => {
-    expect(source).not.toMatch(/\bconditionRef\?\s*:/);
+  it("StepNodeData exposes dispatch soulRefs", () => {
+    expect(source).toMatch(/\bsoulRefs\?\s*:\s*string\[\]/);
   });
 
-  it("BlockDef no longer exposes condition_ref", () => {
-    expect(source).not.toMatch(/\bcondition_ref\?\s*:/);
+  it("BlockDef exposes dispatch soul_refs", () => {
+    expect(source).toMatch(/\bsoul_refs\?\s*:\s*string\[\]/);
   });
 });

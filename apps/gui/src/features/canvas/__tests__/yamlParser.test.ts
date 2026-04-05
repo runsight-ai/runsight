@@ -75,7 +75,7 @@ describe("Per-type field parsing", () => {
     expect(data.inputBlockIds).toEqual(["step_a", "step_b"]);
   });
 
-  it("dispatch: parses conditional output_conditions without conditionRef", () => {
+  it("dispatch: parses conditional output_conditions", () => {
     const yaml = makeYaml({
       step1: {
         type: "dispatch",
@@ -90,7 +90,6 @@ describe("Per-type field parsing", () => {
     expect(data.stepType).toBe("dispatch");
     expect(data.soulRef).toBe("classifier");
     expect(data.outputConditions).toHaveLength(2);
-    expect(Object.keys(data)).not.toContain("conditionRef");
   });
 
   it("team_lead: soul_ref + failure_context_keys -> soulRef + failureContextKeys", () => {
@@ -410,7 +409,6 @@ describe("Undefined fields not polluted", () => {
     expect(keys).not.toContain("allowedImports");
     expect(keys).not.toContain("outputPath");
     expect(keys).not.toContain("contentKey");
-    expect(keys).not.toContain("conditionRef");
     expect(keys).not.toContain("failureContextKeys");
     expect(keys).not.toContain("retryConfig");
   });
@@ -642,25 +640,16 @@ describe("Deprecated retry block type", () => {
 });
 
 // ===========================================================================
-// 10. RUN-646 dispatch-only editor parsing contract
+// 10. Generic editor parsing contract
 // ===========================================================================
 
-describe("RUN-646 dispatch-only parsing contract", () => {
-  it("rejects legacy fanout block type in editor YAML", () => {
+describe("Generic editor parsing contract", () => {
+  it("preserves unknown block types for downstream validation", () => {
     const yaml = makeYaml({
-      step1: { type: "fanout", soul_refs: ["a", "b"] },
+      step1: { type: "custom_branch", soul_refs: ["a", "b"] },
     });
     const result = parseWorkflowYamlToGraph(yaml);
-    expect(result.error).toBeDefined();
-    expect(result.error!.message).toMatch(/fanout|dispatch|unsupported/i);
-  });
-
-  it("rejects legacy router block type in editor YAML", () => {
-    const yaml = makeYaml({
-      step1: { type: "router", soul_ref: "classifier", condition_ref: "route_cond" },
-    });
-    const result = parseWorkflowYamlToGraph(yaml);
-    expect(result.error).toBeDefined();
-    expect(result.error!.message).toMatch(/router|dispatch|unsupported/i);
+    expect(result.error).toBeUndefined();
+    expect(result.nodes[0].data.stepType).toBe("custom_branch");
   });
 });

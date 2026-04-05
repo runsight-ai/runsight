@@ -166,7 +166,7 @@ export const WithSoul: Story = {
         icon={<SparklesIcon size={14} />}
         inputPort
         outputPort
-        meta="Fanout"
+        meta="Dispatch"
         soul={{
           initial: "E",
           color: "hsl(142, 55%, 42%)",
@@ -282,13 +282,13 @@ export const FullExample: Story = {
         ]}
       />
 
-      {/* Fanout with soul and port rows */}
+      {/* Dispatch with soul and port rows */}
       <NodeCard
-        title="Multi-Analyst Fanout"
+        title="Multi-Analyst Dispatch"
         category="block-agent"
         icon={<FileTextIcon size={14} />}
         inputPort
-        meta={["Fanout", "3 ports"]}
+        meta={["Dispatch", "3 ports"]}
         soul={{
           initial: "TL",
           color: "hsl(38, 85%, 45%)",
