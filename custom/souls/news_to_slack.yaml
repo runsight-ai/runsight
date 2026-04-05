@@ -39,7 +39,6 @@ required_tool_calls:
   - slack_webhook
 max_tool_iterations: 4
 model_name: gpt-4.1-mini
-assertions: null
 provider: openai
 temperature: 0.0
 max_tokens: null

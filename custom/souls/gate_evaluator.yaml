@@ -15,7 +15,6 @@ tools:
 - file_io
 max_tool_iterations: 5
 model_name: null
-assertions: null
 provider: null
 temperature: null
 max_tokens: null
