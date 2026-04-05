@@ -247,11 +247,43 @@ class BaseBlockDef(BaseModel):
     output_conditions: Optional[List[CaseDef]] = None
     inputs: Optional[Dict[str, InputRef]] = None
     outputs: Optional[Dict[str, str]] = None  # name -> type string
+    depends: Optional[Union[str, List[str]]] = None
+    error_route: Optional[str] = None
     retry_config: Optional[RetryConfig] = None
     exits: Optional[List[ExitDef]] = None
     assertions: Optional[List[Dict[str, Any]]] = None
     timeout_seconds: int = Field(default=300, ge=1, le=3600)
     stall_thresholds: Optional[Dict[str, int]] = None
+
+    @field_validator("depends")
+    @classmethod
+    def _validate_depends(
+        cls, value: Optional[Union[str, List[str]]]
+    ) -> Optional[Union[str, List[str]]]:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized:
+                raise ValueError("depends must not be blank")
+            return normalized
+        if isinstance(value, list):
+            normalized_items = []
+            for item in value:
+                normalized = item.strip()
+                if not normalized:
+                    raise ValueError("depends entries must not be blank")
+                normalized_items.append(normalized)
+            return normalized_items
+        return value
+
+    @field_validator("error_route")
+    @classmethod
+    def _validate_error_route(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("error_route must not be blank")
+        return normalized
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)

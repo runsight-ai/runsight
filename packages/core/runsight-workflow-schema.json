@@ -132,6 +132,36 @@
           "default": null,
           "title": "Outputs"
         },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
+        },
         "retry_config": {
           "anyOf": [
             {
@@ -359,6 +389,36 @@
           "default": null,
           "title": "Outputs"
         },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
+        },
         "retry_config": {
           "anyOf": [
             {
@@ -530,6 +590,36 @@
           "default": null,
           "title": "Outputs"
         },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
+        },
         "retry_config": {
           "anyOf": [
             {
@@ -696,6 +786,36 @@
           "default": null,
           "title": "Outputs"
         },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
+        },
         "retry_config": {
           "anyOf": [
             {
@@ -829,6 +949,36 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
         },
         "retry_config": {
           "anyOf": [
@@ -1206,6 +1356,36 @@
           "default": null,
           "title": "Outputs"
         },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
+        },
         "retry_config": {
           "anyOf": [
             {
@@ -1374,6 +1554,36 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
         },
         "retry_config": {
           "anyOf": [

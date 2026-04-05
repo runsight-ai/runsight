@@ -58,6 +58,7 @@ class Workflow:
         self._conditional_transitions: Dict[
             str, Dict[str, str]
         ] = {}  # from_block_id -> {decision_str -> to_block_id}
+        self._error_routes: Dict[str, str] = {}
         self._output_conditions: Dict[str, Tuple[List[Case], str]] = {}
 
     @property
@@ -199,6 +200,11 @@ class Workflow:
         self._output_conditions[block_id] = (cases, default)
         return self
 
+    def set_error_route(self, block_id: str, target_block_id: str) -> "Workflow":
+        """Store an error_route mapping for later runtime handling."""
+        self._error_routes[block_id] = target_block_id
+        return self
+
     def validate(self) -> List[str]:
         """
         Validate workflow topology. Returns list of error messages (empty if valid).
@@ -259,7 +265,14 @@ class Workflow:
                             f"'{from_id}': transition key '{key}' not in declared exits {sorted(declared_ids)}"
                         )
 
-        # Check 5: Cycle detection (DFS)
+        # Check 5: All error routes reference valid blocks
+        for from_id, to_id in self._error_routes.items():
+            if from_id not in self._blocks:
+                errors.append(f"error_route from unknown block '{from_id}' to '{to_id}'")
+            if to_id not in self._blocks:
+                errors.append(f"error_route from '{from_id}' to '{to_id}' unknown block")
+
+        # Check 6: Cycle detection (DFS)
         if not errors:  # Only check cycles if structure is valid
             cycle = self._detect_cycle()
             if cycle:

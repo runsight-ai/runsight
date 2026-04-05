@@ -6,6 +6,7 @@ Exports: parse_workflow_yaml, parse_task_yaml
 from __future__ import annotations
 
 import logging
+import textwrap
 from collections.abc import Collection
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
@@ -136,6 +137,75 @@ def _discover_external_souls(
             logger.warning("Skipping invalid soul file %s: %s", yaml_file, exc)
 
     return external_souls
+
+
+def _normalize_code_block_shorthand(raw: dict[str, Any]) -> None:
+    """Wrap shorthand code blocks into ``def main(data)`` form before schema validation."""
+    raw_blocks = raw.get("blocks")
+    if not isinstance(raw_blocks, dict):
+        return
+
+    for block_data in raw_blocks.values():
+        if not isinstance(block_data, dict):
+            continue
+        if block_data.get("type") != "code":
+            continue
+
+        code = block_data.get("code")
+        if not isinstance(code, str):
+            continue
+        if "def main(" in code:
+            continue
+
+        wrapped_body = textwrap.indent(code.rstrip(), "    ")
+        block_data["code"] = (
+            f"def main(data):\n    result = None\n{wrapped_body}\n    return result\n"
+        )
+
+
+def _normalize_depends(depends: str | list[str] | None) -> list[str]:
+    """Normalize block depends sugar into a list of source block IDs."""
+    if depends is None:
+        return []
+    if isinstance(depends, str):
+        return [depends]
+    return list(depends)
+
+
+def _get_explicit_block_field(block_def: object, field_name: str) -> object | None:
+    """Read a block field without treating mock attribute fallbacks as declared data."""
+    if isinstance(block_def, BaseModel):
+        return getattr(block_def, field_name, None)
+    if isinstance(block_def, dict):
+        return block_def.get(field_name)
+    return vars(block_def).get(field_name)
+
+
+def _expand_depends(file_def: RunsightWorkflowFile, wf: Workflow) -> None:
+    """Expand block depends sugar into plain workflow transitions."""
+    for block_id, block_def in file_def.blocks.items():
+        depends = _get_explicit_block_field(block_def, "depends")
+        for dependency_id in _normalize_depends(depends):
+            existing_target = wf._transitions.get(dependency_id)
+            if existing_target is not None:
+                raise ValueError(
+                    f"depends expansion conflict: '{dependency_id}' already transitions to "
+                    f"'{existing_target}', cannot also depend-route to '{block_id}'"
+                )
+            try:
+                wf.add_transition(dependency_id, block_id)
+            except ValueError as exc:
+                raise ValueError(
+                    f"depends expansion failed for block '{block_id}' from '{dependency_id}': {exc}"
+                ) from exc
+
+
+def _bridge_error_routes(file_def: RunsightWorkflowFile, wf: Workflow) -> None:
+    """Bridge declared block error_route fields onto workflow storage."""
+    for block_id, block_def in file_def.blocks.items():
+        error_route = _get_explicit_block_field(block_def, "error_route")
+        if error_route is not None:
+            wf.set_error_route(block_id, str(error_route))
 
 
 def _convert_condition(cond_def: ConditionDef) -> Condition:
@@ -308,6 +378,8 @@ def _validate_workflow_block_contract(
 ) -> None:
     child_interface = child_file.interface
     if child_interface is None:
+        if not (block_def.inputs or block_def.outputs):
+            return
         raise ValueError(
             f"WorkflowBlock '{block_id}': child workflow '{block_def.workflow_ref}' "
             "must declare an interface"
@@ -546,6 +618,7 @@ def parse_workflow_yaml(
         raw = yaml_str_or_dict
 
     if isinstance(raw, dict):
+        _normalize_code_block_shorthand(raw)
         raw_tools = raw.get("tools")
         if isinstance(raw_tools, list):
             duplicates = _find_duplicate_tool_ids(raw_tools)
@@ -608,12 +681,17 @@ def parse_workflow_yaml(
             child_raw = child_file.model_dump() if hasattr(child_file, "model_dump") else child_file
 
             # Recursively parse child workflow (passes registry + base_dir for nested workflows)
-            child_wf = parse_workflow_yaml(
-                child_raw,
-                workflow_registry=workflow_registry,
-                api_keys=api_keys,
-                _base_dir=workflow_base_dir,
-            )
+            try:
+                child_wf = parse_workflow_yaml(
+                    child_raw,
+                    workflow_registry=workflow_registry,
+                    api_keys=api_keys,
+                    _base_dir=workflow_base_dir,
+                )
+            except Exception:
+                if block_def.on_error != "catch" or block_def.inputs or block_def.outputs:
+                    raise
+                child_wf = Workflow(name=child_file.workflow.name)
 
             # Instantiate WorkflowBlock
             from runsight_core.blocks.workflow_block import WorkflowBlock
@@ -820,6 +898,9 @@ def parse_workflow_yaml(
     for t in file_def.workflow.transitions:
         wf.add_transition(t.from_, t.to)
 
+    # Step 8.5: Expand depends sugar into plain transitions
+    _expand_depends(file_def, wf)
+
     # Step 9: Register conditional transitions
     for ct in file_def.workflow.conditional_transitions:
         condition_map: Dict[str, str] = {}
@@ -861,6 +942,9 @@ def parse_workflow_yaml(
                     )
                     cases.append(Case(case_id=case_def.case_id, condition_group=group))
             wf.set_output_conditions(block_id, cases, default=default_decision)
+
+    # Step 10.75: Bridge error_route declarations onto the workflow
+    _bridge_error_routes(file_def, wf)
 
     # Step 11: Validate (raises ValueError if topology is invalid)
     errors = wf.validate()
