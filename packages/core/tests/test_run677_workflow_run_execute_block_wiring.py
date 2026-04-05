@@ -134,6 +134,39 @@ def _make_parent_loop_workflow(workflow_block: WorkflowBlock, tail_block: BaseBl
 
 
 @pytest.mark.asyncio
+async def test_workflow_block_exit_handle_routes_to_conditional_successor_after_execute_block():
+    """Workflow.run should resolve the next step from the WorkflowBlock result returned by execute_block."""
+    child_workflow = _make_child_workflow(ResultBlock("child_step", "child output"))
+    invoke_child = WorkflowBlock(
+        block_id="invoke_child",
+        child_workflow=child_workflow,
+        inputs={},
+        outputs={},
+    )
+    completed_path = ResultBlock("completed_path", "completed output")
+    fallback_path = ResultBlock("fallback_path", "fallback output")
+
+    wf = Workflow("workflow_block_routing")
+    wf.add_block(invoke_child)
+    wf.add_block(completed_path)
+    wf.add_block(fallback_path)
+    wf.set_entry(invoke_child.block_id)
+    wf.add_conditional_transition(
+        invoke_child.block_id,
+        {"completed": completed_path.block_id, "default": fallback_path.block_id},
+    )
+    wf.add_transition(completed_path.block_id, None)
+    wf.add_transition(fallback_path.block_id, None)
+
+    final_state = await wf.run(WorkflowState())
+
+    assert final_state.results["invoke_child"].exit_handle == "completed"
+    assert completed_path.calls == 1
+    assert fallback_path.calls == 0
+    assert final_state.results["completed_path"].output == "completed output"
+
+
+@pytest.mark.asyncio
 async def test_loopblock_nested_workflow_block_preserves_parent_observer_event_order():
     """WorkflowBlock nested inside LoopBlock should still emit its own block lifecycle events."""
     child_workflow = _make_child_workflow(ResultBlock("child_step", "child output"))
