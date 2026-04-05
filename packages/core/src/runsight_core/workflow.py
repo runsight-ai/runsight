@@ -5,6 +5,7 @@ Workflow state machine for orchestrating block execution.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 import time
 from collections import deque
@@ -20,6 +21,17 @@ if TYPE_CHECKING:
     from runsight_core.yaml.registry import WorkflowRegistry
 
 logger = logging.getLogger(__name__)
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class BlockExecutionContext:
+    """Execution context shared across block dispatch within a workflow run."""
+
+    workflow_name: str
+    blocks: Dict[str, BaseBlock]
+    call_stack: List[str]
+    workflow_registry: Optional["WorkflowRegistry"]
+    observer: Optional["WorkflowObserver"]
 
 
 class Workflow:
