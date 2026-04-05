@@ -32,6 +32,19 @@ class _AlwaysFailBlock(BaseBlock):
         raise self.error_cls(self.message)
 
 
+class _ControlFlowBlock(BaseBlock):
+    """Block double that raises process-control exceptions unchanged."""
+
+    def __init__(self, block_id: str, *, error: BaseException):
+        super().__init__(block_id)
+        self.error = error
+        self.call_count = 0
+
+    async def execute(self, state: WorkflowState) -> WorkflowState:
+        self.call_count += 1
+        raise self.error
+
+
 class _WriteBlock(BaseBlock):
     """Block double that records its execution into results and shared memory."""
 
@@ -225,3 +238,24 @@ class TestErrorRouteRuntimeHandling:
         assert final_state.results["next"].output == "continued"
         assert "handler" not in final_state.results
         assert "__error__safe" not in final_state.shared_memory
+
+    @pytest.mark.parametrize(
+        ("error", "expected_message"),
+        [
+            (KeyboardInterrupt("stop now"), "stop now"),
+            (SystemExit("shutdown now"), "shutdown now"),
+        ],
+    )
+    async def test_process_control_exceptions_bypass_error_route(
+        self, error: BaseException, expected_message: str
+    ):
+        risky = _ControlFlowBlock("risky", error=error)
+        handler = _WriteBlock("handler", output="should not run")
+
+        wf = _workflow_with_entry("control_flow_bypass", risky, handler, entry="risky")
+        wf.set_error_route("risky", "handler")
+
+        with pytest.raises(type(error), match=expected_message):
+            await wf.run(WorkflowState())
+
+        assert risky.call_count == 1
