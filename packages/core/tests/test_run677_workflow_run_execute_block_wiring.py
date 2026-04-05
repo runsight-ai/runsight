@@ -11,6 +11,7 @@ from runsight_core.blocks.registry import BlockRegistry
 from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
+from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import RetryConfig
 
 
@@ -222,6 +223,80 @@ async def test_loopblock_nested_workflow_block_preserves_retry_config_and_multib
     assert sleep_mock.await_count == 1
     assert final_state.results["child_step"].output == "child recovered"
     assert final_state.results["invoke_child"].exit_handle == "completed"
+    assert final_state.results["tail"].output == "tail output"
+
+
+@pytest.mark.asyncio
+async def test_loopblock_nested_workflow_block_forwards_unified_context_to_child_workflow_run():
+    """LoopBlock -> WorkflowBlock should forward call_stack, workflow_registry, and observer context."""
+    child_workflow = AsyncMock()
+    child_workflow.name = "child_workflow"
+    child_workflow.run = AsyncMock(return_value=WorkflowState())
+
+    invoke_child = WorkflowBlock(
+        block_id="invoke_child",
+        child_workflow=child_workflow,
+        inputs={},
+        outputs={},
+    )
+    tail = ResultBlock("tail", "tail output")
+    workflow = _make_parent_loop_workflow(invoke_child, tail)
+    observer = RecordingObserver()
+    registry = WorkflowRegistry(allow_filesystem_fallback=False)
+
+    final_state = await workflow.run(
+        WorkflowState(),
+        call_stack=["root_workflow"],
+        workflow_registry=registry,
+        observer=observer,
+    )
+
+    call_kwargs = child_workflow.run.call_args.kwargs
+
+    assert final_state.results["invoke_child"].exit_handle == "completed"
+    assert call_kwargs["call_stack"] == ["root_workflow", "parent_workflow", "child_workflow"]
+    assert call_kwargs["workflow_registry"] is registry
+    assert call_kwargs["observer"] is not None
+    assert call_kwargs["observer"] is not observer
+
+
+@pytest.mark.asyncio
+async def test_loopblock_break_on_completed_exit_handle_from_workflow_block_stops_after_child_success():
+    """WorkflowBlock success should expose exit_handle='completed' for LoopBlock.break_on_exit."""
+    child_step = ResultBlock("child_step", "child output")
+    child_workflow = _make_child_workflow(child_step)
+    invoke_child = WorkflowBlock(
+        block_id="invoke_child",
+        child_workflow=child_workflow,
+        inputs={},
+        outputs={},
+    )
+    tail = ResultBlock("tail", "tail output")
+
+    workflow = Workflow("parent_workflow")
+    loop_block = LoopBlock(
+        "loop_block",
+        inner_block_refs=[invoke_child.block_id],
+        max_rounds=4,
+        break_on_exit="completed",
+    )
+    workflow.add_block(loop_block)
+    workflow.add_block(invoke_child)
+    workflow.add_block(tail)
+    workflow.set_entry("loop_block")
+    workflow.add_transition("loop_block", tail.block_id)
+    workflow.add_transition(tail.block_id, None)
+
+    final_state = await workflow.run(WorkflowState())
+
+    assert child_step.calls == 1
+    assert final_state.results["invoke_child"].exit_handle == "completed"
+    assert final_state.shared_memory["__loop__loop_block"] == {
+        "rounds_completed": 1,
+        "broke_early": True,
+        "break_reason": "exit_handle 'completed' matched break_on_exit",
+    }
+    assert tail.calls == 1
     assert final_state.results["tail"].output == "tail output"
 
 

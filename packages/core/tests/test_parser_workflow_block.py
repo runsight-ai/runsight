@@ -10,7 +10,7 @@ This module tests:
 """
 
 import pytest
-from runsight_core import WorkflowBlock
+from runsight_core import LoopBlock, WorkflowBlock
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.registry import WorkflowRegistry
@@ -27,6 +27,70 @@ _RESEARCHER_SOUL = {
 
 class TestParseWorkflowBlock:
     """Tests for parsing workflow blocks from YAML."""
+
+    def test_parse_loopblock_with_workflow_block_inner_ref_resolves_child_workflow(self):
+        """LoopBlock should preserve WorkflowBlock refs and the parser should resolve the child."""
+        child_yaml_dict = {
+            "version": "1.0",
+            "interface": {
+                "inputs": [],
+                "outputs": [
+                    {
+                        "name": "done",
+                        "source": "results.child_step",
+                    }
+                ],
+            },
+            "blocks": {
+                "child_step": {
+                    "type": "code",
+                    "code": "def main(data):\n    return {'child_step': 'done'}",
+                }
+            },
+            "workflow": {
+                "name": "child_workflow",
+                "entry": "child_step",
+                "transitions": [{"from": "child_step", "to": None}],
+            },
+        }
+        child_file = RunsightWorkflowFile.model_validate(child_yaml_dict)
+
+        registry = WorkflowRegistry(allow_filesystem_fallback=False)
+        registry.register("child_workflow", child_file)
+
+        parent_yaml_dict = {
+            "version": "1.0",
+            "blocks": {
+                "loop_step": {
+                    "type": "loop",
+                    "inner_block_refs": ["invoke_child"],
+                    "max_rounds": 2,
+                },
+                "invoke_child": {
+                    "type": "workflow",
+                    "workflow_ref": "child_workflow",
+                    "outputs": {"results.child_summary": "done"},
+                },
+            },
+            "workflow": {
+                "name": "parent_workflow",
+                "entry": "loop_step",
+                "transitions": [{"from": "loop_step", "to": None}],
+            },
+        }
+
+        parent_workflow = parse_workflow_yaml(parent_yaml_dict, workflow_registry=registry)
+
+        assert isinstance(parent_workflow, Workflow)
+        loop_block = parent_workflow.blocks["loop_step"]
+        workflow_block = parent_workflow.blocks["invoke_child"]
+
+        assert isinstance(loop_block, LoopBlock)
+        assert loop_block.inner_block_refs == ["invoke_child"]
+        assert isinstance(workflow_block, WorkflowBlock)
+        assert workflow_block.block_id == "invoke_child"
+        assert workflow_block.workflow_ref == "child_workflow"
+        assert workflow_block.child_workflow.name == "child_workflow"
 
     @pytest.mark.xfail(
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
