@@ -65,6 +65,7 @@ class LoopBlock(BaseBlock):
         self.retry_on_exit = retry_on_exit
 
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+        from runsight_core.blocks.workflow_block import WorkflowBlock
         from runsight_core.conditions.engine import (
             ConditionGroup,
             evaluate_condition,
@@ -98,7 +99,7 @@ class LoopBlock(BaseBlock):
                         f"not found in blocks dict. "
                         f"Available blocks: {sorted(blocks.keys())}"
                     )
-                if ctx is not None:
+                if ctx is not None and isinstance(inner_block, WorkflowBlock):
                     state = await execute_block(
                         inner_block,
                         state,
