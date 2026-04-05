@@ -608,6 +608,13 @@ def parse_workflow_yaml(
                 else None
             )
 
+    # Step 6.5c: Bridge exit_conditions from schema to runtime blocks
+    for block_id, block_def in file_def.blocks.items():
+        if block_id in built_blocks:
+            exit_conditions = getattr(block_def, "exit_conditions", None)
+            if exit_conditions is not None:
+                built_blocks[block_id].exit_conditions = exit_conditions
+
     # Step 6.6: Validate and resolve tools per soul
     validate_tool_governance(file_def, souls_map)
     _validate_declared_tool_definitions(

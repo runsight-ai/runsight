@@ -92,6 +92,37 @@ class TestParseWorkflowBlock:
         assert workflow_block.workflow_ref == "child_workflow"
         assert workflow_block.child_workflow.name == "child_workflow"
 
+    def test_exit_conditions_bridged_from_schema_to_runtime_block(self):
+        """Parser should copy exit_conditions from BaseBlockDef to runtime BaseBlock."""
+        yaml_dict = {
+            "version": "1.0",
+            "blocks": {
+                "evaluator": {
+                    "type": "code",
+                    "code": "def main(data):\n    return {'result': 'ok'}",
+                    "exit_conditions": [
+                        {"contains": "PASS", "exit_handle": "pass"},
+                        {"regex": "score:\\s*\\d+", "exit_handle": "scored"},
+                    ],
+                },
+            },
+            "workflow": {
+                "name": "exit_cond_test",
+                "entry": "evaluator",
+                "transitions": [{"from": "evaluator", "to": None}],
+            },
+        }
+
+        workflow = parse_workflow_yaml(yaml_dict)
+        block = workflow.blocks["evaluator"]
+
+        assert block.exit_conditions is not None
+        assert len(block.exit_conditions) == 2
+        assert block.exit_conditions[0].contains == "PASS"
+        assert block.exit_conditions[0].exit_handle == "pass"
+        assert block.exit_conditions[1].regex == "score:\\s*\\d+"
+        assert block.exit_conditions[1].exit_handle == "scored"
+
     @pytest.mark.xfail(
         reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
     )
