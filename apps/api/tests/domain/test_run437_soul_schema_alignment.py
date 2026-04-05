@@ -11,7 +11,7 @@ def test_soul_entity_accepts_core_fields_and_avatar_color():
         tools=["web_search", "summarize"],
         max_tool_iterations=6,
         model_name="gpt-4o",
-        assertions=[{"type": "contains", "value": "result"}],
+        custom_notes="test value",
         avatar_color="lime",
     )
 
@@ -21,7 +21,7 @@ def test_soul_entity_accepts_core_fields_and_avatar_color():
     assert soul.tools == ["web_search", "summarize"]
     assert soul.max_tool_iterations == 6
     assert soul.model_name == "gpt-4o"
-    assert soul.assertions == [{"type": "contains", "value": "result"}]
+    assert soul.custom_notes == "test value"
     assert soul.avatar_color == "lime"
 
 

@@ -29,11 +29,11 @@ def test_soul_entity_preserves_unknown_fields():
         id="legacy",
         role="Legacy Soul",
         system_prompt="Keep unknown fields intact.",
-        assertions=[{"type": "contains", "value": "result"}],
+        custom_notes="test value",
         legacy_name="Legacy Soul",
     )
 
-    assert soul.assertions == [{"type": "contains", "value": "result"}]
+    assert soul.custom_notes == "test value"
     assert soul.legacy_name == "Legacy Soul"
 
 
@@ -48,7 +48,7 @@ def test_update_soul_preserves_unknown_yaml_fields_on_disk(tmp_path: Path):
                 "id": "preserve_me",
                 "role": "Original",
                 "system_prompt": "Original prompt",
-                "assertions": [{"type": "contains", "value": "result"}],
+                "custom_notes": "test value",
                 "legacy_name": "Legacy Soul",
             },
             sort_keys=False,
@@ -69,7 +69,7 @@ def test_update_soul_preserves_unknown_yaml_fields_on_disk(tmp_path: Path):
     assert updated.provider == "anthropic"
     assert reloaded["role"] == "Updated"
     assert reloaded["provider"] == "anthropic"
-    assert reloaded["assertions"] == [{"type": "contains", "value": "result"}]
+    assert reloaded["custom_notes"] == "test value"
     assert reloaded["legacy_name"] == "Legacy Soul"
 
 
