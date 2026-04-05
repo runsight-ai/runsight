@@ -8,6 +8,16 @@ blocks:
   prepare_manifest:
     type: code
     timeout_seconds: 15
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - workflow_name
+            - report_path
+            - primary_trace_path
+            - secondary_trace_path
+            - report_date
     code: |
       import datetime
 
@@ -26,6 +36,16 @@ blocks:
   dispatch_source_branches:
     type: dispatch
     timeout_seconds: 60
+    assertions:
+      - type: contains-json
+        value:
+          type: array
+          minItems: 2
+          items:
+            type: object
+            required:
+              - exit_id
+              - output
     exits:
       - id: product_angle
         label: Product Angle
@@ -45,6 +65,15 @@ blocks:
   prepare_primary_phase:
     type: code
     timeout_seconds: 10
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - phase
+            - trace_hint
+            - trace_path
+            - manifest_json
     code: |
       import json
 
@@ -64,6 +93,9 @@ blocks:
     type: workflow
     workflow_ref: reusable-release-trace-subflow
     timeout_seconds: 90
+    assertions:
+      - type: contains
+        value: completed
     retry_config:
       max_attempts: 2
       backoff: fixed
@@ -80,6 +112,16 @@ blocks:
   capture_primary_package:
     type: code
     timeout_seconds: 10
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - phase
+            - summary
+            - quality_status
+            - trace_path
+            - trace_write_result
     code: |
       import json
 
@@ -106,6 +148,15 @@ blocks:
   prepare_secondary_phase:
     type: code
     timeout_seconds: 10
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - phase
+            - trace_hint
+            - trace_path
+            - manifest_json
     code: |
       import json
 
@@ -125,6 +176,9 @@ blocks:
     type: workflow
     workflow_ref: reusable-release-trace-subflow
     timeout_seconds: 90
+    assertions:
+      - type: contains
+        value: completed
     retry_config:
       max_attempts: 2
       backoff: fixed
@@ -141,6 +195,16 @@ blocks:
   capture_secondary_package:
     type: code
     timeout_seconds: 10
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - phase
+            - summary
+            - quality_status
+            - trace_path
+            - trace_write_result
     code: |
       import json
 
@@ -172,12 +236,23 @@ blocks:
       - capture_primary_package
       - capture_secondary_package
     timeout_seconds: 60
+    assertions:
+      - type: regex
+        value: \S
+      - type: word-count
+        value:
+          min: 5
 
   round_gate:
     type: gate
     soul_ref: release_gate_anthropic
     eval_key: merge_round_outputs
     timeout_seconds: 45
+    assertions:
+      - type: contains-any
+        value:
+          - PASS
+          - "FAIL:"
 
   parent_review_loop:
     type: loop
@@ -204,10 +279,21 @@ blocks:
         - merge_round_outputs
         - round_gate
       inject_as: parent_round_memory
+    assertions:
+      - type: regex
+        value: ^completed_\d+_rounds$
 
   route_after_parent_loop:
     type: code
     timeout_seconds: 10
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - needs_fact_check
+            - loop_meta
+            - gate_output
     output_conditions:
       - case_id: fact_check
         condition_group:
@@ -233,11 +319,17 @@ blocks:
     soul_ref: release_quality_reviewer_anthropic
     stateful: true
     timeout_seconds: 45
+    assertions:
+      - type: regex
+        value: \S
 
   write_final_report:
     type: linear
     soul_ref: release_report_writer_openai
     timeout_seconds: 45
+    assertions:
+      - type: regex
+        value: \S
     retry_config:
       max_attempts: 2
       backoff: fixed
@@ -247,6 +339,9 @@ blocks:
     type: linear
     soul_ref: release_slack_reporter_openai
     timeout_seconds: 30
+    assertions:
+      - type: regex
+        value: \S
     retry_config:
       max_attempts: 2
       backoff: fixed
@@ -255,6 +350,19 @@ blocks:
   finalize_run:
     type: code
     timeout_seconds: 15
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - report_path
+            - primary_trace_path
+            - secondary_trace_path
+            - primary_quality
+            - secondary_quality
+            - post_loop_route
+            - report_write_result
+            - slack_result
     code: |
       import json
 

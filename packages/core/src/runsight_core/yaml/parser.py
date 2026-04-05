@@ -91,7 +91,7 @@ def _merge_inline_souls(
 
 def _coerce_inline_soul(soul_def: object) -> Soul:
     """Convert schema models, dicts, or lightweight doubles into runtime Soul objects."""
-    if isinstance(soul_def, Soul):
+    if isinstance(Soul, type) and isinstance(soul_def, Soul):
         return soul_def
     if isinstance(soul_def, BaseModel):
         return Soul.model_validate(soul_def.model_dump())

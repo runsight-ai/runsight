@@ -18,7 +18,7 @@ config:
   model_name: gpt-4o
 souls:
   analyst:
-    id: analyst_v1
+    id: analyst
     role: Analyst
     system_prompt: You are a careful analyst.
 blocks:
@@ -43,7 +43,7 @@ config:
   model_name: gpt-4o
 souls:
   analyst:
-    id: analyst_v1
+    id: analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     assertions:
@@ -68,7 +68,7 @@ config:
   model_name: gpt-4o
 souls:
   analyst:
-    id: analyst_v1
+    id: analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     assertions:

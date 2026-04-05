@@ -21,6 +21,16 @@ blocks:
   dispatch_child_views:
     type: dispatch
     timeout_seconds: 60
+    assertions:
+      - type: contains-json
+        value:
+          type: array
+          minItems: 2
+          items:
+            type: object
+            required:
+              - exit_id
+              - output
     exits:
       - id: signal_scan
         label: Signal Scan
@@ -42,10 +52,25 @@ blocks:
     input_block_ids:
       - dispatch_child_views
     timeout_seconds: 60
+    assertions:
+      - type: regex
+        value: \S
+      - type: word-count
+        value:
+          min: 5
 
   materialize_child_phase_context:
     type: code
     timeout_seconds: 15
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - workflow_name
+            - phase
+            - trace_hint
+            - trace_path
     code: |
       import json
 
@@ -80,12 +105,23 @@ blocks:
     soul_ref: release_synthesizer_openai
     stateful: true
     timeout_seconds: 60
+    assertions:
+      - type: regex
+        value: \S
+      - type: word-count
+        value:
+          min: 5
 
   child_quality_gate:
     type: gate
     soul_ref: release_gate_anthropic
     eval_key: draft_child_summary
     timeout_seconds: 45
+    assertions:
+      - type: contains-any
+        value:
+          - PASS
+          - "FAIL:"
 
   child_revision_loop:
     type: loop
@@ -104,11 +140,17 @@ blocks:
         - draft_child_summary
         - child_quality_gate
       inject_as: child_round_memory
+    assertions:
+      - type: regex
+        value: ^completed_\d+_rounds$
 
   write_child_trace_file:
     type: linear
     soul_ref: release_trace_writer_openai
     timeout_seconds: 45
+    assertions:
+      - type: regex
+        value: \S
     retry_config:
       max_attempts: 2
       backoff: fixed
@@ -117,6 +159,17 @@ blocks:
   package_child_result:
     type: code
     timeout_seconds: 15
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - phase
+            - trace_hint
+            - summary
+            - quality_status
+            - trace_path
+            - trace_write_result
     code: |
       import json
 

@@ -86,7 +86,6 @@ class SoulDef(BaseModel):
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
     avatar_color: Optional[str] = None
-    assertions: Optional[List[Dict[str, Any]]] = None
 
 
 class TaskDef(BaseModel):
