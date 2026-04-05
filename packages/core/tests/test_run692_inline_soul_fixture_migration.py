@@ -179,21 +179,33 @@ class TestRun347FixturesUseLibrarySouls:
             f"with inline souls: definitions — they must be converted to library soul refs"
         )
 
-    def test_all_yaml_fixtures_still_have_soul_ref_in_blocks(self):
-        """Every block that references a soul must use soul_ref, not inline souls."""
-        yaml_dicts = _extract_yaml_constants(_TEST_RUN347_PATH)
-        missing = []
-        for yaml_dict in yaml_dicts:
-            blocks = yaml_dict.get("blocks", {})
-            for block_id, block_def in blocks.items():
-                if isinstance(block_def, dict) and "soul_ref" in block_def:
-                    # soul_ref is present — this is correct
-                    continue
-                # If a block previously relied on a soul, it must now have soul_ref
-                if isinstance(block_def, dict):
-                    missing.append(f"Block '{block_id}' is missing soul_ref")
-        assert not missing, f"Blocks missing soul_ref in {_TEST_RUN347_PATH.name}:\n" + "\n".join(
-            missing
+    def test_run347_tests_pass_after_migration(self):
+        """Run test_run347 via subprocess and verify all tests pass.
+
+        This is the AC-2 counterpart to TestRun468TestsPass: after inline soul
+        fixtures are migrated to library soul refs, the test_run347 suite must
+        still pass end-to-end.
+        """
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                str(_TEST_RUN347_PATH),
+                "-v",
+                "--tb=short",
+                "--no-header",
+                "-q",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(_REPO_ROOT),
+            timeout=60,
+        )
+        assert result.returncode == 0, (
+            f"test_run347 tests did not pass (exit code {result.returncode}).\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
         )
 
     def test_no_soul_level_assertions_remain_in_valid_fixtures(self):
