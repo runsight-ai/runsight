@@ -166,6 +166,27 @@ class ContextReaderBlock(BaseBlock):
         )
 
 
+class NullSoulOutputBlock(BaseBlock):
+    """Block that exposes soul=None and still participates in carry_context."""
+
+    def __init__(self, block_id: str):
+        super().__init__(block_id)
+        self.soul = None
+
+    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
+        calls.append(len(calls) + 1)
+        return state.model_copy(
+            update={
+                "results": {**state.results, self.block_id: f"{self.block_id}_output"},
+                "shared_memory": {
+                    **state.shared_memory,
+                    f"{self.block_id}_calls": calls,
+                },
+            }
+        )
+
+
 # ==============================================================================
 # 1. Schema tests -- CarryContextConfig model
 # ==============================================================================
@@ -1335,3 +1356,36 @@ class TestCarryContextFormat:
         round_2_ctx = snapshots[1]
         assert isinstance(round_2_ctx, dict)
         assert not isinstance(round_2_ctx, list)
+
+    @pytest.mark.asyncio
+    async def test_carry_context_skips_null_soul_blocks_when_budgeting_task_context(self):
+        """Blocks with soul=None must not crash task-context budgeting."""
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
+        from runsight_core.primitives import Task
+
+        config = CarryContextConfig(
+            mode="last",
+            inject_as="ctx",
+        )
+
+        null_soul = NullSoulOutputBlock("null_soul")
+        reader = ContextReaderBlock("reader", read_key="ctx")
+        blocks = {"null_soul": null_soul, "reader": reader}
+
+        loop = LoopBlock(
+            block_id="loop_block",
+            inner_block_refs=["null_soul", "reader"],
+            max_rounds=2,
+            carry_context=config,
+        )
+        blocks["loop_block"] = loop
+
+        state = WorkflowState(
+            current_task=Task(id="budget-test", instruction="carry context safely"),
+        )
+        result_state = await loop.execute(state, blocks=blocks)
+
+        assert result_state.current_task is not None
+        assert result_state.shared_memory.get("ctx") is not None
+        assert "null_soul_output" in str(result_state.current_task.context)

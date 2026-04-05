@@ -111,13 +111,11 @@ class LoopBlock(BaseBlock):
 
             rounds_completed = round_num
 
-            if broke_early:
-                break
-
-            if should_retry:
-                continue
-
             # Carry context: collect outputs and inject into shared_memory for next round
+            # and downstream blocks. This must happen even when break_on_exit or
+            # retry_on_exit fires, otherwise loops that control flow via exit
+            # handles silently skip context propagation for the round that
+            # triggered the break/retry.
             if self.carry_context is not None and self.carry_context.enabled:
                 source_ids = self.carry_context.source_blocks or self.inner_block_refs
                 round_outputs: Dict[str, Any] = {
@@ -169,11 +167,15 @@ class LoopBlock(BaseBlock):
                     _inner_model = "gpt-4o-mini"
                     for ref in self.inner_block_refs:
                         _ib = blocks.get(ref)
-                        if _ib and hasattr(_ib, "soul"):
-                            _inner_model = _ib.soul.model_name or (
-                                _ib.runner.model_name if hasattr(_ib, "runner") else _inner_model
-                            )
-                            break
+                        if _ib:
+                            _soul = getattr(_ib, "soul", None)
+                            if _soul is not None:
+                                _inner_model = _soul.model_name or (
+                                    _ib.runner.model_name
+                                    if hasattr(_ib, "runner")
+                                    else _inner_model
+                                )
+                                break
 
                     _budgeted = _fit(
                         ContextBudgetRequest(
@@ -196,6 +198,12 @@ class LoopBlock(BaseBlock):
                             ),
                         }
                     )
+
+            if broke_early:
+                break
+
+            if should_retry:
+                continue
 
             # Evaluate break condition against the last inner block's output
             if self.break_condition is not None:
