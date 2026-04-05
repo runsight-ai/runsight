@@ -203,6 +203,21 @@
           "default": null,
           "title": "Exits"
         },
+        "exit_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExitCondition"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Conditions"
+        },
         "assertions": {
           "anyOf": [
             {
@@ -467,6 +482,21 @@
           "title": "Exits",
           "type": "array"
         },
+        "exit_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExitCondition"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Conditions"
+        },
         "assertions": {
           "anyOf": [
             {
@@ -540,6 +570,151 @@
         "task"
       ],
       "title": "DispatchExitDef",
+      "type": "object"
+    },
+    "EvalCaseDef": {
+      "additionalProperties": false,
+      "description": "Single test case within the eval: section of a workflow YAML.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        },
+        "fixtures": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixtures"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "EvalCaseDef",
+      "type": "object"
+    },
+    "EvalSectionDef": {
+      "additionalProperties": false,
+      "description": "Embedded eval: section for workflow test cases.",
+      "properties": {
+        "threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threshold"
+        },
+        "cases": {
+          "items": {
+            "$ref": "#/$defs/EvalCaseDef"
+          },
+          "minItems": 1,
+          "title": "Cases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "cases"
+      ],
+      "title": "EvalSectionDef",
+      "type": "object"
+    },
+    "ExitCondition": {
+      "description": "Maps output content to an exit_handle value.",
+      "properties": {
+        "contains": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contains"
+        },
+        "regex": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Regex"
+        },
+        "exit_handle": {
+          "title": "Exit Handle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "exit_handle"
+      ],
+      "title": "ExitCondition",
       "type": "object"
     },
     "ExitDef": {
@@ -690,6 +865,21 @@
           ],
           "default": null,
           "title": "Exits"
+        },
+        "exit_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExitCondition"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Conditions"
         },
         "assertions": {
           "anyOf": [
@@ -926,6 +1116,21 @@
           "default": null,
           "title": "Exits"
         },
+        "exit_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExitCondition"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Conditions"
+        },
         "assertions": {
           "anyOf": [
             {
@@ -1104,6 +1309,21 @@
           ],
           "default": null,
           "title": "Exits"
+        },
+        "exit_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExitCondition"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Conditions"
         },
         "assertions": {
           "anyOf": [
@@ -1406,22 +1626,6 @@
           ],
           "default": null,
           "title": "Avatar Color"
-        },
-        "assertions": {
-          "anyOf": [
-            {
-              "items": {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Assertions"
         }
       },
       "required": [
@@ -1561,6 +1765,21 @@
           ],
           "default": null,
           "title": "Exits"
+        },
+        "exit_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExitCondition"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Conditions"
         },
         "assertions": {
           "anyOf": [
@@ -1775,6 +1994,21 @@
           ],
           "default": null,
           "title": "Exits"
+        },
+        "exit_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExitCondition"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Conditions"
         },
         "assertions": {
           "anyOf": [
@@ -2090,6 +2324,17 @@
     },
     "workflow": {
       "$ref": "#/$defs/WorkflowDef"
+    },
+    "eval": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvalSectionDef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
