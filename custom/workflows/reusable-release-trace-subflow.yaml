@@ -147,6 +147,9 @@ blocks:
   trace_path_value:
     type: code
     timeout_seconds: 10
+    assertions:
+      - type: regex
+        value: \S
     code: |
       import json
 
@@ -173,6 +176,13 @@ blocks:
   route_trace_writer:
     type: code
     timeout_seconds: 10
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - phase
+            - trace_path
     output_conditions:
       - case_id: primary
         condition_group:
@@ -220,6 +230,9 @@ blocks:
     type: linear
     soul_ref: release_trace_writer_primary_openai
     timeout_seconds: 45
+    assertions:
+      - type: regex
+        value: \S
     retry_config:
       max_attempts: 2
       backoff: fixed

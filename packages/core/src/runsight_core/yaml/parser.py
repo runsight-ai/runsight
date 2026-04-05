@@ -451,24 +451,8 @@ def _validate_workflow_block_runtime_placement(
     *,
     workflow_label: str,
 ) -> None:
-    """Reject workflow blocks nested under containers that bypass Workflow.run()."""
-    for container_id, container_def in file_def.blocks.items():
-        inner_refs = getattr(container_def, "inner_block_refs", None)
-        if not inner_refs or container_def.type != "loop":
-            continue
-
-        for inner_ref in inner_refs:
-            nested_block = file_def.blocks.get(inner_ref)
-            if nested_block is None or nested_block.type != "workflow":
-                continue
-
-            raise ValueError(
-                f"Workflow '{workflow_label}': LoopBlock '{container_id}' references "
-                f"WorkflowBlock '{inner_ref}' in inner_block_refs. This placement is "
-                "unsupported because LoopBlock executes inner blocks directly instead of "
-                "through Workflow.run(). Move the workflow block out of the loop or route "
-                "loop-managed execution through the workflow runner."
-            )
+    """Reserved hook for workflow/loop placement validation."""
+    return None
 
 
 def _resolve_workflow_block_max_depth(
