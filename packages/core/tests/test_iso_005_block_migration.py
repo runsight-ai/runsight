@@ -302,6 +302,58 @@ class TestExistingBlockCodeUnchanged:
 
         inner.execute.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_wrapper_serializes_plain_workflow_mapped_results(self):
+        """Workflow-mapped string/dict results must not crash envelope building."""
+        from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
+        from runsight_core.state import BlockResult
+
+        soul = _make_soul()
+        runner = MagicMock()
+        inner = LinearBlock("blk1", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+
+        captured = {}
+
+        async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
+            captured["envelope"] = envelope
+            return ResultEnvelope(
+                block_id="blk1",
+                output="ok",
+                exit_handle="done",
+                cost_usd=0.0,
+                total_tokens=0,
+                tool_calls_made=0,
+                delegate_artifacts={},
+                conversation_history=[],
+                error=None,
+                error_type=None,
+            )
+
+        wrapper._run_in_subprocess = _capture
+        state = _make_state().model_copy(
+            update={
+                "results": {
+                    "real_block": BlockResult(output="wrapped"),
+                    "workflow_mapped_string": "plain string output",
+                    "workflow_mapped_dict": {"phase": "primary_pass", "status": "ok"},
+                }
+            }
+        )
+
+        result_state = await wrapper.execute(state)
+
+        envelope = captured["envelope"]
+        assert envelope.scoped_results["real_block"]["output"] == "wrapped"
+        assert envelope.scoped_results["workflow_mapped_string"]["output"] == "plain string output"
+        assert envelope.scoped_results["workflow_mapped_dict"]["output"] == {
+            "phase": "primary_pass",
+            "status": "ok",
+        }
+        assert result_state.results["blk1"].output == "ok"
+
 
 # ==============================================================================
 # AC5: Agentic loop works through subprocess (LLM → tool → LLM)
