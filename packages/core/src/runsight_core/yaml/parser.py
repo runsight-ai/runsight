@@ -681,17 +681,12 @@ def parse_workflow_yaml(
             child_raw = child_file.model_dump() if hasattr(child_file, "model_dump") else child_file
 
             # Recursively parse child workflow (passes registry + base_dir for nested workflows)
-            try:
-                child_wf = parse_workflow_yaml(
-                    child_raw,
-                    workflow_registry=workflow_registry,
-                    api_keys=api_keys,
-                    _base_dir=workflow_base_dir,
-                )
-            except Exception:
-                if block_def.on_error != "catch" or block_def.inputs or block_def.outputs:
-                    raise
-                child_wf = Workflow(name=child_file.workflow.name)
+            child_wf = parse_workflow_yaml(
+                child_raw,
+                workflow_registry=workflow_registry,
+                api_keys=api_keys,
+                _base_dir=workflow_base_dir,
+            )
 
             # Instantiate WorkflowBlock
             from runsight_core.blocks.workflow_block import WorkflowBlock
