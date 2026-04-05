@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import logging
+import re
 import time
 from collections import deque
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Deque, Dict, List, Optional, Tuple
@@ -85,6 +86,15 @@ async def _execute_with_retry(
     raise last_exc  # pragma: no cover
 
 
+def _matches_exit_condition(cond: object, output: str) -> bool:
+    """Check if a single exit condition matches the block output."""
+    if getattr(cond, "contains", None) is not None and cond.contains in output:
+        return True
+    if getattr(cond, "regex", None) is not None and re.search(cond.regex, output):
+        return True
+    return False
+
+
 async def execute_block(
     block: BaseBlock,
     state: WorkflowState,
@@ -139,6 +149,23 @@ async def execute_block(
             state = await _execute_with_retry(block, state, retry_cfg, _dispatch)
         else:
             state = await _dispatch(block, state)
+
+        if getattr(block, "exit_conditions", None):
+            br = state.results.get(block_id)
+            if br and br.exit_handle is None:
+                for cond in block.exit_conditions:
+                    if _matches_exit_condition(cond, br.output):
+                        state = state.model_copy(
+                            update={
+                                "results": {
+                                    **state.results,
+                                    block_id: br.model_copy(
+                                        update={"exit_handle": cond.exit_handle}
+                                    ),
+                                }
+                            }
+                        )
+                        break
 
         block_duration = time.time() - block_start_time
         if observer:
