@@ -6,7 +6,6 @@ Exports: parse_workflow_yaml, parse_task_yaml
 from __future__ import annotations
 
 import logging
-import textwrap
 from collections.abc import Collection
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
@@ -137,30 +136,6 @@ def _discover_external_souls(
             logger.warning("Skipping invalid soul file %s: %s", yaml_file, exc)
 
     return external_souls
-
-
-def _normalize_code_block_shorthand(raw: dict[str, Any]) -> None:
-    """Wrap shorthand code blocks into ``def main(data)`` form before schema validation."""
-    raw_blocks = raw.get("blocks")
-    if not isinstance(raw_blocks, dict):
-        return
-
-    for block_data in raw_blocks.values():
-        if not isinstance(block_data, dict):
-            continue
-        if block_data.get("type") != "code":
-            continue
-
-        code = block_data.get("code")
-        if not isinstance(code, str):
-            continue
-        if "def main(" in code:
-            continue
-
-        wrapped_body = textwrap.indent(code.rstrip(), "    ")
-        block_data["code"] = (
-            f"def main(data):\n    result = None\n{wrapped_body}\n    return result\n"
-        )
 
 
 def _normalize_depends(depends: str | list[str] | None) -> list[str]:
@@ -378,8 +353,6 @@ def _validate_workflow_block_contract(
 ) -> None:
     child_interface = child_file.interface
     if child_interface is None:
-        if not (block_def.inputs or block_def.outputs):
-            return
         raise ValueError(
             f"WorkflowBlock '{block_id}': child workflow '{block_def.workflow_ref}' "
             "must declare an interface"
@@ -618,7 +591,6 @@ def parse_workflow_yaml(
         raw = yaml_str_or_dict
 
     if isinstance(raw, dict):
-        _normalize_code_block_shorthand(raw)
         raw_tools = raw.get("tools")
         if isinstance(raw_tools, list):
             duplicates = _find_duplicate_tool_ids(raw_tools)
