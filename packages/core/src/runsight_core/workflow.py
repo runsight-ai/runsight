@@ -51,12 +51,15 @@ async def _execute_with_retry(
             # start from a clean history — failed-attempt messages are never carried over.
             result_state = await execute_fn(block, state)
             if attempt > 1:
-                result_state.shared_memory[f"__retry__{block.block_id}"] = {
-                    "attempt": attempt,
-                    "max_attempts": max_attempts,
-                    "last_error": str(last_exc),
-                    "last_error_type": last_error_type,
-                    "total_retries": attempt - 1,
+                result_state.shared_memory = {
+                    **result_state.shared_memory,
+                    f"__retry__{block.block_id}": {
+                        "attempt": attempt,
+                        "max_attempts": max_attempts,
+                        "last_error": str(last_exc),
+                        "last_error_type": last_error_type,
+                        "total_retries": attempt - 1,
+                    },
                 }
             return result_state
         except (KeyboardInterrupt, SystemExit):
