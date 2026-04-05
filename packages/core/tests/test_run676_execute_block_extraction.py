@@ -1,4 +1,4 @@
-"""Red tests for RUN-676: extract execute_block() and _execute_with_retry()."""
+"""Red tests for RUN-676: extract module-level execute_block()."""
 
 from __future__ import annotations
 
@@ -50,15 +50,6 @@ def _require_execute_block():
             "RUN-676 requires module-level execute_block(block, state, ctx) in runsight_core.workflow"
         )
     return execute_block
-
-
-def _require_retry_helper():
-    retry_helper = getattr(workflow_module, "_execute_with_retry", None)
-    if retry_helper is None:
-        pytest.fail(
-            "RUN-676 requires module-level _execute_with_retry(block, state, retry_cfg, execute_fn)"
-        )
-    return retry_helper
 
 
 def _make_linear_block(block_id: str = "linear_block") -> LinearBlock:
@@ -181,30 +172,6 @@ class TestExecuteBlockDispatch:
 
 
 class TestRetryHelpers:
-    @pytest.mark.asyncio
-    async def test_module_level_retry_helper_retries_until_success(self):
-        retry_helper = _require_retry_helper()
-        block = RetryProbeBlock("retry_block")
-        retry_cfg = RetryConfig(max_attempts=4, backoff="fixed", backoff_base_seconds=0.1)
-        initial_state = WorkflowState()
-        attempt_states = []
-
-        async def execute_fn(blk: BaseBlock, state: WorkflowState) -> WorkflowState:
-            attempt_states.append(state)
-            if len(attempt_states) < 3:
-                raise RuntimeError(f"transient failure #{len(attempt_states)}")
-            return state.model_copy(
-                update={"results": {blk.block_id: BlockResult(output="succeeded on attempt 3")}}
-            )
-
-        with patch("asyncio.sleep", new_callable=AsyncMock) as sleep_mock:
-            result = await retry_helper(block, initial_state, retry_cfg, execute_fn)
-
-        assert len(attempt_states) == 3
-        assert attempt_states == [initial_state, initial_state, initial_state]
-        assert result.results["retry_block"].output == "succeeded on attempt 3"
-        assert sleep_mock.await_count == 2
-
     @pytest.mark.asyncio
     async def test_execute_block_retry_config_retries_three_times_and_completes_once(self):
         execute_block = _require_execute_block()
