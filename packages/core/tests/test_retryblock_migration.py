@@ -272,14 +272,6 @@ class TestLoopBlockWithRetryConfig:
 
         The inner block fails once per round but succeeds on retry.
         The loop should still complete all rounds because retry recovers the error.
-
-        NOTE: The retry_config on inner blocks is applied by the Workflow runner,
-        not by the LoopBlock itself. Since LoopBlock calls inner_block.execute()
-        directly (not through the workflow runner), retry_config on inner blocks
-        inside a loop is NOT automatically applied.
-
-        This test verifies the gap: the inner block's retry_config is ignored
-        inside a LoopBlock, and the inner block failure propagates.
         """
         inner = FailNTimesThenSucceed("inner_block", fail_count=1)
         inner.retry_config = RetryConfig(max_attempts=3, backoff="fixed", backoff_base_seconds=0.1)
@@ -296,12 +288,19 @@ class TestLoopBlockWithRetryConfig:
         wf.add_transition("loop_block", None)
         wf.set_entry("loop_block")
 
-        # The inner block fails on first call. LoopBlock calls execute() directly
-        # without retry wrapper, so the error propagates.
-        # This test documents the current behavior: retry_config on inner blocks
-        # inside a loop is NOT applied by LoopBlock.
-        with pytest.raises(RuntimeError, match="fail #1"):
-            await wf.run(WorkflowState())
+        from unittest.mock import AsyncMock, patch
+
+        with patch("asyncio.sleep", new_callable=AsyncMock) as sleep_mock:
+            final_state = await wf.run(WorkflowState())
+
+        retry_meta = final_state.shared_memory.get("__retry__inner_block")
+        assert retry_meta is not None
+        assert retry_meta["attempt"] == 2
+        assert retry_meta["total_retries"] == 1
+        assert sleep_mock.await_count == 1
+        assert inner._call_count == 3
+        assert final_state.results["inner_block"] == "ok on attempt 3"
+        assert final_state.results["loop_block"].output == "completed_2_rounds"
 
     @pytest.mark.asyncio
     async def test_loop_block_itself_with_retry_config_in_workflow(self):

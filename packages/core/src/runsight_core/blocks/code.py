@@ -278,12 +278,21 @@ class CodeBlock(BaseBlock):
                 }
             )
 
+        # Extract exit_handle from dict results
+        exit_handle: Optional[str] = None
+        if isinstance(result, dict) and "exit_handle" in result:
+            raw = result["exit_handle"]
+            if isinstance(raw, str):
+                result.pop("exit_handle")
+                exit_handle = raw if raw else None
+
         return state.model_copy(
             update={
                 "results": {
                     **state.results,
                     self.block_id: BlockResult(
-                        output=json.dumps(result) if not isinstance(result, str) else result
+                        output=json.dumps(result) if not isinstance(result, str) else result,
+                        exit_handle=exit_handle,
                     ),
                 },
                 "execution_log": state.execution_log
