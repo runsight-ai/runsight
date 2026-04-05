@@ -190,6 +190,10 @@ class TestP2RegistryChildWorkflowSoulDiscovery:
         # Child workflow (registered by name, not file path)
         child_yaml = {
             "version": "1.0",
+            "interface": {
+                "inputs": [],
+                "outputs": [],
+            },
             "blocks": {
                 "write": {
                     "type": "linear",

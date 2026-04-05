@@ -65,7 +65,7 @@ class TestDiscoverSoulFieldPreservation:
             assert soul.max_tokens is None
             assert soul.avatar_color is None
 
-    def test_discover_soul_missing_required_fields_is_skipped(self):
+    def test_discover_soul_missing_required_fields_raises_file_specific_error(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             custom_dir = Path(tmpdir)
             souls_dir = custom_dir / "souls"
@@ -86,10 +86,14 @@ class TestDiscoverSoulFieldPreservation:
                 """)
             )
 
-            _, souls, _ = discover_custom_assets(custom_dir)
+            try:
+                discover_custom_assets(custom_dir)
+                raise AssertionError("discover_custom_assets() should fail for invalid soul files")
+            except ValueError as exc:
+                message = str(exc)
 
-            assert "valid_soul" in souls
-            assert "invalid_soul" not in souls
+            assert "invalid_soul.yaml" in message
+            assert "role" in message
 
     def test_discover_soul_ignores_unknown_extra_keys(self):
         with tempfile.TemporaryDirectory() as tmpdir:

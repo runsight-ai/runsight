@@ -86,7 +86,6 @@ class SoulDef(BaseModel):
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
     avatar_color: Optional[str] = None
-    assertions: Optional[List[Dict[str, Any]]] = None
 
 
 class TaskDef(BaseModel):
@@ -136,6 +135,17 @@ class CaseDef(BaseModel):
 
     case_id: str
     condition_group: Optional[ConditionGroupDef] = None  # None when default=True
+    default: bool = False
+
+
+class RouteDef(BaseModel):
+    """A shorthand route definition that compiles into output conditions and transitions."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    case_id: str = Field(alias="case")
+    when: Optional[ConditionGroupDef] = None
+    goto: str
     default: bool = False
 
 
@@ -253,14 +263,74 @@ class BaseBlockDef(BaseModel):
     type: str
     stateful: bool = False
     output_conditions: Optional[List[CaseDef]] = None
+    routes: Optional[List[RouteDef]] = None
     inputs: Optional[Dict[str, InputRef]] = None
     outputs: Optional[Dict[str, str]] = None  # name -> type string
+    depends: Optional[Union[str, List[str]]] = None
+    error_route: Optional[str] = None
     retry_config: Optional[RetryConfig] = None
     exits: Optional[List[ExitDef]] = None
     exit_conditions: Optional[List[ExitCondition]] = None
     assertions: Optional[List[Dict[str, Any]]] = None
     timeout_seconds: int = Field(default=300, ge=1, le=3600)
     stall_thresholds: Optional[Dict[str, int]] = None
+
+    @field_validator("depends")
+    @classmethod
+    def _validate_depends(
+        cls, value: Optional[Union[str, List[str]]]
+    ) -> Optional[Union[str, List[str]]]:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized:
+                raise ValueError("depends must not be blank")
+            return normalized
+        if isinstance(value, list):
+            normalized_items = []
+            for item in value:
+                normalized = item.strip()
+                if not normalized:
+                    raise ValueError("depends entries must not be blank")
+                normalized_items.append(normalized)
+            return normalized_items
+        return value
+
+    @field_validator("error_route")
+    @classmethod
+    def _validate_error_route(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("error_route must not be blank")
+        return normalized
+
+    @model_validator(mode="after")
+    def _validate_routes(self) -> "BaseBlockDef":
+        if self.routes and self.output_conditions:
+            raise ValueError("routes and output_conditions cannot both be set on the same block")
+
+        if not self.routes:
+            return self
+
+        default_routes = [route for route in self.routes if route.default]
+        if len(default_routes) != 1:
+            raise ValueError("routes require exactly one default route")
+
+        seen_case_ids: set[str] = set()
+        duplicate_case_ids: list[str] = []
+        for route in self.routes:
+            if route.case_id in seen_case_ids and route.case_id not in duplicate_case_ids:
+                duplicate_case_ids.append(route.case_id)
+            seen_case_ids.add(route.case_id)
+
+        if duplicate_case_ids:
+            raise ValueError(
+                "route case ids must be unique; duplicate case_id values: "
+                + ", ".join(repr(case_id) for case_id in duplicate_case_ids)
+            )
+
+        return self
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -358,12 +428,12 @@ class RunsightWorkflowFile(BaseModel):
         return tool_ids
 
     @model_validator(mode="after")
-    def _reject_inline_souls(self) -> "RunsightWorkflowFile":
-        if self.souls:
-            raise ValueError(
-                "Inline souls are not supported. "
-                "Define souls in custom/souls/ and reference them via soul_ref."
-            )
+    def _validate_inline_soul_ids(self) -> "RunsightWorkflowFile":
+        for soul_key, soul_def in self.souls.items():
+            if soul_key != soul_def.id:
+                raise ValueError(
+                    f"Inline soul key/id mismatch: key '{soul_key}' must match id '{soul_def.id}'"
+                )
         return self
 
 

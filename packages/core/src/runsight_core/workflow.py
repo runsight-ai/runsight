@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Deque, Dict, List, O
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, evaluate_output_conditions
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 
 if TYPE_CHECKING:
     from runsight_core.blocks.registry import BlockRegistry
@@ -230,6 +230,7 @@ class Workflow:
         self._conditional_transitions: Dict[
             str, Dict[str, str]
         ] = {}  # from_block_id -> {decision_str -> to_block_id}
+        self._error_routes: Dict[str, str] = {}
         self._output_conditions: Dict[str, Tuple[List[Case], str]] = {}
 
     @property
@@ -371,6 +372,11 @@ class Workflow:
         self._output_conditions[block_id] = (cases, default)
         return self
 
+    def set_error_route(self, block_id: str, target_block_id: str) -> "Workflow":
+        """Store an error_route mapping for later runtime handling."""
+        self._error_routes[block_id] = target_block_id
+        return self
+
     def validate(self) -> List[str]:
         """
         Validate workflow topology. Returns list of error messages (empty if valid).
@@ -431,7 +437,14 @@ class Workflow:
                             f"'{from_id}': transition key '{key}' not in declared exits {sorted(declared_ids)}"
                         )
 
-        # Check 5: Cycle detection (DFS)
+        # Check 5: All error routes reference valid blocks
+        for from_id, to_id in self._error_routes.items():
+            if from_id not in self._blocks:
+                errors.append(f"error_route from unknown block '{from_id}' to '{to_id}'")
+            if to_id not in self._blocks:
+                errors.append(f"error_route from '{from_id}' to '{to_id}' unknown block")
+
+        # Check 6: Cycle detection (DFS)
         if not errors:  # Only check cycles if structure is valid
             cycle = self._detect_cycle()
             if cycle:
@@ -630,17 +643,57 @@ class Workflow:
         try:
             while queue:
                 current_block_id, block = queue.popleft()
-                state = await execute_block(
-                    block,
-                    state,
-                    BlockExecutionContext(
-                        workflow_name=self.name,
-                        blocks=runtime_blocks,
-                        call_stack=call_stack,
-                        workflow_registry=workflow_registry,
-                        observer=observer,
-                    ),
-                )
+                try:
+                    state = await execute_block(
+                        block,
+                        state,
+                        BlockExecutionContext(
+                            workflow_name=self.name,
+                            blocks=runtime_blocks,
+                            call_stack=call_stack,
+                            workflow_registry=workflow_registry,
+                            observer=observer,
+                        ),
+                    )
+                except Exception as e:
+                    error_target_id = self._error_routes.get(current_block_id)
+                    if error_target_id is None:
+                        raise
+                    if error_target_id not in self._blocks:
+                        raise ValueError(
+                            f"error_route from '{current_block_id}' to unknown block "
+                            f"'{error_target_id}'"
+                        ) from e
+
+                    error_type = type(e).__name__
+                    error_message = str(e)
+                    error_info = {
+                        "type": error_type,
+                        "message": error_message,
+                    }
+                    state = state.model_copy(
+                        update={
+                            "results": {
+                                **state.results,
+                                current_block_id: BlockResult(
+                                    output=error_message,
+                                    exit_handle="error",
+                                    metadata={
+                                        "error_type": error_type,
+                                        "error_message": error_message,
+                                        "block_id": current_block_id,
+                                    },
+                                ),
+                            },
+                            "shared_memory": {
+                                **state.shared_memory,
+                                f"__error__{current_block_id}": error_info,
+                            },
+                        }
+                    )
+                    queue.clear()
+                    queue.append((error_target_id, self._blocks[error_target_id]))
+                    continue
 
                 # Step 4: Resolve successor BEFORE checking injection
                 next_block_id = self._resolve_next(current_block_id, state)

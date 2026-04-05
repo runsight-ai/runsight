@@ -102,6 +102,21 @@
           "default": null,
           "title": "Output Conditions"
         },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
+        },
         "inputs": {
           "anyOf": [
             {
@@ -131,6 +146,36 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
         },
         "retry_config": {
           "anyOf": [
@@ -329,6 +374,21 @@
           "default": null,
           "title": "Output Conditions"
         },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
+        },
         "inputs": {
           "anyOf": [
             {
@@ -358,6 +418,36 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
         },
         "retry_config": {
           "anyOf": [
@@ -500,6 +590,21 @@
           "default": null,
           "title": "Output Conditions"
         },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
+        },
         "inputs": {
           "anyOf": [
             {
@@ -529,6 +634,36 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
         },
         "retry_config": {
           "anyOf": [
@@ -613,6 +748,30 @@
           ],
           "default": null,
           "title": "Extract Field"
+        },
+        "pass": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pass"
+        },
+        "fail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fail"
         }
       },
       "required": [
@@ -666,6 +825,21 @@
           "default": null,
           "title": "Output Conditions"
         },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
+        },
         "inputs": {
           "anyOf": [
             {
@@ -695,6 +869,36 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
         },
         "retry_config": {
           "anyOf": [
@@ -800,6 +1004,21 @@
           "default": null,
           "title": "Output Conditions"
         },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
+        },
         "inputs": {
           "anyOf": [
             {
@@ -829,6 +1048,36 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
         },
         "retry_config": {
           "anyOf": [
@@ -1011,6 +1260,42 @@
       "title": "RetryConfig",
       "type": "object"
     },
+    "RouteDef": {
+      "additionalProperties": false,
+      "description": "A shorthand route definition that compiles into output conditions and transitions.",
+      "properties": {
+        "case": {
+          "title": "Case",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConditionGroupDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "goto": {
+          "title": "Goto",
+          "type": "string"
+        },
+        "default": {
+          "type": "boolean",
+          "default": false,
+          "title": "Default"
+        }
+      },
+      "required": [
+        "case",
+        "goto"
+      ],
+      "title": "RouteDef",
+      "type": "object"
+    },
     "SoulDef": {
       "additionalProperties": false,
       "description": "Soul definition as expressed in the YAML souls: section.",
@@ -1041,6 +1326,21 @@
           ],
           "default": null,
           "title": "Tools"
+        },
+        "required_tool_calls": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Required Tool Calls"
         },
         "max_tool_iterations": {
           "default": 5,
@@ -1161,6 +1461,21 @@
           "default": null,
           "title": "Output Conditions"
         },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
+        },
         "inputs": {
           "anyOf": [
             {
@@ -1190,6 +1505,36 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
         },
         "retry_config": {
           "anyOf": [
@@ -1330,6 +1675,21 @@
           "default": null,
           "title": "Output Conditions"
         },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
+        },
         "inputs": {
           "anyOf": [
             {
@@ -1359,6 +1719,36 @@
           ],
           "default": null,
           "title": "Outputs"
+        },
+        "depends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends"
+        },
+        "error_route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Route"
         },
         "retry_config": {
           "anyOf": [
@@ -1439,6 +1829,15 @@
           ],
           "default": null,
           "title": "Max Depth"
+        },
+        "on_error": {
+          "default": "raise",
+          "enum": [
+            "raise",
+            "catch"
+          ],
+          "title": "On Error",
+          "type": "string"
         }
       },
       "required": [
@@ -1479,6 +1878,131 @@
       ],
       "title": "WorkflowDef",
       "type": "object"
+    },
+    "WorkflowInterfaceDef": {
+      "additionalProperties": false,
+      "description": "Public callable contract exposed by a child workflow.",
+      "properties": {
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/WorkflowInterfaceInputDef"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/WorkflowInterfaceOutputDef"
+          },
+          "title": "Outputs",
+          "type": "array"
+        }
+      },
+      "title": "WorkflowInterfaceDef",
+      "type": "object"
+    },
+    "WorkflowInterfaceInputDef": {
+      "additionalProperties": false,
+      "description": "Child-owned public input contract for callable workflows.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "name",
+        "target"
+      ],
+      "title": "WorkflowInterfaceInputDef",
+      "type": "object"
+    },
+    "WorkflowInterfaceOutputDef": {
+      "additionalProperties": false,
+      "description": "Child-owned public output contract for callable workflows.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "name",
+        "source"
+      ],
+      "title": "WorkflowInterfaceOutputDef",
+      "type": "object"
     }
   },
   "description": "Root model for a Runsight .yaml workflow file.\n'workflow' is the only required top-level key \u2014 all others have defaults.",
@@ -1497,6 +2021,17 @@
       "additionalProperties": true,
       "title": "Config",
       "type": "object"
+    },
+    "interface": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WorkflowInterfaceDef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "tools": {
       "items": {

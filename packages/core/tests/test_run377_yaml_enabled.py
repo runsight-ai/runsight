@@ -79,7 +79,7 @@ class TestEnabledFieldParser:
             enabled: true
             souls:
               agent:
-                id: agent_1
+                id: agent
                 role: Agent
                 system_prompt: "You are a test agent."
             blocks:
@@ -106,7 +106,7 @@ class TestEnabledFieldParser:
             version: "1.0"
             souls:
               agent:
-                id: agent_1
+                id: agent
                 role: Agent
                 system_prompt: "You are a test agent."
             blocks:

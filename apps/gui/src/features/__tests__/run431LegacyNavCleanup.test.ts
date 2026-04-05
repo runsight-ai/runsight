@@ -56,6 +56,10 @@ vi.mock("@/queries/dashboard", () => ({
 
 vi.mock("@/queries/runs", () => ({
   useActiveRuns: () => mocks.activeRuns,
+  useCancelRun: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 function LocationEcho() {

@@ -1,0 +1,10 @@
+role: t2
+system_prompt: ttteee
+tools: null
+max_tool_iterations: 5
+model_name: codex-mini-latest
+provider: openai
+temperature: null
+max_tokens: null
+avatar_color: danger
+id: soul_7c3bb5ca

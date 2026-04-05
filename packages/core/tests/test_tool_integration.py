@@ -230,8 +230,10 @@ class TestFullPipeline:
                 tools=[echo_tool_id],
                 souls={
                     "agent": {
-                        "id": "agent_1",
+                        "id": "agent",
                         "role": "Test Agent",
+                        "provider": "openai",
+                        "model_name": "gpt-4o",
                         "system_prompt": "Use the echo tool.",
                         "tools": [echo_tool_id],
                     }
@@ -279,8 +281,10 @@ class TestFullPipeline:
                 tools=[echo_tool_id],
                 souls={
                     "agent": {
-                        "id": "agent_1",
+                        "id": "agent",
                         "role": "Test Agent",
+                        "provider": "openai",
+                        "model_name": "gpt-4o",
                         "system_prompt": "Use echo.",
                         "tools": [echo_tool_id],
                     }
@@ -319,8 +323,10 @@ class TestFullPipeline:
                 tools=[echo_tool_id],
                 souls={
                     "agent": {
-                        "id": "agent_1",
+                        "id": "agent",
                         "role": "Test Agent",
+                        "provider": "openai",
+                        "model_name": "gpt-4o",
                         "system_prompt": "Use echo.",
                         "tools": [echo_tool_id],
                     }
@@ -363,14 +369,18 @@ class TestSoulIsolation:
             tools=["http", "file_io"],
             souls={
                 "soul_a": {
-                    "id": "soul_a_id",
+                    "id": "soul_a",
                     "role": "HTTP Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Make HTTP calls.",
                     "tools": ["http"],
                 },
                 "soul_b": {
-                    "id": "soul_b_id",
+                    "id": "soul_b",
                     "role": "File Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Read files.",
                     "tools": ["file_io"],
                 },
@@ -410,14 +420,18 @@ class TestSoulIsolation:
             tools=["http", "file_io"],
             souls={
                 "soul_a": {
-                    "id": "soul_a_id",
+                    "id": "soul_a",
                     "role": "HTTP Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Make HTTP calls.",
                     "tools": ["http"],
                 },
                 "soul_b": {
-                    "id": "soul_b_id",
+                    "id": "soul_b",
                     "role": "File Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Read files.",
                     "tools": ["file_io"],
                 },
@@ -455,14 +469,18 @@ class TestSoulIsolation:
             tools=["http", "file_io"],
             souls={
                 "soul_a": {
-                    "id": "soul_a_id",
+                    "id": "soul_a",
                     "role": "HTTP Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "HTTP.",
                     "tools": ["http"],
                 },
                 "soul_b": {
-                    "id": "soul_b_id",
+                    "id": "soul_b",
                     "role": "File Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Files.",
                     "tools": ["file_io"],
                 },
@@ -513,8 +531,10 @@ class TestMaxIterationsIntegration:
                 tools=[echo_tool_id],
                 souls={
                     "agent": {
-                        "id": "agent_1",
+                        "id": "agent",
                         "role": "Test Agent",
+                        "provider": "openai",
+                        "model_name": "gpt-4o",
                         "system_prompt": "Always call echo.",
                         "tools": [echo_tool_id],
                         "max_tool_iterations": 2,
@@ -554,8 +574,10 @@ class TestMaxIterationsIntegration:
                 tools=[echo_tool_id],
                 souls={
                     "agent": {
-                        "id": "agent_1",
+                        "id": "agent",
                         "role": "Test Agent",
+                        "provider": "openai",
+                        "model_name": "gpt-4o",
                         "system_prompt": "Echo always.",
                         "tools": [echo_tool_id],
                         "max_tool_iterations": 1,
@@ -592,8 +614,10 @@ class TestMaxIterationsIntegration:
                 tools=[echo_tool_id],
                 souls={
                     "agent": {
-                        "id": "agent_1",
+                        "id": "agent",
                         "role": "Test Agent",
+                        "provider": "openai",
+                        "model_name": "gpt-4o",
                         "system_prompt": "Echo.",
                         "tools": [echo_tool_id],
                         "max_tool_iterations": 5,
@@ -646,8 +670,10 @@ class TestToolErrorFeedback:
                 tools=[failing_tool_id],
                 souls={
                     "agent": {
-                        "id": "agent_1",
+                        "id": "agent",
                         "role": "Test Agent",
+                        "provider": "openai",
+                        "model_name": "gpt-4o",
                         "system_prompt": "Use the fail tool.",
                         "tools": [failing_tool_id],
                     }
@@ -696,8 +722,10 @@ class TestToolErrorFeedback:
                 tools=[error_tool_id],
                 souls={
                     "agent": {
-                        "id": "agent_1",
+                        "id": "agent",
                         "role": "Test Agent",
+                        "provider": "openai",
+                        "model_name": "gpt-4o",
                         "system_prompt": "Use err tool.",
                         "tools": [error_tool_id],
                     }
@@ -802,8 +830,10 @@ class TestParseValidation:
             tools=["http"],
             souls={
                 "agent": {
-                    "id": "agent_1",
+                    "id": "agent",
                     "role": "Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Use tools.",
                     "tools": ["nonexistent_tool"],
                 }
@@ -820,8 +850,10 @@ class TestParseValidation:
             tools=["http"],
             souls={
                 "my_special_soul": {
-                    "id": "mss_1",
+                    "id": "my_special_soul",
                     "role": "Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Use tools.",
                     "tools": ["missing_tool"],
                 }
@@ -838,8 +870,10 @@ class TestParseValidation:
             tools=["does_not_exist"],
             souls={
                 "agent": {
-                    "id": "agent_1",
+                    "id": "agent",
                     "role": "Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Use bad tool.",
                     "tools": ["does_not_exist"],
                 }
@@ -856,8 +890,10 @@ class TestParseValidation:
             tools=["mystery_281"],
             souls={
                 "agent": {
-                    "id": "agent_1",
+                    "id": "agent",
                     "role": "Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Use mystery.",
                     "tools": ["mystery_281"],
                 }
@@ -878,8 +914,10 @@ class TestCanonicalWorkflowToolIdIntegration:
             tools=["http", "file_io"],
             souls={
                 "agent": {
-                    "id": "agent_1",
+                    "id": "agent",
                     "role": "Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Use tools.",
                     "tools": ["http", "file_io"],
                 }
@@ -923,8 +961,10 @@ tools:
   - http
 souls:
   agent:
-    id: agent_1
+    id: agent
     role: Agent
+    provider: openai
+    model_name: gpt-4o
     system_prompt: Use tools.
     tools:
       - http
@@ -962,8 +1002,10 @@ class TestDelegateTool:
             tools=["delegate"],
             souls={
                 "gate_agent": {
-                    "id": "gate_1",
+                    "id": "gate_agent",
                     "role": "Gate Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Evaluate and route.",
                     "tools": ["delegate"],
                 }
@@ -1019,8 +1061,10 @@ class TestDelegateTool:
             tools=["delegate"],
             souls={
                 "gate_agent": {
-                    "id": "gate_1",
+                    "id": "gate_agent",
                     "role": "Gate Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Delegate.",
                     "tools": ["delegate"],
                     "exits": [
@@ -1071,8 +1115,10 @@ class TestDelegateTool:
             tools=["delegate"],
             souls={
                 "router_agent": {
-                    "id": "router_1",
+                    "id": "router_agent",
                     "role": "Router",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Route.",
                     "tools": ["delegate"],
                 }
@@ -1117,8 +1163,10 @@ class TestCostAccumulationIntegration:
                 tools=[echo_tool_id],
                 souls={
                     "agent": {
-                        "id": "agent_1",
+                        "id": "agent",
                         "role": "Test Agent",
+                        "provider": "openai",
+                        "model_name": "gpt-4o",
                         "system_prompt": "Echo three times.",
                         "tools": [echo_tool_id],
                         "max_tool_iterations": 5,
@@ -1162,8 +1210,10 @@ class TestCostAccumulationIntegration:
                 tools=[echo_tool_id],
                 souls={
                     "agent": {
-                        "id": "agent_1",
+                        "id": "agent",
                         "role": "Test Agent",
+                        "provider": "openai",
+                        "model_name": "gpt-4o",
                         "system_prompt": "Echo.",
                         "tools": [echo_tool_id],
                         "max_tool_iterations": 5,
@@ -1220,8 +1270,10 @@ class TestNoToolsPath:
         yaml_dict = _workflow_dict(
             souls={
                 "plain_agent": {
-                    "id": "plain_1",
+                    "id": "plain_agent",
                     "role": "Plain Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Just answer.",
                 }
             },
@@ -1251,8 +1303,10 @@ class TestNoToolsPath:
         yaml_dict = _workflow_dict(
             souls={
                 "plain_agent": {
-                    "id": "plain_1",
+                    "id": "plain_agent",
                     "role": "Plain Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Just answer.",
                 }
             },
@@ -1277,8 +1331,10 @@ class TestNoToolsPath:
             tools=["http"],
             souls={
                 "no_tool_soul": {
-                    "id": "nt_1",
+                    "id": "no_tool_soul",
                     "role": "No Tools",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "I have no tools.",
                 }
             },
@@ -1300,6 +1356,8 @@ class TestNoToolsPath:
             id="plain_soul",
             role="Plain",
             system_prompt="Just answer.",
+            provider="openai",
+            model_name="gpt-4o",
         )
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
@@ -1349,9 +1407,9 @@ class TestExistingYamlWorkflowsParseClean:
                         f"Declared tools: {list(tools_section)}"
                     )
 
-    def test_mockup_generate_review_yaml_parses(self) -> None:
-        """custom/workflows/mockup_generate_review.yaml must parse successfully."""
-        yaml_path = CUSTOM_WORKFLOWS_DIR / "mockup_generate_review.yaml"
+    def test_existing_checked_in_workflow_parses(self) -> None:
+        """A checked-in workflow fixture should still parse successfully."""
+        yaml_path = CUSTOM_WORKFLOWS_DIR / "research-review-fw2ry.yaml"
         assert yaml_path.exists(), f"Workflow file missing: {yaml_path}"
         workflow = parse_workflow_yaml(str(yaml_path))
         assert workflow is not None
@@ -1407,8 +1465,10 @@ tools:
   - adder
 souls:
   agent:
-    id: agent_1
+    id: agent
     role: Custom Agent
+    provider: openai
+    model_name: gpt-4o
     system_prompt: Use the adder tool.
     tools:
       - adder
@@ -1497,8 +1557,10 @@ tools:
   - fetch_answer
 souls:
   agent:
-    id: agent_1
+    id: agent
     role: HTTP Agent
+    provider: openai
+    model_name: gpt-4o
     system_prompt: Use the fetch tool.
     tools:
       - fetch_answer
@@ -1585,8 +1647,10 @@ workflow:
             tools=["http"],
             souls={
                 "agent": {
-                    "id": "agent_1",
+                    "id": "agent",
                     "role": "HTTP Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Use the builtin http tool.",
                     "tools": ["http"],
                 }
@@ -1741,8 +1805,10 @@ workflow:
             tools=["http"],
             souls={
                 "agent": {
-                    "id": "agent_1",
+                    "id": "agent",
                     "role": "HTTP Agent",
+                    "provider": "openai",
+                    "model_name": "gpt-4o",
                     "system_prompt": "Use the builtin http tool.",
                     "tools": ["http"],
                 }
@@ -1911,8 +1977,10 @@ tools:
   - fetch_answer
 souls:
   agent:
-    id: agent_1
+    id: agent
     role: Mixed Agent
+    provider: openai
+    model_name: gpt-4o
     system_prompt: Use every tool.
     tools:
       - http
@@ -1951,8 +2019,10 @@ config:
   model_name: gpt-4o
 souls:
   agent:
-    id: agent_1
+    id: agent
     role: Agent
+    provider: openai
+    model_name: gpt-4o
     system_prompt: Use a missing tool.
     tools:
       - missing_tool
@@ -2105,8 +2175,10 @@ tools:
   - fetch_answer
 souls:
   agent:
-    id: agent_1
+    id: agent
     role: Mixed Agent
+    provider: openai
+    model_name: gpt-4o
     system_prompt: Use every tool.
     tools:
       - http

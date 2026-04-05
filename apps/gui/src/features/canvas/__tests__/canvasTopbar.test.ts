@@ -110,9 +110,9 @@ describe("CanvasPage component structure", () => {
 // ===========================================================================
 
 describe("Topbar height uses --header-height (AC2)", () => {
-  it("CanvasTopbar uses h-[var(--header-height)]", () => {
+  it("CanvasTopbar delegates header shell layout to WorkflowTopbar", () => {
     const source = readSource(CANVAS_TOPBAR_PATH);
-    expect(source).toMatch(/h-\[var\(--header-height\)\]/);
+    expect(source).toMatch(/WorkflowTopbar/);
   });
 
   it("CanvasTopbar does NOT use hardcoded height values (h-10, h-12, h-40px)", () => {
@@ -178,38 +178,37 @@ describe("Workflow name editable (AC3)", () => {
 describe("Canvas|YAML toggle (AC4)", () => {
   let source: string;
 
-  it("imports Tabs components from component library", () => {
+  it("wires view-mode state through WorkflowTopbar", () => {
     source = readSource(CANVAS_TOPBAR_PATH);
-    expect(source).toMatch(/import.*Tabs.*from.*(@runsight\/ui\/tabs|components\/ui\/tabs)/);
+    expect(source).toMatch(/WorkflowTopbar/);
+    expect(source).toMatch(/activeTab/);
+    expect(source).toMatch(/onValueChange/);
   });
 
-  it("renders TabsList with contained variant", () => {
+  it("passes toggleVisibility to the shared topbar", () => {
     source = readSource(CANVAS_TOPBAR_PATH);
-    // The toggle should use the "contained" variant for a pill/segment look
-    expect(source).toMatch(/variant\s*=\s*["']contained["']/);
+    expect(source).toMatch(/toggleVisibility=\{toggleVisibility\}/);
   });
 
-  it("has a 'Canvas' tab trigger", () => {
+  it("supports a canvas view option", () => {
     source = readSource(CANVAS_TOPBAR_PATH);
-    expect(source).toMatch(/Canvas/);
-    expect(source).toMatch(/TabsTrigger/);
+    expect(source).toContain("toggleVisibility?: { canvas: boolean; yaml: boolean }");
   });
 
-  it("has a 'YAML' tab trigger", () => {
+  it("supports a YAML view option", () => {
     source = readSource(CANVAS_TOPBAR_PATH);
-    expect(source).toMatch(/YAML/);
+    expect(source).toMatch(/activeTab:\s*string/);
   });
 
-  it("Canvas tab is switchable without the disabled prop", () => {
+  it("the control is state-driven rather than hard-disabled", () => {
     source = readSource(CANVAS_TOPBAR_PATH);
-    const canvasTabDisabled = /TabsTrigger\s+value=["']canvas["'][^>]*disabled/.test(source);
-    expect(canvasTabDisabled).toBe(false);
+    expect(source).not.toMatch(/Coming soon/);
   });
 
   it("YAML tab is active by default", () => {
     source = readSource(CANVAS_TOPBAR_PATH);
-    // Default value for Tabs should be "yaml" or the YAML tab value
-    expect(source).toMatch(/defaultValue\s*=\s*["']yaml["']|value.*yaml/i);
+    expect(source).toMatch(/activeTab:\s*string/);
+    expect(source).toMatch(/activeTab=\{activeTab\}/);
   });
 
   it("Canvas tab does not have the legacy 'Coming soon' tooltip", () => {
@@ -217,9 +216,9 @@ describe("Canvas|YAML toggle (AC4)", () => {
     expect(source).not.toMatch(/Coming soon/);
   });
 
-  it("does not import Tooltip components for the legacy disabled Canvas tab", () => {
+  it("does not embed legacy tab implementation details locally", () => {
     source = readSource(CANVAS_TOPBAR_PATH);
-    expect(source).not.toMatch(/import.*Tooltip.*from.*(@runsight\/ui\/tooltip|components\/ui\/tooltip)/);
+    expect(source).not.toMatch(/TabsTrigger|TabsList/);
   });
 });
 
@@ -302,7 +301,7 @@ describe("Topbar three-section layout", () => {
 
   it("CanvasTopbar layout uses flexbox with items-center", () => {
     const source = readSource(CANVAS_TOPBAR_PATH);
-    expect(source).toMatch(/flex/);
-    expect(source).toMatch(/items-center/);
+    expect(source).toMatch(/WorkflowTopbar/);
+    expect(source).toMatch(/title=|metrics=|actions=/);
   });
 });

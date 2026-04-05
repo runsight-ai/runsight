@@ -1,5 +1,5 @@
 role: Test
-system_prompt: You are cool
+system_prompt: You are a test soul.
 tools:
 - http
 max_tool_iterations: 6

@@ -5,11 +5,13 @@ Exports: parse_workflow_yaml, parse_task_yaml
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Collection
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import yaml
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from runsight_core.yaml.registry import WorkflowRegistry
@@ -26,6 +28,7 @@ from runsight_core.workflow import Workflow
 from runsight_core.yaml import discovery as _discovery_module
 from runsight_core.yaml.discovery import discover_custom_tools
 from runsight_core.yaml.schema import (
+    CaseDef,
     ConditionDef,
     ConditionGroupDef,
     DispatchExitDef,
@@ -39,6 +42,7 @@ from runsight_core.yaml.schema import (
 # 2. Gate migration logic on ``file_def.version`` before the block-building loop.
 SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
 _UNSET_RUNNER_MODEL_NAME = "__runsight_explicit_model_required__"
+logger = logging.getLogger(__name__)
 
 
 def _resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
@@ -64,6 +68,179 @@ def _bootstrap_runner_model_name(souls_map: Dict[str, Soul]) -> str:
         if isinstance(soul.model_name, str) and soul.model_name.strip():
             return soul.model_name
     return _UNSET_RUNNER_MODEL_NAME
+
+
+def _merge_inline_souls(
+    file_def: RunsightWorkflowFile,
+    external_souls: Dict[str, Soul],
+) -> Dict[str, Soul]:
+    """Merge inline workflow souls over external soul files."""
+    if not file_def.souls:
+        return external_souls
+
+    overlapping_keys = sorted(set(file_def.souls) & set(external_souls))
+    for soul_key in overlapping_keys:
+        logger.warning("Inline soul '%s' overrides external soul file", soul_key)
+
+    inline_souls = {
+        soul_key: _coerce_inline_soul(soul_def) for soul_key, soul_def in file_def.souls.items()
+    }
+
+    return {**external_souls, **inline_souls}
+
+
+def _coerce_inline_soul(soul_def: object) -> Soul:
+    """Convert schema models, dicts, or lightweight doubles into runtime Soul objects."""
+    if isinstance(Soul, type) and isinstance(soul_def, Soul):
+        return soul_def
+    if isinstance(soul_def, BaseModel):
+        return Soul.model_validate(soul_def.model_dump())
+    if isinstance(soul_def, dict):
+        return Soul.model_validate(soul_def)
+    raw_attrs = vars(soul_def)
+    explicit_fields = {
+        field_name: raw_attrs[field_name]
+        for field_name in Soul.model_fields
+        if field_name in raw_attrs
+    }
+    if explicit_fields:
+        return Soul.model_validate(explicit_fields)
+    return Soul.model_validate(soul_def, from_attributes=True)
+
+
+def _discover_external_souls(
+    souls_dir: Path,
+    *,
+    inline_soul_keys: Collection[str],
+) -> Dict[str, Soul]:
+    """Discover external soul files through the shared discovery seam."""
+    return _discovery_module._discover_souls(souls_dir, ignore_keys=inline_soul_keys)
+
+
+def _normalize_depends(depends: str | list[str] | None) -> list[str]:
+    """Normalize block depends sugar into a list of source block IDs."""
+    if depends is None:
+        return []
+    if isinstance(depends, str):
+        return [depends]
+    return list(depends)
+
+
+def _get_explicit_block_field(block_def: object, field_name: str) -> object | None:
+    """Read a block field without treating mock attribute fallbacks as declared data."""
+    if isinstance(block_def, BaseModel):
+        return getattr(block_def, field_name, None)
+    if isinstance(block_def, dict):
+        return block_def.get(field_name)
+    return vars(block_def).get(field_name)
+
+
+def _expand_depends(file_def: RunsightWorkflowFile, wf: Workflow) -> None:
+    """Expand block depends sugar into plain workflow transitions."""
+    for block_id, block_def in file_def.blocks.items():
+        depends = _get_explicit_block_field(block_def, "depends")
+        for dependency_id in _normalize_depends(depends):
+            existing_target = wf._transitions.get(dependency_id)
+            if existing_target is not None:
+                raise ValueError(
+                    f"depends expansion conflict: '{dependency_id}' already transitions to "
+                    f"'{existing_target}', cannot also depend-route to '{block_id}'"
+                )
+            try:
+                wf.add_transition(dependency_id, block_id)
+            except ValueError as exc:
+                raise ValueError(
+                    f"depends expansion failed for block '{block_id}' from '{dependency_id}': {exc}"
+                ) from exc
+
+
+def _bridge_error_routes(file_def: RunsightWorkflowFile, wf: Workflow) -> None:
+    """Bridge declared block error_route fields onto workflow storage."""
+    for block_id, block_def in file_def.blocks.items():
+        error_route = _get_explicit_block_field(block_def, "error_route")
+        if error_route is not None:
+            wf.set_error_route(block_id, str(error_route))
+
+
+def _expand_gate_shortcuts(file_def: RunsightWorkflowFile, wf: Workflow) -> None:
+    """Expand gate pass/fail shorthand into conditional transitions."""
+    for block_id, block_def in file_def.blocks.items():
+        if getattr(block_def, "type", None) != "gate":
+            continue
+
+        pass_target = _get_explicit_block_field(block_def, "pass_")
+        fail_target = _get_explicit_block_field(block_def, "fail_")
+        if pass_target is None or fail_target is None:
+            continue
+
+        condition_map = {
+            "pass": str(pass_target),
+            "fail": str(fail_target),
+            "default": str(fail_target),
+        }
+        wf.add_conditional_transition(block_id, condition_map)
+
+
+def _wire_output_conditions(
+    wf: Workflow,
+    block_id: str,
+    output_conditions: list[CaseDef] | None,
+) -> None:
+    """Convert schema CaseDef items into runtime output condition storage."""
+    if not output_conditions:
+        return
+
+    from runsight_core.conditions.engine import Case, ConditionGroup
+
+    cases = []
+    default_decision = "default"
+    for case_def in output_conditions:
+        if case_def.default:
+            default_decision = case_def.case_id
+            continue
+
+        condition_group = (
+            _convert_condition_group(case_def.condition_group)
+            if case_def.condition_group is not None
+            else ConditionGroup()
+        )
+        cases.append(Case(case_id=case_def.case_id, condition_group=condition_group))
+
+    wf.set_output_conditions(block_id, cases, default=default_decision)
+
+
+def _expand_routes(file_def: RunsightWorkflowFile, wf: Workflow) -> None:
+    """Expand routes shorthand into workflow output conditions and transitions."""
+    for block_id, block_def in file_def.blocks.items():
+        routes = _get_explicit_block_field(block_def, "routes")
+        if not routes:
+            continue
+
+        route_cases: list[CaseDef] = []
+        condition_map: Dict[str, str] = {}
+
+        for route_def in routes:
+            case_id = str(_get_explicit_block_field(route_def, "case_id"))
+            goto = str(_get_explicit_block_field(route_def, "goto"))
+            is_default = bool(_get_explicit_block_field(route_def, "default"))
+            when = _get_explicit_block_field(route_def, "when")
+
+            condition_map[case_id] = goto
+            if is_default:
+                condition_map["default"] = goto
+                if when is not None:
+                    logger.warning(
+                        "Route '%s' on block '%s' is marked default; ignoring when",
+                        case_id,
+                        block_id,
+                    )
+                route_cases.append(CaseDef(case_id=case_id, default=True))
+                continue
+
+            route_cases.append(CaseDef(case_id=case_id, condition_group=when))
+
+        _wire_output_conditions(wf, block_id, route_cases)
+        wf.add_conditional_transition(block_id, condition_map)
 
 
 def _convert_condition(cond_def: ConditionDef) -> Condition:
@@ -269,6 +446,15 @@ def _validate_workflow_block_contract(
             )
 
 
+def _validate_workflow_block_runtime_placement(
+    file_def: RunsightWorkflowFile,
+    *,
+    workflow_label: str,
+) -> None:
+    """Reserved hook for workflow/loop placement validation."""
+    return None
+
+
 def _resolve_workflow_block_max_depth(
     file_def: RunsightWorkflowFile,
     block_def: Any,
@@ -367,6 +553,8 @@ def validate_workflow_call_contracts(
 ) -> None:
     if validation_index is None:
         validation_index = _build_workflow_validation_index(base_dir)
+    workflow_label = getattr(file_def.workflow, "name", None) or current_workflow_ref or "<root>"
+    _validate_workflow_block_runtime_placement(file_def, workflow_label=workflow_label)
     if ancestry is None:
         root_ref = current_workflow_ref or getattr(file_def.workflow, "name", "<root>")
         ancestry = (root_ref,)
@@ -498,9 +686,17 @@ def parse_workflow_yaml(
             f"please upgrade runsight-core to a compatible release."
         )
 
+    _validate_workflow_block_runtime_placement(
+        file_def,
+        workflow_label=getattr(file_def.workflow, "name", "<root>"),
+    )
+
     # Step 3: Discover library souls from custom/souls/.
     souls_dir = Path(workflow_base_dir) / "custom" / "souls"
-    souls_map: Dict[str, Soul] = _discovery_module._discover_souls(souls_dir)
+    external_souls = _discover_external_souls(souls_dir, inline_soul_keys=file_def.souls)
+
+    # Step 3.5: Merge inline workflow souls over discovered external soul files.
+    souls_map: Dict[str, Soul] = _merge_inline_souls(file_def, external_souls)
 
     # Step 4: Instantiate runner (shared across all blocks in this workflow)
     if runner is None:
@@ -752,6 +948,9 @@ def parse_workflow_yaml(
     for t in file_def.workflow.transitions:
         wf.add_transition(t.from_, t.to)
 
+    # Step 8.5: Expand depends sugar into plain transitions
+    _expand_depends(file_def, wf)
+
     # Step 9: Register conditional transitions
     for ct in file_def.workflow.conditional_transitions:
         condition_map: Dict[str, str] = {}
@@ -764,35 +963,21 @@ def parse_workflow_yaml(
             # target_id=None means terminal (no successor for this decision path)
         wf.add_conditional_transition(ct.from_, condition_map)
 
+    # Step 9.5: Expand gate pass/fail shorthand into conditional transitions
+    _expand_gate_shortcuts(file_def, wf)
+
     # Step 10: Set entry block
     wf.set_entry(file_def.workflow.entry)
 
     # Step 10.5: Wire output_conditions to Workflow
     for block_id, block_def in file_def.blocks.items():
-        if block_def.output_conditions:
-            from runsight_core.conditions.engine import Case, Condition, ConditionGroup
+        _wire_output_conditions(wf, block_id, block_def.output_conditions)
 
-            cases = []
-            default_decision = "default"
-            for case_def in block_def.output_conditions:
-                if case_def.default:
-                    default_decision = case_def.case_id
-                    continue  # default case has no condition_group
-                if case_def.condition_group is not None:
-                    conditions = [
-                        Condition(
-                            eval_key=c.eval_key,
-                            operator=c.operator,
-                            value=c.value,
-                        )
-                        for c in case_def.condition_group.conditions
-                    ]
-                    group = ConditionGroup(
-                        conditions=conditions,
-                        combinator=case_def.condition_group.combinator,
-                    )
-                    cases.append(Case(case_id=case_def.case_id, condition_group=group))
-            wf.set_output_conditions(block_id, cases, default=default_decision)
+    # Step 10.6: Expand routes shorthand into output_conditions and conditional transitions
+    _expand_routes(file_def, wf)
+
+    # Step 10.75: Bridge error_route declarations onto the workflow
+    _bridge_error_routes(file_def, wf)
 
     # Step 11: Validate (raises ValueError if topology is invalid)
     errors = wf.validate()

@@ -1,11 +1,10 @@
-id: release_trace_writer_openai
-role: Release Trace Writer
+id: release_trace_writer_secondary_openai
+role: Secondary Release Trace Writer
 system_prompt: >
-  You write a reusable subflow trace file using the file tool.
+  You write the verification-pass subflow trace file using the file tool.
 
-  Read the current task and context carefully. When the carried context includes
-  a trace_path value, write the file there. Otherwise fall back to:
-  custom/outputs/reusable-release-trace-latest.md
+  Write exactly one file to:
+  custom/outputs/provider-trace-secondary.md
 
   The file must include:
   - heading

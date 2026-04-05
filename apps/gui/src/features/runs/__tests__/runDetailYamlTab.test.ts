@@ -28,17 +28,12 @@ const readSource = (filename: string): string =>
 // ---------------------------------------------------------------------------
 
 describe("RunDetailHeader has Canvas/YAML tabs (RUN-665)", () => {
-  it("contains a TabsList with Canvas and YAML TabsTriggers", () => {
+  it("contains a SegmentedControl with Canvas and YAML options", () => {
     const src = readSource("RunDetailHeader.tsx");
 
-    // Must have a Tabs/TabsList import or usage
-    expect(src).toMatch(/TabsList/);
-
-    // Must have a "Canvas" trigger
-    expect(src).toMatch(/TabsTrigger[\s\S]*?Canvas/);
-
-    // Must have a "YAML" trigger
-    expect(src).toMatch(/TabsTrigger[\s\S]*?YAML/);
+    expect(src).toMatch(/WorkflowTopbar/);
+    expect(src).toMatch(/activeTab/);
+    expect(src).toMatch(/toggleVisibility=\{\{\s*canvas:\s*true,\s*yaml:\s*true\s*\}\}/);
   });
 });
 
@@ -47,14 +42,10 @@ describe("RunDetailHeader has Canvas/YAML tabs (RUN-665)", () => {
 // ---------------------------------------------------------------------------
 
 describe("RunDetailHeader uses header-height variable (RUN-665)", () => {
-  it("uses var(--header-height) instead of hardcoded h-12", () => {
+  it("delegates header layout to WorkflowTopbar instead of hardcoding h-12", () => {
     const src = readSource("RunDetailHeader.tsx");
 
-    // Must reference the CSS variable for header height
-    expect(src).toMatch(/--header-height/);
-
-    // Must NOT use the hardcoded h-12 class on the header element
-    // (The header element currently has className="h-12 ...")
+    expect(src).toMatch(/WorkflowTopbar/);
     expect(src).not.toMatch(/className="h-12\b/);
   });
 });
@@ -101,14 +92,10 @@ describe("RunDetail YAML editor is read-only (RUN-665)", () => {
 // ---------------------------------------------------------------------------
 
 describe("RunDetailHeader border matches CanvasTopbar (RUN-665)", () => {
-  it("uses border-subtle (matching CanvasTopbar), not border-default", () => {
+  it("reuses WorkflowTopbar so border styling stays shared with CanvasTopbar", () => {
     const src = readSource("RunDetailHeader.tsx");
 
-    // The header element's border class must use border-subtle (or border-border-subtle)
-    // to match CanvasTopbar, not border-[var(--border-default)]
-    const hasBorderSubtle =
-      /border-border-subtle/.test(src) || /border-subtle/.test(src);
-
-    expect(hasBorderSubtle).toBe(true);
+    expect(src).toMatch(/WorkflowTopbar/);
+    expect(src).not.toMatch(/border-\[var\(--border-default\)\]/);
   });
 });
