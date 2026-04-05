@@ -20,7 +20,7 @@ import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Collection, Dict, Tuple
 
 import yaml
 from pydantic import ValidationError
@@ -86,6 +86,10 @@ def _validate_tool_main_contract(code: str) -> None:
 
 
 def _fail_tool_file(yaml_file: Path, message: str) -> ValueError:
+    return ValueError(f"{yaml_file.name}: {message}")
+
+
+def _fail_soul_file(yaml_file: Path, message: str) -> ValueError:
     return ValueError(f"{yaml_file.name}: {message}")
 
 
@@ -319,7 +323,11 @@ def _discover_blocks(blocks_dir: Path) -> Dict[str, type]:
     return blocks
 
 
-def _discover_souls(souls_dir: Path) -> Dict[str, Soul]:
+def _discover_souls(
+    souls_dir: Path,
+    *,
+    ignore_keys: Collection[str] | None = None,
+) -> Dict[str, Soul]:
     """
     Discover and load all Soul definitions from YAML files in souls_dir.
 
@@ -341,11 +349,19 @@ def _discover_souls(souls_dir: Path) -> Dict[str, Soul]:
     if not souls_dir.exists():
         return souls
 
+    ignored_soul_keys = set(ignore_keys or ())
+
     for yaml_file in souls_dir.glob("*.yaml"):
         soul_key = yaml_file.stem
+        if soul_key in ignored_soul_keys:
+            logger.warning("Inline soul '%s' overrides external soul file", soul_key)
+            continue
 
-        with open(yaml_file, "r", encoding="utf-8") as f:
-            soul_data = yaml.safe_load(f)
+        try:
+            with open(yaml_file, "r", encoding="utf-8") as f:
+                soul_data = yaml.safe_load(f)
+        except (OSError, yaml.YAMLError) as exc:
+            raise _fail_soul_file(yaml_file, "malformed YAML") from exc
 
         if soul_data is None:
             continue
@@ -353,8 +369,7 @@ def _discover_souls(souls_dir: Path) -> Dict[str, Soul]:
         try:
             soul = Soul.model_validate(soul_data)
         except ValidationError as exc:
-            logger.warning("Skipping invalid soul file %s: %s", yaml_file, exc)
-            continue
+            raise _fail_soul_file(yaml_file, str(exc)) from exc
 
         souls[soul_key] = soul
 

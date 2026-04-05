@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import yaml
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from runsight_core.yaml.registry import WorkflowRegistry
@@ -25,6 +25,7 @@ from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
+from runsight_core.yaml import discovery as _discovery_module
 from runsight_core.yaml.discovery import discover_custom_tools
 from runsight_core.yaml.schema import (
     CaseDef,
@@ -77,6 +78,10 @@ def _merge_inline_souls(
     if not file_def.souls:
         return external_souls
 
+    overlapping_keys = sorted(set(file_def.souls) & set(external_souls))
+    for soul_key in overlapping_keys:
+        logger.warning("Inline soul '%s' overrides external soul file", soul_key)
+
     inline_souls = {
         soul_key: _coerce_inline_soul(soul_def) for soul_key, soul_def in file_def.souls.items()
     }
@@ -108,35 +113,8 @@ def _discover_external_souls(
     *,
     inline_soul_keys: Collection[str],
 ) -> Dict[str, Soul]:
-    """Discover external soul files while letting inline collisions override them."""
-    if not souls_dir.exists():
-        return {}
-
-    inline_soul_key_set = set(inline_soul_keys)
-    external_souls: Dict[str, Soul] = {}
-
-    for yaml_file in souls_dir.glob("*.yaml"):
-        soul_key = yaml_file.stem
-        if soul_key in inline_soul_key_set:
-            logger.warning("Inline soul '%s' overrides external soul file", soul_key)
-            continue
-
-        try:
-            with open(yaml_file, "r", encoding="utf-8") as soul_file_handle:
-                soul_data = yaml.safe_load(soul_file_handle)
-        except (OSError, yaml.YAMLError) as exc:
-            logger.warning("Skipping invalid soul file %s: %s", yaml_file, exc)
-            continue
-
-        if soul_data is None:
-            continue
-
-        try:
-            external_souls[soul_key] = Soul.model_validate(soul_data)
-        except ValidationError as exc:
-            logger.warning("Skipping invalid soul file %s: %s", yaml_file, exc)
-
-    return external_souls
+    """Discover external soul files through the shared discovery seam."""
+    return _discovery_module._discover_souls(souls_dir, ignore_keys=inline_soul_keys)
 
 
 def _normalize_depends(depends: str | list[str] | None) -> list[str]:
