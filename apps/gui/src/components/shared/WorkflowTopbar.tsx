@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link, useInRouterContext } from "react-router";
 
 import { Button } from "@runsight/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@runsight/ui/tabs";
+import { SegmentedControl } from "@runsight/ui/segmented-control";
 
 interface WorkflowTopbarProps {
   backTo: string;
@@ -28,6 +28,14 @@ export function WorkflowTopbar({
   toggleVisibility,
 }: WorkflowTopbarProps) {
   const hasRouter = useInRouterContext();
+  const toggleOptions = [
+    toggleVisibility?.canvas
+      ? { value: "canvas", label: "Canvas", dataTestId: "workflow-tab-canvas" }
+      : null,
+    toggleVisibility?.yaml
+      ? { value: "yaml", label: "YAML", dataTestId: "workflow-tab-yaml" }
+      : null,
+  ].filter((option): option is { value: string; label: string; dataTestId: string } => option !== null);
 
   const backButton = (
     <Button variant="ghost" size="icon-sm" className="w-8 h-8" aria-label={backLabel}>
@@ -55,21 +63,13 @@ export function WorkflowTopbar({
       </div>
 
       <div className="topbar__center flex shrink-0 items-center">
-        {toggleVisibility && (toggleVisibility.canvas || toggleVisibility.yaml) ? (
-          <Tabs value={activeTab} onValueChange={onValueChange}>
-            <TabsList variant="contained">
-              {toggleVisibility.canvas ? (
-                <TabsTrigger value="canvas" data-testid="workflow-tab-canvas">
-                  Canvas
-                </TabsTrigger>
-              ) : null}
-              {toggleVisibility.yaml ? (
-                <TabsTrigger value="yaml" data-testid="workflow-tab-yaml">
-                  YAML
-                </TabsTrigger>
-              ) : null}
-            </TabsList>
-          </Tabs>
+        {toggleOptions.length > 0 ? (
+          <SegmentedControl
+            aria-label="View mode"
+            activeToggle={activeTab}
+            onClick={onValueChange}
+            options={toggleOptions}
+          />
         ) : null}
       </div>
 

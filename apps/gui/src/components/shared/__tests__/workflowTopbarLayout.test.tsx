@@ -33,7 +33,7 @@ describe("WorkflowTopbar layout slots", () => {
     expect(slotClassNames[1]).toContain("topbar__metrics");
     expect(slotClassNames[2]).toContain("topbar__center");
     expect(slotClassNames[3]).toContain("topbar__actions");
-    expect(screen.getByRole("tab", { name: "Canvas" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Canvas" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Fork" })).toBeTruthy();
   });
 });
