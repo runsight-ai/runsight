@@ -45,23 +45,6 @@ _UNSET_RUNNER_MODEL_NAME = "__runsight_explicit_model_required__"
 logger = logging.getLogger(__name__)
 
 
-def _resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
-    """
-    Look up soul_ref in merged souls_map.
-
-    Raises:
-        ValueError: If ref not found in souls_map.
-    """
-    soul = souls_map.get(ref)
-    if soul is None:
-        raise ValueError(
-            f"Soul reference '{ref}' not found in custom/souls/. "
-            f"Available souls: {sorted(souls_map.keys())}. "
-            f"Create a soul file at custom/souls/{ref}.yaml"
-        )
-    return soul
-
-
 def _bootstrap_runner_model_name(souls_map: Dict[str, Soul]) -> str:
     """Choose an explicit bootstrap model for parser-owned runner construction."""
     for soul in souls_map.values():

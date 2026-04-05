@@ -439,7 +439,6 @@ class TestParserFallback:
             fake_soul_def.tools = None
             fake_soul_def.max_tool_iterations = 1
             fake_soul_def.model_name = None
-            fake_soul_def.assertions = None
 
             fake_transition = Mock()
             fake_transition.from_ = "b1"

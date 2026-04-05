@@ -1,5 +1,8 @@
 """Red tests for RUN-450: remove soul assertions while preserving block assertions."""
 
+import tempfile
+from pathlib import Path
+from textwrap import dedent
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -16,11 +19,6 @@ YAML_BLOCK_WITH_ASSERTIONS = """\
 version: "1.0"
 config:
   model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
 blocks:
   analyze:
     type: linear
@@ -41,18 +39,13 @@ YAML_INVALID_SOUL_ASSERTIONS = """\
 version: "1.0"
 config:
   model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
-    assertions:
-      - type: contains
-        value: analysis
 blocks:
   analyze:
     type: linear
     soul_ref: analyst
+    soul_assertions:
+      - type: contains
+        value: analysis
 workflow:
   name: soul_only_assertion_test
   entry: analyze
@@ -66,18 +59,13 @@ YAML_INVALID_SOUL_AND_BLOCK_ASSERTIONS = """\
 version: "1.0"
 config:
   model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
-    assertions:
-      - type: cost
-        threshold: 0.10
 blocks:
   analyze:
     type: linear
     soul_ref: analyst
+    soul_assertions:
+      - type: cost
+        threshold: 0.10
     assertions:
       - type: contains
         value: analysis
@@ -88,6 +76,31 @@ workflow:
     - from: analyze
       to: null
 """
+
+
+def _write_soul_file(base_dir: Path, name: str, content: str) -> None:
+    """Create a soul YAML file at custom/souls/<name>.yaml."""
+    souls_dir = base_dir / "custom" / "souls"
+    souls_dir.mkdir(parents=True, exist_ok=True)
+    (souls_dir / f"{name}.yaml").write_text(dedent(content), encoding="utf-8")
+
+
+def _parse_block_assertion_workflow() -> object:
+    """Parse the block-assertion workflow using a temp directory with the analyst soul."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        _write_soul_file(
+            base,
+            "analyst",
+            """\
+            id: analyst
+            role: Analyst
+            system_prompt: You are a careful analyst.
+            """,
+        )
+        workflow_file = base / "workflow.yaml"
+        workflow_file.write_text(YAML_BLOCK_WITH_ASSERTIONS, encoding="utf-8")
+        return parse_workflow_yaml(str(workflow_file))
 
 
 @pytest.fixture
@@ -130,14 +143,14 @@ class TestParserPropagatesAssertions:
     """Workflow parsing should attach block-owned assertions to runtime blocks."""
 
     def test_runtime_block_has_assertions_after_parse(self):
-        wf = parse_workflow_yaml(YAML_BLOCK_WITH_ASSERTIONS)
+        wf = _parse_block_assertion_workflow()
 
         block = wf._blocks["analyze"]
         assert block.assertions is not None
         assert len(block.assertions) == 1
 
     def test_block_assertions_preserve_yaml_fields(self):
-        wf = parse_workflow_yaml(YAML_BLOCK_WITH_ASSERTIONS)
+        wf = _parse_block_assertion_workflow()
 
         block = wf._blocks["analyze"]
         assert block.assertions is not None
@@ -212,7 +225,7 @@ class TestIntegrationEvalScoreViaService:
 
         run_id = "run_346_block_eval"
         _seed_run(db_engine, run_id, "block_assertion_test")
-        wf = parse_workflow_yaml(YAML_BLOCK_WITH_ASSERTIONS)
+        wf = _parse_block_assertion_workflow()
 
         with patch(
             "runsight_core.runner.RunsightTeamRunner.execute_task",
@@ -241,7 +254,7 @@ class TestIntegrationEvalScoreViaService:
 
         run_id = "run_346_baseline_delta"
         _seed_run(db_engine, run_id, "block_assertion_test")
-        wf = parse_workflow_yaml(YAML_BLOCK_WITH_ASSERTIONS)
+        wf = _parse_block_assertion_workflow()
         soul = wf._blocks["analyze"].soul
         soul_version = compute_soul_version(soul)
 

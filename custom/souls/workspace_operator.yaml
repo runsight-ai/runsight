@@ -14,7 +14,6 @@ tools:
 - file_io
 max_tool_iterations: 5
 model_name: claude-haiku-4-5
-assertions: null
 provider: anthropic
 temperature: 0.6
 max_tokens: null

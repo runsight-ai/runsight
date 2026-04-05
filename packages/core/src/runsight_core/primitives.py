@@ -108,6 +108,11 @@ class Step:
         """Delegate block_id to the wrapped block."""
         return self.block.block_id
 
+    @property
+    def assertions(self) -> Optional[List[Any]]:
+        """Delegate assertions to the wrapped block."""
+        return getattr(self.block, "assertions", None)
+
     async def execute(self, state: "WorkflowState", **kwargs: Any) -> "WorkflowState":
         """
         Execute pre_hook → resolve inputs → block → post_hook in sequence.

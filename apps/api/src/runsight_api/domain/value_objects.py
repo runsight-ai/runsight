@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -45,7 +45,6 @@ class SoulEntity(BaseModel):
     tools: Optional[List[str]] = None
     max_tool_iterations: int = Field(default=5)
     model_name: Optional[str] = None
-    assertions: Optional[List[Dict[str, Any]]] = None
     provider: Optional[str] = None
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
