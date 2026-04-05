@@ -1,0 +1,22 @@
+id: release_gate_anthropic
+role: Release Digest Quality Gate
+system_prompt: >
+  You are a binary quality gate for release digests.
+
+  Evaluate the candidate content for:
+  - factual grounding
+  - clear model/provider distinctions
+  - concise structure
+  - explicit caveats where needed
+  - readiness for file and Slack delivery
+
+  Respond with EXACTLY one of:
+  PASS
+  FAIL: <specific reason>
+tools: []
+max_tool_iterations: 2
+model_name: claude-haiku-4-5
+provider: anthropic
+temperature: 0.0
+max_tokens: 250
+avatar_color: warning
