@@ -20,7 +20,8 @@ import inspect
 import pytest
 from pydantic import TypeAdapter
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.blocks.loop import LoopBlock, LoopBlockDef
+from runsight_core.blocks.loop import CarryContextConfig, LoopBlock, LoopBlockDef
+from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.schema import BaseBlockDef, BlockDef
 
@@ -618,6 +619,104 @@ class TestLoopMetadataWithExitHandle:
             "exit" in meta.get("break_reason", "").lower()
             or "handle" in meta.get("break_reason", "").lower()
         ), f"Expected break_reason to reference exit_handle, got: {meta.get('break_reason')}"
+
+
+class ContextPayloadBlock(BaseBlock):
+    """Block that emits structured output for carry_context propagation tests."""
+
+    def __init__(self, block_id: str, *, trace_path: str):
+        super().__init__(block_id)
+        self._trace_path = trace_path
+
+    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
+        calls.append(len(calls) + 1)
+        call_num = len(calls)
+        return state.model_copy(
+            update={
+                "results": {
+                    **state.results,
+                    self.block_id: BlockResult(
+                        output=f'{{"trace_path":"{self._trace_path}","round":{call_num}}}'
+                    ),
+                },
+                "shared_memory": {
+                    **state.shared_memory,
+                    f"{self.block_id}_calls": calls,
+                },
+            }
+        )
+
+
+class TestCarryContextWithExitHandle:
+    """carry_context must still propagate on break/retry exit-handle paths."""
+
+    @pytest.mark.asyncio
+    async def test_retry_on_exit_still_updates_carry_context_and_task_context(self):
+        source = ContextPayloadBlock(
+            "source",
+            trace_path="custom/outputs/provider-trace-primary.md",
+        )
+        gate = ExitHandleBlock("gate", exit_handle="fail", threshold=1)
+        blocks = {"source": source, "gate": gate}
+
+        loop = LoopBlock(
+            block_id="loop1",
+            inner_block_refs=["source", "gate"],
+            max_rounds=2,
+            retry_on_exit="fail",
+            carry_context=CarryContextConfig(
+                mode="all",
+                source_blocks=["source"],
+                inject_as="ctx",
+            ),
+        )
+        blocks["loop1"] = loop
+
+        state = WorkflowState(
+            current_task=Task(id="task-1", instruction="write trace"),
+        )
+        result_state = await loop.execute(state, blocks=blocks)
+
+        carried = result_state.shared_memory.get("ctx")
+        assert isinstance(carried, list)
+        assert len(carried) == 2
+        assert "provider-trace-primary.md" in str(carried)
+        assert result_state.current_task is not None
+        assert "provider-trace-primary.md" in str(result_state.current_task.context)
+
+    @pytest.mark.asyncio
+    async def test_break_on_exit_still_updates_carry_context_and_task_context(self):
+        source = ContextPayloadBlock(
+            "source",
+            trace_path="custom/outputs/provider-trace-secondary.md",
+        )
+        gate = ExitHandleBlock("gate", exit_handle="pass", threshold=1)
+        blocks = {"source": source, "gate": gate}
+
+        loop = LoopBlock(
+            block_id="loop1",
+            inner_block_refs=["source", "gate"],
+            max_rounds=3,
+            break_on_exit="pass",
+            carry_context=CarryContextConfig(
+                mode="last",
+                source_blocks=["source"],
+                inject_as="ctx",
+            ),
+        )
+        blocks["loop1"] = loop
+
+        state = WorkflowState(
+            current_task=Task(id="task-2", instruction="write trace"),
+        )
+        result_state = await loop.execute(state, blocks=blocks)
+
+        carried = result_state.shared_memory.get("ctx")
+        assert isinstance(carried, dict)
+        assert "provider-trace-secondary.md" in str(carried)
+        assert result_state.current_task is not None
+        assert "provider-trace-secondary.md" in str(result_state.current_task.context)
 
 
 # ==============================================================================

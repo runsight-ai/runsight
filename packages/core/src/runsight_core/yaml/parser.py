@@ -446,6 +446,31 @@ def _validate_workflow_block_contract(
             )
 
 
+def _validate_workflow_block_runtime_placement(
+    file_def: RunsightWorkflowFile,
+    *,
+    workflow_label: str,
+) -> None:
+    """Reject workflow blocks nested under containers that bypass Workflow.run()."""
+    for container_id, container_def in file_def.blocks.items():
+        inner_refs = getattr(container_def, "inner_block_refs", None)
+        if not inner_refs or container_def.type != "loop":
+            continue
+
+        for inner_ref in inner_refs:
+            nested_block = file_def.blocks.get(inner_ref)
+            if nested_block is None or nested_block.type != "workflow":
+                continue
+
+            raise ValueError(
+                f"Workflow '{workflow_label}': LoopBlock '{container_id}' references "
+                f"WorkflowBlock '{inner_ref}' in inner_block_refs. This placement is "
+                "unsupported because LoopBlock executes inner blocks directly instead of "
+                "through Workflow.run(). Move the workflow block out of the loop or route "
+                "loop-managed execution through the workflow runner."
+            )
+
+
 def _resolve_workflow_block_max_depth(
     file_def: RunsightWorkflowFile,
     block_def: Any,
@@ -544,6 +569,8 @@ def validate_workflow_call_contracts(
 ) -> None:
     if validation_index is None:
         validation_index = _build_workflow_validation_index(base_dir)
+    workflow_label = getattr(file_def.workflow, "name", None) or current_workflow_ref or "<root>"
+    _validate_workflow_block_runtime_placement(file_def, workflow_label=workflow_label)
     if ancestry is None:
         root_ref = current_workflow_ref or getattr(file_def.workflow, "name", "<root>")
         ancestry = (root_ref,)
@@ -674,6 +701,11 @@ def parse_workflow_yaml(
             f"If you are using a newer version of Runsight YAML, "
             f"please upgrade runsight-core to a compatible release."
         )
+
+    _validate_workflow_block_runtime_placement(
+        file_def,
+        workflow_label=getattr(file_def.workflow, "name", "<root>"),
+    )
 
     # Step 3: Discover library souls from custom/souls/.
     souls_dir = Path(workflow_base_dir) / "custom" / "souls"

@@ -1,0 +1,28 @@
+id: release_trace_writer_primary_openai
+role: Primary Release Trace Writer
+system_prompt: >
+  You write the primary-pass subflow trace file using the file tool.
+
+  Write exactly one file to:
+  custom/outputs/provider-trace-primary.md
+
+  The file must include:
+  - heading
+  - phase
+  - current objective
+  - latest draft summary
+  - gate outcome
+  - short caveats list
+
+  You must call file_io exactly once with action=write.
+  After the write succeeds, return only a short confirmation.
+tools:
+  - file_io
+required_tool_calls:
+  - file_io
+max_tool_iterations: 2
+model_name: gpt-4.1-mini
+provider: openai
+temperature: 0.1
+max_tokens: 800
+avatar_color: info
