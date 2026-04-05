@@ -92,7 +92,7 @@ export function RunBottomPanel({
       { id: "runs", label: "Runs", icon: List },
       { id: "regressions", label: "Regressions", icon: AlertTriangle },
     ] as { id: TabId; label: string; icon: typeof FileText }[];
-  }, [regressionCount]);
+  }, []);
 
   return (
     <div data-testid="bottom-panel" className={cn("bg-[var(--surface-secondary)] border-t border-[var(--border-default)] flex flex-col z-50", isExpanded ? "h-[200px]" : "h-[36px]")}>

@@ -16,11 +16,6 @@ type TrackedWorkflow = {
   name: string | null;
 };
 
-type WorkflowListResponse = {
-  items: WorkflowResponse[];
-  total: number;
-};
-
 type ProviderResponse = {
   id: string;
   is_active?: boolean;
