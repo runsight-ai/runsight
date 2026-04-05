@@ -183,6 +183,25 @@ def _bridge_error_routes(file_def: RunsightWorkflowFile, wf: Workflow) -> None:
             wf.set_error_route(block_id, str(error_route))
 
 
+def _expand_gate_shortcuts(file_def: RunsightWorkflowFile, wf: Workflow) -> None:
+    """Expand gate pass/fail shorthand into conditional transitions."""
+    for block_id, block_def in file_def.blocks.items():
+        if getattr(block_def, "type", None) != "gate":
+            continue
+
+        pass_target = _get_explicit_block_field(block_def, "pass_")
+        fail_target = _get_explicit_block_field(block_def, "fail_")
+        if pass_target is None or fail_target is None:
+            continue
+
+        condition_map = {
+            "pass": str(pass_target),
+            "fail": str(fail_target),
+            "default": str(fail_target),
+        }
+        wf.add_conditional_transition(block_id, condition_map)
+
+
 def _convert_condition(cond_def: ConditionDef) -> Condition:
     """Convert a ConditionDef schema model to a runtime Condition dataclass."""
     return Condition(
@@ -879,6 +898,9 @@ def parse_workflow_yaml(
                 condition_map[decision_key] = str(target_id)
             # target_id=None means terminal (no successor for this decision path)
         wf.add_conditional_transition(ct.from_, condition_map)
+
+    # Step 9.5: Expand gate pass/fail shorthand into conditional transitions
+    _expand_gate_shortcuts(file_def, wf)
 
     # Step 10: Set entry block
     wf.set_entry(file_def.workflow.entry)

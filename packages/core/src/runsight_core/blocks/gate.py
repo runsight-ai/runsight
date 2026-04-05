@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Literal, Optional
 
+from pydantic import ConfigDict, Field, model_validator
+
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
@@ -133,10 +135,22 @@ from runsight_core.yaml.schema import BaseBlockDef  # noqa: E402
 
 
 class GateBlockDef(BaseBlockDef):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
     type: Literal["gate"] = "gate"
     soul_ref: str
     eval_key: str
     extract_field: Optional[str] = None
+    pass_: Optional[str] = Field(None, alias="pass")
+    fail_: Optional[str] = Field(None, alias="fail")
+
+    @model_validator(mode="after")
+    def _validate_pass_fail_shortcuts(self) -> "GateBlockDef":
+        has_pass = self.pass_ is not None
+        has_fail = self.fail_ is not None
+        if has_pass != has_fail:
+            raise ValueError("gate shorthand requires both pass and fail, or neither")
+        return self
 
 
 # Explicit registration (PEP 563 workaround)
