@@ -80,6 +80,29 @@ class TestGateShortcutSchema:
                 }
             )
 
+    def test_model_validate_rejects_only_fail_without_pass(self):
+        with pytest.raises(
+            (ValidationError, ValueError),
+            match=r"(both.*pass.*fail|pass.*fail|fail.*pass)",
+        ):
+            RunsightWorkflowFile.model_validate(
+                {
+                    "workflow": {"name": "gate_shortcuts", "entry": "quality_gate"},
+                    "blocks": {
+                        "quality_gate": {
+                            "type": "gate",
+                            "soul_ref": "evaluator",
+                            "eval_key": "draft",
+                            "fail": "reject",
+                        },
+                        "reject": {
+                            "type": "code",
+                            "code": "def main(data):\n    return 'nope'",
+                        },
+                    },
+                }
+            )
+
 
 class TestGateShortcutParser:
     """Parser should expand gate shorthand into conditional transitions."""
