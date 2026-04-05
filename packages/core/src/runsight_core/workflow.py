@@ -9,7 +9,7 @@ import dataclasses
 import logging
 import time
 from collections import deque
-from typing import TYPE_CHECKING, Any, Deque, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Deque, Dict, List, Optional, Tuple
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, evaluate_output_conditions
@@ -32,6 +32,129 @@ class BlockExecutionContext:
     call_stack: List[str]
     workflow_registry: Optional["WorkflowRegistry"]
     observer: Optional["WorkflowObserver"]
+
+
+async def _execute_with_retry(
+    block: BaseBlock,
+    state: WorkflowState,
+    retry_cfg: Any,
+    execute_fn: Callable[[BaseBlock, WorkflowState], Awaitable[WorkflowState]],
+) -> WorkflowState:
+    """Wrap block execution with retry logic based on retry_config."""
+    max_attempts = retry_cfg.max_attempts
+    last_exc: Optional[BaseException] = None
+    last_error_type = ""
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            # Pass the same pre-retry `state` on every attempt so stateful blocks
+            # start from a clean history — failed-attempt messages are never carried over.
+            result_state = await execute_fn(block, state)
+            if attempt > 1:
+                result_state.shared_memory[f"__retry__{block.block_id}"] = {
+                    "attempt": attempt,
+                    "max_attempts": max_attempts,
+                    "last_error": str(last_exc),
+                    "last_error_type": last_error_type,
+                    "total_retries": attempt - 1,
+                }
+            return result_state
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as exc:
+            last_exc = exc
+            last_error_type = type(exc).__name__
+
+            if retry_cfg.non_retryable_errors and last_error_type in retry_cfg.non_retryable_errors:
+                raise
+
+            if attempt >= max_attempts:
+                raise
+
+            if retry_cfg.backoff == "exponential":
+                sleep_duration = retry_cfg.backoff_base_seconds * (2 ** (attempt - 1))
+            else:
+                sleep_duration = retry_cfg.backoff_base_seconds
+            await asyncio.sleep(sleep_duration)
+
+    assert last_exc is not None
+    raise last_exc  # pragma: no cover
+
+
+async def execute_block(
+    block: BaseBlock,
+    state: WorkflowState,
+    ctx: BlockExecutionContext,
+) -> WorkflowState:
+    """Execute a workflow block with observer notifications and retry behavior."""
+    from runsight_core.blocks.loop import LoopBlock
+    from runsight_core.blocks.workflow_block import WorkflowBlock
+
+    block_id = block.block_id
+    block_type = type(block).__name__
+    soul = getattr(block, "soul", None)
+    start_kwargs = {"soul": soul} if soul is not None else {}
+    observer = ctx.observer
+
+    if observer:
+        try:
+            if isinstance(block, WorkflowBlock):
+                child_workflow_id = getattr(block, "workflow_ref", None)
+                if child_workflow_id:
+                    start_kwargs["child_workflow_id"] = child_workflow_id
+                start_kwargs["child_workflow_name"] = block.child_workflow.name
+            observer.on_block_start(ctx.workflow_name, block_id, block_type, **start_kwargs)
+        except Exception:
+            logger.warning("Observer.on_block_start failed", exc_info=True)
+
+    block_start_time = time.time()
+    kwargs_for_context = {
+        "call_stack": ctx.call_stack + [ctx.workflow_name],
+        "workflow_registry": ctx.workflow_registry,
+        "observer": observer,
+    }
+
+    async def _dispatch(blk: BaseBlock, current_state: WorkflowState) -> WorkflowState:
+        if isinstance(blk, WorkflowBlock):
+            return await blk.execute(current_state, **kwargs_for_context)
+        if isinstance(blk, LoopBlock):
+            return await blk.execute(
+                current_state, blocks=ctx.blocks, ctx=ctx, **kwargs_for_context
+            )
+        return await blk.execute(current_state)
+
+    try:
+        retry_cfg = getattr(block, "retry_config", None)
+        if retry_cfg is not None:
+            state = await _execute_with_retry(block, state, retry_cfg, _dispatch)
+        else:
+            state = await _dispatch(block, state)
+
+        block_duration = time.time() - block_start_time
+        if observer:
+            try:
+                observer.on_block_complete(
+                    ctx.workflow_name,
+                    block_id,
+                    block_type,
+                    block_duration,
+                    state,
+                    **({"soul": soul} if soul is not None else {}),
+                )
+            except Exception:
+                logger.warning("Observer.on_block_complete failed", exc_info=True)
+
+        return state
+    except Exception as exc:
+        block_duration = time.time() - block_start_time
+        if observer:
+            try:
+                observer.on_block_error(
+                    ctx.workflow_name, block_id, block_type, block_duration, exc
+                )
+            except Exception:
+                logger.warning("Observer.on_block_error failed", exc_info=True)
+        raise
 
 
 class Workflow:
@@ -403,66 +526,6 @@ class Workflow:
         # Step 5: Plain transition (or terminal if absent)
         return self._transitions.get(current_block_id)
 
-    async def _execute_with_retry(
-        self,
-        block: BaseBlock,
-        state: WorkflowState,
-        retry_cfg: Any,
-        execute_fn: Any,
-    ) -> WorkflowState:
-        """Wrap block execution with retry logic based on retry_config."""
-        max_attempts = retry_cfg.max_attempts
-        last_exc: Optional[BaseException] = None
-        last_error_type: str = ""
-
-        for attempt in range(1, max_attempts + 1):
-            try:
-                # Pass the same pre-retry `state` on every attempt so stateful blocks
-                # start from a clean history — failed-attempt messages are never carried over.
-                result_state = await execute_fn(block, state)
-                # If retries occurred, store metadata
-                if attempt > 1:
-                    result_state = result_state.model_copy(
-                        update={
-                            "shared_memory": {
-                                **result_state.shared_memory,
-                                f"__retry__{block.block_id}": {
-                                    "attempt": attempt,
-                                    "max_attempts": max_attempts,
-                                    "last_error": str(last_exc),
-                                    "last_error_type": last_error_type,
-                                    "total_retries": attempt - 1,
-                                },
-                            }
-                        }
-                    )
-                return result_state
-            except (KeyboardInterrupt, SystemExit):
-                raise
-            except Exception as exc:
-                last_exc = exc
-                last_error_type = type(exc).__name__
-
-                # Check non_retryable_errors
-                if retry_cfg.non_retryable_errors:
-                    if last_error_type in retry_cfg.non_retryable_errors:
-                        raise
-
-                # Last attempt exhausted — raise
-                if attempt >= max_attempts:
-                    raise
-
-                # Backoff sleep before next attempt
-                if retry_cfg.backoff == "exponential":
-                    sleep_duration = retry_cfg.backoff_base_seconds * (2 ** (attempt - 1))
-                else:
-                    sleep_duration = retry_cfg.backoff_base_seconds
-                await asyncio.sleep(sleep_duration)
-
-        # Should never reach here, but satisfy type checker
-        assert last_exc is not None
-        raise last_exc  # pragma: no cover
-
     async def run(
         self,
         initial_state: WorkflowState,
@@ -528,77 +591,17 @@ class Workflow:
         try:
             while queue:
                 current_block_id, block = queue.popleft()
-
-                from runsight_core.blocks.workflow_block import WorkflowBlock
-
-                block_type = type(block).__name__
-                soul = getattr(block, "soul", None)
-                start_kwargs = {"soul": soul} if soul is not None else {}
-                if observer:
-                    try:
-                        if isinstance(block, WorkflowBlock):
-                            child_workflow_id = getattr(block, "workflow_ref", None)
-                            if child_workflow_id:
-                                start_kwargs["child_workflow_id"] = child_workflow_id
-                            start_kwargs["child_workflow_name"] = block.child_workflow.name
-                        observer.on_block_start(
-                            self.name, current_block_id, block_type, **start_kwargs
-                        )
-                    except Exception:
-                        logger.warning("Observer.on_block_start failed", exc_info=True)
-
-                block_start_time = time.time()
-
-                # Step 3: Execute block with context propagation for WorkflowBlock and LoopBlock
-                from runsight_core.blocks.loop import LoopBlock
-
-                try:
-                    kwargs_for_context = {
-                        "call_stack": call_stack + [self.name],
-                        "workflow_registry": workflow_registry,
-                        "observer": observer,
-                    }
-
-                    async def _execute_block(blk: BaseBlock, st: WorkflowState) -> WorkflowState:
-                        if isinstance(blk, WorkflowBlock):
-                            return await blk.execute(st, **kwargs_for_context)
-                        elif isinstance(blk, LoopBlock):
-                            return await blk.execute(st, blocks=self._blocks, **kwargs_for_context)
-                        else:
-                            return await blk.execute(st)
-
-                    retry_cfg = getattr(block, "retry_config", None)
-                    if retry_cfg is not None:
-                        state = await self._execute_with_retry(
-                            block, state, retry_cfg, _execute_block
-                        )
-                    else:
-                        state = await _execute_block(block, state)
-
-                    block_duration = time.time() - block_start_time
-                    if observer:
-                        try:
-                            observer.on_block_complete(
-                                self.name,
-                                current_block_id,
-                                block_type,
-                                block_duration,
-                                state,
-                                **({"soul": soul} if soul is not None else {}),
-                            )
-                        except Exception:
-                            logger.warning("Observer.on_block_complete failed", exc_info=True)
-
-                except Exception as e:
-                    block_duration = time.time() - block_start_time
-                    if observer:
-                        try:
-                            observer.on_block_error(
-                                self.name, current_block_id, block_type, block_duration, e
-                            )
-                        except Exception:
-                            logger.warning("Observer.on_block_error failed", exc_info=True)
-                    raise
+                state = await execute_block(
+                    block,
+                    state,
+                    BlockExecutionContext(
+                        workflow_name=self.name,
+                        blocks=self._blocks,
+                        call_stack=call_stack,
+                        workflow_registry=workflow_registry,
+                        observer=observer,
+                    ),
+                )
 
                 # Step 4: Resolve successor BEFORE checking injection
                 next_block_id = self._resolve_next(current_block_id, state)
