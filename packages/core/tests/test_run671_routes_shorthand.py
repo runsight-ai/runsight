@@ -181,6 +181,43 @@ class TestRoutesSchema:
                 }
             )
 
+    def test_model_validate_rejects_routes_with_multiple_defaults(self):
+        with pytest.raises(
+            (ValidationError, ValueError),
+            match=r"(exactly one.*default|default route)",
+        ):
+            RunsightWorkflowFile.model_validate(
+                {
+                    "workflow": {"name": "routes_multiple_defaults", "entry": "review"},
+                    "blocks": {
+                        "review": {
+                            "type": "code",
+                            "code": "def main(data):\n    return {'status': 'approved'}",
+                            "routes": [
+                                {
+                                    "case_id": "approved",
+                                    "default": True,
+                                    "goto": "approve",
+                                },
+                                {
+                                    "case_id": "rejected",
+                                    "default": True,
+                                    "goto": "reject",
+                                },
+                            ],
+                        },
+                        "approve": {
+                            "type": "code",
+                            "code": "def main(data):\n    return {'result': 'approved'}",
+                        },
+                        "reject": {
+                            "type": "code",
+                            "code": "def main(data):\n    return {'result': 'rejected'}",
+                        },
+                    },
+                }
+            )
+
     def test_model_validate_rejects_duplicate_route_case_ids(self):
         with pytest.raises(
             (ValidationError, ValueError),
@@ -217,6 +254,47 @@ class TestRoutesSchema:
                         "approve": {
                             "type": "code",
                             "code": "def main(data):\n    return {'result': 'approved'}",
+                        },
+                        "reject": {
+                            "type": "code",
+                            "code": "def main(data):\n    return {'result': 'rejected'}",
+                        },
+                    },
+                }
+            )
+
+    def test_model_validate_rejects_null_route_goto(self):
+        with pytest.raises(
+            (ValidationError, ValueError),
+            match=r"(goto|valid string|string_type)",
+        ):
+            RunsightWorkflowFile.model_validate(
+                {
+                    "workflow": {"name": "routes_null_goto", "entry": "review"},
+                    "blocks": {
+                        "review": {
+                            "type": "code",
+                            "code": "def main(data):\n    return {'status': 'approved'}",
+                            "routes": [
+                                {
+                                    "case_id": "approved",
+                                    "when": {
+                                        "conditions": [
+                                            {
+                                                "eval_key": "status",
+                                                "operator": "equals",
+                                                "value": "approved",
+                                            }
+                                        ]
+                                    },
+                                    "goto": None,
+                                },
+                                {
+                                    "case_id": "rejected",
+                                    "default": True,
+                                    "goto": "reject",
+                                },
+                            ],
                         },
                         "reject": {
                             "type": "code",
