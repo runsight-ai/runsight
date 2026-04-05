@@ -11,6 +11,7 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 
@@ -315,6 +316,56 @@ class TestErrorRouteParserPlumbing:
 
         assert wf._transitions == {"fetch": "risky"}
         assert wf._error_routes == {"risky": "fetch"}
+
+    def test_error_route_can_coexist_with_workflow_block_on_error_catch(self):
+        child_file = RunsightWorkflowFile.model_validate(
+            {
+                "version": "1.0",
+                "blocks": {
+                    "child_step": {
+                        "type": "code",
+                        "code": "result = 'ok'",
+                    }
+                },
+                "workflow": {
+                    "name": "child_workflow",
+                    "entry": "child_step",
+                    "transitions": [{"from": "child_step", "to": None}],
+                },
+            }
+        )
+        registry = WorkflowRegistry()
+        registry.register("child_workflow", child_file)
+
+        parent_yaml = {
+            "version": "1.0",
+            "blocks": {
+                "invoke_child": {
+                    "type": "workflow",
+                    "workflow_ref": "child_workflow",
+                    "on_error": "catch",
+                    "error_route": "handler",
+                },
+                "handler": {
+                    "type": "code",
+                    "code": "result = 'handled'",
+                },
+            },
+            "workflow": {
+                "name": "parent_workflow",
+                "entry": "invoke_child",
+                "transitions": [
+                    {"from": "invoke_child", "to": "handler"},
+                    {"from": "handler", "to": None},
+                ],
+            },
+        }
+
+        wf = parse_workflow_yaml(parent_yaml, workflow_registry=registry)
+
+        workflow_block = wf._blocks["invoke_child"]
+        assert workflow_block.on_error == "catch"
+        assert wf._error_routes == {"invoke_child": "handler"}
 
     def test_no_depends_or_error_route_is_backward_compatible(self, tmp_path: Path):
         _write_soul_file(tmp_path)
