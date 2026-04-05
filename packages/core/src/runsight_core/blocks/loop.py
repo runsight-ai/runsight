@@ -70,8 +70,10 @@ class LoopBlock(BaseBlock):
             evaluate_condition,
             evaluate_condition_group,
         )
+        from runsight_core.workflow import BlockExecutionContext, execute_block
 
         blocks: Dict[str, BaseBlock] = kwargs.get("blocks", {})
+        ctx: Optional[BlockExecutionContext] = kwargs.get("ctx")
         broke_early = False
         break_reason: Optional[str] = None
         rounds_completed = 0
@@ -96,7 +98,21 @@ class LoopBlock(BaseBlock):
                         f"not found in blocks dict. "
                         f"Available blocks: {sorted(blocks.keys())}"
                     )
-                state = await inner_block.execute(state, **kwargs)
+                if ctx is not None:
+                    state = await execute_block(
+                        inner_block,
+                        state,
+                        BlockExecutionContext(
+                            workflow_name=ctx.workflow_name,
+                            blocks=blocks,
+                            call_stack=ctx.call_stack,
+                            workflow_registry=ctx.workflow_registry,
+                            observer=ctx.observer,
+                            passthrough_kwargs=dict(kwargs),
+                        ),
+                    )
+                else:
+                    state = await inner_block.execute(state, **kwargs)
 
                 # Check exit_handle after each inner block
                 result = state.results.get(ref)

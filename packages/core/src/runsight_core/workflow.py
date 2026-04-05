@@ -32,6 +32,7 @@ class BlockExecutionContext:
     call_stack: List[str]
     workflow_registry: Optional["WorkflowRegistry"]
     observer: Optional["WorkflowObserver"]
+    passthrough_kwargs: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
 async def _execute_with_retry(
@@ -111,19 +112,25 @@ async def execute_block(
             logger.warning("Observer.on_block_start failed", exc_info=True)
 
     block_start_time = time.time()
-    kwargs_for_context = {
-        "call_stack": ctx.call_stack + [ctx.workflow_name],
-        "workflow_registry": ctx.workflow_registry,
-        "observer": observer,
-    }
+    passthrough_kwargs = dict(ctx.passthrough_kwargs)
+    kwargs_for_context = dict(passthrough_kwargs)
+    kwargs_for_context.update(
+        {
+            "call_stack": ctx.call_stack + [ctx.workflow_name],
+            "workflow_registry": ctx.workflow_registry,
+            "observer": observer,
+        }
+    )
 
     async def _dispatch(blk: BaseBlock, current_state: WorkflowState) -> WorkflowState:
         if isinstance(blk, WorkflowBlock):
             return await blk.execute(current_state, **kwargs_for_context)
         if isinstance(blk, LoopBlock):
-            return await blk.execute(
-                current_state, blocks=ctx.blocks, ctx=ctx, **kwargs_for_context
-            )
+            loop_kwargs = dict(kwargs_for_context)
+            loop_kwargs.update({"blocks": ctx.blocks, "ctx": ctx})
+            return await blk.execute(current_state, **loop_kwargs)
+        if passthrough_kwargs:
+            return await blk.execute(current_state, **passthrough_kwargs)
         return await blk.execute(current_state)
 
     try:
@@ -574,13 +581,15 @@ class Workflow:
         if errors:
             raise ValueError(f"Cannot run invalid workflow '{self.name}': {errors}")
 
-        # Step 2: Initialise execution queue with (block_id, block_instance) pairs
+        # Step 2: Initialise execution queue with a per-run block registry and
+        # (block_id, block_instance) pairs for the active dispatch order.
         QueueEntry = Tuple[str, BaseBlock]
         queue: Deque[QueueEntry] = deque()
+        runtime_blocks: Dict[str, BaseBlock] = dict(self._blocks)
 
         # Seed queue with entry block
         assert self._entry_block_id is not None  # guaranteed by validate()
-        queue.append((self._entry_block_id, self._blocks[self._entry_block_id]))
+        queue.append((self._entry_block_id, runtime_blocks[self._entry_block_id]))
 
         state = initial_state
 
@@ -599,7 +608,7 @@ class Workflow:
                     state,
                     BlockExecutionContext(
                         workflow_name=self.name,
-                        blocks=self._blocks,
+                        blocks=runtime_blocks,
                         call_stack=call_stack,
                         workflow_registry=workflow_registry,
                         observer=observer,
@@ -639,6 +648,7 @@ class Workflow:
                         else:
                             raise ValueError(f"No factory registered for injected step '{step_id}'")
 
+                        runtime_blocks[step_id] = injected_block
                         injected_blocks.append((step_id, injected_block))
 
                     # Splice injected blocks at front of queue
@@ -655,7 +665,7 @@ class Workflow:
 
                     # Add original next (if any)
                     if next_block_id is not None:
-                        queue.append((next_block_id, self._blocks[next_block_id]))
+                        queue.append((next_block_id, runtime_blocks[next_block_id]))
 
                     # Re-add remaining (blocks already queued before this point)
                     for entry in remaining:
@@ -664,7 +674,7 @@ class Workflow:
                 else:
                     # No injection: simply queue the resolved next block
                     if next_block_id is not None:
-                        queue.append((next_block_id, self._blocks[next_block_id]))
+                        queue.append((next_block_id, runtime_blocks[next_block_id]))
 
             wf_duration = time.time() - wf_start_time
             if observer:
