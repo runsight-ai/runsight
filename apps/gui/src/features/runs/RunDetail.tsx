@@ -103,7 +103,7 @@ function RunDetailInner() {
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node<RunNodeData>) => { setSelectedNode(node); }, []);
   const onPaneClick = useCallback(() => { setSelectedNode(null); }, []);
   const logs = useMemo(() => runLogs?.items || [], [runLogs]);
-  const regressionCount = regressionData?.items?.length ?? 0;
+  const regressionCount = regressionData?.count ?? 0;
   const hasNodeGraph = (runNodes?.length ?? 0) > 0;
 
   if (isLoadingRun || isLoadingNodes) {

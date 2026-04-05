@@ -14,6 +14,7 @@ import type { RunNodeData } from "../runs/RunCanvasNode";
 import { ProviderModal } from "@/components/provider/ProviderModal";
 import { useCanvasStore } from "@/store/canvas";
 import { useUpdateWorkflow } from "@/queries/workflows";
+import { useWorkflow } from "@/queries/workflows";
 
 export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflowId = "", runId: initialRunId }: WorkflowSurfaceProps) {
   const [mode, setMode] = useState<WorkflowSurfaceMode>(initialMode);
@@ -49,11 +50,17 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const [activeTab, setActiveTab] = useState<"canvas" | "yaml">("canvas");
   const [isDirty, setIsDirty] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node<RunNodeData> | null>(null);
+  const { data: workflow } = useWorkflow(workflowId);
 
   const nodes = useCanvasStore((s) => s.nodes);
+  const edges = useCanvasStore((s) => s.edges);
+  const blockCount = useCanvasStore((s) => s.blockCount);
+  const edgeCount = useCanvasStore((s) => s.edgeCount);
   const yamlContent = useCanvasStore((s) => s.yamlContent);
   const toPersistedState = useCanvasStore((s) => s.toPersistedState);
   const markSaved = useCanvasStore((s) => s.markSaved);
+  const setYamlContent = useCanvasStore((s) => s.setYamlContent);
+  const hydrateFromPersisted = useCanvasStore((s) => s.hydrateFromPersisted);
 
   // Inspector trigger: open on single-click or double-click depending on mode
   const handleNodeClickForInspector = useCallback(
@@ -97,6 +104,37 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
       setActiveTab("canvas");
     }
   }, [toggleVisibility.yaml]);
+
+  useEffect(() => {
+    if (!workflowId || !workflow?.yaml) {
+      return;
+    }
+
+    setYamlContent(workflow.yaml);
+
+    if (workflow.canvas_state && nodes.length === 0 && edges.length === 0) {
+      hydrateFromPersisted({
+        nodes: workflow.canvas_state.nodes ?? [],
+        edges: workflow.canvas_state.edges ?? [],
+        viewport: workflow.canvas_state.viewport ?? { x: 0, y: 0, zoom: 1 },
+        selected_node_id: workflow.canvas_state.selected_node_id ?? null,
+        canvas_mode:
+          workflow.canvas_state.canvas_mode === "state-machine" ? "state-machine" : "dag",
+      });
+    }
+  }, [
+    edges.length,
+    hydrateFromPersisted,
+    nodes.length,
+    setYamlContent,
+    workflow?.canvas_state,
+    workflow?.yaml,
+    workflowId,
+  ]);
+
+  const hasPalette = palette.visible;
+  const canvasColumn = hasPalette ? "2" : "1";
+  const inspectorColumn = hasPalette ? "3" : "2";
 
   const handleSave = useCallback(async () => {
     if (!editable || !workflowId) {
@@ -177,7 +215,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
       className="grid h-full"
       style={{
         gridTemplateRows: "var(--header-height) 1fr auto var(--status-bar-height)",
-        gridTemplateColumns: "240px 1fr 320px",
+        gridTemplateColumns: hasPalette ? "240px 1fr 320px" : "1fr 320px",
       }}
     >
       <div data-testid="surface-topbar" style={{ gridColumn: "1 / -1", gridRow: "1" }}>
@@ -200,18 +238,20 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         />
       </div>
 
-      <div
-        data-testid="surface-palette"
-        className="flex flex-col overflow-hidden"
-        style={{ gridColumn: "1", gridRow: "2" }}
-      >
-        <PaletteSidebar interactive={!dimmed} dimmed={dimmed} />
-      </div>
+      {hasPalette ? (
+        <div
+          data-testid="surface-palette"
+          className="flex flex-col overflow-hidden"
+          style={{ gridColumn: "1", gridRow: "2" }}
+        >
+          <PaletteSidebar interactive={!dimmed} dimmed={dimmed} />
+        </div>
+      ) : null}
 
       <div
         data-testid="surface-center"
         className="relative flex flex-col overflow-hidden"
-        style={{ gridColumn: "2", gridRow: "2" }}
+        style={{ gridColumn: canvasColumn, gridRow: "2" }}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
@@ -235,7 +275,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
 
       <div
         data-testid="surface-inspector"
-        style={{ gridColumn: "3", gridRow: "2" }}
+        style={{ gridColumn: inspectorColumn, gridRow: "2" }}
       >
         <RunInspectorPanel
           selectedNode={selectedNode}
@@ -249,6 +289,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         style={{ gridColumn: "1 / -1", gridRow: "3" }}
       >
         <CanvasBottomPanel
+          runId={activeRunId ?? initialRunId}
           workflowId={workflowId}
           defaultState={defaultState}
         />
@@ -260,8 +301,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
       >
         <CanvasStatusBar
           activeTab={activeTab}
-          blockCount={0}
-          edgeCount={0}
+          blockCount={blockCount}
+          edgeCount={edgeCount}
           stepCountFormat={stepCountFormat}
           metricsVisibility={metricsVisibility}
         />

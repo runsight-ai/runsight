@@ -132,7 +132,7 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
   ) : null;
 
   // Metrics for historical (static) mode: cost, tokens, duration
-  const metricsRunId = metricsStyle === "live" ? lastTerminalRunId : lastTerminalRunId;
+  const metricsRunId = lastTerminalRunId;
 
   return (
     <header
@@ -191,13 +191,6 @@ export function CanvasTopbar({ workflowId, activeTab, onValueChange, isDirty, on
 
       {/* Right: actions */}
       <div className="flex items-center gap-2 flex-1 justify-end">
-        {metricsVisible && metricsStyle === "static" && (
-          <div className="flex items-center gap-2 text-xs text-muted">
-            <span>cost: —</span>
-            <span>tokens: —</span>
-            <span>duration: —</span>
-          </div>
-        )}
         {metricsVisible && metricsStyle === "live" && (
           <ExecutionMetrics runId={metricsRunId} />
         )}

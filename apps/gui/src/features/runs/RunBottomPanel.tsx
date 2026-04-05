@@ -68,14 +68,11 @@ export function RunBottomPanel({
   const regressionIssues = regressions?.issues ?? [];
 
   const visibleTabs = useMemo(() => {
-    const baseTabs: { id: TabId; label: string; icon: typeof FileText }[] = [
+    return [
       { id: "logs", label: "Logs", icon: FileText },
       { id: "runs", label: "Runs", icon: List },
-    ];
-    if (regressionCount > 0) {
-      baseTabs.push({ id: "regressions", label: "Regressions", icon: AlertTriangle });
-    }
-    return baseTabs;
+      { id: "regressions", label: "Regressions", icon: AlertTriangle },
+    ] as { id: TabId; label: string; icon: typeof FileText }[];
   }, [regressionCount]);
 
   return (
@@ -159,7 +156,7 @@ export function RunBottomPanel({
                         )}
                       >
                         <td className="px-3 py-1.5">
-                          <Badge variant={run.status === "completed" ? "success" : run.status === "failed" ? "danger" : "default"}>
+                          <Badge variant={run.status === "completed" ? "success" : run.status === "failed" ? "danger" : "neutral"}>
                             {run.status}
                           </Badge>
                         </td>
@@ -174,16 +171,22 @@ export function RunBottomPanel({
             </div>
           )}
 
-          {activeTab === "regressions" && regressionIssues.length > 0 && (
+          {activeTab === "regressions" && (
             <div className="flex-1 overflow-y-auto">
-              {regressionIssues.map((regression, index) => (
-                <div key={index} className={cn("flex items-center gap-3 px-3 py-2 text-xs", index % 2 === 1 && "bg-surface-secondary")}>
-                  <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning-9)] shrink-0" />
-                  <span className="text-[var(--text-primary)] w-[140px] shrink-0 truncate">{regression.node_name}</span>
-                  <span className="text-[var(--text-muted)] w-[120px] shrink-0">{regression.type.replaceAll("_", " ")}</span>
-                  <span className="text-[var(--text-primary)] flex-1">{regression.delta.cost_pct != null ? `+${Number(regression.delta.cost_pct).toFixed(0)}%` : regression.delta.score_delta != null ? `${Number(regression.delta.score_delta).toFixed(2)}` : "—"}</span>
+              {regressionIssues.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
+                  No regressions detected for this run.
                 </div>
-              ))}
+              ) : (
+                regressionIssues.map((regression, index) => (
+                  <div key={index} className={cn("flex items-center gap-3 px-3 py-2 text-xs", index % 2 === 1 && "bg-surface-secondary")}>
+                    <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning-9)] shrink-0" />
+                    <span className="text-[var(--text-primary)] w-[140px] shrink-0 truncate">{regression.node_name}</span>
+                    <span className="text-[var(--text-muted)] w-[120px] shrink-0">{regression.type.replaceAll("_", " ")}</span>
+                    <span className="text-[var(--text-primary)] flex-1">{regression.delta.cost_pct != null ? `+${Number(regression.delta.cost_pct).toFixed(0)}%` : regression.delta.score_delta != null ? `${Number(regression.delta.score_delta).toFixed(2)}` : "—"}</span>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>

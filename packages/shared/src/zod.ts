@@ -85,6 +85,12 @@ export const FallbackUpdateSchema = z.object({
 });
 export type FallbackUpdate = z.infer<typeof FallbackUpdateSchema>;
 
+export const FileReadResponseSchema = z.object({
+  content: z.string(),
+  ref: z.string(),
+});
+export type FileReadResponse = z.infer<typeof FileReadResponseSchema>;
+
 export const ValidationErrorSchema = z.object({
   loc: z.array(z.union([z.string(), z.number()])),
   msg: z.string(),
@@ -226,7 +232,9 @@ export const RunResponseSchema = z.object({
   commit_sha: z.string().nullable().optional(),
   run_number: z.number().nullable().optional(),
   eval_pass_pct: z.number().nullable().optional(),
-  regression_count: z.number().nullable().default(null),
+  eval_score_avg: z.number().nullable().optional(),
+  regression_count: z.number().nullable().optional(),
+  regression_types: z.array(z.string()).optional(),
   node_summary: NodeSummarySchema.nullable().optional(),
   parent_run_id: z.string().nullable().optional(),
   root_run_id: z.string().nullable().optional(),
@@ -531,6 +539,11 @@ export const WorkflowDeleteResponseSchema = z.object({
 });
 export type WorkflowDeleteResponse = z.infer<typeof WorkflowDeleteResponseSchema>;
 
+export const WorkflowEnabledUpdateSchema = z.object({
+  enabled: z.boolean(),
+});
+export type WorkflowEnabledUpdate = z.infer<typeof WorkflowEnabledUpdateSchema>;
+
 export const WorkflowHealthMetricsSchema = z.object({
   run_count: z.number().optional().default(0),
   eval_pass_pct: z.number().nullable().optional(),
@@ -585,3 +598,4 @@ export const runsight_api__transport__routers__git__LogResponseSchema = z.object
   commits: z.array(CommitEntrySchema),
 });
 export type runsight_api__transport__routers__git__LogResponse = z.infer<typeof runsight_api__transport__routers__git__LogResponseSchema>;
+

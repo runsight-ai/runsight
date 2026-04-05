@@ -98,6 +98,7 @@ class RunService:
 
         total_cost = sum(n.cost_usd for n in nodes)
         total_tokens = sum((n.tokens or {}).get("total", 0) for n in nodes)
+        eval_scores = [n.eval_score for n in nodes if n.eval_score is not None]
 
         completed = sum(1 for n in nodes if n.status == NodeStatus.completed)
         running = sum(1 for n in nodes if n.status == NodeStatus.running)
@@ -113,6 +114,7 @@ class RunService:
             "running": running,
             "pending": pending,
             "failed": failed,
+            "eval_score_avg": sum(eval_scores) / len(eval_scores) if eval_scores else None,
         }
 
     def get_node_summaries_batch(self, run_ids: List[str]) -> Dict[str, Dict[str, Any]]:

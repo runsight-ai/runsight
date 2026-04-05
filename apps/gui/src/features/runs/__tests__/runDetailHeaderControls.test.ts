@@ -53,7 +53,7 @@ function renderHeader(options?: { status?: RunStatus; workflowId?: string | null
         element: React.createElement(LocationEcho),
       },
       {
-        path: "/workflows/:id",
+        path: "/workflows/:id/edit",
         element: React.createElement(LocationEcho),
       },
     ],
@@ -79,7 +79,7 @@ describe("Run detail header controls (RUN-510)", () => {
     expect(screen.getByText("location:/runs")).toBeTruthy();
   });
 
-  it("uses honest Open Workflow labeling and navigates to the workflow when workflow_id exists", async () => {
+  it("uses honest Open Workflow labeling and navigates to the editable workflow surface when workflow_id exists", async () => {
     const { router, user } = renderHeader({ status: "completed" });
 
     expect(
@@ -90,10 +90,10 @@ describe("Run detail header controls (RUN-510)", () => {
     await user.click(screen.getByRole("button", { name: /open workflow/i }));
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/workflows/wf_research");
+      expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
       expect(router.state.location.search).toBe("");
     });
-    expect(screen.getByText("location:/workflows/wf_research")).toBeTruthy();
+    expect(screen.getByText("location:/workflows/wf_research/edit")).toBeTruthy();
   });
 
   it("does not surface misleading Retry copy for failed runs when the retained action only opens the workflow", async () => {
@@ -105,10 +105,10 @@ describe("Run detail header controls (RUN-510)", () => {
     await user.click(screen.getByRole("button", { name: /open workflow/i }));
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/workflows/wf_research");
+      expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
       expect(router.state.location.search).toBe("");
     });
-    expect(screen.getByText("location:/workflows/wf_research")).toBeTruthy();
+    expect(screen.getByText("location:/workflows/wf_research/edit")).toBeTruthy();
   });
 
   it("does not render standalone dead zoom controls in the header", () => {

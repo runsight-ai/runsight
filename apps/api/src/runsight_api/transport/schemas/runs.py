@@ -35,7 +35,9 @@ class RunResponse(BaseModel):
     commit_sha: Optional[str] = None
     run_number: Optional[int] = None
     eval_pass_pct: Optional[float] = None
+    eval_score_avg: Optional[float] = None
     regression_count: Optional[int] = None
+    regression_types: List[str] = Field(default_factory=list)
     node_summary: Optional[NodeSummary] = None
     parent_run_id: Optional[str] = None
     root_run_id: Optional[str] = None

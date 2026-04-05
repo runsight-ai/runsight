@@ -5,6 +5,12 @@ import { Button } from "@runsight/ui/button";
 import { Badge, BadgeDot } from "@runsight/ui/badge";
 import { Skeleton } from "@runsight/ui/skeleton";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@runsight/ui/tooltip";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -69,7 +75,7 @@ function getRunStatusVariant(status: string) {
 function RunSkeletonRow({ index }: { index: number }) {
   return (
     <tr key={index} aria-label="Loading run row">
-      <td colSpan={8} className="border-b border-border-subtle px-3 py-3">
+      <td colSpan={RUN_COLUMNS.length} className="border-b border-border-subtle px-3 py-3">
         <Skeleton className="w-full" />
       </td>
     </tr>
@@ -84,12 +90,44 @@ function formatRunNumber(runNumber: number | null | undefined) {
   return typeof runNumber === "number" ? `#${runNumber}` : "—";
 }
 
-function formatEval(evalPassPct: number | null | undefined) {
-  if (typeof evalPassPct !== "number") {
-    return "—";
+function formatEval(
+  evalPassPct: number | null | undefined,
+  evalScoreAvg: number | null | undefined,
+) {
+  if (typeof evalPassPct === "number") {
+    return `${Math.round(evalPassPct)}%`;
   }
 
-  return `${Math.round(evalPassPct)}%`;
+  if (typeof evalScoreAvg === "number") {
+    return evalScoreAvg.toFixed(2);
+  }
+
+  return "—";
+}
+
+function formatRegressionType(type: string) {
+  switch (type) {
+    case "assertion_regression":
+      return "Assertion regression";
+    case "cost_spike":
+      return "Cost spike";
+    case "quality_drop":
+      return "Quality drop";
+    default:
+      return type.replaceAll("_", " ");
+  }
+}
+
+function getEvalSortValue(run: RunResponse) {
+  if (typeof run.eval_pass_pct === "number") {
+    return run.eval_pass_pct;
+  }
+
+  if (typeof run.eval_score_avg === "number") {
+    return run.eval_score_avg * 100;
+  }
+
+  return null;
 }
 
 function formatStartedAt(startedAt: number | null | undefined) {
@@ -119,12 +157,17 @@ function SourceBadge({ source }: { source: RunResponse["source"] }) {
   return <Badge variant={getSourceVariant(source)}>{source}</Badge>;
 }
 
-function EvalCell({ evalPassPct }: { evalPassPct: number | null | undefined }) {
-  if (typeof evalPassPct !== "number") {
+function EvalCell({
+  evalPassPct,
+  evalScoreAvg,
+}: {
+  evalPassPct: number | null | undefined;
+  evalScoreAvg: number | null | undefined;
+}) {
+  const formattedEval = formatEval(evalPassPct, evalScoreAvg);
+  if (formattedEval === "—") {
     return <span className="text-muted">—</span>;
   }
-
-  const formattedEval = formatEval(evalPassPct);
   return (
     <span className="text-primary" aria-label={formattedEval} title={formattedEval}>
       {formattedEval}
@@ -134,18 +177,33 @@ function EvalCell({ evalPassPct }: { evalPassPct: number | null | undefined }) {
 
 function RegressionCell({
   regressionCount,
+  regressionTypes,
 }: {
   regressionCount: number | null | undefined;
+  regressionTypes: string[] | null | undefined;
 }) {
   if (!regressionCount) {
     return <span className="text-muted">—</span>;
   }
 
+  const tooltipLabel = regressionTypes?.length
+    ? regressionTypes.map(formatRegressionType).join(", ")
+    : "Regression detected";
+
   return (
-    <span className="inline-flex items-center gap-1" style={{ color: "var(--warning-11)" }}>
-      <AlertTriangle className="h-3.5 w-3.5" />
-      {regressionCount}
-    </span>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <span className="inline-flex items-center gap-1" style={{ color: "var(--warning-11)" }}>
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {regressionCount}
+            </span>
+          }
+        />
+        <TooltipContent>{tooltipLabel}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -194,7 +252,7 @@ function getSortValue(run: RunResponse, column: SortColumn) {
     case "cost":
       return run.total_cost_usd ?? -1;
     case "eval":
-      return run.eval_pass_pct;
+      return getEvalSortValue(run);
     case "regressions":
       return run.regression_count;
     case "started":
@@ -251,13 +309,7 @@ export function Component() {
     () => new Set((attentionData?.items ?? []).map((item) => item.run_id)),
     [attentionData?.items],
   );
-  const visibleColumns = useMemo(
-    () =>
-      sourceFilter === "all"
-        ? RUN_COLUMNS
-        : RUN_COLUMNS.filter((column) => column.key !== "source"),
-    [sourceFilter],
-  );
+  const visibleColumns = RUN_COLUMNS;
 
   const runs = useMemo(() => data?.items ?? [], [data?.items]);
   const filteredWorkflowName = workflowFilter
@@ -335,10 +387,6 @@ export function Component() {
     navigate(`/runs/${runId}`);
   };
 
-  const openWorkflow = (workflowId: string) => {
-    navigate(`/workflows/${workflowId}/edit`);
-  };
-
   return (
     <div className="flex h-full flex-col bg-surface-primary">
       <PageHeader
@@ -393,7 +441,7 @@ export function Component() {
                   </Button>
                 }
               />
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" sideOffset={8} className="w-48">
                 <DropdownMenuRadioGroup
                   value={sourceFilter}
                   onValueChange={(value) => setSourceFilter(value as SourceFilter)}
@@ -481,7 +529,7 @@ export function Component() {
                       const rowHasAttention =
                         run.source !== "simulation" && attentionRunIds.has(run.id);
                       const firstCellClass = rowHasAttention
-                        ? "border-l-[3px] border-l-[var(--warning-9)]"
+                        ? "shadow-[-3px_0_0_0_var(--warning-9)_inset]"
                         : undefined;
 
                       return (
@@ -508,17 +556,9 @@ export function Component() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-auto p-0 font-medium text-primary hover:bg-transparent hover:text-primary"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openWorkflow(run.workflow_id);
-                            }}
-                          >
+                          <span className="font-medium text-primary">
                             {run.workflow_name}
-                          </Button>
+                          </span>
                         </TableCell>
                         <TableCell data-type="data">{formatRunNumber(run.run_number)}</TableCell>
                         <TableCell data-type="id">
@@ -539,18 +579,22 @@ export function Component() {
                             </span>
                           )}
                         </TableCell>
-                        {sourceFilter === "all" ? (
-                          <TableCell data-type="data">
-                            <SourceBadge source={run.source} />
-                          </TableCell>
-                        ) : null}
+                        <TableCell data-type="data">
+                          <SourceBadge source={run.source} />
+                        </TableCell>
                         <TableCell data-type="metric">{formatDuration(run.duration_seconds)}</TableCell>
                         <TableCell data-type="metric">{formatCost(run.total_cost_usd)}</TableCell>
                         <TableCell data-type="metric">
-                          <EvalCell evalPassPct={run.eval_pass_pct} />
+                          <EvalCell
+                            evalPassPct={run.eval_pass_pct}
+                            evalScoreAvg={run.eval_score_avg}
+                          />
                         </TableCell>
                         <TableCell data-type="metric">
-                          <RegressionCell regressionCount={run.regression_count} />
+                          <RegressionCell
+                            regressionCount={run.regression_count}
+                            regressionTypes={run.regression_types}
+                          />
                         </TableCell>
                         <TableCell data-type="timestamp">{formatStartedAt(run.started_at)}</TableCell>
                       </TableRow>

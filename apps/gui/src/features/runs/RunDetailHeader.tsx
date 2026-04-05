@@ -23,15 +23,19 @@ import { useForkWorkflow } from "./useForkWorkflow";
 
 interface RunDetailHeaderProps {
   run: RunResponse;
-  activeTab: "canvas" | "yaml";
-  onTabChange: (tab: "canvas" | "yaml") => void;
+  activeTab?: "canvas" | "yaml";
+  onTabChange?: (tab: "canvas" | "yaml") => void;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function RunDetailHeader({ run, activeTab, onTabChange }: RunDetailHeaderProps) {
+export function RunDetailHeader({
+  run,
+  activeTab = "canvas",
+  onTabChange = () => undefined,
+}: RunDetailHeaderProps) {
   const navigate = useNavigate();
 
   const isFailed = run.status === "failed" || run.status === "error";

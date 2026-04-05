@@ -40,9 +40,29 @@ def _run_metric_field(run, field: str):
         return value if isinstance(value, int) else None
     if field == "eval_pass_pct":
         return float(value) if isinstance(value, int | float) else None
+    if field == "eval_score_avg":
+        return float(value) if isinstance(value, int | float) else None
     if field == "regression_count":
         return value if isinstance(value, int) else None
     return None
+
+
+def _regression_types(result) -> list[str]:
+    if not isinstance(result, dict):
+        return []
+
+    issues = result.get("issues")
+    if not isinstance(issues, list):
+        return []
+
+    types: list[str] = []
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        regression_type = issue.get("type")
+        if isinstance(regression_type, str) and regression_type not in types:
+            types.append(regression_type)
+    return types
 
 
 @router.post("", response_model=RunResponse)
@@ -86,7 +106,9 @@ async def create_run(
         commit_sha=_run_response_field(run, "commit_sha", None),
         run_number=_run_metric_field(run, "run_number"),
         eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
+        eval_score_avg=_run_metric_field(run, "eval_score_avg"),
         regression_count=_run_metric_field(run, "regression_count"),
+        regression_types=[],
         node_summary=NodeSummary(total=0, completed=0, running=0, pending=0, failed=0),
     )
 
@@ -153,6 +175,7 @@ async def list_runs(
     for run in runs:
         result = eval_service.get_run_regressions(run.id)
         regression_counts[run.id] = result["count"] if result else 0
+        run.__dict__["regression_types"] = _regression_types(result)
 
     response_items = []
     for run in runs:
@@ -175,7 +198,9 @@ async def list_runs(
                 commit_sha=_run_response_field(run, "commit_sha", None),
                 run_number=_run_metric_field(run, "run_number"),
                 eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
+                eval_score_avg=summaries.get("eval_score_avg"),
                 regression_count=regression_counts.get(run.id, 0),
+                regression_types=_run_response_field(run, "regression_types", []),
                 node_summary=NodeSummary(
                     total=summaries.get("total", 0),
                     completed=summaries.get("completed", 0),
@@ -219,7 +244,9 @@ async def get_run(
         commit_sha=_run_response_field(run, "commit_sha", None),
         run_number=_run_metric_field(run, "run_number"),
         eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
+        eval_score_avg=summaries.get("eval_score_avg"),
         regression_count=reg_result["count"] if reg_result else 0,
+        regression_types=_regression_types(reg_result),
         node_summary=NodeSummary(
             total=summaries["total"],
             completed=summaries["completed"],
@@ -263,7 +290,9 @@ async def get_run_children(
                 commit_sha=_run_response_field(child, "commit_sha", None),
                 run_number=_run_metric_field(child, "run_number"),
                 eval_pass_pct=_run_metric_field(child, "eval_pass_pct"),
+                eval_score_avg=summaries.get("eval_score_avg"),
                 regression_count=reg_result["count"] if reg_result else 0,
+                regression_types=_regression_types(reg_result),
                 node_summary=NodeSummary(
                     total=summaries.get("total", 0),
                     completed=summaries.get("completed", 0),

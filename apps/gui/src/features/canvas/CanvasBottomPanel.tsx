@@ -1,8 +1,18 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { AlertTriangle } from "lucide-react";
+import { Badge } from "@runsight/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@runsight/ui/table";
 import { useRunLogs, useRuns } from "@/queries/runs";
 import { useWorkflowRegressions } from "@/queries/workflows";
 import { useCanvasStore } from "@/store/canvas";
+import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
 import { mapSSEEventToStoreAction } from "./useRunStream";
 
 interface LogEntry {
@@ -70,16 +80,30 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const setRunCost = useCanvasStore((s) => s.setRunCost);
 
-  // Use activeRunId from store as primary, fall back to selectedRunId or prop
-  const currentRunId = activeRunId ?? selectedRunId ?? initialRunId;
+  const { data: runsData } = useRuns(
+    workflowId ? { workflow_id: workflowId } : undefined,
+  );
+  const sortedRuns = useMemo(() => {
+    const items = runsData?.items ?? [];
+    return [...items].sort((left, right) => {
+      const leftTime = left.started_at ?? left.created_at ?? 0;
+      const rightTime = right.started_at ?? right.created_at ?? 0;
+      return rightTime - leftTime;
+    });
+  }, [runsData?.items]);
+
+  useEffect(() => {
+    const fallbackRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
+    if (fallbackRunId && fallbackRunId !== selectedRunId) {
+      setSelectedRunId(fallbackRunId);
+    }
+  }, [activeRunId, initialRunId, selectedRunId, sortedRuns]);
+
+  const currentRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
 
   const { data: logData } = useRunLogs(currentRunId ?? "", undefined, {
     refetchInterval: undefined,
   });
-
-  const { data: runsData } = useRuns(
-    workflowId ? { workflow_id: workflowId } : undefined,
-  );
 
   const { data: regressionsData } = useWorkflowRegressions(workflowId ?? "");
   const count = regressionsData?.count ?? 0;
@@ -156,8 +180,6 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
     setActiveTab("logs");
   };
 
-  const runs = runsData?.items ?? [];
-
   return (
     <div
       data-testid="canvas-bottom-panel"
@@ -196,21 +218,19 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
         >
           Runs
         </button>
-        {count > 0 && (
-          <button
-            data-testid="workflow-regressions-tab"
-            role="tab"
-            aria-label="Expand regressions panel"
-            aria-selected={activeTab === "regressions"}
-            onClick={() => {
-              setActiveTab("regressions");
-              setIsExpanded(true);
-            }}
-            className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "regressions" ? "text-heading" : "text-muted hover:text-primary"}`}
-          >
-            Regressions ({count})
-          </button>
-        )}
+        <button
+          data-testid="workflow-regressions-tab"
+          role="tab"
+          aria-label="Expand regressions panel"
+          aria-selected={activeTab === "regressions"}
+          onClick={() => {
+            setActiveTab("regressions");
+            setIsExpanded(true);
+          }}
+          className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "regressions" ? "text-heading" : "text-muted hover:text-primary"}`}
+        >
+          Regressions{count > 0 ? ` (${count})` : ""}
+        </button>
         <button
           type="button"
           aria-label={isExpanded ? "Collapse panel" : "Expand panel"}
@@ -223,64 +243,106 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
       </div>
       {isExpanded && activeTab === "logs" && (
         <div ref={logsRef} data-testid="workflow-logs-panel" className="overflow-auto flex-1">
-          {entries.map((entry, i) => (
-            <div key={i} className="text-xs font-mono px-2 py-0.5">
-              <span className="text-muted-foreground">{entry.timestamp}</span>{" "}
-              <span className="uppercase">{entry.level}</span>{" "}
-              <span>{entry.message}</span>
+          {!currentRunId ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted">
+              Select a run to inspect logs.
             </div>
-          ))}
+          ) : entries.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted">
+              No logs captured for this run yet.
+            </div>
+          ) : (
+            entries.map((entry, i) => (
+              <div key={i} className="border-b border-border-subtle px-3 py-1.5 text-xs font-mono last:border-b-0">
+                <span className="text-muted-foreground">{entry.timestamp}</span>{" "}
+                <span className="uppercase text-muted">{entry.level}</span>{" "}
+                <span>{entry.message}</span>
+              </div>
+            ))
+          )}
         </div>
       )}
       {isExpanded && activeTab === "runs" && (
         <div data-testid="workflow-runs-panel" className="overflow-auto flex-1">
-          {runs.map((run) => (
-            <div
-              key={run.id}
-              data-testid={`workflow-run-row-${run.id}`}
-              className="text-xs font-mono px-2 py-1 cursor-pointer hover:bg-muted"
-              onClick={() => onRunSelect(run.id)}
-            >
-              <span className="inline-block w-20">{run.status}</span>
-              <span className="inline-block w-20">
-                {run.duration_seconds != null
-                  ? `${run.duration_seconds.toFixed(1)}s`
-                  : "-"}
-              </span>
-              <span className="inline-block w-20">
-                {run.total_cost_usd != null
-                  ? `$${run.total_cost_usd.toFixed(4)}`
-                  : "-"}
-              </span>
-              <span className="text-muted-foreground">{run.id}</span>
+          {sortedRuns.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted">
+              No runs found for this workflow.
             </div>
-          ))}
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-surface-primary hover:bg-surface-primary">
+                  <TableHead>Status</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Started</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead>Cost</TableHead>
+                  <TableHead>Eval</TableHead>
+                  <TableHead>Run</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedRuns.map((run) => (
+                  <TableRow
+                    key={run.id}
+                    data-testid={`workflow-run-row-${run.id}`}
+                    className={currentRunId === run.id ? "bg-surface-selected" : "cursor-pointer"}
+                    onClick={() => onRunSelect(run.id)}
+                  >
+                    <TableCell>
+                      <Badge variant={run.status === "completed" ? "success" : run.status === "failed" ? "danger" : "neutral"}>
+                        {run.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell data-type="data">{run.source}</TableCell>
+                    <TableCell data-type="timestamp">
+                      {run.started_at ? getTimeAgo(new Date(run.started_at * 1000).toISOString()) : "—"}
+                    </TableCell>
+                    <TableCell data-type="metric">{formatDuration(run.duration_seconds)}</TableCell>
+                    <TableCell data-type="metric">{formatCost(run.total_cost_usd)}</TableCell>
+                    <TableCell data-type="metric">
+                      {typeof run.eval_pass_pct === "number"
+                        ? `${Math.round(run.eval_pass_pct)}%`
+                        : typeof run.eval_score_avg === "number"
+                          ? run.eval_score_avg.toFixed(2)
+                          : "—"}
+                    </TableCell>
+                    <TableCell data-type="id">{run.id}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
       )}
       {isExpanded && activeTab === "regressions" && (
         <div className="overflow-auto flex-1">
-          {regressionsItems.map((regression, i) => (
-            <div
-              key={i}
-              className="text-xs font-mono px-2 py-1 flex items-center gap-2"
-            >
-              <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning-9)] shrink-0" />
-              <span className="inline-block w-32">{regression.node_name}</span>
-              <span className="inline-block w-24">{regression.type.replaceAll("_", " ")}</span>
-              <span className="inline-block w-20">
-                {regression.delta.cost_pct != null
-                  ? `+${Number(regression.delta.cost_pct).toFixed(0)}%`
-                  : regression.delta.score_delta != null
-                    ? `${Number(regression.delta.score_delta).toFixed(2)}`
-                    : "—"}
-              </span>
-              <span className="text-muted-foreground">
-                {regression.run_number != null
-                  ? `run #${regression.run_number}`
-                  : ""}
-              </span>
+          {regressionsItems.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted">
+              No regressions detected for this workflow.
             </div>
-          ))}
+          ) : (
+            regressionsItems.map((regression, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 border-b border-border-subtle px-3 py-2 text-xs font-mono last:border-b-0"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning-9)] shrink-0" />
+                <span className="inline-block min-w-[10rem] text-primary">{regression.node_name}</span>
+                <span className="inline-block min-w-[9rem] text-muted">{regression.type.replaceAll("_", " ")}</span>
+                <span className="inline-block min-w-[5rem] text-primary">
+                  {regression.delta.cost_pct != null
+                    ? `+${Number(regression.delta.cost_pct).toFixed(0)}%`
+                    : regression.delta.score_delta != null
+                      ? `${Number(regression.delta.score_delta).toFixed(2)}`
+                      : "—"}
+                </span>
+                <span className="text-muted-foreground">
+                  {regression.run_number != null ? `run #${regression.run_number}` : ""}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

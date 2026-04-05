@@ -251,10 +251,7 @@ function getVisibleWorkflowOrder() {
   return within(table)
     .getAllByRole("row")
     .slice(1)
-    .map((row) => {
-      const workflowButton = within(row).getByRole("button");
-      return workflowButton.textContent ?? "";
-    });
+    .map((row) => within(row).getAllByRole("cell")[1]?.textContent ?? "");
 }
 
 describe("RUN-487 canonical /runs page", () => {
@@ -281,7 +278,7 @@ describe("RUN-487 canonical /runs page", () => {
     ]);
 
     const table = await screen.findByRole("table");
-    expect(within(table).queryByRole("columnheader", { name: "Source" })).toBeNull();
+    expect(within(table).getByRole("columnheader", { name: "Source" })).toBeTruthy();
     expect(screen.queryByText("simulation")).toBeNull();
   });
 
@@ -406,7 +403,7 @@ describe("RUN-487 canonical /runs page", () => {
     });
   });
 
-  it("opens /workflows/:id/edit when the user activates the workflow name", async () => {
+  it("opens /runs/:id when the user activates the workflow name", async () => {
     const { router, user } = await renderRunsRoute("/runs");
     const researchRow = await waitFor(() => {
       const row = findRunRow("Research & Review");
@@ -417,7 +414,7 @@ describe("RUN-487 canonical /runs page", () => {
     await user.click(within(researchRow).getByText("Research & Review"));
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
+      expect(router.state.location.pathname).toBe("/runs/run_research_7");
     });
   });
 

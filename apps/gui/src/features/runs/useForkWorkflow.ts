@@ -50,6 +50,7 @@ export function useForkWorkflow({
       if (onTransition) onTransition(result.id);
     } catch {
       toast.error("Couldn't create fork. Try again.");
+    } finally {
       setIsForking(false);
     }
   }, [commitSha, workflowPath, workflowName, onTransition]);
