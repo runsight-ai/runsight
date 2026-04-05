@@ -229,6 +229,14 @@ class RetryConfig(BaseModel):
 # -- Exit definition -------------------------------------------------------
 
 
+class ExitCondition(BaseModel):
+    """Maps output content to an exit_handle value."""
+
+    contains: Optional[str] = None
+    regex: Optional[str] = None
+    exit_handle: str
+
+
 class ExitDef(BaseModel):
     """Named exit port on a block definition."""
 
@@ -262,6 +270,7 @@ class BaseBlockDef(BaseModel):
     error_route: Optional[str] = None
     retry_config: Optional[RetryConfig] = None
     exits: Optional[List[ExitDef]] = None
+    exit_conditions: Optional[List[ExitCondition]] = None
     assertions: Optional[List[Dict[str, Any]]] = None
     timeout_seconds: int = Field(default=300, ge=1, le=3600)
     stall_thresholds: Optional[Dict[str, int]] = None
