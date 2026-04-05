@@ -102,6 +102,21 @@
           "default": null,
           "title": "Output Conditions"
         },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
+        },
         "inputs": {
           "anyOf": [
             {
@@ -359,6 +374,21 @@
           "default": null,
           "title": "Output Conditions"
         },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
+        },
         "inputs": {
           "anyOf": [
             {
@@ -559,6 +589,21 @@
           ],
           "default": null,
           "title": "Output Conditions"
+        },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
         },
         "inputs": {
           "anyOf": [
@@ -780,6 +825,21 @@
           "default": null,
           "title": "Output Conditions"
         },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
+        },
         "inputs": {
           "anyOf": [
             {
@@ -943,6 +1003,21 @@
           ],
           "default": null,
           "title": "Output Conditions"
+        },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
         },
         "inputs": {
           "anyOf": [
@@ -1185,6 +1260,42 @@
       "title": "RetryConfig",
       "type": "object"
     },
+    "RouteDef": {
+      "additionalProperties": false,
+      "description": "A shorthand route definition that compiles into output conditions and transitions.",
+      "properties": {
+        "case": {
+          "title": "Case",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConditionGroupDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "goto": {
+          "title": "Goto",
+          "type": "string"
+        },
+        "default": {
+          "type": "boolean",
+          "default": false,
+          "title": "Default"
+        }
+      },
+      "required": [
+        "case",
+        "goto"
+      ],
+      "title": "RouteDef",
+      "type": "object"
+    },
     "SoulDef": {
       "additionalProperties": false,
       "description": "Soul definition as expressed in the YAML souls: section.",
@@ -1349,6 +1460,21 @@
           ],
           "default": null,
           "title": "Output Conditions"
+        },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
         },
         "inputs": {
           "anyOf": [
@@ -1548,6 +1674,21 @@
           ],
           "default": null,
           "title": "Output Conditions"
+        },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RouteDef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
         },
         "inputs": {
           "anyOf": [

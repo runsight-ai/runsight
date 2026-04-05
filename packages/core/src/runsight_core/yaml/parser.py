@@ -27,6 +27,7 @@ from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.discovery import discover_custom_tools
 from runsight_core.yaml.schema import (
+    CaseDef,
     ConditionDef,
     ConditionGroupDef,
     DispatchExitDef,
@@ -199,6 +200,68 @@ def _expand_gate_shortcuts(file_def: RunsightWorkflowFile, wf: Workflow) -> None
             "fail": str(fail_target),
             "default": str(fail_target),
         }
+        wf.add_conditional_transition(block_id, condition_map)
+
+
+def _wire_output_conditions(
+    wf: Workflow,
+    block_id: str,
+    output_conditions: list[CaseDef] | None,
+) -> None:
+    """Convert schema CaseDef items into runtime output condition storage."""
+    if not output_conditions:
+        return
+
+    from runsight_core.conditions.engine import Case, ConditionGroup
+
+    cases = []
+    default_decision = "default"
+    for case_def in output_conditions:
+        if case_def.default:
+            default_decision = case_def.case_id
+            continue
+
+        condition_group = (
+            _convert_condition_group(case_def.condition_group)
+            if case_def.condition_group is not None
+            else ConditionGroup()
+        )
+        cases.append(Case(case_id=case_def.case_id, condition_group=condition_group))
+
+    wf.set_output_conditions(block_id, cases, default=default_decision)
+
+
+def _expand_routes(file_def: RunsightWorkflowFile, wf: Workflow) -> None:
+    """Expand routes shorthand into workflow output conditions and transitions."""
+    for block_id, block_def in file_def.blocks.items():
+        routes = _get_explicit_block_field(block_def, "routes")
+        if not routes:
+            continue
+
+        route_cases: list[CaseDef] = []
+        condition_map: Dict[str, str] = {}
+
+        for route_def in routes:
+            case_id = str(_get_explicit_block_field(route_def, "case_id"))
+            goto = str(_get_explicit_block_field(route_def, "goto"))
+            is_default = bool(_get_explicit_block_field(route_def, "default"))
+            when = _get_explicit_block_field(route_def, "when")
+
+            condition_map[case_id] = goto
+            if is_default:
+                condition_map["default"] = goto
+                if when is not None:
+                    logger.warning(
+                        "Route '%s' on block '%s' is marked default; ignoring when",
+                        case_id,
+                        block_id,
+                    )
+                route_cases.append(CaseDef(case_id=case_id, default=True))
+                continue
+
+            route_cases.append(CaseDef(case_id=case_id, condition_group=when))
+
+        _wire_output_conditions(wf, block_id, route_cases)
         wf.add_conditional_transition(block_id, condition_map)
 
 
@@ -907,30 +970,10 @@ def parse_workflow_yaml(
 
     # Step 10.5: Wire output_conditions to Workflow
     for block_id, block_def in file_def.blocks.items():
-        if block_def.output_conditions:
-            from runsight_core.conditions.engine import Case, Condition, ConditionGroup
+        _wire_output_conditions(wf, block_id, block_def.output_conditions)
 
-            cases = []
-            default_decision = "default"
-            for case_def in block_def.output_conditions:
-                if case_def.default:
-                    default_decision = case_def.case_id
-                    continue  # default case has no condition_group
-                if case_def.condition_group is not None:
-                    conditions = [
-                        Condition(
-                            eval_key=c.eval_key,
-                            operator=c.operator,
-                            value=c.value,
-                        )
-                        for c in case_def.condition_group.conditions
-                    ]
-                    group = ConditionGroup(
-                        conditions=conditions,
-                        combinator=case_def.condition_group.combinator,
-                    )
-                    cases.append(Case(case_id=case_def.case_id, condition_group=group))
-            wf.set_output_conditions(block_id, cases, default=default_decision)
+    # Step 10.6: Expand routes shorthand into output_conditions and conditional transitions
+    _expand_routes(file_def, wf)
 
     # Step 10.75: Bridge error_route declarations onto the workflow
     _bridge_error_routes(file_def, wf)

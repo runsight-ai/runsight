@@ -139,6 +139,17 @@ class CaseDef(BaseModel):
     default: bool = False
 
 
+class RouteDef(BaseModel):
+    """A shorthand route definition that compiles into output conditions and transitions."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    case_id: str = Field(alias="case")
+    when: Optional[ConditionGroupDef] = None
+    goto: str
+    default: bool = False
+
+
 class InputRef(BaseModel):
     """Reference to an upstream block's output."""
 
@@ -245,6 +256,7 @@ class BaseBlockDef(BaseModel):
     type: str
     stateful: bool = False
     output_conditions: Optional[List[CaseDef]] = None
+    routes: Optional[List[RouteDef]] = None
     inputs: Optional[Dict[str, InputRef]] = None
     outputs: Optional[Dict[str, str]] = None  # name -> type string
     depends: Optional[Union[str, List[str]]] = None
@@ -284,6 +296,33 @@ class BaseBlockDef(BaseModel):
         if not normalized:
             raise ValueError("error_route must not be blank")
         return normalized
+
+    @model_validator(mode="after")
+    def _validate_routes(self) -> "BaseBlockDef":
+        if self.routes and self.output_conditions:
+            raise ValueError("routes and output_conditions cannot both be set on the same block")
+
+        if not self.routes:
+            return self
+
+        default_routes = [route for route in self.routes if route.default]
+        if len(default_routes) != 1:
+            raise ValueError("routes require exactly one default route")
+
+        seen_case_ids: set[str] = set()
+        duplicate_case_ids: list[str] = []
+        for route in self.routes:
+            if route.case_id in seen_case_ids and route.case_id not in duplicate_case_ids:
+                duplicate_case_ids.append(route.case_id)
+            seen_case_ids.add(route.case_id)
+
+        if duplicate_case_ids:
+            raise ValueError(
+                "route case ids must be unique; duplicate case_id values: "
+                + ", ".join(repr(case_id) for case_id in duplicate_case_ids)
+            )
+
+        return self
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
