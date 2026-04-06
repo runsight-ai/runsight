@@ -18,7 +18,7 @@ type ParsedWorkflow = Partial<RunsightWorkflowFile> & {
     transitions?: Array<{ from: string; to: string | null }>;
     conditional_transitions?: Array<Record<string, string | null>>;
   };
-  /** @deprecated RUN-574: retained only to detect legacy YAML and emit a warning */
+  /** RUN-748: inline souls are valid shorthand — field is parsed and available, no warning emitted */
   souls?: Record<string, unknown>;
 };
 

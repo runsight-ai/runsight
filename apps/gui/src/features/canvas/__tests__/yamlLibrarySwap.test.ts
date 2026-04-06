@@ -148,7 +148,7 @@ blocks:
     expect(result.nodes).toHaveLength(0);
   });
 
-  it("parses config section and emits deprecation warning for souls (RUN-574)", () => {
+  it("parses config section with inline souls and emits no warning (RUN-748)", () => {
     const yamlText = `
 version: "1.0"
 config:
@@ -169,10 +169,8 @@ workflow:
 `;
     const result = parseWorkflowYamlToGraph(yamlText);
 
-    // After RUN-574, souls are stripped from result with a deprecation warning
-    expect(result).not.toHaveProperty("souls");
-    expect(result.error).toBeDefined();
-    expect(result.error!.message).toMatch(/souls/i);
+    // RUN-748: inline souls are now valid — no deprecation warning should be emitted
+    expect(result.error).toBeUndefined();
     expect(result.config).toBeDefined();
     expect(result.config!.max_concurrency).toBe(4);
   });
