@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, memo } from "react";
 import { useParams } from "react-router";
+import { gitApi } from "@/api/git";
 import {
   ReactFlow,
   Background,
@@ -60,6 +61,7 @@ function RunDetailInner() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNode, setSelectedNode] = useState<Node<RunNodeData> | null>(null);
   const [activeTab, setActiveTab] = useState<"canvas" | "yaml">("canvas");
+  const [historicalYaml, setHistoricalYaml] = useState<string | undefined>(undefined);
 
   const buildCanvasFromRun = useCallback(() => {
     if (!runNodes) return;
@@ -98,11 +100,21 @@ function RunDetailInner() {
   }, [runNodes, setNodes, setEdges]);
 
   useEffect(() => { buildCanvasFromRun(); }, [buildCanvasFromRun]);
+
+  useEffect(() => {
+    if (!run?.commit_sha || !run?.workflow_id) return;
+    const workflowPath = `custom/workflows/${run.workflow_id}.yaml`;
+    gitApi.getGitFile(run.commit_sha, workflowPath)
+      .then(({ content }) => setHistoricalYaml(content))
+      .catch(() => setHistoricalYaml(undefined));
+  }, [run?.commit_sha, run?.workflow_id]);
+
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node<RunNodeData>) => { setSelectedNode(node); }, []);
   const onPaneClick = useCallback(() => { setSelectedNode(null); }, []);
   const logs = useMemo(() => runLogs?.items || [], [runLogs]);
   const regressionCount = regressionData?.count ?? 0;
   const hasNodeGraph = (runNodes?.length ?? 0) > 0;
+  const currentWorkflowId = run?.workflow_id;
 
   if (isLoadingRun || isLoadingNodes) {
     return (
@@ -138,8 +150,10 @@ function RunDetailInner() {
         <div className="flex-1 flex overflow-hidden">
           {activeTab === "yaml" ? (
             <div className="flex-1 overflow-hidden">
-              {run.workflow_id ? (
-                <YamlEditor workflowId={run.workflow_id} readOnly={true} />
+              {run.commit_sha ? (
+                <YamlEditor yaml={historicalYaml} readOnly={true} />
+              ) : currentWorkflowId ? (
+                <YamlEditor workflowId={currentWorkflowId} readOnly={true} />
               ) : (
                 <div className="flex h-full items-center justify-center text-muted">
                   YAML unavailable for this run
