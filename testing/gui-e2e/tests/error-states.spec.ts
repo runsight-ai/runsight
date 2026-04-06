@@ -141,7 +141,7 @@ test.describe("Error states: 404 and nonexistent resources", () => {
     page,
   }) => {
     const fakeId = "00000000-0000-0000-0000-000000000000";
-    await page.goto(`/workflows/${fakeId}`);
+    await page.goto(`/workflows/${fakeId}/edit`);
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByText(/not found/i)).toBeVisible({ timeout: 10000 });

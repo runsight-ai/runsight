@@ -217,7 +217,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <p className="text-lg font-medium">Workflow not found</p>
-        <Link to="/workflows" className="text-sm underline">
+        <Link to="/flows" className="text-sm underline">
           Back to workflows
         </Link>
       </div>
