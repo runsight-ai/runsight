@@ -13,7 +13,7 @@ parameters:
     - payload_json
 request:
   method: POST
-  url: https://hooks.slack.com/services/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
+  url: "${SLACK_WEBHOOK_URL}"
   headers:
     Content-type: application/json
   body_template: "{{ payload_json }}"
