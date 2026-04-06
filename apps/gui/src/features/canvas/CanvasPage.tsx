@@ -5,10 +5,8 @@ import { CanvasTopbar } from "./CanvasTopbar";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { FirstTimeTooltip } from "./FirstTimeTooltip";
-import { PaletteSidebar } from "./PaletteSidebar";
 import { PriorityBanner } from "@/components/shared/PriorityBanner";
 import type { BannerCondition } from "@/components/shared/PriorityBanner";
-import { WorkflowCanvas } from "./WorkflowCanvas";
 import { ProviderModal } from "@/components/provider/ProviderModal";
 import { CommitDialog } from "@/features/git/CommitDialog";
 import { gitApi } from "@/api/git";
@@ -20,6 +18,8 @@ import { useGitStatus } from "@/queries/git";
 import { useCanvasStore } from "@/store/canvas";
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from "@runsight/ui/dialog";
 import { Button } from "@runsight/ui/button";
+import { EmptyState } from "@runsight/ui/empty-state";
+import { LayoutGrid } from "lucide-react";
 import type { ValidationState } from "./useYamlValidation";
 
 export function Component() {
@@ -33,7 +33,8 @@ export function Component() {
   const [saveAndRun, setSaveAndRun] = useState(false);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [, setLeaveAfterCommit] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // PaletteSidebar hidden — canvas coming soon
+  // const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const createRun = useCreateRun();
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
@@ -92,12 +93,12 @@ export function Component() {
       const yamlContent = useCanvasStore.getState().yamlContent;
       const simResult = await gitApi.createSimBranch(id!, yamlContent);
       createRun.mutate(
-        { workflow_id: id!, source: "simulation", branch: simResult.branch },
+        { workflow_id: id!, source: "simulation", branch: simResult.branch, task_data: { instruction: "Execute workflow" } },
         { onSuccess: (result) => setActiveRunId(result.id) },
       );
     } else {
       createRun.mutate(
-        { workflow_id: id!, source: "manual", branch: "main" },
+        { workflow_id: id!, source: "manual", branch: "main", task_data: { instruction: "Execute workflow" } },
         { onSuccess: (result) => setActiveRunId(result.id) },
       );
     }
@@ -174,7 +175,7 @@ export function Component() {
       className="grid h-full"
       style={{
         gridTemplateRows: "var(--header-height) 1fr 37px var(--status-bar-height)",
-        gridTemplateColumns: sidebarCollapsed ? "48px 1fr" : "240px 1fr",
+        gridTemplateColumns: "1fr",
       }}
     >
       <CanvasTopbar
@@ -187,11 +188,16 @@ export function Component() {
         errorCount={errorCount}
         onAddApiKey={handleOpenApiKeyModal}
       />
-      <PaletteSidebar onCollapse={setSidebarCollapsed} />
-      <div className="relative flex flex-col overflow-hidden" style={{ gridColumn: "2", gridRow: "2" }}>
+      <div className="relative flex flex-col overflow-hidden" style={{ gridColumn: "1", gridRow: "2" }}>
         <PriorityBanner conditions={bannerConditions} />
         {activeTab === "canvas" ? (
-          <WorkflowCanvas />
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState
+              icon={LayoutGrid}
+              title="Visual canvas coming soon"
+              description="The drag-and-drop workflow builder is under active development."
+            />
+          </div>
         ) : (
           <div className="flex-1 overflow-hidden">
             <YamlEditor workflowId={id!} onDirtyChange={handleDirtyChange} onValidation={handleValidation} />
