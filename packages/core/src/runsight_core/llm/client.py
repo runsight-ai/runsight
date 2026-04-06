@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Optional
 from litellm import acompletion, completion_cost  # type: ignore[import-not-found]
 from pydantic import BaseModel
 
+from runsight_core.budget_enforcement import _active_budget
+
 
 class LLMMessage(BaseModel):
     role: str
@@ -104,6 +106,12 @@ class LiteLLMClient:
         }
         if tool_calls_serialized is not None:
             raw_message["tool_calls"] = tool_calls_serialized
+
+        # Budget enforcement via contextvars
+        session = _active_budget.get(None)
+        if session is not None:
+            session.accrue(cost_usd=cost_usd, tokens=total_tokens)
+            session.check_or_raise()
 
         return {
             "content": content,
