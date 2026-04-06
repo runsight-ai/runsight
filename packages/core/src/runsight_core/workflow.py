@@ -144,11 +144,28 @@ async def execute_block(
         return await blk.execute(current_state)
 
     try:
+        timeout = getattr(block, "max_duration_seconds", None)
         retry_cfg = getattr(block, "retry_config", None)
         if retry_cfg is not None:
-            state = await _execute_with_retry(block, state, retry_cfg, _dispatch)
+            dispatch_coro = _execute_with_retry(block, state, retry_cfg, _dispatch)
         else:
-            state = await _dispatch(block, state)
+            dispatch_coro = _dispatch(block, state)
+
+        try:
+            if timeout is not None:
+                state = await asyncio.wait_for(dispatch_coro, timeout=timeout)
+            else:
+                state = await dispatch_coro
+        except asyncio.TimeoutError:
+            from runsight_core.budget_enforcement import BudgetKilledException
+
+            raise BudgetKilledException(
+                scope="block",
+                block_id=block_id,
+                limit_kind="timeout",
+                limit_value=timeout,
+                actual_value=timeout,
+            )
 
         if getattr(block, "exit_conditions", None):
             br = state.results.get(block_id)
