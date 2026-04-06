@@ -213,11 +213,7 @@ vi.mock("@/features/runs/RunDetail", () => ({
   Component: () => React.createElement(RouteEcho, { label: "run-detail" }),
 }));
 
-vi.mock("@/features/canvas/CanvasPage", () => ({
-  Component: () => React.createElement(RouteEcho, { label: "workflow-editor" }),
-}));
-
-// RUN-590: /runs/:id now renders HistoricalRunRoute which uses WorkflowSurface
+// /runs/:id now renders HistoricalRunRoute which uses WorkflowSurface
 vi.mock("@/features/canvas/WorkflowSurface", () => ({
   WorkflowSurface: () =>
     React.createElement(RouteEcho, { label: "run-detail" }),
