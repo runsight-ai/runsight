@@ -9,6 +9,10 @@ Tests cross-feature interactions across schema, registry, parser, and execution:
 - Error handling across boundary layers
 """
 
+import tempfile
+from pathlib import Path
+from textwrap import dedent
+
 import pytest
 from pydantic import TypeAdapter
 from runsight_core import WorkflowBlock
@@ -20,11 +24,14 @@ from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
 
 _RESEARCHER_SOUL = {
     "researcher": {
-        "id": "researcher_1",
+        "id": "researcher",
         "role": "Senior Researcher",
         "system_prompt": "You research topics.",
     }
 }
+
+# Minimal interface required by _validate_workflow_block_contract for any child workflow
+_EMPTY_INTERFACE = {"inputs": [], "outputs": []}
 
 
 class TestSchemaParsingIntegration:
@@ -116,18 +123,16 @@ class TestParserRegistryIntegration:
         error_str = str(exc_info.value).lower()
         assert "registry" in error_str or "workflowregistry" in error_str
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_resolves_workflow_from_registry(self):
         """
         Parser should resolve workflow_ref from registry and create WorkflowBlock.
         This tests lines 362-386 of parser.
         """
-        # Create child workflow
+        # Create child workflow (interface required by _validate_workflow_block_contract)
         child_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": _EMPTY_INTERFACE,
             "blocks": {"step1": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "analysis_child",
@@ -148,8 +153,6 @@ class TestParserRegistryIntegration:
                 "invoke_analysis": {
                     "type": "workflow",
                     "workflow_ref": "analysis_child",
-                    "inputs": {"shared_memory.topic": "shared_memory.input_topic"},
-                    "outputs": {"results.analysis": "results.output"},
                 }
             },
             "workflow": {
@@ -172,14 +175,12 @@ class TestParserRegistryIntegration:
 class TestParserMaxDepthResolution:
     """Test parser's max_depth resolution logic (lines 367-372)."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_block_level_max_depth_overrides_global(self):
         """Block-level max_depth should override global config."""
         child_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": _EMPTY_INTERFACE,
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
@@ -209,14 +210,12 @@ class TestParserMaxDepthResolution:
         block = wf._blocks["invoke"]
         assert block.max_depth == 5  # Block-level wins
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_global_config_used_when_no_block_level(self):
         """Global config should be used when block has no max_depth."""
         child_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": _EMPTY_INTERFACE,
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
@@ -246,14 +245,12 @@ class TestParserMaxDepthResolution:
         block = wf._blocks["invoke"]
         assert block.max_depth == 7
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_default_max_depth_used_when_neither_set(self):
         """Default 10 should be used when neither block nor config set."""
         child_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": _EMPTY_INTERFACE,
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
@@ -285,18 +282,16 @@ class TestParserMaxDepthResolution:
 class TestParserNestedWorkflowRecursion:
     """Test parser's recursive parsing of nested workflows (line 365)."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_recursively_parses_nested_workflow_blocks(self):
         """
         Parser should recursively parse child workflows that contain their own workflow blocks.
         This tests the parse_workflow_yaml(..., workflow_registry=workflow_registry) call.
         """
-        # Grandchild (deepest level)
+        # Grandchild (deepest level) — interface required at every level
         grandchild_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": _EMPTY_INTERFACE,
             "blocks": {"step": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "grandchild",
@@ -309,6 +304,7 @@ class TestParserNestedWorkflowRecursion:
         # Child contains workflow block pointing to grandchild
         child_dict = {
             "version": "1.0",
+            "interface": _EMPTY_INTERFACE,
             "blocks": {
                 "invoke_grandchild": {
                     "type": "workflow",
@@ -369,18 +365,16 @@ class TestWorkflowBlockExecutionIntegration:
     signature to accept **kwargs.
     """
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_workflow_block_parses_in_workflow_graph(self):
         """
         WorkflowBlock should be created as a block in workflow graph by parser.
         This tests the parsing layer - execution requires Workflow.run() enhancement.
         """
-        # Create child workflow
+        # Create child workflow (interface required by _validate_workflow_block_contract)
         child_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": _EMPTY_INTERFACE,
             "blocks": {"research": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "research_child",
@@ -424,18 +418,19 @@ class TestWorkflowBlockExecutionIntegration:
         assert isinstance(workflow_block, WorkflowBlock)
         assert workflow_block.child_workflow.name == "research_child"
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_workflow_block_structure_with_mapping(self):
         """
         WorkflowBlock with input/output mappings should parse and structure correctly.
         Tests the parsing and schema integration without requiring Workflow.run() enhancement.
         """
-        # Child workflow
+        # Child workflow with interface declaring its public contract
         child_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": {
+                "inputs": [{"name": "data", "target": "shared_memory.data"}],
+                "outputs": [{"name": "task", "source": "results.task"}],
+            },
             "blocks": {"task": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": "child",
@@ -448,7 +443,7 @@ class TestWorkflowBlockExecutionIntegration:
         registry = WorkflowRegistry()
         registry.register("child", child_file)
 
-        # Parent with input/output mapping
+        # Parent with input/output mapping using interface names
         parent_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
@@ -457,8 +452,8 @@ class TestWorkflowBlockExecutionIntegration:
                 "invoke": {
                     "type": "workflow",
                     "workflow_ref": "child",
-                    "inputs": {"shared_memory.data": "shared_memory.parent_data"},
-                    "outputs": {"results.child_output": "results.task"},
+                    "inputs": {"data": "shared_memory.parent_data"},
+                    "outputs": {"results.child_output": "task"},
                 },
             },
             "workflow": {
@@ -476,21 +471,29 @@ class TestWorkflowBlockExecutionIntegration:
         # Verify WorkflowBlock was created with correct mappings
         block = parent_wf._blocks["invoke"]
         assert isinstance(block, WorkflowBlock)
-        assert block.inputs == {"shared_memory.data": "shared_memory.parent_data"}
-        assert block.outputs == {"results.child_output": "results.task"}
+        assert block.inputs == {"data": "shared_memory.parent_data"}
+        assert block.outputs == {"results.child_output": "task"}
         assert block.child_workflow.name == "child"
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_workflow_block_with_multiple_mappings(self):
         """
         WorkflowBlock with multiple input/output mappings should structure correctly.
         """
-        # Child
+        # Child with interface declaring all inputs and outputs
         child_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": {
+                "inputs": [
+                    {"name": "input1", "target": "shared_memory.input1"},
+                    {"name": "input2", "target": "shared_memory.input2"},
+                    {"name": "input3", "target": "results.input3"},
+                ],
+                "outputs": [
+                    {"name": "child_out1", "source": "results.child_out1"},
+                    {"name": "child_out2", "source": "results.child_out2"},
+                ],
+            },
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
@@ -499,7 +502,7 @@ class TestWorkflowBlockExecutionIntegration:
         registry = WorkflowRegistry()
         registry.register("c", child_file)
 
-        # Parent with multiple mappings
+        # Parent with multiple mappings using interface names
         parent_dict = {
             "version": "1.0",
             "blocks": {
@@ -507,13 +510,13 @@ class TestWorkflowBlockExecutionIntegration:
                     "type": "workflow",
                     "workflow_ref": "c",
                     "inputs": {
-                        "shared_memory.input1": "shared_memory.parent1",
-                        "shared_memory.input2": "shared_memory.parent2",
-                        "results.input": "results.parent_result",
+                        "input1": "shared_memory.parent1",
+                        "input2": "shared_memory.parent2",
+                        "input3": "results.parent_result",
                     },
                     "outputs": {
-                        "results.out1": "results.child_out1",
-                        "results.out2": "results.child_out2",
+                        "results.out1": "child_out1",
+                        "results.out2": "child_out2",
                     },
                 }
             },
@@ -530,8 +533,8 @@ class TestWorkflowBlockExecutionIntegration:
         # Verify all mappings are captured
         assert len(block.inputs) == 3
         assert len(block.outputs) == 2
-        assert block.inputs["shared_memory.input1"] == "shared_memory.parent1"
-        assert block.outputs["results.out1"] == "results.child_out1"
+        assert block.inputs["input1"] == "shared_memory.parent1"
+        assert block.outputs["results.out1"] == "child_out1"
 
 
 @pytest.mark.asyncio
@@ -561,15 +564,16 @@ class TestWorkflowBlockErrorHandling:
         with pytest.raises(ValueError):
             parse_workflow_yaml(parent_dict, workflow_registry=registry)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_invalid_input_mapping_path_raises_at_runtime(self):
         """Invalid input path should raise at execution time."""
-        # Child that expects input
+        # Child that expects input — must declare interface so the parent can bind to it
         child_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": {
+                "inputs": [{"name": "input", "target": "shared_memory.input"}],
+                "outputs": [],
+            },
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {"name": "c", "entry": "s", "transitions": [{"from": "s", "to": None}]},
         }
@@ -585,7 +589,7 @@ class TestWorkflowBlockErrorHandling:
                     "type": "workflow",
                     "workflow_ref": "c",
                     "inputs": {
-                        "shared_memory.input": "shared_memory.nonexistent_key",
+                        "input": "shared_memory.nonexistent_key",
                     },
                 }
             },
@@ -630,9 +634,6 @@ class TestWorkflowBlockErrorHandling:
 class TestBackwardCompatibility:
     """Test that existing features still work after merge."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_simple_workflow_without_workflow_blocks(self):
         """Workflows without workflow blocks should parse normally."""
         yaml_dict = {
@@ -674,16 +675,13 @@ class TestBackwardCompatibility:
         result = await wf.run(state)
         assert isinstance(result, WorkflowState)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_all_original_block_types_still_work(self):
         """All original block types should still parse."""
         yaml_str = """
 version: "1.0"
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
     role: Senior Researcher
     system_prompt: You research topics.
 workflow:
@@ -705,3 +703,167 @@ transitions:
         wf = parse_workflow_yaml(yaml_str)
         assert "linear_step" in wf._blocks
         assert "final_step" in wf._blocks
+
+
+# ---------------------------------------------------------------------------
+# Helpers for external-soul-file tests
+# ---------------------------------------------------------------------------
+
+
+def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
+    """Write workflow YAML to disk so parse_workflow_yaml infers workflow_base_dir."""
+    workflow_file = base_dir / "workflow.yaml"
+    workflow_file.write_text(dedent(yaml_content), encoding="utf-8")
+    return str(workflow_file)
+
+
+def _write_soul_file(base_dir: Path, name: str, *, soul_id: str, role: str, prompt: str) -> None:
+    """Create a soul YAML file at custom/souls/<name>.yaml."""
+    souls_dir = base_dir / "custom" / "souls"
+    souls_dir.mkdir(parents=True, exist_ok=True)
+    (souls_dir / f"{name}.yaml").write_text(
+        dedent(f"""\
+        id: {soul_id}
+        role: {role}
+        system_prompt: {prompt}
+        """),
+        encoding="utf-8",
+    )
+
+
+class TestExternalSoulFileResolution:
+    """Tests cover external soul file resolution (filesystem-based discovery).
+
+    These complement the inline-soul tests above by exercising the
+    _discover_external_souls() path: the parser is given a YAML *file path*
+    so it can infer workflow_base_dir and scan custom/souls/*.yaml.
+    """
+
+    def test_external_soul_resolves_for_simple_workflow(self):
+        """Workflow with soul_ref resolved from an external soul file should parse."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            _write_soul_file(
+                base,
+                "researcher",
+                soul_id="researcher",
+                role="Senior Researcher",
+                prompt="You research topics.",
+            )
+            path = _write_workflow_file(
+                base,
+                """\
+                version: "1.0"
+                blocks:
+                  step1:
+                    type: linear
+                    soul_ref: researcher
+                workflow:
+                  name: simple
+                  entry: step1
+                  transitions:
+                    - from: step1
+                      to: null
+                """,
+            )
+
+            wf = parse_workflow_yaml(path)
+            assert wf.name == "simple"
+            assert "step1" in wf._blocks
+
+    def test_external_soul_resolves_for_workflow_with_registry(self):
+        """Parser resolves child workflow AND external soul when given a file path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            _write_soul_file(
+                base,
+                "researcher",
+                soul_id="researcher",
+                role="Senior Researcher",
+                prompt="You research topics.",
+            )
+
+            # Register child workflow in-memory (interface required + matched to parent bindings)
+            child_dict = {
+                "version": "1.0",
+                "souls": _RESEARCHER_SOUL,
+                "interface": {
+                    "inputs": [{"name": "topic", "target": "shared_memory.topic"}],
+                    "outputs": [{"name": "output", "source": "results.output"}],
+                },
+                "blocks": {"step1": {"type": "linear", "soul_ref": "researcher"}},
+                "workflow": {
+                    "name": "analysis_child",
+                    "entry": "step1",
+                    "transitions": [{"from": "step1", "to": None}],
+                },
+            }
+            child_file = RunsightWorkflowFile.model_validate(child_dict)
+            registry = WorkflowRegistry()
+            registry.register("analysis_child", child_file)
+
+            path = _write_workflow_file(
+                base,
+                """\
+                version: "1.0"
+                blocks:
+                  invoke_analysis:
+                    type: workflow
+                    workflow_ref: analysis_child
+                    inputs:
+                      topic: shared_memory.input_topic
+                    outputs:
+                      results.analysis: output
+                workflow:
+                  name: main_workflow
+                  entry: invoke_analysis
+                  transitions:
+                    - from: invoke_analysis
+                      to: null
+                """,
+            )
+
+            parent_wf = parse_workflow_yaml(path, workflow_registry=registry)
+
+            assert isinstance(parent_wf, Workflow)
+            assert "invoke_analysis" in parent_wf._blocks
+            block = parent_wf._blocks["invoke_analysis"]
+            assert isinstance(block, WorkflowBlock)
+            assert block.child_workflow.name == "analysis_child"
+
+    def test_external_soul_resolves_all_original_block_types(self):
+        """All original block types parse when soul comes from external file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            _write_soul_file(
+                base,
+                "researcher",
+                soul_id="researcher",
+                role="Senior Researcher",
+                prompt="You research topics.",
+            )
+            path = _write_workflow_file(
+                base,
+                """\
+                version: "1.0"
+                blocks:
+                  linear_step:
+                    type: linear
+                    soul_ref: researcher
+                  final_step:
+                    type: linear
+                    soul_ref: researcher
+                workflow:
+                  name: full_test
+                  entry: linear_step
+                  transitions:
+                    - from: linear_step
+                      to: final_step
+                    - from: final_step
+                      to: null
+                """,
+            )
+
+            wf = parse_workflow_yaml(path)
+            assert "linear_step" in wf._blocks
+            assert "final_step" in wf._blocks
