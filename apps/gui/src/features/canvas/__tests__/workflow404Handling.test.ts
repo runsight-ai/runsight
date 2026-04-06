@@ -1,6 +1,6 @@
 /**
  * RED-TEAM tests for RUN-737: Add explicit 404 handling for nonexistent
- * workflows in WorkflowSurface (and CanvasPage).
+ * workflows in WorkflowSurface.
  *
  * AC1: Navigating to a nonexistent workflow ID shows a clear "not found" message
  * AC2: A back/home link is present
@@ -9,8 +9,10 @@
  * These tests verify the SOURCE TEXT of the components and the Playwright spec.
  * They are expected to FAIL against the current implementation because:
  *   - WorkflowSurface.tsx has no not-found/error branch for useWorkflow
- *   - CanvasPage.tsx has no not-found/error branch for useWorkflow
  *   - error-states.spec.ts uses a broad permissive OR at line ~153
+ *
+ * Note: CanvasPage.tsx is not wired into the router (WorkflowSurface via
+ * WorkflowEditRoute is the live code path), so it is not tested here.
  */
 
 import { describe, it, expect } from "vitest";
@@ -62,58 +64,19 @@ describe("WorkflowSurface.tsx — 404 / not-found handling (RUN-737 AC1)", () =>
   });
 
   it("renders a link back to the workflows list in the not-found branch", () => {
-    // There must be an <a href> or <Link to> pointing to /workflows
+    // There must be an <a href> or <Link to> pointing to /flows
     // in the error-state branch of the component.
-    expect(source).toMatch(/["'\/]workflows["'\/]/);
+    expect(source).toMatch(/["'\/]flows["'\/]/);
     // That link must be inside an error/not-found rendering path, not just
     // a general link — assert that a link element appears near not-found text
     expect(source).toMatch(
-      /(?:Link|<a).*\/workflows|\/workflows.*(?:Link|<a)/s,
+      /(?:Link|<a).*\/flows|\/flows.*(?:Link|<a)/s,
     );
   });
 });
 
 // ===========================================================================
-// 2. CanvasPage.tsx — not-found branch for useWorkflow error/missing data
-// ===========================================================================
-
-describe("CanvasPage.tsx — 404 / not-found handling (RUN-737 AC1)", () => {
-  const source = readCanvasFile("CanvasPage.tsx");
-
-  it("destructures isError or error from useWorkflow", () => {
-    // Currently only `data` is pulled from useWorkflow(id!)
-    expect(source).toMatch(/\b(?:isError|error|isNotFound)\b/);
-  });
-
-  it("has a conditional render guard for the not-found case", () => {
-    // Must have an early return or conditional rendering specifically for the
-    // not-found / error case — not just a null-coalescing optional chain.
-    // `if (isError) return ...` or `if (!workflow && !isLoading) return ...`
-    // The current code uses `workflow?.commit_sha` (optional chaining) which is
-    // NOT a guard — it's just a safe access. We require an explicit guard branch.
-    expect(source).toMatch(
-      /if\s*\([^)]*(?:isError|!workflow|isNotFound|status\s*===\s*['"]error['"]\s*)[^)]*\)/,
-    );
-  });
-
-  it("renders a not-found message when the workflow does not exist", () => {
-    // The JSX must contain a human-readable not-found message
-    expect(source).toMatch(
-      /(?:not\s*found|404|Workflow\s+not\s+found|No\s+workflow)/i,
-    );
-  });
-
-  it("renders a back link to /workflows in the not-found branch", () => {
-    // There must be a navigable link back to the list when workflow is missing
-    expect(source).toMatch(/["'\/]workflows["'\/]/);
-    expect(source).toMatch(
-      /(?:Link|<a).*\/workflows|\/workflows.*(?:Link|<a)/s,
-    );
-  });
-});
-
-// ===========================================================================
-// 3. WorkflowSurface.tsx — useWorkflow error propagation contract
+// 2. WorkflowSurface.tsx — useWorkflow error propagation contract
 // ===========================================================================
 
 describe("WorkflowSurface.tsx — useWorkflow result shape (RUN-737 AC1)", () => {
@@ -143,7 +106,7 @@ describe("WorkflowSurface.tsx — useWorkflow result shape (RUN-737 AC1)", () =>
 });
 
 // ===========================================================================
-// 4. error-states.spec.ts — nonexistent workflow test must NOT use permissive OR
+// 3. error-states.spec.ts — nonexistent workflow test must NOT use permissive OR
 // ===========================================================================
 
 describe("error-states.spec.ts — nonexistent workflow test is specific (RUN-737 AC3)", () => {
