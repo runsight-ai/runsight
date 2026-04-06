@@ -16,6 +16,19 @@ import { CommitDialog } from "@/features/git/CommitDialog";
 import { useCanvasStore } from "@/store/canvas";
 import { useWorkflow } from "@/queries/workflows";
 
+const VALID_BLOCK_TYPES = new Set([
+  "Linear",
+  "Gate",
+  "Code",
+  "Dispatch",
+  "Synthesize",
+  "Workflow",
+  "Loop",
+  "Team Lead",
+  "Engineering Manager",
+  "HTTP Request",
+]);
+
 export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflowId = "", runId: initialRunId }: WorkflowSurfaceProps) {
   const [mode, setMode] = useState<WorkflowSurfaceMode>(initialMode);
   const [workflowId, setWorkflowId] = useState(initialWorkflowId);
@@ -187,6 +200,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     if (blockData) {
       try {
         const parsed = JSON.parse(blockData) as { type: string; label: string };
+        if (!VALID_BLOCK_TYPES.has(parsed.label)) return;
         const id = `block_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         const newNode: Node = {
           id,
