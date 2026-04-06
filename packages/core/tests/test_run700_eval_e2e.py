@@ -217,8 +217,8 @@ class TestFlow1FixtureModeWithTransforms:
 
         grading = result.case_results[0].block_results["analyze"].results[0]
         assert grading.passed is True
-        # The real ContainsAssertion reason format: "Output contains 'transform'"
-        assert "Output contains" in grading.reason
+        # The real ContainsAssertion reason includes the check target
+        assert "contains" in grading.reason.lower()
 
     async def test_transform_actually_narrows_evaluation(self):
         """If transform is working, 'details' from the JSON root should

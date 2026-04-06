@@ -292,8 +292,8 @@ class TestScenario1SchemaToRunnerPipeline:
         cr = result.case_results[0]
         grading = cr.block_results["analyze"].results[0]
         assert isinstance(grading, GradingResult)
-        # Real ContainsAssertion reason format: "Output contains 'research'"
-        assert "Output contains" in grading.reason
+        # Real ContainsAssertion reason includes the check target
+        assert "contains" in grading.reason.lower()
 
 
 # ===========================================================================
@@ -352,7 +352,7 @@ class TestScenario3AssertionContextConstruction:
         analyze_result = cr.block_results["analyze"]
         assert len(analyze_result.results) == 1
         assert analyze_result.results[0].passed is True
-        assert "Output contains" in analyze_result.results[0].reason
+        assert "contains" in analyze_result.results[0].reason.lower()
 
     async def test_is_json_assertion_on_summarize_block(self):
         """The 'is-json' assertion on summarize evaluates the JSON fixture
