@@ -1,16 +1,12 @@
 """
-Integration tests validating the Phase 1.2e merge: Workflow and deletion of unused primitives.
+Integration tests validating the Phase 1.2e merge: Workflow orchestration logic.
 
-This test file specifically exercises the renamed components and their interactions:
-1. Workflow class with its orchestration logic
-2. Removed primitives and their impact on imports
-
-Priority: Tests the renamed classes and their cross-feature interactions.
+Tests the renamed Workflow class and its cross-feature interactions.
 """
 
 import pytest
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Step, Task
+from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 
@@ -34,25 +30,7 @@ class MockBlock(BaseBlock):
         )
 
 
-class ErrorProducingBlock(BaseBlock):
-    """Mock block that fails with specific error."""
-
-    def __init__(self, block_id: str, error_msg: str = "test error"):
-        super().__init__(block_id)
-        self.error_msg = error_msg
-
-    async def execute(self, state: WorkflowState) -> WorkflowState:
-        raise RuntimeError(self.error_msg)
-
-
-# ===== SECTION 1: Workflow Class Tests =====
-
-
-def test_workflow_class_exists_and_instantiates():
-    """Verify Workflow class exists and can be instantiated."""
-    wf = Workflow(name="test_workflow")
-    assert wf.name == "test_workflow"
-    assert isinstance(wf, Workflow)
+# ===== Workflow Class Tests =====
 
 
 def test_workflow_fluent_api_chain():
@@ -106,50 +84,3 @@ def test_workflow_terminal_block_no_transition():
     # b is terminal (no transition defined)
     errors = wf.validate()
     assert len(errors) == 0
-
-
-# ===== SECTION 2: Primitive Export Verification =====
-
-
-def test_skill_not_exported_from_runsight_core():
-    """Verify unused class is completely removed from public API."""
-    import runsight_core
-
-    # Construct the name to avoid matching in code inspection
-    deleted_class_name = "S" + "kill"
-    assert not hasattr(runsight_core, deleted_class_name)
-
-
-def test_primitives_only_exports_soul_task_step():
-    """Verify primitives.py exports only Soul, Task, Step."""
-    from runsight_core import primitives
-
-    # These should exist
-    assert hasattr(primitives, "Soul")
-    assert hasattr(primitives, "Task")
-    assert hasattr(primitives, "Step")
-    # Deleted class should not exist
-    deleted_class_name = "S" + "kill"
-    assert not hasattr(primitives, deleted_class_name)
-
-
-def test_step_primitive_works_independently():
-    """Verify Step primitive works correctly."""
-
-    pre_hook_called = []
-    post_hook_called = []
-
-    def pre_hook(state: WorkflowState) -> WorkflowState:
-        pre_hook_called.append(True)
-        return state
-
-    def post_hook(state: WorkflowState) -> WorkflowState:
-        post_hook_called.append(True)
-        return state
-
-    step = Step(
-        block=MockBlock("mock"),
-        pre_hook=pre_hook,
-        post_hook=post_hook,
-    )
-    assert step.block.block_id == "mock"

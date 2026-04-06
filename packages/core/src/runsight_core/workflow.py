@@ -695,6 +695,21 @@ class Workflow:
                     queue.append((error_target_id, self._blocks[error_target_id]))
                     continue
 
+                # Step 3b: Soft-error routing — block completed normally but
+                # exit_handle == "error" (e.g. WorkflowBlock on_error="catch").
+                # If an error_route is configured, route there instead of the
+                # normal transition.
+                block_result = state.results.get(current_block_id)
+                if (
+                    block_result is not None
+                    and getattr(block_result, "exit_handle", None) == "error"
+                    and current_block_id in self._error_routes
+                ):
+                    error_target_id = self._error_routes[current_block_id]
+                    queue.clear()
+                    queue.append((error_target_id, self._blocks[error_target_id]))
+                    continue
+
                 # Step 4: Resolve successor BEFORE checking injection
                 next_block_id = self._resolve_next(current_block_id, state)
 

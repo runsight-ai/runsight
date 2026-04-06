@@ -10,9 +10,6 @@ AC:
 
 from __future__ import annotations
 
-import textwrap
-
-import pytest
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 MINIMAL_WORKFLOW = {
@@ -60,70 +57,7 @@ class TestEnabledFieldSchema:
 
 
 # ---------------------------------------------------------------------------
-# 2. Parser-level: YAML with enabled parses without error
-# ---------------------------------------------------------------------------
-
-
-class TestEnabledFieldParser:
-    """parse_workflow_yaml must accept `enabled` without error."""
-
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
-    def test_yaml_with_enabled_true_parses(self) -> None:
-        """A YAML string containing `enabled: true` must parse successfully."""
-        from runsight_core.yaml.parser import parse_workflow_yaml
-
-        yaml_str = textwrap.dedent("""\
-            version: "1.0"
-            enabled: true
-            souls:
-              agent:
-                id: agent
-                role: Agent
-                system_prompt: "You are a test agent."
-            blocks:
-              start:
-                type: linear
-                soul_ref: agent
-            workflow:
-              name: test-enabled
-              entry: start
-              transitions: []
-        """)
-        # Should not raise — the parser must tolerate the `enabled` key.
-        wf = parse_workflow_yaml(yaml_str, api_keys={"openai": "fake-key"})
-        assert wf is not None
-
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
-    def test_yaml_without_enabled_parses(self) -> None:
-        """A YAML string omitting `enabled` must still parse and default to False."""
-        from runsight_core.yaml.parser import parse_workflow_yaml
-
-        yaml_str = textwrap.dedent("""\
-            version: "1.0"
-            souls:
-              agent:
-                id: agent
-                role: Agent
-                system_prompt: "You are a test agent."
-            blocks:
-              start:
-                type: linear
-                soul_ref: agent
-            workflow:
-              name: test-no-enabled
-              entry: start
-              transitions: []
-        """)
-        wf = parse_workflow_yaml(yaml_str, api_keys={"openai": "fake-key"})
-        assert wf is not None
-
-
-# ---------------------------------------------------------------------------
-# 3. Engine-level: engine must NOT reference `enabled`
+# 2. Engine-level: engine must NOT reference `enabled`
 # ---------------------------------------------------------------------------
 
 

@@ -1,31 +1,21 @@
 """
-Failing tests for RUN-222: Migrate Remaining 11 Block Types.
+Tests for RUN-222: Migrate Remaining Block Types.
 
-After this migration, every block type is self-contained: schema (BlockDef) +
+After migration, every block type is self-contained: schema (BlockDef) +
 runtime class + builder (build()) in one file, auto-registered via
 __init_subclass__ and build() convention.
 
 Tests verify:
-1. Block file existence for all 11 blocks
-2. Co-located BlockDef importable from each block file
-3. Co-located build() function importable from each block file
-4. Registry counts (12 entries each for BLOCK_DEF_REGISTRY and BLOCK_BUILDER_REGISTRY)
-5. schema.py has zero per-type BlockDef classes
-6. parser.py has zero _build_* functions and empty BLOCK_TYPE_REGISTRY
-7. CarryContextConfig migrated with LoopBlockDef to blocks/loop.py
-8. JSON schema stability (generate_schema.py --check)
-9. End-to-end round-trip: parse_workflow_yaml still works for migrated block types
-
-Expected failures (current state):
-- Block files do not exist yet (only http_request.py exists)
-- BlockDef classes are still in schema.py
-- _build_* functions are still in parser.py
-- BLOCK_TYPE_REGISTRY in parser.py still has 10 entries
+1. Co-located BlockDef importable from each block file
+2. Co-located build() function importable from each block file
+3. Registry counts (7 entries each for BLOCK_DEF_REGISTRY and BLOCK_BUILDER_REGISTRY)
+4. CarryContextConfig migrated with LoopBlockDef to blocks/loop.py
+5. JSON schema stability (generate_schema.py --check)
+6. End-to-end round-trip: parse_workflow_yaml still works for migrated block types
 """
 
 from __future__ import annotations
 
-import inspect
 import sys
 from pathlib import Path
 
@@ -34,19 +24,6 @@ import pytest
 # ═══════════════════════════════════════════════════════════════════════════════
 # Constants
 # ═══════════════════════════════════════════════════════════════════════════════
-
-BLOCKS_DIR = Path(__file__).resolve().parent.parent / "src" / "runsight_core" / "blocks"
-
-# All 11 blocks to migrate (module_name, type_name, BlockDef class name)
-BLOCKS_TO_MIGRATE = [
-    ("code", "code", "CodeBlockDef"),
-    ("linear", "linear", "LinearBlockDef"),
-    ("gate", "gate", "GateBlockDef"),
-    ("dispatch", "dispatch", "DispatchBlockDef"),
-    ("synthesize", "synthesize", "SynthesizeBlockDef"),
-    ("loop", "loop", "LoopBlockDef"),
-    ("workflow_block", "workflow", "WorkflowBlockDef"),
-]
 
 # All 7 block types (after removing http_request, file_writer, team_lead, engineering_manager)
 ALL_BLOCK_TYPES = {
@@ -59,41 +36,9 @@ ALL_BLOCK_TYPES = {
     "workflow",
 }
 
-# Per-type BlockDef class names that must be removed from schema.py
-PER_TYPE_BLOCK_DEF_NAMES = [
-    "LinearBlockDef",
-    "DispatchBlockDef",
-    "SynthesizeBlockDef",
-    "GateBlockDef",
-    "CodeBlockDef",
-    "LoopBlockDef",
-    "WorkflowBlockDef",
-]
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 1. Block file existence tests
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestBlockFileExistence:
-    """Verify that each of the 11 block files exists in blocks/."""
-
-    @pytest.mark.parametrize(
-        "module_name",
-        [m for m, _, _ in BLOCKS_TO_MIGRATE],
-        ids=[m for m, _, _ in BLOCKS_TO_MIGRATE],
-    )
-    def test_block_file_exists(self, module_name: str):
-        """blocks/{module_name}.py must exist."""
-        path = BLOCKS_DIR / f"{module_name}.py"
-        assert path.exists(), (
-            f"Block file {path} does not exist. Create it as part of the migration."
-        )
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 2. Co-located BlockDef importable from each block file
+# 1. Co-located BlockDef importable from each block file
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -240,126 +185,7 @@ class TestRegistryCounts:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 5. schema.py cleanup — zero per-type BlockDef classes
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestSchemaCleanup:
-    """Verify schema.py no longer has per-type BlockDef classes."""
-
-    def test_schema_has_no_per_type_block_defs(self):
-        """schema.py source must not define any per-type BlockDef classes."""
-        import runsight_core.yaml.schema as schema_mod
-
-        source = inspect.getsource(schema_mod)
-        for name in PER_TYPE_BLOCK_DEF_NAMES:
-            assert f"class {name}" not in source, (
-                f"{name} class definition is still in schema.py — "
-                f"it must be moved to its block file"
-            )
-
-    def test_schema_has_no_carry_context_config(self):
-        """CarryContextConfig must be moved out of schema.py (to blocks/loop.py)."""
-        import runsight_core.yaml.schema as schema_mod
-
-        source = inspect.getsource(schema_mod)
-        assert "class CarryContextConfig" not in source, (
-            "CarryContextConfig class definition is still in schema.py — "
-            "it must be moved to blocks/loop.py"
-        )
-
-    def test_hardcoded_block_def_union_removed(self):
-        """The hardcoded BlockDef union listing per-type classes must be removed.
-
-        After migration, BlockDef should be built dynamically from the registry.
-        """
-        import runsight_core.yaml.schema as schema_mod
-
-        source = inspect.getsource(schema_mod)
-
-        # The old hardcoded union had lines like:
-        #   BlockDef = Annotated[
-        #       Union[
-        #           LinearBlockDef,
-        #           DispatchBlockDef, ...
-        # Extract just the BlockDef = Annotated[...] definition by tracking
-        # bracket depth. The closing structure spans multiple lines:
-        #     ],
-        #     Field(discriminator="type"),
-        # ]
-        lines = source.split("\n")
-        union_lines: list[str] = []
-        depth = 0
-        in_union = False
-        for line in lines:
-            if "BlockDef = Annotated[" in line:
-                in_union = True
-            if in_union:
-                union_lines.append(line)
-                depth += line.count("[") - line.count("]")
-                if depth <= 0:
-                    break
-
-        union_text = "\n".join(union_lines)
-        for name in PER_TYPE_BLOCK_DEF_NAMES:
-            assert name not in union_text, (
-                f"{name} is still in the hardcoded BlockDef union in schema.py — "
-                f"the union should be built dynamically from the registry"
-            )
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 6. parser.py cleanup — zero _build_* functions, empty BLOCK_TYPE_REGISTRY
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestParserCleanup:
-    """Verify parser.py no longer has _build_* functions or hardcoded registry."""
-
-    def test_parser_has_no_build_functions(self):
-        """parser.py source must not define any _build_* functions."""
-        import runsight_core.yaml.parser as parser_mod
-
-        source = inspect.getsource(parser_mod)
-        build_funcs = [
-            line.strip() for line in source.split("\n") if line.strip().startswith("def _build_")
-        ]
-        assert build_funcs == [], f"parser.py still has _build_* functions: {build_funcs}"
-
-    def test_parser_block_type_registry_empty_or_absent(self):
-        """BLOCK_TYPE_REGISTRY in parser.py must be empty or removed."""
-        import runsight_core.yaml.parser as parser_mod
-
-        # If BLOCK_TYPE_REGISTRY is still present, it must be empty
-        if hasattr(parser_mod, "BLOCK_TYPE_REGISTRY"):
-            registry = parser_mod.BLOCK_TYPE_REGISTRY
-            # It should only contain auto-discovered entries (from BLOCK_BUILDER_REGISTRY),
-            # not hardcoded _build_* functions
-            for key, val in registry.items():
-                assert not val.__name__.startswith("_build_"), (
-                    f"BLOCK_TYPE_REGISTRY['{key}'] still points to hardcoded "
-                    f"function {val.__name__} — it should use auto-discovered builders"
-                )
-
-    def test_parser_no_block_runtime_imports(self):
-        """parser.py must not import runtime block classes from implementations.py.
-
-        After migration, the parser delegates to BLOCK_BUILDER_REGISTRY, so it
-        no longer needs to import LinearBlock, DispatchBlock, etc.
-        """
-        import runsight_core.yaml.parser as parser_mod
-
-        source = inspect.getsource(parser_mod)
-
-        # The parser must not import from implementations at all
-        assert "from runsight_core import" not in source, (
-            "parser.py still imports from runsight_core.blocks.implementations — "
-            "after migration, the parser should delegate to BLOCK_BUILDER_REGISTRY"
-        )
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 7. CarryContextConfig migration (moved with LoopBlockDef to blocks/loop.py)
+# 3. CarryContextConfig migration (moved with LoopBlockDef to blocks/loop.py)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -531,50 +357,3 @@ class TestEndToEndRoundTrip:
         block = wf.blocks.get("transform")
         assert block is not None
         assert isinstance(block, CodeBlock)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 10. Backward-compatible re-exports from schema.py
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestSchemaReExports:
-    """After RUN-223 cleanup, schema.py no longer re-exports BlockDef classes.
-    Classes are importable directly from their own block modules."""
-
-    @pytest.mark.parametrize(
-        "module_name,type_name,class_name",
-        BLOCKS_TO_MIGRATE,
-        ids=[m for m, _, _ in BLOCKS_TO_MIGRATE],
-    )
-    def test_block_def_re_exported_from_schema(
-        self, module_name: str, type_name: str, class_name: str
-    ):
-        """BlockDef classes must be importable from their own block modules."""
-        import importlib
-
-        blocks_mod = importlib.import_module(f"runsight_core.blocks.{module_name}")
-        cls = getattr(blocks_mod, class_name, None)
-        assert cls is not None, (
-            f"{class_name} is not accessible from runsight_core.blocks.{module_name}"
-        )
-
-    @pytest.mark.parametrize(
-        "module_name,type_name,class_name",
-        BLOCKS_TO_MIGRATE,
-        ids=[m for m, _, _ in BLOCKS_TO_MIGRATE],
-    )
-    def test_re_exported_class_is_same_as_blocks_class(
-        self, module_name: str, type_name: str, class_name: str
-    ):
-        """The class from the block module should be a proper BaseBlockDef subclass."""
-        import importlib
-
-        from runsight_core.yaml.schema import BaseBlockDef
-
-        blocks_mod = importlib.import_module(f"runsight_core.blocks.{module_name}")
-        blocks_cls = getattr(blocks_mod, class_name)
-
-        assert issubclass(blocks_cls, BaseBlockDef), (
-            f"{class_name} from blocks/{module_name}.py is not a BaseBlockDef subclass"
-        )

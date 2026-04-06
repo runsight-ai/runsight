@@ -68,7 +68,13 @@ class LinearBlock(BaseBlock):
 
         return state.model_copy(
             update={
-                "results": {**state.results, self.block_id: BlockResult(output=result.output)},
+                "results": {
+                    **state.results,
+                    self.block_id: BlockResult(
+                        output=result.output,
+                        exit_handle=result.exit_handle,
+                    ),
+                },
                 "execution_log": state.execution_log
                 + [
                     {"role": "system", "content": f"[Block {self.block_id}] Completed: {truncated}"}

@@ -1145,9 +1145,6 @@ blocks:
 class TestYamlExitPortRoundTrip:
     """Exit port declarations in YAML survive a parse -> model_dump -> re-parse cycle."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_gate_exits_survive_schema_round_trip(self):
         """Parse a YAML with gate exits, dump to dict, verify exits are present."""
         from runsight_core.yaml.schema import RunsightWorkflowFile
@@ -1160,7 +1157,7 @@ config:
 
 souls:
   reviewer:
-    id: reviewer_1
+    id: reviewer
     role: Reviewer
     system_prompt: "Evaluate quality"
 
@@ -1199,9 +1196,6 @@ workflow:
         assert "pass" in exit_ids
         assert "fail" in exit_ids
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_loop_break_on_exit_survives_schema_round_trip(self):
         """Parse a YAML with loop break_on_exit, dump, verify field is present."""
         from runsight_core.yaml.schema import RunsightWorkflowFile
@@ -1214,11 +1208,11 @@ config:
 
 souls:
   writer:
-    id: writer_1
+    id: writer
     role: Writer
     system_prompt: "Write content"
   reviewer:
-    id: reviewer_1
+    id: reviewer
     role: Reviewer
     system_prompt: "Evaluate quality"
 

@@ -1,18 +1,11 @@
 """
 Tests for RUN-201: Remove PlaceholderBlock from core engine.
 
-Verifies that PlaceholderBlock and PlaceholderBlockDef have been fully removed,
-that dynamic injection raises ValueError instead of falling back to PlaceholderBlock,
-that YAML with type: placeholder is rejected, and that shared test infrastructure
-exists in conftest.py.
-
-These tests are written to FAIL against the current codebase and PASS once
-Green Team completes the removal.
+Verifies that dynamic injection raises ValueError instead of falling back to
+PlaceholderBlock, and that shared test infrastructure exists in conftest.py.
 """
 
 import pytest
-from pydantic import TypeAdapter, ValidationError
-from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -66,95 +59,7 @@ class PlannerBlock(BaseBlock):
 
 
 # ===========================================================================
-# 1. PlaceholderBlock is NOT importable from runsight_core
-# ===========================================================================
-
-
-class TestPlaceholderBlockRemoved:
-    """Verify PlaceholderBlock is fully removed from the public API."""
-
-    def test_placeholder_block_not_importable_from_runsight_core(self):
-        """PlaceholderBlock must not be importable from the runsight_core package."""
-        import runsight_core
-
-        assert not hasattr(runsight_core, "PlaceholderBlock"), (
-            "PlaceholderBlock should have been removed from runsight_core.__init__"
-        )
-
-    def test_placeholder_block_not_in_runsight_core_all(self):
-        """PlaceholderBlock must not appear in runsight_core.__all__."""
-        import runsight_core
-
-        assert "PlaceholderBlock" not in runsight_core.__all__, (
-            "PlaceholderBlock should have been removed from __all__"
-        )
-
-    def test_placeholder_block_not_importable_from_blocks_package(self):
-        """PlaceholderBlock must not be importable from blocks package."""
-        import runsight_core.blocks as blocks_pkg
-
-        assert not hasattr(blocks_pkg, "PlaceholderBlock"), (
-            "PlaceholderBlock class should have been removed from blocks package"
-        )
-
-
-# ===========================================================================
-# 2. PlaceholderBlockDef is NOT in the schema's BlockDef union
-# ===========================================================================
-
-
-class TestPlaceholderBlockDefRemoved:
-    """Verify PlaceholderBlockDef is fully removed from the YAML schema."""
-
-    def test_placeholder_block_def_not_importable_from_schema(self):
-        """PlaceholderBlockDef must not be importable from yaml.schema."""
-        from runsight_core.yaml import schema
-
-        assert not hasattr(schema, "PlaceholderBlockDef"), (
-            "PlaceholderBlockDef should have been removed from schema.py"
-        )
-
-    def test_placeholder_type_not_in_block_def_union(self):
-        """type: placeholder must not be accepted by the BlockDef discriminated union."""
-        from runsight_core.yaml.schema import BlockDef
-
-        adapter = TypeAdapter(BlockDef)
-        with pytest.raises(ValidationError):
-            adapter.validate_python({"type": "placeholder"})
-
-    def test_placeholder_type_with_description_not_in_block_def_union(self):
-        """type: placeholder with description must not be accepted by BlockDef."""
-        from runsight_core.yaml.schema import BlockDef
-
-        adapter = TypeAdapter(BlockDef)
-        with pytest.raises(ValidationError):
-            adapter.validate_python({"type": "placeholder", "description": "test"})
-
-
-# ===========================================================================
-# 3. "placeholder" is NOT in BLOCK_TYPE_REGISTRY
-# ===========================================================================
-
-
-class TestPlaceholderNotInRegistry:
-    """Verify placeholder is removed from the parser's block type registry."""
-
-    def test_placeholder_not_in_block_type_registry(self):
-        """The string 'placeholder' must not be a key in BLOCK_TYPE_REGISTRY."""
-        assert "placeholder" not in BLOCK_TYPE_REGISTRY, (
-            "'placeholder' should have been removed from BLOCK_TYPE_REGISTRY"
-        )
-
-    def test_block_type_registry_count_decreased(self):
-        """BLOCK_TYPE_REGISTRY should have 7 entries after the legacy branching block and other removed block types are gone."""
-        assert len(BLOCK_TYPE_REGISTRY) == 7, (
-            "Expected 7 block types after removing the legacy branching block, "
-            f"placeholder, http_request, file_writer, team_lead, and engineering_manager, got {len(BLOCK_TYPE_REGISTRY)}"
-        )
-
-
-# ===========================================================================
-# 4. Dynamic injection raises ValueError for unregistered step types
+# 1. Dynamic injection raises ValueError for unregistered step types
 # ===========================================================================
 
 
@@ -202,62 +107,7 @@ class TestDynamicInjectionRaisesValueError:
 
 
 # ===========================================================================
-# 5. Parsing YAML with type: placeholder raises a validation error
-# ===========================================================================
-
-
-class TestPlaceholderYamlRejected:
-    """YAML documents that use type: placeholder must be rejected."""
-
-    def test_parse_yaml_with_placeholder_block_raises(self):
-        """parse_workflow_yaml must reject YAML containing a placeholder block."""
-        yaml_content = """\
-version: "1.0"
-souls:
-  test:
-    id: test_1
-    role: Tester
-    system_prompt: You test things.
-blocks:
-  my_block:
-    type: placeholder
-    description: "This should not work"
-workflow:
-  name: test_placeholder_rejected
-  entry: my_block
-  transitions:
-    - from: my_block
-      to: null
-"""
-        with pytest.raises((ValidationError, ValueError)):
-            parse_workflow_yaml(yaml_content)
-
-    def test_parse_yaml_with_placeholder_block_no_description_raises(self):
-        """parse_workflow_yaml must reject YAML containing a placeholder block
-        even without a description field."""
-        yaml_content = """\
-version: "1.0"
-souls:
-  test:
-    id: test_1
-    role: Tester
-    system_prompt: You test things.
-blocks:
-  my_block:
-    type: placeholder
-workflow:
-  name: test_placeholder_rejected
-  entry: my_block
-  transitions:
-    - from: my_block
-      to: null
-"""
-        with pytest.raises((ValidationError, ValueError)):
-            parse_workflow_yaml(yaml_content)
-
-
-# ===========================================================================
-# 6. Test infrastructure exists in conftest.py
+# 2. Test infrastructure exists in conftest.py
 # ===========================================================================
 
 

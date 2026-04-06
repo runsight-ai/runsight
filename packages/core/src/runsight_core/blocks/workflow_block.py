@@ -185,13 +185,8 @@ class WorkflowBlock(BaseBlock):
                         }
                     )
 
-        # Step 5: Merge child results into parent, then apply output mappings
-        merged_parent = state.model_copy(
-            update={
-                "results": {**state.results, **child_final_state.results},
-            }
-        )
-        new_parent_state = self._map_outputs(merged_parent, child_final_state, self.outputs)
+        # Step 5: Apply output mappings (only sanctioned channel from child to parent)
+        new_parent_state = self._map_outputs(state, child_final_state, self.outputs)
 
         # Step 6: Propagate costs and add system message with compact metadata
         child_metadata = {
