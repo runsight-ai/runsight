@@ -57,6 +57,7 @@ class MockRunner:
                 self.cost_usd = 0.01
                 self.total_tokens = 10
                 self.soul_id = soul.id
+                self.exit_handle = None
 
         return MockResult()
 
