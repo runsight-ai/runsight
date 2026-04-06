@@ -297,28 +297,6 @@ class TestScenario1SchemaToRunnerPipeline:
 
 
 # ===========================================================================
-# Scenario 2 — SKIPPED (EvalObserver requires apps/api + sqlmodel)
-# ===========================================================================
-
-_SKIP_REASON = (
-    "Scenario 2 lives in apps/api where sqlmodel, RunNode, and EvalObserver are available. "
-    "See apps/api/tests/logic/test_run699_eval_observer_transform.py"
-)
-
-
-@pytest.mark.skip(reason=_SKIP_REASON)
-class TestScenario2EvalObserverLiveWiring:
-    """Placeholder — real tests live in apps/api/tests/logic/test_run699_eval_observer_transform.py.
-
-    This scenario requires sqlmodel (RunNode persistence), SSE event emission,
-    and apps/api observer imports which are not available in the core test environment.
-    """
-
-    async def test_eval_observer_transform_wiring(self):
-        pass
-
-
-# ===========================================================================
 # Scenario 3 — Runner assertion context construction
 # ===========================================================================
 
