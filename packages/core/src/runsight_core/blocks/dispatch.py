@@ -7,12 +7,14 @@ Co-located: runtime class + BlockDef schema + build() function.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal
 
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
+from runsight_core.budget_enforcement import BudgetSession, _active_budget
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.primitives import Soul, Task
@@ -45,6 +47,41 @@ class DispatchBlock(BaseBlock):
         self.branches = branches
         self.runner = runner
 
+    async def _gather_with_budget_isolation(self, coros: List[tuple[str, Any]]) -> List[Any]:
+        """Run branch coroutines via asyncio.gather with budget session isolation.
+
+        When a parent BudgetSession is active, each branch gets an isolated child
+        session via copy_context() so concurrent branches don't share mutable state.
+        After gather, child costs are reconciled to parent and flow-level caps checked.
+        When no budget is set, runs exactly as plain asyncio.gather().
+        """
+        parent_session: BudgetSession | None = _active_budget.get(None)
+
+        if parent_session is None:
+            return list(await asyncio.gather(*(coro for _, coro in coros)))
+
+        children: List[BudgetSession] = []
+        loop = asyncio.get_running_loop()
+        gathered_tasks = []
+
+        for exit_id, coro in coros:
+            child = parent_session.create_isolated_child(branch_id=exit_id)
+            children.append(child)
+
+            ctx = contextvars.copy_context()
+            ctx.run(_active_budget.set, child)
+
+            gathered_tasks.append(loop.create_task(coro, context=ctx))
+
+        results = list(await asyncio.gather(*gathered_tasks))
+
+        for child in children:
+            parent_session.reconcile_child(child)
+
+        parent_session.check_or_raise()
+
+        return results
+
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
         context = state.current_task.context if state.current_task is not None else None
 
@@ -70,7 +107,7 @@ class DispatchBlock(BaseBlock):
                     counter=litellm_token_counter,
                 )
 
-            gather_tasks = []
+            gather_coros = []
             for branch in self.branches:
                 budgeted = budgeted_per_branch[branch.exit_id]
                 task = Task(
@@ -78,14 +115,17 @@ class DispatchBlock(BaseBlock):
                     instruction=budgeted.task.instruction,
                     context=budgeted.task.context,
                 )
-                gather_tasks.append(
-                    self.runner.execute_task(
-                        task,
-                        branch.soul,
-                        messages=budgeted.messages,
+                gather_coros.append(
+                    (
+                        branch.exit_id,
+                        self.runner.execute_task(
+                            task,
+                            branch.soul,
+                            messages=budgeted.messages,
+                        ),
                     )
                 )
-            results = await asyncio.gather(*gather_tasks)
+            results = await self._gather_with_budget_isolation(gather_coros)
 
             updated_histories = {**state.conversation_histories}
             for branch, result in zip(self.branches, results):
@@ -99,18 +139,21 @@ class DispatchBlock(BaseBlock):
 
             conversation_update = updated_histories
         else:
-            gather_tasks = [
-                self.runner.execute_task(
-                    Task(
-                        id=f"{self.block_id}_{branch.exit_id}",
-                        instruction=branch.task_instruction,
-                        context=context,
+            gather_coros = [
+                (
+                    branch.exit_id,
+                    self.runner.execute_task(
+                        Task(
+                            id=f"{self.block_id}_{branch.exit_id}",
+                            instruction=branch.task_instruction,
+                            context=context,
+                        ),
+                        branch.soul,
                     ),
-                    branch.soul,
                 )
                 for branch in self.branches
             ]
-            results = await asyncio.gather(*gather_tasks)
+            results = await self._gather_with_budget_isolation(gather_coros)
             conversation_update = state.conversation_histories
 
         # Per-exit results and combined output

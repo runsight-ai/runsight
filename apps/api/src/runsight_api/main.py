@@ -73,6 +73,8 @@ def _ensure_sqlite_columns(engine) -> None:
             "parent_node_id": "TEXT",
             "root_run_id": "TEXT",
             "depth": "INTEGER DEFAULT 0",
+            "fail_reason": "VARCHAR",
+            "fail_metadata": "JSON",
         },
         "runnode": {
             "last_phase": "VARCHAR",

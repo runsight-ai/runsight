@@ -77,6 +77,10 @@ class Run(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 
+    # Budget-exceeded terminal state (RUN-717)
+    fail_reason: Optional[str] = Field(default=None)
+    fail_metadata: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+
     # Nested-run linkage (RUN-607)
     parent_run_id: Optional[str] = Field(default=None)
     parent_node_id: Optional[str] = Field(default=None)

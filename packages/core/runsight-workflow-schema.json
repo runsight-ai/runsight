@@ -1,5 +1,62 @@
 {
   "$defs": {
+    "BlockLimitsDef": {
+      "additionalProperties": false,
+      "description": "Per-block budget limits for duration, cost, and tokens.",
+      "properties": {
+        "max_duration_seconds": {
+          "anyOf": [
+            {
+              "maximum": 86400,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Duration Seconds"
+        },
+        "cost_cap_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Cap Usd"
+        },
+        "token_cap": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Token Cap"
+        },
+        "on_exceed": {
+          "default": "fail",
+          "enum": [
+            "warn",
+            "fail"
+          ],
+          "title": "On Exceed",
+          "type": "string"
+        }
+      },
+      "title": "BlockLimitsDef",
+      "type": "object"
+    },
     "CarryContextConfig": {
       "additionalProperties": false,
       "description": "Configuration for carrying context between LoopBlock rounds.",
@@ -253,6 +310,17 @@
           ],
           "default": null,
           "title": "Stall Thresholds"
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockLimitsDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "code": {
           "title": "Code",
@@ -534,6 +602,17 @@
           ],
           "default": null,
           "title": "Stall Thresholds"
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockLimitsDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -919,6 +998,17 @@
           "default": null,
           "title": "Stall Thresholds"
         },
+        "limits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockLimitsDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "soul_ref": {
           "title": "Soul Ref",
           "type": "string"
@@ -1169,6 +1259,17 @@
           "default": null,
           "title": "Stall Thresholds"
         },
+        "limits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockLimitsDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "soul_ref": {
           "title": "Soul Ref",
           "type": "string"
@@ -1362,6 +1463,17 @@
           ],
           "default": null,
           "title": "Stall Thresholds"
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockLimitsDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "inner_block_refs": {
           "items": {
@@ -1819,6 +1931,17 @@
           "default": null,
           "title": "Stall Thresholds"
         },
+        "limits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockLimitsDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "soul_ref": {
           "title": "Soul Ref",
           "type": "string"
@@ -2048,6 +2171,17 @@
           "default": null,
           "title": "Stall Thresholds"
         },
+        "limits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BlockLimitsDef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "workflow_ref": {
           "title": "Workflow Ref",
           "type": "string"
@@ -2237,6 +2371,70 @@
       ],
       "title": "WorkflowInterfaceOutputDef",
       "type": "object"
+    },
+    "WorkflowLimitsDef": {
+      "additionalProperties": false,
+      "description": "Workflow-level budget limits for duration, cost, and tokens.",
+      "properties": {
+        "max_duration_seconds": {
+          "anyOf": [
+            {
+              "maximum": 86400,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Duration Seconds"
+        },
+        "cost_cap_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Cap Usd"
+        },
+        "token_cap": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Token Cap"
+        },
+        "on_exceed": {
+          "default": "fail",
+          "enum": [
+            "warn",
+            "fail"
+          ],
+          "title": "On Exceed",
+          "type": "string"
+        },
+        "warn_at_pct": {
+          "default": 0.8,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Warn At Pct",
+          "type": "number"
+        }
+      },
+      "title": "WorkflowLimitsDef",
+      "type": "object"
     }
   },
   "description": "Root model for a Runsight .yaml workflow file.\n'workflow' is the only required top-level key \u2014 all others have defaults.",
@@ -2324,6 +2522,17 @@
     },
     "workflow": {
       "$ref": "#/$defs/WorkflowDef"
+    },
+    "limits": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WorkflowLimitsDef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "eval": {
       "anyOf": [

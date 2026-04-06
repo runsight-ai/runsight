@@ -366,6 +366,8 @@ class ExecutionObserver:
 
     def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
         try:
+            from runsight_core.budget_enforcement import BudgetKilledException
+
             is_cancelled = isinstance(error, asyncio.CancelledError)
             status = RunStatus.cancelled if is_cancelled else RunStatus.failed
             level = "warning" if is_cancelled else "error"
@@ -390,6 +392,17 @@ class ExecutionObserver:
                     run.duration_s = duration_s
                     run.error = str(error)
                     run.error_traceback = tb_str
+
+                    if isinstance(error, BudgetKilledException):
+                        run.fail_reason = "budget_exceeded"
+                        run.fail_metadata = {
+                            "scope": error.scope,
+                            "block_id": error.block_id,
+                            "limit_kind": error.limit_kind,
+                            "limit_value": error.limit_value,
+                            "actual_value": error.actual_value,
+                        }
+
                     run.updated_at = time.time()
                     session.add(run)
                 session.commit()
