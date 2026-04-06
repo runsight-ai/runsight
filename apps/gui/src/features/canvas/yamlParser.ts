@@ -216,12 +216,6 @@ export function parseWorkflowYamlToGraph(
 
   const result: ParseWorkflowResult = { nodes, edges, viewport: canvasState?.viewport };
   if (buildErrors.length > 0) result.error = { message: buildErrors.join("; ") };
-  if (parsed.souls !== undefined) {
-    const soulsWarning = "Deprecated: inline souls section is no longer supported. Define souls as standalone YAML files instead.";
-    result.error = result.error
-      ? { message: `${result.error.message}; ${soulsWarning}` }
-      : { message: soulsWarning };
-  }
   if (parsed.config !== undefined) result.config = parsed.config;
   return result;
 }
