@@ -35,15 +35,11 @@ test.describe("Canvas Inspector", () => {
   });
 
   test("create workflow and navigate to canvas", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created in beforeAll");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await expect(page.locator(".react-flow")).toBeVisible({ timeout: 15000 });
   });
 
   test("drag a node from palette onto canvas", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -56,8 +52,6 @@ test.describe("Canvas Inspector", () => {
   });
 
   test("click node → inspector panel opens", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -73,8 +67,6 @@ test.describe("Canvas Inspector", () => {
   });
 
   test("inspector Overview tab shows node name textbox and Step Type", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -95,8 +87,6 @@ test.describe("Canvas Inspector", () => {
   });
 
   test("edit node name in Overview → name input updates", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -112,8 +102,6 @@ test.describe("Canvas Inspector", () => {
   });
 
   test("switch to Prompt tab → shows editor area", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -128,8 +116,6 @@ test.describe("Canvas Inspector", () => {
   });
 
   test("switch to Conditions tab → shows Simple/Expression/Python mode buttons", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -147,8 +133,6 @@ test.describe("Canvas Inspector", () => {
   });
 
   test("Conditions Simple mode shows IF/THEN/ELSE", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -165,8 +149,6 @@ test.describe("Canvas Inspector", () => {
   });
 
   test("switch to Expression mode → shows Jinja2 textarea", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -182,8 +164,6 @@ test.describe("Canvas Inspector", () => {
   });
 
   test("close inspector via close button", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -200,8 +180,6 @@ test.describe("Canvas Inspector", () => {
   });
 
   test("click canvas background → inspector closes", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -218,8 +196,6 @@ test.describe("Canvas Inspector", () => {
   });
 
   test("click different node → inspector updates with new node data", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 

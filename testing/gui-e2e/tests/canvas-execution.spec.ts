@@ -32,8 +32,6 @@ test.describe("Canvas Execution", () => {
   });
 
   test("Run button is visible when workflow has nodes", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -47,8 +45,6 @@ test.describe("Canvas Execution", () => {
   });
 
   test("click Run → execution state starts, header shows Running and Read-only banner", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -64,8 +60,6 @@ test.describe("Canvas Execution", () => {
   });
 
   test("execution completes and shows summary", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
