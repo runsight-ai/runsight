@@ -354,17 +354,20 @@ class TestHTTPURLAllowlist:
     @pytest.mark.asyncio
     async def test_wildcard_allowlist_permits_all(self, tmp_path: Path):
         """A '*' entry in the allowlist permits all hosts."""
+        from unittest.mock import AsyncMock, patch
+
         from runsight_core.isolation.handlers import make_http_handler
 
         handler = make_http_handler(credentials={}, url_allowlist=["*"])
 
-        result = await handler(
-            {
-                "method": "GET",
-                "url": "https://literally-anything.com/path",
-                "headers": {},
-            }
-        )
+        with patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock):
+            result = await handler(
+                {
+                    "method": "GET",
+                    "url": "https://literally-anything.com/path",
+                    "headers": {},
+                }
+            )
         assert "error" not in result
 
     @pytest.mark.asyncio

@@ -20,6 +20,8 @@ def integration_soul():
         role="Integration Test Agent",
         system_prompt="You are an integration test agent that validates system behavior.",
         tools=["calculator", "search"],
+        provider="openai",
+        model_name="gpt-4o",
     )
 
 
@@ -156,43 +158,6 @@ async def test_execution_result_mapping_from_llm_response(
 
 
 @pytest.mark.asyncio
-@patch("runsight_core.runner.LiteLLMClient.astream_chat")
-async def test_streaming_integration_with_task_and_soul(
-    mock_astream_chat, integration_soul, integration_task_with_context
-):
-    """
-    INTEGRATION: Verify streaming execution works with Task and Soul.
-
-    Tests the streaming data flow: Task + Soul -> Runner -> LLMClient stream
-    """
-
-    async def mock_stream():
-        yield "Analysis "
-        yield "of "
-        yield "integration "
-        yield "points "
-        yield "complete."
-
-    mock_astream_chat.return_value = mock_stream()
-
-    runner = RunsightTeamRunner(model_name="test-model")
-    chunks = []
-
-    async for chunk in runner.stream_task(integration_task_with_context, integration_soul):
-        chunks.append(chunk)
-
-    assert chunks == ["Analysis ", "of ", "integration ", "points ", "complete."]
-
-    # Verify correct parameters passed to streaming
-    call_kwargs = mock_astream_chat.call_args.kwargs
-    assert call_kwargs["system_prompt"] == integration_soul.system_prompt
-
-    messages = call_kwargs["messages"]
-    prompt_content = messages[0]["content"]
-    assert integration_task_with_context.instruction in prompt_content
-
-
-@pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
 async def test_multiple_tasks_with_same_soul(mock_achat, integration_soul):
     """
@@ -246,6 +211,8 @@ async def test_soul_tools_field_preserved_through_execution(
         role="Tool User",
         system_prompt="You can use tools.",
         tools=["file_reader", "web_search"],
+        provider="openai",
+        model_name="gpt-4o",
     )
 
     mock_achat.return_value = {

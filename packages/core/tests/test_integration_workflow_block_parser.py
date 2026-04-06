@@ -62,16 +62,16 @@ transitions:
         block_def_dict = {
             "type": "workflow",
             "workflow_ref": "child_analysis",
-            "inputs": {"shared_memory.topic": "shared_memory.research_topic"},
-            "outputs": {"results.analysis": "results.final"},
+            "inputs": {"topic": "shared_memory.research_topic"},
+            "outputs": {"results.analysis": "final"},
             "max_depth": 5,
         }
         _block_adapter = TypeAdapter(BlockDef)
         block_def = _block_adapter.validate_python(block_def_dict)
         assert block_def.type == "workflow"
         assert block_def.workflow_ref == "child_analysis"
-        assert block_def.inputs == {"shared_memory.topic": "shared_memory.research_topic"}
-        assert block_def.outputs == {"results.analysis": "results.final"}
+        assert block_def.inputs == {"topic": "shared_memory.research_topic"}
+        assert block_def.outputs == {"results.analysis": "final"}
         assert block_def.max_depth == 5
 
 

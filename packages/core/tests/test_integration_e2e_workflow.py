@@ -33,6 +33,8 @@ async def test_e2e_single_block_workflow(mock_achat):
         id="researcher",
         role="Research Analyst",
         system_prompt="You are a research analyst who finds and summarizes academic papers.",
+        provider="openai",
+        model_name="gpt-4o",
     )
 
     task = Task(
@@ -85,9 +87,27 @@ async def test_e2e_sequential_block_workflow(mock_achat):
     Simulates a multi-step workflow where each block's output feeds into the next.
     """
     # Setup multiple souls and tasks
-    researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research topics.")
-    analyst_soul = Soul(id="analyst", role="Analyst", system_prompt="Analyze data.")
-    writer_soul = Soul(id="writer", role="Writer", system_prompt="Write reports.")
+    researcher_soul = Soul(
+        id="researcher",
+        role="Researcher",
+        system_prompt="Research topics.",
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    analyst_soul = Soul(
+        id="analyst",
+        role="Analyst",
+        system_prompt="Analyze data.",
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    writer_soul = Soul(
+        id="writer",
+        role="Writer",
+        system_prompt="Write reports.",
+        provider="openai",
+        model_name="gpt-4o",
+    )
 
     research_task = Task(id="task1", instruction="Research topic")
     analysis_task = Task(id="task2", instruction="Analyze findings")
@@ -171,7 +191,13 @@ async def test_e2e_shared_memory_across_blocks(mock_achat):
         {"content": "Result 2", "cost_usd": 0.12, "total_tokens": 120},
     ]
 
-    soul = Soul(id="worker", role="Worker", system_prompt="Process tasks.")
+    soul = Soul(
+        id="worker",
+        role="Worker",
+        system_prompt="Process tasks.",
+        provider="openai",
+        model_name="gpt-4o",
+    )
     runner = RunsightTeamRunner(model_name="gpt-4o")
 
     block1 = LinearBlock("block1", soul, runner)
@@ -210,7 +236,13 @@ async def test_e2e_error_propagation_through_workflow():
 
     Tests error handling: Runner error -> Block -> Caller
     """
-    soul = Soul(id="faulty", role="Faulty Agent", system_prompt="Might fail.")
+    soul = Soul(
+        id="faulty",
+        role="Faulty Agent",
+        system_prompt="Might fail.",
+        provider="openai",
+        model_name="gpt-4o",
+    )
 
     # Create a mock runner that raises an error
     mock_runner = MagicMock()
@@ -238,7 +270,9 @@ async def test_e2e_state_isolation_between_workflows(mock_achat):
         {"content": "Workflow 2 result", "cost_usd": 0.1, "total_tokens": 100},
     ]
 
-    soul = Soul(id="worker", role="Worker", system_prompt="Work.")
+    soul = Soul(
+        id="worker", role="Worker", system_prompt="Work.", provider="openai", model_name="gpt-4o"
+    )
     runner = RunsightTeamRunner(model_name="gpt-4o")
     block = LinearBlock("block", soul, runner)
 
@@ -281,7 +315,13 @@ async def test_e2e_long_running_workflow_state_size(mock_achat):
         "total_tokens": 500,
     }
 
-    soul = Soul(id="verbose", role="Verbose Agent", system_prompt="Generate long outputs.")
+    soul = Soul(
+        id="verbose",
+        role="Verbose Agent",
+        system_prompt="Generate long outputs.",
+        provider="openai",
+        model_name="gpt-4o",
+    )
     runner = RunsightTeamRunner(model_name="gpt-4o")
 
     # Simulate 10 blocks in sequence
@@ -325,7 +365,11 @@ async def test_e2e_workflow_with_task_context_utilization(mock_achat):
     }
 
     soul = Soul(
-        id="processor", role="Data Processor", system_prompt="Process data using provided context."
+        id="processor",
+        role="Data Processor",
+        system_prompt="Process data using provided context.",
+        provider="openai",
+        model_name="gpt-4o",
     )
 
     task = Task(
@@ -360,7 +404,9 @@ async def test_e2e_baseblock_empty_id_validation():
     Tests that the block_id validation in BaseBlock.__init__ is enforced
     by concrete implementations.
     """
-    soul = Soul(id="test", role="Tester", system_prompt="Test.")
+    soul = Soul(
+        id="test", role="Tester", system_prompt="Test.", provider="openai", model_name="gpt-4o"
+    )
     runner = MagicMock()
 
     # Empty string block_id should raise ValueError

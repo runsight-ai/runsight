@@ -504,9 +504,6 @@ class TestAutoDiscovery:
 class TestEdgeCases:
     """Edge case tests for the auto-registration infrastructure."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_model_rebuild_preserves_nested_validation(self):
         """After rebuild_block_def_union, nested model validation still works."""
         from runsight_core.yaml.schema import (

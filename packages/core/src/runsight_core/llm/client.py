@@ -1,4 +1,4 @@
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from litellm import acompletion, completion_cost  # type: ignore[import-not-found]
 from pydantic import BaseModel
@@ -11,8 +11,7 @@ class LLMMessage(BaseModel):
 
 class LiteLLMClient:
     """
-    An async generator LiteLLM adapter matching the OpenAI SDK format.
-    Supports streaming and standard completion.
+    A LiteLLM adapter matching the OpenAI SDK format. Supports standard (non-streaming) completion.
     """
 
     def __init__(
@@ -21,41 +20,6 @@ class LiteLLMClient:
         self.model_name = model_name
         self.timeout = timeout
         self.api_key = api_key
-
-    async def astream_chat(
-        self,
-        messages: List[Dict[str, str]],
-        system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
-        **kwargs: Any,
-    ) -> AsyncGenerator[str, None]:
-        """
-        Stream the response from the LLM.
-        """
-        formatted_messages = []
-        if system_prompt:
-            formatted_messages.append({"role": "system", "content": system_prompt})
-
-        formatted_messages.extend(messages)
-
-        extra_kwargs = dict(kwargs)
-        if self.api_key is not None:
-            extra_kwargs["api_key"] = self.api_key
-
-        response = await acompletion(
-            model=self.model_name,
-            messages=formatted_messages,
-            stream=True,
-            temperature=temperature,
-            timeout=self.timeout,
-            **extra_kwargs,
-        )
-
-        async for chunk in response:
-            if chunk.choices and len(chunk.choices) > 0:
-                delta = chunk.choices[0].delta
-                if delta.content:
-                    yield delta.content
 
     async def achat(
         self,

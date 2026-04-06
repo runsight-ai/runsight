@@ -1,9 +1,8 @@
 """
 Tests for RUN-188: Runner messages parameter for multi-turn conversations.
 
-Verifies that execute_task() and stream_task() accept an optional
-`messages` parameter (history) that is prepended to the current user message
-before being sent to the LLM client.
+Verifies that execute_task() accepts an optional `messages` parameter (history)
+that is prepended to the current user message before being sent to the LLM client.
 """
 
 from unittest.mock import patch
@@ -15,7 +14,13 @@ from runsight_core.runner import RunsightTeamRunner
 
 @pytest.fixture
 def soul():
-    return Soul(id="s1", role="Agent", system_prompt="You are helpful.")
+    return Soul(
+        id="s1",
+        role="Agent",
+        system_prompt="You are helpful.",
+        provider="openai",
+        model_name="gpt-4o",
+    )
 
 
 @pytest.fixture
@@ -103,85 +108,5 @@ async def test_execute_task_with_empty_messages_same_as_none(mock_achat, soul, t
     await runner.execute_task(task, soul, messages=[])
 
     sent_messages = mock_achat.call_args.kwargs["messages"]
-    assert len(sent_messages) == 1
-    assert sent_messages[0]["role"] == "user"
-
-
-# ---------------------------------------------------------------------------
-# stream_task with history messages
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-@patch("runsight_core.runner.LiteLLMClient.astream_chat")
-async def test_stream_task_with_history_sends_merged_messages(mock_astream, soul, task):
-    """stream_task with messages=[2 history msgs] sends 3-message array to client."""
-
-    async def mock_gen(*args, **kwargs):
-        yield "token"
-
-    mock_astream.side_effect = mock_gen
-
-    runner = RunsightTeamRunner(model_name="test-model")
-    chunks = []
-    async for chunk in runner.stream_task(task, soul, messages=HISTORY_MESSAGES):
-        chunks.append(chunk)
-
-    assert chunks == ["token"]
-
-    mock_astream.assert_called_once()
-    sent_messages = mock_astream.call_args.kwargs["messages"]
-
-    assert len(sent_messages) == 3
-    assert sent_messages[0] == {"role": "user", "content": "Hello"}
-    assert sent_messages[1] == {"role": "assistant", "content": "Hi there! How can I help?"}
-    assert sent_messages[2]["role"] == "user"
-    assert "What next?" in sent_messages[2]["content"]
-
-
-# ---------------------------------------------------------------------------
-# stream_task backward compatibility
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-@patch("runsight_core.runner.LiteLLMClient.astream_chat")
-async def test_stream_task_without_messages_is_backward_compatible(mock_astream, soul, task):
-    """Calling stream_task without messages sends single-message array."""
-
-    async def mock_gen(*args, **kwargs):
-        yield "ok"
-
-    mock_astream.side_effect = mock_gen
-
-    runner = RunsightTeamRunner(model_name="test-model")
-    async for _ in runner.stream_task(task, soul):
-        pass
-
-    sent_messages = mock_astream.call_args.kwargs["messages"]
-    assert len(sent_messages) == 1
-    assert sent_messages[0]["role"] == "user"
-
-
-# ---------------------------------------------------------------------------
-# stream_task with empty messages list
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-@patch("runsight_core.runner.LiteLLMClient.astream_chat")
-async def test_stream_task_with_empty_messages_same_as_none(mock_astream, soul, task):
-    """stream_task with messages=[] behaves same as None."""
-
-    async def mock_gen(*args, **kwargs):
-        yield "ok"
-
-    mock_astream.side_effect = mock_gen
-
-    runner = RunsightTeamRunner(model_name="test-model")
-    async for _ in runner.stream_task(task, soul, messages=[]):
-        pass
-
-    sent_messages = mock_astream.call_args.kwargs["messages"]
     assert len(sent_messages) == 1
     assert sent_messages[0]["role"] == "user"

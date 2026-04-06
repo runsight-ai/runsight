@@ -50,7 +50,9 @@ class TestGetClientResolvesProviderKey:
             model_name="gpt-4o",
             api_keys={"openai": "sk-openai-key", "anthropic": "sk-ant-key"},
         )
-        soul = Soul(id="s1", role="test", system_prompt="test")
+        soul = Soul(
+            id="s1", role="test", system_prompt="test", provider="openai", model_name="gpt-4o"
+        )
         # Default model is gpt-4o (OpenAI), so default client should have openai key
         client = runner._get_client(soul)
         assert client.api_key == "sk-openai-key"
@@ -65,6 +67,7 @@ class TestGetClientResolvesProviderKey:
             id="s1",
             role="test",
             system_prompt="test",
+            provider="anthropic",
             model_name="claude-3-opus-20240229",
         )
         client = runner._get_client(soul)
@@ -76,11 +79,14 @@ class TestGetClientResolvesProviderKey:
             model_name="gpt-4o",
             api_keys={"openai": "sk-openai-key", "anthropic": "sk-ant-key"},
         )
-        openai_soul = Soul(id="s1", role="test", system_prompt="test")  # uses default gpt-4o
+        openai_soul = Soul(
+            id="s1", role="test", system_prompt="test", provider="openai", model_name="gpt-4o"
+        )
         anthropic_soul = Soul(
             id="s2",
             role="test",
             system_prompt="test",
+            provider="anthropic",
             model_name="claude-3-opus-20240229",
         )
         openai_client = runner._get_client(openai_soul)
@@ -107,6 +113,7 @@ class TestMissingProviderKey:
             id="s1",
             role="test",
             system_prompt="test",
+            provider="anthropic",
             model_name="claude-3-opus-20240229",
         )
         with pytest.raises((KeyError, ValueError)) as exc_info:
@@ -124,6 +131,7 @@ class TestMissingProviderKey:
             id="s1",
             role="test",
             system_prompt="test",
+            provider="anthropic",
             model_name="claude-3-opus-20240229",
         )
         with pytest.raises((KeyError, ValueError)) as exc_info:
@@ -133,7 +141,9 @@ class TestMissingProviderKey:
     def test_empty_api_keys_dict_raises_on_any_model(self):
         """If api_keys is an empty dict, any model lookup should fail descriptively."""
         runner = RunsightTeamRunner(model_name="gpt-4o", api_keys={})
-        soul = Soul(id="s1", role="test", system_prompt="test")
+        soul = Soul(
+            id="s1", role="test", system_prompt="test", provider="openai", model_name="gpt-4o"
+        )
         with pytest.raises((KeyError, ValueError)):
             runner._get_client(soul)
 
@@ -166,8 +176,10 @@ class TestUnknownModelProvider:
             id="s1",
             role="test",
             system_prompt="test",
+            provider="unknown_provider",
             model_name="totally-unknown-model-xyz",
         )
         with pytest.raises((KeyError, ValueError)) as exc_info:
             runner._get_client(soul)
+        # Error should mention the unrecognized model
         assert "totally-unknown-model-xyz" in str(exc_info.value).lower()

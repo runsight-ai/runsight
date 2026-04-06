@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -384,20 +384,6 @@ class RunsightTeamRunner:
             tool_iterations=iteration,
             tool_calls_made=tool_calls_made,
         )
-
-    async def stream_task(
-        self, task: Task, soul: Soul, messages: list[dict] | None = None
-    ) -> AsyncGenerator[str, None]:
-        """
-        Executes a task and streams the response tokens back.
-        """
-        all_messages = (messages or []) + [{"role": "user", "content": self._build_prompt(task)}]
-
-        client = self._get_client(soul)
-        async for chunk in client.astream_chat(
-            messages=all_messages, system_prompt=soul.system_prompt
-        ):
-            yield chunk
 
     def _build_prompt(self, task: Task) -> str:
         """

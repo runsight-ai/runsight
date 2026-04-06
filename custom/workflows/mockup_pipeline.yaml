@@ -10,7 +10,7 @@ blocks:
     inputs:
       current_task: current_task
     outputs:
-      results.mockup_html: results.gate
+      results.mockup_html: gate
     max_depth: 5
 
   retry_generate:

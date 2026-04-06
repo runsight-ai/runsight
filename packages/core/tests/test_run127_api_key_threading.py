@@ -52,30 +52,6 @@ class TestLiteLLMClientApiKey:
                 or call_kwargs[1].get("api_key") == "sk-thread-test"
             )
 
-    @pytest.mark.asyncio
-    async def test_astream_chat_passes_api_key_to_acompletion(self):
-        """astream_chat() passes api_key to litellm.acompletion() kwargs."""
-        from runsight_core.llm.client import LiteLLMClient
-
-        client = LiteLLMClient(model_name="gpt-4o", api_key="sk-stream-test")
-
-        async def fake_stream(*args, **kwargs):
-            # Yield nothing, just need to check kwargs
-            return
-            yield  # make it a generator
-
-        with patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock) as mock_acomp:
-            mock_acomp.return_value = fake_stream()
-            # Consume the generator
-            async for _ in client.astream_chat(messages=[{"role": "user", "content": "hi"}]):
-                pass
-
-            call_kwargs = mock_acomp.call_args
-            assert (
-                call_kwargs.kwargs.get("api_key") == "sk-stream-test"
-                or call_kwargs[1].get("api_key") == "sk-stream-test"
-            )
-
 
 # ---------------------------------------------------------------------------
 # 2. RunsightTeamRunner consumes canonical api_keys maps

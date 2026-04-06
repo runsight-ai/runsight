@@ -35,6 +35,8 @@ def _make_soul(
         "id": "test_soul",
         "role": "Test Agent",
         "system_prompt": "You are a test agent.",
+        "provider": "openai",
+        "model_name": "gpt-4o",
     }
     defaults.update(kwargs)
     soul = Soul(**defaults, max_tool_iterations=max_tool_iterations)

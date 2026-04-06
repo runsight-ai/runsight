@@ -13,7 +13,9 @@ class TestGetClientResolvesApiKeys:
         from runsight_core.runner import RunsightTeamRunner
 
         runner = RunsightTeamRunner(model_name="gpt-4o", api_keys={"openai": "sk-test-key"})
-        soul = Soul(id="s1", role="test", system_prompt="test")
+        soul = Soul(
+            id="s1", role="test", system_prompt="test", provider="openai", model_name="gpt-4o"
+        )
         client = runner._get_client(soul)
         assert client.api_key == "sk-test-key"
 
@@ -29,6 +31,7 @@ class TestGetClientResolvesApiKeys:
             id="s1",
             role="test",
             system_prompt="test",
+            provider="anthropic",
             model_name="claude-3-opus-20240229",
         )
         client = runner._get_client(soul)
@@ -46,6 +49,7 @@ class TestGetClientResolvesApiKeys:
             id="s1",
             role="test",
             system_prompt="test",
+            provider="openai",
             model_name="gpt-3.5-turbo",
         )
         client1 = runner._get_client(soul)

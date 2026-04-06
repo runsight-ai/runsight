@@ -80,24 +80,6 @@ async def test_execute_task_forwards_temperature_and_max_tokens(mock_achat, samp
 
 
 @pytest.mark.asyncio
-@patch("runsight_core.runner.LiteLLMClient.astream_chat")
-async def test_stream_task(mock_astream_chat, sample_soul, sample_task):
-    async def mock_stream_response(*args, **kwargs):
-        yield "Hel"
-        yield "lo!"
-
-    mock_astream_chat.side_effect = mock_stream_response
-
-    runner = RunsightTeamRunner(model_name="gpt-4o")
-    chunks = []
-    async for chunk in runner.stream_task(sample_task, sample_soul):
-        chunks.append(chunk)
-
-    assert chunks == ["Hel", "lo!"]
-    mock_astream_chat.assert_called_once()
-
-
-@pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
 async def test_execute_task_rejects_model_only_soul_without_provider(mock_achat, sample_task):
     mock_achat.return_value = {
