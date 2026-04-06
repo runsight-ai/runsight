@@ -1157,7 +1157,7 @@ config:
 
 souls:
   reviewer:
-    id: reviewer_1
+    id: reviewer
     role: Reviewer
     system_prompt: "Evaluate quality"
 
@@ -1208,11 +1208,11 @@ config:
 
 souls:
   writer:
-    id: writer_1
+    id: writer
     role: Writer
     system_prompt: "Write content"
   reviewer:
-    id: reviewer_1
+    id: reviewer
     role: Reviewer
     system_prompt: "Evaluate quality"
 
