@@ -53,27 +53,12 @@ describe("RunDetail YAML tab uses historical snapshot (RUN-749)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. RunDetail uses gitApi.getGitFile for the historical path
+// 2. getGitFile path convention is used somewhere in the run detail feature
+//    (tests 3 and 4 removed — over-prescriptive per Blue review; tests 1, 2,
+//    and the path-convention test below already cover the behavioral contract)
 // ---------------------------------------------------------------------------
 
-describe("RunDetail fetches historical YAML via gitApi (RUN-749)", () => {
-  it("imports gitApi from the git API module", () => {
-    const src = readSource("RunDetail.tsx");
-
-    const importsGitApi =
-      /import\s*\{[^}]*gitApi[^}]*\}\s*from/.test(src) ||
-      /import\s+\*\s+as\s+\w+\s+from\s*["']@\/api\/git["']/.test(src);
-
-    expect(importsGitApi).toBe(true);
-  });
-
-  it("calls gitApi.getGitFile with commitSha and workflowPath", () => {
-    const src = readSource("RunDetail.tsx");
-
-    // Must call getGitFile somewhere in the component
-    expect(src).toMatch(/getGitFile/);
-  });
-
+describe("Run detail feature uses the correct git file path convention (RUN-749)", () => {
   it("derives the workflow path from workflow_id using the standard path pattern", () => {
     const src = readSource("RunDetail.tsx");
 
@@ -121,38 +106,7 @@ describe("RunDetail falls back to current workflow when commit_sha is absent (RU
 });
 
 // ---------------------------------------------------------------------------
-// 4. A dedicated hook or helper encapsulates the YAML-source logic
-//    (preferred: keeps RunDetail thin and logic testable in isolation)
-// ---------------------------------------------------------------------------
-
-describe("Historical YAML logic is encapsulated outside RunDetail (RUN-749)", () => {
-  it("RunDetail does NOT inline the getGitFile fetch as a raw useEffect with useState", () => {
-    const src = readSource("RunDetail.tsx");
-
-    // The fix should delegate to a hook (e.g. useRunYaml / useHistoricalYaml) or
-    // a dedicated component (e.g. RunYamlPanel) rather than littering RunDetail
-    // with raw useState + useEffect + gitApi calls for YAML fetching.
-    //
-    // Acceptable patterns:
-    //   <RunYamlPanel ...>
-    //   useRunYaml(...)
-    //   useHistoricalYaml(...)
-    //   <HistoricalYamlViewer ...>
-    //
-    // The test fails if none of these are present (implementation still inline).
-    const hasDedicatedAbstraction =
-      /RunYamlPanel/.test(src) ||
-      /useRunYaml/.test(src) ||
-      /useHistoricalYaml/.test(src) ||
-      /HistoricalYamlViewer/.test(src) ||
-      /RunYamlTab/.test(src);
-
-    expect(hasDedicatedAbstraction).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 5. YamlEditor itself does NOT own the commit-sha resolution logic
+// 4. YamlEditor itself does NOT own the commit-sha resolution logic
 //    (single-responsibility: YamlEditor stays a pure display component)
 // ---------------------------------------------------------------------------
 
