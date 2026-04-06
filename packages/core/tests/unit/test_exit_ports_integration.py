@@ -141,98 +141,10 @@ class TestExistingYamlWorkflowsParse:
             f"Expected at least 2 YAML files in {CUSTOM_WORKFLOWS_DIR}, found {len(yaml_files)}"
         )
 
-    @pytest.mark.xfail(
-        reason="RUN-569 removed mockup_generate_review.yaml (broken soul_refs)", strict=True
-    )
-    def test_mockup_generate_review_has_exits_on_gate(self):
-        """mockup_generate_review.yaml must declare exits on its gate block.
-
-        FAILS UNTIL: The YAML is updated to add exits to the gate block.
-        """
-        yaml_path = CUSTOM_WORKFLOWS_DIR / "mockup_generate_review.yaml"
-        assert yaml_path.exists()
-
-        with open(yaml_path) as f:
-            data = yaml.safe_load(f)
-
-        gate_def = data["blocks"]["gate"]
-        assert "exits" in gate_def, (
-            "Gate block in mockup_generate_review.yaml must declare exits "
-            "(list of {id, label} objects for 'pass' and 'fail')"
-        )
-        exit_ids = [e["id"] for e in gate_def["exits"]]
-        assert "pass" in exit_ids, "Gate block must declare a 'pass' exit"
-        assert "fail" in exit_ids, "Gate block must declare a 'fail' exit"
-
-    @pytest.mark.xfail(
-        reason="RUN-569 removed mockup_generate_review.yaml (broken soul_refs)", strict=True
-    )
-    def test_mockup_generate_review_loop_has_break_on_exit(self):
-        """mockup_generate_review.yaml loop must declare break_on_exit/retry_on_exit.
-
-        FAILS UNTIL: The YAML is updated to add break_on_exit to the loop
-        that contains the gate (via inner_block_refs -> gate transitions).
-        """
-        yaml_path = CUSTOM_WORKFLOWS_DIR / "mockup_generate_review.yaml"
-        with open(yaml_path) as f:
-            data = yaml.safe_load(f)
-
-        # The loop block is generate_review_loop
-        loop_def = data["blocks"]["generate_review_loop"]
-        has_break_or_retry = (
-            loop_def.get("break_on_exit") is not None or loop_def.get("retry_on_exit") is not None
-        )
-        assert has_break_or_retry, (
-            "Loop block 'generate_review_loop' must declare break_on_exit or retry_on_exit "
-            "since it transitions to a gate block that uses exit ports"
-        )
-
-    @pytest.mark.xfail(
-        reason="RUN-569 removed mockup_generate_review.yaml (broken soul_refs)", strict=True
-    )
-    def test_mockup_generate_review_has_conditional_transitions_for_gate(self):
-        """mockup_generate_review.yaml must use conditional_transitions for the gate block.
-
-        FAILS UNTIL: The YAML transitions are updated so that the gate
-        uses conditional_transitions (pass -> ... , fail -> ...) instead of
-        a plain transition to null.
-        """
-        yaml_path = CUSTOM_WORKFLOWS_DIR / "mockup_generate_review.yaml"
-        with open(yaml_path) as f:
-            data = yaml.safe_load(f)
-
-        wf_def = data["workflow"]
-        # Check for conditional_transitions
-        cond_transitions = wf_def.get("conditional_transitions", [])
-
-        # Find a conditional transition from gate
-        gate_transitions = [ct for ct in cond_transitions if ct.get("from") == "gate"]
-        assert len(gate_transitions) > 0, (
-            "Gate block must have conditional_transitions (not plain transition to null). "
-            f"Current workflow transitions: {wf_def.get('transitions', [])}"
-        )
-
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
-    def test_mockup_generate_review_parses_successfully(self):
-        """mockup_generate_review.yaml must parse via parse_workflow_yaml without errors.
-
-        FAILS UNTIL: The YAML is fully updated with exits + conditional_transitions.
-        The parser will call validate() which now checks exit declarations.
-        """
-        from runsight_core.yaml.parser import parse_workflow_yaml
-
-        yaml_path = str(CUSTOM_WORKFLOWS_DIR / "mockup_generate_review.yaml")
-        # This should not raise — the YAML should parse cleanly after updates
-        wf = parse_workflow_yaml(yaml_path)
-        assert wf is not None
-        assert wf.name == "mockup_generate_review"
-
     def test_mockup_pipeline_parses_successfully(self):
         """mockup_pipeline.yaml must parse via parse_workflow_yaml without errors.
 
-        Note: This file references mockup_generate_review.yaml as a child workflow,
+        Note: This file references a child workflow via workflow_ref.
         so it needs a WorkflowRegistry. We test the YAML structure directly.
         """
         yaml_path = CUSTOM_WORKFLOWS_DIR / "mockup_pipeline.yaml"
