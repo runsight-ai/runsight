@@ -1,31 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@runsight/ui/utils";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@runsight/ui/table";
 import { useRunLogs, useRuns } from "@/queries/runs";
 import { useWorkflowRegressions } from "@/queries/workflows";
 import { useCanvasStore } from "@/store/canvas";
-import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
 import { mapSSEEventToStoreAction } from "./useRunStream";
 import { useNavigate } from "react-router";
-import { RunStatusDot } from "../runs/RunStatusDot";
-import {
-  RUN_TABLE_CELL_CLASS,
-  RUN_TABLE_CLASS,
-  RUN_TABLE_CONTAINER_CLASS,
-  RUN_TABLE_HEAD_CLASS,
-  RUN_TABLE_HEADER_ROW_CLASS,
-  RUN_TABLE_ROW_CLASS,
-  RUN_TABLE_STATUS_CELL_CLASS,
-  RUN_TABLE_STATUS_HEAD_CLASS,
-} from "../runs/runTable.styles";
+import { RunsTable } from "../runs/RunsTable";
 
 interface LogEntry {
   timestamp: string | number;
@@ -277,62 +258,11 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
       )}
       {isExpanded && activeTab === "runs" && (
         <div data-testid="workflow-runs-panel" className="overflow-auto flex-1">
-          {sortedRuns.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted">
-              No runs found for this workflow.
-            </div>
-          ) : (
-            <div className={RUN_TABLE_CONTAINER_CLASS}>
-              <Table className={RUN_TABLE_CLASS}>
-                <TableHeader>
-                  <TableRow className={RUN_TABLE_HEADER_ROW_CLASS}>
-                    <TableHead className={cn(RUN_TABLE_HEAD_CLASS, RUN_TABLE_STATUS_HEAD_CLASS)}>
-                      Status
-                    </TableHead>
-                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Source</TableHead>
-                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Started</TableHead>
-                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Duration</TableHead>
-                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Cost</TableHead>
-                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Eval</TableHead>
-                    <TableHead className={RUN_TABLE_HEAD_CLASS}>Run</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedRuns.map((run) => (
-                    <TableRow
-                      key={run.id}
-                      data-testid={`workflow-run-row-${run.id}`}
-                      className={cn(
-                        RUN_TABLE_ROW_CLASS,
-                        currentRunId === run.id && "bg-surface-selected",
-                      )}
-                      onClick={() => onRunSelect(run.id)}
-                    >
-                      <TableCell className={RUN_TABLE_STATUS_CELL_CLASS}>
-                        <RunStatusDot status={run.status} className="w-full justify-center" />
-                      </TableCell>
-                      <TableCell data-type="data" className={RUN_TABLE_CELL_CLASS}>{run.source}</TableCell>
-                      <TableCell data-type="timestamp" className={RUN_TABLE_CELL_CLASS}>
-                        {run.started_at ? getTimeAgo(new Date(run.started_at * 1000).toISOString()) : "—"}
-                      </TableCell>
-                      <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>{formatDuration(run.duration_seconds)}</TableCell>
-                      <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>{formatCost(run.total_cost_usd)}</TableCell>
-                      <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>
-                        {typeof run.eval_pass_pct === "number"
-                          ? `${Math.round(run.eval_pass_pct)}%`
-                          : typeof run.eval_score_avg === "number"
-                            ? run.eval_score_avg.toFixed(2)
-                            : "—"}
-                      </TableCell>
-                      <TableCell data-type="data" className={RUN_TABLE_CELL_CLASS}>
-                        {run.run_number != null ? `#${run.run_number}` : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <RunsTable
+            runs={sortedRuns}
+            currentRunId={currentRunId}
+            onRowClick={onRunSelect}
+          />
         </div>
       )}
       {isExpanded && activeTab === "regressions" && (

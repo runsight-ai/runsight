@@ -3,36 +3,11 @@ import { useNavigate } from "react-router";
 
 import { cn } from "@runsight/ui/utils";
 import { Badge } from "@runsight/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@runsight/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@runsight/ui/tooltip";
 import { formatTimestamp, formatDuration } from "@/utils/formatting";
 import { CheckCircle, XCircle, FileText, List, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { useRuns, useRunRegressions } from "@/queries/runs";
-import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import type { RunLogResponse as LogResponse } from "@/api/runs";
-import { RunStatusDot } from "./RunStatusDot";
-import {
-  RUN_TABLE_CELL_CLASS,
-  RUN_TABLE_CLASS,
-  RUN_TABLE_CONTAINER_CLASS,
-  RUN_TABLE_HEAD_CLASS,
-  RUN_TABLE_HEADER_ROW_CLASS,
-  RUN_TABLE_ROW_CLASS,
-  RUN_TABLE_STATUS_CELL_CLASS,
-  RUN_TABLE_STATUS_HEAD_CLASS,
-} from "./runTable.styles";
+import { RunsTable } from "./RunsTable";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -62,46 +37,6 @@ const levelConfig = {
 type TabId = "logs" | "runs" | "regressions";
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function RegressionCell({ runId, regressionCount }: { runId: string; regressionCount: number | null | undefined }) {
-  const { data: regressionData } = useRunRegressions(regressionCount ? runId : "");
-
-  if (!regressionCount) {
-    return <span className="text-muted">—</span>;
-  }
-
-  const tooltip = regressionData?.issues?.length
-    ? formatRegressionTooltip(regressionData.issues)
-    : { header: `${regressionCount} ${regressionCount === 1 ? "regression" : "regressions"}`, lines: ["Regression detected"] };
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger render={
-          <span className="inline-flex items-center gap-1" style={{ color: "var(--warning-11)" }}>
-            <AlertTriangle className="h-3.5 w-3.5" />
-            {regressionCount}
-          </span>
-        } />
-        <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3">
-          <div className="flex items-start gap-2.5">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-9" />
-            <div className="min-w-0 text-sm">
-              <p className="mb-1 font-medium text-primary">{tooltip.header}</p>
-              {tooltip.lines.map((line, index) => (
-                <p key={`${runId}-${index}`} className="leading-5 text-secondary">{line}</p>
-              ))}
-            </div>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -124,9 +59,9 @@ export function RunBottomPanel({
   const sortedRuns = useMemo(() => {
     const items = runsData?.items ?? [];
     return [...items].sort((a, b) => {
-      const aTime = a.started_at ?? a.created_at ?? "";
-      const bTime = b.started_at ?? b.created_at ?? "";
-      return bTime > aTime ? 1 : bTime < aTime ? -1 : 0;
+      const aTime = a.started_at ?? a.created_at ?? 0;
+      const bTime = b.started_at ?? b.created_at ?? 0;
+      return bTime - aTime;
     });
   }, [runsData]);
 
@@ -199,57 +134,11 @@ export function RunBottomPanel({
 
           {activeTab === "runs" && (
             <div className="flex-1 overflow-y-auto">
-              {sortedRuns.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm">No runs found for this workflow.</div>
-              ) : (
-                <div className={RUN_TABLE_CONTAINER_CLASS}>
-                  <Table className={RUN_TABLE_CLASS}>
-                    <TableHeader>
-                      <TableRow className={RUN_TABLE_HEADER_ROW_CLASS}>
-                        <TableHead className={cn(RUN_TABLE_HEAD_CLASS, RUN_TABLE_STATUS_HEAD_CLASS)}>
-                          Status
-                        </TableHead>
-                        <TableHead className={RUN_TABLE_HEAD_CLASS}>Run</TableHead>
-                        <TableHead className={RUN_TABLE_HEAD_CLASS}>Commit</TableHead>
-                        <TableHead className={RUN_TABLE_HEAD_CLASS}>Started</TableHead>
-                        <TableHead className={RUN_TABLE_HEAD_CLASS}>Duration</TableHead>
-                        <TableHead className={RUN_TABLE_HEAD_CLASS}>Regr</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sortedRuns.map((run) => (
-                        <TableRow
-                          key={run.id}
-                          onClick={() => navigate(`/runs/${run.id}`)}
-                          className={cn(
-                            RUN_TABLE_ROW_CLASS,
-                            run.id === currentRunId && "bg-[var(--surface-selected)]",
-                          )}
-                        >
-                          <TableCell className={RUN_TABLE_STATUS_CELL_CLASS}>
-                            <RunStatusDot status={run.status} className="w-full justify-center" />
-                          </TableCell>
-                          <TableCell data-type="data" className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}>
-                            {run.run_number != null ? `#${run.run_number}` : "—"}
-                          </TableCell>
-                          <TableCell data-type="id" className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}>
-                            {run.commit_sha ? run.commit_sha.slice(0, 7) : "—"}
-                          </TableCell>
-                          <TableCell data-type="timestamp" className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}>
-                            {run.started_at ? formatTimestamp(run.started_at) : "—"}
-                          </TableCell>
-                          <TableCell data-type="metric" className={cn(RUN_TABLE_CELL_CLASS, "text-secondary")}>
-                            {run.duration_seconds ? formatDuration(run.duration_seconds) : "—"}
-                          </TableCell>
-                          <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>
-                            <RegressionCell runId={run.id} regressionCount={run.regression_count} />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+              <RunsTable
+                runs={sortedRuns}
+                currentRunId={currentRunId}
+                onRowClick={(id) => navigate(`/runs/${id}`)}
+              />
             </div>
           )}
 
