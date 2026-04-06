@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./workflowSurfaceContract";
 import { getContractForMode, getCanvasYamlToggleVisibility, getSaveButtonState, getActionButton, isEditable } from "./workflowSurfaceContract";
@@ -42,7 +43,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
 
   const [activeTab, setActiveTab] = useState<"canvas" | "yaml">("yaml");
   const [isDirty, setIsDirty] = useState(false);
-  const { data: workflow } = useWorkflow(workflowId);
+  const { data: workflow, isError } = useWorkflow(workflowId);
 
   const nodes = useCanvasStore((s) => s.nodes);
   const edges = useCanvasStore((s) => s.edges);
@@ -123,6 +124,17 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
 
   const saveButtonState = getSaveButtonState(mode, isDirty);
   const actionButton = mode === "edit" ? undefined : getActionButton(mode);
+
+  if (isError) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <p className="text-lg font-medium">Workflow not found</p>
+        <Link to="/flows" className="text-sm underline">
+          Back to workflows
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -36,7 +36,7 @@ export function createSetupGuardLoader(queryClient: QueryClient) {
       const settings = await queryClient.fetchQuery({
         queryKey: queryKeys.settings.appSettings,
         queryFn: settingsApi.getAppSettings,
-        staleTime: 30_000,
+        staleTime: 0,
       });
       readOnboardingCompleted(settings);
 
@@ -59,7 +59,7 @@ export function createReverseGuardLoader(queryClient: QueryClient) {
       const settings = await queryClient.fetchQuery({
         queryKey: queryKeys.settings.appSettings,
         queryFn: settingsApi.getAppSettings,
-        staleTime: 30_000,
+        staleTime: 0,
       });
       const onboardingCompleted = readOnboardingCompleted(settings);
 

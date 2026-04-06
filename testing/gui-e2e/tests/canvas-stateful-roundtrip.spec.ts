@@ -87,7 +87,6 @@ test.describe("Canvas YAML — stateful field round-trip", () => {
   // 1. YAML with stateful: true → Apply → Visual → Save → Code preserves stateful
   // ---------------------------------------------------------------------------
   test("stateful: true survives Visual → Code → Apply → Code round-trip", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
 
     const yamlInput = [
       'version: "1.0"',
@@ -118,7 +117,6 @@ test.describe("Canvas YAML — stateful field round-trip", () => {
   // 2. Block without stateful — field is omitted from YAML output (no clutter)
   // ---------------------------------------------------------------------------
   test("stateful is omitted from YAML when not set on the block", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
 
     const yamlInput = [
       'version: "1.0"',
@@ -148,7 +146,6 @@ test.describe("Canvas YAML — stateful field round-trip", () => {
   // 3. Mixed workflow: one block with stateful: true, one without
   // ---------------------------------------------------------------------------
   test("mixed workflow preserves stateful on correct blocks only", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
 
     const yamlInput = [
       'version: "1.0"',

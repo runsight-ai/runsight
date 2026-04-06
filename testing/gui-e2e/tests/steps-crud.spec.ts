@@ -18,6 +18,16 @@ test.describe("Steps CRUD", () => {
   const testStepNameEdited = `${testStepName}-edited`;
   let createdStepId: string | null = null;
 
+  test.beforeAll(async () => {
+    const res = await fetch(`${API}/steps`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: testStepName, description: "E2E test step description" }),
+    });
+    const data = await res.json();
+    createdStepId = data.id ?? null;
+  });
+
   test.afterAll(async () => {
     if (createdStepId) {
       await apiDelete(`/steps/${createdStepId}`);
@@ -31,7 +41,8 @@ test.describe("Steps CRUD", () => {
     ).toBeVisible({ timeout: 10000 });
   });
 
-  test("create step", async ({ page }) => {
+  test("create step via UI", async ({ page }) => {
+    const createName = `${testStepName}-ui`;
     await page.goto("/steps");
     await page.waitForLoadState("networkidle");
 
@@ -43,23 +54,25 @@ test.describe("Steps CRUD", () => {
     const modal = page.getByRole("dialog");
     await expect(modal).toBeVisible({ timeout: 5000 });
 
-    await modal.getByPlaceholder(/Enter step name/i).fill(testStepName);
+    await modal.getByPlaceholder(/Enter step name/i).fill(createName);
     await modal.getByPlaceholder(/Describe what this step does/i).fill("E2E test step description");
     await modal.getByRole("button", { name: /Create/i }).click();
 
     await expect(modal).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(testStepName, { exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(createName, { exact: true })).toBeVisible({ timeout: 10000 });
 
     const afterData = await apiGet("/steps");
-    const created = afterData.items.find((s: { name: string }) => s.name === testStepName);
+    const created = afterData.items.find((s: { name: string }) => s.name === createName);
     expect(created).toBeDefined();
     expect(afterData.total).toBeGreaterThanOrEqual(countBefore + 1);
-    createdStepId = created.id;
+
+    // Clean up the UI-created step
+    if (created?.id) {
+      await apiDelete(`/steps/${created.id}`);
+    }
   });
 
   test("edit step", async ({ page }) => {
-    test.skip(!createdStepId, "Step was not created in previous test");
-
     await page.goto("/steps");
     await page.waitForLoadState("networkidle");
 
@@ -83,8 +96,6 @@ test.describe("Steps CRUD", () => {
   });
 
   test("delete step", async ({ page }) => {
-    test.skip(!createdStepId, "Step was not created in previous test");
-
     await page.goto("/steps");
     await page.waitForLoadState("networkidle");
 

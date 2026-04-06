@@ -25,8 +25,6 @@ test.describe("Canvas YAML", () => {
   });
 
   test("switches between Visual and Code modes", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector('[data-testid="canvas-reactflow"]', { timeout: 15000 });
 
@@ -38,8 +36,6 @@ test.describe("Canvas YAML", () => {
   });
 
   test("can apply YAML from editor into visual graph", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector('[data-testid="canvas-reactflow"]', { timeout: 15000 });
     await page.getByTestId("canvas-mode-code").click();
@@ -74,8 +70,6 @@ test.describe("Canvas YAML", () => {
   });
 
   test("invalid YAML shows parse error without crashing", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector('[data-testid="canvas-reactflow"]', { timeout: 15000 });
     await page.getByTestId("canvas-mode-code").click();

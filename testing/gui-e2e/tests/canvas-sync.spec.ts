@@ -37,7 +37,6 @@ test.describe("Canvas Sync (RUN-62)", () => {
   });
 
   test("code edits can be applied to visual graph", async ({ page }) => {
-    test.skip(!workflowId, "workflow was not created");
 
     await page.goto(`/workflows/${workflowId}`);
     await page.waitForSelector('[data-testid="canvas-reactflow"]', { timeout: 15000 });
@@ -74,7 +73,6 @@ test.describe("Canvas Sync (RUN-62)", () => {
   });
 
   test("save/load cycle persists visual canvas_state separate from yaml", async ({ page }) => {
-    test.skip(!workflowId, "workflow was not created");
 
     await page.goto(`/workflows/${workflowId}`);
     await page.waitForSelector('[data-testid="canvas-reactflow"]', { timeout: 15000 });

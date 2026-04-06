@@ -27,6 +27,16 @@ test.describe("Workflows CRUD", () => {
     items: NamedEntity[];
   };
 
+  test.beforeAll(async () => {
+    const res = await fetch(`${API}/workflows`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: testWorkflowName }),
+    });
+    const data = await res.json();
+    createdWorkflowId = data.id ?? null;
+  });
+
   test.afterAll(async () => {
     if (createdWorkflowId) {
       await apiDelete(`/workflows/${createdWorkflowId}`);
@@ -40,7 +50,8 @@ test.describe("Workflows CRUD", () => {
     await expect(heading.or(emptyState).first()).toBeVisible({ timeout: 10000 });
   });
 
-  test("create workflow", async ({ page }) => {
+  test("create workflow via UI", async ({ page }) => {
+    const createName = `${testWorkflowName}-ui`;
     await page.goto("/workflows");
     await page.waitForLoadState("networkidle");
 
@@ -52,7 +63,7 @@ test.describe("Workflows CRUD", () => {
     const modal = page.getByRole("dialog");
     await expect(modal).toBeVisible({ timeout: 5000 });
 
-    await modal.getByPlaceholder(/Enter workflow name/i).fill(testWorkflowName);
+    await modal.getByPlaceholder(/Enter workflow name/i).fill(createName);
     await modal.getByPlaceholder(/Describe what this workflow does/i).fill("E2E test workflow description");
     await modal.getByRole("button", { name: /Create/i }).click();
 
@@ -60,15 +71,17 @@ test.describe("Workflows CRUD", () => {
     await expect(page).toHaveURL(/\/workflows\//, { timeout: 15000 });
 
     const afterData = (await apiGet("/workflows")) as NamedEntityListResponse;
-    const created = afterData.items.find((w) => w.name === testWorkflowName);
+    const created = afterData.items.find((w) => w.name === createName);
     expect(created).toBeDefined();
     expect(afterData.total).toBe(countBefore + 1);
-    createdWorkflowId = created.id;
+
+    // Clean up the UI-created workflow
+    if (created?.id) {
+      await apiDelete(`/workflows/${created.id}`);
+    }
   });
 
   test("delete workflow", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created in previous test");
-
     await page.goto("/workflows");
     await page.waitForLoadState("networkidle");
 
@@ -86,7 +99,7 @@ test.describe("Workflows CRUD", () => {
     const afterData = (await apiGet("/workflows")) as NamedEntityListResponse;
     const deleted = afterData.items.find((w) => w.id === createdWorkflowId);
     expect(deleted).toBeUndefined();
-    
+
     createdWorkflowId = null;
   });
 });

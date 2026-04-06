@@ -1,24 +1,49 @@
-import { expect, test } from "@playwright/test";
+/**
+ * RUN-744: Harness-surface checks (ported from Playwright)
+ *
+ * Originally lived in testing/gui-e2e/tests/harness-surface.spec.ts.
+ * These are pure filesystem/config checks — no browser required.
+ * Running them in vitest keeps CI fast and avoids the Playwright stack.
+ *
+ * Run:
+ *   cd apps/gui && npx vitest run src/features/e2e-audit/__tests__/harness-surface.test.ts --reporter=verbose
+ */
+
+import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const workspaceDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// ---------------------------------------------------------------------------
+// Path helpers
+// ---------------------------------------------------------------------------
+
+// __dirname = apps/gui/src/features/e2e-audit/__tests__
+// workspaceDir = testing/gui-e2e  (6 levels up, then into testing/gui-e2e)
+const workspaceDir = path.resolve(
+  __dirname,
+  "../../../../../../testing/gui-e2e",
+);
+
+// repoRoot = two levels above workspaceDir (testing/gui-e2e -> testing -> repo root)
 const repoRoot = path.resolve(workspaceDir, "../..");
 
-function workspacePath(...segments: string[]) {
+function workspacePath(...segments: string[]): string {
   return path.join(workspaceDir, ...segments);
 }
 
-function workspaceFileExists(...segments: string[]) {
+function workspaceFileExists(...segments: string[]): boolean {
   return fs.existsSync(workspacePath(...segments));
 }
 
-function readWorkspaceFile(...segments: string[]) {
+function readWorkspaceFile(...segments: string[]): string {
   return fs.readFileSync(workspacePath(...segments), "utf8");
 }
 
-function findFilesNamed(rootDir: string, fileName: string, matches: string[] = []) {
+function findFilesNamed(
+  rootDir: string,
+  fileName: string,
+  matches: string[] = [],
+): string[] {
   for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
     if (
       entry.name === "node_modules" ||
@@ -43,17 +68,24 @@ function findFilesNamed(rootDir: string, fileName: string, matches: string[] = [
   return matches;
 }
 
-function hasConfiguredPath(config: string, configKey: string, filePath: string) {
+function hasConfiguredPath(
+  config: string,
+  configKey: string,
+  filePath: string,
+): boolean {
   const escapedPath = filePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const configPattern = new RegExp(
-    `${configKey}\\s*:\\s*["'\`](?:\\./)?${escapedPath}["'\`]`
+    `${configKey}\\s*:\\s*["'\`](?:\\./)?${escapedPath}["'\`]`,
   );
-
   return configPattern.test(config);
 }
 
-test.describe("Playwright harness surface", () => {
-  test("global setup and teardown helpers are either wired in Playwright config or removed", () => {
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("Playwright harness surface", () => {
+  it("global setup and teardown helpers are either wired in Playwright config or removed", () => {
     const config = readWorkspaceFile("playwright.config.ts");
 
     const dormantGlobals = [
@@ -62,17 +94,18 @@ test.describe("Playwright harness surface", () => {
     ]
       .filter(
         ([file, configKey]) =>
-          workspaceFileExists(file) && !hasConfiguredPath(config, configKey, file)
+          workspaceFileExists(file) &&
+          !hasConfiguredPath(config, configKey, file),
       )
       .map(
         ([file, configKey]) =>
-          `${file} exists without ${configKey} in playwright.config.ts`
+          `${file} exists without ${configKey} in playwright.config.ts`,
       );
 
     expect(dormantGlobals).toEqual([]);
   });
 
-  test("review screenshot helpers do not remain without an active entrypoint", () => {
+  it("review screenshot helpers do not remain without an active entrypoint", () => {
     const dormantScreenshotHelpers = [
       "scripts/screenshot.cjs",
       "scripts/screenshot-impl.cjs",
@@ -83,11 +116,13 @@ test.describe("Playwright harness surface", () => {
     expect(dormantScreenshotHelpers).toEqual([]);
   });
 
-  test("README only documents retained harness entrypoints", () => {
+  it("README only documents retained harness entrypoints", () => {
     const readme = readWorkspaceFile("README.md");
     const config = readWorkspaceFile("playwright.config.ts");
     const scriptFiles = workspaceFileExists("scripts")
-      ? fs.readdirSync(workspacePath("scripts")).map((file) => `scripts/${file}`)
+      ? fs
+          .readdirSync(workspacePath("scripts"))
+          .map((file) => `scripts/${file}`)
       : [];
 
     const misleadingClaims = [
@@ -103,11 +138,7 @@ test.describe("Playwright harness surface", () => {
           workspaceFileExists("global-teardown.ts") &&
           !hasConfiguredPath(config, "globalTeardown", "global-teardown.ts"),
       ],
-      [
-        "`scripts/`",
-        readme.includes("`scripts/`") &&
-          scriptFiles.length > 0,
-      ],
+      ["`scripts/`", readme.includes("`scripts/`") && scriptFiles.length > 0],
     ]
       .filter(([, isMisleading]) => isMisleading)
       .map(([label]) => label);
@@ -115,7 +146,7 @@ test.describe("Playwright harness surface", () => {
     expect(misleadingClaims).toEqual([]);
   });
 
-  test("Playwright harness entrypoints do not reappear outside testing/gui-e2e", () => {
+  it("Playwright harness entrypoints do not reappear outside testing/gui-e2e", () => {
     const harnessEntrypoints = [
       "global-setup.ts",
       "global-teardown.ts",
@@ -125,8 +156,8 @@ test.describe("Playwright harness surface", () => {
 
     const misplacedEntrypoints = harnessEntrypoints.flatMap((fileName) =>
       findFilesNamed(repoRoot, fileName).filter(
-        (relativePath) => !relativePath.startsWith("testing/gui-e2e/")
-      )
+        (relativePath) => !relativePath.startsWith("testing/gui-e2e/"),
+      ),
     );
 
     expect(misplacedEntrypoints).toEqual([]);

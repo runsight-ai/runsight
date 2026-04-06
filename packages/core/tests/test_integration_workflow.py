@@ -1,11 +1,15 @@
 """
-End-to-end integration tests for complete workflow execution.
+Core engine integration tests for complete workflow execution.
 
-Tests the full integration chain: Task -> Soul -> Runner -> ExecutionResult ->
-LinearBlock -> WorkflowState, simulating real workflow scenarios.
+Tests the full integration chain at the engine level: Task -> Soul -> Runner ->
+ExecutionResult -> LinearBlock -> WorkflowState, simulating real workflow scenarios.
+
+Note: These are engine-level integration tests, not HTTP/API end-to-end tests.
+LLM calls are intercepted via ``@patch("runsight_core.runner.LiteLLMClient.achat")``;
+no network I/O occurs.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from runsight_core import LinearBlock
@@ -230,12 +234,15 @@ async def test_e2e_shared_memory_across_blocks(mock_achat):
 
 
 @pytest.mark.asyncio
-async def test_e2e_error_propagation_through_workflow():
+@patch("runsight_core.runner.LiteLLMClient.achat", new_callable=AsyncMock)
+async def test_e2e_error_propagation_through_workflow(mock_achat):
     """
-    E2E: Verify errors propagate correctly through the workflow stack.
+    Integration: Verify errors propagate correctly through the workflow stack.
 
-    Tests error handling: Runner error -> Block -> Caller
+    Tests error handling: LLM client error -> Runner -> Block -> Caller
     """
+    mock_achat.side_effect = RuntimeError("LLM service unavailable")
+
     soul = Soul(
         id="faulty",
         role="Faulty Agent",
@@ -244,15 +251,12 @@ async def test_e2e_error_propagation_through_workflow():
         model_name="gpt-4o",
     )
 
-    # Create a mock runner that raises an error
-    mock_runner = MagicMock()
-    mock_runner.execute_task = AsyncMock(side_effect=RuntimeError("LLM service unavailable"))
-
-    block = LinearBlock("error_block", soul, mock_runner)
+    runner = RunsightTeamRunner(model_name="gpt-4o")
+    block = LinearBlock("error_block", soul, runner)
     task = Task(id="t1", instruction="This will fail")
     state = WorkflowState(current_task=task)
 
-    # Error should propagate from runner through block to caller
+    # Error should propagate from LLM client through runner and block to caller
     with pytest.raises(RuntimeError, match="LLM service unavailable"):
         await block.execute(state)
 
@@ -399,7 +403,7 @@ async def test_e2e_workflow_with_task_context_utilization(mock_achat):
 @pytest.mark.asyncio
 async def test_e2e_baseblock_empty_id_validation():
     """
-    E2E: Verify BaseBlock contract enforcement for empty block_id.
+    Integration: Verify BaseBlock contract enforcement for empty block_id.
 
     Tests that the block_id validation in BaseBlock.__init__ is enforced
     by concrete implementations.
@@ -407,7 +411,7 @@ async def test_e2e_baseblock_empty_id_validation():
     soul = Soul(
         id="test", role="Tester", system_prompt="Test.", provider="openai", model_name="gpt-4o"
     )
-    runner = MagicMock()
+    runner = RunsightTeamRunner(model_name="gpt-4o")
 
     # Empty string block_id should raise ValueError
     with pytest.raises(ValueError, match="block_id cannot be empty"):

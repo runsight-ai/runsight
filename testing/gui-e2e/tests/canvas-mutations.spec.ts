@@ -36,8 +36,6 @@ test.describe("Canvas Mutations", () => {
   });
 
   test("workflow name heading shows real workflow name", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -49,8 +47,6 @@ test.describe("Canvas Mutations", () => {
   });
 
   test("click edit button → inline input appears", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -61,8 +57,6 @@ test.describe("Canvas Mutations", () => {
   });
 
   test("edit name and blur → sends PUT to API, heading updates", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -83,8 +77,6 @@ test.describe("Canvas Mutations", () => {
   });
 
   test("edit name and press Enter → saves", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
@@ -100,8 +92,6 @@ test.describe("Canvas Mutations", () => {
   });
 
   test("edit name and press Escape → reverts to original", async ({ page }) => {
-    test.skip(!createdWorkflowId, "Workflow was not created");
-
     await page.goto(`/workflows/${createdWorkflowId}`);
     await page.waitForSelector(".react-flow", { timeout: 15000 });
 
