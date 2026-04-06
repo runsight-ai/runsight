@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router";
 import type { Node } from "@xyflow/react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./workflowSurfaceContract";
@@ -50,7 +51,9 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const [activeTab, setActiveTab] = useState<"canvas" | "yaml">("canvas");
   const [isDirty, setIsDirty] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node<RunNodeData> | null>(null);
-  const { data: workflow } = useWorkflow(workflowId);
+  // isError and data destructured from useWorkflow to handle not-found state
+  const workflowQuery = useWorkflow(workflowId),
+    { data: workflow, isError } = workflowQuery;
 
   const nodes = useCanvasStore((s) => s.nodes);
   const edges = useCanvasStore((s) => s.edges);
@@ -208,6 +211,17 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         // Ignore malformed drag data
       }
     }
+  }
+
+  if (isError) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <p className="text-lg font-medium">Workflow not found</p>
+        <Link to="/workflows" className="text-sm underline">
+          Back to workflows
+        </Link>
+      </div>
+    );
   }
 
   return (

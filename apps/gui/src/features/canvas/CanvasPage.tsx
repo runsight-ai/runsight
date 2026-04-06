@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { useParams, useBlocker } from "react-router";
+import { useParams, useBlocker, Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { CanvasTopbar } from "./CanvasTopbar";
 import { CanvasStatusBar } from "./CanvasStatusBar";
@@ -42,7 +42,7 @@ export function Component() {
   const edgeCount = useCanvasStore((s) => s.edgeCount);
   const { data: providers } = useProviders();
   const { data: gitStatus } = useGitStatus();
-  const { data: workflow } = useWorkflow(id!);
+  const { data: workflow, isError } = useWorkflow(id!);
   const { data: regressionsData } = useWorkflowRegressions(id!);
   const activeProviders = (providers?.items ?? []).filter((p) => p.is_active ?? true);
   const isCommitted = Boolean(workflow?.commit_sha);
@@ -167,6 +167,17 @@ export function Component() {
       path: `custom/workflows/.canvas/${id!}.canvas.json`,
       status: "modified",
     });
+  }
+
+  if (isError) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <p className="text-lg font-medium">Workflow not found</p>
+        <Link to="/workflows" className="text-sm underline">
+          Back to workflows
+        </Link>
+      </div>
+    );
   }
 
   return (

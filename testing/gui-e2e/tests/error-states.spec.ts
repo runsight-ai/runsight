@@ -137,20 +137,15 @@ test.describe("Error states: validation", () => {
 });
 
 test.describe("Error states: 404 and nonexistent resources", () => {
-  test("navigate to /workflows/nonexistent-id → shows error or loading then error", async ({
+  test("navigate to /workflows/nonexistent-id → shows not found message", async ({
     page,
   }) => {
     const fakeId = "00000000-0000-0000-0000-000000000000";
     await page.goto(`/workflows/${fakeId}`);
     await page.waitForLoadState("networkidle");
 
-    // WorkflowCanvas: shows loading, then either error or canvas. BUG: no explicit 404 handling
-    await page.waitForTimeout(5000);
-    const hasLoading = await page.getByText(/Loading workflow/i).isVisible().catch(() => false);
-    const hasNotFound = await page.getByText(/not found|404|error|Failed/i).isVisible().catch(() => false);
-    const hasBackLink = await page.getByRole("link", { name: /back|workflows/i }).isVisible().catch(() => false);
-    const hasReactFlow = await page.locator(".react-flow").isVisible().catch(() => false);
-    expect(hasLoading || hasNotFound || hasBackLink || hasReactFlow).toBe(true);
+    await expect(page.getByText(/not found/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("link", { name: /back to workflows/i })).toBeVisible();
   });
 
   test("navigate to /runs/nonexistent-id → shows Run not found", async ({
