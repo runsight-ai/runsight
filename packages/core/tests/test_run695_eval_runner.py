@@ -247,8 +247,17 @@ class _ContainsAssertion:
 
 @pytest.fixture(autouse=True)
 def _register_stubs():
-    """Ensure stub assertion handlers are registered before every test."""
+    """Register stub assertion handlers, restore originals after the test."""
+    from runsight_core.assertions.registry import _REGISTRY
+
+    saved = {k: v for k, v in _REGISTRY.items() if k in ("contains",)}
     register_assertion("contains", _ContainsAssertion)
+    yield
+    for key in ("contains",):
+        if key in saved:
+            _REGISTRY[key] = saved[key]
+        else:
+            _REGISTRY.pop(key, None)
 
 
 def _make_executor_returning(results_by_case: dict[str, dict[str, str]]) -> AsyncMock:
