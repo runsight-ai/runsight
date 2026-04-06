@@ -692,9 +692,6 @@ class TestValidationCatchesInvalidConfigs:
         errors = wf.validate()
         assert len(errors) == 0, f"'default' should always be allowed. Got: {errors}"
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_yaml_with_bad_transition_key_fails_parse(self):
         """Parsing a YAML workflow with a transition key not in declared exits
         should raise ValueError."""
@@ -712,7 +709,7 @@ workflow:
 
 souls:
   test_soul:
-    id: test_soul_1
+    id: test_soul
     role: Test
     system_prompt: "test"
 
@@ -736,9 +733,6 @@ blocks:
         with pytest.raises(ValueError, match="nonexistent_key"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_yaml_with_valid_exits_parses_ok(self):
         """YAML with correct exit declarations and matching transition keys
         should parse without errors."""
@@ -757,7 +751,7 @@ workflow:
 
 souls:
   test_soul:
-    id: test_soul_1
+    id: test_soul
     role: Test
     system_prompt: "test"
 
@@ -782,9 +776,6 @@ blocks:
         assert wf is not None
         assert wf.name == "test_valid_exits"
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_yaml_gate_auto_injects_exits_then_validates(self):
         """Gate blocks auto-inject pass/fail exits during build(). A YAML workflow
         with a gate + conditional_transitions using pass/fail should parse cleanly."""
@@ -803,7 +794,7 @@ workflow:
 
 souls:
   test_soul:
-    id: test_soul_1
+    id: test_soul
     role: Test
     system_prompt: "test"
 
@@ -843,9 +834,6 @@ class TestFullWorkflowBranchingFromYAML:
     """Full integration: parse a YAML workflow that uses exit ports, then run it."""
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_full_yaml_gate_workflow_pass_path(self):
         """Parse a complete YAML workflow with gate + conditional_transitions,
         mock the runner to PASS, verify correct execution path."""
@@ -868,13 +856,17 @@ workflow:
 
 souls:
   writer:
-    id: writer_1
+    id: writer
     role: Writer
     system_prompt: "Write content"
+    provider: openai
+    model_name: gpt-4o
   reviewer:
-    id: reviewer_1
+    id: reviewer
     role: Reviewer
     system_prompt: "Evaluate quality. Respond PASS or FAIL: reason"
+    provider: openai
+    model_name: gpt-4o
 
 blocks:
   content_block:
@@ -948,9 +940,6 @@ blocks:
         assert "revise" not in final.results, "Gate PASS should NOT route to 'revise' block"
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_full_yaml_gate_workflow_fail_path(self):
         """Parse a complete YAML workflow, mock runner to FAIL, verify fail path."""
         from unittest.mock import patch
@@ -972,13 +961,17 @@ workflow:
 
 souls:
   writer:
-    id: writer_1
+    id: writer
     role: Writer
     system_prompt: "Write content"
+    provider: openai
+    model_name: gpt-4o
   reviewer:
-    id: reviewer_1
+    id: reviewer
     role: Reviewer
     system_prompt: "Evaluate quality. Respond PASS or FAIL: reason"
+    provider: openai
+    model_name: gpt-4o
 
 blocks:
   content_block:
@@ -1169,3 +1162,96 @@ workflow:
 
         assert loop_def.break_on_exit == "pass", "break_on_exit should survive YAML -> schema parse"
         assert loop_def.retry_on_exit == "fail", "retry_on_exit should survive YAML -> schema parse"
+
+
+# ==============================================================================
+# External soul file resolution via _discover_external_souls
+# ==============================================================================
+
+
+class TestExternalSoulFileResolution:
+    """parse_workflow_yaml resolves soul_refs from files in custom/souls/."""
+
+    def test_external_soul_file_resolves_for_linear_block(self, tmp_path):
+        """A workflow YAML with no inline souls resolves soul_ref from a file in tmp/custom/souls/."""
+        from runsight_core.yaml.parser import parse_workflow_yaml
+
+        souls_dir = tmp_path / "custom" / "souls"
+        souls_dir.mkdir(parents=True)
+
+        (souls_dir / "narrator.yaml").write_text(
+            "id: narrator\nrole: Narrator\nsystem_prompt: Tell the story.\n"
+            "provider: openai\nmodel_name: gpt-4o\n"
+        )
+
+        yaml_content = """
+workflow:
+  name: external_soul_linear
+  entry: story_block
+  transitions:
+    - from: story_block
+      to: null
+
+blocks:
+  story_block:
+    type: linear
+    soul_ref: narrator
+"""
+        wf = parse_workflow_yaml(yaml_content, _base_dir=str(tmp_path))
+        assert wf is not None
+        assert wf.name == "external_soul_linear"
+        assert "story_block" in wf.blocks
+
+    def test_external_soul_file_resolves_for_gate_block(self, tmp_path):
+        """A gate workflow YAML with no inline souls resolves soul_refs from tmp/custom/souls/."""
+        from runsight_core.yaml.parser import parse_workflow_yaml
+
+        souls_dir = tmp_path / "custom" / "souls"
+        souls_dir.mkdir(parents=True)
+
+        (souls_dir / "author.yaml").write_text(
+            "id: author\nrole: Author\nsystem_prompt: Write content.\n"
+            "provider: openai\nmodel_name: gpt-4o\n"
+        )
+        (souls_dir / "judge.yaml").write_text(
+            "id: judge\nrole: Judge\nsystem_prompt: Evaluate content. Respond PASS or FAIL.\n"
+            "provider: openai\nmodel_name: gpt-4o\n"
+        )
+
+        yaml_content = """
+workflow:
+  name: external_soul_gate
+  entry: draft
+  transitions:
+    - from: draft
+      to: quality_check
+  conditional_transitions:
+    - from: quality_check
+      pass: done
+      fail: done
+      default: done
+
+blocks:
+  draft:
+    type: linear
+    soul_ref: author
+  quality_check:
+    type: gate
+    soul_ref: judge
+    eval_key: draft
+    exits:
+      - id: pass
+        label: Pass
+      - id: fail
+        label: Fail
+  done:
+    type: linear
+    soul_ref: author
+"""
+        wf = parse_workflow_yaml(yaml_content, _base_dir=str(tmp_path))
+        assert wf is not None
+        assert wf.name == "external_soul_gate"
+        gate = wf.blocks["quality_check"]
+        declared_ids = {e.id for e in gate._declared_exits}
+        assert "pass" in declared_ids
+        assert "fail" in declared_ids
