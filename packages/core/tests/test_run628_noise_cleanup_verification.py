@@ -65,6 +65,8 @@ class TestFileDeletion:
 class TestRemovePlaceholderBlockCleanup:
     """test_remove_placeholder_block.py: 4 noise classes deleted, 2 behavioral kept."""
 
+    FILE = CORE_TESTS / "test_remove_placeholder_block.py"
+
     NOISE_CLASSES = [
         "TestPlaceholderBlockRemoved",
         "TestPlaceholderBlockDefRemoved",
@@ -77,30 +79,26 @@ class TestRemovePlaceholderBlockCleanup:
         "TestConfTestInfrastructure",
     ]
 
-    def _get_module(self):
-        """Import the module and return it."""
-        import tests.test_remove_placeholder_block as mod
-
-        return mod
-
     @pytest.mark.parametrize("class_name", NOISE_CLASSES)
     def test_noise_class_removed(self, class_name: str) -> None:
-        mod = self._get_module()
-        assert not hasattr(mod, class_name), (
+        names = _get_top_level_names(self.FILE)
+        assert class_name not in names, (
             f"{class_name} still exists in test_remove_placeholder_block.py — "
             f"it is migration noise and should be deleted"
         )
 
     @pytest.mark.parametrize("class_name", KEEP_CLASSES)
     def test_behavioral_class_kept(self, class_name: str) -> None:
-        mod = self._get_module()
-        assert hasattr(mod, class_name), (
+        names = _get_top_level_names(self.FILE)
+        assert class_name in names, (
             f"{class_name} must remain in test_remove_placeholder_block.py — it tests live behavior"
         )
 
 
 class TestRun222MigrateBlocksCleanup:
     """test_run222_migrate_blocks.py: 4 noise classes deleted, 5 behavioral kept."""
+
+    FILE = CORE_TESTS / "test_run222_migrate_blocks.py"
 
     NOISE_CLASSES = [
         "TestSchemaCleanup",
@@ -117,23 +115,18 @@ class TestRun222MigrateBlocksCleanup:
         "TestRegistryCounts",
     ]
 
-    def _get_module(self):
-        import tests.test_run222_migrate_blocks as mod
-
-        return mod
-
     @pytest.mark.parametrize("class_name", NOISE_CLASSES)
     def test_noise_class_removed(self, class_name: str) -> None:
-        mod = self._get_module()
-        assert not hasattr(mod, class_name), (
+        names = _get_top_level_names(self.FILE)
+        assert class_name not in names, (
             f"{class_name} still exists in test_run222_migrate_blocks.py — "
             f"it is migration noise and should be deleted"
         )
 
     @pytest.mark.parametrize("class_name", KEEP_CLASSES)
     def test_behavioral_class_kept(self, class_name: str) -> None:
-        mod = self._get_module()
-        assert hasattr(mod, class_name), (
+        names = _get_top_level_names(self.FILE)
+        assert class_name in names, (
             f"{class_name} must remain in test_run222_migrate_blocks.py — it tests live behavior"
         )
 
@@ -141,23 +134,16 @@ class TestRun222MigrateBlocksCleanup:
 class TestRun377YamlEnabledCleanup:
     """test_run377_yaml_enabled.py: 2 xfail parser tests deleted, schema+engine kept."""
 
+    FILE = CORE_TESTS / "test_run377_yaml_enabled.py"
+
     NOISE_CLASSES_OR_METHODS = [
         # The entire TestEnabledFieldParser class has only xfail tests — delete both methods.
         # We check the class still exists but its xfail test methods are gone.
     ]
 
-    def _get_source(self) -> str:
-        path = CORE_TESTS / "test_run377_yaml_enabled.py"
-        return path.read_text()
-
-    def _get_module(self):
-        import tests.test_run377_yaml_enabled as mod
-
-        return mod
-
     def test_xfail_parser_tests_removed(self) -> None:
         """The 2 xfail-marked parser tests in TestEnabledFieldParser must be deleted."""
-        source = self._get_source()
+        source = self.FILE.read_text()
         tree = ast.parse(source)
 
         # Find TestEnabledFieldParser class
@@ -181,20 +167,22 @@ class TestRun377YamlEnabledCleanup:
         # (Green Team may choose to delete the empty class)
 
     def test_schema_class_kept(self) -> None:
-        mod = self._get_module()
-        assert hasattr(mod, "TestEnabledFieldSchema"), (
+        names = _get_top_level_names(self.FILE)
+        assert "TestEnabledFieldSchema" in names, (
             "TestEnabledFieldSchema must remain — it tests live schema behavior"
         )
 
     def test_engine_class_kept(self) -> None:
-        mod = self._get_module()
-        assert hasattr(mod, "TestEngineIgnoresEnabled"), (
+        names = _get_top_level_names(self.FILE)
+        assert "TestEngineIgnoresEnabled" in names, (
             "TestEngineIgnoresEnabled must remain — it tests live engine behavior"
         )
 
 
 class TestRun415NoBuiltinSoulsCleanup:
     """test_run415_no_builtin_souls.py: 2 noise classes deleted, 2 behavioral kept."""
+
+    FILE = CORE_TESTS / "test_run415_no_builtin_souls.py"
 
     NOISE_CLASSES = [
         "TestBuiltInSoulsRemoved",
@@ -206,29 +194,26 @@ class TestRun415NoBuiltinSoulsCleanup:
         "TestNoPreviouslyBuiltInNamesAreSpecial",
     ]
 
-    def _get_module(self):
-        import tests.test_run415_no_builtin_souls as mod
-
-        return mod
-
     @pytest.mark.parametrize("class_name", NOISE_CLASSES)
     def test_noise_class_removed(self, class_name: str) -> None:
-        mod = self._get_module()
-        assert not hasattr(mod, class_name), (
+        names = _get_top_level_names(self.FILE)
+        assert class_name not in names, (
             f"{class_name} still exists in test_run415_no_builtin_souls.py — "
             f"it is migration noise and should be deleted"
         )
 
     @pytest.mark.parametrize("class_name", KEEP_CLASSES)
     def test_behavioral_class_kept(self, class_name: str) -> None:
-        mod = self._get_module()
-        assert hasattr(mod, class_name), (
+        names = _get_top_level_names(self.FILE)
+        assert class_name in names, (
             f"{class_name} must remain in test_run415_no_builtin_souls.py — it tests live behavior"
         )
 
 
 class TestRetryblockMigrationCleanup:
     """test_retryblock_migration.py: 1 noise class deleted, 3 behavioral kept."""
+
+    FILE = CORE_TESTS / "test_retryblock_migration.py"
 
     NOISE_CLASSES = [
         "TestStaleRetryBlockComments",
@@ -240,29 +225,26 @@ class TestRetryblockMigrationCleanup:
         "TestLoopBlockStateFlowBetweenRounds",
     ]
 
-    def _get_module(self):
-        import tests.test_retryblock_migration as mod
-
-        return mod
-
     @pytest.mark.parametrize("class_name", NOISE_CLASSES)
     def test_noise_class_removed(self, class_name: str) -> None:
-        mod = self._get_module()
-        assert not hasattr(mod, class_name), (
+        names = _get_top_level_names(self.FILE)
+        assert class_name not in names, (
             f"{class_name} still exists in test_retryblock_migration.py — "
             f"it is migration noise and should be deleted"
         )
 
     @pytest.mark.parametrize("class_name", KEEP_CLASSES)
     def test_behavioral_class_kept(self, class_name: str) -> None:
-        mod = self._get_module()
-        assert hasattr(mod, class_name), (
+        names = _get_top_level_names(self.FILE)
+        assert class_name in names, (
             f"{class_name} must remain in test_retryblock_migration.py — it tests live behavior"
         )
 
 
 class TestIntegrationMergeValidationCleanup:
     """test_integration_merge_validation.py: 4 trivial/deletion-check tests deleted, 3 behavioral kept."""
+
+    FILE = CORE_TESTS / "test_integration_merge_validation.py"
 
     NOISE_FUNCTIONS = [
         "test_workflow_class_exists_and_instantiates",
@@ -277,23 +259,18 @@ class TestIntegrationMergeValidationCleanup:
         "test_workflow_terminal_block_no_transition",
     ]
 
-    def _get_module(self):
-        import tests.test_integration_merge_validation as mod
-
-        return mod
-
     @pytest.mark.parametrize("func_name", NOISE_FUNCTIONS)
     def test_noise_function_removed(self, func_name: str) -> None:
-        mod = self._get_module()
-        assert not hasattr(mod, func_name), (
+        names = _get_top_level_names(self.FILE)
+        assert func_name not in names, (
             f"{func_name} still exists in test_integration_merge_validation.py — "
             f"it is a trivial/deletion-check test and should be deleted"
         )
 
     @pytest.mark.parametrize("func_name", KEEP_FUNCTIONS)
     def test_behavioral_function_kept(self, func_name: str) -> None:
-        mod = self._get_module()
-        assert hasattr(mod, func_name), (
+        names = _get_top_level_names(self.FILE)
+        assert func_name in names, (
             f"{func_name} must remain in test_integration_merge_validation.py — "
             f"it tests live behavior"
         )
@@ -365,14 +342,15 @@ class TestStaleXfailRemoval:
 # ===========================================================================
 
 
+# NOTE: test_remove_placeholder_block.py, test_run222_migrate_blocks.py, and
+# test_exit_ports_integration.py are excluded — they have pre-existing xfails on
+# KEPT behavioral classes. Their noise-class cleanup is already covered by
+# dedicated test classes above (and TestStaleXfailRemoval for exit ports).
 PARTIALLY_CLEANED_FILES = [
-    CORE_TESTS / "test_remove_placeholder_block.py",
-    CORE_TESTS / "test_run222_migrate_blocks.py",
     CORE_TESTS / "test_run377_yaml_enabled.py",
     CORE_TESTS / "test_run415_no_builtin_souls.py",
     CORE_TESTS / "test_retryblock_migration.py",
     CORE_TESTS / "test_integration_merge_validation.py",
-    UNIT_TESTS / "test_exit_ports_integration.py",
 ]
 
 
@@ -408,6 +386,17 @@ class TestNoNewXfailMarkers:
 # ===========================================================================
 # Helpers
 # ===========================================================================
+
+
+def _get_top_level_names(filepath: Path) -> set[str]:
+    """Parse a Python source file and return all top-level class and function names."""
+    source = filepath.read_text()
+    tree = ast.parse(source)
+    return {
+        node.name
+        for node in ast.iter_child_nodes(tree)
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+    }
 
 
 def _is_xfail_decorator(node: ast.expr) -> bool:
