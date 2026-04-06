@@ -1,101 +1,285 @@
-# Runsight
+# runsight
 
-**The ultimate mission control for AI agents.**
+**YAML-first workflow engine for AI agents.** Your workflows are files. Your repo is the database. Git is your version control.
 
-*Build like Terraform. Orchestrate like Kubernetes. Monitor like Grafana.*
+[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org)
+[![node](https://img.shields.io/badge/node-20+-green)](https://nodejs.org)
 
----
+<!-- TODO: demo GIF — record with VHS once UI is stable -->
 
-## 🛑 The Problem: We built the workers, but forgot the factory.
+Runsight runs AI agent workflows defined in plain YAML files on your filesystem. Every workflow, soul (agent identity), and tool definition is a diffable file in your repo. Save writes to disk. Commit pushes to git. Runs track which commit produced them. No database for workflow definitions — just files and git.
 
-By 2026, building an AI agent is easy. Running a *team* of them in production is a nightmare. 
+32 shipped epics, 215+ tickets, 5 block types, built-in eval, and per-run budget enforcement.
 
-- **Silent Failures:** 67% of agent failures are found by users, not monitoring. Agents get stuck in infinite loops or hallucinate without throwing errors.
-- **Cost Overruns:** 96% of teams report unexpected LLM charges. A single rogue agent can burn hundreds of dollars in minutes.
-- **Zero Control:** Once you hit "run" on a LangChain or CrewAI script, it's a black box. You can't pause it, you can't fix a bad prompt mid-flight, and you can't intervene.
-
-## 🚀 The Solution: Runsight
-
-Runsight is a meta-framework and visual observability platform designed specifically for multi-agent workflows. It gives you the runtime controls you need to put agents into production safely.
-
-### Core Features
-
-- 📊 **Live DAG Visualization:** Watch your agents think, reason, and act in real-time. See exactly which node is running, pending, or failed.
-- ⏸️ **Runtime Intervention:** The only platform that lets you **pause, kill, or message** a running agent mid-execution directly from a visual UI.
-- 💸 **Real-Time Cost Tracking:** Watch the cost tick up live. Track token spend per node, per workflow, and per day. Set hard budgets that kill rogue agents automatically.
-- 📝 **Declarative Workflows:** Define your agent teams, tasks, and state machines as version-controlled YAML files on disk. 
-- 🛠️ **Mid-Flight Prompt Editing:** Agent stuck? Pause the node, edit the prompt in the inspector, and hit retry—without restarting the whole workflow.
-
-## 🏗️ Architecture: The Three Layers
-
-Runsight is built on three distinct layers:
-
-1. **The Builder (Terraform):** Define workflows, souls (agent identities), and tasks using simple YAML files.
-2. **The Runtime (Kubernetes):** A deterministic execution engine that handles state, retries, dispatch branches, and multi-agent collaboration patterns.
-3. **Mission Control (Grafana):** A React/Next.js frontend that connects to the runtime via SSE (Server-Sent Events) to stream logs, status, and costs live.
-
-## 🏁 Quick Start
-
-*(Coming soon: Installation instructions for the core engine and UI)*
+## Install
 
 ```bash
-# Clone the repository
 git clone https://github.com/runsight-ai/runsight.git
 cd runsight
 
-# Install dependencies (requires Python 3.10+)
-pip install -e .
+# Backend (Python 3.11+, uv recommended)
+uv sync
 
-# Start the Mission Control UI
-runsight ui start
+# Frontend (Node 20+)
+pnpm install
 ```
 
-## Code Indexing With Codebones
-
-Runsight contributors use `codebones` for local code search and structural lookups.
-Use the `uv` tool install flow so each checkout picks up the fixed indexer behavior:
+## Quick start
 
 ```bash
-uv tool install codebones
-# or, if you already have it installed
-uv tool upgrade codebones
+# 1. Start the API server
+uv run uvicorn runsight_api.main:app
+
+# 2. Start the GUI (separate terminal)
+pnpm -C apps/gui dev
+
+# 3. Open http://localhost:5173 — onboarding walks you through API key setup
 ```
 
-Verify the CLI that your current checkout will use before relying on the local index:
+Or work directly with YAML — create a workflow file:
+
+```yaml
+# custom/workflows/my-first-flow.yaml
+version: "1.0"
+blocks:
+  research:
+    type: linear
+    soul_ref: researcher
+  write_summary:
+    type: linear
+    soul_ref: writer
+  quality_review:
+    type: gate
+    soul_ref: reviewer
+    eval_key: write_summary
+workflow:
+  name: Research & Review
+  entry: research
+  transitions:
+    - from: research
+      to: write_summary
+    - from: write_summary
+      to: quality_review
+```
+
+Souls can live in reusable library files or inline in the workflow:
+
+```yaml
+# custom/souls/researcher.yaml — reusable soul file, referenced by soul_ref
+id: researcher_1
+role: Senior Researcher
+system_prompt: >
+  You are an expert researcher. Given a topic, provide a concise,
+  well-structured summary of the key findings, trends, and insights.
+```
+
+```yaml
+# Or define souls inline in the workflow itself — useful for quick prototyping
+version: "1.0"
+souls:
+  researcher:
+    id: researcher_1
+    role: Senior Researcher
+    system_prompt: >
+      You are an expert researcher. Summarize key findings and trends.
+    provider: openai
+    model: gpt-4.1-mini
+blocks:
+  research:
+    type: linear
+    soul_ref: researcher
+workflow:
+  name: Quick Research
+  entry: research
+  transitions:
+    - from: research
+      to: null
+```
+
+## What it does
+
+| Feature | What you get |
+|---|---|
+| **YAML workflows** | Workflows are `.yaml` files on disk. Edit in any editor, diff in any tool, review in any PR. |
+| **Git-native execution** | Save = write to disk. Commit = git commit to main. Dirty runs create simulation branches automatically. |
+| **5 block types** | `linear` (LLM call), `gate` (LLM quality gate), `code` (Python/JS), `loop` (iteration), `workflow` (sub-flow composition) |
+| **Dispatch branching** | The soul calls a `delegate` tool to pick an exit port — LLM-driven routing on any block with `exits` |
+| **Soul library** | Agent identities as reusable YAML files or inline in the workflow. Role, system_prompt, provider, model, temperature, tools. Referenced by `soul_ref`. |
+| **Custom tools** | Define tools as YAML files with canonical IDs (`custom/my-tool`). Discovered automatically. Workflows declare which tools are available — souls only get tools enabled at the workflow level. `[WIP: sandbox execution]` |
+| **Visual canvas** | ReactFlow-based editor with bi-directional YAML sync. `[alpha]` |
+| **Monaco YAML editor** | Syntax highlighting, live validation, JSON schema autocomplete — side by side with the canvas. |
+| **Block-level eval** | Assertions on any block: `contains`, `regex`, `contains-json`, `word-count`. Transform hooks extract fields before asserting. |
+| **Offline eval runner** | Define test cases in an `eval:` YAML section. Run them offline with fixture mode — no LLM calls needed. |
+| **Budget enforcement** | `limits:` section on workflows and blocks. Cost caps (USD), timeouts (seconds), warn or kill modes. Enforced per LLM call. |
+| **Run inspection** | Full run history with regressions. Fork recovery from failed runs. Historical YAML snapshot per run. |
+| **Provider management** | CRUD for providers, model catalog, per-provider fallback targets, strict soul resolution. |
+| **Sub-workflow composition** | `workflow` blocks execute child workflows with parent-child run linkage, on_error modes, and output mapping. |
+
+## YAML examples
+
+### Inline souls + custom tool wiring
+
+Souls can be defined inline or as reusable library files. Tools are YAML files — workflows control which tools each soul can access:
+
+```yaml
+# custom/tools/slack_webhook.yaml — custom HTTP tool
+version: "1.0"
+type: custom
+executor: request
+name: Slack Webhook
+description: Send a message to a Slack channel.
+parameters:
+  type: object
+  properties:
+    payload_json:
+      type: string
+  required: [payload_json]
+request:
+  method: POST
+  url: "${SLACK_WEBHOOK_URL}"
+  headers:
+    Content-type: application/json
+  body_template: "{{ payload_json }}"
+```
+
+```yaml
+# custom/tools/slack_payload_builder.yaml — custom Python tool
+version: "1.0"
+type: custom
+executor: python
+name: Slack Payload Builder
+parameters:
+  type: object
+  properties:
+    text:
+      type: string
+  required: [text]
+code: |
+  import json
+  def main(args):
+      return {"payload_json": json.dumps({"text": args["text"]})}
+```
+
+```yaml
+# Workflow with inline soul + tool governance
+version: "1.0"
+souls:
+  notifier:
+    id: notifier_1
+    role: Slack Reporter
+    system_prompt: >
+      Summarize the input and post it to Slack.
+    tools:
+      - slack_payload_builder
+      - slack_webhook       # workflow must also enable these tools
+    provider: openai
+    model: gpt-4.1-mini
+blocks:
+  notify:
+    type: linear
+    soul_ref: notifier
+workflow:
+  name: Slack Notification
+  entry: notify
+  transitions:
+    - from: notify
+      to: null
+```
+
+See the [docs](https://docs.runsight.dev) for dispatch branching, budget enforcement, eval test cases, sub-workflow composition, and more.
+
+## How it works
+
+1. **Define** — Write workflows, souls, and tools as YAML files in `custom/workflows/`, `custom/souls/`, and `custom/tools/`. The engine discovers them by convention.
+2. **Parse** — The engine validates YAML against Pydantic schemas, resolves `soul_ref` to library souls, discovers tools by canonical ID, and enforces tool governance (souls only get tools enabled at the workflow level).
+3. **Execute** — `execute_block()` runs each block through a unified lifecycle: observer events, retry handling, exit handle routing, budget enforcement via `contextvars`.
+4. **Observe** — Assertions evaluate per-block. `BudgetSession` tracks cost/tokens/time with parent propagation. SSE streams node completion status to the GUI. `[WIP: canvas live updates]`
+5. **Version** — Every save writes to disk. Commits go to main. Simulation runs create branches. Run detail shows the exact YAML that executed.
+
+## Architecture
+
+```
+runsight/
+├── packages/core/          # Pure Python engine — asyncio, Pydantic
+│   └── src/runsight_core/
+│       ├── blocks/         # Linear, Gate, Code, Loop, Workflow, Dispatch
+│       ├── yaml/           # Schema models, parser, validator
+│       ├── budget_enforcement.py
+│       └── eval/           # Assertions, eval runner, transforms
+├── apps/api/               # FastAPI server — SQLModel, SSE streaming
+│   └── src/runsight_api/
+└── apps/gui/               # React 19 + Vite + ReactFlow + Monaco
+    └── src/
+        ├── features/       # Canvas, flows, runs, settings, souls
+        └── store/          # Zustand stores
+```
+
+**Core engine** has zero web dependencies — import `runsight_core` and run workflows from Python:
+
+```python
+from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.workflow import Workflow
+
+workflow = parse_workflow_yaml("path/to/workflow.yaml")
+result = await workflow.run(initial_state)
+```
+
+## Current scope
+
+Runsight is a **single-soul-per-step** workflow engine. Each block runs one agent identity. The execution model is sequential within a workflow, with sub-workflow composition for nested pipelines.
+
+**What exists today:**
+- 5 block types with unified execution lifecycle + dispatch branching
+- Soul library with provider/model/temperature per soul
+- Custom tool YAML files with canonical IDs and workflow-level tool governance
+- Monaco YAML editor with bi-directional canvas sync
+- Git-native persistence (save/commit/sim branches/fork recovery)
+- Block-level eval with assertions, transforms, and offline runner
+- Backend budget enforcement (cost caps, timeouts, warn/kill)
+- Provider CRUD with per-provider fallback targets
+
+**Work in progress:**
+- Visual canvas — functional but alpha (SSE live updates, node rendering polish)
+- Tool sandbox execution — tool definitions work, isolation layer not fully integrated
+- Budget enforcement frontend — backend enforces, no UI yet
+
+**Roadmap:**
+- Ingress & triggers — webhook endpoints, cron scheduler, REST API triggers for CI/CD pipelines
+- Egress layer — structured output delivery, git commit results, file writes (outbound HTTP already works via custom tools)
+- Docker packaging — single-command deployment
+- Granular tool & soul governance — per-block permissions, allowlists, audit trail for tool usage
+- MCP integration — consume 5800+ community MCP servers, expose Runsight tools as MCP servers
+- Runtime controls — pause, resume, kill running workflows
+- Batch eval + LLM-graded assertions
+- OpenTelemetry integration — export spans to Datadog/LangSmith
+- Template marketplace — pre-built workflows for 1-click deployment
+
+## Tech stack
+
+| Layer | Stack |
+|---|---|
+| **Core engine** | Python 3.11+, asyncio, Pydantic, LiteLLM |
+| **API server** | FastAPI, SQLModel, SSE |
+| **Frontend** | React 19, Vite (build + dev server), ReactFlow (XY Flow), Monaco Editor, Zustand, shadcn/ui, Tailwind |
+| **Storage** | Filesystem (YAML) for workflows/souls/tools, SQLite for settings |
+| **Testing** | Playwright (E2E), Vitest (unit), pytest-asyncio (engine) |
+
+## Contributing
+
+Issues and PRs welcome. See the [issues page](https://github.com/runsight-ai/runsight/issues) for open work.
 
 ```bash
-uv tool list
-codebones --version
+# Run frontend unit tests
+pnpm -C apps/gui test:unit
+
+# Run engine tests (target specific files — full suite is heavy)
+uv run python -m pytest packages/core/tests/test_specific_file.py -v
+
+# Lint
+pnpm run lint
 ```
 
-Indexes are local cache artifacts, not shared repo state. Rebuild or reindex from the
-root of the checkout, clone, or worktree you are actively using:
+## License
 
-```bash
-codebones index .
-```
-
-Run `codebones index .` again after pulling large changes, switching branches, or
-deleting or moving files. Reindexing should rebuild search results so removed files no
-longer appear in named searches or in `codebones search ""`.
-
-The cache lives in a local `codebones.db` file for that checkout/worktree/clone. If an
-older cache breaks after an upgrade or starts returning stale data, delete the cache and
-rebuild it in place:
-
-```bash
-rm -f codebones.db
-codebones index .
-```
-
-If you keep multiple worktrees open, repeat that reset in each one separately because
-each checkout has its own `codebones.db`.
-
-## 📄 License & Open Core
-
-Runsight operates on an **Open-Core** model. 
-- The core orchestration engine and basic UI are open-source under the **MIT License**.
-- Advanced fleet management, RBAC, and enterprise integrations will be available under a commercial license.
-
----
-*Runsight: Because your agents shouldn't be running blind.*
+Apache 2.0 — see [LICENSE](LICENSE).
