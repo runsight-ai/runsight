@@ -794,6 +794,20 @@ def parse_workflow_yaml(
             if exit_conditions is not None:
                 built_blocks[block_id].exit_conditions = exit_conditions
 
+    # Step 6.5d: Bridge limits from schema to runtime blocks
+    for block_id, block_def in file_def.blocks.items():
+        if block_id in built_blocks and block_def.limits:
+            blk = built_blocks[block_id]
+            blk.limits = block_def.limits
+            if block_def.limits.max_duration_seconds:
+                blk.max_duration_seconds = block_def.limits.max_duration_seconds
+            # Also bridge onto the inner block if wrapped (IsolatedBlockWrapper)
+            inner_blk = getattr(blk, "inner_block", None)
+            if inner_blk is not None:
+                inner_blk.limits = block_def.limits
+                if block_def.limits.max_duration_seconds:
+                    inner_blk.max_duration_seconds = block_def.limits.max_duration_seconds
+
     # Step 6.6: Validate and resolve tools per soul
     validate_tool_governance(file_def, souls_map)
     _validate_declared_tool_definitions(
@@ -926,6 +940,10 @@ def parse_workflow_yaml(
     wf = Workflow(name=file_def.workflow.name)
     for block in built_blocks.values():
         wf.add_block(block)
+
+    # Step 7.1: Bridge workflow-level limits onto the Workflow object
+    if file_def.limits:
+        wf.limits = file_def.limits
 
     # Step 8: Register plain transitions
     for t in file_def.workflow.transitions:
