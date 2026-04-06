@@ -1,4 +1,14 @@
 version: '1.0'
+souls:
+  slack_notifier:
+    id: slack_notifier_1
+    role: Slack Reporter
+    system_prompt: >
+      Post the provided summary to Slack using the tools available to you.
+      Use slack_payload_builder to format the message, then slack_webhook to send it.
+    tools:
+      - slack_payload_builder
+      - slack_webhook
 blocks:
   research:
     type: linear
@@ -10,6 +20,9 @@ blocks:
     type: gate
     soul_ref: reviewer
     eval_key: write_summary
+  notify:
+    type: linear
+    soul_ref: slack_notifier
 workflow:
   name: Research & Review
   entry: research
@@ -18,3 +31,5 @@ workflow:
       to: write_summary
     - from: write_summary
       to: quality_review
+    - from: quality_review
+      to: notify
