@@ -11,9 +11,16 @@ import {
   TableHeader,
   TableRow,
 } from "@runsight/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@runsight/ui/tooltip";
 import { formatTimestamp, formatDuration } from "@/utils/formatting";
 import { CheckCircle, XCircle, FileText, List, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { useRuns, useRunRegressions } from "@/queries/runs";
+import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import type { RunLogResponse as LogResponse } from "@/api/runs";
 import { RunStatusDot } from "./RunStatusDot";
 import {
@@ -53,6 +60,46 @@ const levelConfig = {
 } as const;
 
 type TabId = "logs" | "runs" | "regressions";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function RegressionCell({ runId, regressionCount }: { runId: string; regressionCount: number | null | undefined }) {
+  const { data: regressionData } = useRunRegressions(regressionCount ? runId : "");
+
+  if (!regressionCount) {
+    return <span className="text-muted">—</span>;
+  }
+
+  const tooltip = regressionData?.issues?.length
+    ? formatRegressionTooltip(regressionData.issues)
+    : { header: `${regressionCount} ${regressionCount === 1 ? "regression" : "regressions"}`, lines: ["Regression detected"] };
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger render={
+          <span className="inline-flex items-center gap-1" style={{ color: "var(--warning-11)" }}>
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {regressionCount}
+          </span>
+        } />
+        <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-9" />
+            <div className="min-w-0 text-sm">
+              <p className="mb-1 font-medium text-primary">{tooltip.header}</p>
+              {tooltip.lines.map((line, index) => (
+                <p key={`${runId}-${index}`} className="leading-5 text-secondary">{line}</p>
+              ))}
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -166,6 +213,7 @@ export function RunBottomPanel({
                         <TableHead className={RUN_TABLE_HEAD_CLASS}>Commit</TableHead>
                         <TableHead className={RUN_TABLE_HEAD_CLASS}>Started</TableHead>
                         <TableHead className={RUN_TABLE_HEAD_CLASS}>Duration</TableHead>
+                        <TableHead className={RUN_TABLE_HEAD_CLASS}>Regr</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -192,6 +240,9 @@ export function RunBottomPanel({
                           </TableCell>
                           <TableCell data-type="metric" className={cn(RUN_TABLE_CELL_CLASS, "text-secondary")}>
                             {run.duration_seconds ? formatDuration(run.duration_seconds) : "—"}
+                          </TableCell>
+                          <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>
+                            <RegressionCell runId={run.id} regressionCount={run.regression_count} />
                           </TableCell>
                         </TableRow>
                       ))}
