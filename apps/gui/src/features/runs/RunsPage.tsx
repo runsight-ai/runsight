@@ -29,10 +29,9 @@ import type { RunResponse } from "@runsight/shared/zod";
 import { AlertTriangle, Play, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useRuns } from "@/queries/runs";
-import { useAttentionItems } from "@/queries/dashboard";
+import { useRuns, useRunRegressions } from "@/queries/runs";
+import { useWorkflows } from "@/queries/workflows";
 import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
-import { useRunRegressions } from "@/queries/runs";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import { RunStatusDot } from "./RunStatusDot";
 import {
@@ -284,11 +283,8 @@ export function Component() {
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("started");
   const [sortDirection, setSortDirection] = useState<SortDirection>("descending");
-  const { data: attentionData } = useAttentionItems(100);
-  const attentionRunIds = useMemo(
-    () => new Set((attentionData?.items ?? []).map((item) => item.run_id)),
-    [attentionData?.items],
-  );
+  const { data: workflowsData } = useWorkflows();
+  const workflows = useMemo(() => workflowsData?.items ?? [], [workflowsData?.items]);
 
   const queryParams = useMemo(() => {
     const params: Record<string, string | string[]> =
@@ -303,18 +299,14 @@ export function Component() {
       params.branch = "main";
     }
 
-    if (attentionOnly) {
-      params.limit = "100";
-    }
-
     return Object.keys(params).length > 0 ? params : undefined;
-  }, [activeOnly, attentionOnly, sourceFilter, workflowFilter]);
+  }, [activeOnly, sourceFilter, workflowFilter]);
   const { data, isLoading, error, refetch } = useRuns(queryParams);
   const visibleColumns = RUN_COLUMNS;
 
   const runs = useMemo(() => data?.items ?? [], [data?.items]);
   const filteredWorkflowName = workflowFilter
-    ? runs[0]?.workflow_name ?? workflowFilter
+    ? workflows.find((w) => w.id === workflowFilter)?.name ?? runs[0]?.workflow_name ?? workflowFilter
     : null;
 
   const clearFilters = () => {
@@ -339,6 +331,18 @@ export function Component() {
     });
   };
 
+  const setWorkflowFilterParam = (workflowId: string | null) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (!workflowId || workflowId === "all") {
+        next.delete("workflow");
+      } else {
+        next.set("workflow", workflowId);
+      }
+      return next;
+    });
+  };
+
   const setActiveFilter = (enabled: boolean) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -357,7 +361,7 @@ export function Component() {
       ? runs.filter((run) => run.workflow_name.toLowerCase().includes(normalizedQuery))
       : runs;
     const attentionFilteredRuns = attentionOnly
-      ? matchingRuns.filter((run) => attentionRunIds.has(run.id))
+      ? matchingRuns.filter((run) => (run.regression_count ?? 0) > 0)
       : matchingRuns;
 
     return [...attentionFilteredRuns].sort((left, right) =>
@@ -367,7 +371,7 @@ export function Component() {
         sortDirection,
       ),
     );
-  }, [attentionOnly, attentionRunIds, runs, searchQuery, sortColumn, sortDirection]);
+  }, [attentionOnly, runs, searchQuery, sortColumn, sortDirection]);
 
   const handleSort = (column: SortColumn) => {
     if (column === sortColumn) {
@@ -430,6 +434,28 @@ export function Component() {
             </div>
             <div className="w-full md:w-48">
               <Select
+                value={workflowFilter ?? "all"}
+                onValueChange={setWorkflowFilterParam}
+              >
+                <SelectTrigger aria-label="Filter runs by workflow">
+                  <span className="flex flex-1 truncate text-left">
+                    {workflowFilter
+                      ? workflows.find((w) => w.id === workflowFilter)?.name ?? workflowFilter
+                      : "All workflows"}
+                  </span>
+                </SelectTrigger>
+                <SelectContent align="end" sideOffset={8}>
+                  <SelectItem value="all">All workflows</SelectItem>
+                  {workflows.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.name ?? w.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full md:w-48">
+              <Select
                 value={sourceFilter}
                 onValueChange={(value) => setSourceFilter(value as SourceFilter)}
               >
@@ -482,7 +508,7 @@ export function Component() {
                   Retry
                 </Button>
               </section>
-            ) : runs.length === 0 ? (
+            ) : runs.length === 0 && !workflowFilter && !activeOnly ? (
               <EmptyState
                 icon={Play}
                 title="No runs yet"
@@ -492,12 +518,21 @@ export function Component() {
             ) : filteredRuns.length === 0 ? (
               <EmptyState
                 icon={Play}
-                title={attentionOnly ? "No runs need attention" : "No matching runs"}
+                title={
+                  attentionOnly
+                    ? "No runs need attention"
+                    : activeOnly
+                      ? "No active runs"
+                      : "No matching runs"
+                }
                 description={
                   attentionOnly
-                    ? "Production runs with dashboard attention items will appear here."
-                    : "Try another workflow name."
+                    ? "No runs with regressions found."
+                    : activeOnly
+                      ? "No runs are currently in progress."
+                      : "Try adjusting your filters."
                 }
+                action={{ label: "Clear filters", onClick: clearFilters }}
               />
             ) : (
               <div className={RUN_TABLE_CONTAINER_CLASS}>

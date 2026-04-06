@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { cn } from "@runsight/ui/utils";
 import { useRunLogs, useRuns } from "@/queries/runs";
 import { useWorkflowRegressions } from "@/queries/workflows";
 import { useCanvasStore } from "@/store/canvas";
