@@ -95,7 +95,7 @@ class EvalService:
         """Scan recent production run nodes for attention-worthy conditions."""
         cutoff = time.time() - 24 * 3600
         items: list[tuple[float, AttentionItem]] = []
-        previous_by_key: dict[tuple[str, str, str], object] = {}
+        previous_by_key: dict[tuple[str, str, str | None], object] = {}
         severity_rank = {"warning": 1, "info": 0}
 
         runs = [
@@ -121,16 +121,13 @@ class EvalService:
                 self.run_repo.list_nodes_for_run(run.id), key=lambda node: node.created_at
             )
             for node in nodes:
-                previous_node = None
-                key = None
-                if node.soul_version is not None:
-                    key = (run.workflow_id, node.node_id, node.soul_version)
-                    previous_node = previous_by_key.get(key)
+                key = (run.workflow_id, node.node_id, node.soul_version)
+                previous_node = previous_by_key.get(key)
 
-                if run.created_at > cutoff and node.soul_version is not None:
+                if run.created_at > cutoff:
                     title = f"{run.workflow_name} · {node.node_id}"
 
-                    if previous_node is None:
+                    if node.soul_version is not None and previous_node is None:
                         items.append(
                             (
                                 node.created_at,
@@ -144,7 +141,7 @@ class EvalService:
                                 ),
                             )
                         )
-                    else:
+                    elif previous_node is not None:
                         if node.eval_passed is False and previous_node.eval_passed is True:
                             items.append(
                                 (
@@ -198,8 +195,7 @@ class EvalService:
                                     )
                                 )
 
-                if key is not None:
-                    previous_by_key[key] = node
+                previous_by_key[key] = node
 
         items.sort(
             key=lambda item: (severity_rank.get(item[1].severity, 0), item[0]),

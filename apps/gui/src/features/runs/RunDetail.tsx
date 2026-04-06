@@ -68,7 +68,7 @@ function RunDetailInner() {
       type: "canvasNode",
       position: { x: 100 + (index % 3) * 300, y: 100 + Math.floor(index / 3) * 200 },
       data: {
-        name: node.block_type,
+        name: node.node_id,
         soulRef: node.block_type,
         model: node.block_type,
         status: mapRunStatus(node.status),
