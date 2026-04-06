@@ -17,6 +17,19 @@ test.describe("Settings: Providers CRUD", () => {
   const testProviderName = `e2e-test-provider-${Date.now()}`;
   let createdProviderId: string | null = null;
 
+  // Determine provider availability once for the whole suite
+  let hasOllama = false;
+  let hasOpenAI = false;
+
+  test.beforeAll(async () => {
+    hasOllama = await fetch("http://localhost:11434/api/tags")
+      .then((r) => r.ok)
+      .catch(() => false);
+    hasOpenAI = Boolean(
+      process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10
+    );
+  });
+
   test.afterAll(async () => {
     if (createdProviderId) {
       await apiDelete(`/settings/providers/${createdProviderId}`);
@@ -27,7 +40,7 @@ test.describe("Settings: Providers CRUD", () => {
     await page.goto("/settings");
 
     const data = await apiGet("/settings/providers");
-    
+
     // We expect at least one provider (Anthropic) to be there.
     if (data.items && data.items.length > 0) {
       await expect(
@@ -38,12 +51,6 @@ test.describe("Settings: Providers CRUD", () => {
 
   test("add provider via form → appears in list and API", async ({ page }) => {
     // Ollama: requires localhost:11434. OpenAI: requires real API key. Done enables only after successful connection.
-    const hasOllama = await fetch("http://localhost:11434/api/tags")
-      .then((r) => r.ok)
-      .catch(() => false);
-    const hasOpenAI =
-      process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10;
-
     test.skip(
       !hasOllama && !hasOpenAI,
       "Ollama (localhost:11434) or OPENAI_API_KEY required"
@@ -90,7 +97,7 @@ test.describe("Settings: Providers CRUD", () => {
   });
 
   test("test connection on a provider", async ({ page }) => {
-    test.skip(!createdProviderId, "Provider was not created in previous test");
+    test.skip(!hasOllama && !hasOpenAI, "Ollama or OPENAI_API_KEY required — provider was not created");
 
     await page.goto("/settings");
 
@@ -103,7 +110,7 @@ test.describe("Settings: Providers CRUD", () => {
   });
 
   test("delete provider → confirm dialog, verify removed", async ({ page }) => {
-    test.skip(!createdProviderId, "Provider was not created in previous test");
+    test.skip(!hasOllama && !hasOpenAI, "Ollama or OPENAI_API_KEY required — provider was not created");
 
     await page.goto("/settings");
 

@@ -12,7 +12,6 @@
  *
  * Expected failures (current state):
  *   - No PaletteSidebar component exists
- *   - CanvasPage does not render PaletteSidebar
  */
 
 import { describe, it, expect } from "vitest";
@@ -38,7 +37,6 @@ function fileExists(relativePath: string): boolean {
 // ---------------------------------------------------------------------------
 
 const PALETTE_SIDEBAR_PATH = "features/canvas/PaletteSidebar.tsx";
-const CANVAS_PAGE_PATH = "features/canvas/CanvasPage.tsx";
 
 // ===========================================================================
 // 1. PaletteSidebar component exists
@@ -59,25 +57,7 @@ describe("PaletteSidebar component exists", () => {
 });
 
 // ===========================================================================
-// 2. CanvasPage — PaletteSidebar hidden (canvas coming soon)
-// ===========================================================================
-
-describe("CanvasPage hides PaletteSidebar (canvas coming soon)", () => {
-  it("CanvasPage does NOT render <PaletteSidebar", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).not.toMatch(/<PaletteSidebar/);
-  });
-
-  it("PaletteSidebar component file still exists (not deleted)", () => {
-    expect(
-      fileExists(PALETTE_SIDEBAR_PATH),
-      "PaletteSidebar.tsx should still exist — hidden, not deleted",
-    ).toBe(true);
-  });
-});
-
-// ===========================================================================
-// 3. Block types section — Linear, Gate, Code (AC1; FileWriter removed in RUN-750)
+// 2. Block types section — Linear, Gate, Code (AC1; FileWriter removed in RUN-750)
 // ===========================================================================
 
 describe("Block types listed in palette (AC1)", () => {

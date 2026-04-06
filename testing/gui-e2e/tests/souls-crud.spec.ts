@@ -28,6 +28,16 @@ test.describe("Souls CRUD", () => {
     items: NamedEntity[];
   };
 
+  test.beforeAll(async () => {
+    const res = await fetch(`${API}/souls`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: testSoulName, system_prompt: "E2E test soul prompt" }),
+    });
+    const data = await res.json();
+    createdSoulId = data.id ?? null;
+  });
+
   test.afterAll(async () => {
     if (createdSoulId) {
       await apiDelete(`/souls/${createdSoulId}`);
@@ -39,7 +49,8 @@ test.describe("Souls CRUD", () => {
     await expect(page.getByRole("main").getByRole("heading", { name: "Souls" })).toBeVisible({ timeout: 10000 });
   });
 
-  test("create soul", async ({ page }) => {
+  test("create soul via UI", async ({ page }) => {
+    const createName = `${testSoulName}-ui`;
     await page.goto("/souls");
     await page.waitForLoadState("networkidle");
 
@@ -51,23 +62,25 @@ test.describe("Souls CRUD", () => {
     const modal = page.getByRole("dialog");
     await expect(modal).toBeVisible({ timeout: 5000 });
 
-    await modal.getByPlaceholder(/Enter soul name/i).fill(testSoulName);
+    await modal.getByPlaceholder(/Enter soul name/i).fill(createName);
     await modal.getByPlaceholder(/Enter the system prompt that defines/i).fill("E2E test soul prompt");
     await modal.getByRole("button", { name: /Create Soul/i }).click();
 
     await expect(modal).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(testSoulName, { exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(createName, { exact: true })).toBeVisible({ timeout: 10000 });
 
     const afterData = (await apiGet("/souls")) as NamedEntityListResponse;
-    const created = afterData.items.find((s) => s.name === testSoulName);
+    const created = afterData.items.find((s) => s.name === createName);
     expect(created).toBeDefined();
     expect(afterData.total).toBeGreaterThanOrEqual(countBefore + 1);
-    createdSoulId = created.id;
+
+    // Clean up the UI-created soul
+    if (created?.id) {
+      await apiDelete(`/souls/${created.id}`);
+    }
   });
 
   test("edit soul", async ({ page }) => {
-    test.skip(!createdSoulId, "Soul was not created in previous test");
-
     await page.goto("/souls");
     await page.waitForLoadState("networkidle");
 
@@ -90,8 +103,6 @@ test.describe("Souls CRUD", () => {
   });
 
   test("delete soul", async ({ page }) => {
-    test.skip(!createdSoulId, "Soul was not created in previous test");
-
     await page.goto("/souls");
     await page.waitForLoadState("networkidle");
 
@@ -109,7 +120,7 @@ test.describe("Souls CRUD", () => {
     const afterData = (await apiGet("/souls")) as NamedEntityListResponse;
     const deleted = afterData.items.find((s) => s.id === createdSoulId);
     expect(deleted).toBeUndefined();
-    
+
     createdSoulId = null;
   });
 });

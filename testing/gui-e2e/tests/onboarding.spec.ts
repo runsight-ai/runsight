@@ -246,11 +246,6 @@ test.describe("Onboarding journeys", () => {
   test("blank-canvas onboarding creates an untitled workflow and preserves the explore-mode run gate", async ({
     page,
   }) => {
-    test.fail(
-      true,
-      "Blank onboarding currently fails in the real browser flow and keeps the user on /setup/start.",
-    );
-
     await applyFixture([], { onboarding_completed: false });
 
     await page.goto("/setup/start");
@@ -275,11 +270,6 @@ test.describe("Onboarding journeys", () => {
   test("provider-present onboarding shows ready-to-run state and redirects setup away after completion", async ({
     page,
   }) => {
-    test.fail(
-      true,
-      "Provider-present onboarding currently keeps the user on /setup/start instead of entering the editor.",
-    );
-
     await applyFixture([READY_PROVIDER], { onboarding_completed: false });
 
     await page.goto("/setup/start");
