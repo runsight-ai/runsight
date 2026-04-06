@@ -165,12 +165,7 @@ describe("CanvasStatusBar accesses providers via .items (RUN-406 AC2)", () => {
 });
 
 // ===========================================================================
-// 3. Removed — ExploreBanner was deleted in RUN-559
-// (explore provider checks now live in CanvasPage, tested via priorityBanner tests)
-// ===========================================================================
-
-// ===========================================================================
-// 4. Cross-cutting: no .length on { items, total } in any canvas component (AC4)
+// 3. Cross-cutting: no .length on { items, total } in any canvas component (AC4)
 // ===========================================================================
 
 describe("No .length called on { items, total } object in canvas components (RUN-406 AC4)", () => {

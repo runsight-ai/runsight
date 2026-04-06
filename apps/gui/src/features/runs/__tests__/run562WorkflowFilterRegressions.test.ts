@@ -260,10 +260,6 @@ vi.mock("@/features/runs/RunDetail", () => ({
   Component: () => React.createElement(RouteEcho, { label: "run-detail" }),
 }));
 
-vi.mock("@/features/canvas/CanvasPage", () => ({
-  Component: () => React.createElement(RouteEcho, { label: "workflow-editor" }),
-}));
-
 /* ------------------------------------------------------------------ */
 /*  Lifecycle                                                          */
 /* ------------------------------------------------------------------ */

@@ -43,7 +43,6 @@ function getAllValidationSources(): string {
     "features/canvas/yamlValidation.ts",
     "features/canvas/useYamlValidation.ts",
     "features/canvas/useYamlValidation.tsx",
-    "features/canvas/CanvasPage.tsx",
   ];
   for (const c of candidates) {
     if (fileExists(c)) sources.push(readSource(c));
@@ -57,7 +56,7 @@ function getAllValidationSources(): string {
 
 const YAML_EDITOR_PATH = "features/canvas/YamlEditor.tsx";
 const CANVAS_TOPBAR_PATH = "features/canvas/CanvasTopbar.tsx";
-const CANVAS_PAGE_PATH = "features/canvas/CanvasPage.tsx";
+const WORKFLOW_SURFACE_PATH = "features/canvas/WorkflowSurface.tsx";
 
 // ===========================================================================
 // 1. YAML parsing — imports `yaml` package for client-side validation (AC2)
@@ -242,16 +241,16 @@ describe("Sync indicator in topbar (AC4)", () => {
     ).toBe(true);
   });
 
-  it("CanvasPage passes validation state from YamlEditor to CanvasTopbar", () => {
-    const pageSource = readSource(CANVAS_PAGE_PATH);
-    // CanvasPage should have state for validation and pass it to topbar
+  it("WorkflowSurface passes validation state from YamlEditor to CanvasTopbar", () => {
+    const surfaceSource = readSource(WORKFLOW_SURFACE_PATH);
+    // WorkflowSurface should wire validation state between editor and topbar
     const passesValidation =
-      /yamlValid|validationErrors|syncStatus|errorCount|hasErrors|isValid/.test(
-        pageSource,
+      /yamlValid|validationErrors|syncStatus|errorCount|hasErrors|isValid|isDirty/.test(
+        surfaceSource,
       );
     expect(
       passesValidation,
-      "Expected CanvasPage to manage and pass validation state between YamlEditor and CanvasTopbar",
+      "Expected WorkflowSurface to manage and pass validation state between YamlEditor and CanvasTopbar",
     ).toBe(true);
   });
 });

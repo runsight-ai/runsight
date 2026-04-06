@@ -1,18 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router";
-import type { Node } from "@xyflow/react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./workflowSurfaceContract";
 import { getContractForMode, getCanvasYamlToggleVisibility, getSaveButtonState, getActionButton, isEditable } from "./workflowSurfaceContract";
 import { CanvasTopbar } from "./CanvasTopbar";
-import { PaletteSidebar } from "./PaletteSidebar";
-import { WorkflowCanvas } from "./WorkflowCanvas";
 import { YamlEditor } from "./YamlEditor";
 import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { CanvasStatusBar } from "./CanvasStatusBar";
-import { RunInspectorPanel } from "../runs/RunInspectorPanel";
-import type { RunNodeData } from "../runs/RunCanvasNode";
+
 import { ProviderModal } from "@/components/provider/ProviderModal";
+import { EmptyState } from "@runsight/ui/empty-state";
+import { LayoutGrid } from "lucide-react";
 import { useCanvasStore } from "@/store/canvas";
 import { useUpdateWorkflow } from "@/queries/workflows";
 import { useWorkflow } from "@/queries/workflows";
@@ -34,26 +32,18 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
 
   const contract = getContractForMode(mode);
 
-  const { topbar, palette, canvas, inspector, bottomPanel, statusBar } = contract;
+  const { topbar, bottomPanel, statusBar } = contract;
 
   const nameEditable = topbar.nameEditable;
-  const dimmed = palette.dimmed;
-  const isDraggable = canvas.draggable;
-  const connectionsAllowed = canvas.connectionsAllowed;
-  const deletionAllowed = canvas.deletionAllowed;
   const defaultState = bottomPanel.defaultState;
-  const trigger = inspector.trigger;
   const stepCountFormat = statusBar.stepCountFormat;
   const metricsVisibility = statusBar.metricsVisibility;
   const toggleVisibility = getCanvasYamlToggleVisibility(mode);
   const editable = isEditable(mode);
 
-  const [activeTab, setActiveTab] = useState<"canvas" | "yaml">("canvas");
+  const [activeTab, setActiveTab] = useState<"canvas" | "yaml">("yaml");
   const [isDirty, setIsDirty] = useState(false);
-  const [selectedNode, setSelectedNode] = useState<Node<RunNodeData> | null>(null);
-  // isError and data destructured from useWorkflow to handle not-found state
-  const workflowQuery = useWorkflow(workflowId),
-    { data: workflow, isError } = workflowQuery;
+  const { data: workflow, isError } = useWorkflow(workflowId);
 
   const nodes = useCanvasStore((s) => s.nodes);
   const edges = useCanvasStore((s) => s.edges);
@@ -64,29 +54,6 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const markSaved = useCanvasStore((s) => s.markSaved);
   const setYamlContent = useCanvasStore((s) => s.setYamlContent);
   const hydrateFromPersisted = useCanvasStore((s) => s.hydrateFromPersisted);
-
-  // Inspector trigger: open on single-click or double-click depending on mode
-  const handleNodeClickForInspector = useCallback(
-    (nodeId: string) => {
-      if (trigger !== "single-click") return;
-      const node = nodes.find((n) => n.id === nodeId);
-      if (node) setSelectedNode(node as Node<RunNodeData>);
-    },
-    [trigger, nodes],
-  );
-
-  const handleNodeDoubleClickForInspector = useCallback(
-    (nodeId: string) => {
-      if (trigger !== "double-click") return;
-      const node = nodes.find((n) => n.id === nodeId);
-      if (node) setSelectedNode(node as Node<RunNodeData>);
-    },
-    [trigger, nodes],
-  );
-
-  const handleCloseInspector = useCallback(() => {
-    setSelectedNode(null);
-  }, []);
 
   const handleOpenApiKeyModal = useCallback(() => {
     setApiKeyModalOpen(true);
@@ -135,9 +102,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     workflowId,
   ]);
 
-  const hasPalette = palette.visible;
-  const canvasColumn = hasPalette ? "2" : "1";
-  const inspectorColumn = hasPalette ? "3" : "2";
+  // Palette + inspector hidden — canvas coming soon
+  const canvasColumn = "1";
 
   const handleSave = useCallback(async () => {
     if (!editable || !workflowId) {
@@ -159,60 +125,6 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const saveButtonState = getSaveButtonState(mode, isDirty);
   const actionButton = mode === "edit" ? undefined : getActionButton(mode);
 
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-  }
-
-  const setNodes = useCanvasStore((s) => s.setNodes);
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    if (!editable) return;
-
-    const blockData = e.dataTransfer.getData("application/runsight-block");
-    const soulData = e.dataTransfer.getData("application/runsight-soul");
-
-    // Calculate drop position relative to the canvas container
-    const bounds = e.currentTarget.getBoundingClientRect();
-    const position = {
-      x: e.clientX - bounds.left,
-      y: e.clientY - bounds.top,
-    };
-
-    if (blockData) {
-      try {
-        const parsed = JSON.parse(blockData) as { type: string; label: string };
-        const id = `block_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-        const newNode: Node = {
-          id,
-          type: "task",
-          position,
-          data: { label: parsed.label, blockType: parsed.label },
-        };
-        const currentNodes = useCanvasStore.getState().nodes;
-        setNodes([...currentNodes, newNode]);
-      } catch {
-        // Ignore malformed drag data
-      }
-    }
-    if (soulData) {
-      try {
-        const parsed = JSON.parse(soulData) as { type: string; label: string };
-        const id = `soul_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-        const newNode: Node = {
-          id,
-          type: "soul",
-          position,
-          data: { label: parsed.label, soulRef: parsed.label },
-        };
-        const currentNodes = useCanvasStore.getState().nodes;
-        setNodes([...currentNodes, newNode]);
-      } catch {
-        // Ignore malformed drag data
-      }
-    }
-  }
-
   if (isError) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
@@ -229,7 +141,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
       className="grid h-full"
       style={{
         gridTemplateRows: "var(--header-height) 1fr auto var(--status-bar-height)",
-        gridTemplateColumns: hasPalette ? "240px 1fr 320px" : "1fr 320px",
+        gridTemplateColumns: "1fr",
       }}
     >
       <div data-testid="surface-topbar" style={{ gridColumn: "1 / -1", gridRow: "1" }}>
@@ -253,32 +165,19 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         />
       </div>
 
-      {hasPalette ? (
-        <div
-          data-testid="surface-palette"
-          className="flex flex-col overflow-hidden"
-          style={{ gridColumn: "1", gridRow: "2" }}
-        >
-          <PaletteSidebar interactive={!dimmed} dimmed={dimmed} />
-        </div>
-      ) : null}
-
       <div
         data-testid="surface-center"
         className="relative flex flex-col overflow-hidden"
         style={{ gridColumn: canvasColumn, gridRow: "2" }}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
       >
         {activeTab === "canvas" ? (
-          <WorkflowCanvas
-            isDraggable={isDraggable}
-            connectionsAllowed={connectionsAllowed}
-            deletionAllowed={deletionAllowed}
-            runId={activeRunId}
-            onNodeClick={handleNodeClickForInspector}
-            onNodeDoubleClick={handleNodeDoubleClickForInspector}
-          />
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState
+              icon={LayoutGrid}
+              title="Visual canvas coming soon"
+              description="The drag-and-drop workflow builder is under active development."
+            />
+          </div>
         ) : activeTab === "yaml" ? (
           <YamlEditor
             workflowId={workflowId}
@@ -286,17 +185,6 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
             onDirtyChange={(dirty: boolean) => setIsDirty(dirty)}
           />
         ) : null}
-      </div>
-
-      <div
-        data-testid="surface-inspector"
-        style={{ gridColumn: inspectorColumn, gridRow: "2" }}
-      >
-        <RunInspectorPanel
-          selectedNode={selectedNode}
-          onClose={handleCloseInspector}
-          trigger={trigger}
-        />
       </div>
 
       <div
