@@ -191,64 +191,10 @@ describe("PaletteSidebar — all BLOCK_TYPES entries are valid engine types (AC2
 });
 
 // ===========================================================================
-// 3. WorkflowSurface drop handler — validates blockType before adding node (AC3)
+// 3. WorkflowSurface drop handler — removed by main (canvas coming soon)
+//    AC3 is moot — drag/drop was removed from WorkflowSurface in main.
+//    When canvas ships and drag/drop returns, re-add validation tests.
 // ===========================================================================
-
-describe("WorkflowSurface drop handler — validates blockType (AC3)", () => {
-  const SURFACE_PATH = "features/canvas/WorkflowSurface.tsx";
-
-  it("drop handler contains a stepType / blockType validation guard", () => {
-    const source = readSource(SURFACE_PATH);
-
-    // The drop handler must validate that the dragged block label maps to a
-    // known engine type before calling setNodes.  Look for any of the common
-    // guard patterns: a Set membership check, an includes() call, or a
-    // dedicated VALID_BLOCK_TYPES / CANONICAL_BLOCK_TYPES constant.
-    const hasValidationGuard =
-      /VALID_BLOCK_TYPES|CANONICAL_BLOCK_TYPES|ALLOWED_BLOCK_TYPES|validBlockTypes|canonicalTypes/.test(source) ||
-      /includes\s*\(\s*parsed\.label\s*\)/.test(source) ||
-      /has\s*\(\s*parsed\.label\s*\)/.test(source) ||
-      /BLOCK_TYPES\.some|BLOCK_TYPES\.includes/.test(source) ||
-      /isValidBlockType|isKnownBlock|validateBlock/.test(source);
-
-    expect(
-      hasValidationGuard,
-      "handleDrop must validate blockType/label against a canonical list before creating the node — no such guard was found in WorkflowSurface.tsx",
-    ).toBe(true);
-  });
-
-  it("drop handler does not create a node for an unknown block label", () => {
-    // This is a behavioural assertion via source inspection:
-    // the drop handler must reject unknown labels, not silently accept them.
-    const source = readSource(SURFACE_PATH);
-
-    // The catch block that currently swallows all errors must NOT be the only
-    // defence. There must be a deliberate early-return / guard before setNodes.
-    const dropHandlerMatch = source.match(
-      /function\s+handleDrop\s*\([^)]*\)\s*\{[\s\S]*?^  \}/m,
-    );
-
-    // If we can't extract the function, fail with a descriptive message.
-    if (!dropHandlerMatch) {
-      // Try a broader capture
-      const broadMatch = source.match(/handleDrop[\s\S]{0,2000}setNodes/);
-      expect(
-        broadMatch?.[0] ?? "",
-        "handleDrop should contain a validation guard before calling setNodes",
-      ).toMatch(/VALID|CANONICAL|ALLOWED|isValid|isKnown|includes|\.has\s*\(/);
-      return;
-    }
-
-    const handler = dropHandlerMatch[0];
-    const hasGuard =
-      /VALID|CANONICAL|ALLOWED|isValid|isKnown|includes|\.has\s*\(/.test(handler);
-
-    expect(
-      hasGuard,
-      "handleDrop must guard setNodes with a block-type validation check",
-    ).toBe(true);
-  });
-});
 
 // ===========================================================================
 // 4. yamlCompiler — unknown stepType must NOT silently default to "linear" (AC4)
