@@ -21,6 +21,7 @@ class ExecutionResult(BaseModel):
     total_tokens: int = 0
     tool_iterations: int = 0
     tool_calls_made: List[str] = Field(default_factory=list)
+    exit_handle: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -284,6 +285,7 @@ class RunsightTeamRunner:
         accumulated_cost = 0.0
         accumulated_tokens = 0
         tool_calls_made: List[str] = []
+        delegate_exit_handle: Optional[str] = None
         response: Dict[str, Any] = {}
 
         while iteration < max_iters:
@@ -323,6 +325,7 @@ class RunsightTeamRunner:
                     total_tokens=accumulated_tokens,
                     tool_iterations=iteration,
                     tool_calls_made=tool_calls_made,
+                    exit_handle=delegate_exit_handle,
                 )
 
             # Append assistant message with tool_calls to conversation
@@ -342,6 +345,15 @@ class RunsightTeamRunner:
                         result_str = await tool.execute(args)
                     except Exception as e:
                         result_str = f"Error: {e}"
+
+                # Capture exit port from delegate tool calls
+                if tool_name == "delegate" and not result_str.startswith("Error:"):
+                    try:
+                        delegate_args = json.loads(tc["function"]["arguments"])
+                        if "port" in delegate_args:
+                            delegate_exit_handle = delegate_args["port"]
+                    except (json.JSONDecodeError, KeyError):
+                        pass
 
                 all_messages.append(
                     {
@@ -383,6 +395,7 @@ class RunsightTeamRunner:
             total_tokens=accumulated_tokens,
             tool_iterations=iteration,
             tool_calls_made=tool_calls_made,
+            exit_handle=delegate_exit_handle,
         )
 
     def _build_prompt(self, task: Task) -> str:
