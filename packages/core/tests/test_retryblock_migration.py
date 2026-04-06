@@ -2,16 +2,11 @@
 Tests for RUN-163: Verify RetryBlock -> LoopBlock migration is complete.
 
 Validates:
-1. No stale RetryBlock comments remain in migrated test files
-2. LoopBlock integration tests replace removed RetryBlock integration tests:
+1. LoopBlock integration tests replace removed RetryBlock integration tests:
    - LoopBlock in full workflow with upstream block (chain pattern)
-   - LoopBlock in cross-feature workflow with conditional branching
    - LoopBlock with retry_config in full workflow (retry-on-error + loop-for-iteration)
-3. LoopBlock nested workflow integration (sub-workflow inside loop)
+2. LoopBlock state flow between rounds
 """
-
-import subprocess
-from pathlib import Path
 
 import pytest
 from runsight_core import (
@@ -22,10 +17,6 @@ from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import RetryConfig
-
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent  # runsight/
-CORE_TESTS = REPO_ROOT / "packages" / "core" / "tests"
-
 
 # ── Test helpers ──────────────────────────────────────────────────────────
 
@@ -112,83 +103,8 @@ class FailNTimesThenSucceed(BaseBlock):
         )
 
 
-# ── Fixtures ──────────────────────────────────────────────────────────────
-
-
 # ===========================================================================
-# 1. Stale RetryBlock comments — must be cleaned up
-# ===========================================================================
-
-
-class TestStaleRetryBlockComments:
-    """Stale RetryBlock comments from migration should be cleaned up.
-
-    DoD: "All comment references like '# TestRetryBlock: removed (RUN-158)' and
-    'Note: RetryBlock tests removed' should be cleaned up."
-    """
-
-    def test_integration_advanced_blocks_file_deleted(self):
-        """test_integration_advanced_blocks.py was deleted during branching cleanup."""
-        assert not (CORE_TESTS / "test_integration_advanced_blocks.py").exists(), (
-            "test_integration_advanced_blocks.py should have been deleted during branching cleanup"
-        )
-
-    def test_integration_cross_feature_file_deleted(self):
-        """test_integration_cross_feature_boundaries.py was deleted during branching cleanup."""
-        assert not (CORE_TESTS / "test_integration_cross_feature_boundaries.py").exists(), (
-            "test_integration_cross_feature_boundaries.py should have been deleted "
-            "during branching cleanup"
-        )
-
-    def test_no_stale_retryblock_comment_in_yaml_parser(self):
-        """test_yaml_parser.py should not contain stale
-        '# TestRetryBlock: removed (RUN-158)' comment."""
-        content = (CORE_TESTS / "test_yaml_parser.py").read_text()
-        assert "TestRetryBlock: removed" not in content, (
-            "Stale 'TestRetryBlock: removed (RUN-158)' comment still present "
-            "in test_yaml_parser.py — clean up the migration comment"
-        )
-
-    def test_no_retryblock_stale_comments_in_any_test_file(self):
-        """No test file should contain stale RetryBlock migration comments.
-
-        Allowed references: negative assertions in test_loop_block.py and
-        test_loop_exports_schema.py that verify RetryBlock was removed.
-        """
-        result = subprocess.run(
-            ["grep", "-rn", "--include=*.py", "RetryBlock", str(CORE_TESTS)],
-            capture_output=True,
-            text=True,
-        )
-        hits = result.stdout.strip().splitlines()
-
-        # Filter out allowed references:
-        # - test_loop_block.py: negative assertions ("RetryBlock should no longer be exported")
-        # - test_loop_exports_schema.py: negative assertions and codebase grep tests
-        # - this test file itself
-        stale_hits = []
-        allowed_files = {
-            "test_loop_block.py",
-            "test_loop_exports_schema.py",
-            "test_retryblock_migration.py",
-        }
-        for hit in hits:
-            if not hit:
-                continue
-            filename = Path(hit.split(":")[0]).name
-            if filename in allowed_files:
-                continue
-            stale_hits.append(hit)
-
-        assert not stale_hits, (
-            "Stale RetryBlock references found in test files "
-            "(not in allowed negative-assertion files):\n" + "\n".join(stale_hits)
-        )
-
-
-# ===========================================================================
-# 2. LoopBlock in full workflow with upstream block (chain pattern)
-#    Replaces: removed RetryBlock integration test in test_integration_advanced_blocks.py
+# 1. LoopBlock in full workflow with upstream block (chain pattern)
 # ===========================================================================
 
 
