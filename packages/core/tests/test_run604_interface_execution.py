@@ -130,6 +130,7 @@ class TestInterfaceBoundExecution:
         """
         interface = _make_interface(
             inputs=[{"name": "topic", "target": "shared_memory.topic"}],
+            outputs=[{"name": "echo_result", "source": "results.echo"}],
         )
 
         child_block = _EchoBlock("echo", copy_key="topic")
@@ -140,7 +141,7 @@ class TestInterfaceBoundExecution:
             block_id="invoke_child",
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
-            outputs={},
+            outputs={"results.echo": "echo_result"},
             interface=interface,
         )
 
@@ -152,9 +153,10 @@ class TestInterfaceBoundExecution:
 
         # The child should have received the value at shared_memory.topic
         # (the interface target), NOT at "topic" (the raw interface name).
+        # Interface output mapping unwraps BlockResult to .output (a string).
         child_echo = result_state.results.get("echo")
         assert child_echo is not None
-        assert child_echo.output == "climate change"
+        assert child_echo == "climate change"
 
     async def test_workflow_block_maps_outputs_through_interface_sources(self) -> None:
         """
