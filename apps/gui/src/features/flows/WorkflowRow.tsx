@@ -10,7 +10,8 @@ import {
   formatRegressionTooltip,
   buildRunsFilterUrl,
 } from "../workflows/regressionBadge.utils";
-import { REGRESSION_BADGE_CLASSES, REGRESSION_TOOLTIP_CLASSES } from "../workflows/regressionBadge.styles";
+import { REGRESSION_BADGE_CLASSES } from "../workflows/regressionBadge.styles";
+import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 
 interface WorkflowRowProps {
   workflow: {
@@ -241,22 +242,15 @@ export function Component({ workflow, onDelete, onToggleEnabled }: WorkflowRowPr
                     </span>
                   }
                 />
-                <TooltipContent className={REGRESSION_TOOLTIP_CLASSES}>
-                  <div className="text-xs">
-                    <p className="font-medium mb-1">{formatRegressionTooltip(regressionIssues).header}</p>
-                    {formatRegressionTooltip(regressionIssues).lines.map((line, i) => (
-                      <p key={i} className="text-muted">{line}</p>
-                    ))}
-                    <button
-                      className="mt-2 text-[var(--interactive-default)] hover:underline"
-                      onClick={(e: MouseEvent) => {
-                        e.stopPropagation();
-                        navigate(buildRunsFilterUrl(workflow.id));
-                      }}
-                    >
-                      View runs &rarr;
-                    </button>
-                  </div>
+                <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3 pointer-events-auto">
+                  <RegressionTooltipBody
+                    header={formatRegressionTooltip(regressionIssues).header}
+                    lines={formatRegressionTooltip(regressionIssues).lines}
+                    action={{
+                      label: "View runs \u2192",
+                      onClick: () => navigate(buildRunsFilterUrl(workflow.id)),
+                    }}
+                  />
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

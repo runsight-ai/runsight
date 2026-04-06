@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { AlertTriangle } from "lucide-react";
 import { cn } from "@runsight/ui/utils";
 import { useRunLogs, useRuns } from "@/queries/runs";
 import { useWorkflowRegressions } from "@/queries/workflows";
@@ -7,6 +6,8 @@ import { useCanvasStore } from "@/store/canvas";
 import { mapSSEEventToStoreAction } from "./useRunStream";
 import { useNavigate } from "react-router";
 import { RunsTable } from "../runs/RunsTable";
+import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
+import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 
 interface LogEntry {
   timestamp: string | number;
@@ -272,31 +273,16 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
               No regressions detected for this workflow.
             </div>
           ) : (
-            regressionsItems.map((regression, i) => (
-              <div
-                key={i}
-                className="flex cursor-pointer items-center gap-3 border-b border-border-subtle px-3 py-2 text-xs font-mono last:border-b-0 hover:bg-surface-hover"
-                onClick={() => {
-                  if (regression.run_id) {
-                    navigate(`/runs/${regression.run_id}`);
-                  }
+            <div className="px-3 py-3">
+              <RegressionTooltipBody
+                header={formatRegressionTooltip(regressionsItems).header}
+                lines={formatRegressionTooltip(regressionsItems).lines}
+                action={{
+                  label: "View runs \u2192",
+                  onClick: () => navigate(`/runs?workflow=${encodeURIComponent(workflowId ?? "")}`),
                 }}
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-[var(--warning-9)] shrink-0" />
-                <span className="inline-block min-w-[10rem] text-primary">{regression.node_name}</span>
-                <span className="inline-block min-w-[9rem] text-muted">{regression.type.replaceAll("_", " ")}</span>
-                <span className="inline-block min-w-[5rem] text-primary">
-                  {regression.delta.cost_pct != null
-                    ? `+${Number(regression.delta.cost_pct).toFixed(0)}%`
-                    : regression.delta.score_delta != null
-                      ? `${Number(regression.delta.score_delta).toFixed(2)}`
-                      : "—"}
-                </span>
-                <span className="text-muted-foreground">
-                  {regression.run_number != null ? `run #${regression.run_number}` : ""}
-                </span>
-              </div>
-            ))
+              />
+            </div>
           )}
         </div>
       )}

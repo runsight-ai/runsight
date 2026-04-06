@@ -19,6 +19,7 @@ import type { RunResponse } from "@runsight/shared/zod";
 import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
 import { useRunRegressions } from "@/queries/runs";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
+import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 import { RunStatusDot } from "./RunStatusDot";
 import {
   RUN_TABLE_CELL_CLASS,
@@ -63,15 +64,7 @@ function RegressionCell({ runId, regressionCount }: { runId: string; regressionC
           </span>
         } />
         <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3">
-          <div className="flex items-start gap-2.5">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-9" />
-            <div className="min-w-0 text-sm">
-              <p className="mb-1 font-medium text-primary">{tooltip.header}</p>
-              {tooltip.lines.map((line, index) => (
-                <p key={`${runId}-${index}`} className="leading-5 text-secondary">{line}</p>
-              ))}
-            </div>
-          </div>
+          <RegressionTooltipBody header={tooltip.header} lines={tooltip.lines} />
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
