@@ -4,7 +4,7 @@
  * These tests verify the structural acceptance criteria by reading source
  * files and asserting observable properties:
  *
- * AC1: Palette shows block types (Linear, Gate, Code, FileWriter) + souls
+ * AC1: Palette shows block types (Linear, Gate, Code) + souls (FileWriter removed in RUN-750)
  * AC2: Collapsible 240px <-> 48px via notch button
  * AC3: Icons visible in collapsed state (icon rail at 48px)
  * AC4: Souls loaded from API via useSouls hook
@@ -77,7 +77,7 @@ describe("CanvasPage hides PaletteSidebar (canvas coming soon)", () => {
 });
 
 // ===========================================================================
-// 3. Block types section — Linear, Gate, Code, FileWriter (AC1)
+// 3. Block types section — Linear, Gate, Code (AC1; FileWriter removed in RUN-750)
 // ===========================================================================
 
 describe("Block types listed in palette (AC1)", () => {
@@ -96,9 +96,9 @@ describe("Block types listed in palette (AC1)", () => {
     expect(source).toMatch(/Code/);
   });
 
-  it("palette contains FileWriter block type", () => {
+  it("palette does NOT contain removed FileWriter block type (RUN-750)", () => {
     const source = readSource(PALETTE_SIDEBAR_PATH);
-    expect(source).toMatch(/FileWriter/);
+    expect(source).not.toMatch(/FileWriter/);
   });
 
   it("block types have icons", () => {
