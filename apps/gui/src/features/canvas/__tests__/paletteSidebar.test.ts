@@ -59,27 +59,20 @@ describe("PaletteSidebar component exists", () => {
 });
 
 // ===========================================================================
-// 2. CanvasPage integrates PaletteSidebar
+// 2. CanvasPage — PaletteSidebar hidden (canvas coming soon)
 // ===========================================================================
 
-describe("CanvasPage renders PaletteSidebar", () => {
-  it("CanvasPage imports PaletteSidebar", () => {
+describe("CanvasPage hides PaletteSidebar (canvas coming soon)", () => {
+  it("CanvasPage does NOT render <PaletteSidebar", () => {
     const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/import.*PaletteSidebar.*from/);
+    expect(source).not.toMatch(/<PaletteSidebar/);
   });
 
-  it("CanvasPage renders <PaletteSidebar", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    expect(source).toMatch(/<PaletteSidebar/);
-  });
-
-  it("CanvasPage has a horizontal layout for sidebar + content", () => {
-    const source = readSource(CANVAS_PAGE_PATH);
-    // The page should have a flex-row container wrapping sidebar + main content
-    const hasHorizontalLayout = /flex\s+.*flex-row|flex-row|flex\b.*\bh-/.test(source);
-    // Sidebar should sit beside the main content area
-    expect(source).toMatch(/<PaletteSidebar/);
-    expect(hasHorizontalLayout).toBe(true);
+  it("PaletteSidebar component file still exists (not deleted)", () => {
+    expect(
+      fileExists(PALETTE_SIDEBAR_PATH),
+      "PaletteSidebar.tsx should still exist — hidden, not deleted",
+    ).toBe(true);
   });
 });
 

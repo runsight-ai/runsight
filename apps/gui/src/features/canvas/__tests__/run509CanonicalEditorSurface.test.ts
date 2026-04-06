@@ -282,6 +282,7 @@ vi.mock("@/store/canvas", () => ({
 
 vi.mock("lucide-react", () => ({
   Layout: () => React.createElement("span", null, "layout"),
+  LayoutGrid: () => React.createElement("span", null, "layout-grid"),
   Save: () => React.createElement("span", null, "save"),
 }));
 
@@ -319,7 +320,7 @@ afterEach(() => {
 });
 
 describe("RUN-509 canonical editor surface", () => {
-  it("keeps the canonical editor labels and save affordance while opening the live canvas surface", async () => {
+  it("keeps the canonical editor labels and save affordance while opening the canvas tab with coming-soon placeholder", async () => {
     const { user } = await renderCanvasPage();
 
     expect(
@@ -331,19 +332,18 @@ describe("RUN-509 canonical editor surface", () => {
 
     await user.click(screen.getByRole("button", { name: "Canvas" }));
 
-    expect(screen.getByText("workflow-canvas-surface")).toBeTruthy();
-    expect(screen.queryByText("Visual canvas coming soon")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Switch to YAML" })).toBeNull();
+    expect(screen.getByText("Visual canvas coming soon")).toBeTruthy();
+    expect(screen.queryByText("workflow-canvas-surface")).toBeNull();
   });
 
-  it("still reaches the live editor surface when the workflow has no persisted canvas layout yet", async () => {
+  it("shows coming-soon placeholder regardless of persisted canvas layout", async () => {
     mocks.canvasStoreState.toPersistedState = undefined;
 
     const { user } = await renderCanvasPage();
 
     await user.click(screen.getByRole("button", { name: "Canvas" }));
 
-    expect(screen.getByText("workflow-canvas-surface")).toBeTruthy();
-    expect(screen.queryByText("Visual canvas coming soon")).toBeNull();
+    expect(screen.getByText("Visual canvas coming soon")).toBeTruthy();
+    expect(screen.queryByText("workflow-canvas-surface")).toBeNull();
   });
 });
