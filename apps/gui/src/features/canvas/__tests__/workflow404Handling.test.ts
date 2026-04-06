@@ -89,7 +89,7 @@ describe("WorkflowSurface.tsx — useWorkflow result shape (RUN-737 AC1)", () =>
     // those additional destructured values alongside `data`.
     // Pattern: `const { data: workflow, isError }` or `const { data, error }`
     expect(source).toMatch(
-      /useWorkflow[^;]*\{[^}]*(?:isError|error|isNotFound|status)[^}]*\}/s,
+      /\{[^}]*(?:isError|error|isNotFound|status)[^}]*\}\s*=\s*useWorkflow|useWorkflow[^;]*\{[^}]*(?:isError|error|isNotFound|status)[^}]*\}/s,
     );
   });
 
