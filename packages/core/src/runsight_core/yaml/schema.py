@@ -252,6 +252,32 @@ class DispatchExitDef(ExitDef):
     task: str
 
 
+# -- Budget / limits models ------------------------------------------------
+
+
+class BlockLimitsDef(BaseModel):
+    """Per-block budget limits for duration, cost, and tokens."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_duration_seconds: Optional[int] = Field(default=None, ge=1, le=86400)
+    cost_cap_usd: Optional[float] = Field(default=None, ge=0.0)
+    token_cap: Optional[int] = Field(default=None, ge=1)
+    on_exceed: Literal["warn", "fail"] = "fail"
+
+
+class WorkflowLimitsDef(BaseModel):
+    """Workflow-level budget limits for duration, cost, and tokens."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_duration_seconds: Optional[int] = Field(default=None, ge=1, le=86400)
+    cost_cap_usd: Optional[float] = Field(default=None, ge=0.0)
+    token_cap: Optional[int] = Field(default=None, ge=1)
+    on_exceed: Literal["warn", "fail"] = "fail"
+    warn_at_pct: float = Field(default=0.8, ge=0.0, le=1.0)
+
+
 # -- Base block model ------------------------------------------------------
 
 
@@ -274,6 +300,7 @@ class BaseBlockDef(BaseModel):
     assertions: Optional[List[Dict[str, Any]]] = None
     timeout_seconds: int = Field(default=300, ge=1, le=3600)
     stall_thresholds: Optional[Dict[str, int]] = None
+    limits: Optional[BlockLimitsDef] = None
 
     @field_validator("depends")
     @classmethod
@@ -441,6 +468,7 @@ class RunsightWorkflowFile(BaseModel):
     souls: Dict[str, SoulDef] = Field(default_factory=dict)
     blocks: Dict[str, BlockDef] = Field(default_factory=dict)
     workflow: WorkflowDef  # required — no default; Pydantic raises ValidationError if absent
+    limits: Optional[WorkflowLimitsDef] = None
     eval: Optional[EvalSectionDef] = None
 
     @field_validator("tools")
