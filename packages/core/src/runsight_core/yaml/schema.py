@@ -396,6 +396,37 @@ class WorkflowDef(BaseModel):
     conditional_transitions: List[ConditionalTransitionDef] = Field(default_factory=list)
 
 
+class EvalCaseDef(BaseModel):
+    """Single test case within the eval: section of a workflow YAML."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(strict=True)
+    description: Optional[str] = None
+    inputs: Optional[Dict[str, Any]] = None
+    fixtures: Optional[Dict[str, str]] = None
+    expected: Optional[Dict[str, List[Dict[str, Any]]]] = None
+
+
+class EvalSectionDef(BaseModel):
+    """Embedded eval: section for workflow test cases."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    cases: List[EvalCaseDef] = Field(min_length=1)
+
+    @field_validator("cases")
+    @classmethod
+    def _validate_unique_case_ids(cls, cases: List[EvalCaseDef]) -> List[EvalCaseDef]:
+        seen: set[str] = set()
+        for case in cases:
+            if case.id in seen:
+                raise ValueError(f"duplicate eval case id: {case.id}")
+            seen.add(case.id)
+        return cases
+
+
 class RunsightWorkflowFile(BaseModel):
     """
     Root model for a Runsight .yaml workflow file.
@@ -410,6 +441,7 @@ class RunsightWorkflowFile(BaseModel):
     souls: Dict[str, SoulDef] = Field(default_factory=dict)
     blocks: Dict[str, BlockDef] = Field(default_factory=dict)
     workflow: WorkflowDef  # required — no default; Pydantic raises ValidationError if absent
+    eval: Optional[EvalSectionDef] = None
 
     @field_validator("tools")
     @classmethod

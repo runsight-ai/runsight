@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
+
+from jsonpath_ng import parse as jp_parse
 
 from runsight_core.assertions.base import AssertionContext, GradingResult
 from runsight_core.assertions.scoring import AssertionsResult
@@ -25,6 +28,53 @@ def _get_handler(type_str: str) -> type:
     return _REGISTRY[type_str]
 
 
+def _apply_transform(transform: str, output: str) -> str | GradingResult:
+    """Apply a transform to the output before assertion evaluation.
+
+    Returns the transformed string on success, or a failing GradingResult on error.
+    """
+    if ":" not in transform:
+        return GradingResult(
+            passed=False,
+            score=0.0,
+            reason=f"Unknown transform format: {transform!r}",
+            assertion_type="transform",
+        )
+
+    kind, path = transform.split(":", 1)
+
+    if kind != "json_path":
+        return GradingResult(
+            passed=False,
+            score=0.0,
+            reason=f"Unknown transform type: {kind!r}",
+            assertion_type="transform",
+        )
+
+    try:
+        data = json.loads(output)
+    except (json.JSONDecodeError, ValueError):
+        return GradingResult(
+            passed=False,
+            score=0.0,
+            reason="Transform json_path failed: output is not valid JSON",
+            assertion_type="transform",
+        )
+
+    expr = jp_parse(path)
+    matches = expr.find(data)
+    if not matches:
+        return GradingResult(
+            passed=False,
+            score=0.0,
+            reason=f"Transform json_path: path {path!r} not found in output",
+            assertion_type="transform",
+        )
+
+    extracted = matches[0].value
+    return str(extracted) if not isinstance(extracted, str) else extracted
+
+
 def run_assertion(
     *,
     type: str,
@@ -34,8 +84,15 @@ def run_assertion(
     threshold: float | None = None,
     weight: float = 1.0,
     metric: str | None = None,
+    transform: str | None = None,
 ) -> GradingResult:
     """Dispatch a single assertion by type string and return its GradingResult."""
+    if transform is not None:
+        transformed = _apply_transform(transform, output)
+        if isinstance(transformed, GradingResult):
+            return transformed
+        output = transformed
+
     negated = type.startswith(NOT_PREFIX)
     base_type = type[len(NOT_PREFIX) :] if negated else type
 
@@ -87,6 +144,7 @@ async def run_assertions(
                 threshold=cfg.get("threshold"),
                 weight=weight,
                 metric=cfg.get("metric"),
+                transform=cfg.get("transform"),
             )
             if cfg.get("metric"):
                 result.named_scores[cfg["metric"]] = result.score
