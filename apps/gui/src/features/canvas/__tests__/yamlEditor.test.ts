@@ -129,7 +129,7 @@ describe("Loads content from API (AC2)", () => {
     const source = getEditorSource();
     // Should have value={...yaml...} or defaultValue={...yaml...} on the editor
     const hasValueProp =
-      /(?:value|defaultValue)\s*=\s*\{[^}]*yaml/s.test(source);
+      /(?:value|defaultValue)\s*=\s*\{[^}]*[Yy]aml/s.test(source);
     expect(
       hasValueProp,
       "Expected editor value or defaultValue prop to reference yaml content",
