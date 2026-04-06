@@ -18,7 +18,7 @@ type ParsedWorkflow = Partial<RunsightWorkflowFile> & {
     transitions?: Array<{ from: string; to: string | null }>;
     conditional_transitions?: Array<Record<string, string | null>>;
   };
-  /** @deprecated RUN-574: retained only to detect legacy YAML and emit a warning */
+  /** RUN-748: inline souls are valid shorthand — field is parsed and available, no warning emitted */
   souls?: Record<string, unknown>;
 };
 
@@ -216,12 +216,6 @@ export function parseWorkflowYamlToGraph(
 
   const result: ParseWorkflowResult = { nodes, edges, viewport: canvasState?.viewport };
   if (buildErrors.length > 0) result.error = { message: buildErrors.join("; ") };
-  if (parsed.souls !== undefined) {
-    const soulsWarning = "Deprecated: inline souls section is no longer supported. Define souls as standalone YAML files instead.";
-    result.error = result.error
-      ? { message: `${result.error.message}; ${soulsWarning}` }
-      : { message: soulsWarning };
-  }
   if (parsed.config !== undefined) result.config = parsed.config;
   return result;
 }

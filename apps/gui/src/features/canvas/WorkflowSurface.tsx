@@ -9,10 +9,10 @@ import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 
 import { ProviderModal } from "@/components/provider/ProviderModal";
+import { CommitDialog } from "@/features/git/CommitDialog";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { LayoutGrid } from "lucide-react";
 import { useCanvasStore } from "@/store/canvas";
-import { useUpdateWorkflow } from "@/queries/workflows";
 import { useWorkflow } from "@/queries/workflows";
 
 export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflowId = "", runId: initialRunId }: WorkflowSurfaceProps) {
@@ -21,7 +21,6 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const [activeRunId, setRunId] = useState(initialRunId);
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const queryClient = useQueryClient();
-  const updateWorkflow = useUpdateWorkflow();
 
   const handleForkTransition = useCallback((newWorkflowId: string) => {
     setMode("edit");
@@ -43,15 +42,13 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
 
   const [activeTab, setActiveTab] = useState<"canvas" | "yaml">("yaml");
   const [isDirty, setIsDirty] = useState(false);
+  const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const { data: workflow, isError } = useWorkflow(workflowId);
 
   const nodes = useCanvasStore((s) => s.nodes);
   const edges = useCanvasStore((s) => s.edges);
   const blockCount = useCanvasStore((s) => s.blockCount);
   const edgeCount = useCanvasStore((s) => s.edgeCount);
-  const yamlContent = useCanvasStore((s) => s.yamlContent);
-  const toPersistedState = useCanvasStore((s) => s.toPersistedState);
-  const markSaved = useCanvasStore((s) => s.markSaved);
   const setYamlContent = useCanvasStore((s) => s.setYamlContent);
   const hydrateFromPersisted = useCanvasStore((s) => s.hydrateFromPersisted);
 
@@ -105,25 +102,37 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   // Palette + inspector hidden — canvas coming soon
   const canvasColumn = "1";
 
-  const handleSave = useCallback(async () => {
-    if (!editable || !workflowId) {
-      return;
-    }
+  const handleSave = useCallback(() => {
+    if (!editable || !workflowId) return;
+    setCommitDialogOpen(true);
+  }, [editable, workflowId]);
 
-    await updateWorkflow.mutateAsync({
-      id: workflowId,
-      data: {
-        yaml: yamlContent,
-        canvas_state: toPersistedState(),
-      },
-    });
-
-    markSaved();
+  const handleCommitSuccess = useCallback(() => {
     setIsDirty(false);
-  }, [editable, markSaved, toPersistedState, updateWorkflow, workflowId, yamlContent]);
+    setCommitDialogOpen(false);
+  }, []);
 
   const saveButtonState = getSaveButtonState(mode, isDirty);
   const actionButton = mode === "edit" ? undefined : getActionButton(mode);
+
+  const canvasStoreState = useCanvasStore.getState();
+  const currentCanvasState =
+    typeof canvasStoreState.toPersistedState === "function"
+      ? canvasStoreState.toPersistedState()
+      : undefined;
+  const currentDraft = {
+    yaml: canvasStoreState.yamlContent,
+    canvas_state: currentCanvasState as Record<string, unknown> | undefined,
+  };
+  const currentFiles: { path: string; status: string }[] = [
+    { path: `custom/workflows/${workflowId}.yaml`, status: "modified" },
+  ];
+  if (currentCanvasState) {
+    currentFiles.push({
+      path: `custom/workflows/.canvas/${workflowId}.canvas.json`,
+      status: "modified",
+    });
+  }
 
   if (isError) {
     return (
@@ -151,9 +160,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
           activeTab={activeTab}
           onValueChange={(v) => setActiveTab(v as "canvas" | "yaml")}
           isDirty={isDirty}
-          onSave={() => {
-            void handleSave();
-          }}
+          onSave={handleSave}
           nameEditable={nameEditable}
           toggleVisibility={toggleVisibility}
           saveButton={saveButtonState}
@@ -216,6 +223,15 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         open={apiKeyModalOpen}
         onOpenChange={handleApiKeyModalOpenChange}
         onSaveSuccess={handleProviderSaveSuccess}
+      />
+
+      <CommitDialog
+        open={commitDialogOpen}
+        onOpenChange={setCommitDialogOpen}
+        files={currentFiles}
+        workflowId={workflowId}
+        draft={currentDraft}
+        onCommitSuccess={handleCommitSuccess}
       />
     </div>
   );

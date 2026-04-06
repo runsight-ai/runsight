@@ -61,7 +61,10 @@ const RUNTIME_FIELDS = new Set(["stepId", "name", "stepType", "status", "cost", 
 
 function toCompiledBlock(node: Node<StepNodeData>): BlockDef {
   const data = node.data;
-  const stepType: StepType = data?.stepType ?? ("linear" as StepType);
+  if (!data?.stepType) {
+    throw new Error(`Node "${node.id}" has no stepType — cannot compile to YAML`);
+  }
+  const stepType: StepType = data.stepType;
 
   const result: Record<string, unknown> = { type: stepType };
 

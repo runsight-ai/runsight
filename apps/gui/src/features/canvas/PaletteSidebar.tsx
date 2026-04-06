@@ -3,7 +3,6 @@ import {
   ArrowRightLeft,
   GitFork,
   Code,
-  FileOutput,
   ChevronLeft,
   User,
 } from "lucide-react";
@@ -14,7 +13,6 @@ const BLOCK_TYPES = [
   { label: "Linear", icon: ArrowRightLeft },
   { label: "Gate", icon: GitFork },
   { label: "Code", icon: Code },
-  { label: "FileWriter", icon: FileOutput },
 ] as const;
 
 interface PaletteSidebarProps {
