@@ -16,11 +16,12 @@ These tests exercise that full path with:
 import asyncio
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
 
+from runsight_api.core.secrets import SecretsEnvLoader
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 
 
@@ -90,6 +91,35 @@ def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None
     (wf_dir / f"{workflow_id}.yaml").write_text(content, encoding="utf-8")
 
 
+def _write_provider_file(base_dir: Path) -> None:
+    """Create a real openai provider YAML at custom/providers/openai.yaml.
+
+    The filename stem becomes the provider id (ADR D3).
+    The api_key is stored as a ${OPENAI_API_KEY} reference resolved by SecretsEnvLoader.
+    """
+    provider_dir = base_dir / "custom" / "providers"
+    provider_dir.mkdir(parents=True, exist_ok=True)
+    provider_content = (
+        "name: openai\n"
+        "type: openai\n"
+        "api_key: ${OPENAI_API_KEY}\n"
+        "is_active: true\n"
+        "models:\n"
+        "  - gpt-4o\n"
+    )
+    (provider_dir / "openai.yaml").write_text(provider_content, encoding="utf-8")
+
+
+def _write_secrets_file(base_dir: Path) -> None:
+    """Create a real secrets.env at .runsight/secrets.env with a fake test key."""
+    secrets_dir = base_dir / ".runsight"
+    secrets_dir.mkdir(parents=True, exist_ok=True)
+    (secrets_dir / "secrets.env").write_text(
+        "# Managed by Runsight\nOPENAI_API_KEY=sk-fake-test-key-for-e2e\n",
+        encoding="utf-8",
+    )
+
+
 def _make_achat_response(content: str, cost_usd: float = 0.001, total_tokens: int = 100):
     """Build a dict matching LiteLLMClient.achat return shape."""
     return {
@@ -141,11 +171,13 @@ def db_engine():
 
 @pytest.fixture
 def base_dir():
-    """Temporary directory for workflow/soul YAML files."""
+    """Temporary directory for workflow/soul/provider YAML files and secrets.env."""
     with tempfile.TemporaryDirectory() as tmpdir:
         base = Path(tmpdir)
         _write_workflow_file(base, "test-workflow", SIMPLE_WORKFLOW_YAML)
         _write_workflow_file(base, "failing-workflow", FAILING_WORKFLOW_YAML)
+        _write_provider_file(base)
+        _write_secrets_file(base)
         yield base
 
 
@@ -176,12 +208,11 @@ def app_with_real_services(db_engine, base_dir):
 
     workflow_repo = WorkflowRepository(str(base_dir))
 
-    # Provider repo with a mock provider that has the gpt-4o model
+    # Real provider repo — discovers openai.yaml from the temp filesystem
     provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
 
-    # Build a mock secrets loader that resolves any key reference to a fake value
-    mock_secrets = Mock()
-    mock_secrets.resolve = Mock(return_value="sk-fake-test-key-for-e2e")
+    # Real secrets loader — reads sk-fake-test-key-for-e2e from .runsight/secrets.env
+    secrets = SecretsEnvLoader(base_path=str(base_dir))
 
     # Build the real execution service
     execution_service = ExecutionService(
@@ -189,7 +220,7 @@ def app_with_real_services(db_engine, base_dir):
         workflow_repo=workflow_repo,
         provider_repo=provider_repo,
         engine=db_engine,
-        secrets=mock_secrets,
+        secrets=secrets,
         settings_repo=None,
     )
     app.state.execution_service = execution_service
@@ -237,25 +268,10 @@ class TestSuccessfulRunE2E:
             transport=ASGITransport(app=app_with_real_services),
             base_url="http://test",
         ) as client:
-            # Mock the provider repo to return a provider with gpt-4o
-            mock_provider = Mock()
-            mock_provider.id = "openai"
-            mock_provider.type = "openai"
-            mock_provider.api_key = "sk-test"
-            mock_provider.is_active = True
-            mock_provider.models = ["gpt-4o"]
-
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("Analysis complete."),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
+            with patch(
+                "runsight_core.llm.client.LiteLLMClient.achat",
+                new_callable=AsyncMock,
+                return_value=_make_achat_response("Analysis complete."),
             ):
                 response = await client.post(
                     "/api/runs",
@@ -277,28 +293,14 @@ class TestSuccessfulRunE2E:
         """After execution, the run record in DB should have status='completed'."""
         from httpx import ASGITransport, AsyncClient
 
-        mock_provider = Mock()
-        mock_provider.id = "openai"
-        mock_provider.type = "openai"
-        mock_provider.api_key = "sk-test"
-        mock_provider.is_active = True
-        mock_provider.models = ["gpt-4o"]
-
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
             base_url="http://test",
         ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("Analysis complete."),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
+            with patch(
+                "runsight_core.llm.client.LiteLLMClient.achat",
+                new_callable=AsyncMock,
+                return_value=_make_achat_response("Analysis complete."),
             ):
                 response = await client.post(
                     "/api/runs",
@@ -323,28 +325,14 @@ class TestSuccessfulRunE2E:
         """After completed execution, at least one RunNode must exist per block."""
         from httpx import ASGITransport, AsyncClient
 
-        mock_provider = Mock()
-        mock_provider.id = "openai"
-        mock_provider.type = "openai"
-        mock_provider.api_key = "sk-test"
-        mock_provider.is_active = True
-        mock_provider.models = ["gpt-4o"]
-
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
             base_url="http://test",
         ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("Analysis complete."),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
+            with patch(
+                "runsight_core.llm.client.LiteLLMClient.achat",
+                new_callable=AsyncMock,
+                return_value=_make_achat_response("Analysis complete."),
             ):
                 response = await client.post(
                     "/api/runs",
@@ -369,28 +357,14 @@ class TestSuccessfulRunE2E:
         """The RunNode for the 'analyze' block should have status='completed'."""
         from httpx import ASGITransport, AsyncClient
 
-        mock_provider = Mock()
-        mock_provider.id = "openai"
-        mock_provider.type = "openai"
-        mock_provider.api_key = "sk-test"
-        mock_provider.is_active = True
-        mock_provider.models = ["gpt-4o"]
-
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
             base_url="http://test",
         ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("Analysis complete."),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
+            with patch(
+                "runsight_core.llm.client.LiteLLMClient.achat",
+                new_callable=AsyncMock,
+                return_value=_make_achat_response("Analysis complete."),
             ):
                 response = await client.post(
                     "/api/runs",
@@ -411,51 +385,42 @@ class TestSuccessfulRunE2E:
 
     @pytest.mark.asyncio
     async def test_no_real_api_keys_required(self, app_with_real_services, db_engine):
-        """The test must succeed with no real API keys set in the environment."""
+        """The test must succeed with no real API keys set in the environment.
+
+        The secrets.env file on the temp filesystem provides the fake key.
+        Real API key env vars are removed so SecretsEnvLoader falls through to
+        secrets.env as the key source, and the mocked LLM completes successfully.
+        """
         import os
 
         from httpx import ASGITransport, AsyncClient
 
-        mock_provider = Mock()
-        mock_provider.id = "openai"
-        mock_provider.type = "openai"
-        mock_provider.api_key = "sk-test"
-        mock_provider.is_active = True
-        mock_provider.models = ["gpt-4o"]
-
-        # Ensure no real API keys are in the environment
-        env_patch = {
-            "OPENAI_API_KEY": "",
-            "ANTHROPIC_API_KEY": "",
-        }
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
-        ) as client:
-            with (
-                patch(
+        # Remove real API keys from os.environ so SecretsEnvLoader falls through
+        # to the secrets.env file written during fixture setup.
+        keys_to_remove = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+        saved = {k: os.environ.pop(k) for k in keys_to_remove if k in os.environ}
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app_with_real_services),
+                base_url="http://test",
+            ) as client:
+                with patch(
                     "runsight_core.llm.client.LiteLLMClient.achat",
                     new_callable=AsyncMock,
                     return_value=_make_achat_response("Result without real keys"),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
-                patch.dict(os.environ, env_patch, clear=False),
-            ):
-                response = await client.post(
-                    "/api/runs",
-                    json={
-                        "workflow_id": "test-workflow",
-                        "task_data": {"instruction": "Test without keys"},
-                    },
-                )
+                ):
+                    response = await client.post(
+                        "/api/runs",
+                        json={
+                            "workflow_id": "test-workflow",
+                            "task_data": {"instruction": "Test without keys"},
+                        },
+                    )
 
-                run_id = response.json()["id"]
-                run = await _wait_for_run_terminal(db_engine, run_id)
+                    run_id = response.json()["id"]
+                    run = await _wait_for_run_terminal(db_engine, run_id)
+        finally:
+            os.environ.update(saved)
 
         assert run.status == RunStatus.completed, (
             f"Run should complete with mocked LLM, no real keys. "
@@ -480,28 +445,14 @@ class TestFailingRunE2E:
         """When the LLM raises an exception, the run should end up as 'failed'."""
         from httpx import ASGITransport, AsyncClient
 
-        mock_provider = Mock()
-        mock_provider.id = "openai"
-        mock_provider.type = "openai"
-        mock_provider.api_key = "sk-test"
-        mock_provider.is_active = True
-        mock_provider.models = ["gpt-4o"]
-
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
             base_url="http://test",
         ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    side_effect=RuntimeError("LLM API connection failed"),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
+            with patch(
+                "runsight_core.llm.client.LiteLLMClient.achat",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("LLM API connection failed"),
             ):
                 response = await client.post(
                     "/api/runs",
@@ -528,28 +479,14 @@ class TestFailingRunE2E:
         """The failed run record should contain an error message."""
         from httpx import ASGITransport, AsyncClient
 
-        mock_provider = Mock()
-        mock_provider.id = "openai"
-        mock_provider.type = "openai"
-        mock_provider.api_key = "sk-test"
-        mock_provider.is_active = True
-        mock_provider.models = ["gpt-4o"]
-
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
             base_url="http://test",
         ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    side_effect=RuntimeError("Model overloaded, try again later"),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
+            with patch(
+                "runsight_core.llm.client.LiteLLMClient.achat",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("Model overloaded, try again later"),
             ):
                 response = await client.post(
                     "/api/runs",
@@ -570,28 +507,14 @@ class TestFailingRunE2E:
         """Even for failed runs, a RunNode should be created for the block that failed."""
         from httpx import ASGITransport, AsyncClient
 
-        mock_provider = Mock()
-        mock_provider.id = "openai"
-        mock_provider.type = "openai"
-        mock_provider.api_key = "sk-test"
-        mock_provider.is_active = True
-        mock_provider.models = ["gpt-4o"]
-
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
             base_url="http://test",
         ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    side_effect=RuntimeError("LLM exploded"),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
+            with patch(
+                "runsight_core.llm.client.LiteLLMClient.achat",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("LLM exploded"),
             ):
                 response = await client.post(
                     "/api/runs",
