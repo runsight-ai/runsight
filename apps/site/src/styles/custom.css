@@ -21,7 +21,7 @@
 	/* Neutral — Warm-tinted grays (hue 40) */
 	--sl-color-white: hsl(40, 8%, 93%);
 	--sl-color-gray-1: hsl(40, 5%, 72%);
-	--sl-color-gray-2: hsl(40, 5%, 64%);
+	--sl-color-gray-2: hsl(40, 4%, 50%);
 	--sl-color-gray-3: hsl(40, 6%, 24%);
 	--sl-color-gray-4: hsl(40, 7%, 16%);
 	--sl-color-gray-5: hsl(40, 8%, 13%);
@@ -71,4 +71,9 @@
 
 :root[data-theme='light'] .sl-markdown-content pre {
 	border-color: hsl(40, 6%, 76%);
+}
+
+/* Card descriptions — override gray-3 to gray-1 for readability */
+.description.astro-shoxszmb {
+	color: var(--sl-color-gray-1) !important;
 }
