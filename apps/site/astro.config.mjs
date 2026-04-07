@@ -53,6 +53,9 @@ export default defineConfig({
 					label: 'Souls',
 					items: [
 						{ label: 'Overview', slug: 'souls/overview' },
+						{ label: 'Soul Files', slug: 'souls/soul-files' },
+						{ label: 'Inline Souls', slug: 'souls/inline-souls' },
+						{ label: 'Soul Library', slug: 'souls/soul-library' },
 					],
 				},
 				{
