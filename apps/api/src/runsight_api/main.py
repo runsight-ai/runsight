@@ -179,8 +179,9 @@ def create_app() -> FastAPI:
     def health_check():
         return {"status": "ok"}
 
-    # Serve built frontend static files (Docker copies dist/ to STATIC_DIR)
-    static_dir = Path(os.environ.get("RUNSIGHT_STATIC_DIR", "/app/static"))
+    # Serve built frontend static files (bundled in wheel or overridden via env)
+    _pkg_static = Path(__file__).parent / "static"
+    static_dir = Path(os.environ.get("RUNSIGHT_STATIC_DIR", str(_pkg_static)))
     if static_dir.is_dir():
         assets_dir = static_dir / "assets"
         if assets_dir.is_dir():

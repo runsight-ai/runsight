@@ -15,27 +15,12 @@ Runsight runs AI agent workflows defined in plain YAML files on your filesystem.
 ## Install
 
 ```bash
-git clone https://github.com/runsight-ai/runsight.git
-cd runsight
-
-# Backend (Python 3.11+, uv recommended)
-uv sync
-
-# Frontend (Node 20+)
-pnpm install
+uvx runsight
 ```
 
-## Quick start
+Open [http://localhost:8000](http://localhost:8000). Your YAML files in `custom/` are your workflows.
 
-```bash
-# 1. Start the API server
-uv run uvicorn runsight_api.main:app
-
-# 2. Start the GUI (separate terminal)
-pnpm -C apps/gui dev
-
-# 3. Open http://localhost:5173 — onboarding walks you through API key setup
-```
+Don't have `uv`? Install it first: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
 Or work directly with YAML — create a workflow file:
 
@@ -263,6 +248,21 @@ Runsight is a **single-soul-per-step** workflow engine. Each block runs one agen
 | **Frontend** | React 19, Vite (build + dev server), ReactFlow (XY Flow), Monaco Editor, Zustand, shadcn/ui, Tailwind |
 | **Storage** | Filesystem (YAML) for workflows/souls/tools, SQLite for settings |
 | **Testing** | Playwright (E2E), Vitest (unit), pytest-asyncio (engine) |
+
+## Development
+
+```bash
+git clone https://github.com/runsight-ai/runsight.git
+cd runsight
+
+# Install dependencies
+uv sync              # Python 3.11+
+pnpm install         # Node 20+ (installs all workspace packages)
+
+# Start API server + GUI (two terminals)
+uv run uvicorn runsight_api.main:app   # http://localhost:8000
+pnpm -C apps/gui dev                   # http://localhost:5173
+```
 
 ## Contributing
 

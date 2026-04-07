@@ -11,11 +11,32 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+
+      # Build frontend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -C apps/gui run build:bundle
+
+      # Copy built frontend into Python package
+      - run: cp -r apps/gui/dist apps/api/src/runsight_api/static
+
+      # Build and publish Python packages
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
       - run: pip install build
-      - run: python -m build
+
+      # Build runsight-core first (dependency)
+      - run: python -m build packages/core -o dist/
+
+      # Build runsight (includes bundled frontend)
+      - run: python -m build apps/api -o dist/
+
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}

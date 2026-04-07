@@ -17,7 +17,7 @@ members = ["apps/api", "packages/core"]
 
 [tool.uv.sources]
 runsight-core = { workspace = true }
-runsight-api = { workspace = true }
+runsight = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["apps/api/tests", "packages/core/tests"]

@@ -4,7 +4,7 @@ requires-python = ">=3.11"
 
 [manifest]
 members = [
-    "runsight-api",
+    "runsight",
     "runsight-core",
     "runsight-workspace",
 ]
@@ -2009,7 +2009,7 @@ wheels = [
 ]
 
 [[package]]
-name = "runsight-api"
+name = "runsight"
 version = "0.1.0"
 source = { editable = "apps/api" }
 dependencies = [
