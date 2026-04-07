@@ -7,6 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .project import resolve_base_path
 
+_DB_URL_SENTINEL = "__auto__"
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +29,7 @@ def _parse_cors_origins(raw: str) -> List[str]:
 
 class Settings(BaseSettings):
     base_path: str = Field(default_factory=_default_base_path)
-    db_url: str = "sqlite:///./runsight.db"
+    db_url: str = _DB_URL_SENTINEL
     debug: bool = False
     host: str = "0.0.0.0"
     port: int = 8000
@@ -38,6 +40,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="RUNSIGHT_")
 
     @model_validator(mode="after")
+    def _resolve_db_url(self) -> "Settings":
+        if self.db_url == _DB_URL_SENTINEL:
+            db_path = Path(self.base_path).resolve() / ".runsight" / "runsight.db"
+            object.__setattr__(self, "db_url", f"sqlite:///{db_path}")
+        return self
+
+    @model_validator(mode="after")
     def _split_cors_origins(self) -> "Settings":
         raw = self.cors_origins
         if isinstance(raw, str):
@@ -46,7 +55,7 @@ class Settings(BaseSettings):
 
 
 def ensure_project_dirs(settings: Settings) -> None:
-    """Ensure the custom/workflows/ and .canvas/ directories exist.
+    """Ensure the custom/workflows/, .canvas/, and .runsight/ directories exist.
 
     Called once at application startup. Resolves base_path to an absolute
     path and logs the result.  Creates missing directories as needed.
@@ -56,14 +65,12 @@ def ensure_project_dirs(settings: Settings) -> None:
 
     workflows_dir = resolved / "custom" / "workflows"
     canvas_dir = workflows_dir / ".canvas"
+    runsight_dir = resolved / ".runsight"
 
-    if not workflows_dir.exists():
-        workflows_dir.mkdir(parents=True, exist_ok=True)
-        logger.info("Created missing directory: %s", workflows_dir)
-
-    if not canvas_dir.exists():
-        canvas_dir.mkdir(parents=True, exist_ok=True)
-        logger.info("Created missing directory: %s", canvas_dir)
+    for d in (workflows_dir, canvas_dir, runsight_dir):
+        if not d.exists():
+            d.mkdir(parents=True, exist_ok=True)
+            logger.info("Created missing directory: %s", d)
 
 
 settings = Settings()

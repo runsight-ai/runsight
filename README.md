@@ -15,6 +15,29 @@ Runsight runs AI agent workflows defined in plain YAML files on your filesystem.
 ## Install
 
 ```bash
+docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
+```
+
+Open [http://localhost:8000](http://localhost:8000). Your YAML files in `custom/` are your workflows.
+
+Pass API keys as environment variables:
+
+```bash
+docker run -p 8000:8000 \
+  -v $(pwd):/workspace \
+  -e OPENAI_API_KEY=sk-... \
+  ghcr.io/runsight-ai/runsight
+```
+
+Or use Docker Compose:
+
+```bash
+docker compose up
+```
+
+### Development (from source)
+
+```bash
 git clone https://github.com/runsight-ai/runsight.git
 cd runsight
 
@@ -187,7 +210,7 @@ workflow:
       to: null
 ```
 
-See the [docs](https://docs.runsight.dev) for dispatch branching, budget enforcement, eval test cases, sub-workflow composition, and more.
+Docs site coming soon. For now, the YAML examples above and the source code are the best reference.
 
 ## How it works
 
@@ -247,7 +270,6 @@ Runsight is a **single-soul-per-step** workflow engine. Each block runs one agen
 **Roadmap:**
 - Ingress & triggers — webhook endpoints, cron scheduler, REST API triggers for CI/CD pipelines
 - Egress layer — structured output delivery, git commit results, file writes (outbound HTTP already works via custom tools)
-- Docker packaging — single-command deployment
 - Granular tool & soul governance — per-block permissions, allowlists, audit trail for tool usage
 - MCP integration — consume 5800+ community MCP servers, expose Runsight tools as MCP servers
 - Runtime controls — pause, resume, kill running workflows
@@ -267,7 +289,7 @@ Runsight is a **single-soul-per-step** workflow engine. Each block runs one agen
 
 ## Contributing
 
-Issues and PRs welcome. See the [issues page](https://github.com/runsight-ai/runsight/issues) for open work.
+Issues and PRs welcome. See the [issues page](https://github.com/runsight-ai/runsight/issues) for open work. Questions and ideas go to [Discussions](https://github.com/runsight-ai/runsight/discussions).
 
 ```bash
 # Run frontend unit tests

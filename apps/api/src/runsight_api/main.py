@@ -1,3 +1,4 @@
+import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -6,7 +7,9 @@ from alembic import command as alembic_command
 from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+from starlette.responses import FileResponse
 from sqlmodel import Session, select
 
 from .core.config import ensure_project_dirs
@@ -104,6 +107,7 @@ def _build_alembic_config() -> AlembicConfig:
     config_dir = Path(__file__).parent
     alembic_cfg = AlembicConfig(str(config_dir / "alembic.ini"))
     alembic_cfg.set_main_option("script_location", str(config_dir / "alembic"))
+    alembic_cfg.set_main_option("sqlalchemy.url", app_settings.db_url)
     return alembic_cfg
 
 
@@ -174,6 +178,27 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health_check():
         return {"status": "ok"}
+
+    # Serve built frontend static files (Docker copies dist/ to STATIC_DIR)
+    static_dir = Path(os.environ.get("RUNSIGHT_STATIC_DIR", "/app/static"))
+    if static_dir.is_dir():
+        assets_dir = static_dir / "assets"
+        if assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+        index_html = static_dir / "index.html"
+
+        @app.get("/runsight.svg")
+        async def _favicon():
+            return FileResponse(static_dir / "runsight.svg")
+
+        @app.get("/{full_path:path}")
+        async def _spa_catch_all(full_path: str):
+            # Serve static file if it exists, otherwise index.html for SPA routing
+            candidate = static_dir / full_path
+            if candidate.is_file():
+                return FileResponse(candidate)
+            return FileResponse(index_html)
 
     return app
 
