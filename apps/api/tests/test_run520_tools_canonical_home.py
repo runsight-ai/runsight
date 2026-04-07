@@ -18,7 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 TOOLS_README = REPO_ROOT / "tools" / "README.md"
 SHARED_PACKAGE_JSON = REPO_ROOT / "packages" / "shared" / "package.json"
 CORE_SCHEMA_SCRIPT = REPO_ROOT / "packages" / "core" / "scripts" / "generate_schema.py"
-CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 
 
 class TestToolingPathPreconditions:
