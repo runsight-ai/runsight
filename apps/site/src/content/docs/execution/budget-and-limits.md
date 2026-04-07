@@ -77,13 +77,17 @@ The `on_exceed` field controls what happens when a budget cap is breached:
 
 ### Kill mode (`on_exceed: "fail"`)
 
-The default. When any cap is exceeded, the engine raises a `BudgetKilledException` immediately. The run terminates with `status: failed` and `fail_reason: "budget_exceeded"`. The exception includes structured metadata:
+The default. When any cap is exceeded, the engine raises a `BudgetKilledException` immediately. The exception includes structured metadata:
 
 - `scope` --- `"block"` or `"workflow"`
 - `block_id` --- which block triggered the breach (if block-scoped)
 - `limit_kind` --- `"cost_usd"`, `"token_cap"`, or `"timeout"`
 - `limit_value` --- the configured cap
 - `actual_value` --- the value that exceeded the cap
+
+**Error route interaction:** If the block that triggered the exception has an `error_route` configured, the `BudgetKilledException` is caught by the workflow's generic exception handler. The block result is written with `exit_handle: "error"` and error metadata, and execution **continues** on the error route target block. Only when no `error_route` exists does the exception propagate and terminate the run with `status: failed`.
+
+**Flow-level timeouts are the exception:** When a workflow-level `max_duration_seconds` fires, the resulting `BudgetKilledException` is raised **outside** the block execution loop. It cannot be caught by any block's `error_route` and always terminates the run unconditionally.
 
 ### Warn mode (`on_exceed: "warn"`)
 
@@ -116,7 +120,7 @@ Budget enforcement uses Python `contextvars` to track the active budget session 
 
 ### Parent propagation
 
-When a block has its own limits, the `BudgetSession` is created with the workflow session as `parent`. Every `accrue()` call on the child also increments the parent's counters:
+When a block has its own limits, the `BudgetSession` is created with the workflow session as `parent`. Every `accrue()` call on the child **also increments the parent's counters** recursively up the chain. After accrual, `check_or_raise()` walks the entire parent chain, so both the block's caps and the workflow's caps are enforced on every LLM call:
 
 ```
 Block accrues $0.50, 1000 tokens
@@ -124,7 +128,7 @@ Block accrues $0.50, 1000 tokens
   → Parent (workflow) session: cost=$0.50, tokens=1000 (propagated)
 ```
 
-This means a workflow with `cost_cap_usd: 2.00` will kill the run even if the individual block has no limit, as long as the workflow's total cost exceeds $2.00.
+This means a workflow with `cost_cap_usd: 2.00` will kill the run even if the individual block has no limit, as long as the workflow's total cost exceeds $2.00. Sub-flow budgets are **not** independent --- the parent workflow's caps are always enforced because costs propagate upward through the parent chain.
 
 ### Timeout enforcement
 
@@ -136,13 +140,18 @@ Timeouts work differently from cost and token caps:
 
 ### Dispatch branch isolation
 
-When a `dispatch` block fans out to multiple exit branches, each branch gets an **isolated child session** via `contextvars.copy_context()`. This prevents concurrent branches from sharing mutable budget state. After all branches complete, their costs are reconciled back to the parent session, and the parent's caps are checked.
+When a `dispatch` block fans out to multiple exit branches, each branch gets an **isolated child session** created via `create_isolated_child(branch_id=exit_id)`. The child inherits the parent's exact caps (`cost_cap_usd`, `token_cap`, `max_duration_seconds`, `on_exceed`) but has **no parent pointer** --- it accumulates costs independently. This prevents concurrent branches from sharing mutable budget state during execution.
+
+Each child is individually capped at the parent's full cap value. For example, if the workflow cap is $5.00, each branch is independently allowed up to $5.00 --- not $5.00 divided by the number of branches. This means a single branch can hit the cap on its own before the others finish.
+
+After all branches complete via `asyncio.gather`, each child's totals are **reconciled** back to the parent session via `reconcile_child()`, which adds the child's cost and token totals to the parent. Then the parent session's caps are checked with `check_or_raise()`.
 
 ```
 Parent session: cost_cap=$5.00
-  ├── Branch A (isolated): cost=$1.00
-  ├── Branch B (isolated): cost=$2.00
-  └── After reconciliation: parent cost=$3.00 → cap check passes
+  ├── Branch A (isolated, cap=$5.00): cost=$1.00
+  ├── Branch B (isolated, cap=$5.00): cost=$2.00
+  ├── Reconciliation: parent cost += $1.00 + $2.00 = $3.00
+  └── Parent cap check: $3.00 ≤ $5.00 → passes
 ```
 
 ## Complete example

@@ -36,17 +36,16 @@ The editor provides standard code editing features:
 
 ## Live validation
 
-The editor validates your YAML on every keystroke with a 500ms debounce. When the YAML contains a syntax error, the editor:
+The editor validates your YAML on every keystroke with a 500ms debounce. When the YAML contains a syntax error, the `useYamlValidation` hook:
 
 1. Parses the YAML using the `yaml` library
 2. Extracts the error position (line and column)
 3. Sets a Monaco error marker at that position — a red squiggly underline appears on the offending line
-4. Reports the validation state (`isValid`, `errorCount`, error details)
 
 When the error is fixed, the marker clears immediately.
 
 :::note
-Live validation currently checks for YAML **syntax** errors only (malformed YAML that cannot be parsed). It does not validate against the Runsight workflow schema — for example, it will not catch a misspelled block type or a missing required field. A JSON schema file (`runsight-workflow-schema.json`) is generated from the Pydantic models but is not yet wired into Monaco for autocomplete or schema-level validation.
+Live validation checks for YAML **syntax** errors only (malformed YAML that cannot be parsed). It does not validate against the Runsight workflow schema — for example, it will not catch a misspelled block type or a missing required field.
 :::
 
 ## Syncing with the canvas store

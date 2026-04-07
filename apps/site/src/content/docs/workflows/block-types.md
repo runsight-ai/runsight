@@ -177,8 +177,8 @@ The dispatch block uses `DispatchExitDef` (not the standard `ExitDef`):
 
 All branches run concurrently via `asyncio.gather`. Each branch gets its own budget session for cost isolation. Results are stored per-exit at `state.results["{block_id}.{exit_id}"]` and combined at `state.results[block_id]` as a JSON array.
 
-:::note[dispatch vs exits on linear blocks]
-`dispatch` runs **all** branches in parallel. Exit ports on a `linear` block with the `delegate` tool let the LLM pick **one** port. Use dispatch when you need concurrent fan-out; use delegate when you need LLM-driven routing.
+:::note[dispatch vs delegate]
+`dispatch` is a block type — it runs all exit branches in parallel with no tool involvement. `delegate` is a builtin tool that a soul can call on any block with exits (typically `linear`) to pick one exit port for LLM-driven routing. Dispatch does not use delegate.
 :::
 
 ## Common patterns

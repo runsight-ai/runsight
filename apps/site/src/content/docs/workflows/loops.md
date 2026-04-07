@@ -137,7 +137,7 @@ refine:
 |-------|------|---------|-------------|
 | `enabled` | `bool` | `true` | Enable context carrying |
 | `mode` | `"last"` or `"all"` | `"last"` | `"last"`: inject only the previous round's outputs. `"all"`: inject an accumulating list of all rounds. |
-| `source_blocks` | `List[str]` | none | Specific inner blocks to carry from. If omitted, all inner blocks are used. Must be a subset of `inner_block_refs`. |
+| `source_blocks` | `List[str]` | none | Specific inner blocks whose outputs are carried between rounds. If omitted, all inner blocks are used. Must be a subset of `inner_block_refs`. |
 | `inject_as` | `str` | `"previous_round_context"` | Key name in `shared_memory` where the carried context is stored |
 
 ### Mode: last

@@ -94,25 +94,11 @@ If a case has `expected` blocks without matching fixtures, the runner requires a
 
 ## Running offline evals
 
-The eval runner is an async function in the core package:
-
-```python title="Running eval programmatically"
-from runsight_core.eval.runner import run_eval, EvalSuiteResult
-
-workflow_yaml = open("custom/workflows/research.yaml").read()
-result: EvalSuiteResult = await run_eval(workflow_yaml)
-
-print(f"Suite passed: {result.passed}")
-print(f"Suite score: {result.score:.2f}")
-print(f"Threshold: {result.threshold}")
-
-for case in result.case_results:
-    print(f"  {case.case_id}: score={case.score:.2f}, passed={case.passed}")
-```
+When you run evals, the harness loads your workflow YAML, finds the `eval:` section, and executes each case. Fixture-only cases run instantly with no LLM calls. The result tells you whether the suite passed and gives per-case scores.
 
 ### Result types
 
-`run_eval` returns an `EvalSuiteResult`:
+The suite result contains:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -140,18 +126,7 @@ Each `EvalCaseResult` contains:
 
 ## Executor mode
 
-For cases that need actual LLM execution (no fixtures for some blocks), pass an executor callback:
-
-```python title="Executor mode"
-async def my_executor(workflow_raw: dict, inputs: dict) -> WorkflowState:
-    # Run the workflow with the given inputs
-    # Return the resulting WorkflowState
-    ...
-
-result = await run_eval(workflow_yaml, executor=my_executor)
-```
-
-The executor receives the raw parsed YAML dict and the case's `inputs` dict. It must return a `WorkflowState` with block results populated.
+For cases that need actual LLM execution (no fixtures for some blocks), the harness runs each block through the real execution pipeline. This means those cases make live LLM calls, cost tokens, and produce non-deterministic results. Use executor mode when you want to validate actual model behavior rather than testing assertion logic against known outputs.
 
 ## Mixing fixture and executor cases
 

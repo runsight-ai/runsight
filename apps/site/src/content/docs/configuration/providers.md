@@ -61,7 +61,13 @@ API keys are stored as environment variable references (`${PROVIDER_API_KEY}`) p
 
 ## How souls reference providers
 
-Each soul has an optional `provider` field that specifies which configured provider to use. When a soul does not set `provider`, the runner uses its default.
+Every soul **must** set both `provider` and `model_name`. The soul schema marks these fields as optional, but the runner hard-fails at execution time if either is missing:
+
+- Neither set → `ValueError: "Soul '{id}' must define an explicit provider and model_name"`
+- `model_name` set but no `provider` → `ValueError: "Soul '{id}' must define an explicit provider"`
+- `provider` set but no `model_name` → `ValueError: "Soul '{id}' must define an explicit model_name"`
+
+There is no global fallback or default provider. If you see a soul without these fields, it will fail on run.
 
 ```yaml title="custom/souls/researcher.yaml"
 version: '1.0'
