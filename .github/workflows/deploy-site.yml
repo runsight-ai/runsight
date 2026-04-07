@@ -3,9 +3,15 @@ name: Deploy Docs Site
 on:
   push:
     branches: [main]
-    paths: [apps/site/**]
+    paths:
+      - apps/site/**
+      - .github/workflows/deploy-site.yml
+      - package.json
+      - pnpm-lock.yaml
   pull_request:
-    paths: [apps/site/**]
+    paths:
+      - apps/site/**
+      - .github/workflows/deploy-site.yml
 
 jobs:
   deploy:
