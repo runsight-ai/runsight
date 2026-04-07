@@ -8,9 +8,6 @@ import starlightVersions from 'starlight-versions';
 export default defineConfig({
 	site: 'https://runsight.ai',
 	base: '/docs',
-	redirects: {
-		'/': '/docs/',
-	},
 	integrations: [
 		starlight({
 			title: 'Runsight',

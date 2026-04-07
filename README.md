@@ -3,8 +3,10 @@
 **YAML-first workflow engine for AI agents.** Your workflows are files. Your repo is the database. Git is your version control.
 
 [![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/runsight)](https://pypi.org/project/runsight/)
 [![python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org)
-[![node](https://img.shields.io/badge/node-20+-green)](https://nodejs.org)
+[![docs](https://img.shields.io/badge/docs-runsight.ai-orange)](https://runsight.ai/docs)
+[![GitHub stars](https://img.shields.io/github/stars/runsight-ai/runsight)](https://github.com/runsight-ai/runsight)
 
 <!-- TODO: demo GIF — record with VHS once UI is stable -->
 
@@ -12,7 +14,7 @@ Runsight runs AI agent workflows defined in plain YAML files on your filesystem.
 
 32 shipped epics, 215+ tickets, 5 block types, built-in eval, and per-run budget enforcement.
 
-## Install
+## Quick start
 
 ```bash
 uvx runsight
@@ -20,75 +22,15 @@ uvx runsight
 
 Open [http://localhost:8000](http://localhost:8000). Your YAML files in `custom/` are your workflows.
 
-Don't have `uv`? Install it first: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+> Don't have `uv`? Install it first: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
-[Documentation](https://runsight.ai/docs)
-
-### Docker
+Or use Docker:
 
 ```bash
 docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
 ```
 
-Or work directly with YAML — create a workflow file:
-
-```yaml
-# custom/workflows/my-first-flow.yaml
-version: "1.0"
-blocks:
-  research:
-    type: linear
-    soul_ref: researcher
-  write_summary:
-    type: linear
-    soul_ref: writer
-  quality_review:
-    type: gate
-    soul_ref: reviewer
-    eval_key: write_summary
-workflow:
-  name: Research & Review
-  entry: research
-  transitions:
-    - from: research
-      to: write_summary
-    - from: write_summary
-      to: quality_review
-```
-
-Souls can live in reusable library files or inline in the workflow:
-
-```yaml
-# custom/souls/researcher.yaml — reusable soul file, referenced by soul_ref
-id: researcher_1
-role: Senior Researcher
-system_prompt: >
-  You are an expert researcher. Given a topic, provide a concise,
-  well-structured summary of the key findings, trends, and insights.
-```
-
-```yaml
-# Or define souls inline in the workflow itself — useful for quick prototyping
-version: "1.0"
-souls:
-  researcher:
-    id: researcher_1
-    role: Senior Researcher
-    system_prompt: >
-      You are an expert researcher. Summarize key findings and trends.
-    provider: openai
-    model: gpt-4.1-mini
-blocks:
-  research:
-    type: linear
-    soul_ref: researcher
-workflow:
-  name: Quick Research
-  entry: research
-  transitions:
-    - from: research
-      to: null
-```
+**[Documentation](https://runsight.ai/docs)** · [GitHub Discussions](https://github.com/runsight-ai/runsight/discussions) · [Issues](https://github.com/runsight-ai/runsight/issues)
 
 ## What it does
 
@@ -179,8 +121,6 @@ workflow:
     - from: notify
       to: null
 ```
-
-Docs site coming soon. For now, the YAML examples above and the source code are the best reference.
 
 ## How it works
 
