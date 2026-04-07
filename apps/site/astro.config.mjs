@@ -81,6 +81,15 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Configuration',
+					items: [
+						{ label: 'First-Time Setup', slug: 'configuration/first-time-setup' },
+						{ label: 'Providers', slug: 'configuration/providers' },
+						{ label: 'Fallback Model', slug: 'configuration/fallback' },
+						{ label: 'Settings', slug: 'configuration/settings' },
+					],
+				},
+				{
 					label: 'Evaluation',
 					items: [
 						{ label: 'Assertions', slug: 'evaluation/assertions' },
