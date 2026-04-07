@@ -158,34 +158,9 @@ workflow = parse_workflow_yaml("path/to/workflow.yaml")
 result = await workflow.run(initial_state)
 ```
 
-## Current scope
+## Roadmap
 
-Runsight is a **single-soul-per-step** workflow engine. Each block runs one agent identity. The execution model is sequential within a workflow, with sub-workflow composition for nested pipelines.
-
-**What exists today:**
-- 5 block types with unified execution lifecycle + dispatch branching
-- Soul library with provider/model/temperature per soul
-- Custom tool YAML files with canonical IDs and workflow-level tool governance
-- Monaco YAML editor with bi-directional canvas sync
-- Git-native persistence (save/commit/sim branches/fork recovery)
-- Block-level eval with assertions, transforms, and offline runner
-- Backend budget enforcement (cost caps, timeouts, warn/kill)
-- Provider CRUD with per-provider fallback targets
-
-**Work in progress:**
-- Visual canvas — functional but alpha (SSE live updates, node rendering polish)
-- Tool sandbox execution — tool definitions work, isolation layer not fully integrated
-- Budget enforcement frontend — backend enforces, no UI yet
-
-**Roadmap:**
-- Ingress & triggers — webhook endpoints, cron scheduler, REST API triggers for CI/CD pipelines
-- Egress layer — structured output delivery, git commit results, file writes (outbound HTTP already works via custom tools)
-- Granular tool & soul governance — per-block permissions, allowlists, audit trail for tool usage
-- MCP integration — consume 5800+ community MCP servers, expose Runsight tools as MCP servers
-- Runtime controls — pause, resume, kill running workflows
-- Batch eval + LLM-graded assertions
-- OpenTelemetry integration — export spans to Datadog/LangSmith
-- Template marketplace — pre-built workflows for 1-click deployment
+Runsight is a **single-soul-per-step** workflow engine with sub-workflow composition. Next up: triggers (webhook, cron), MCP integration, runtime controls (pause/resume/kill), and OpenTelemetry export. See the [full roadmap](https://runsight.ai/docs) for details.
 
 ## Tech stack
 
