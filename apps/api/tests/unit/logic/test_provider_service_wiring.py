@@ -303,20 +303,22 @@ class TestApiResponseContract:
     """_provider_to_out must check secrets.is_configured(), not api_key_encrypted."""
 
     def test_provider_to_out_shows_configured_when_key_exists(self, service, secrets):
-        """Provider with stored API key must show api_key_env='configured'."""
+        """Provider with stored API key must show api_key_env with the env var reference."""
         from runsight_api.transport.routers.settings import _provider_to_out
 
         provider = service.create_provider(name="OpenAI", api_key="sk-test", provider_type="openai")
-        out = _provider_to_out(provider)
-        assert out.api_key_env == "configured"
+        out = _provider_to_out(provider, service)
+        # api_key_env now stores the ${ENV_VAR} reference directly
+        assert out.api_key_env is not None
+        assert out.api_key_env.startswith("${")
 
     def test_provider_to_out_shows_empty_when_no_key(self, service):
-        """Provider without API key must show api_key_env=''."""
+        """Provider without API key must show api_key_env=None."""
         from runsight_api.transport.routers.settings import _provider_to_out
 
         provider = service.create_provider(name="Ollama", provider_type="ollama")
-        out = _provider_to_out(provider)
-        assert out.api_key_env == ""
+        out = _provider_to_out(provider, service)
+        assert out.api_key_env is None
 
     def test_provider_to_out_uses_api_key_not_api_key_encrypted(self):
         """_provider_to_out must use ProviderEntity.api_key, not .api_key_encrypted."""
@@ -331,9 +333,12 @@ class TestApiResponseContract:
             api_key="${OPENAI_API_KEY}",
             status="connected",
         )
-        out = _provider_to_out(entity)
-        # Should show "configured" because api_key is set (even though it's a ref)
-        assert out.api_key_env == "configured"
+        mock_svc = Mock()
+        mock_svc.secrets = Mock()
+        mock_svc.secrets.resolve.return_value = "sk-resolved"
+        out = _provider_to_out(entity, mock_svc)
+        # api_key_env now stores the ${ENV_VAR} reference directly
+        assert out.api_key_env == "${OPENAI_API_KEY}"
 
 
 # ===========================================================================
@@ -500,11 +505,14 @@ class TestSettingsRouterWiring:
             status="connected",
             models=["gpt-4o"],
         )
-        out = _provider_to_out(entity)
+        mock_svc = Mock()
+        mock_svc.secrets = Mock()
+        mock_svc.secrets.resolve.return_value = "sk-resolved"
+        out = _provider_to_out(entity, mock_svc)
 
         assert out.id == "openai"
         assert out.name == "OpenAI"
-        assert out.api_key_env == "configured"
+        assert out.api_key_env == "${OPENAI_API_KEY}"
         assert out.models == ["gpt-4o"]
 
 

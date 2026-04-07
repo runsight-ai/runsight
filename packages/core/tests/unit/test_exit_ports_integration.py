@@ -34,7 +34,7 @@ from runsight_core.yaml.schema import ExitDef
 # Constants
 # ---------------------------------------------------------------------------
 
-CUSTOM_WORKFLOWS_DIR = Path(__file__).resolve().parents[4] / "custom" / "workflows"
+CUSTOM_WORKFLOWS_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "custom" / "workflows"
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ class TestExistingYamlWorkflowsParse:
         )
 
     def test_all_yaml_files_found(self):
-        """At least two YAML files exist in custom/workflows/."""
+        """At least two YAML files exist in fixtures/custom/workflows/."""
         yaml_files = list(CUSTOM_WORKFLOWS_DIR.glob("*.yaml"))
         assert len(yaml_files) >= 2, (
             f"Expected at least 2 YAML files in {CUSTOM_WORKFLOWS_DIR}, found {len(yaml_files)}"

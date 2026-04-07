@@ -78,6 +78,8 @@ def _make_mock_run(
     mock_run.parent_run_id = parent_run_id
     mock_run.root_run_id = root_run_id
     mock_run.depth = depth
+    mock_run.error = None
+    mock_run.regression_count = None
     return mock_run
 
 

@@ -129,6 +129,7 @@ def _fake_result(output: str = "This analysis includes the requested details."):
     result.output = output
     result.cost_usd = 0.005
     result.total_tokens = 300
+    result.exit_handle = None
     return result
 
 

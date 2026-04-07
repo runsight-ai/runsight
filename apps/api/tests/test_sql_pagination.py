@@ -11,7 +11,7 @@ from unittest.mock import Mock
 from fastapi.testclient import TestClient
 
 from runsight_api.main import app
-from runsight_api.transport.deps import get_run_service
+from runsight_api.transport.deps import get_eval_service, get_run_service
 
 # ---------------------------------------------------------------------------
 # 1. Default limit is 20, max limit is clamped to 100
@@ -71,7 +71,10 @@ def test_list_runs_response_includes_total_from_db():
         }
         for i in range(20)
     }
+    mock_eval = Mock()
+    mock_eval.get_run_regressions.return_value = {"count": 0, "issues": []}
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: mock_eval
 
     try:
         client = TestClient(app)
@@ -97,7 +100,10 @@ def test_list_runs_rejects_legacy_non_tuple_paginated_contract():
     mock_service.list_runs_paginated.return_value = [_make_mock_run("run_legacy")]
     mock_service.list_runs.return_value = [_make_mock_run("run_unbounded")]
     mock_service.get_node_summaries_batch.return_value = {}
+    mock_eval = Mock()
+    mock_eval.get_run_regressions.return_value = {"count": 0, "issues": []}
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: mock_eval
 
     try:
         client = TestClient(app, raise_server_exceptions=False)
@@ -129,4 +135,11 @@ def _make_mock_run(run_id="run_123"):
     mock_run.total_cost_usd = 0.0
     mock_run.total_tokens = 0
     mock_run.created_at = 123.0
+    mock_run.source = "manual"
+    mock_run.branch = "main"
+    mock_run.commit_sha = None
+    mock_run.run_number = None
+    mock_run.eval_pass_pct = None
+    mock_run.regression_count = None
+    mock_run.error = None
     return mock_run

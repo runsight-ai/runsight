@@ -1738,6 +1738,18 @@
           ],
           "default": null,
           "title": "Avatar Color"
+        },
+        "modified_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Modified At"
         }
       },
       "required": [

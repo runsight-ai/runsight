@@ -25,6 +25,16 @@ def _make_mock_run(run_id="run_new"):
     mock_run.total_cost_usd = 0.0
     mock_run.total_tokens = 0
     mock_run.created_at = 123.0
+    mock_run.source = "manual"
+    mock_run.branch = "main"
+    mock_run.commit_sha = None
+    mock_run.run_number = None
+    mock_run.eval_pass_pct = None
+    mock_run.regression_count = None
+    mock_run.error = None
+    mock_run.parent_run_id = None
+    mock_run.root_run_id = None
+    mock_run.depth = 0
     return mock_run
 
 

@@ -40,11 +40,10 @@ def test_list_souls_uses_injected_workflow_repo_for_counts():
             "wf_1",
             "Research Flow",
             """
-souls:
-  researcher:
-    id: researcher
-    role: Researcher
-    system_prompt: Research things
+blocks:
+  research:
+    type: linear
+    soul_ref: researcher
 """,
         )
     ]
@@ -64,11 +63,10 @@ def test_get_soul_usages_uses_injected_workflow_repo():
             "wf_1",
             "Research Flow",
             """
-souls:
-  researcher:
-    id: researcher
-    role: Researcher
-    system_prompt: Research things
+blocks:
+  research:
+    type: linear
+    soul_ref: researcher
 """,
         )
     ]
@@ -88,11 +86,10 @@ def test_delete_soul_uses_injected_workflow_repo_for_guarded_delete():
             "wf_1",
             "Research Flow",
             """
-souls:
-  researcher:
-    id: researcher
-    role: Researcher
-    system_prompt: Research things
+blocks:
+  research:
+    type: linear
+    soul_ref: researcher
 """,
         )
     ]

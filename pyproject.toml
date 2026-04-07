@@ -21,6 +21,7 @@ runsight = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["apps/api/tests", "packages/core/tests"]
+asyncio_mode = "auto"
 addopts = ""
 markers = [
     "integration: requires tmux and/or agent CLIs",

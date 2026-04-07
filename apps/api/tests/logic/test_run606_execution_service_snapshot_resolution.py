@@ -124,7 +124,8 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
     )
     svc._run_workflow = AsyncMock()
 
-    def _assert_snapshot_registry(workflow_definition, **kwargs):
+    def _assert_snapshot_registry(yaml_content, **kwargs):
+        workflow_definition = yaml.safe_load(yaml_content)
         assert workflow_definition["workflow"]["name"] == "Parent Workflow"
         workflow_registry = kwargs.get("workflow_registry")
         assert workflow_registry is not None

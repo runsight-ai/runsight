@@ -1,0 +1,11 @@
+version: "1.0"
+type: custom
+executor: python
+name: slack_payload_builder
+description: Fixture tool for testing.
+parameters:
+  type: object
+  properties: {}
+code: |
+  def main(args):
+      return {}

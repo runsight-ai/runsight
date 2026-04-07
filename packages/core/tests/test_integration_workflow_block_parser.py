@@ -147,6 +147,7 @@ class TestBlockKwargsCompatibility:
         mock_result.output = "test output"
         mock_result.cost_usd = 0.01
         mock_result.total_tokens = 10
+        mock_result.exit_handle = None
         runner.execute_task = AsyncMock(return_value=mock_result)
 
         block = LinearBlock(block_id="test_linear", soul=soul, runner=runner)

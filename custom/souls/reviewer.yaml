@@ -1,5 +1,14 @@
 id: reviewer_1
 role: Quality Reviewer
-system_prompt: >
-  Evaluate if the content meets quality standards. Check for accuracy,
+system_prompt: 'Evaluate if the content meets quality standards. Check for accuracy,
   completeness, and clarity. Provide specific feedback.
+
+  '
+tools: null
+max_tool_iterations: 5
+model_name: gpt-5-mini
+provider: openai
+temperature: null
+max_tokens: null
+avatar_color: accent
+modified_at: null

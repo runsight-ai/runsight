@@ -198,7 +198,7 @@ class ExecutionService:
 
             # Parse workflow YAML into runnable Workflow
             wf = parse_workflow_yaml(
-                workflow_definition,
+                yaml_content,
                 workflow_registry=workflow_registry,
                 api_keys=api_keys,
                 runner=runner,

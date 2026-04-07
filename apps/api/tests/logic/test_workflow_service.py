@@ -12,61 +12,76 @@ from unittest.mock import Mock, call
 import pytest
 
 # ---------------------------------------------------------------------------
-# Stub external dependencies that aren't available in the test environment
+# Save ALL original modules, stub, import, then restore
 # ---------------------------------------------------------------------------
+_STUBBED_KEYS = [
+    "structlog",
+    "structlog.contextvars",
+    "runsight_core",
+    "runsight_core.yaml",
+    "runsight_core.yaml.schema",
+    "runsight_core.yaml.parser",
+    "ruamel",
+    "ruamel.yaml",
+    "runsight_api.data.filesystem",
+    "runsight_api.data.filesystem.workflow_repo",
+    "runsight_api.data.repositories",
+    "runsight_api.data.repositories.run_repo",
+]
+_originals = {k: sys.modules.get(k) for k in _STUBBED_KEYS}
 
-if "structlog" not in sys.modules:
-    structlog = types.ModuleType("structlog")
-    structlog.contextvars = types.SimpleNamespace(
-        bind_contextvars=lambda **kwargs: None,
-        unbind_contextvars=lambda *args, **kwargs: None,
-    )
-    sys.modules["structlog"] = structlog
-    sys.modules["structlog.contextvars"] = structlog.contextvars
+structlog = types.ModuleType("structlog")
+structlog.contextvars = types.SimpleNamespace(
+    bind_contextvars=lambda **kwargs: None,
+    unbind_contextvars=lambda *args, **kwargs: None,
+)
+sys.modules["structlog"] = structlog
+sys.modules["structlog.contextvars"] = structlog.contextvars
 
-if "runsight_core" not in sys.modules:
-    runsight_core = types.ModuleType("runsight_core")
-    runsight_core.__path__ = []
+runsight_core = types.ModuleType("runsight_core")
+runsight_core.__path__ = []
+yaml_pkg = types.ModuleType("runsight_core.yaml")
+yaml_pkg.__path__ = []
+schema_pkg = types.ModuleType("runsight_core.yaml.schema")
+parser_pkg = types.ModuleType("runsight_core.yaml.parser")
 
-    yaml_pkg = types.ModuleType("runsight_core.yaml")
-    yaml_pkg.__path__ = []
-    schema_pkg = types.ModuleType("runsight_core.yaml.schema")
-    parser_pkg = types.ModuleType("runsight_core.yaml.parser")
 
-    class _RunsightWorkflowFile:
-        @classmethod
-        def model_validate(cls, data):
-            return data
+class _RunsightWorkflowFile:
+    @classmethod
+    def model_validate(cls, data):
+        return data
 
-    schema_pkg.RunsightWorkflowFile = _RunsightWorkflowFile
-    parser_pkg.validate_tool_governance = lambda _: None
-    yaml_pkg.schema = schema_pkg
-    yaml_pkg.parser = parser_pkg
-    runsight_core.yaml = yaml_pkg
-    sys.modules["runsight_core"] = runsight_core
-    sys.modules["runsight_core.yaml"] = yaml_pkg
-    sys.modules["runsight_core.yaml.schema"] = schema_pkg
-    sys.modules["runsight_core.yaml.parser"] = parser_pkg
 
-if "ruamel" not in sys.modules:
-    ruamel = types.ModuleType("ruamel")
-    ruamel.__path__ = []
-    ruamel_yaml = types.ModuleType("ruamel.yaml")
+schema_pkg.RunsightWorkflowFile = _RunsightWorkflowFile
+parser_pkg.validate_tool_governance = lambda _: None
+yaml_pkg.schema = schema_pkg
+yaml_pkg.parser = parser_pkg
+runsight_core.yaml = yaml_pkg
+sys.modules["runsight_core"] = runsight_core
+sys.modules["runsight_core.yaml"] = yaml_pkg
+sys.modules["runsight_core.yaml.schema"] = schema_pkg
+sys.modules["runsight_core.yaml.parser"] = parser_pkg
 
-    class _YAML:
-        def __init__(self, *args, **kwargs):
-            self.preserve_quotes = False
+ruamel = types.ModuleType("ruamel")
+ruamel.__path__ = []
+ruamel_yaml = types.ModuleType("ruamel.yaml")
 
-        def load(self, _content):
-            return {}
 
-        def dump(self, _data, _stream):
-            return None
+class _YAML:
+    def __init__(self, *args, **kwargs):
+        self.preserve_quotes = False
 
-    ruamel_yaml.YAML = _YAML
-    ruamel.yaml = ruamel_yaml
-    sys.modules["ruamel"] = ruamel
-    sys.modules["ruamel.yaml"] = ruamel_yaml
+    def load(self, _content):
+        return {}
+
+    def dump(self, _data, _stream):
+        return None
+
+
+ruamel_yaml.YAML = _YAML
+ruamel.yaml = ruamel_yaml
+sys.modules["ruamel"] = ruamel
+sys.modules["ruamel.yaml"] = ruamel_yaml
 
 fake_filesystem_pkg = types.ModuleType("runsight_api.data.filesystem")
 fake_filesystem_pkg.__path__ = []
@@ -99,6 +114,13 @@ sys.modules["runsight_api.data.repositories.run_repo"] = fake_run_repo
 from runsight_api.domain.errors import InputValidationError, WorkflowNotFound
 from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.workflow_service import WorkflowService
+
+# Restore ALL original modules so other test files are not poisoned
+for _key, _orig in _originals.items():
+    if _orig is not None:
+        sys.modules[_key] = _orig
+    else:
+        sys.modules.pop(_key, None)
 
 # --- Fixtures ---
 

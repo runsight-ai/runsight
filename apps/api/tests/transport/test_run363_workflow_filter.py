@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 from runsight_api.domain.entities.run import RunStatus
 from runsight_api.main import app
-from runsight_api.transport.deps import get_run_service
+from runsight_api.transport.deps import get_eval_service, get_run_service
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -36,7 +36,21 @@ def _make_mock_run(run_id: str, workflow_id: str = "wf_1", status=RunStatus.comp
     mock_run.total_cost_usd = 0.05
     mock_run.total_tokens = 500
     mock_run.created_at = 1000.0
+    mock_run.source = "manual"
+    mock_run.branch = "main"
+    mock_run.commit_sha = None
+    mock_run.run_number = None
+    mock_run.eval_pass_pct = None
+    mock_run.regression_count = None
+    mock_run.error = None
     return mock_run
+
+
+def _mock_eval_svc():
+    """Return a mock EvalService that returns zero regressions."""
+    mock_eval = Mock()
+    mock_eval.get_run_regressions.return_value = {"count": 0, "issues": []}
+    return mock_eval
 
 
 def _stub_service_with_runs(runs):
@@ -83,6 +97,7 @@ def test_runs_list_workflow_id_filter():
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     try:
         client = TestClient(app)
@@ -110,6 +125,7 @@ def test_runs_list_workflow_id_filter_empty():
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     try:
         client = TestClient(app)
@@ -136,6 +152,7 @@ def test_runs_list_workflow_id_and_status_combined():
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     try:
         client = TestClient(app)
@@ -166,6 +183,7 @@ def test_runs_list_no_workflow_id_returns_all():
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     try:
         client = TestClient(app)
@@ -191,6 +209,7 @@ def test_runs_list_workflow_id_filter_with_pagination():
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     try:
         client = TestClient(app)
@@ -214,6 +233,7 @@ def test_runs_response_includes_duration_and_cost():
     runs = [_make_mock_run("run_1", workflow_id="wf_1")]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     try:
         client = TestClient(app)

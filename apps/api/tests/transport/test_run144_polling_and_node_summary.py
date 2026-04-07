@@ -33,7 +33,7 @@ from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.domain.value_objects import NodeSummary as DomainNodeSummary
 from runsight_api.logic.services.run_service import RunService
 from runsight_api.main import app
-from runsight_api.transport.deps import get_run_service
+from runsight_api.transport.deps import get_eval_service, get_run_service
 from runsight_api.transport.schemas.runs import NodeSummary as TransportNodeSummary
 
 client = TestClient(app)
@@ -217,11 +217,26 @@ def _make_mock_run(run_id="run_abc", status=RunStatus.running):
     mock_run.total_cost_usd = 0.03
     mock_run.total_tokens = 500
     mock_run.created_at = 999.0
+    mock_run.source = "manual"
+    mock_run.branch = "main"
+    mock_run.commit_sha = None
+    mock_run.run_number = None
+    mock_run.eval_pass_pct = None
+    mock_run.regression_count = None
+    mock_run.error = None
+    mock_run.parent_run_id = None
+    mock_run.root_run_id = None
+    mock_run.depth = 0
     return mock_run
 
 
 class TestRunsRouterNodeSummaryNotHardcoded:
     """The router must pass real per-status counts to NodeSummary, not zeros."""
+
+    def _mock_eval_svc(self):
+        mock_eval = Mock()
+        mock_eval.get_run_regressions.return_value = {"count": 0, "issues": []}
+        return mock_eval
 
     def test_get_run_node_summary_has_real_completed_count(self):
         mock_service = Mock()
@@ -237,6 +252,7 @@ class TestRunsRouterNodeSummaryNotHardcoded:
             "failed": 1,
         }
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: self._mock_eval_svc()
         try:
             response = client.get("/api/runs/run_abc")
             assert response.status_code == 200
@@ -262,6 +278,7 @@ class TestRunsRouterNodeSummaryNotHardcoded:
             "failed": 1,
         }
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: self._mock_eval_svc()
         try:
             response = client.get("/api/runs/run_abc")
             ns = response.json()["node_summary"]
@@ -285,6 +302,7 @@ class TestRunsRouterNodeSummaryNotHardcoded:
             "failed": 1,
         }
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: self._mock_eval_svc()
         try:
             response = client.get("/api/runs/run_abc")
             ns = response.json()["node_summary"]
@@ -296,9 +314,9 @@ class TestRunsRouterNodeSummaryNotHardcoded:
 
     def test_list_runs_node_summary_has_real_counts(self):
         """GET /runs should also propagate real per-status counts."""
+        mock_run = _make_mock_run()
         mock_service = Mock()
-        mock_service.list_runs.return_value = [_make_mock_run()]
-        mock_service.get_node_summary.return_value = {
+        summary = {
             "total_cost_usd": 0.03,
             "total_tokens": 500,
             "nodes_count": 5,
@@ -308,7 +326,11 @@ class TestRunsRouterNodeSummaryNotHardcoded:
             "pending": 1,
             "failed": 0,
         }
+        mock_service.list_runs_paginated.return_value = ([mock_run], 1)
+        mock_service.get_node_summaries_batch.return_value = {mock_run.id: summary}
+        mock_service.get_node_summary.return_value = summary
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: self._mock_eval_svc()
         try:
             response = client.get("/api/runs")
             assert response.status_code == 200
@@ -330,6 +352,11 @@ class TestRunsRouterNodeSummaryNotHardcoded:
 class TestRunsRouterCostAndTokens:
     """GET /runs/{id} must return total_cost_usd and total_tokens from node summary."""
 
+    def _mock_eval_svc(self):
+        mock_eval = Mock()
+        mock_eval.get_run_regressions.return_value = {"count": 0, "issues": []}
+        return mock_eval
+
     def test_get_run_returns_aggregated_cost(self):
         mock_service = Mock()
         mock_service.get_run.return_value = _make_mock_run()
@@ -344,6 +371,7 @@ class TestRunsRouterCostAndTokens:
             "failed": 1,
         }
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: self._mock_eval_svc()
         try:
             response = client.get("/api/runs/run_abc")
             data = response.json()

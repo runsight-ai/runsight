@@ -1,0 +1,3 @@
+id: release_gate_anthropic
+role: release_gate_anthropic
+system_prompt: Fixture soul for testing.

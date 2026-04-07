@@ -27,15 +27,6 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent  # runsight/
 CUSTOM_SOULS = REPO_ROOT / "custom" / "souls"
 
-# The four files named in the ticket:
-KNOWN_OFFENDERS = [
-    "workspace_operator.yaml",
-    "gate_evaluator.yaml",
-    "web_researcher.yaml",
-    "news_to_slack.yaml",
-]
-
-
 # ===========================================================================
 # Preconditions
 # ===========================================================================
@@ -91,32 +82,7 @@ class TestNoAssertionsKeyInSoulYaml:
             + "\n".join(f"  - {v}" for v in violations)
         )
 
-    def test_known_offender_workspace_operator(self):
-        """custom/souls/workspace_operator.yaml must not have `assertions` key."""
-        soul_file = CUSTOM_SOULS / "workspace_operator.yaml"
-        assert soul_file.exists(), f"File not found: {soul_file}"
-        data = yaml.safe_load(soul_file.read_text())
-        assert "assertions" not in data, (
-            "workspace_operator.yaml still contains stale `assertions` key"
-        )
-
-    def test_known_offender_gate_evaluator(self):
-        """custom/souls/gate_evaluator.yaml must not have `assertions` key."""
-        soul_file = CUSTOM_SOULS / "gate_evaluator.yaml"
-        assert soul_file.exists(), f"File not found: {soul_file}"
-        data = yaml.safe_load(soul_file.read_text())
-        assert "assertions" not in data, "gate_evaluator.yaml still contains stale `assertions` key"
-
-    def test_known_offender_web_researcher(self):
-        """custom/souls/web_researcher.yaml must not have `assertions` key."""
-        soul_file = CUSTOM_SOULS / "web_researcher.yaml"
-        assert soul_file.exists(), f"File not found: {soul_file}"
-        data = yaml.safe_load(soul_file.read_text())
-        assert "assertions" not in data, "web_researcher.yaml still contains stale `assertions` key"
-
-    def test_known_offender_news_to_slack(self):
-        """custom/souls/news_to_slack.yaml must not have `assertions` key."""
-        soul_file = CUSTOM_SOULS / "news_to_slack.yaml"
-        assert soul_file.exists(), f"File not found: {soul_file}"
-        data = yaml.safe_load(soul_file.read_text())
-        assert "assertions" not in data, "news_to_slack.yaml still contains stale `assertions` key"
+    # The four known-offender tests below were removed because the soul files
+    # (workspace_operator, gate_evaluator, web_researcher, news_to_slack) were
+    # deleted as part of the soul library cleanup.  The broad scan test above
+    # (`test_no_soul_file_contains_assertions_key`) covers all remaining files.

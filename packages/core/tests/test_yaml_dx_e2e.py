@@ -39,7 +39,7 @@ class _ScriptedRunner:
         if isinstance(output, BaseException):
             raise output
 
-        return SimpleNamespace(output=str(output), cost_usd=0.0, total_tokens=0)
+        return SimpleNamespace(output=str(output), cost_usd=0.0, total_tokens=0, exit_handle=None)
 
 
 def _write_workflow_file(base_dir: Path, name: str, yaml_content: str) -> str:

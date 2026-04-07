@@ -1,61 +1,23 @@
-"""Red tests for RUN-478: workflow health metrics on GET /api/workflows."""
-# ruff: noqa: E402
+"""Router-level tests for RUN-478: workflow health metrics on GET /api/workflows.
 
-import sys
-import types
+Uses the real app with dependency_overrides — no sys.modules stubbing.
+"""
+
 from unittest.mock import Mock
 
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import pytest
 
-if "structlog" not in sys.modules:
-    structlog = types.ModuleType("structlog")
-    structlog.contextvars = types.SimpleNamespace(
-        bind_contextvars=lambda **kwargs: None,
-        unbind_contextvars=lambda *args, **kwargs: None,
-    )
-    sys.modules["structlog"] = structlog
-    sys.modules["structlog.contextvars"] = structlog.contextvars
-
-if "runsight_core" not in sys.modules:
-    runsight_core = types.ModuleType("runsight_core")
-    runsight_core.__path__ = []
-
-    yaml_pkg = types.ModuleType("runsight_core.yaml")
-    yaml_pkg.__path__ = []
-    schema_pkg = types.ModuleType("runsight_core.yaml.schema")
-
-    class _RunsightWorkflowFile:
-        @classmethod
-        def model_validate(cls, data):
-            return data
-
-    schema_pkg.RunsightWorkflowFile = _RunsightWorkflowFile
-    yaml_pkg.schema = schema_pkg
-    runsight_core.yaml = yaml_pkg
-    sys.modules["runsight_core"] = runsight_core
-    sys.modules["runsight_core.yaml"] = yaml_pkg
-    sys.modules["runsight_core.yaml.schema"] = schema_pkg
-
-original_deps = sys.modules.get("runsight_api.transport.deps")
-fake_deps = types.ModuleType("runsight_api.transport.deps")
-fake_deps.get_workflow_service = lambda: None
-sys.modules["runsight_api.transport.deps"] = fake_deps
-
 from runsight_api.domain.value_objects import WorkflowEntity
+from runsight_api.main import app
 from runsight_api.transport.deps import get_workflow_service
-from runsight_api.transport.routers.workflows import router
 from runsight_api.transport.schemas.workflows import WorkflowResponse
 
-if original_deps is not None:
-    sys.modules["runsight_api.transport.deps"] = original_deps
-else:
-    del sys.modules["runsight_api.transport.deps"]
+client = TestClient(app, raise_server_exceptions=False)
 
-app = FastAPI()
-app.include_router(router, prefix="/api")
-client = TestClient(app)
+
+def teardown_function():
+    app.dependency_overrides.clear()
 
 
 def _make_workflow(

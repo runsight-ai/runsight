@@ -6,14 +6,14 @@ from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 from runsight_api.logic.services.execution_service import ExecutionService
 
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-WORKFLOWS_DIR = REPO_ROOT / "custom" / "workflows"
+FIXTURES_BASE = Path(__file__).resolve().parents[4] / "packages" / "core" / "tests" / "fixtures"
+WORKFLOWS_DIR = FIXTURES_BASE / "custom" / "workflows"
 
 
 def _parse_runtime_workflow(workflow_stem: str):
     workflow_path = WORKFLOWS_DIR / f"{workflow_stem}.yaml"
     raw_yaml = workflow_path.read_text(encoding="utf-8")
-    repo = WorkflowRepository(base_path=str(REPO_ROOT))
+    repo = WorkflowRepository(base_path=str(FIXTURES_BASE))
     registry = repo.build_runnable_workflow_registry(workflow_stem, raw_yaml)
     return parse_workflow_yaml(str(workflow_path), workflow_registry=registry)
 

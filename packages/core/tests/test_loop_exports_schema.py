@@ -34,7 +34,7 @@ except ImportError:
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "runsight-workflow-schema.json"
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent  # runsight/
 CORE_ROOT = REPO_ROOT / "packages" / "core"
-CUSTOM_WORKFLOWS = REPO_ROOT / "custom" / "workflows"
+CUSTOM_WORKFLOWS = Path(__file__).resolve().parent / "fixtures" / "custom" / "workflows"
 
 
 @pytest.fixture(scope="module")

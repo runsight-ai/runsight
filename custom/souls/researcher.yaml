@@ -1,6 +1,15 @@
 id: researcher_1
 role: Senior Researcher
-system_prompt: >
-  You are an expert researcher. Given a topic, provide a concise,
-  well-structured summary of the key findings, trends, and insights.
-  Cite sources where possible. Be thorough but concise.
+system_prompt: 'You are an expert researcher. Given a topic, provide a concise, well-structured
+  summary of the key findings, trends, and insights. Cite sources where possible.
+  Be thorough but concise.
+
+  '
+tools: null
+max_tool_iterations: 5
+model_name: gpt-5-mini
+provider: openai
+temperature: null
+max_tokens: null
+avatar_color: accent
+modified_at: null

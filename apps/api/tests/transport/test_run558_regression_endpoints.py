@@ -55,6 +55,10 @@ def _make_mock_run(
     mock_run.run_number = run_number
     mock_run.eval_pass_pct = eval_pass_pct
     mock_run.regression_count = regression_count
+    mock_run.error = None
+    mock_run.parent_run_id = None
+    mock_run.root_run_id = None
+    mock_run.depth = 0
     return mock_run
 
 
@@ -169,7 +173,10 @@ class TestRunResponseRegressionCount:
         """GET /api/runs list should include regression_count in each item."""
         run = _make_mock_run(regression_count=2)
         mock_service = _stub_service_with_paginated_runs([run])
+        mock_eval = Mock()
+        mock_eval.get_run_regressions.return_value = {"count": 2, "issues": []}
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: mock_eval
 
         try:
             response = client.get("/api/runs")
@@ -186,7 +193,10 @@ class TestRunResponseRegressionCount:
         mock_service = Mock()
         mock_service.get_run.return_value = run
         mock_service.get_node_summary.return_value = _summary()
+        mock_eval = Mock()
+        mock_eval.get_run_regressions.return_value = {"count": 1, "issues": []}
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: mock_eval
 
         try:
             response = client.get("/api/runs/run_558")

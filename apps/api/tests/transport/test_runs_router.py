@@ -4,9 +4,16 @@ from fastapi.testclient import TestClient
 
 from runsight_api.domain.entities.run import RunStatus
 from runsight_api.main import app
-from runsight_api.transport.deps import get_execution_service, get_run_service
+from runsight_api.transport.deps import get_eval_service, get_execution_service, get_run_service
 
 client = TestClient(app)
+
+
+def _mock_eval_svc():
+    """Return a mock EvalService that returns zero regressions."""
+    mock_eval = Mock()
+    mock_eval.get_run_regressions.return_value = {"count": 0, "issues": []}
+    return mock_eval
 
 
 def _make_mock_run(run_id="run_123"):
@@ -21,6 +28,16 @@ def _make_mock_run(run_id="run_123"):
     mock_run.total_cost_usd = 0.0
     mock_run.total_tokens = 0
     mock_run.created_at = 123.0
+    mock_run.source = "manual"
+    mock_run.branch = "main"
+    mock_run.commit_sha = None
+    mock_run.run_number = None
+    mock_run.eval_pass_pct = None
+    mock_run.regression_count = None
+    mock_run.parent_run_id = None
+    mock_run.root_run_id = None
+    mock_run.depth = 0
+    mock_run.error = None
     return mock_run
 
 
@@ -51,6 +68,7 @@ def test_runs_list():
         "failed": 0,
     }
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     response = client.get("/api/runs")
     assert response.status_code == 200
@@ -77,6 +95,7 @@ def test_runs_get():
         "failed": 0,
     }
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     response = client.get("/api/runs/run_123")
     assert response.status_code == 200
@@ -280,11 +299,16 @@ def _stub_service_with_runs(runs):
     """Wire up a mock RunService that returns the given runs list."""
     mock_service = Mock()
 
-    def paginated(offset=0, limit=20, status=None):
+    def paginated(offset=0, limit=20, status=None, workflow_id=None, source=None, branch=None):
+        filtered = runs
         if status:
-            filtered = [r for r in runs if r.status in status]
-        else:
-            filtered = runs
+            filtered = [r for r in filtered if r.status in status]
+        if workflow_id:
+            filtered = [r for r in filtered if r.workflow_id == workflow_id]
+        if source:
+            filtered = [r for r in filtered if r.source in source]
+        if branch:
+            filtered = [r for r in filtered if r.branch == branch]
         page = filtered[offset : offset + limit]
         return page, len(filtered)
 
@@ -313,6 +337,7 @@ def test_runs_list_status_filter_running():
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     response = client.get("/api/runs?status=running")
     assert response.status_code == 200
@@ -333,6 +358,7 @@ def test_runs_list_status_filter_multiple():
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     response = client.get("/api/runs?status=running&status=pending")
     assert response.status_code == 200
@@ -352,6 +378,7 @@ def test_runs_list_no_status_filter_returns_all():
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     response = client.get("/api/runs")
     assert response.status_code == 200
@@ -368,6 +395,7 @@ def test_runs_list_status_filter_empty_result():
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     response = client.get("/api/runs?status=running")
     assert response.status_code == 200

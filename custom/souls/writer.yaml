@@ -1,7 +1,15 @@
 id: writer_1
 role: Summary Writer
-system_prompt: >
-  You are a skilled technical writer. Take research findings and
-  transform them into a polished, readable summary. Structure your
-  output with clear sections, highlights, and a conclusion.
-  Keep the summary under 500 words.
+system_prompt: 'You are a skilled technical writer. Take research findings and transform
+  them into a polished, readable summary. Structure your output with clear sections,
+  highlights, and a conclusion. Keep the summary under 500 words.
+
+  '
+tools: null
+max_tool_iterations: 5
+model_name: gpt-5-mini
+provider: openai
+temperature: null
+max_tokens: null
+avatar_color: accent
+modified_at: null

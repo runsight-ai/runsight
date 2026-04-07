@@ -1,0 +1,27 @@
+version: "1.0"
+
+config:
+  model_name: claude-haiku-4-5-20251001
+
+blocks:
+  inner_workflow:
+    type: workflow
+    workflow_ref: custom/workflows/mockup_generate_review.yaml
+    inputs:
+      current_task: current_task
+    outputs:
+      results.mockup_html: gate
+    max_depth: 5
+
+  retry_generate:
+    type: loop
+    inner_block_refs:
+      - inner_workflow
+    max_rounds: 2
+
+workflow:
+  name: mockup_pipeline
+  entry: retry_generate
+  transitions:
+    - from: retry_generate
+      to: null

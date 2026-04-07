@@ -1,0 +1,3 @@
+id: release_report_writer_openai
+role: release_report_writer_openai
+system_prompt: Fixture soul for testing.

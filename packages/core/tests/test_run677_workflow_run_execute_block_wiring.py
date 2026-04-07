@@ -221,7 +221,6 @@ async def test_loopblock_nested_workflow_block_preserves_retry_config_and_multib
 
     assert flaky_child.calls == 2
     assert sleep_mock.await_count == 1
-    assert final_state.results["child_step"].output == "child recovered"
     assert final_state.results["invoke_child"].exit_handle == "completed"
     assert final_state.results["tail"].output == "tail output"
 

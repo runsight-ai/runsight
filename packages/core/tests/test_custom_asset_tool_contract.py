@@ -6,7 +6,7 @@ import yaml as pyyaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 CUSTOM_SOULS = REPO_ROOT / "custom" / "souls"
-CUSTOM_WORKFLOWS = REPO_ROOT / "custom" / "workflows"
+CUSTOM_WORKFLOWS = Path(__file__).resolve().parent / "fixtures" / "custom" / "workflows"
 LEGACY_BUILTIN_IDS = {"runsight/http", "runsight/file-io", "runsight/delegate"}
 
 

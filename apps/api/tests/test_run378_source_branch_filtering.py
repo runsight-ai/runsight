@@ -26,7 +26,7 @@ from fastapi.testclient import TestClient
 
 from runsight_api.domain.entities.run import RunStatus
 from runsight_api.main import app
-from runsight_api.transport.deps import get_run_service
+from runsight_api.transport.deps import get_eval_service, get_run_service
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -57,7 +57,18 @@ def _make_mock_run(
     mock_run.source = source
     mock_run.branch = branch
     mock_run.commit_sha = None
+    mock_run.run_number = None
+    mock_run.eval_pass_pct = None
+    mock_run.regression_count = None
+    mock_run.error = None
     return mock_run
+
+
+def _mock_eval_svc():
+    """Return a mock EvalService that returns zero regressions."""
+    mock_eval = Mock()
+    mock_eval.get_run_regressions.return_value = {"count": 0, "issues": []}
+    return mock_eval
 
 
 def _stub_service_with_runs(runs):
@@ -120,6 +131,7 @@ class TestRouterAcceptsSourceParam:
         runs = [_make_mock_run("run_1", source="simulation")]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?source=simulation")
@@ -135,6 +147,7 @@ class TestRouterAcceptsSourceParam:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?source=manual&source=webhook")
@@ -159,6 +172,7 @@ class TestRouterAcceptsBranchParam:
         runs = [_make_mock_run("run_1", branch="main")]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?branch=main")
@@ -187,6 +201,7 @@ class TestSourceFilteringSingle:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?source=simulation")
@@ -205,6 +220,7 @@ class TestSourceFilteringSingle:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?source=manual")
@@ -222,6 +238,7 @@ class TestSourceFilteringSingle:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?source=schedule")
@@ -252,6 +269,7 @@ class TestSourceFilteringMultiple:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?source=manual&source=webhook")
@@ -273,6 +291,7 @@ class TestSourceFilteringMultiple:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?source=manual&source=webhook&source=schedule")
@@ -303,6 +322,7 @@ class TestBranchFiltering:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?branch=main")
@@ -320,6 +340,7 @@ class TestBranchFiltering:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?branch=feat/experiment")
@@ -338,6 +359,7 @@ class TestBranchFiltering:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?branch=nonexistent")
@@ -368,6 +390,7 @@ class TestCombinedFilters:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?source=manual&branch=main")
@@ -387,6 +410,7 @@ class TestCombinedFilters:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?source=manual&status=completed")
@@ -409,6 +433,7 @@ class TestCombinedFilters:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs?source=manual&branch=main&status=completed")
@@ -441,6 +466,7 @@ class TestNoParamsReturnsAll:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs")
@@ -459,6 +485,7 @@ class TestNoParamsReturnsAll:
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/runs")
@@ -498,6 +525,7 @@ class TestDashboardExcludesSimulations:
         mock_service.list_runs.return_value = runs
         mock_service.get_run_nodes.return_value = []
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/dashboard")
@@ -525,6 +553,7 @@ class TestDashboardExcludesSimulations:
         mock_service.list_runs.return_value = runs
         mock_service.get_run_nodes.return_value = []
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/dashboard")
@@ -549,6 +578,7 @@ class TestDashboardExcludesSimulations:
         mock_service.list_runs.return_value = runs
         mock_service.get_run_nodes.return_value = []
         app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
         client = TestClient(app)
         response = client.get("/api/dashboard")

@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from runsight_api.domain.entities.run import RunStatus
 from runsight_api.main import app
-from runsight_api.transport.deps import get_run_service
+from runsight_api.transport.deps import get_eval_service, get_run_service
 
 client = TestClient(app)
 
@@ -37,6 +37,8 @@ def _make_mock_run(
     mock_run.commit_sha = "abc123"
     mock_run.run_number = run_number
     mock_run.eval_pass_pct = eval_pass_pct
+    mock_run.regression_count = None
+    mock_run.error = None
     return mock_run
 
 
@@ -51,6 +53,12 @@ def _summary():
         "pending": 0,
         "failed": 0,
     }
+
+
+def _mock_eval_svc():
+    mock_eval = Mock()
+    mock_eval.get_run_regressions.return_value = {"count": 0, "issues": []}
+    return mock_eval
 
 
 def _stub_service_with_paginated_runs(runs):
@@ -84,6 +92,7 @@ def test_runs_list_includes_run_number_and_eval_pass_pct():
     run = _make_mock_run(run_number=7, eval_pass_pct=66.67)
     mock_service, _captured = _stub_service_with_paginated_runs([run])
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     try:
         response = client.get("/api/runs")
@@ -105,6 +114,7 @@ def test_runs_list_keeps_source_and_branch_filters_unchanged_with_run479_fields(
     )
     mock_service, captured = _stub_service_with_paginated_runs([run])
     app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     try:
         response = client.get("/api/runs?source=manual&branch=main")

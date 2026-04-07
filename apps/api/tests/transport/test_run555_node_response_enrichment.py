@@ -47,6 +47,8 @@ def _make_mock_node(
     node.eval_score = eval_score
     node.eval_passed = eval_passed
     node.eval_results = eval_results
+    node.child_run_id = None
+    node.exit_handle = None
     return node
 
 

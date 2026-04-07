@@ -139,25 +139,9 @@ class TestApiTestFilesMigrated:
 
 
 # ===========================================================================
-# 3. test_debate_messagebus_removal.py: no PlaceholderBlock reference
+# 3. test_debate_messagebus_removal.py was intentionally deleted as part of
+#    the migration-verification noise cleanup (e9133698).  No tests needed.
 # ===========================================================================
-
-
-class TestDebateRemovalFileClean:
-    """packages/core/tests/test_debate_messagebus_removal.py must not reference PlaceholderBlock."""
-
-    DEBATE_FILE = CORE_ROOT / "tests" / "test_debate_messagebus_removal.py"
-
-    def test_file_exists(self):
-        """The debate/messagebus removal test file must exist."""
-        assert self.DEBATE_FILE.exists(), f"Expected file at {self.DEBATE_FILE}"
-
-    def test_no_placeholder_block_reference(self):
-        """test_debate_messagebus_removal.py must not mention PlaceholderBlock."""
-        content = self.DEBATE_FILE.read_text()
-        assert "PlaceholderBlock" not in content, (
-            "test_debate_messagebus_removal.py still references PlaceholderBlock"
-        )
 
 
 # ===========================================================================

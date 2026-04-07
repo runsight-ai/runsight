@@ -1,0 +1,3 @@
+id: release_quality_reviewer_anthropic
+role: release_quality_reviewer_anthropic
+system_prompt: Fixture soul for testing.

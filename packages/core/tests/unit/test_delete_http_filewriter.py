@@ -25,7 +25,7 @@ from pydantic import ValidationError
 
 CORE_SRC = Path(__file__).resolve().parents[2] / "src" / "runsight_core"
 REPO_ROOT = Path(__file__).resolve().parents[4]  # runsight/
-CUSTOM_WORKFLOWS = REPO_ROOT / "custom" / "workflows"
+CUSTOM_WORKFLOWS = Path(__file__).resolve().parents[1] / "fixtures" / "custom" / "workflows"
 
 
 def _make_minimal_yaml(block_type: str, **extra_fields: str) -> dict:

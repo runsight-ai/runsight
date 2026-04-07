@@ -278,7 +278,10 @@ config: {}
             )
 
             mock_parse.assert_called_once()
-            workflow_def = mock_parse.call_args.args[0]
+            yaml_content = mock_parse.call_args.args[0]
+            import yaml as _yaml
+
+            workflow_def = _yaml.safe_load(yaml_content)
             assert workflow_def["workflow"]["name"] == "Simulation Workflow"
             assert workflow_def["workflow"]["name"] != "Main Workflow"
 

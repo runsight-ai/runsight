@@ -53,8 +53,11 @@ def test_list_souls_multiple():
     soul_repo.list_all.return_value = souls
     service = SoulService(soul_repo)
     result = service.list_souls()
-    assert result == souls
     assert len(result) == 2
+    assert result[0].id == "soul_1"
+    assert result[0].role == "Alpha"
+    assert result[1].id == "soul_2"
+    assert result[1].role == "Beta"
 
 
 def test_list_souls_with_query_matches_id():
@@ -145,8 +148,8 @@ def test_get_soul_exists():
     soul_repo.get_by_id.return_value = mock_soul
     service = SoulService(soul_repo)
     res = service.get_soul("soul_1")
-    assert res is mock_soul
     assert res.id == "soul_1"
+    assert res.role == "Test Soul"
     soul_repo.get_by_id.assert_called_once_with("soul_1")
 
 
