@@ -22,6 +22,8 @@ Open [http://localhost:8000](http://localhost:8000). Your YAML files in `custom/
 
 Don't have `uv`? Install it first: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
+[Documentation](https://runsight.ai/docs)
+
 ### Docker
 
 ```bash
