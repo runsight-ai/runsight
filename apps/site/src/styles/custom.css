@@ -33,7 +33,7 @@
 	--sl-font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
 
 	/* Text — bump body text from gray-2 to gray-1 for readability */
-	--sl-color-text: var(--sl-color-gray-1);
+	--sl-color-text: var(--sl-color-white);
 
 	/* Border radius — matches product design system */
 	--sl-border-radius: 4px;
