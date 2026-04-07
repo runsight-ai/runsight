@@ -29,7 +29,7 @@ blocks:
     type: linear
     soul_ref: slack_notifier
 workflow:
-  name: Research & Review (test)
+  name: Research & Review
   entry: research
   transitions:
     - from: research
