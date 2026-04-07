@@ -22,6 +22,12 @@ Open [http://localhost:8000](http://localhost:8000). Your YAML files in `custom/
 
 Don't have `uv`? Install it first: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
+### Docker
+
+```bash
+docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
+```
+
 Or work directly with YAML — create a workflow file:
 
 ```yaml
