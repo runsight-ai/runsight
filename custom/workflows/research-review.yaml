@@ -1,11 +1,13 @@
 version: '1.0'
 souls:
   slack_notifier:
-    id: slack_notifier_1
+    id: slack_notifier
     role: Slack Reporter
     system_prompt: >
       Post the provided summary to Slack using the tools available to you.
       Use slack_payload_builder to format the message, then slack_webhook to send it.
+    provider: openai
+    model_name: gpt-5-mini
     tools:
       - slack_payload_builder
       - slack_webhook

@@ -99,7 +99,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     // Parse edge count from YAML — count transition entries (lines with "target:" under transitions blocks)
     const transitionMatches = content.match(/^\s+target\s*:/gm);
     const edgeCount = transitionMatches ? transitionMatches.length : 0;
-    set({ yamlContent: content, blockCount: blockMatches ? blockMatches.length : 0, edgeCount });
+    set({ yamlContent: content, blockCount: blockMatches ? blockMatches.length : 0, edgeCount, isDirty: true });
   },
   setNodeStatus: (nodeId, status) =>
     set((state) => ({
