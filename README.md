@@ -15,29 +15,6 @@ Runsight runs AI agent workflows defined in plain YAML files on your filesystem.
 ## Install
 
 ```bash
-docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
-```
-
-Open [http://localhost:8000](http://localhost:8000). Your YAML files in `custom/` are your workflows.
-
-Pass API keys as environment variables:
-
-```bash
-docker run -p 8000:8000 \
-  -v $(pwd):/workspace \
-  -e OPENAI_API_KEY=sk-... \
-  ghcr.io/runsight-ai/runsight
-```
-
-Or use Docker Compose:
-
-```bash
-docker compose up
-```
-
-### Development (from source)
-
-```bash
 git clone https://github.com/runsight-ai/runsight.git
 cd runsight
 
