@@ -12,7 +12,7 @@
 
 Runsight runs AI agent workflows defined in plain YAML files on your filesystem. Every workflow, soul (agent identity), and tool definition is a diffable file in your repo. Save writes to disk. Commit pushes to git. Runs track which commit produced them. No database for workflow definitions — just files and git.
 
-32 shipped epics, 215+ tickets, 5 block types, built-in eval, and per-run budget enforcement.
+32 shipped epics, 215+ tickets, 6 block types, built-in eval, and per-run budget enforcement.
 
 ## Quick start
 
@@ -38,12 +38,12 @@ docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
 |---|---|
 | **YAML workflows** | Workflows are `.yaml` files on disk. Edit in any editor, diff in any tool, review in any PR. |
 | **Git-native execution** | Save = write to disk. Commit = git commit to main. Dirty runs create simulation branches automatically. |
-| **5 block types** | `linear` (LLM call), `gate` (LLM quality gate), `code` (Python/JS), `loop` (iteration), `workflow` (sub-flow composition) |
+| **6 block types** | `linear` (LLM call), `gate` (LLM quality gate), `code` (Python), `loop` (iteration), `workflow` (sub-flow composition), `dispatch` (parallel branching) |
 | **Dispatch branching** | The soul calls a `delegate` tool to pick an exit port — LLM-driven routing on any block with `exits` |
 | **Soul library** | Agent identities as reusable YAML files or inline in the workflow. Role, system_prompt, provider, model, temperature, tools. Referenced by `soul_ref`. |
-| **Custom tools** | Define tools as YAML files with canonical IDs (`custom/my-tool`). Discovered automatically. Workflows declare which tools are available — souls only get tools enabled at the workflow level. `[WIP: sandbox execution]` |
+| **Custom tools** | Define tools as YAML files in `custom/tools/`. Canonical IDs are filename stems (e.g., `slack_payload_builder`). Discovered automatically. Workflows declare which tools are available — souls only get tools enabled at the workflow level. |
 | **Visual canvas** | ReactFlow-based editor with bi-directional YAML sync. `[alpha]` |
-| **Monaco YAML editor** | Syntax highlighting, live validation, JSON schema autocomplete — side by side with the canvas. |
+| **Monaco YAML editor** | Syntax highlighting, live YAML validation — side by side with the canvas. |
 | **Block-level eval** | Assertions on any block: `contains`, `regex`, `contains-json`, `word-count`. Transform hooks extract fields before asserting. |
 | **Offline eval runner** | Define test cases in an `eval:` YAML section. Run them offline with fixture mode — no LLM calls needed. |
 | **Budget enforcement** | `limits:` section on workflows and blocks. Cost caps (USD), timeouts (seconds), warn or kill modes. Enforced per LLM call. |
@@ -84,6 +84,7 @@ version: "1.0"
 type: custom
 executor: python
 name: Slack Payload Builder
+description: Build a JSON payload string for the Slack incoming webhook.
 parameters:
   type: object
   properties:
@@ -109,7 +110,7 @@ souls:
       - slack_payload_builder
       - slack_webhook       # workflow must also enable these tools
     provider: openai
-    model: gpt-4.1-mini
+    model_name: gpt-4.1-mini
 blocks:
   notify:
     type: linear
@@ -183,7 +184,7 @@ uv sync              # Python 3.11+
 pnpm install         # Node 20+ (installs all workspace packages)
 
 # Start API server + GUI (two terminals)
-uv run uvicorn runsight_api.main:app   # http://localhost:8000
+uv run runsight                        # http://localhost:8000
 pnpm -C apps/gui dev                   # http://localhost:5173
 ```
 
