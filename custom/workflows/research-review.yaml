@@ -1,4 +1,7 @@
 version: '1.0'
+tools:
+  - slack_payload_builder
+  - slack_webhook
 souls:
   slack_notifier:
     id: slack_notifier
