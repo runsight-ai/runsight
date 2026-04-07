@@ -9,7 +9,7 @@ export default defineConfig({
 	site: 'https://runsight.ai',
 	base: '/docs',
 	redirects: {
-		'/': '/docs/getting-started/quickstart/',
+		'/': '/docs/',
 	},
 	integrations: [
 		starlight({
@@ -47,6 +47,12 @@ export default defineConfig({
 					items: [
 						{ label: 'YAML Schema', slug: 'workflows/yaml-schema' },
 						{ label: 'Block Types', slug: 'workflows/block-types' },
+					],
+				},
+				{
+					label: 'Souls',
+					items: [
+						{ label: 'Overview', slug: 'souls/overview' },
 					],
 				},
 			],

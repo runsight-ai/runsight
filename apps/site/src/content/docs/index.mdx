@@ -1,0 +1,75 @@
+---
+title: Runsight
+description: YAML-first workflow engine for AI agents. Workflows are files. Your repo is the database. Git is version control.
+template: splash
+hero:
+  tagline: YAML-first workflow engine for AI agents. Workflows are files on disk. Your repo is the database. Git is your version control.
+  actions:
+    - text: Quickstart
+      link: /docs/getting-started/quickstart/
+      icon: rocket
+      variant: primary
+    - text: GitHub
+      link: https://github.com/runsight-ai/runsight
+      icon: github
+      variant: secondary
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Get started
+
+<CardGrid>
+  <LinkCard
+    title="Quickstart"
+    description="Install Runsight and run your first workflow in under 5 minutes."
+    href="/docs/getting-started/quickstart/"
+  />
+  <LinkCard
+    title="Key Concepts"
+    description="Workflows, blocks, souls, tools, and dispatch."
+    href="/docs/getting-started/key-concepts/"
+  />
+</CardGrid>
+
+## Core documentation
+
+<CardGrid>
+  <LinkCard
+    title="YAML Schema"
+    description="Top-level sections, fields, and structure of a workflow file."
+    href="/docs/workflows/yaml-schema/"
+  />
+  <LinkCard
+    title="Block Types"
+    description="Linear, gate, code, loop, workflow — the five block types."
+    href="/docs/workflows/block-types/"
+  />
+  <LinkCard
+    title="Souls"
+    description="Agent identities — role, prompt, model, tools. Reusable library files or inline."
+    href="/docs/souls/overview/"
+  />
+  <LinkCard
+    title="Custom Tools"
+    description="Define tools as YAML files with canonical IDs. HTTP, Python, and file-based executors."
+    href="/docs/tools/custom-tools/"
+  />
+</CardGrid>
+
+## Execution and quality
+
+<CardGrid>
+  <LinkCard
+    title="Git Integration"
+    description="Save, commit, simulation branches, and fork recovery."
+    href="/docs/execution/git-integration/"
+  />
+  <LinkCard
+    title="Assertions and Eval"
+    description="Block-level assertions, transform hooks, and the offline eval test harness."
+    href="/docs/evaluation/assertions/"
+  />
+</CardGrid>
+
+{/* last verified against codebase 2026-04-07 */}

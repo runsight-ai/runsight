@@ -3,75 +3,119 @@ title: Quickstart
 description: Install Runsight and run your first AI agent workflow in under 5 minutes.
 ---
 
-## Install
+import { Tabs, TabItem, Steps, FileTree } from '@astrojs/starlight/components';
 
-```bash
-uvx runsight
-```
+<Steps>
 
-Open [http://localhost:8000](http://localhost:8000). The onboarding flow walks you through API key setup.
+1. **Install and start Runsight**
 
-Don't have `uv`? Install it first: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+   <Tabs>
+     <TabItem label="uvx (recommended)">
+     ```bash
+     uvx runsight
+     ```
 
-### Docker
+     Don't have `uv`? Install it first: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+     </TabItem>
+     <TabItem label="Docker">
+     ```bash
+     docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
+     ```
+     </TabItem>
+   </Tabs>
 
-```bash
-docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
-```
+   Open [http://localhost:8000](http://localhost:8000). The onboarding flow walks you through API key setup.
 
-## Create your first workflow
+2. **Create a workflow file**
 
-Create a file at `custom/workflows/my-first-flow.yaml`:
+   Create `custom/workflows/my-first-flow.yaml`:
 
-```yaml
-version: "1.0"
-blocks:
-  research:
-    type: linear
-    soul_ref: researcher
-  write_summary:
-    type: linear
-    soul_ref: writer
-    depends: research
-  quality_review:
-    type: gate
-    soul_ref: reviewer
-    eval_key: write_summary
-    depends: write_summary
-workflow:
-  name: Research & Review
-  entry: research
-```
+   ```yaml title="custom/workflows/my-first-flow.yaml"
+   version: "1.0"
+   blocks:
+     research:
+       type: linear
+       soul_ref: researcher
+     write_summary:
+       type: linear
+       soul_ref: writer
+       depends: research
+     quality_review:
+       type: gate
+       soul_ref: reviewer
+       eval_key: write_summary
+       depends: write_summary
+   workflow:
+     name: Research & Review
+     entry: research
+   ```
 
-Three steps: **research** calls an LLM, **write_summary** runs next, and **quality_review** evaluates the output.
+   This defines three blocks: **research** calls an LLM, **write_summary** runs after it finishes, and **quality_review** evaluates the summary.
 
-## Create a soul
+3. **Create your souls**
 
-Souls are agent identities. Create `custom/souls/researcher.yaml`:
+   Each `soul_ref` in the workflow points to a soul file. Create one for each.
 
-```yaml
-id: researcher_1
-role: Senior Researcher
-system_prompt: >
-  You are an expert researcher. Given a topic, provide a concise,
-  well-structured summary of the key findings, trends, and insights.
-provider: openai
-model: gpt-4.1-mini
-```
+   ```yaml title="custom/souls/researcher.yaml"
+   id: researcher
+   role: Senior Researcher
+   system_prompt: >
+     You are an expert researcher. Given a topic, provide a concise,
+     well-structured summary of the key findings, trends, and insights.
+   provider: openai
+   model_name: gpt-4.1-mini
+   ```
 
-Create `writer` and `reviewer` souls the same way, each with their own role and prompt.
+   ```yaml title="custom/souls/writer.yaml"
+   id: writer
+   role: Technical Writer
+   system_prompt: >
+     You are a technical writer. Take the research provided and
+     produce a clear, polished summary suitable for a general audience.
+   provider: openai
+   model_name: gpt-4.1-mini
+   ```
 
-## Run it
+   ```yaml title="custom/souls/reviewer.yaml"
+   id: reviewer
+   role: Quality Reviewer
+   system_prompt: >
+     You are a quality reviewer. Evaluate the writing for accuracy,
+     clarity, and completeness. Respond with APPROVED or REJECTED
+     and a brief explanation.
+   provider: openai
+   model_name: gpt-4.1-mini
+   ```
 
-1. Open the GUI at [http://localhost:8000](http://localhost:8000)
-2. Your workflow appears in the **Flows** page (auto-discovered from `custom/workflows/`)
-3. Click the workflow to open it in the canvas
-4. Click **Run**
+4. **Check your file structure**
+
+   You should now have:
+
+   <FileTree>
+   - custom/
+     - workflows/
+       - my-first-flow.yaml
+     - souls/
+       - researcher.yaml
+       - writer.yaml
+       - reviewer.yaml
+   </FileTree>
+
+5. **Run it**
+
+   1. Open the GUI at [http://localhost:8000](http://localhost:8000)
+   2. Your workflow appears on the **Flows** page (auto-discovered from `custom/workflows/`)
+   3. Click the workflow to open it on the canvas
+   4. Click **Run**
+
+</Steps>
 
 ## What's next
 
-- [Key Concepts](/docs/getting-started/key-concepts) — understand blocks, souls, tools, and dispatch
-- [Block Types](/docs/workflows/block-types) — the 5 block types and when to use each
-- [Custom Tools](/docs/tools/custom-tools) — define tools as YAML files
+- [Key Concepts](/docs/getting-started/key-concepts) — blocks, souls, tools, and how they fit together
+- [Block Types](/docs/workflows/block-types) — the block types and when to use each
+- [Custom Tools](/docs/tools/custom-tools) — give your agents tools defined as YAML files
 - [Assertions & Eval](/docs/evaluation/assertions) — add quality checks to your workflows
-- [Git Integration](/docs/execution/git-integration) — how save, commit, and simulation branches work
+- [Git Integration](/docs/execution/git-integration) — save, commit, and simulation branches
+
+<!-- Linear: First-Time Setup & Onboarding project (c25d5e62) — last verified against codebase 2026-04-07 -->
