@@ -126,6 +126,14 @@ class GitService:
         try:
             self._run("checkout", branch)
             self._run("add", "--", *files)
+
+            # Check if anything was staged — git commit fails if nothing to commit
+            diff = self._run("diff", "--cached", "--quiet", check=False)
+            if diff.returncode == 0:
+                # Nothing staged — content unchanged, return current HEAD
+                result = self._run("rev-parse", "HEAD")
+                return result.stdout.strip()
+
             self._run("commit", "-m", message)
             result = self._run("rev-parse", "HEAD")
             return result.stdout.strip()
