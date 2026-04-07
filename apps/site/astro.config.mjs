@@ -12,7 +12,7 @@ export default defineConfig({
 		starlight({
 			title: 'Runsight',
 			logo: {
-				src: '/favicon.svg',
+				src: './src/assets/logo.svg',
 			},
 			description: 'YAML-first workflow engine for AI agents.',
 			social: [
