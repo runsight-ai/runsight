@@ -17,7 +17,7 @@ import shlex
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 ROOT_PACKAGE_JSON = REPO_ROOT / "package.json"
 ROOT_PYPROJECT = REPO_ROOT / "pyproject.toml"
 
