@@ -14,13 +14,26 @@ import { EmptyState } from "@runsight/ui/empty-state";
 import { LayoutGrid } from "lucide-react";
 import { useCanvasStore } from "@/store/canvas";
 import { useWorkflow } from "@/queries/workflows";
+import { gitApi } from "@/api/git";
+
+function getOverlayRefFromLocation(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const overlayRef = new URLSearchParams(window.location.search).get("overlayRef");
+  return overlayRef && overlayRef.trim().length > 0 ? overlayRef : null;
+}
 
 export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflowId = "", runId: initialRunId }: WorkflowSurfaceProps) {
   const [mode, setMode] = useState<WorkflowSurfaceMode>(initialMode);
   const [workflowId, setWorkflowId] = useState(initialWorkflowId);
   const [activeRunId, setRunId] = useState(initialRunId);
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
+  const [overlayYaml, setOverlayYaml] = useState<string | null>(null);
+  const [isOverlayLoading, setIsOverlayLoading] = useState(false);
   const queryClient = useQueryClient();
+  const overlayRef = getOverlayRefFromLocation();
 
   const handleForkTransition = useCallback((newWorkflowId: string) => {
     setMode("edit");
@@ -73,7 +86,44 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   }, [toggleVisibility.yaml]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    if (!workflowId || !overlayRef) {
+      setOverlayYaml(null);
+      setIsOverlayLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setIsOverlayLoading(true);
+    gitApi
+      .getGitFile(overlayRef, `custom/workflows/${workflowId}.yaml`)
+      .then(({ content }) => {
+        if (cancelled) return;
+        setOverlayYaml(content);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOverlayYaml(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsOverlayLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [overlayRef, workflowId]);
+
+  useEffect(() => {
     if (!workflowId || !workflow?.yaml) {
+      return;
+    }
+
+    if (overlayRef && overlayYaml !== null) {
+      setYamlContent(overlayYaml);
       return;
     }
 
@@ -97,6 +147,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     workflow?.canvas_state,
     workflow?.yaml,
     workflowId,
+    overlayRef,
+    overlayYaml,
   ]);
 
   // Palette + inspector hidden — canvas coming soon
@@ -175,11 +227,18 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
             />
           </div>
         ) : activeTab === "yaml" ? (
-          <YamlEditor
-            workflowId={workflowId}
-            readOnly={!editable}
-            onDirtyChange={(dirty: boolean) => setIsDirty(dirty)}
-          />
+          isOverlayLoading ? (
+            <div className="flex h-full items-center justify-center text-muted">
+              Loading workflow snapshot...
+            </div>
+          ) : (
+            <YamlEditor
+              workflowId={workflowId}
+              yaml={overlayYaml ?? undefined}
+              readOnly={!editable}
+              onDirtyChange={(dirty: boolean) => setIsDirty(dirty)}
+            />
+          )
         ) : null}
       </div>
 

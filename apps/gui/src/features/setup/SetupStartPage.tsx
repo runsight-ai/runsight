@@ -59,7 +59,7 @@ export function Component() {
             label="Start with a template"
             title="Tutorial Template"
             badge={<Badge variant="accent">Recommended</Badge>}
-            description="A 3-block workflow with 2 AI agents. Research a topic, write a summary, and quality-check the output."
+            description="A looped starter workflow with inline souls. It drafts a research brief, writes it to custom/outputs, and emits an error stub if review still fails."
             footer={
               <div className="flex items-center gap-1 font-mono text-2xs text-muted pt-3 border-t border-neutral-3">
                 <span

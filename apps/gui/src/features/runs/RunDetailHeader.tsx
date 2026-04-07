@@ -74,9 +74,18 @@ export function RunDetailHeader({
 
   const handleOpenWorkflow = useCallback(() => {
     if (run.workflow_id) {
+      if (run.source === "simulation" && run.commit_sha) {
+        const params = new URLSearchParams({
+          overlayRef: run.commit_sha,
+          overlaySource: "simulation",
+        });
+        navigate(`/workflows/${run.workflow_id}/edit?${params.toString()}`);
+        return;
+      }
+
       navigate(`/workflows/${run.workflow_id}/edit`);
     }
-  }, [navigate, run.workflow_id]);
+  }, [navigate, run.commit_sha, run.source, run.workflow_id]);
 
   const handleFork = useCallback(() => {
     if (forkDisabled || isForking) return;
@@ -143,7 +152,7 @@ export function RunDetailHeader({
               Cancel
             </Button>
           ) : null}
-          {run.workflow_id && !isActive ? (
+          {run.workflow_id ? (
             <Button
               variant="secondary"
               onClick={handleOpenWorkflow}
