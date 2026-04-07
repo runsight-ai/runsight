@@ -21,6 +21,7 @@ from .data.filesystem.provider_repo import FileSystemProviderRepo
 from .data.filesystem.settings_repo import FileSystemSettingsRepo
 from .data.filesystem.workflow_repo import WorkflowRepository
 from .data.repositories.run_repo import RunRepository
+from .logic.services.git_service import GitService
 from .domain.entities.run import Run, RunStatus
 from .domain.errors import RunsightError
 from .logic.services.execution_service import ExecutionService
@@ -126,6 +127,7 @@ async def lifespan(app: FastAPI):
     provider_repo = FileSystemProviderRepo(base_path=app_settings.base_path)
     settings_repo = FileSystemSettingsRepo(base_path=app_settings.base_path)
     secrets = SecretsEnvLoader(base_path=app_settings.base_path)
+    git_service = GitService(app_settings.base_path)
     app.state.execution_service = ExecutionService(
         run_repo,
         workflow_repo,
@@ -133,6 +135,7 @@ async def lifespan(app: FastAPI):
         engine=engine,
         secrets=secrets,
         settings_repo=settings_repo,
+        git_service=git_service,
     )
 
     yield
