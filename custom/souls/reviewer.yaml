@@ -6,8 +6,8 @@ system_prompt: 'Evaluate if the content meets quality standards. Check for accur
   '
 tools: null
 max_tool_iterations: 5
-model_name: gpt-5.4-nano
-provider: openai
+model_name: 
+provider: 
 temperature: null
 max_tokens: null
 avatar_color: accent

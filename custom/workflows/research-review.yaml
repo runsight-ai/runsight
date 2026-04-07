@@ -8,9 +8,9 @@ souls:
     role: Slack Reporter
     system_prompt: >
       Post the provided summary to Slack using the tools available to you.
-      Use slack_payload_builder to format the message and then slack_webhook to send it.
-    provider: openai
-    model_name: gpt-5.4-nano
+      Use slack_payload_builder to format the message, then slack_webhook to send it.
+    provider: test
+    model_name: test
     tools:
       - slack_payload_builder
       - slack_webhook
