@@ -1,14 +1,180 @@
 ---
 title: Inline Souls
-description: Optional DX sugar for defining souls directly inside a workflow YAML file.
+description: How to define souls directly inside a workflow YAML file for quick prototyping.
 ---
 
-:::note
-This page is a stub. Content coming soon.
-:::
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Inline souls let you define an agent identity directly inside a workflow YAML file, without creating a separate file in `custom/souls/`. This is useful for quick prototyping, throwaway experiments, or self-contained example workflows.
 
 ## When to use inline souls
 
-## Syntax
+Use inline souls when:
 
-## Library files vs inline
+- You are **prototyping** a workflow and want to iterate fast without switching between files.
+- You need a **one-off soul** that does not need to be reused across workflows.
+- You want a **self-contained workflow file** that someone can run without additional soul files.
+
+Use external soul files (in `custom/souls/`) when:
+
+- The soul is **shared across multiple workflows**.
+- You want the soul to appear in the **Soul Library UI** for visual management.
+- You need **dependency tracking** — the UI shows which workflows use a given soul.
+- The soul is a **production identity** that should be managed, versioned, and reviewed independently.
+
+## Defining an inline soul
+
+Add a `souls:` section at the top level of your workflow YAML file. Each key in the dictionary is the soul's lookup key, and its value contains the full soul definition:
+
+```yaml title="custom/workflows/prototype.yaml"
+version: "1.0"
+souls:
+  drafter:
+    id: drafter
+    role: Quick Drafter
+    system_prompt: Draft a short summary of the input topic.
+    model_name: gpt-4o
+    provider: openai
+blocks:
+  draft:
+    type: linear
+    soul_ref: drafter
+workflow:
+  name: prototype
+  entry: draft
+  transitions:
+    - from: draft
+      to: null
+```
+
+The block references the inline soul using `soul_ref: drafter` — the same syntax as referencing an external soul file.
+
+## Key must match id
+
+The dictionary key and the soul's `id` field must be identical. The parser validates this and raises a `ValueError` if they differ:
+
+```yaml
+# This will fail validation
+souls:
+  drafter:
+    id: draft_soul  # ERROR: key 'drafter' does not match id 'draft_soul'
+    role: Drafter
+    system_prompt: Draft content.
+```
+
+The error message is:
+
+```
+Inline soul key/id mismatch: key 'drafter' must match id 'draft_soul'
+```
+
+## Override behavior
+
+When an inline soul has the same key as an external soul file in `custom/souls/`, the inline definition wins. The parser logs a warning:
+
+```
+Inline soul 'researcher' overrides external soul file
+```
+
+This lets you temporarily override a library soul for testing without modifying the shared file. The external file is not changed — the override only applies to this workflow's parse.
+
+<Tabs>
+  <TabItem label="Workflow (inline override)">
+```yaml title="custom/workflows/experiment.yaml"
+version: "1.0"
+souls:
+  researcher:
+    id: researcher
+    role: Experimental Researcher
+    system_prompt: Use a more creative approach to research.
+    model_name: gpt-4o
+    provider: openai
+    temperature: 1.2
+blocks:
+  analyze:
+    type: linear
+    soul_ref: researcher
+workflow:
+  name: experiment
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null
+```
+  </TabItem>
+  <TabItem label="External file (overridden)">
+```yaml title="custom/souls/researcher.yaml"
+id: researcher_v1
+role: Senior Researcher
+system_prompt: |
+  You are a senior research analyst. Produce structured reports
+  with findings, sources, and confidence levels.
+provider: openai
+model_name: gpt-4o
+temperature: 0.3
+```
+  </TabItem>
+</Tabs>
+
+In this example, the workflow uses the inline definition (temperature 1.2, creative prompt) instead of the external file (temperature 0.3, structured prompt). Other workflows that reference `soul_ref: researcher` continue to use the external file.
+
+## All soul fields are supported
+
+Inline souls accept every field that external soul files accept. The same Pydantic validation rules apply:
+
+- `id`, `role`, and `system_prompt` are required.
+- `tools`, `model_name`, `provider`, `temperature`, `max_tokens`, `max_tool_iterations`, `required_tool_calls`, and `avatar_color` are optional.
+- Unknown fields raise a validation error (`extra="forbid"`).
+
+See [Soul Files](/docs/souls/soul-files) for the complete field reference.
+
+## Limitations compared to external souls
+
+Inline souls have three limitations:
+
+1. **No Soul Library visibility.** Inline souls do not appear in the Soul Library page in the GUI. Only external files in `custom/souls/` are listed.
+
+2. **No cross-workflow reuse.** An inline soul is scoped to the workflow file that contains it. Another workflow cannot reference it. If you need the same soul in two workflows, extract it to `custom/souls/`.
+
+3. **No dependency tracking.** The "Used In" column in the Soul Library counts references from workflow `soul_ref` fields to external soul files. Inline souls bypass this system entirely.
+
+:::tip
+Start with inline souls during prototyping, then extract to `custom/souls/` when the soul stabilizes. The syntax is identical — move the soul definition into its own file and remove the `souls:` section from the workflow.
+:::
+
+## Tool governance still applies
+
+Inline souls follow the same tool governance rules as external souls. If an inline soul declares `tools: [http]`, the workflow must also include `http` in its top-level `tools:` section. The parser raises a `ValueError` if a tool is missing from the workflow whitelist.
+
+```yaml title="custom/workflows/fetch.yaml"
+version: "1.0"
+tools:
+  - http
+souls:
+  fetcher:
+    id: fetcher
+    role: Fetcher
+    system_prompt: Fetch data from the given URL.
+    model_name: gpt-4o
+    provider: openai
+    tools:
+      - http
+blocks:
+  fetch:
+    type: linear
+    soul_ref: fetcher
+workflow:
+  name: fetch_pipeline
+  entry: fetch
+  transitions:
+    - from: fetch
+      to: null
+```
+
+## What's next
+
+- [Soul Files](/docs/souls/soul-files) — complete field reference for external soul files
+- [Souls Overview](/docs/souls/overview) — concepts and architecture
+- [Soul Library](/docs/souls/soul-library) — managing souls through the GUI
+
+<!-- Linear: RUN-467, RUN-575 — Soul Management project (bb749057) — last verified against codebase 2026-04-07 -->

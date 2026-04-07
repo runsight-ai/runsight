@@ -47,6 +47,10 @@ export default defineConfig({
 					items: [
 						{ label: 'YAML Schema', slug: 'workflows/yaml-schema' },
 						{ label: 'Block Types', slug: 'workflows/block-types' },
+						{ label: 'Transitions & Routing', slug: 'workflows/transitions-and-routing' },
+						{ label: 'Sub-Workflows', slug: 'workflows/sub-workflows' },
+						{ label: 'Loops', slug: 'workflows/loops' },
+						{ label: 'YAML DX Shortcuts', slug: 'workflows/yaml-dx-shortcuts' },
 					],
 				},
 				{
@@ -68,12 +72,30 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Visual Builder',
+					items: [
+						{ label: 'Canvas Overview', slug: 'visual-builder/canvas-overview' },
+						{ label: 'Canvas Modes', slug: 'visual-builder/canvas-modes' },
+						{ label: 'YAML Editor', slug: 'visual-builder/yaml-editor' },
+						{ label: 'Run Detail View', slug: 'visual-builder/run-detail-view' },
+					],
+				},
+				{
 					label: 'Evaluation',
 					items: [
 						{ label: 'Assertions', slug: 'evaluation/assertions' },
 						{ label: 'Transform Hooks', slug: 'evaluation/transform-hooks' },
 						{ label: 'Eval Test Harness', slug: 'evaluation/eval-test-harness' },
 						{ label: 'Regressions', slug: 'evaluation/regressions' },
+					],
+				},
+				{
+					label: 'Reference',
+					items: [
+						{ label: 'YAML Schema Reference', slug: 'reference/yaml-schema-reference' },
+						{ label: 'Block Type Reference', slug: 'reference/block-type-reference' },
+						{ label: 'Assertion Reference', slug: 'reference/assertion-reference' },
+						{ label: 'CLI Reference', slug: 'reference/cli-reference' },
 					],
 				},
 			],
