@@ -113,11 +113,11 @@ def _build_alembic_config() -> AlembicConfig:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_project_dirs(app_settings)
     alembic_cfg = _build_alembic_config()
     alembic_command.upgrade(alembic_cfg, "head")
     _ensure_sqlite_columns(engine)
     _recover_stale_runs(engine)
-    ensure_project_dirs(app_settings)
 
     # Create singleton ExecutionService on app.state so _running_tasks persists
     session = Session(engine)
