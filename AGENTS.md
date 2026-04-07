@@ -269,3 +269,20 @@ Ask these questions in order:
 
 If the answer is still unclear, prefer the stricter boundary and document the
 decision in the change.
+
+## Release Process
+
+**Every PR that changes behavior must bump the version** in the root `pyproject.toml`.
+
+The `version` field in `pyproject.toml` (repo root) is the **single source of truth**. When a PR merges to main and the version has changed, CI automatically:
+1. Publishes both `runsight` and `runsight-core` to PyPI
+2. Builds and pushes Docker image to GHCR
+3. Creates a git tag `v{version}`
+
+Do NOT create git tags manually. Do NOT modify version fields in `apps/api/pyproject.toml` or `packages/core/pyproject.toml` — CI handles those.
+
+## Key Rules
+
+- Never run full test suites (pytest or vitest) — they consume ~4GB each and hang the machine. Target specific files only.
+- Styling: CVA + Tailwind + @theme tokens. No BEM, no mixing approaches.
+- Main branch = production. Simulation branches for testing uncommitted changes.
