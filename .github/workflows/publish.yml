@@ -27,6 +27,14 @@ jobs:
       # Copy built frontend into Python package
       - run: cp -r apps/gui/dist apps/api/src/runsight_api/static
 
+      # Set version from git tag (v0.1.2 → 0.1.2)
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "s/^version = .*/version = \"$VERSION\"/" apps/api/pyproject.toml
+          sed -i "s/^version = .*/version = \"$VERSION\"/" packages/core/pyproject.toml
+          echo "Publishing version $VERSION"
+
       # Build and publish Python packages
       - uses: actions/setup-python@v5
         with:
