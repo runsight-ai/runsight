@@ -310,6 +310,17 @@ describe("WorkflowSurface renders CommitDialog (AC1)", () => {
     expect(commitDialog.draft).toBeDefined();
   });
 
+  it("passes a YAML-only draft to CommitDialog", () => {
+    const { commitDialog } = renderSurface();
+    expect(
+      mocks.commitDialogProps.length,
+      "WorkflowSurface must render CommitDialog",
+    ).toBeGreaterThan(0);
+    expect(commitDialog.draft).toEqual({
+      yaml: "workflow:\n  name: Test\n",
+    });
+  });
+
   it("passes onCommitSuccess prop to CommitDialog", () => {
     const { commitDialog } = renderSurface();
     expect(

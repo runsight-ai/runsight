@@ -116,23 +116,12 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const actionButton = mode === "edit" ? undefined : getActionButton(mode);
 
   const canvasStoreState = useCanvasStore.getState();
-  const currentCanvasState =
-    typeof canvasStoreState.toPersistedState === "function"
-      ? canvasStoreState.toPersistedState()
-      : undefined;
   const currentDraft = {
     yaml: canvasStoreState.yamlContent,
-    canvas_state: currentCanvasState as Record<string, unknown> | undefined,
   };
   const currentFiles: { path: string; status: string }[] = [
     { path: `custom/workflows/${workflowId}.yaml`, status: "modified" },
   ];
-  if (currentCanvasState) {
-    currentFiles.push({
-      path: `custom/workflows/.canvas/${workflowId}.canvas.json`,
-      status: "modified",
-    });
-  }
 
   if (isError) {
     return (

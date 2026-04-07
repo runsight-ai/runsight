@@ -369,3 +369,44 @@ class TestCommitToBranch:
         (repo / "orphan.txt").write_text("data")
         with pytest.raises(Exception):
             svc.commit_to_branch("no-such-branch", ["orphan.txt"], "fail")
+
+    def test_skips_gitignored_canvas_sidecars_when_committing_workflow_files(self, tmp_path: Path):
+        from runsight_api.logic.services.git_service import GitService
+
+        repo = _init_repo(tmp_path)
+        current_branch = _git(repo, "branch", "--show-current")
+        if current_branch != "main":
+            _git(repo, "checkout", "-b", "main")
+
+        (repo / ".gitignore").write_text("**/.canvas/\n", encoding="utf-8")
+        (repo / "custom" / "workflows").mkdir(parents=True, exist_ok=True)
+        (repo / "custom" / "workflows" / "demo.yaml").write_text(
+            "version: '1.0'\nworkflow:\n  name: Demo\n",
+            encoding="utf-8",
+        )
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "add workflow")
+
+        (repo / "custom" / "workflows" / "demo.yaml").write_text(
+            "version: '1.0'\nworkflow:\n  name: Demo Updated\n",
+            encoding="utf-8",
+        )
+        (repo / "custom" / "workflows" / ".canvas").mkdir(parents=True, exist_ok=True)
+        (repo / "custom" / "workflows" / ".canvas" / "demo.canvas.json").write_text(
+            '{"nodes":[],"edges":[]}',
+            encoding="utf-8",
+        )
+
+        svc = GitService(repo_path=str(repo))
+        sha = svc.commit_to_branch(
+            "main",
+            [
+                "custom/workflows/demo.yaml",
+                "custom/workflows/.canvas/demo.canvas.json",
+            ],
+            "save workflow",
+        )
+
+        committed_files = _git(repo, "show", "--pretty=", "--name-only", sha).splitlines()
+        assert "custom/workflows/demo.yaml" in committed_files
+        assert "custom/workflows/.canvas/demo.canvas.json" not in committed_files

@@ -72,6 +72,16 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Execution',
+					items: [
+						{ label: 'Running Workflows', slug: 'execution/running-workflows' },
+						{ label: 'Git Integration', slug: 'execution/git-integration' },
+						{ label: 'Fork Recovery', slug: 'execution/fork-recovery' },
+						{ label: 'Budget & Limits', slug: 'execution/budget-and-limits' },
+						{ label: 'Error Handling', slug: 'execution/error-handling' },
+					],
+				},
+				{
 					label: 'Visual Builder',
 					items: [
 						{ label: 'Canvas Overview', slug: 'visual-builder/canvas-overview' },

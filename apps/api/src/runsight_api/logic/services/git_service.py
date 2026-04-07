@@ -52,6 +52,11 @@ class GitService:
                 return candidate.as_posix()
         return candidate.as_posix()
 
+    def _is_ignored_path(self, path: str | Path) -> bool:
+        repo_path = self._normalize_repo_path(path)
+        result = self._run("check-ignore", "-q", "--", repo_path, check=False)
+        return result.returncode == 0
+
     def current_branch(self) -> str:
         result = self._run("rev-parse", "--abbrev-ref", "HEAD")
         return result.stdout.strip()
@@ -122,10 +127,18 @@ class GitService:
         # Verify target branch exists
         self._run("rev-parse", "--verify", branch)
 
+        # Ignored runtime sidecars (for example custom/workflows/.canvas/*) should
+        # not make an explicit workflow save fail. Persist them locally, but only
+        # stage the versioned files that Git will actually accept.
+        stageable_files = [path for path in files if not self._is_ignored_path(path)]
+        if not stageable_files:
+            result = self._run("rev-parse", "HEAD")
+            return result.stdout.strip()
+
         original = self.current_branch()
         try:
             self._run("checkout", branch)
-            self._run("add", "--", *files)
+            self._run("add", "--", *stageable_files)
 
             # Check if anything was staged — git commit fails if nothing to commit
             diff = self._run("diff", "--cached", "--quiet", check=False)
