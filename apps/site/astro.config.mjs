@@ -6,7 +6,7 @@ import starlightVersions from 'starlight-versions';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://runsight.dev',
+	site: 'https://runsight.ai',
 	base: '/docs',
 	integrations: [
 		starlight({
