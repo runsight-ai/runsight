@@ -6,7 +6,7 @@ description: How the Runsight visual canvas works — ReactFlow rendering, sidec
 The Runsight visual canvas displays workflows as nodes and edges on an infinite-pan canvas, powered by [XY Flow](https://xyflow.com/) (the library behind ReactFlow). Workflow **logic** lives in YAML files, while **visual layout** (node positions, viewport, selection) is stored in a separate JSON sidecar file.
 
 :::caution
-The visual canvas is under active development. Today it renders a read-only view of the workflow graph — the YAML editor is the primary authoring surface. Features like drag-and-drop block creation, visual edge wiring, and bi-directional YAML-to-canvas sync are planned but not yet shipped. See [YAML Editor](/docs/visual-builder/yaml-editor) for the current authoring workflow.
+The visual canvas is under active development. The YAML editor is the primary authoring surface today. See [YAML Editor](/docs/visual-builder/yaml-editor).
 :::
 
 ## Storage architecture
@@ -26,7 +26,7 @@ The sidecar JSON is written atomically alongside the YAML file. If the sidecar w
 
 ## YAML-to-graph conversion
 
-Two modules handle the conversion between YAML text and the ReactFlow graph. These are used today for one-directional rendering (YAML to canvas on load). Bi-directional live sync (edits on the canvas writing back to YAML, and YAML edits updating the canvas in real time) is not yet wired.
+Two modules handle the conversion between YAML text and the ReactFlow graph.
 
 ### yamlParser — YAML to graph
 
@@ -49,10 +49,6 @@ All block fields are converted from `snake_case` (YAML) to `camelCase` (JavaScri
 3. **Workflow document** — the compiled JavaScript object before YAML serialization.
 
 Nodes with `outputConditions` produce `conditional_transitions` in the compiled YAML. The source handle on each edge maps to the decision key; a `null` source handle maps to the `default` key.
-
-### Round-trip fidelity (design goal)
-
-The parser and compiler are designed as inverses. A parse-then-compile round-trip preserves all execution semantics (block definitions, transitions, conditional transitions). Visual metadata like node positions, selection state, and `width` are stripped from the YAML output and stored only in the canvas sidecar. This property is tested in the codebase but is not yet exposed as a live user-facing feature — the canvas does not currently write back to YAML.
 
 ## Nodes and edges
 

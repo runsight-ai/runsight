@@ -45,11 +45,7 @@ The editor validates your YAML on every keystroke with a 500ms debounce. When th
 When the error is fixed, the marker clears immediately.
 
 :::note
-The validation hook also exposes `isValid` and `errorCount` values intended for a topbar sync indicator, but the topbar does not currently display them. The `CanvasTopbar` component receives these props but they are prefixed with `_` and not rendered, and `WorkflowSurface` does not pass the `onValidation` callback to `YamlEditor`. The inline squiggly underlines in the editor are the only visible validation feedback today.
-:::
-
-:::note
-Live validation currently checks for YAML **syntax** errors only (malformed YAML that cannot be parsed). It does not validate against the Runsight workflow schema — for example, it will not catch a misspelled block type or a missing required field. A JSON schema file (`runsight-workflow-schema.json`) is generated from the Pydantic models but is not yet wired into Monaco for autocomplete or schema-level validation.
+Live validation checks for YAML **syntax** errors only (malformed YAML that cannot be parsed). It does not validate against the Runsight workflow schema — for example, it will not catch a misspelled block type or a missing required field.
 :::
 
 ## Syncing with the canvas store

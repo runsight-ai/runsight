@@ -110,6 +110,5 @@ All endpoints validate paths against the project root to prevent directory trave
 
 The canvas topbar shows a small dot and a **Save** button when the workflow has unsaved changes. This indicator is driven by local `isDirty` state in the editor --- it tracks whether the in-memory YAML differs from the last saved version, not the git status endpoint. Clicking **Save** opens a `CommitDialog` which commits the changes via `POST /api/workflows/{id}/commits`, clears the dirty state, and the next run will execute from `main` instead of creating a sim branch.
 
-A standalone `GitBadge` component exists in the codebase (`features/git/GitBadge.tsx`) but is not currently mounted in the application shell. It is intended for future use when the topbar gains full git-status awareness.
 
 <!-- Linear: RUN-557, RUN-747, RUN-749 — last verified against codebase 2026-04-07 -->
