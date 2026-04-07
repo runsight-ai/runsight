@@ -203,6 +203,16 @@ uv run python -m pytest packages/core/tests/test_specific_file.py -v
 pnpm run lint
 ```
 
+## Releasing
+
+Version is controlled by a single field: `version` in the root `pyproject.toml`. To publish a new release:
+
+1. Bump `version` in `pyproject.toml` (e.g., `0.1.7` → `0.1.8`)
+2. Merge to main
+3. CI detects the version change → publishes PyPI + Docker → creates git tag `v0.1.8`
+
+No manual tagging needed. Every PR that changes behavior should include a version bump.
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
