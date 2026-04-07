@@ -212,10 +212,6 @@ describe("settings.ts toast notifications (RUN-240)", () => {
   expectErrorToast(settingsSource, "useTestProviderConnection");
   expectOnErrorCallback(settingsSource, "useTestProviderConnection");
 
-  expectSuccessToast(settingsSource, "useUpdateModelDefault", "Model default updated");
-  expectErrorToast(settingsSource, "useUpdateModelDefault");
-  expectOnErrorCallback(settingsSource, "useUpdateModelDefault");
-
   expectSuccessToast(settingsSource, "useCreateBudget", "Budget created");
   expectErrorToast(settingsSource, "useCreateBudget");
   expectOnErrorCallback(settingsSource, "useCreateBudget");

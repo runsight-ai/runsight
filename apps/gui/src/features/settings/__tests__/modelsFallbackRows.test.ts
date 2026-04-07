@@ -55,7 +55,7 @@ describe("ModelsTab per-provider fallback row wiring", () => {
     expect(source).toMatch(/is_active\s*\?\?\s*true|provider\.is_active/);
     expect(source).toMatch(/enabledSiblingProviders/);
     expect(source).toMatch(
-      /provider\.id\s*!==\s*model\.provider_id|provider\.id\s*!==\s*row\.provider_id|provider\.id\s*!==\s*providerId/,
+      /provider\.id\s*!==\s*model\.provider_id|provider\.id\s*!==\s*row\.provider_id|provider\.id\s*!==\s*providerId|provider\.id\s*!==\s*fallbackTarget\.provider_id/,
     );
   });
 

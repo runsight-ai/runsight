@@ -118,14 +118,14 @@ describe("AC2: Runs tab content (RUN-560)", () => {
     expect(src).toMatch(/workflow_id/);
   });
 
-  it("Runs tab renders a mini table with commit SHA column", () => {
+  it("Runs tab renders via the shared RunsTable component", () => {
     const src = readSource(BOTTOM_PANEL_PATH);
-    // The runs tab should render commit SHA for each run row
-    expect(src).toMatch(/commit_sha|commitSha|commit\.sha|sha/i);
+    // The runs tab delegates rendering to RunsTable
+    expect(src).toMatch(/RunsTable/);
   });
 
-  it("current run row uses --surface-selected background", () => {
-    const src = readSource(BOTTOM_PANEL_PATH);
+  it("current run row uses --surface-selected background in RunsTable", () => {
+    const src = readSource("features/runs/RunsTable.tsx");
     expect(src).toMatch(/surface-selected/);
   });
 

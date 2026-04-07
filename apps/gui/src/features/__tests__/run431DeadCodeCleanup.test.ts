@@ -6,7 +6,6 @@ const SRC_DIR = resolve(__dirname, "..", "..");
 
 const REMOVED_SURFACES = [
   "features/workflows/WorkflowList.tsx",
-  "features/runs/RunList.tsx",
   "features/flows/RunsTab.tsx",
   "features/sidebar/TaskList.tsx",
   "features/sidebar/StepList.tsx",

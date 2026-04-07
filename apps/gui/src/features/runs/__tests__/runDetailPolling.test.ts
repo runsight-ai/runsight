@@ -167,40 +167,37 @@ describe("RunDetail displays total_tokens (RUN-144)", () => {
     }
   });
 
-  it("RunDetail component renders total_tokens in its JSX output", () => {
-    // RunDetail currently renders total_cost_usd in a badge but does NOT
-    // render total_tokens anywhere. This test should FAIL until fixed.
-    //
-    // We look for total_tokens being referenced in a rendering context —
-    // i.e., accessed from the run object and used in JSX, not just as a type.
+  it("RunDetailHeader renders total_tokens in its JSX output", () => {
+    // After RUN-243 decomposition, total_tokens rendering moved to RunDetailHeader
+    const headerSource = readFileSync(
+      resolve(__dirname, "../RunDetailHeader.tsx"),
+      "utf-8"
+    );
 
     const rendersTokens =
-      // Direct property access in JSX context: {run.total_tokens} or similar
-      RUN_DETAIL_SOURCE.includes("run.total_tokens") ||
-      RUN_DETAIL_SOURCE.includes("run?.total_tokens") ||
-      // Destructured and rendered
-      /\btotal_tokens\b/.test(RUN_DETAIL_SOURCE) &&
-        // Must appear in JSX (after return statement), not just in imports/types
-        /return\s*\([\s\S]*total_tokens/.test(RUN_DETAIL_SOURCE);
+      headerSource.includes("run.total_tokens") ||
+      headerSource.includes("run?.total_tokens") ||
+      /\btotal_tokens\b/.test(headerSource) &&
+        /return\s*\([\s\S]*total_tokens/.test(headerSource);
 
     expect(rendersTokens).toBe(true);
   });
 
   it("total_tokens is displayed near total_cost_usd in the header area", () => {
-    // Both cost and tokens should be visible in the run header for at-a-glance review.
-    // Look for total_tokens rendering near the existing total_cost_usd badge.
+    // After RUN-243 decomposition, both cost and tokens are in RunDetailHeader
+    const headerSource = readFileSync(
+      resolve(__dirname, "../RunDetailHeader.tsx"),
+      "utf-8"
+    );
 
-    const costBadgeIndex = RUN_DETAIL_SOURCE.indexOf("total_cost_usd");
-    expect(costBadgeIndex).toBeGreaterThan(-1);
+    const costIndex = headerSource.indexOf("total_cost_usd");
+    expect(costIndex).toBeGreaterThan(-1);
 
-    // total_tokens should appear in the rendered output (anywhere in the component)
-    // Ideally near the cost badge, but at minimum it must be rendered.
-    const tokenRenderIndex = RUN_DETAIL_SOURCE.indexOf("total_tokens");
+    const tokenIndex = headerSource.indexOf("total_tokens");
+    expect(tokenIndex).toBeGreaterThan(-1);
 
-    // If total_tokens only appears in type imports or comments, this fails.
-    // It must appear in the component body where JSX is returned.
-    const returnIndex = RUN_DETAIL_SOURCE.lastIndexOf("return (");
-    expect(tokenRenderIndex).toBeGreaterThan(returnIndex);
+    // Both should be near each other in the rendered output
+    expect(Math.abs(costIndex - tokenIndex)).toBeLessThan(200);
   });
 });
 

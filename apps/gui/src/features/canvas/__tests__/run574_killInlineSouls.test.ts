@@ -197,7 +197,7 @@ describe("AC4: Parser handles old YAML with souls gracefully", () => {
     expect(result).not.toHaveProperty("souls");
   });
 
-  it("should emit a warning when old YAML contains souls section", () => {
+  it("should silently accept old YAML with souls section without erroring", () => {
     const yaml = makeYaml(
       { step1: { type: "linear", soul_ref: "analyst" } },
       {
@@ -214,9 +214,9 @@ describe("AC4: Parser handles old YAML with souls gracefully", () => {
 
     const result = parseWorkflowYamlToGraph(yaml);
 
-    // Should include a deprecation/migration warning in the error field
-    expect(result.error).toBeDefined();
-    expect(result.error!.message).toMatch(/souls/i);
+    // RUN-748: inline souls are valid shorthand — parser silently accepts them
+    expect(result.error).toBeUndefined();
+    expect(result.nodes).toHaveLength(1);
   });
 
   it("should still parse blocks correctly when souls section is present", () => {

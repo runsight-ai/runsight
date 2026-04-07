@@ -84,7 +84,7 @@ vi.mock("@/queries/runs", () => ({
 
 vi.mock("@/queries/settings", () => ({
   useProviders: () => ({
-    data: { items: [{ id: "provider-1" }] },
+    data: { items: [{ id: "provider-1", is_active: true }] },
   }),
 }));
 
@@ -96,6 +96,10 @@ vi.mock("@/api/git", () => ({
   gitApi: {
     createSimBranch: mocks.createSimulationSnapshot,
   },
+}));
+
+vi.mock("react-router", () => ({
+  useNavigate: () => vi.fn(),
 }));
 
 import { RunButton } from "../RunButton";
@@ -166,6 +170,7 @@ describe("RunButton simulation behavior (RUN-423)", () => {
     expect(mocks.createRunMutate).toHaveBeenCalledWith(
       {
         workflow_id: "wf_1",
+        task_data: { instruction: "Execute workflow" },
         source: "manual",
         branch: "main",
       },

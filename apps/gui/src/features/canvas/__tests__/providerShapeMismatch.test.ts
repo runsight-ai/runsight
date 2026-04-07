@@ -94,12 +94,12 @@ describe("RunButton accesses providers via .items (RUN-406 AC1)", () => {
 
   it("correctly determines hasProviders from items array length", () => {
     const source = readSource(RUN_BUTTON_PATH);
-    // Should check items.length > 0 or items?.length > 0
+    // Should check items.length or a derived array's .length (e.g. activeProviders.length)
     const checksItemsLength =
-      /items\?\.length|items\.length/.test(source);
+      /items\?\.length|items\.length|activeProviders\.length/.test(source);
     expect(
       checksItemsLength,
-      "RunButton should check .items.length to determine if providers exist",
+      "RunButton should check .items.length (or derived array length) to determine if providers exist",
     ).toBe(true);
   });
 });
@@ -108,59 +108,28 @@ describe("RunButton accesses providers via .items (RUN-406 AC1)", () => {
 // 2. CanvasStatusBar — must access .items, not .length on data (AC2)
 // ===========================================================================
 
-describe("CanvasStatusBar accesses providers via .items (RUN-406 AC2)", () => {
-  it("does NOT call .length directly on the providers data object", () => {
+describe("CanvasStatusBar no longer uses providers (RUN-406 AC2)", () => {
+  it("does NOT import or reference useProviders", () => {
     const source = readSource(STATUS_BAR_PATH);
-    // The buggy pattern: providers && providers.length > 0
-    // where providers is { items: [], total: 0 }
+    expect(source).not.toMatch(/useProviders/);
+  });
+
+  it("does NOT call .length directly on a providers data object", () => {
+    const source = readSource(STATUS_BAR_PATH);
     const hasDirectLengthOnData = /\bproviders\?\.length\b|\bproviders\.length\b/.test(source);
     expect(
       hasDirectLengthOnData,
-      "CanvasStatusBar calls .length directly on { items, total } — must use .items first",
+      "CanvasStatusBar calls .length directly on providers — should not reference providers",
     ).toBe(false);
   });
 
   it("does NOT index providers directly as an array (providers[0])", () => {
     const source = readSource(STATUS_BAR_PATH);
-    // The buggy pattern: providers[0].name
-    // where providers is { items: [], total: 0 } — not array-indexable
     const hasDirectIndexing = /providers\[0\]/.test(source);
     expect(
       hasDirectIndexing,
-      "CanvasStatusBar indexes providers[0] but data is { items, total }, not an array",
+      "CanvasStatusBar indexes providers[0] — should not reference providers",
     ).toBe(false);
-  });
-
-  it("accesses providers through the .items property", () => {
-    const source = readSource(STATUS_BAR_PATH);
-    const accessesItems =
-      /providers\?\.items|providers\.items|data\?\.items|\.items\s*\?\?|\.items\s*\|\||const\s*\{[^}]*items[^}]*\}\s*=/.test(source);
-    expect(
-      accessesItems,
-      "CanvasStatusBar must access .items on the { items, total } data from useProviders",
-    ).toBe(true);
-  });
-
-  it("determines connected status from items array, not from { items, total } object", () => {
-    const source = readSource(STATUS_BAR_PATH);
-    // Should check items.length > 0 or items?.length > 0
-    const checksItemsLength =
-      /items\?\.length|items\.length/.test(source);
-    expect(
-      checksItemsLength,
-      "CanvasStatusBar should check .items.length to determine connection status",
-    ).toBe(true);
-  });
-
-  it("reads first provider name from items array, not from data object directly", () => {
-    const source = readSource(STATUS_BAR_PATH);
-    // Should access items[0].name, not providers[0].name where providers is { items, total }
-    const readsFromItems =
-      /items\[0\]\??\.name|items\?\.?\[0\]\??\.name|items\.at\(0\)\??\.name/.test(source);
-    expect(
-      readsFromItems,
-      "CanvasStatusBar should read provider name from items[0], not from the { items, total } object",
-    ).toBe(true);
   });
 });
 

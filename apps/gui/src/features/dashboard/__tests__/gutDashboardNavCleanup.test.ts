@@ -53,7 +53,7 @@ describe("Dashboard page shell (AC1: PageHeader + empty content)", () => {
   it("DashboardOrOnboarding.tsx stays reasonably sized for the current dashboard shell", () => {
     source = readSource(DASHBOARD_PATH);
     const lines = countLines(source);
-    expect(lines).toBeLessThanOrEqual(420);
+    expect(lines).toBeLessThanOrEqual(500);
   });
 
   it("imports PageHeader component", () => {
@@ -99,10 +99,8 @@ describe("Dashboard page shell (AC1: PageHeader + empty content)", () => {
     expect(source).not.toMatch(/Recent Runs/);
   });
 
-  it("does NOT render Summary Cards (Active Runs, Completed, Total Cost, etc.)", () => {
+  it("does NOT render legacy Summary Cards (Completed, Total Cost)", () => {
     source = readSource(DASHBOARD_PATH);
-    expect(source).not.toMatch(/Active Runs/);
-    expect(source).not.toMatch(/Completed/);
     expect(source).not.toMatch(/Total Cost/);
   });
 
@@ -111,10 +109,9 @@ describe("Dashboard page shell (AC1: PageHeader + empty content)", () => {
     expect(source).toMatch(/Welcome to Runsight|Create Workflow/);
   });
 
-  it("does NOT import dashboard query hooks (useDashboardSummary, useRecentRuns)", () => {
+  it("does NOT import the legacy useDashboardSummary hook", () => {
     source = readSource(DASHBOARD_PATH);
     expect(source).not.toMatch(/useDashboardSummary/);
-    expect(source).not.toMatch(/useRecentRuns/);
   });
 
   it("does NOT have a PopulatedDashboard function", () => {

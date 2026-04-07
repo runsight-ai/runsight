@@ -196,6 +196,11 @@ vi.mock("../../../routes/layouts/ShellLayout", () => ({
   ShellLayout: () => React.createElement(Outlet),
 }));
 
+vi.mock("@/queries/workflows", () => ({
+  useWorkflows: () => ({ data: undefined, isLoading: false, error: null }),
+  useWorkflowRegressions: () => ({ data: undefined }),
+}));
+
 vi.mock("@/lib/queryClient", () => ({
   queryClient: {},
 }));

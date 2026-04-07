@@ -25,6 +25,20 @@ vi.mock("../layouts/ShellLayout", () => ({
   ShellLayout: () => React.createElement(Outlet),
 }));
 
+vi.mock("@/queries/workflows", () => ({
+  useWorkflows: () => ({ data: undefined, isLoading: false, error: null }),
+  useWorkflowRegressions: () => ({ data: undefined }),
+}));
+
+vi.mock("@/queries/runs", () => ({
+  useRuns: () => ({ data: undefined, isLoading: false, error: null }),
+  useRunRegressions: () => ({ data: undefined }),
+}));
+
+vi.mock("@/queries/dashboard", () => ({
+  useAttentionItems: () => ({ data: undefined }),
+}));
+
 vi.mock("@/lib/queryClient", () => ({
   queryClient: {},
 }));
@@ -147,7 +161,6 @@ describe("RUN-431 legacy list route cleanup", () => {
   it("keeps /runs/:id working", async () => {
     await renderAppAt("/runs/run_123");
 
-    // RUN-590: /runs/:id now renders WorkflowSurface (HistoricalRunRoute) instead of RunDetail
-    expect(await screen.findByText("run-surface-run_123:/runs/run_123")).toBeTruthy();
+    expect(await screen.findByText("run-detail:/runs/run_123")).toBeTruthy();
   });
 });

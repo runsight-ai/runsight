@@ -51,6 +51,7 @@ vi.mock("@/queries/workflows", () => ({
 
 vi.mock("@/queries/runs", () => ({
   useRun: () => ({ data: undefined }),
+  useCancelRun: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock("@/store/canvas", () => ({
@@ -58,8 +59,27 @@ vi.mock("@/store/canvas", () => ({
     selector({ activeRunId: null }),
 }));
 
+vi.mock("react-router", () => ({
+  useInRouterContext: () => false,
+  Link: (props: Record<string, unknown>) => React.createElement("a", props, props.children),
+}));
+
+vi.mock("../useForkWorkflow", () => ({
+  useForkWorkflow: () => ({ forkWorkflow: vi.fn(), isForking: false }),
+}));
+
+vi.mock("@runsight/ui/badge", () => ({
+  Badge: (props: Record<string, unknown>) => React.createElement("span", props, props.children),
+}));
+
+vi.mock("@/components/shared", () => ({
+  WorkflowTopbar: (props: Record<string, unknown>) =>
+    React.createElement("div", null, props.title as React.ReactNode, props.actions as React.ReactNode, props.children as React.ReactNode),
+}));
+
 vi.mock("lucide-react", () => ({
   Save: () => React.createElement("span", null, "save"),
+  X: () => React.createElement("span", null, "x"),
 }));
 
 const { CanvasTopbar } = await import("../CanvasTopbar");

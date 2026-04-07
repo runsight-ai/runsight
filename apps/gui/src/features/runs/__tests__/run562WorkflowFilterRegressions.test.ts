@@ -243,6 +243,22 @@ vi.mock("../../../routes/layouts/ShellLayout", () => ({
   ShellLayout: () => React.createElement(Outlet),
 }));
 
+vi.mock("@/queries/workflows", () => ({
+  useWorkflows: () => ({
+    data: {
+      items: [
+        { id: "wf_research", name: "Research & Review" },
+        { id: "wf_pipeline", name: "Content Pipeline" },
+        { id: "wf_docs", name: "Daily Digest" },
+      ],
+      total: 3,
+    },
+    isLoading: false,
+    error: null,
+  }),
+  useWorkflowRegressions: () => ({ data: undefined }),
+}));
+
 vi.mock("@/lib/queryClient", () => ({
   queryClient: {},
 }));
@@ -378,7 +394,7 @@ describe("RUN-562 workflow filter via query param", () => {
       expect(rows).toHaveLength(1);
     });
 
-    expect(screen.getByText("Research & Review")).toBeTruthy();
+    expect(screen.getAllByText("Research & Review").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Content Pipeline")).toBeNull();
     expect(screen.queryByText("Daily Digest")).toBeNull();
   });
@@ -480,14 +496,16 @@ describe("RUN-562 filtered page header", () => {
     });
   });
 
-  it("filters runs using the dashboard attention feed", async () => {
+  it("filters runs using regression_count > 0 for the attention feed", async () => {
     await renderRunsRoute("/runs?attention=only");
 
     await waitFor(() => {
+      // Only Research & Review has regression_count: 3 — it should appear
       expect(screen.getByText("Research & Review")).toBeTruthy();
-      expect(screen.getByText("Content Pipeline")).toBeTruthy();
     });
 
+    // Content Pipeline (regression_count: 0) and Daily Digest (null) should be filtered out
+    expect(screen.queryByText("Content Pipeline")).toBeNull();
     expect(screen.queryByText("Daily Digest")).toBeNull();
   });
 

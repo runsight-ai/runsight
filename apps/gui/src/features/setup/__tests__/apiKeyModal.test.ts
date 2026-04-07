@@ -295,21 +295,9 @@ describe("useApiKeyAutoTest hook", () => {
     expect(source).toMatch(/export\s+(function|const)\s+useApiKeyAutoTest/);
   });
 
-  it("imports useCreateProvider from queries/settings", () => {
+  it("imports useTestProviderCredentials from queries/settings", () => {
     const source = readSource(AUTO_TEST_HOOK_PATH);
-    expect(source).toMatch(/import[\s\S]*useCreateProvider[\s\S]*from.*queries\/settings/);
-  });
-
-  it("imports useTestProviderConnection from queries/settings", () => {
-    const source = readSource(AUTO_TEST_HOOK_PATH);
-    expect(source).toMatch(
-      /import[\s\S]*useTestProviderConnection[\s\S]*from.*queries\/settings/,
-    );
-  });
-
-  it("imports useDeleteProvider for cleanup on cancel", () => {
-    const source = readSource(AUTO_TEST_HOOK_PATH);
-    expect(source).toMatch(/import[\s\S]*useDeleteProvider[\s\S]*from.*queries\/settings/);
+    expect(source).toMatch(/import[\s\S]*useTestProviderCredentials[\s\S]*from.*queries\/settings/);
   });
 
   it("has debounce logic with ~1000ms delay (AC3)", () => {
@@ -479,10 +467,10 @@ describe("Cleanup on cancel — delete provider if created", () => {
     expect(hasCleanup, "Expected cleanup function in hook").toBe(true);
   });
 
-  it("cleanup calls deleteProvider mutation", () => {
+  it("cleanup resets state and clears pending debounce", () => {
     const source = readSource(AUTO_TEST_HOOK_PATH);
-    // deleteProvider should be called during cleanup
-    const hasDelete = /deleteProvider.*mutate|delete.*Provider/.test(source);
-    expect(hasDelete, "Expected deleteProvider call in cleanup").toBe(true);
+    // Cleanup should clear timeout and reset state
+    const hasCleanup = /clearTimeout|reset/.test(source);
+    expect(hasCleanup, "Expected cleanup to clear timeout and reset state").toBe(true);
   });
 });

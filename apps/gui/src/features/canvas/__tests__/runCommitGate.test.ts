@@ -96,6 +96,10 @@ vi.mock("@/api/git", () => ({
   },
 }));
 
+vi.mock("react-router", () => ({
+  useNavigate: () => vi.fn(),
+}));
+
 import { RunButton } from "../RunButton";
 
 function renderButton(
@@ -153,6 +157,7 @@ describe("Run gating and wiring for RUN-588", () => {
     expect(mocks.createRunMutate).toHaveBeenCalledWith(
       {
         workflow_id: "wf_uncommitted",
+        task_data: { instruction: "Execute workflow" },
         source: "simulation",
         branch: "sim/test-flow/20260403/abc12",
       },
@@ -180,6 +185,7 @@ describe("Run gating and wiring for RUN-588", () => {
     expect(mocks.createRunMutate).toHaveBeenCalledWith(
       {
         workflow_id: "wf_committed_dirty",
+        task_data: { instruction: "Execute workflow" },
         source: "simulation",
         branch: "sim/test-flow/20260403/dirty-ab12",
       },
@@ -197,6 +203,7 @@ describe("Run gating and wiring for RUN-588", () => {
     expect(mocks.createRunMutate).toHaveBeenCalledWith(
       {
         workflow_id: "wf_committed_clean",
+        task_data: { instruction: "Execute workflow" },
         source: "manual",
         branch: "main",
       },

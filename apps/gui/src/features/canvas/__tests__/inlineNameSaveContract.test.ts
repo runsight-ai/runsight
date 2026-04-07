@@ -11,6 +11,7 @@ vi.mock("react", async () => {
 
   return {
     ...actual,
+    useContext: actual.useContext,
     useState: <T,>(initial: T | (() => T)) => {
       const index = mocks.stateCursor++;
 
@@ -42,6 +43,7 @@ vi.mock("@/queries/workflows", () => ({
 
 vi.mock("@/queries/runs", () => ({
   useRun: () => ({ data: undefined }),
+  useCancelRun: () => ({ mutate: vi.fn() }),
 }));
 
 vi.mock("@/store/canvas", () => ({
@@ -71,8 +73,27 @@ vi.mock("../ExecutionMetrics", () => ({
   ExecutionMetrics: () => React.createElement("div", null, "Execution Metrics"),
 }));
 
+vi.mock("react-router", () => ({
+  useInRouterContext: () => false,
+  Link: (props: Record<string, unknown>) => React.createElement("a", props, props.children),
+}));
+
+vi.mock("../useForkWorkflow", () => ({
+  useForkWorkflow: () => ({ forkWorkflow: vi.fn(), isForking: false }),
+}));
+
+vi.mock("@runsight/ui/badge", () => ({
+  Badge: (props: Record<string, unknown>) => React.createElement("span", props, props.children),
+}));
+
+vi.mock("@/components/shared", () => ({
+  WorkflowTopbar: (props: Record<string, unknown>) =>
+    React.createElement("div", null, props.title as React.ReactNode, props.actions as React.ReactNode, props.children as React.ReactNode),
+}));
+
 vi.mock("lucide-react", () => ({
   Save: () => React.createElement("span", null, "save"),
+  X: () => React.createElement("span", null, "x"),
 }));
 
 const { CanvasTopbar } = await import("../CanvasTopbar");
@@ -80,13 +101,20 @@ const { CanvasTopbar } = await import("../CanvasTopbar");
 function renderTopbar(onSave = vi.fn()) {
   mocks.stateCursor = 0;
 
-  return CanvasTopbar({
+  const tree = CanvasTopbar({
     workflowId: "wf_1",
     activeTab: "yaml",
     onValueChange: vi.fn(),
     isDirty: true,
     onSave,
   });
+
+  // The component returns a <WorkflowTopbar> element whose type is the mock function.
+  // Resolve it by calling the mock to get the actual React tree.
+  if (React.isValidElement(tree) && typeof tree.type === "function") {
+    return (tree.type as (props: Record<string, unknown>) => React.ReactNode)(tree.props as Record<string, unknown>);
+  }
+  return tree;
 }
 
 function textContent(node: React.ReactNode): string {
@@ -138,20 +166,20 @@ describe("CanvasTopbar inline rename save contract (RUN-424)", () => {
     const initialTree = renderTopbar(onSave);
     const workflowName = findElement(
       initialTree,
-      (element) => element.type === "span" && textContent(element.props.children) === "Example Workflow",
+      (element) => element.props?.["data-testid"] === "workflow-name-display",
     );
 
     expect(workflowName).toBeDefined();
     workflowName?.props.onClick?.();
 
     const editingTree = renderTopbar();
-    const nameInput = findElement(editingTree, (element) => element.type === "input");
+    const nameInput = findElement(editingTree, (element) => element.props?.["data-testid"] === "workflow-name-input" || element.type === "input");
 
     expect(nameInput).toBeDefined();
     nameInput?.props.onChange?.({ target: { value: "Renamed Workflow" } });
 
     const dirtyTree = renderTopbar();
-    const editedInput = findElement(dirtyTree, (element) => element.type === "input");
+    const editedInput = findElement(dirtyTree, (element) => element.props?.["data-testid"] === "workflow-name-input" || element.type === "input");
 
     expect(editedInput?.props.value).toBe("Renamed Workflow");
 
@@ -165,20 +193,20 @@ describe("CanvasTopbar inline rename save contract (RUN-424)", () => {
     const initialTree = renderTopbar(onSave);
     const workflowName = findElement(
       initialTree,
-      (element) => element.type === "span" && textContent(element.props.children) === "Example Workflow",
+      (element) => element.props?.["data-testid"] === "workflow-name-display",
     );
 
     expect(workflowName).toBeDefined();
     workflowName?.props.onClick?.();
 
     const editingTree = renderTopbar();
-    const nameInput = findElement(editingTree, (element) => element.type === "input");
+    const nameInput = findElement(editingTree, (element) => element.props?.["data-testid"] === "workflow-name-input" || element.type === "input");
 
     expect(nameInput).toBeDefined();
     nameInput?.props.onChange?.({ target: { value: "Renamed Workflow" } });
 
     const dirtyTree = renderTopbar();
-    const editedInput = findElement(dirtyTree, (element) => element.type === "input");
+    const editedInput = findElement(dirtyTree, (element) => element.props?.["data-testid"] === "workflow-name-input" || element.type === "input");
 
     expect(editedInput?.props.value).toBe("Renamed Workflow");
 
