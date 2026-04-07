@@ -1,0 +1,67 @@
+/*
+ * Runsight Docs — Product Design System Theme
+ * Tokens sourced from /observatory/product-design-system/system/tokens.css
+ *
+ * Starlight CSS custom property overrides:
+ * https://starlight.astro.build/reference/css-variables/
+ */
+
+/* ── Fonts ── */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300..900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* ── Dark Mode (default) ── */
+
+:root {
+	/* Accent — Amber (hue 38-42) */
+	--sl-color-accent-low: hsl(40, 60%, 14%);
+	--sl-color-accent: hsl(38, 92%, 55%);
+	--sl-color-accent-high: hsl(42, 90%, 88%);
+
+	/* Neutral — Warm-tinted grays (hue 40) */
+	--sl-color-white: hsl(40, 8%, 93%);
+	--sl-color-gray-1: hsl(40, 5%, 72%);
+	--sl-color-gray-2: hsl(40, 4%, 50%);
+	--sl-color-gray-3: hsl(40, 6%, 24%);
+	--sl-color-gray-4: hsl(40, 7%, 16%);
+	--sl-color-gray-5: hsl(40, 8%, 13%);
+	--sl-color-gray-6: hsl(40, 10%, 10%);
+	--sl-color-black: hsl(40, 12%, 8%);
+
+	/* Typography */
+	--sl-font: 'Geist', system-ui, -apple-system, sans-serif;
+	--sl-font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+	/* Border radius — matches product design system */
+	--sl-border-radius: 4px;
+}
+
+/* ── Light Mode ── */
+
+:root[data-theme='light'] {
+	/* Accent — darkened for light background contrast */
+	--sl-color-accent-low: hsl(42, 90%, 88%);
+	--sl-color-accent: hsl(38, 85%, 42%);
+	--sl-color-accent-high: hsl(40, 60%, 14%);
+
+	/* Neutral — inverted warm-tinted scale */
+	--sl-color-white: hsl(40, 12%, 10%);
+	--sl-color-gray-1: hsl(40, 7%, 22%);
+	--sl-color-gray-2: hsl(40, 5%, 36%);
+	--sl-color-gray-3: hsl(40, 6%, 76%);
+	--sl-color-gray-4: hsl(40, 8%, 86%);
+	--sl-color-gray-5: hsl(40, 10%, 90%);
+	--sl-color-gray-6: hsl(40, 12%, 94%);
+	--sl-color-black: hsl(40, 15%, 97%);
+}
+
+/* ── Semantic Overrides ── */
+
+/* Code blocks — warmer syntax feel */
+.sl-markdown-content pre {
+	border: 1px solid hsl(40, 6%, 24%);
+}
+
+:root[data-theme='light'] .sl-markdown-content pre {
+	border-color: hsl(40, 6%, 76%);
+}
