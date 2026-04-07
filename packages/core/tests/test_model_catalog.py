@@ -129,9 +129,7 @@ class TestModelCatalogPortProtocol:
 
     def test_model_catalog_port_is_runtime_checkable(self):
         """ModelCatalogPort should be runtime_checkable for isinstance checks."""
-        assert hasattr(ModelCatalogPort, "__protocol_attrs__") or callable(
-            getattr(ModelCatalogPort, "_is_runtime_protocol", None)
-        )
+        assert isinstance(LiteLLMModelCatalog(), ModelCatalogPort)
 
     def test_litellm_catalog_satisfies_protocol(self):
         """LiteLLMModelCatalog must be a structural subtype of ModelCatalogPort."""

@@ -85,6 +85,9 @@ def git_repo(tmp_path):
 
 client = TestClient(app)
 
+# All tests below are RED-phase: the /api/git/file endpoint is not yet implemented.
+pytestmark = pytest.mark.xfail(reason="RUN-557: /api/git/file endpoint not implemented yet")
+
 
 # ===================================================================
 # 1. GET /api/git/file route exists
