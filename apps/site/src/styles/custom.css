@@ -76,7 +76,7 @@
 	border-color: hsl(40, 6%, 76%);
 }
 
-/* Card descriptions — override gray-3 to gray-1 for readability */
-.description.astro-shoxszmb {
-	color: var(--sl-color-gray-1) !important;
+/* Card descriptions — override gray-3 to white for readability */
+.description {
+	color: var(--sl-color-white) !important;
 }
