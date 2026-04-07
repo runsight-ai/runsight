@@ -1,5 +1,6 @@
 {
   "private": true,
+  "packageManager": "pnpm@10.32.1",
   "scripts": {
     "lint": "pnpm run lint:js && pnpm run lint:py",
     "lint:js": "pnpm -C apps/gui run lint && pnpm -C packages/ui run lint && pnpm -C packages/shared run lint && pnpm -C testing/gui-e2e run lint",
