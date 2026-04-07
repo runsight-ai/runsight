@@ -157,6 +157,37 @@ class TestAchatBackwardCompatWithToolFields:
         assert "tools" not in call_kwargs
         assert "tool_choice" not in call_kwargs
 
+    @pytest.mark.asyncio
+    @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
+    @patch("runsight_core.llm.client.completion_cost", return_value=0.002)
+    async def test_no_tools_does_not_pass_temperature_when_unset(
+        self, mock_cost, mock_acompletion
+    ):
+        """Unspecified temperature must stay unset so provider defaults can apply."""
+        mock_acompletion.return_value = _make_response()
+
+        client = LiteLLMClient(model_name="gpt-5.4-nano")
+        await client.achat(messages=[{"role": "user", "content": "hello"}])
+
+        call_kwargs = mock_acompletion.call_args.kwargs
+        assert "temperature" not in call_kwargs
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
+    @patch("runsight_core.llm.client.completion_cost", return_value=0.002)
+    async def test_explicit_temperature_is_forwarded(self, mock_cost, mock_acompletion):
+        """Explicit temperature overrides must still be forwarded."""
+        mock_acompletion.return_value = _make_response()
+
+        client = LiteLLMClient(model_name="gpt-4o")
+        await client.achat(
+            messages=[{"role": "user", "content": "hello"}],
+            temperature=0.2,
+        )
+
+        call_kwargs = mock_acompletion.call_args.kwargs
+        assert call_kwargs["temperature"] == 0.2
+
 
 # ---------------------------------------------------------------------------
 # AC2: achat() with tools — passes tools to litellm, extracts tool_calls

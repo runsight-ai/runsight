@@ -27,7 +27,7 @@ class LiteLLMClient:
         self,
         messages: List[Dict[str, Any]],
         system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
+        temperature: Optional[float] = None,
         tools: Optional[List[dict]] = None,
         tool_choice: Optional[str] = None,
         **kwargs: Any,
@@ -46,6 +46,8 @@ class LiteLLMClient:
         extra_kwargs = dict(kwargs)
         if self.api_key is not None:
             extra_kwargs["api_key"] = self.api_key
+        if temperature is not None:
+            extra_kwargs["temperature"] = temperature
         if tools is not None:
             extra_kwargs["tools"] = tools
         if tool_choice is not None:
@@ -55,7 +57,6 @@ class LiteLLMClient:
             model=self.model_name,
             messages=formatted_messages,
             stream=False,
-            temperature=temperature,
             timeout=self.timeout,
             **extra_kwargs,
         )
