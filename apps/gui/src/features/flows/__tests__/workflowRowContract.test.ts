@@ -47,7 +47,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("react-router", async () => {
-  const actual = await vi.importActual<typeof import("react-router")>("react-router");
+  const actual = await vi.importActual("react-router");
   return {
     ...actual,
     useNavigate: () => mocks.navigate,

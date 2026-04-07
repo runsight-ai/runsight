@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from "react-router";
 import { useRuns } from "@/queries/runs";
-import { RunResponse } from "@/types/schemas/runs";
+import type { RunResponse } from "@/types/schemas/runs";
 import {
   Table,
   TableBody,
@@ -545,7 +545,7 @@ export function Component() {
     }
   );
 
-  const runs = data?.items ?? [];
+  const runs = useMemo(() => data?.items ?? [], [data?.items]);
   const totalCount = data?.total ?? 0;
 
   // Extract unique workflow names for filter dropdown

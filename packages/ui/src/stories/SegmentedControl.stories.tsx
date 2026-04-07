@@ -30,7 +30,7 @@ const CodeIcon = () => (
 
 export const Default: Story = {
   name: "Default",
-  render: () => {
+  render: function Render() {
     const [activeToggle, setActiveToggle] = React.useState("canvas");
 
     return (
@@ -49,7 +49,7 @@ export const Default: Story = {
 
 export const WithIcons: Story = {
   name: "With Icons",
-  render: () => {
+  render: function Render() {
     const [activeToggle, setActiveToggle] = React.useState("canvas");
 
     return (

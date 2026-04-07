@@ -117,7 +117,7 @@ function renderTopbar(onSave = vi.fn()) {
   return tree;
 }
 
-function textContent(node: React.ReactNode): string {
+function _textContent(node: React.ReactNode): string {
   if (node == null || typeof node === "boolean") {
     return "";
   }

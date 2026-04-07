@@ -66,7 +66,7 @@ describe("WorkflowSurface.tsx — 404 / not-found handling (RUN-737 AC1)", () =>
   it("renders a link back to the workflows list in the not-found branch", () => {
     // There must be an <a href> or <Link to> pointing to /flows
     // in the error-state branch of the component.
-    expect(source).toMatch(/["'\/]flows["'\/]/);
+    expect(source).toMatch(/["'/]flows["'/]/);
     // That link must be inside an error/not-found rendering path, not just
     // a general link — assert that a link element appears near not-found text
     expect(source).toMatch(

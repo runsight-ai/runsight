@@ -22,7 +22,7 @@
  *   AC4  Compiler rejects or warns on unknown stepType instead of silently defaulting to linear
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Node } from "@xyflow/react";

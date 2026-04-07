@@ -175,7 +175,7 @@ vi.mock("@/components/provider/ProviderModal", () => ({
 
 vi.mock("./workflowSurfaceContract", async () => {
   const actual = await vi.importActual<
-    typeof import("../workflowSurfaceContract")
+    typeof import("../workflowSurfaceContract") // eslint-disable-line @typescript-eslint/consistent-type-imports
   >("../workflowSurfaceContract");
   return actual;
 });

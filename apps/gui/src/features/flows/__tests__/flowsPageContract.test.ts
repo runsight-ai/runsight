@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type * as ReactJsxRuntime from "react/jsx-runtime";
@@ -312,12 +315,12 @@ vi.mock("@runsight/ui/tabs", () => {
     Tabs: ({
       value,
       defaultValue,
-      onValueChange,
+      _onValueChange,
       children,
     }: {
       value?: string;
       defaultValue?: string;
-      onValueChange?: (value: string) => void;
+      _onValueChange?: (value: string) => void;
       children: React.ReactNode;
     }) => {
       const tabValue = value ?? defaultValue ?? "";
@@ -359,7 +362,7 @@ vi.mock("@runsight/ui/tabs", () => {
       );
     },
     TabsContent: ({
-      value,
+      value: _value,
       children,
       ...props
     }: {
@@ -517,8 +520,6 @@ beforeEach(() => {
 });
 
 describe("RUN-426 FlowsPage tabs", () => {
-  const { readFileSync } = require("node:fs");
-  const { resolve } = require("node:path");
   const flowsSource = readFileSync(resolve(__dirname, "..", "FlowsPage.tsx"), "utf-8");
 
   it("renders the New Workflow header action on /flows while the workflows tab is active", () => {
