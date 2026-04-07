@@ -106,7 +106,7 @@ The transform returns a failing `GradingResult` (score 0.0, passed false) in the
 When a transform fails, the assertion itself does not run. The failing `GradingResult` from the transform is used directly.
 
 :::caution
-The transform extracts only the **first match** from the JSONPath expression. If your path matches multiple values (e.g., `$.items[*].name`), only the first one is used for the assertion.
+A single transform extracts only the **first match** from the JSONPath expression. If your path matches multiple values (e.g., `$.items[*].name`), only the first one is used for that assertion. To check multiple fields, add separate assertions each with its own `transform` -- see [Assertion chaining](/docs/evaluation/assertions#assertion-chaining).
 :::
 
 <!-- Linear: RUN-695, RUN-685 -- last verified against codebase 2026-04-07 -->

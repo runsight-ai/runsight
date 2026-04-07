@@ -15,7 +15,9 @@ The `EvalService._detect_node_regressions` method compares two matching nodes (s
 | `cost_spike` | Cost increased more than 20% vs previous run | `{cost_pct: <percentage>, baseline_cost: <previous cost>}` |
 | `quality_drop` | `eval_score` dropped by more than 0.1 | `{score_delta: <negative number>}` |
 
+:::note
 Only **production runs** are compared -- runs on the `main` branch with a source of `manual`, `webhook`, or `schedule`. Simulation branches are excluded.
+:::
 
 ## How eval_score and eval_passed work
 

@@ -36,7 +36,7 @@ curl -X POST http://localhost:8321/api/git/commit \
 ```
 
 :::note
-Files matched by `.gitignore` patterns (such as `.canvas/` sidecar files) are silently skipped during staging. The commit proceeds with only the versionable files.
+Files matched by `.gitignore` patterns are silently skipped during staging. The commit proceeds with only the versionable files.
 :::
 
 ## Simulation branches
@@ -106,8 +106,10 @@ The API exposes these git operations:
 
 All endpoints validate paths against the project root to prevent directory traversal. Absolute paths outside the project root, paths starting with `-`, and symlinks escaping the project boundary are rejected.
 
-## The uncommitted badge
+## The unsaved indicator
 
-The canvas topbar shows an uncommitted badge when the workflow has unsaved changes. This is driven by the `GET /api/git/status` endpoint --- if the workflow file appears in the uncommitted files list, the badge is visible. Clicking **Save** commits the changes, clears the badge, and the next run will execute from `main` instead of creating a sim branch.
+The canvas topbar shows a small dot and a **Save** button when the workflow has unsaved changes. This indicator is driven by local `isDirty` state in the editor --- it tracks whether the in-memory YAML differs from the last saved version, not the git status endpoint. Clicking **Save** opens a `CommitDialog` which commits the changes via `POST /api/workflows/{id}/commits`, clears the dirty state, and the next run will execute from `main` instead of creating a sim branch.
+
+A standalone `GitBadge` component exists in the codebase (`features/git/GitBadge.tsx`) but is not currently mounted in the application shell. It is intended for future use when the topbar gains full git-status awareness.
 
 <!-- Linear: RUN-557, RUN-747, RUN-749 — last verified against codebase 2026-04-07 -->

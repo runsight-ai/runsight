@@ -100,6 +100,114 @@ Same as `WorkflowLimitsDef` but without `warn_at_pct`. Applied per block via the
 | `token_cap` | `int` | none | >= 1 | Maximum total tokens |
 | `on_exceed` | `str` | `"fail"` | `"warn"` or `"fail"` | Action when limit is exceeded |
 
+### Block types
+
+The `blocks` dict uses a discriminated union on the `type` field. Each block type extends `BaseBlockDef` and adds its own fields. The following sections document block types with non-trivial additional fields.
+
+#### WorkflowBlockDef (`type: "workflow"`)
+
+Calls a child workflow as a sub-workflow (hierarchical state machine). The parent block binds values into the child's declared `interface` and reads results back out after the child completes.
+
+| Field | Type | Default | Required | Description |
+|-------|------|---------|----------|-------------|
+| `type` | `"workflow"` | -- | **yes** | Discriminator |
+| `workflow_ref` | `str` | -- | **yes** | Slug or path of the child workflow to call |
+| `inputs` | `Dict[str, str]` | none | no | Maps child interface input names to parent dotted paths (e.g. `topic: shared_memory.topic`) |
+| `outputs` | `Dict[str, str]` | none | no | Maps parent dotted paths to child interface output names (e.g. `shared_memory.summary: summary`) |
+| `max_depth` | `int` | none (runtime default 10) | no | Maximum HSM recursion depth |
+| `on_error` | `"raise"` or `"catch"` | `"raise"` | no | `"catch"` swallows child failure and returns an error exit handle instead of propagating |
+
+All inherited `BaseBlockDef` fields (`stateful`, `routes`, `depends`, `error_route`, `retry_config`, `exits`, `exit_conditions`, `timeout_seconds`, `limits`, etc.) are also available.
+
+**Validation rules:**
+- `inputs` keys must be plain interface names (no dots). They reference the child workflow's `interface.inputs[].name`.
+- `outputs` values must be plain interface names (no dots). They reference the child workflow's `interface.outputs[].name`.
+
+#### Sub-workflow example
+
+The parent workflow defines a `workflow` block that calls a child. The child declares its callable contract via the top-level `interface` section.
+
+**Parent workflow** -- calls the child and wires data in and out:
+
+```yaml title="custom/workflows/research_pipeline.yaml"
+version: "1.0"
+enabled: true
+
+blocks:
+  run_analysis:
+    type: workflow
+    workflow_ref: analysis_subworkflow
+    inputs:
+      topic: shared_memory.topic
+      depth: shared_memory.analysis_depth
+    outputs:
+      shared_memory.summary: summary
+      shared_memory.citations: sources
+    max_depth: 5
+    on_error: catch
+    timeout_seconds: 600
+
+workflow:
+  name: Research Pipeline
+  entry: run_analysis
+  transitions:
+    - from: run_analysis
+      to: null
+```
+
+**Child workflow** -- declares the interface contract the parent binds to:
+
+```yaml title="custom/workflows/analysis_subworkflow.yaml"
+version: "1.0"
+enabled: true
+
+interface:
+  inputs:
+    - name: topic
+      target: shared_memory.topic
+      type: string
+      required: true
+      description: The research topic to analyze
+    - name: depth
+      target: shared_memory.depth
+      type: integer
+      required: false
+      default: 3
+      description: How many layers deep to research
+  outputs:
+    - name: summary
+      source: shared_memory.final_summary
+      type: string
+      description: Completed analysis summary
+    - name: sources
+      source: shared_memory.collected_sources
+      type: list
+      description: List of cited sources
+
+souls:
+  analyst:
+    id: analyst
+    role: Research Analyst
+    system_prompt: "Analyze the topic in shared_memory.topic."
+
+blocks:
+  analyze:
+    type: soul
+    soul_ref: analyst
+    task: "Research the topic and write a summary."
+
+workflow:
+  name: Analysis Sub-Workflow
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null
+```
+
+In the parent, `inputs` keys (`topic`, `depth`) match the child's `interface.inputs[].name` values. The parent values (`shared_memory.topic`, `shared_memory.analysis_depth`) are dotted paths into the parent's own state.
+
+In the parent, `outputs` values (`summary`, `sources`) match the child's `interface.outputs[].name` values. The parent keys (`shared_memory.summary`, `shared_memory.citations`) are dotted paths where results are written in the parent's state.
+
 ### EvalSectionDef
 
 | Field | Type | Default | Constraints | Description |

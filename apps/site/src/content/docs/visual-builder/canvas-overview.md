@@ -1,11 +1,15 @@
 ---
 title: Canvas Overview
-description: How the Runsight visual canvas works — ReactFlow rendering, bi-directional YAML sync, sidecar coordinate storage, and the component architecture.
+description: How the Runsight visual canvas works — ReactFlow rendering, sidecar coordinate storage, and the component architecture.
 ---
 
-The Runsight visual canvas is the primary editing surface for workflows. It renders blocks as draggable nodes and transitions as edges on an infinite-pan canvas, powered by [XY Flow](https://xyflow.com/) (the library behind ReactFlow). The canvas is one half of a dual-state architecture: workflow **logic** lives in YAML files, while **visual layout** (node positions, viewport, selection) is stored in a separate JSON sidecar file.
+The Runsight visual canvas displays workflows as nodes and edges on an infinite-pan canvas, powered by [XY Flow](https://xyflow.com/) (the library behind ReactFlow). Workflow **logic** lives in YAML files, while **visual layout** (node positions, viewport, selection) is stored in a separate JSON sidecar file.
 
-## Dual-state architecture
+:::caution
+The visual canvas is under active development. Today it renders a read-only view of the workflow graph — the YAML editor is the primary authoring surface. Features like drag-and-drop block creation, visual edge wiring, and bi-directional YAML-to-canvas sync are planned but not yet shipped. See [YAML Editor](/docs/visual-builder/yaml-editor) for the current authoring workflow.
+:::
+
+## Storage architecture
 
 A Runsight workflow has two persistent representations:
 
@@ -20,9 +24,9 @@ The YAML file is the source of truth for execution. The canvas sidecar stores vi
 The sidecar JSON is written atomically alongside the YAML file. If the sidecar write fails, the YAML save still succeeds — layout data is treated as non-critical.
 :::
 
-## Bi-directional YAML sync
+## YAML-to-graph conversion
 
-Two modules handle the conversion between YAML text and the ReactFlow graph:
+Two modules handle the conversion between YAML text and the ReactFlow graph. These are used today for one-directional rendering (YAML to canvas on load). Bi-directional live sync (edits on the canvas writing back to YAML, and YAML edits updating the canvas in real time) is not yet wired.
 
 ### yamlParser — YAML to graph
 
@@ -46,9 +50,9 @@ All block fields are converted from `snake_case` (YAML) to `camelCase` (JavaScri
 
 Nodes with `outputConditions` produce `conditional_transitions` in the compiled YAML. The source handle on each edge maps to the decision key; a `null` source handle maps to the `default` key.
 
-### Round-trip fidelity
+### Round-trip fidelity (design goal)
 
-The parser and compiler are designed as inverses. A parse-then-compile round-trip preserves all execution semantics (block definitions, transitions, conditional transitions). Visual metadata like node positions, selection state, and `width` are stripped from the YAML output and stored only in the canvas sidecar.
+The parser and compiler are designed as inverses. A parse-then-compile round-trip preserves all execution semantics (block definitions, transitions, conditional transitions). Visual metadata like node positions, selection state, and `width` are stripped from the YAML output and stored only in the canvas sidecar. This property is tested in the codebase but is not yet exposed as a live user-facing feature — the canvas does not currently write back to YAML.
 
 ## Nodes and edges
 
@@ -103,7 +107,7 @@ The canvas includes standard ReactFlow controls:
 - **Dot grid background** — 28px gap, subtle dots for spatial orientation
 
 :::tip
-The visual canvas tab currently shows a "coming soon" placeholder for the drag-and-drop builder. The YAML editor tab is the primary authoring surface. See [YAML Editor](/docs/visual-builder/yaml-editor) for details.
+The YAML editor tab is the primary authoring surface today. See [YAML Editor](/docs/visual-builder/yaml-editor) for details.
 :::
 
 ## Component architecture
@@ -111,7 +115,7 @@ The visual canvas tab currently shows a "coming soon" placeholder for the drag-a
 The canvas is composed from these main components:
 
 - **`WorkflowSurface`** — the top-level orchestrator. Manages mode (edit/readonly/sim), loads workflow data, coordinates the topbar, editor, bottom panel, and status bar. See [Canvas Modes](/docs/visual-builder/canvas-modes).
-- **`WorkflowCanvas`** — the ReactFlow wrapper. Renders nodes and edges, handles click/drag events, delegates to the canvas store.
+- **`WorkflowCanvas`** — the ReactFlow wrapper. Renders nodes and edges, delegates to the canvas store.
 - **`YamlEditor`** — Monaco-based YAML editing. See [YAML Editor](/docs/visual-builder/yaml-editor).
 - **`CanvasTopbar`** — workflow name (editable in edit mode), canvas/YAML tab toggle, save button, run button, and execution metrics.
 - **`CanvasBottomPanel`** — collapsible panel with Logs, Runs, and Regressions tabs. Connects to SSE for real-time log streaming during execution.

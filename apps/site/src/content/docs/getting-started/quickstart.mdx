@@ -51,9 +51,37 @@ import { Steps, FileTree } from '@astrojs/starlight/components';
 
    Three blocks: **research** calls an LLM, **write_summary** runs after it, and **quality_review** evaluates the summary.
 
-3. **Create your souls**
+3. **Define your souls**
 
-   Each `soul_ref` in the workflow points to a soul file. Create one for each:
+   Each `soul_ref` in the workflow points to a soul — the agent identity behind a block.
+
+   #### Inline (single file, fastest)
+
+   Add a `souls:` section directly in the workflow file:
+
+   ```yaml title="custom/workflows/my-first-flow.yaml"
+   version: "1.0"
+   souls:
+     researcher:
+       id: researcher
+       role: Senior Researcher
+       system_prompt: >
+         You are an expert researcher. Given a topic, provide a concise,
+         well-structured summary of the key findings, trends, and insights.
+       provider: openai
+       model_name: gpt-4.1-mini
+   blocks:
+     research:
+       type: linear
+       soul_ref: researcher
+   workflow:
+     name: My First Flow
+     entry: research
+   ```
+
+   #### Soul file (reusable across workflows)
+
+   Extract the soul to its own file in `custom/souls/`. Any workflow can reference it by filename stem (`soul_ref: researcher`):
 
    ```yaml title="custom/souls/researcher.yaml"
    id: researcher
@@ -65,42 +93,9 @@ import { Steps, FileTree } from '@astrojs/starlight/components';
    model_name: gpt-4.1-mini
    ```
 
-   ```yaml title="custom/souls/writer.yaml"
-   id: writer
-   role: Technical Writer
-   system_prompt: >
-     You are a technical writer. Take the research provided and
-     produce a clear, polished summary suitable for a general audience.
-   provider: openai
-   model_name: gpt-4.1-mini
-   ```
+   See [Inline Souls](/docs/souls/inline-souls) and [Soul Files](/docs/souls/soul-files) for details.
 
-   ```yaml title="custom/souls/reviewer.yaml"
-   id: reviewer
-   role: Quality Reviewer
-   system_prompt: >
-     You are a quality reviewer. Evaluate the writing for accuracy,
-     clarity, and completeness. Respond with APPROVED or REJECTED
-     and a brief explanation.
-   provider: openai
-   model_name: gpt-4.1-mini
-   ```
-
-4. **Check your file structure**
-
-   You should now have:
-
-   <FileTree>
-   - custom/
-     - workflows/
-       - my-first-flow.yaml
-     - souls/
-       - researcher.yaml
-       - writer.yaml
-       - reviewer.yaml
-   </FileTree>
-
-5. **Run it**
+4. **Run it**
 
    1. Open the GUI at [http://localhost:8000](http://localhost:8000)
    2. Your workflow appears on the **Flows** page (auto-discovered from `custom/workflows/`)

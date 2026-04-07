@@ -176,6 +176,32 @@ assertions:
 
 The `AssertionsResult` class accumulates weighted results. Its `aggregate_score` property returns the weighted average: `total_score / total_weight`. The `passed()` method without a threshold returns `True` only if every individual assertion passed.
 
+## Assertion chaining
+
+A block can have any number of assertions. Each assertion runs independently -- they do not share state or depend on each other's results. The engine runs all of them concurrently via `asyncio.gather`, so a failure in one assertion never prevents the others from completing.
+
+This is especially useful with `transform` hooks. Each assertion can target a different field in the block output using its own `json_path` transform:
+
+```yaml title="Multiple assertions with different transforms"
+blocks:
+  process_order:
+    type: llm
+    soul_ref: processor
+    assertions:
+      - type: equals
+        value: "completed"
+        transform: "json_path:$.status"
+      - type: contains
+        value: "success"
+        transform: "json_path:$.message"
+      - type: cost
+        threshold: 0.02
+```
+
+In this example, the first assertion extracts `$.status` and checks for an exact match, the second extracts `$.message` and checks for a substring, and the third checks execution cost without any transform. All three run in parallel.
+
+If a transform fails on one assertion (e.g., the output is not valid JSON, or the path does not exist), that assertion returns `passed=False` with a descriptive reason. The other assertions still run normally and produce their own results. The aggregate score and pass/fail are then computed across all of them using the standard [weighted scoring](#weighted-scoring) rules.
+
 ## How assertions fire during execution
 
 When a workflow runs via the API, the engine wires assertions automatically:
