@@ -7,9 +7,9 @@ system_prompt: 'You are an expert researcher. Given a topic, provide a concise, 
   '
 tools: null
 max_tool_iterations: 5
-model_name: gpt-5-mini
+model_name: gpt-5.4-nano
 provider: openai
 temperature: null
 max_tokens: null
-avatar_color: accent
+avatar_color: info
 modified_at: null

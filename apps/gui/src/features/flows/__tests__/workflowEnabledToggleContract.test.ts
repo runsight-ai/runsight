@@ -4,14 +4,20 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
 }));
 
-vi.mock("react-router", () => ({
-  useNavigate: () => mocks.navigate,
-}));
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual<typeof import("react-router")>("react-router");
+  return {
+    ...actual,
+    useNavigate: () => mocks.navigate,
+  };
+});
 
 function buildWorkflow(overrides: Record<string, unknown> = {}) {
   return {
@@ -45,16 +51,27 @@ async function renderWorkflowRow(options: {
 } = {}) {
   const WorkflowRow = await loadWorkflowRowComponent();
   const user = userEvent.setup();
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
 
   render(
     React.createElement(
-      "ul",
-      { role: "list" },
-      React.createElement(WorkflowRow, {
-        workflow: options.workflow ?? buildWorkflow(),
-        onDelete: options.onDelete ?? vi.fn(),
-        onToggleEnabled: options.onToggleEnabled ?? vi.fn().mockResolvedValue(undefined),
-      }),
+      QueryClientProvider,
+      { client: queryClient },
+      React.createElement(
+        MemoryRouter,
+        null,
+        React.createElement(
+          "ul",
+          { role: "list" },
+          React.createElement(WorkflowRow, {
+            workflow: options.workflow ?? buildWorkflow(),
+            onDelete: options.onDelete ?? vi.fn(),
+            onToggleEnabled: options.onToggleEnabled ?? vi.fn().mockResolvedValue(undefined),
+          }),
+        ),
+      ),
     ),
   );
 

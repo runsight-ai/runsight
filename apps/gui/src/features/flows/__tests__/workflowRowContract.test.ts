@@ -3,6 +3,8 @@
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router";
 
 const fixtures = {
   populatedWorkflow: {
@@ -44,9 +46,13 @@ const mocks = vi.hoisted(() => ({
   deleteRequests: [] as Array<unknown>,
 }));
 
-vi.mock("react-router", () => ({
-  useNavigate: () => mocks.navigate,
-}));
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual<typeof import("react-router")>("react-router");
+  return {
+    ...actual,
+    useNavigate: () => mocks.navigate,
+  };
+});
 
 async function loadWorkflowRowComponent() {
   const module = await import("../WorkflowRow");
@@ -57,11 +63,23 @@ async function loadWorkflowRowComponent() {
 async function renderWorkflowRow(props: Record<string, unknown>) {
   const WorkflowRow = await loadWorkflowRowComponent();
 
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+
   render(
     React.createElement(
-      "ul",
-      { role: "list" },
-      React.createElement(WorkflowRow, props),
+      QueryClientProvider,
+      { client: queryClient },
+      React.createElement(
+        MemoryRouter,
+        null,
+        React.createElement(
+          "ul",
+          { role: "list" },
+          React.createElement(WorkflowRow, props),
+        ),
+      ),
     ),
   );
 }

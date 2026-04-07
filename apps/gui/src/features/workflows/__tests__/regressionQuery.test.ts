@@ -10,80 +10,122 @@ import {
 // ---------------------------------------------------------------------------
 
 describe("WorkflowRegressionSchema", () => {
-  it("parses a valid assertion regression", () => {
-    const input = { type: "assertion", node_name: "Quality Review" };
+  it("parses a valid assertion_regression", () => {
+    const input = {
+      node_id: "node-1",
+      node_name: "Quality Review",
+      type: "assertion_regression",
+      delta: { eval_passed: false, baseline_eval_passed: true },
+    };
     const result = WorkflowRegressionSchema.parse(input);
-    expect(result.type).toBe("assertion");
+    expect(result.type).toBe("assertion_regression");
     expect(result.node_name).toBe("Quality Review");
+    expect(result.node_id).toBe("node-1");
   });
 
-  it("parses a cost_spike regression with delta_pct", () => {
-    const input = { type: "cost_spike", node_name: "Writer", delta_pct: 34 };
+  it("parses a cost_spike regression with delta record", () => {
+    const input = {
+      node_id: "node-2",
+      node_name: "Writer",
+      type: "cost_spike",
+      delta: { cost_pct: 34, baseline_cost: 0.05 },
+    };
     const result = WorkflowRegressionSchema.parse(input);
     expect(result.type).toBe("cost_spike");
     expect(result.node_name).toBe("Writer");
-    expect(result.delta_pct).toBe(34);
+    expect(result.delta).toEqual({ cost_pct: 34, baseline_cost: 0.05 });
   });
 
-  it("parses a latency_spike regression with delta_pct", () => {
+  it("parses a quality_drop regression with delta record", () => {
     const input = {
-      type: "latency_spike",
+      node_id: "node-3",
       node_name: "Summarizer",
-      delta_pct: 120,
+      type: "quality_drop",
+      delta: { score_delta: -0.2 },
     };
     const result = WorkflowRegressionSchema.parse(input);
-    expect(result.type).toBe("latency_spike");
-    expect(result.delta_pct).toBe(120);
+    expect(result.type).toBe("quality_drop");
+    expect(result.delta).toEqual({ score_delta: -0.2 });
   });
 
-  it("allows delta_pct to be optional for assertion type", () => {
-    const input = { type: "assertion", node_name: "Validator" };
+  it("accepts optional run_id and run_number fields", () => {
+    const input = {
+      node_id: "node-4",
+      node_name: "Validator",
+      type: "assertion_regression",
+      delta: {},
+      run_id: "run-1",
+      run_number: 5,
+    };
     const result = WorkflowRegressionSchema.parse(input);
-    expect(result.delta_pct).toBeUndefined();
+    expect(result.run_id).toBe("run-1");
+    expect(result.run_number).toBe(5);
   });
 
   it("rejects unknown regression type", () => {
-    const input = { type: "unknown_type", node_name: "Foo" };
+    const input = {
+      node_id: "node-5",
+      node_name: "Foo",
+      type: "unknown_type",
+      delta: {},
+    };
     expect(() => WorkflowRegressionSchema.parse(input)).toThrow();
   });
 
   it("rejects missing node_name", () => {
-    const input = { type: "assertion" };
+    const input = {
+      node_id: "node-6",
+      type: "assertion_regression",
+      delta: {},
+    };
     expect(() => WorkflowRegressionSchema.parse(input)).toThrow();
   });
 });
 
 describe("WorkflowRegressionsResponseSchema", () => {
-  it("parses a valid response with items array and count", () => {
+  it("parses a valid response with issues array and count", () => {
     const input = {
-      workflow_id: "wf-123",
-      items: [
-        { type: "assertion", node_name: "Quality Review" },
-        { type: "cost_spike", node_name: "Writer", delta_pct: 34 },
+      issues: [
+        {
+          node_id: "node-1",
+          node_name: "Quality Review",
+          type: "assertion_regression",
+          delta: { eval_passed: false },
+        },
+        {
+          node_id: "node-2",
+          node_name: "Writer",
+          type: "cost_spike",
+          delta: { cost_pct: 34 },
+        },
       ],
       count: 2,
     };
     const result = WorkflowRegressionsResponseSchema.parse(input);
-    expect(result.workflow_id).toBe("wf-123");
-    expect(result.items).toHaveLength(2);
+    expect(result.issues).toHaveLength(2);
     expect(result.count).toBe(2);
   });
 
   it("parses an empty regressions response", () => {
     const input = {
-      workflow_id: "wf-456",
-      items: [],
+      issues: [],
       count: 0,
     };
     const result = WorkflowRegressionsResponseSchema.parse(input);
-    expect(result.items).toEqual([]);
+    expect(result.issues).toEqual([]);
     expect(result.count).toBe(0);
   });
 
-  it("rejects response missing workflow_id", () => {
+  it("rejects response missing count", () => {
     const input = {
-      items: [{ type: "assertion", node_name: "X" }],
-      count: 1,
+      issues: [
+        {
+          node_id: "node-1",
+          node_name: "X",
+          type: "assertion_regression",
+          delta: {},
+        },
+      ],
     };
     expect(() => WorkflowRegressionsResponseSchema.parse(input)).toThrow();
   });

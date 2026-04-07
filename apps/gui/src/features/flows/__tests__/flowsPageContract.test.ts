@@ -182,6 +182,14 @@ vi.mock("@/queries/workflows", () => ({
     mutateAsync: mocks.setWorkflowEnabled,
     isPending: false,
   }),
+  useWorkflowRegressions: () => ({
+    data: undefined,
+  }),
+}));
+
+vi.mock("@runsight/shared/zod", () => ({
+  WorkflowListResponseSchema: { parse: (v: unknown) => v },
+  WorkflowResponseSchema: { parse: (v: unknown) => v },
 }));
 
 vi.mock("@/components/shared/PageHeader", () => ({
@@ -573,9 +581,13 @@ beforeEach(() => {
 
 describe("RUN-426 FlowsPage tabs", () => {
   it("renders the New Workflow header action on /flows while the workflows tab is active", async () => {
-    const view = await renderFlowsPage();
+    console.log("BEFORE loadFlowsPageComponent");
+    const FlowsPage = await loadFlowsPageComponent();
+    console.log("AFTER loadFlowsPageComponent, BEFORE renderToStaticMarkup");
+    const html = renderToStaticMarkup(React.createElement(FlowsPage));
+    console.log("AFTER renderToStaticMarkup, html length:", html.length);
 
-    expect(view.html).toContain("New Workflow");
+    expect(html).toContain("New Workflow");
   });
 
   it("creates an empty workflow and navigates to /workflows/:id/edit from the header action", async () => {
