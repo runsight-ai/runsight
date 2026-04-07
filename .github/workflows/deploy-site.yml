@@ -35,9 +35,8 @@ jobs:
         run: pnpm site:build
 
       - name: Deploy to Cloudflare Pages
-        if: github.event_name == 'push' || github.event_name == 'pull_request'
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/site/dist --project-name=runsight-site
+        if: github.event_name == 'push'
+        run: npx wrangler pages deploy apps/site/dist --project-name=runsight-site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
