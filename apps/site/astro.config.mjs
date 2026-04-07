@@ -55,6 +55,24 @@ export default defineConfig({
 						{ label: 'Overview', slug: 'souls/overview' },
 					],
 				},
+				{
+					label: 'Tools',
+					items: [
+						{ label: 'Overview', slug: 'tools/overview' },
+						{ label: 'Custom Tools', slug: 'tools/custom-tools' },
+						{ label: 'Built-in Tools', slug: 'tools/built-in-tools' },
+						{ label: 'Dispatch & Delegate', slug: 'tools/dispatch-and-delegate' },
+					],
+				},
+				{
+					label: 'Evaluation',
+					items: [
+						{ label: 'Assertions', slug: 'evaluation/assertions' },
+						{ label: 'Transform Hooks', slug: 'evaluation/transform-hooks' },
+						{ label: 'Eval Test Harness', slug: 'evaluation/eval-test-harness' },
+						{ label: 'Regressions', slug: 'evaluation/regressions' },
+					],
+				},
 			],
 			customCss: ['./src/styles/custom.css'],
 			plugins: [
