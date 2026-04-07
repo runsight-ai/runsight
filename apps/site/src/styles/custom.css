@@ -55,6 +55,13 @@
 	--sl-color-black: hsl(40, 15%, 97%);
 }
 
+/* ── Logo ── */
+
+.site-title img {
+	height: 1.5rem;
+	width: auto;
+}
+
 /* ── Semantic Overrides ── */
 
 /* Code blocks — warmer syntax feel */

@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && mkdir -p .dist-wrap/docs && mv dist/* .dist-wrap/docs/ && rm -rf dist && mv .dist-wrap dist",
+    "build": "astro build && mkdir -p .dist-wrap/docs && mv dist/* .dist-wrap/docs/ && rm -rf dist && mv .dist-wrap dist && cp apps-site-root/* dist/ 2>/dev/null || true",
     "preview": "astro preview"
   },
   "dependencies": {
