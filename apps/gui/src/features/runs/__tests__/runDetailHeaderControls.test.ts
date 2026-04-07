@@ -51,22 +51,29 @@ function LocationEcho() {
 function buildRun({
   status = "completed",
   workflowId = "wf_research",
+  source = "manual",
 }: {
   status?: RunStatus;
   workflowId?: string | null;
+  source?: "manual" | "simulation";
 } = {}) {
   return {
     id: "run_123456",
     workflow_id: workflowId ?? undefined,
     workflow_name: "Research & Review",
     status,
+    source,
     commit_sha: "abc123def456",
     total_cost_usd: 0.123,
     total_tokens: 456,
   };
 }
 
-function renderHeader(options?: { status?: RunStatus; workflowId?: string | null }) {
+function renderHeader(options?: {
+  status?: RunStatus;
+  workflowId?: string | null;
+  source?: "manual" | "simulation";
+}) {
   const run = buildRun(options);
   const router = createMemoryRouter(
     [
@@ -157,15 +164,38 @@ describe("Run detail header controls (RUN-510)", () => {
   });
 
   it("shows a live cancel control for active runs and calls the cancel mutation", async () => {
-    const { user } = renderHeader({ status: "running" });
+    const { router, user } = renderHeader({ status: "running" });
 
     expect(screen.getByRole("button", { name: /cancel run/i })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /open workflow/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /open workflow/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Fork" })).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: /cancel run/i }));
 
     expect(mocks.cancelRun).toHaveBeenCalledWith("run_123456");
+
+    await user.click(screen.getByRole("button", { name: /open workflow/i }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
+      expect(router.state.location.search).toBe("");
+    });
+  });
+
+  it("opens the workflow editor with a snapshot overlay when launched from a simulation run", async () => {
+    const { router, user } = renderHeader({ status: "running", source: "simulation" });
+
+    expect(screen.getByRole("button", { name: /cancel run/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /open workflow/i })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /open workflow/i }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/workflows/wf_research/edit");
+      expect(router.state.location.search).toContain("overlayRef=abc123def456");
+      expect(router.state.location.search).toContain("overlaySource=simulation");
+    });
+    expect(mocks.forkWorkflow).not.toHaveBeenCalled();
   });
 
   it("opens the new forked workflow editor after forking from a run", async () => {

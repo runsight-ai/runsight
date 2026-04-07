@@ -16,25 +16,26 @@ interface YamlEditorProps {
 export function YamlEditor({ workflowId, yaml: yamlProp, readOnly = false, onDirtyChange, onValidation }: YamlEditorProps) {
   const { data: workflow } = useWorkflow(workflowId ?? "");
   const resolvedYaml = yamlProp ?? workflow?.yaml ?? "";
+  const [editorYaml, setEditorYaml] = useState(resolvedYaml);
   const [isDirty, setIsDirty] = useState(false);
   const contentRef = useRef(resolvedYaml);
   const { validate, setEditorRefs } = useYamlValidation(onValidation);
 
   useEffect(() => {
+    setEditorYaml(resolvedYaml);
+    contentRef.current = resolvedYaml;
+    setIsDirty(false);
+
     if (yamlProp != null) {
-      contentRef.current = yamlProp;
-      setIsDirty(false);
       useCanvasStore.getState().setYamlContent(yamlProp);
       useCanvasStore.getState().markSaved();
       return;
     }
     if (workflow?.yaml != null) {
-      contentRef.current = workflow.yaml;
-      setIsDirty(false);
       useCanvasStore.getState().setYamlContent(workflow.yaml);
       useCanvasStore.getState().markSaved();
     }
-  }, [yamlProp, workflow?.yaml]);
+  }, [resolvedYaml, yamlProp, workflow?.yaml]);
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -49,7 +50,9 @@ export function YamlEditor({ workflowId, yaml: yamlProp, readOnly = false, onDir
   }
 
   function onChange(value: string | undefined) {
-    contentRef.current = value ?? "";
+    const nextValue = value ?? "";
+    contentRef.current = nextValue;
+    setEditorYaml(nextValue);
     setIsDirty(true);
     validate(contentRef.current);
     useCanvasStore.getState().setYamlContent(contentRef.current);
@@ -60,7 +63,7 @@ export function YamlEditor({ workflowId, yaml: yamlProp, readOnly = false, onDir
       <LazyMonacoEditor
         language="yaml"
         theme="runsight-yaml"
-        value={resolvedYaml}
+        value={editorYaml}
         height="100%"
         onChange={onChange}
         onMount={onMount}
