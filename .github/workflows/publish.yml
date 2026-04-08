@@ -91,14 +91,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: pip install build
+      - run: pip install build hatchling setuptools
       - run: python -m build packages/core -o dist/
       - name: Build runsight wheel (with bundled frontend)
         run: |
-          python -m build --wheel apps/api -o dist/
-          python -m build --sdist apps/api -o dist/
+          python -m build --no-isolation --wheel apps/api -o dist/
+          python -m build --no-isolation --sdist apps/api -o dist/
           echo "--- Wheel contents (static check) ---"
-          python -c "import zipfile,glob; whl=glob.glob('dist/runsight-*.whl')[0]; files=[f for f in zipfile.ZipFile(whl).namelist() if 'static' in f]; print(f'{len(files)} static files in wheel'); [print(f) for f in files[:5]]"
+          python -c "import zipfile,glob; whl=glob.glob('dist/runsight-*.whl')[0]; files=[f for f in zipfile.ZipFile(whl).namelist() if 'static' in f]; print(f'{len(files)} static files in wheel'); assert len(files) > 10, 'Frontend not bundled!'"
 
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
