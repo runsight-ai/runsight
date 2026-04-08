@@ -1,0 +1,67 @@
+---
+title: First-Time Setup
+description: What Runsight creates on first launch and how to configure your API keys.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+## Project scaffolding
+
+When Runsight starts for the first time, the API server creates the project structure automatically:
+
+<Steps>
+
+1. **Directories and marker file.** Runsight creates `custom/workflows/` and `custom/souls/`, plus a `.runsight-project` marker file and a `.gitignore` that excludes `.runsight/` and `.canvas/`.
+
+2. **Git initialization.** If no `.git` directory exists, Runsight runs `git init`, sets a local git user (`runsight@localhost`), stages the scaffolded files, and creates an initial commit.
+
+3. **Settings file.** `.runsight/settings.yaml` is created with `onboarding_completed: false`. See [Settings](/docs/configuration/settings) for the full reference.
+
+</Steps>
+
+## API key setup
+
+Runsight needs an API key for at least one LLM provider before you can run workflows.
+
+**Environment variables are checked first.** If you already have a key exported in your shell, Runsight picks it up automatically -- no further configuration needed:
+
+```bash
+export OPENAI_API_KEY=sk-...
+```
+
+If no environment variable is found, Runsight checks `.runsight/secrets.env`. This file is created when you add a provider through the Settings page. The resolution order is:
+
+1. `os.environ` (real environment variable)
+2. `.runsight/secrets.env` (managed by Runsight, gitignored)
+
+Provider YAML files in `custom/providers/` store references like `${OPENAI_API_KEY}`, never raw keys.
+
+## Provider configuration
+
+Once your API key is available, configure a provider through **Settings > Providers > Add Provider** in the sidebar. Runsight auto-tests the connection and populates the model list on success.
+
+See [Providers](/docs/configuration/providers) for supported providers, storage format, and how souls reference them.
+
+## Project directory after setup
+
+```
+your-project/
+├── .git/                    # Auto-initialized git repo
+├── .gitignore               # Excludes .runsight/ and .canvas/
+├── .runsight-project        # Project marker file
+├── .runsight/               # Gitignored runtime data
+│   ├── settings.yaml        # App settings
+│   └── secrets.env          # API keys (gitignored)
+└── custom/
+    ├── providers/            # Provider YAML files
+    ├── souls/                # Soul definitions
+    └── workflows/            # Workflow definitions
+```
+
+## Next steps
+
+- [Providers](/docs/configuration/providers) -- add and manage LLM providers
+- [Quickstart](/docs/getting-started/quickstart) -- create and run your first workflow
+- [Settings](/docs/configuration/settings) -- full settings.yaml reference
+
+{/* Linear: RUN-352, RUN-738 — last verified against codebase 2026-04-07 */}
