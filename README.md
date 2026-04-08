@@ -8,7 +8,9 @@
 [![docs](https://img.shields.io/badge/docs-runsight.ai-orange)](https://runsight.ai/docs)
 [![GitHub stars](https://img.shields.io/github/stars/runsight-ai/runsight)](https://github.com/runsight-ai/runsight)
 
-<!-- TODO: demo GIF — record with VHS once UI is stable -->
+<p align="center">
+  <img src="assets/demo.gif" alt="Runsight — visual workflow builder for AI agents" width="640">
+</p>
 
 Runsight runs AI agent workflows defined in plain YAML files on your filesystem. Every workflow, soul (agent identity), and tool definition is a diffable file in your repo. Save writes to disk. Commit pushes to git. Runs track which commit produced them. No database for workflow definitions — just files and git.
 
