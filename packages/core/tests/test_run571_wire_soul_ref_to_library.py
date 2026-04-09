@@ -2,7 +2,7 @@
 Failing tests for RUN-571: Wire ``soul_ref`` to library discovery.
 
 After implementation:
-1. ``parse_workflow_yaml()`` calls ``_discover_souls(custom/souls/)`` to build souls_map
+1. ``parse_workflow_yaml()`` calls ``SoulScanner(custom).scan().stems()`` to build souls_map
 2. ``soul_ref`` in linear, gate, synthesize, and dispatch blocks resolves against library souls
 3. Missing soul produces error with available souls listed and guidance to create the file
 4. Discovery is called once per parse (not per block)
@@ -443,16 +443,12 @@ class TestDiscoveryCalledOnce:
                       to: null
                 """,
             )
-            from runsight_core.yaml import discovery as discovery_module
-
-            original_discover = discovery_module._discover_souls
-            with patch.object(
-                discovery_module,
-                "_discover_souls",
-                wraps=original_discover,
-            ) as mock_discover:
+            with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
+                mock_scanner.return_value.scan.return_value.stems.return_value = self._souls_map()
                 parse_workflow_yaml(path)
-                assert mock_discover.call_count == 1
+                mock_scanner.assert_called_once()
+                mock_scanner.return_value.scan.assert_called_once()
+                mock_scanner.return_value.scan.return_value.stems.assert_called_once()
 
 
 # ===========================================================================

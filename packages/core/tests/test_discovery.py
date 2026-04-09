@@ -201,29 +201,33 @@ class TestDiscoverSouls:
     """Tests for soul discovery from YAML files."""
 
     def test_discover_souls_empty_directory(self):
-        """AC-1: Empty souls directory returns empty dict."""
+        """AC-1: Empty custom/souls directory returns empty dict."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            custom_dir = Path(tmpdir)
-            souls_dir = custom_dir / "souls"
-            souls_dir.mkdir()
+            base_dir = Path(tmpdir)
+            souls_dir = base_dir / "custom" / "souls"
+            souls_dir.mkdir(parents=True)
 
-            _, souls, _ = discover_custom_assets(custom_dir)
+            from runsight_core.yaml.discovery._base import SoulScanner
+
+            souls = SoulScanner(base_dir).scan().stems()
             assert souls == {}
 
     def test_discover_souls_nonexistent_directory(self):
-        """AC-2: Nonexistent souls directory returns empty dict (no exception)."""
+        """AC-2: Nonexistent custom/souls directory returns empty dict (no exception)."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            custom_dir = Path(tmpdir)
+            base_dir = Path(tmpdir)
 
-            _, souls, _ = discover_custom_assets(custom_dir)
+            from runsight_core.yaml.discovery._base import SoulScanner
+
+            souls = SoulScanner(base_dir).scan().stems()
             assert souls == {}
 
     def test_discover_single_soul(self):
-        """AC-3: Discover a single Soul from a YAML file."""
+        """AC-3: Discover a single Soul from a custom/souls YAML file."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            custom_dir = Path(tmpdir)
-            souls_dir = custom_dir / "souls"
-            souls_dir.mkdir()
+            base_dir = Path(tmpdir)
+            souls_dir = base_dir / "custom" / "souls"
+            souls_dir.mkdir(parents=True)
 
             soul_file = souls_dir / "custom_soul.yaml"
             soul_file.write_text(
@@ -234,7 +238,9 @@ class TestDiscoverSouls:
                 """)
             )
 
-            _, souls, _ = discover_custom_assets(custom_dir)
+            from runsight_core.yaml.discovery._base import SoulScanner
+
+            souls = SoulScanner(base_dir).scan().stems()
 
             assert "custom_soul" in souls
             assert isinstance(souls["custom_soul"], Soul)
@@ -242,11 +248,11 @@ class TestDiscoverSouls:
             assert souls["custom_soul"].role == "Custom Researcher"
 
     def test_discover_multiple_souls(self):
-        """AC-4: Discover multiple Souls from different YAML files."""
+        """AC-4: Discover multiple Souls from different custom/souls YAML files."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            custom_dir = Path(tmpdir)
-            souls_dir = custom_dir / "souls"
-            souls_dir.mkdir()
+            base_dir = Path(tmpdir)
+            souls_dir = base_dir / "custom" / "souls"
+            souls_dir.mkdir(parents=True)
 
             (souls_dir / "soul_a.yaml").write_text(
                 dedent("""
@@ -264,7 +270,9 @@ class TestDiscoverSouls:
                 """)
             )
 
-            _, souls, _ = discover_custom_assets(custom_dir)
+            from runsight_core.yaml.discovery._base import SoulScanner
+
+            souls = SoulScanner(base_dir).scan().stems()
 
             assert len(souls) == 2
             assert "soul_a" in souls
@@ -273,9 +281,9 @@ class TestDiscoverSouls:
     def test_discover_soul_with_tools(self):
         """AC-5: Discover Soul with optional tools field."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            custom_dir = Path(tmpdir)
-            souls_dir = custom_dir / "souls"
-            souls_dir.mkdir()
+            base_dir = Path(tmpdir)
+            souls_dir = base_dir / "custom" / "souls"
+            souls_dir.mkdir(parents=True)
 
             soul_file = souls_dir / "soul_with_tools.yaml"
             soul_file.write_text(
@@ -288,11 +296,42 @@ class TestDiscoverSouls:
                 """)
             )
 
-            _, souls, _ = discover_custom_assets(custom_dir)
+            from runsight_core.yaml.discovery._base import SoulScanner
+
+            souls = SoulScanner(base_dir).scan().stems()
 
             assert "soul_with_tools" in souls
             assert souls["soul_with_tools"].tools is not None
             assert len(souls["soul_with_tools"].tools) == 1
+
+    def test_discover_soul_ignores_inline_override_keys(self):
+        """AC-6: ignore_keys filters stems that are overridden inline."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            souls_dir = base_dir / "custom" / "souls"
+            souls_dir.mkdir(parents=True)
+
+            (souls_dir / "overridden_soul.yaml").write_text(
+                dedent("""
+                id: overridden_soul_1
+                role: Overridden Soul
+                system_prompt: This should be ignored when overridden inline.
+                """)
+            )
+            (souls_dir / "kept_soul.yaml").write_text(
+                dedent("""
+                id: kept_soul_1
+                role: Kept Soul
+                system_prompt: This should remain visible.
+                """)
+            )
+
+            from runsight_core.yaml.discovery._base import SoulScanner
+
+            souls = SoulScanner(base_dir).scan(ignore_keys={"overridden_soul"}).stems()
+
+            assert "overridden_soul" not in souls
+            assert "kept_soul" in souls
 
 
 class TestDiscoverWorkflows:

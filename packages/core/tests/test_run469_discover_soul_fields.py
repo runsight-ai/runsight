@@ -4,15 +4,13 @@ import tempfile
 from pathlib import Path
 from textwrap import dedent
 
-from runsight_core.yaml.discovery import discover_custom_assets
-
 
 class TestDiscoverSoulFieldPreservation:
     def test_discover_soul_preserves_extended_fields(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            custom_dir = Path(tmpdir)
-            souls_dir = custom_dir / "souls"
-            souls_dir.mkdir()
+            base_dir = Path(tmpdir)
+            souls_dir = base_dir / "custom" / "souls"
+            souls_dir.mkdir(parents=True)
 
             (souls_dir / "extended_soul.yaml").write_text(
                 dedent("""
@@ -30,7 +28,9 @@ class TestDiscoverSoulFieldPreservation:
                 """)
             )
 
-            _, souls, _ = discover_custom_assets(custom_dir)
+            from runsight_core.yaml.discovery._base import SoulScanner
+
+            souls = SoulScanner(base_dir).scan().stems()
             soul = souls["extended_soul"]
 
             assert soul.tools == ["web_search"]
@@ -43,9 +43,9 @@ class TestDiscoverSoulFieldPreservation:
 
     def test_discover_soul_missing_optional_fields_uses_defaults(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            custom_dir = Path(tmpdir)
-            souls_dir = custom_dir / "souls"
-            souls_dir.mkdir()
+            base_dir = Path(tmpdir)
+            souls_dir = base_dir / "custom" / "souls"
+            souls_dir.mkdir(parents=True)
 
             (souls_dir / "minimal_soul.yaml").write_text(
                 dedent("""
@@ -55,7 +55,9 @@ class TestDiscoverSoulFieldPreservation:
                 """)
             )
 
-            _, souls, _ = discover_custom_assets(custom_dir)
+            from runsight_core.yaml.discovery._base import SoulScanner
+
+            souls = SoulScanner(base_dir).scan().stems()
             soul = souls["minimal_soul"]
 
             assert soul.max_tool_iterations == 5
@@ -67,9 +69,9 @@ class TestDiscoverSoulFieldPreservation:
 
     def test_discover_soul_missing_required_fields_raises_file_specific_error(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            custom_dir = Path(tmpdir)
-            souls_dir = custom_dir / "souls"
-            souls_dir.mkdir()
+            base_dir = Path(tmpdir)
+            souls_dir = base_dir / "custom" / "souls"
+            souls_dir.mkdir(parents=True)
 
             (souls_dir / "valid_soul.yaml").write_text(
                 dedent("""
@@ -86,9 +88,11 @@ class TestDiscoverSoulFieldPreservation:
                 """)
             )
 
+            from runsight_core.yaml.discovery._base import SoulScanner
+
             try:
-                discover_custom_assets(custom_dir)
-                raise AssertionError("discover_custom_assets() should fail for invalid soul files")
+                SoulScanner(base_dir).scan()
+                raise AssertionError("SoulScanner.scan() should fail for invalid soul files")
             except ValueError as exc:
                 message = str(exc)
 
@@ -97,9 +101,9 @@ class TestDiscoverSoulFieldPreservation:
 
     def test_discover_soul_ignores_unknown_extra_keys(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            custom_dir = Path(tmpdir)
-            souls_dir = custom_dir / "souls"
-            souls_dir.mkdir()
+            base_dir = Path(tmpdir)
+            souls_dir = base_dir / "custom" / "souls"
+            souls_dir.mkdir(parents=True)
 
             (souls_dir / "future_soul.yaml").write_text(
                 dedent("""
@@ -111,7 +115,32 @@ class TestDiscoverSoulFieldPreservation:
                 """)
             )
 
-            _, souls, _ = discover_custom_assets(custom_dir)
+            from runsight_core.yaml.discovery._base import SoulScanner
+
+            souls = SoulScanner(base_dir).scan().stems()
             soul = souls["future_soul"]
 
             assert soul.provider == "anthropic"
+
+    def test_discover_empty_soul_yaml_is_skipped(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            souls_dir = base_dir / "custom" / "souls"
+            souls_dir.mkdir(parents=True)
+
+            (souls_dir / "empty_soul.yaml").write_text("", encoding="utf-8")
+            (souls_dir / "loaded_soul.yaml").write_text(
+                dedent("""
+                id: loaded_1
+                role: Loaded Soul
+                system_prompt: Still loads.
+                """),
+                encoding="utf-8",
+            )
+
+            from runsight_core.yaml.discovery._base import SoulScanner
+
+            souls = SoulScanner(base_dir).scan().stems()
+
+            assert "empty_soul" not in souls
+            assert "loaded_soul" in souls

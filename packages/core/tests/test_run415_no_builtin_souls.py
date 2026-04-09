@@ -41,7 +41,8 @@ workflow:
     - from: linear_block
       to: null
 """
-        with patch("runsight_core.yaml.parser._discovery_module._discover_souls", return_value={}):
+        with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
+            mock_scanner.return_value.scan.return_value.stems.return_value = {}
             with pytest.raises(ValueError, match="researcher"):
                 parse_workflow_yaml(yaml_content)
 
@@ -61,7 +62,8 @@ workflow:
     - from: linear_block
       to: null
 """
-        with patch("runsight_core.yaml.parser._discovery_module._discover_souls", return_value={}):
+        with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
+            mock_scanner.return_value.scan.return_value.stems.return_value = {}
             with pytest.raises(ValueError, match="reviewer"):
                 parse_workflow_yaml(yaml_content)
 
@@ -99,6 +101,7 @@ workflow:
     - from: linear_block
       to: null
 """
-        with patch("runsight_core.yaml.parser._discovery_module._discover_souls", return_value={}):
+        with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
+            mock_scanner.return_value.scan.return_value.stems.return_value = {}
             with pytest.raises(ValueError, match=soul_name):
                 parse_workflow_yaml(yaml_content)
