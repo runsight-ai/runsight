@@ -33,6 +33,8 @@ __path__ = [str(Path(__file__).with_name("discovery"))]
 if __spec__ is not None:
     __spec__.submodule_search_locations = __path__
 
+from runsight_core.yaml.discovery._base import BaseScanner, ScanIndex
+
 
 @dataclass
 class ToolMeta:
@@ -95,6 +97,54 @@ def _fail_tool_file(yaml_file: Path, message: str) -> ValueError:
 
 def _fail_soul_file(yaml_file: Path, message: str) -> ValueError:
     return ValueError(f"{yaml_file.name}: {message}")
+
+
+class SoulScanner(BaseScanner[Soul]):
+    """Scanner for soul YAML files."""
+
+    def __init__(
+        self,
+        base_dir: str | Path,
+        *,
+        souls_subdir: str = "custom/souls",
+    ) -> None:
+        super().__init__(base_dir)
+        self._souls_subdir = souls_subdir
+
+    @property
+    def asset_subdir(self) -> str:
+        return self._souls_subdir
+
+    def _parse_file(self, path: Path, raw_yaml: str) -> Soul:
+        try:
+            soul_data = yaml.safe_load(raw_yaml)
+        except yaml.YAMLError as exc:
+            raise _fail_soul_file(path, "malformed YAML") from exc
+
+        try:
+            return Soul.model_validate(soul_data)
+        except ValidationError as exc:
+            raise _fail_soul_file(path, str(exc)) from exc
+
+    def _glob_yaml_files(self, directory: Path) -> list[Path]:
+        # Keep historical discovery behavior: souls are discovered only from *.yaml files.
+        return sorted(directory.glob("*.yaml"), key=lambda path: path.name)
+
+    def scan(
+        self,
+        *,
+        ignore_keys: Collection[str] | None = None,
+        git_ref: str | None = None,
+        git_service: Any = None,
+    ) -> ScanIndex[Soul]:
+        index = super().scan(git_ref=git_ref, git_service=git_service)
+        ignored_soul_keys = set(ignore_keys or ())
+        if not ignored_soul_keys:
+            return index
+
+        for soul_key in sorted(ignored_soul_keys & set(index.stems())):
+            logger.warning("Inline soul '%s' overrides external soul file", soul_key)
+        return index.without_stems(ignored_soul_keys)
 
 
 def _require_string(raw: dict[str, Any], key: str, *, yaml_file: Path) -> str:
@@ -327,59 +377,6 @@ def _discover_blocks(blocks_dir: Path) -> Dict[str, type]:
     return blocks
 
 
-def _discover_souls(
-    souls_dir: Path,
-    *,
-    ignore_keys: Collection[str] | None = None,
-) -> Dict[str, Soul]:
-    """
-    Discover and load all Soul definitions from YAML files in souls_dir.
-
-    Expected YAML structure per file:
-        id: soul_id
-        role: Soul Role
-        system_prompt: Prompt text
-        tools: [...]  # optional
-
-    Args:
-        souls_dir: Path to custom/souls/ directory.
-
-    Returns:
-        Dict mapping soul key (from filename stem) to Soul object.
-        Returns empty dict if souls_dir doesn't exist.
-    """
-    souls: Dict[str, Soul] = {}
-
-    if not souls_dir.exists():
-        return souls
-
-    ignored_soul_keys = set(ignore_keys or ())
-
-    for yaml_file in souls_dir.glob("*.yaml"):
-        soul_key = yaml_file.stem
-        if soul_key in ignored_soul_keys:
-            logger.warning("Inline soul '%s' overrides external soul file", soul_key)
-            continue
-
-        try:
-            with open(yaml_file, "r", encoding="utf-8") as f:
-                soul_data = yaml.safe_load(f)
-        except (OSError, yaml.YAMLError) as exc:
-            raise _fail_soul_file(yaml_file, "malformed YAML") from exc
-
-        if soul_data is None:
-            continue
-
-        try:
-            soul = Soul.model_validate(soul_data)
-        except ValidationError as exc:
-            raise _fail_soul_file(yaml_file, str(exc)) from exc
-
-        souls[soul_key] = soul
-
-    return souls
-
-
 def _discover_workflows(workflows_dir: Path) -> Dict[str, Workflow]:
     """
     Discover and parse all Workflow definitions from YAML files in workflows_dir.
@@ -448,7 +445,7 @@ def discover_custom_assets(
 
     # Discover each asset type
     blocks = _discover_blocks(custom_path / "blocks")
-    souls = _discover_souls(custom_path / "souls")
+    souls = SoulScanner(custom_path, souls_subdir="souls").scan().stems()
     workflows = _discover_workflows(custom_path / "workflows")
 
     return blocks, souls, workflows

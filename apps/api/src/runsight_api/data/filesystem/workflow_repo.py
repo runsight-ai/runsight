@@ -21,9 +21,9 @@ from urllib.parse import unquote
 import yaml as yaml_mod
 from ruamel.yaml import YAML
 from pydantic import ValidationError as PydanticValidationError
+from runsight_core.yaml.discovery import SoulScanner
 from runsight_core.yaml.parser import (
     _validate_declared_tool_definitions,
-    _discovery_module,
     validate_workflow_call_contracts,
     validate_tool_governance,
 )
@@ -343,8 +343,7 @@ class WorkflowRepository:
             if not isinstance(data, dict):
                 return False, "YAML content is not a mapping"
             file_def = RunsightWorkflowFile.model_validate(data)
-            souls_dir = Path(self.base_path) / "custom" / "souls"
-            souls_map = _discovery_module._discover_souls(souls_dir)
+            souls_map = SoulScanner(self.base_path).scan().stems()
             validate_tool_governance(file_def, souls_map)
             _validate_declared_tool_definitions(
                 file_def,

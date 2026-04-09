@@ -25,8 +25,7 @@ from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
-from runsight_core.yaml import discovery as _discovery_module
-from runsight_core.yaml.discovery import discover_custom_tools
+from runsight_core.yaml.discovery import SoulScanner, discover_custom_tools
 from runsight_core.yaml.schema import (
     CaseDef,
     ConditionDef,
@@ -97,7 +96,8 @@ def _discover_external_souls(
     inline_soul_keys: Collection[str],
 ) -> Dict[str, Soul]:
     """Discover external soul files through the shared discovery seam."""
-    return _discovery_module._discover_souls(souls_dir, ignore_keys=inline_soul_keys)
+    base_dir = souls_dir.parent.parent
+    return SoulScanner(base_dir).scan(ignore_keys=inline_soul_keys).stems()
 
 
 def _normalize_depends(depends: str | list[str] | None) -> list[str]:
