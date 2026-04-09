@@ -29,6 +29,10 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul
 from runsight_core.workflow import Workflow
 
+__path__ = [str(Path(__file__).with_name("discovery"))]
+if __spec__ is not None:
+    __spec__.submodule_search_locations = __path__
+
 
 @dataclass
 class ToolMeta:
