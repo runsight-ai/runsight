@@ -267,7 +267,7 @@ export function getCanvasYamlToggleVisibility(mode: WorkflowSurfaceMode): {
     case "sim":
       return { canvas: true, yaml: false };
     case "readonly":
-      return { canvas: false, yaml: false };
+      return { canvas: true, yaml: true };
     case "edit":
       return { canvas: true, yaml: true };
   }
