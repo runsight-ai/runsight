@@ -111,12 +111,47 @@ function installCanvasBottomPanelMock() {
     CanvasBottomPanel: (props: {
       executionSummary?: { tone: "success" | "danger"; text: string };
     }) => {
+      const [activeTab, setActiveTab] = React.useState<"logs" | "runs" | "regressions">("logs");
+
       harness.bottomPanelProps.push(props);
+
+      const bannerToneClass =
+        props.executionSummary?.tone === "success"
+          ? "bg-success-3 border-success-7 text-success-11"
+          : props.executionSummary?.tone === "danger"
+            ? "bg-danger-3 border-danger-7 text-danger-11"
+            : "";
 
       return (
         <div data-testid="canvas-bottom-panel">
-          {props.executionSummary ? (
-            <div data-testid="execution-summary">{props.executionSummary.text}</div>
+          <div role="tablist">
+            <button data-testid="workflow-logs-tab" role="tab" onClick={() => setActiveTab("logs")}>
+              Logs
+            </button>
+            <button data-testid="workflow-runs-tab" role="tab" onClick={() => setActiveTab("runs")}>
+              Runs
+            </button>
+            <button
+              data-testid="workflow-regressions-tab"
+              role="tab"
+              onClick={() => setActiveTab("regressions")}
+            >
+              Regressions
+            </button>
+          </div>
+          {activeTab === "logs" ? (
+            <div data-testid="workflow-logs-panel">
+              {props.executionSummary ? (
+                <div
+                  data-testid="execution-summary-banner"
+                  role="status"
+                  data-tone={props.executionSummary.tone}
+                  className={bannerToneClass}
+                >
+                  {props.executionSummary.text}
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </div>
       );
@@ -168,7 +203,7 @@ async function loadWorkflowSurface() {
 
 async function loadCanvasBottomPanel() {
   vi.resetModules();
-  vi.unmock("../CanvasBottomPanel");
+  vi.doUnmock("../CanvasBottomPanel");
 
   vi.doMock("@tanstack/react-query", () => ({
     useQueryClient: () => harness.queryClient,
@@ -274,19 +309,27 @@ beforeEach(() => {
 
 describe("WorkflowSurface bottom panel consolidation (RUN-780)", () => {
   it("passes a green completed summary into the shared bottom panel for readonly runs", async () => {
+    const user = userEvent.setup();
     setReadonlyRun("completed");
     const { WorkflowSurface } = await loadWorkflowSurface();
 
-    render(
+  render(
       <MemoryRouter>
         <WorkflowSurface mode="readonly" runId="run_780" workflowId="wf_780" />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Run completed in 75s")).toBeTruthy();
+    const bottomPanel = screen.getByTestId("canvas-bottom-panel");
+    await user.click(within(bottomPanel).getByTestId("workflow-logs-tab"));
+
+    const banner = within(bottomPanel).getByTestId("execution-summary-banner");
+    expect(banner.getAttribute("data-tone")).toBe("success");
+    expect(banner.textContent).toContain("Run completed in 75s");
+    expect(banner.className).toContain("bg-success-3");
   });
 
   it("passes a red failed summary into the shared bottom panel for readonly runs", async () => {
+    const user = userEvent.setup();
     setReadonlyRun("failed");
     const { WorkflowSurface } = await loadWorkflowSurface();
 
@@ -296,7 +339,13 @@ describe("WorkflowSurface bottom panel consolidation (RUN-780)", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Run failed")).toBeTruthy();
+    const bottomPanel = screen.getByTestId("canvas-bottom-panel");
+    await user.click(within(bottomPanel).getByTestId("workflow-logs-tab"));
+
+    const banner = within(bottomPanel).getByTestId("execution-summary-banner");
+    expect(banner.getAttribute("data-tone")).toBe("danger");
+    expect(banner.textContent).toContain("Run failed");
+    expect(banner.className).toContain("bg-danger-3");
   });
 
   it("does not render an execution summary banner in edit mode", async () => {
