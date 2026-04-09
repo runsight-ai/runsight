@@ -4,7 +4,7 @@ from typing import List
 
 from fastapi import APIRouter
 
-from runsight_core.yaml.discovery import discover_custom_tools
+from runsight_core.yaml.discovery import ToolScanner
 
 from ...core.config import settings
 from ...domain.errors import InputValidationError
@@ -35,7 +35,7 @@ async def list_tools() -> List[ToolListItemResponse]:
     items: List[ToolListItemResponse] = list(_USER_FACING_BUILTIN_TOOLS)
 
     try:
-        discovered_tools = discover_custom_tools(settings.base_path)
+        discovered_tools = ToolScanner(settings.base_path).scan().stems()
     except ValueError as exc:
         raise InputValidationError(str(exc)) from exc
 

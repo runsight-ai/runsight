@@ -104,12 +104,10 @@ workflow:
         }
         with (
             patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner,
-            patch(
-                "runsight_core.yaml.parser._discovery_module._discover_souls",
-                return_value=souls_map,
-            ),
+            patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner,
         ):
             mock_runner.return_value = Mock()
+            mock_scanner.return_value.scan.return_value.stems.return_value = souls_map
             parse_workflow_yaml(yaml_content)
 
         assert mock_runner.call_args is not None
@@ -142,12 +140,10 @@ workflow:
         }
         with (
             patch("runsight_core.yaml.parser.RunsightTeamRunner") as mock_runner,
-            patch(
-                "runsight_core.yaml.parser._discovery_module._discover_souls",
-                return_value=souls_map,
-            ),
+            patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner,
         ):
             mock_runner.return_value = Mock()
+            mock_scanner.return_value.scan.return_value.stems.return_value = souls_map
             parse_workflow_yaml(yaml_content)
 
         assert mock_runner.call_args is not None

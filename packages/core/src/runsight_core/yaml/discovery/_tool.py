@@ -1,33 +1,17 @@
-"""
-Auto-discovery engine for custom blocks, souls, tasks, and workflows.
-
-This module provides functionality to discover and load custom assets from a directory structure:
-- custom/blocks/: Python files containing BaseBlock subclasses
-- custom/souls/: YAML soul files
-- custom/tasks/: YAML task files (future use)
-- custom/workflows/: YAML workflow files
-
-Usage:
-    from runsight_core.yaml.discovery import discover_custom_assets
-    blocks, souls, workflows = discover_custom_assets(custom_dir="./custom")
-"""
-
 from __future__ import annotations
 
 import ast
-import importlib.util
 import logging
-import sys
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Collection, Dict, Tuple
+from typing import Any
 
 import yaml
-from pydantic import ValidationError
 
-from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Soul
-from runsight_core.workflow import Workflow
+from runsight_core.yaml.discovery._base import BaseScanner, ScanIndex, ScanResult
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -49,23 +33,10 @@ class ToolMeta:
 
 
 RESERVED_BUILTIN_TOOL_IDS = frozenset({"http", "file_io", "delegate"})
-logger = logging.getLogger(__name__)
 
 
-def _to_snake_case(name: str) -> str:
-    """
-    Convert CamelCase class name to snake_case identifier.
-
-    Examples:
-        MyBlock -> my_block
-        HTTPHandler -> h_t_t_p_handler
-    """
-    result = []
-    for i, char in enumerate(name):
-        if char.isupper() and i > 0:
-            result.append("_")
-        result.append(char.lower())
-    return "".join(result)
+def _fail_tool_file(yaml_file: Path, message: str) -> ValueError:
+    return ValueError(f"{yaml_file.name}: {message}")
 
 
 def _validate_tool_main_contract(code: str) -> None:
@@ -83,14 +54,6 @@ def _validate_tool_main_contract(code: str) -> None:
             return
 
     raise ValueError("Tool code must define 'def main(args)'")
-
-
-def _fail_tool_file(yaml_file: Path, message: str) -> ValueError:
-    return ValueError(f"{yaml_file.name}: {message}")
-
-
-def _fail_soul_file(yaml_file: Path, message: str) -> ValueError:
-    return ValueError(f"{yaml_file.name}: {message}")
 
 
 def _require_string(raw: dict[str, Any], key: str, *, yaml_file: Path) -> str:
@@ -158,39 +121,136 @@ def _normalize_request_config(yaml_file: Path, raw_request: dict[str, Any]) -> d
     }
 
 
-def discover_custom_tools(base_dir: str | Path) -> Dict[str, ToolMeta]:
-    """Discover custom tool metadata files from ``custom/tools/*.yaml``."""
-    base_path = Path(base_dir)
-    tools_dir = base_path / "custom" / "tools"
+class ToolScanner(BaseScanner[ToolMeta]):
+    """Scanner for custom tool metadata YAML files."""
 
-    if not tools_dir.exists():
-        return {}
+    def __init__(
+        self,
+        base_dir: str | Path,
+        *,
+        tools_subdir: str = "custom/tools",
+    ) -> None:
+        super().__init__(base_dir)
+        self._tools_subdir = tools_subdir
 
-    discovered: Dict[str, ToolMeta] = {}
+    @property
+    def asset_subdir(self) -> str:
+        return self._tools_subdir
 
-    for yaml_file in tools_dir.glob("*.yaml"):
+    def _glob_yaml_files(self, directory: Path) -> list[Path]:
+        # Keep historical behavior: tool discovery scans only *.yaml files.
+        return sorted(directory.glob("*.yaml"), key=lambda path: path.name)
+
+    def _parse_file(self, path: Path, raw_yaml: str) -> ToolMeta:
+        parsed = yaml.safe_load(raw_yaml)
+        if not isinstance(parsed, dict):
+            raise _fail_tool_file(path, "invalid tool metadata")
+        return self._parse_tool_mapping(path, parsed)
+
+    def _scan_yaml_content(self, path: Path, raw_yaml: str) -> ScanResult[ToolMeta] | None:
+        try:
+            parsed = yaml.safe_load(raw_yaml)
+        except yaml.YAMLError as exc:
+            raise _fail_tool_file(path, "malformed YAML") from exc
+
+        if not isinstance(parsed, dict):
+            raise _fail_tool_file(path, "invalid tool metadata")
+
+        item = self._parse_tool_mapping(path, parsed)
+        aliases = self._compute_aliases(path, item)
+        resolved = path.resolve()
+        try:
+            relative_path = resolved.relative_to(self.base_dir.resolve()).as_posix()
+        except ValueError:
+            relative_path = path.as_posix()
+        aliases.add(resolved.as_posix())
+        aliases.add(path.stem)
+        aliases.add(relative_path)
+        return ScanResult(
+            path=resolved,
+            stem=path.stem,
+            relative_path=relative_path,
+            item=item,
+            aliases=frozenset(aliases),
+        )
+
+    def _scan_filesystem(self) -> ScanIndex[ToolMeta]:
+        asset_dir = self.asset_dir
+        if not asset_dir.exists():
+            return ScanIndex()
+
+        results: list[ScanResult[ToolMeta]] = []
+        seen_stems: set[str] = set()
+        for yaml_file in self._glob_yaml_files(asset_dir):
+            if yaml_file.stem in seen_stems:
+                raise _fail_tool_file(
+                    yaml_file,
+                    f"duplicate custom tool id collision for {yaml_file.stem!r}",
+                )
+            seen_stems.add(yaml_file.stem)
+            result = self._scan_yaml_file(yaml_file)
+            if result is not None:
+                results.append(result)
+        return ScanIndex(results)
+
+    def _scan_git(self, git_ref: str, git_service: Any) -> ScanIndex[ToolMeta]:
+        command = [
+            "git",
+            "ls-tree",
+            "-r",
+            "--name-only",
+            git_ref,
+            "--",
+            f"{self.asset_subdir}/",
+        ]
+        result = subprocess.run(
+            command,
+            cwd=str(git_service.repo_path),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return ScanIndex()
+
+        results: list[ScanResult[ToolMeta]] = []
+        seen_stems: set[str] = set()
+        for line in result.stdout.splitlines():
+            candidate = line.strip()
+            if not candidate or not candidate.endswith(".yaml"):
+                continue
+            candidate_path = Path(candidate)
+            if candidate_path.stem in seen_stems:
+                raise _fail_tool_file(
+                    candidate_path,
+                    f"duplicate custom tool id collision for {candidate_path.stem!r}",
+                )
+            seen_stems.add(candidate_path.stem)
+            try:
+                raw_yaml = git_service.read_file(candidate, git_ref)
+            except Exception:
+                continue
+            result_item = self._scan_yaml_content(candidate_path, raw_yaml)
+            if result_item is not None:
+                results.append(result_item)
+        return ScanIndex(results)
+
+    def _parse_tool_mapping(self, yaml_file: Path, raw: dict[str, Any]) -> ToolMeta:
         tool_id = yaml_file.stem
         if tool_id in RESERVED_BUILTIN_TOOL_IDS:
-            collision_path = yaml_file
+            collision_path: Path | str = yaml_file
             try:
-                collision_path = yaml_file.relative_to(base_path)
+                collision_path = yaml_file.relative_to(self.base_dir)
             except ValueError:
-                pass
+                try:
+                    collision_path = yaml_file.resolve().relative_to(self.base_dir.resolve())
+                except ValueError:
+                    pass
             raise _fail_tool_file(
                 yaml_file,
                 f"reserved builtin tool id {tool_id!r} collides with custom tool metadata at "
                 f"{collision_path}",
             )
-        if tool_id in discovered:
-            raise _fail_tool_file(yaml_file, f"duplicate custom tool id collision for {tool_id!r}")
-
-        try:
-            raw = yaml.safe_load(yaml_file.read_text(encoding="utf-8"))
-        except (OSError, yaml.YAMLError) as exc:
-            raise _fail_tool_file(yaml_file, "malformed YAML") from exc
-
-        if not isinstance(raw, dict):
-            raise _fail_tool_file(yaml_file, "invalid tool metadata")
 
         allowed_fields = {
             "version",
@@ -259,7 +319,7 @@ def discover_custom_tools(base_dir: str | Path) -> Dict[str, ToolMeta]:
         else:
             raise _fail_tool_file(yaml_file, f"unknown executor {executor!r}")
 
-        discovered[tool_id] = ToolMeta(
+        return ToolMeta(
             tool_id=tool_id,
             file_path=yaml_file,
             version=version,
@@ -273,178 +333,3 @@ def discover_custom_tools(base_dir: str | Path) -> Dict[str, ToolMeta]:
             request=normalized_request,
             timeout_seconds=timeout_seconds,
         )
-
-    return discovered
-
-
-def _discover_blocks(blocks_dir: Path) -> Dict[str, type]:
-    """
-    Discover all BaseBlock subclasses in Python files under blocks_dir.
-
-    Args:
-        blocks_dir: Path to custom/blocks/ directory.
-
-    Returns:
-        Dict mapping snake_case block ID to BaseBlock subclass.
-        Returns empty dict if blocks_dir doesn't exist.
-    """
-    blocks: Dict[str, type] = {}
-
-    if not blocks_dir.exists():
-        return blocks
-
-    # Import all .py files in blocks_dir
-    for py_file in blocks_dir.glob("*.py"):
-        if py_file.name.startswith("_"):
-            continue  # Skip __init__.py and _private.py
-
-        # Dynamically load the module
-        spec = importlib.util.spec_from_file_location(py_file.stem, py_file)
-        if spec is None or spec.loader is None:
-            continue
-
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[py_file.stem] = module
-        spec.loader.exec_module(module)
-
-        # Find all BaseBlock subclasses in the module
-        for attr_name in dir(module):
-            attr = getattr(module, attr_name)
-            # Check if it's a class, subclass of BaseBlock, and not BaseBlock itself
-            if (
-                isinstance(attr, type)
-                and issubclass(attr, BaseBlock)
-                and attr is not BaseBlock
-                and attr.__module__ == module.__name__
-            ):
-                block_id = _to_snake_case(attr_name)
-                blocks[block_id] = attr
-
-    return blocks
-
-
-def _discover_souls(
-    souls_dir: Path,
-    *,
-    ignore_keys: Collection[str] | None = None,
-) -> Dict[str, Soul]:
-    """
-    Discover and load all Soul definitions from YAML files in souls_dir.
-
-    Expected YAML structure per file:
-        id: soul_id
-        role: Soul Role
-        system_prompt: Prompt text
-        tools: [...]  # optional
-
-    Args:
-        souls_dir: Path to custom/souls/ directory.
-
-    Returns:
-        Dict mapping soul key (from filename stem) to Soul object.
-        Returns empty dict if souls_dir doesn't exist.
-    """
-    souls: Dict[str, Soul] = {}
-
-    if not souls_dir.exists():
-        return souls
-
-    ignored_soul_keys = set(ignore_keys or ())
-
-    for yaml_file in souls_dir.glob("*.yaml"):
-        soul_key = yaml_file.stem
-        if soul_key in ignored_soul_keys:
-            logger.warning("Inline soul '%s' overrides external soul file", soul_key)
-            continue
-
-        try:
-            with open(yaml_file, "r", encoding="utf-8") as f:
-                soul_data = yaml.safe_load(f)
-        except (OSError, yaml.YAMLError) as exc:
-            raise _fail_soul_file(yaml_file, "malformed YAML") from exc
-
-        if soul_data is None:
-            continue
-
-        try:
-            soul = Soul.model_validate(soul_data)
-        except ValidationError as exc:
-            raise _fail_soul_file(yaml_file, str(exc)) from exc
-
-        souls[soul_key] = soul
-
-    return souls
-
-
-def _discover_workflows(workflows_dir: Path) -> Dict[str, Workflow]:
-    """
-    Discover and parse all Workflow definitions from YAML files in workflows_dir.
-
-    Args:
-        workflows_dir: Path to custom/workflows/ directory.
-
-    Returns:
-        Dict mapping workflow key (from filename stem) to Workflow object.
-        Returns empty dict if workflows_dir doesn't exist.
-
-    Raises:
-        ValueError: If workflow parsing fails.
-        yaml.YAMLError: If YAML is malformed.
-    """
-    workflows: Dict[str, Workflow] = {}
-
-    if not workflows_dir.exists():
-        return workflows
-
-    from runsight_core.yaml.parser import parse_workflow_yaml
-
-    for yaml_file in workflows_dir.glob("*.yaml"):
-        workflow_key = yaml_file.stem
-
-        with open(yaml_file, "r", encoding="utf-8") as f:
-            workflow_yaml = f.read()
-
-        workflow = parse_workflow_yaml(workflow_yaml)
-        workflows[workflow_key] = workflow
-
-    return workflows
-
-
-def discover_custom_assets(
-    custom_dir: str | Path = "custom",
-) -> Tuple[Dict[str, type], Dict[str, Soul], Dict[str, Workflow]]:
-    """
-    Auto-discover and load custom blocks, souls, and workflows from a directory.
-
-    Expected directory structure:
-        custom/
-          blocks/         # Python files with BaseBlock subclasses
-          souls/          # YAML soul definitions
-          tasks/          # YAML task definitions (future use)
-          workflows/      # YAML workflow definitions
-
-    Args:
-        custom_dir: Root directory containing custom assets (default: "custom").
-                   Can be absolute or relative path.
-                   Returns empty maps if directory doesn't exist.
-
-    Returns:
-        Tuple of three dicts:
-        - blocks: {snake_case_id: BaseBlock subclass}
-        - souls: {soul_key: Soul}
-        - workflows: {workflow_key: Workflow}
-
-        Each dict is empty if the corresponding subdirectory doesn't exist.
-
-    Raises:
-        ValueError: If workflow YAML parsing fails.
-        yaml.YAMLError: If any YAML is malformed.
-    """
-    custom_path = Path(custom_dir)
-
-    # Discover each asset type
-    blocks = _discover_blocks(custom_path / "blocks")
-    souls = _discover_souls(custom_path / "souls")
-    workflows = _discover_workflows(custom_path / "workflows")
-
-    return blocks, souls, workflows

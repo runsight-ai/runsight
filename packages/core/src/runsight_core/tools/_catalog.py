@@ -23,7 +23,7 @@ from runsight_core.security import validate_ssrf
 from runsight_core.yaml.discovery import (
     RESERVED_BUILTIN_TOOL_IDS,
     ToolMeta,
-    discover_custom_tools,
+    ToolScanner,
 )
 
 # ---------------------------------------------------------------------------
@@ -190,7 +190,7 @@ def _resolve_custom_tool_id(
     if not isinstance(timeout_seconds, int):
         raise TypeError("timeout_seconds must be an int")
 
-    tool_meta = tool_meta or discover_custom_tools(base_dir).get(tool_id)
+    tool_meta = tool_meta or ToolScanner(base_dir).scan().stems().get(tool_id)
     if tool_meta is None:
         raise ValueError(f"Unknown custom tool source: {tool_id!r}")
     if tool_meta.executor != "python":
@@ -421,7 +421,7 @@ def _resolve_http_tool_id(
 ) -> ToolInstance:
     """Resolve a discovered HTTP tool from its canonical workflow ID."""
     base_dir = kwargs.get("base_dir", ".")
-    tool_meta = tool_meta or discover_custom_tools(base_dir).get(tool_id)
+    tool_meta = tool_meta or ToolScanner(base_dir).scan().stems().get(tool_id)
     if tool_meta is None:
         raise ValueError(f"Unknown HTTP tool source: {tool_id!r}")
     if tool_meta.executor != "request":
@@ -453,7 +453,7 @@ def resolve_tool_id(tool_id: str, **kwargs: object) -> ToolInstance:
         raise TypeError(f"tool_id must be a string, got {type(tool_id)!r}")
 
     base_dir = kwargs.get("base_dir", ".")
-    discovered_tools = discover_custom_tools(base_dir)
+    discovered_tools = ToolScanner(base_dir).scan().stems()
 
     if tool_id in RESERVED_BUILTIN_TOOL_IDS:
         if tool_id in discovered_tools:
