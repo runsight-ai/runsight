@@ -52,12 +52,8 @@ class TestBuildAdapterClass:
         adapter_cls = build_adapter_class(
             "budget_guard",
             """
-def get_assert(args):
-    return (
-        args["output"] == "needle in haystack"
-        and args["value"] == "needle"
-        and args["threshold"] == 0.8
-    )
+def get_assert(output, context):
+    return output == "needle in haystack" and context["vars"]["topic"] == "launch"
 """,
             "bool",
         )
@@ -65,8 +61,8 @@ def get_assert(args):
 
         assert adapter_cls.type == "custom:budget_guard"
 
-        adapter = adapter_cls(value="needle", threshold=0.8, config={"budget": 0.05})
-        assert adapter.value == "needle"
+        adapter = adapter_cls(value="ignored", threshold=0.8, config={"budget": 0.05})
+        assert adapter.value == "ignored"
         assert adapter.threshold == 0.8
         assert adapter.config == {"budget": 0.05}
 
@@ -82,22 +78,22 @@ def get_assert(args):
         adapter_cls = build_adapter_class(
             "promptfoo_contract",
             """
-def get_assert(args):
-    ctx = args["context"]
+def get_assert(output, context):
     return (
-        ctx["vars"]["topic"] == "launch"
-        and ctx["config"]["budget"] == 0.05
-        and ctx["prompt"] == "Find the launch blocker."
-        and ctx["prompt_hash"] == "prompt-hash-123"
-        and ctx["soul_id"] == "soul-1"
-        and ctx["soul_version"] == "v7"
-        and ctx["block_id"] == "block-a"
-        and ctx["block_type"] == "LinearBlock"
-        and ctx["cost_usd"] == 0.031
-        and ctx["total_tokens"] == 321
-        and ctx["latency_ms"] == 245.5
-        and ctx["run_id"] == "run-123"
-        and ctx["workflow_id"] == "wf-456"
+        output == "needle in haystack"
+        and context["vars"]["topic"] == "launch"
+        and context["config"]["budget"] == 0.05
+        and context["prompt"] == "Find the launch blocker."
+        and context["prompt_hash"] == "prompt-hash-123"
+        and context["soul_id"] == "soul-1"
+        and context["soul_version"] == "v7"
+        and context["block_id"] == "block-a"
+        and context["block_type"] == "LinearBlock"
+        and context["cost_usd"] == 0.031
+        and context["total_tokens"] == 321
+        and context["latency_ms"] == 245.5
+        and context["run_id"] == "run-123"
+        and context["workflow_id"] == "wf-456"
     )
 """,
             "bool",
@@ -114,11 +110,11 @@ def get_assert(args):
         adapter_cls = build_adapter_class(
             "rich_result",
             """
-def get_assert(args):
+def get_assert(output, context):
     return {
-        "passed": args["context"]["vars"]["topic"] == "launch",
+        "passed": output == "needle in haystack",
         "score": 0.9,
-        "reason": "topic matched vars alias",
+        "reason": f'topic matched {context["vars"]["topic"]}',
     }
 """,
             "grading_result",
@@ -130,7 +126,7 @@ def get_assert(args):
         assert isinstance(result, GradingResult)
         assert result.passed is True
         assert result.score == 0.9
-        assert result.reason == "topic matched vars alias"
+        assert result.reason == "topic matched launch"
         assert result.assertion_type == "custom:rich_result"
 
     def test_adapter_wraps_plugin_exception_in_failing_grading_result(self):
@@ -138,7 +134,7 @@ def get_assert(args):
         adapter_cls = build_adapter_class(
             "boom_guard",
             """
-def get_assert(args):
+def get_assert(output, context):
     raise RuntimeError("kaboom")
 """,
             "bool",
@@ -163,7 +159,7 @@ def get_assert(args):
                 """
 import os
 
-def get_assert(args):
+def get_assert(output, context):
     return True
 """,
                 "bool",
@@ -173,14 +169,38 @@ def get_assert(args):
         assert "os" in message
         assert "not allowed" in message or "allowed list" in message
 
+    @pytest.mark.parametrize(
+        ("code", "expected_fragment"),
+        [
+            ("def nope(output, context):\n    return True\n", "get_assert"),
+            ("def get_assert(output):\n    return True\n", "get_assert"),
+            (
+                "def get_assert(args, context, extra):\n    return True\n",
+                "get_assert",
+            ),
+            ("def get_assert(output, context)\n    return True\n", "syntax"),
+        ],
+    )
+    def test_build_adapter_class_rejects_invalid_get_assert_contract_before_execution(
+        self,
+        code: str,
+        expected_fragment: str,
+    ):
+        _, build_adapter_class = _load_symbols()
+
+        with pytest.raises(ValueError) as exc_info:
+            build_adapter_class("bad_contract", code, "bool")
+
+        message = str(exc_info.value).lower()
+        assert expected_fragment in message
+
     def test_adapter_does_not_expose_variables_key_in_context_dict(self):
         _, build_adapter_class = _load_symbols()
         adapter_cls = build_adapter_class(
             "vars_only",
             """
-def get_assert(args):
-    ctx = args["context"]
-    return "variables" not in ctx and ctx["vars"]["severity"] == "high"
+def get_assert(output, context):
+    return "variables" not in context and context["vars"]["severity"] == "high"
 """,
             "bool",
         )
@@ -195,7 +215,7 @@ def get_assert(args):
         adapter_cls = build_adapter_class(
             "isolated_guard",
             """
-def get_assert(args):
+def get_assert(output, context):
     return True
 """,
             "bool",
