@@ -420,7 +420,7 @@ class TestMissingSoulErrorMessage:
 
 
 class TestDiscoveryCalledOnce:
-    """_discover_souls must be called exactly once per parse_workflow_yaml call."""
+    """Soul discovery must run exactly once per parse_workflow_yaml call."""
 
     def test_discover_souls_called_once_for_multi_block_workflow(self):
         """Even with multiple blocks referencing different souls, discovery runs once."""

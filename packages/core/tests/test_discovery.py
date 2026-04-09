@@ -203,7 +203,7 @@ class TestDiscoverCustomTools:
         return _scan_tools, ToolMeta
 
     @staticmethod
-    def _load_discovery_module():
+    def _load_module():
         import runsight_core.yaml.discovery as discovery_module
 
         return discovery_module
@@ -221,7 +221,7 @@ class TestDiscoverCustomTools:
         assert RESERVED_BUILTIN_TOOL_IDS is tool_module.RESERVED_BUILTIN_TOOL_IDS
 
     def test_legacy_discover_custom_tools_helper_is_removed_from_public_module(self):
-        discovery_module = self._load_discovery_module()
+        discovery_module = self._load_module()
 
         assert not hasattr(
             discovery_module,
@@ -240,7 +240,7 @@ class TestDiscoverCustomTools:
         ],
     )
     def test_legacy_tool_helpers_are_removed_from_public_module(self, legacy_helper_name):
-        discovery_module = self._load_discovery_module()
+        discovery_module = self._load_module()
 
         assert not hasattr(
             discovery_module,
@@ -248,20 +248,16 @@ class TestDiscoverCustomTools:
         ), f"Legacy helper {legacy_helper_name} should move out of runsight_core.yaml.discovery"
 
     def test_missing_custom_tools_directory_returns_empty_dict(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = discover_custom_tools(Path(tmpdir))
+            result = scan_tools(Path(tmpdir))
             assert result == {}
 
     def test_discovers_python_and_request_executor_tool_files_by_filename_stem(self):
-        discover_custom_tools, tool_meta = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, tool_meta = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
         assert tool_meta is not None, "Expected runsight_core.yaml.discovery.ToolMeta to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -312,7 +308,7 @@ class TestDiscoverCustomTools:
                 """)
             )
 
-            discovered = discover_custom_tools(base_dir)
+            discovered = scan_tools(base_dir)
 
             assert set(discovered.keys()) == {"python_helper", "request_lookup"}
             assert isinstance(discovered["python_helper"], tool_meta)
@@ -327,10 +323,8 @@ class TestDiscoverCustomTools:
             )
 
     def test_legacy_type_http_is_rejected_with_file_specific_error(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -345,13 +339,11 @@ class TestDiscoverCustomTools:
             )
 
             with pytest.raises(ValueError, match=r"legacy_http\.yaml.*type.*custom|legacy_http"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     def test_malformed_yaml_raises_file_specific_error(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -363,13 +355,11 @@ class TestDiscoverCustomTools:
             )
 
             with pytest.raises(Exception, match="broken.yaml"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     def test_invalid_metadata_raises_file_specific_error(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -391,13 +381,11 @@ class TestDiscoverCustomTools:
             )
 
             with pytest.raises(ValueError, match="missing_executor.yaml"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     def test_custom_tool_rejects_both_code_and_code_file(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -421,13 +409,11 @@ class TestDiscoverCustomTools:
             )
 
             with pytest.raises(ValueError, match="double_code.yaml"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     def test_custom_tool_rejects_missing_code_file(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -448,13 +434,11 @@ class TestDiscoverCustomTools:
             )
 
             with pytest.raises(ValueError, match="missing_code_file.yaml"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     def test_custom_tool_rejects_unreadable_code_file(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -476,13 +460,11 @@ class TestDiscoverCustomTools:
             )
 
             with pytest.raises(ValueError, match=r"unreadable_code_file\.yaml"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     def test_custom_tool_rejects_invalid_main_signature(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -505,13 +487,11 @@ class TestDiscoverCustomTools:
             )
 
             with pytest.raises(ValueError, match="bad_signature.yaml"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     def test_request_executor_requires_request_url(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -533,13 +513,11 @@ class TestDiscoverCustomTools:
             )
 
             with pytest.raises(ValueError, match=r"missing_request_url\.yaml"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     def test_request_executor_rejects_python_fields(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -565,13 +543,11 @@ class TestDiscoverCustomTools:
             )
 
             with pytest.raises(ValueError, match=r"request_with_code\.yaml"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     def test_python_executor_rejects_request_fields(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -597,13 +573,11 @@ class TestDiscoverCustomTools:
             )
 
             with pytest.raises(ValueError, match=r"python_with_request\.yaml"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     def test_unknown_executor_raises_file_specific_error(self):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -623,13 +597,11 @@ class TestDiscoverCustomTools:
             )
 
             with pytest.raises(ValueError, match=r"unknown_executor\.yaml"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     def test_duplicate_filename_derived_tool_id_raises_explicit_error(self, monkeypatch):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -665,14 +637,12 @@ class TestDiscoverCustomTools:
             monkeypatch.setattr(Path, "glob", _fake_glob)
 
             with pytest.raises(ValueError, match=r"duplicate_tool.*duplicate|collision"):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
     @pytest.mark.parametrize("reserved_tool_id", ["http", "file_io", "delegate"])
     def test_reserved_builtin_tool_ids_are_rejected_during_discovery(self, reserved_tool_id):
-        discover_custom_tools, _ = self._load_symbols()
-        assert callable(discover_custom_tools), (
-            "Expected runsight_core.yaml.discovery.discover_custom_tools to exist"
-        )
+        scan_tools, _ = self._load_symbols()
+        assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -699,7 +669,7 @@ class TestDiscoverCustomTools:
                 ValueError,
                 match=rf"reserved builtin tool id '{reserved_tool_id}'|collision.*{reserved_tool_id}",
             ):
-                discover_custom_tools(base_dir)
+                scan_tools(base_dir)
 
 
 class TestRepoPolicyForCustomTools:

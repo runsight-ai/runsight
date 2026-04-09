@@ -430,10 +430,10 @@ async def test_launch_execution_resolves_name_aliased_child_from_branch_snapshot
     registry must discover the child by scanning committed YAML files on
     that branch and matching ``workflow.name`` to ``workflow_ref``.
 
-    This currently FAILS because ``build_runnable_workflow_registry()``
-    only tries path-based candidate guesses via ``_read_workflow_from_source``
-    and never consults the ``workflow.name`` alias index when resolving
-    children from a branch snapshot.
+    This previously failed when ``build_runnable_workflow_registry()``
+    only tried path-based candidate guesses and never consulted the
+    ``workflow.name`` alias index when resolving children from a branch
+    snapshot.
     """
     from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
     from runsight_api.logic.services.execution_service import ExecutionService

@@ -2,8 +2,6 @@
 Runsight YAML parser and auto-discovery engine.
 """
 
-from runsight_core.yaml.discovery import discover_custom_assets
-
 
 def __getattr__(name: str):
     if name == "parse_workflow_yaml":
@@ -17,4 +15,4 @@ def __getattr__(name: str):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["parse_workflow_yaml", "parse_task_yaml", "discover_custom_assets"]
+__all__ = ["parse_workflow_yaml", "parse_task_yaml"]
