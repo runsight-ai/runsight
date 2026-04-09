@@ -129,6 +129,41 @@ def get_assert(output, context):
         assert result.reason == "topic matched launch"
         assert result.assertion_type == "custom:rich_result"
 
+    def test_adapter_routes_raw_plugin_result_through_return_validators_table(self, monkeypatch):
+        module, build_adapter_class = _load_symbols()
+        validator_calls: list[tuple[object, str]] = []
+
+        def fake_validator(raw: object, plugin_name: str) -> GradingResult:
+            validator_calls.append((raw, plugin_name))
+            return GradingResult(
+                passed=True,
+                score=0.75,
+                reason="validated through shared table",
+                assertion_type=f"custom:{plugin_name}",
+            )
+
+        monkeypatch.setitem(module._RETURN_VALIDATORS, "bool", fake_validator)
+        adapter_cls = build_adapter_class(
+            "validator_seam",
+            """
+def get_assert(output, context):
+    return {"raw_output": output, "topic": context["vars"]["topic"]}
+""",
+            "bool",
+        )
+        adapter = adapter_cls(config={"budget": 0.05})
+
+        result = adapter.evaluate("needle in haystack", _make_context())
+
+        assert result.passed is True
+        assert result.score == 0.75
+        assert validator_calls == [
+            (
+                {"raw_output": "needle in haystack", "topic": "launch"},
+                "validator_seam",
+            )
+        ]
+
     def test_adapter_wraps_plugin_exception_in_failing_grading_result(self):
         _, build_adapter_class = _load_symbols()
         adapter_cls = build_adapter_class(
