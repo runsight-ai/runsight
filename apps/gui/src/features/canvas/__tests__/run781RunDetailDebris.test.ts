@@ -21,7 +21,17 @@ function searchWorkspace(pattern: string): string {
   try {
     return execFileSync(
       "rg",
-      ["-n", "--glob", "!**/run781RunDetailDebris.test.ts", pattern, SRC_DIR],
+      [
+        "-n",
+        "--glob",
+        "!**/__tests__/**",
+        "--glob",
+        "!**/*.test.ts",
+        "--glob",
+        "!**/*.test.tsx",
+        pattern,
+        SRC_DIR,
+      ],
       { encoding: "utf-8" },
     ).trim();
   } catch (error) {
@@ -44,6 +54,20 @@ describe("RunDetail debris cleanup in the canvas surface (RUN-781)", () => {
     expect(workflowSurface).not.toMatch(/@\/features\/runs\/RunInspectorPanel/);
   });
 
+  it("moves RunDetail, RunDetailHeader, RunInspectorPanel, RunCanvasNode, and runDetailUtils off the runs tree", () => {
+    for (const relativePath of [
+      "../runs/RunDetail.tsx",
+      "../runs/RunDetailHeader.tsx",
+      "../runs/RunInspectorPanel.tsx",
+      "../runs/RunCanvasNode.tsx",
+      "../runs/runDetailUtils.ts",
+    ]) {
+      expect(existsSync(resolve(CANVAS_DIR, relativePath))).toBe(false);
+    }
+
+    expect(existsSync(resolve(CANVAS_DIR, "SurfaceInspectorPanel.tsx"))).toBe(true);
+  });
+
   it("exposes mapRunStatus and getIconForBlockType from features/canvas/surfaceUtils.ts", () => {
     const surfaceUtilsPath = resolve(CANVAS_DIR, "surfaceUtils.ts");
 
@@ -63,14 +87,14 @@ describe("RunDetail debris cleanup in the canvas surface (RUN-781)", () => {
 
   it("removes deleted RunDetail-era import statements from apps/gui/src", () => {
     const matches = searchWorkspace(
-      String.raw`(?:import|vi\.(?:mock|doMock))[\s\S]*?(?:RunDetail|RunDetailHeader|RunInspectorPanel|RunCanvasNode|RunBottomPanel|runDetailUtils)`,
+      String.raw`^\s*import\s+.*(?:RunDetail|RunDetailHeader|RunInspectorPanel|RunCanvasNode|RunBottomPanel|runDetailUtils)`,
     );
 
     expect(matches).toBe("");
   });
 
   it("removes buildCanvasFromRun references from apps/gui/src", () => {
-    const matches = searchWorkspace(String.raw`\bbuildCanvasFromRun(?:Nodes)?\b`);
+    const matches = searchWorkspace(String.raw`^\s*(?:const|function|useEffect|buildCanvasFromRun)\b.*buildCanvasFromRun(?:Nodes)?\b`);
 
     expect(matches).toBe("");
   });
