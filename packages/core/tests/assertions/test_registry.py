@@ -225,7 +225,62 @@ class TestRunAssertion:
             value="exact match",
         )
         assert isinstance(result, GradingResult)
-        assert result.passed is True
+
+    def test_run_assertion_passes_threshold_to_cost_constructor(self, monkeypatch):
+        """Cost assertions receive the configured threshold during construction."""
+        import runsight_core.assertions.deterministic  # noqa: F401
+        from runsight_core.assertions.deterministic.performance import CostAssertion
+
+        register_assertion("cost", CostAssertion)
+        ctx = _make_context(cost_usd=0.04)
+        captured: dict[str, object] = {}
+        original_init = CostAssertion.__init__
+
+        def recording_init(self, value=None, threshold=None, config=None):
+            captured["value"] = value
+            captured["threshold"] = threshold
+            captured["config"] = config
+            original_init(self, value=value, threshold=threshold)
+
+        monkeypatch.setattr(CostAssertion, "__init__", recording_init)
+
+        run_assertion(
+            type="cost",
+            output="Hello",
+            context=ctx,
+            threshold=0.05,
+        )
+
+        assert captured["threshold"] == 0.05
+
+    def test_run_assertion_raises_when_constructor_rejects_kwargs(self):
+        """Unsupported assertion constructors should fail loudly instead of falling back."""
+
+        class NoKwargsAssertion:
+            type: str = "no-kwargs"
+
+            def __init__(self):
+                self.initialized = True
+
+            def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
+                return GradingResult(
+                    passed=True,
+                    score=1.0,
+                    reason="unexpected success",
+                    assertion_type="no-kwargs",
+                )
+
+        register_assertion("no-kwargs", NoKwargsAssertion)
+        ctx = _make_context()
+
+        with pytest.raises(TypeError):
+            run_assertion(
+                type="no-kwargs",
+                output="Hello",
+                context=ctx,
+                value="Hello",
+                threshold=0.5,
+            )
 
     def test_run_assertion_accepts_threshold_and_weight_and_metric(self):
         """run_assertion accepts threshold, weight, and metric parameters."""
