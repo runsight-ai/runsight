@@ -21,9 +21,17 @@ interface WorkflowCanvasProps {
   runId?: string;
   onNodeClick?: (nodeId: string) => void;
   onNodeDoubleClick?: (nodeId: string) => void;
+  onPaneClick?: () => void;
 }
 
-export function WorkflowCanvas({ isDraggable = true, connectionsAllowed = true, deletionAllowed = true, onNodeClick: onNodeClickProp, onNodeDoubleClick: onNodeDoubleClickProp }: WorkflowCanvasProps) {
+export function WorkflowCanvas({
+  isDraggable = true,
+  connectionsAllowed = true,
+  deletionAllowed = true,
+  onNodeClick: onNodeClickProp,
+  onNodeDoubleClick: onNodeDoubleClickProp,
+  onPaneClick: onPaneClickProp,
+}: WorkflowCanvasProps) {
   const { nodes, edges, onNodesChange, onEdgesChange, selectNode } =
     useCanvasStore();
 
@@ -44,7 +52,8 @@ export function WorkflowCanvas({ isDraggable = true, connectionsAllowed = true, 
 
   const onPaneClick = useCallback(() => {
     selectNode(null);
-  }, [selectNode]);
+    onPaneClickProp?.();
+  }, [selectNode, onPaneClickProp]);
 
   return (
     <div className="flex-1 flex flex-col">

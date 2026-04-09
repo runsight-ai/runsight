@@ -12,12 +12,61 @@ import { WorkflowCanvas } from "./WorkflowCanvas";
 import { ProviderModal } from "@/components/provider/ProviderModal";
 import { CommitDialog } from "@/features/git/CommitDialog";
 import { EmptyState } from "@runsight/ui/empty-state";
+import { Card } from "@runsight/ui/card";
+import { Button } from "@runsight/ui/button";
 import { LayoutGrid } from "lucide-react";
 import { useCanvasStore } from "@/store/canvas";
 import { useRun, useRunNodes } from "@/queries/runs";
 import { useWorkflow } from "@/queries/workflows";
 import { gitApi } from "@/api/git";
 import { mapRunStatus } from "@/features/runs/runDetailUtils";
+import { RunInspectorPanel } from "@/features/runs/RunInspectorPanel";
+
+function RunGraphErrorCard({
+  message,
+  onRetry,
+}: {
+  message?: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex h-full items-center justify-center p-6">
+      <Card className="w-full max-w-xl px-6 py-6">
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold text-heading">Unable to load run graph</h2>
+          <p className="text-sm leading-6 text-secondary">
+            Runsight could not read the node response for this run. Retry to fetch the
+            graph again.
+          </p>
+          {message ? <p className="text-sm text-secondary">{message}</p> : null}
+          <div className="pt-2">
+            <Button variant="primary" onClick={onRetry}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function RunPreExecutionFailureCard({ error }: { error: string }) {
+  return (
+    <div className="flex h-full items-center justify-center p-6">
+      <Card className="w-full max-w-xl px-6 py-6">
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold text-heading">Run failed before execution started</h2>
+          <p className="text-sm leading-6 text-secondary">
+            Runsight could not prepare this workflow for execution, so no nodes were started.
+          </p>
+          <div className="rounded-md border border-[var(--danger-9)]/30 bg-danger-3 p-3 font-mono text-xs leading-relaxed text-[var(--danger-9)]">
+            {error}
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
 
 function getOverlayRefFromLocation(): string | null {
   if (typeof window === "undefined") {
@@ -37,6 +86,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const [isOverlayLoading, setIsOverlayLoading] = useState(false);
   const [readonlyYaml, setReadonlyYaml] = useState<string | null>(null);
   const [isReadonlyYamlLoading, setIsReadonlyYamlLoading] = useState(false);
+  const [inspectedNodeId, setInspectedNodeId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const overlayRef = getOverlayRefFromLocation();
   const readonlyRunId = mode === "readonly" ? (activeRunId ?? initialRunId ?? "") : "";
@@ -50,7 +100,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
 
   const contract = getContractForMode(mode);
 
-  const { topbar, bottomPanel, statusBar } = contract;
+  const { topbar, bottomPanel, statusBar, inspector, inspectorVisible } = contract;
 
   const nameEditable = topbar.nameEditable;
   const defaultState = bottomPanel.defaultState;
@@ -80,7 +130,12 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     isError,
     isLoading: isWorkflowLoading,
   } = useWorkflow(resolvedWorkflowId);
-  const { data: runNodes } = useRunNodes(readonlyRunId);
+  const {
+    data: runNodes,
+    isError: isRunNodesError,
+    error: runNodesError,
+    refetch: refetchRunNodes,
+  } = useRunNodes(readonlyRunId);
 
   const nodes = useCanvasStore((s) => s.nodes);
   const edges = useCanvasStore((s) => s.edges);
@@ -91,6 +146,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const setNodeStatus = useCanvasStore((s) => s.setNodeStatus);
   const setActiveCanvasRunId = useCanvasStore((s) => s.setActiveRunId);
   const setRunCost = useCanvasStore((s) => s.setRunCost);
+  const selectNode = useCanvasStore((s) => s.selectNode);
 
   const handleOpenApiKeyModal = useCallback(() => {
     setApiKeyModalOpen(true);
@@ -238,8 +294,24 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     }
   }, [mode, workflow?.canvas_state, runNodes, setNodeStatus]);
 
-  // Palette + inspector hidden — canvas coming soon
   const canvasColumn = "1";
+  const selectedNode = inspectedNodeId
+    ? (nodes.find((node) => node.id === inspectedNodeId) ?? null)
+    : null;
+  const showRunGraphError =
+    mode === "readonly" && activeTab === "canvas" && Boolean(isRunNodesError);
+  const showPreExecutionFailure =
+    mode === "readonly"
+    && activeTab === "canvas"
+    && !showRunGraphError
+    && (runNodes?.length ?? 0) === 0
+    && typeof run?.error === "string"
+    && run.error.length > 0;
+  const showReadonlyCanvas =
+    mode === "readonly"
+    && Boolean(workflow?.canvas_state)
+    && !showRunGraphError
+    && !showPreExecutionFailure;
 
   const handleSave = useCallback(() => {
     if (!editable || !workflowId) return;
@@ -325,29 +397,51 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         style={{ gridColumn: canvasColumn, gridRow: "2" }}
       >
         {activeTab === "canvas" ? (
-          mode === "readonly" && workflow?.canvas_state ? (
-            <WorkflowCanvas
-              isDraggable={false}
-              connectionsAllowed={false}
-              deletionAllowed={false}
-            />
-          ) : mode === "readonly" ? (
-            <div className="flex-1 flex items-center justify-center">
-              <EmptyState
-                icon={LayoutGrid}
-                title="Canvas layout unavailable"
-                description="Canvas layout unavailable for this run. Switch to the YAML tab to inspect the workflow definition."
-              />
+          <div className="flex h-full min-h-0">
+            <div className="flex-1 min-w-0">
+              {showRunGraphError ? (
+                <RunGraphErrorCard
+                  message={runNodesError instanceof Error ? runNodesError.message : undefined}
+                  onRetry={() => void refetchRunNodes()}
+                />
+              ) : showPreExecutionFailure ? (
+                <RunPreExecutionFailureCard error={run.error as string} />
+              ) : showReadonlyCanvas ? (
+                <WorkflowCanvas
+                  isDraggable={false}
+                  connectionsAllowed={false}
+                  deletionAllowed={false}
+                  runId={readonlyRunId}
+                  onNodeClick={setInspectedNodeId}
+                  onPaneClick={() => setInspectedNodeId(null)}
+                />
+              ) : mode === "readonly" ? (
+                <div className="flex h-full items-center justify-center">
+                  <EmptyState
+                    icon={LayoutGrid}
+                    title="Canvas layout unavailable"
+                    description="Canvas layout unavailable for this run. Switch to the YAML tab to inspect the workflow definition."
+                  />
+                </div>
+              ) : (
+                <WorkflowCanvas
+                  isDraggable={contract.canvas.draggable}
+                  connectionsAllowed={contract.canvas.connectionsAllowed}
+                  deletionAllowed={contract.canvas.deletionAllowed}
+                />
+              )}
             </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <EmptyState
-                icon={LayoutGrid}
-                title="Visual canvas coming soon"
-                description="The drag-and-drop workflow builder is under active development."
+            {inspectorVisible && selectedNode ? (
+              <RunInspectorPanel
+                selectedNode={selectedNode}
+                onClose={() => {
+                  setInspectedNodeId(null);
+                  selectNode(null);
+                }}
+                trigger={inspector.trigger}
               />
-            </div>
-          )
+            ) : null}
+          </div>
         ) : activeTab === "yaml" ? (
           (mode === "readonly" && isReadonlyYamlLoading) || isOverlayLoading ? (
             <div className="flex h-full items-center justify-center text-muted">

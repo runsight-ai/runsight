@@ -6,14 +6,23 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { cn } from "@runsight/ui/utils";
 import { formatDuration } from "@/utils/formatting";
 import { CheckCircle, XCircle, Clock, X } from "lucide-react";
-import type { RunNodeData } from "./RunCanvasNode";
+type InspectorNodeData = Record<string, unknown> & {
+  name: string;
+  status?: string;
+  soulRef?: string;
+  model?: string;
+  executionCost?: number;
+  duration?: number;
+  tokens?: { input?: number; output?: number; total?: number };
+  error?: string | null;
+};
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
 interface RunInspectorPanelProps {
-  selectedNode: Node<RunNodeData> | null;
+  selectedNode: Node<InspectorNodeData> | null;
   onClose: () => void;
   trigger?: "single-click" | "double-click";
 }
