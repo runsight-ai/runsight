@@ -225,6 +225,7 @@ class TestRunAssertion:
             value="exact match",
         )
         assert isinstance(result, GradingResult)
+        assert result.passed is True
 
     def test_run_assertion_passes_threshold_to_cost_constructor(self, monkeypatch):
         """Cost assertions receive the configured threshold during construction."""
