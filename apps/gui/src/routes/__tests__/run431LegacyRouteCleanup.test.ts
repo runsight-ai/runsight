@@ -161,6 +161,6 @@ describe("RUN-431 legacy list route cleanup", () => {
   it("keeps /runs/:id working", async () => {
     await renderAppAt("/runs/run_123");
 
-    expect(await screen.findByText("run-detail:/runs/run_123")).toBeTruthy();
+    expect(await screen.findByText("run-surface-run_123:/runs/run_123")).toBeTruthy();
   });
 });

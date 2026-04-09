@@ -29,6 +29,7 @@ import {
   getAvailableTabs,
   getActionButton,
   getSaveButtonState,
+  getCanvasYamlToggleVisibility,
 } from "../workflowSurfaceContract";
 
 // ===========================================================================
@@ -348,6 +349,15 @@ describe("getSaveButtonState with 3-state model (RUN-649)", () => {
   it("sim: returns hidden (no save during simulation)", () => {
     expect(getSaveButtonState("sim" as any, true)).toBe("hidden");
     expect(getSaveButtonState("sim" as any, false)).toBe("hidden");
+  });
+});
+
+describe("getCanvasYamlToggleVisibility helper", () => {
+  it("readonly mode shows both canvas and yaml tabs (RUN-777 AC6)", () => {
+    expect(getCanvasYamlToggleVisibility("readonly" as any)).toEqual({
+      canvas: true,
+      yaml: true,
+    });
   });
 });
 
