@@ -19,6 +19,7 @@ from textwrap import dedent
 from unittest.mock import patch
 
 import pytest
+from runsight_core.primitives import Soul
 from runsight_core.yaml.parser import parse_workflow_yaml
 
 # ---------------------------------------------------------------------------
@@ -45,6 +46,13 @@ def _write_soul_file(base_dir: Path, name: str, *, soul_id: str, role: str, prom
         """),
         encoding="utf-8",
     )
+
+
+def _souls_map() -> dict[str, Soul]:
+    return {
+        "soul_a": Soul(id="a1", role="A", system_prompt="A."),
+        "soul_b": Soul(id="b1", role="B", system_prompt="B."),
+    }
 
 
 # ===========================================================================
@@ -444,7 +452,7 @@ class TestDiscoveryCalledOnce:
                 """,
             )
             with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
-                mock_scanner.return_value.scan.return_value.stems.return_value = self._souls_map()
+                mock_scanner.return_value.scan.return_value.stems.return_value = _souls_map()
                 parse_workflow_yaml(path)
                 mock_scanner.assert_called_once()
                 mock_scanner.return_value.scan.assert_called_once()
