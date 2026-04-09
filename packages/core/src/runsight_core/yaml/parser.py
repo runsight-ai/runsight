@@ -25,7 +25,7 @@ from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
-from runsight_core.yaml.discovery import SoulScanner, discover_custom_tools
+from runsight_core.yaml.discovery import SoulScanner, ToolScanner
 from runsight_core.yaml.schema import (
     CaseDef,
     ConditionDef,
@@ -302,7 +302,7 @@ def _validate_declared_tool_definitions(
     require_custom_metadata: bool = False,
 ) -> None:
     """Validate that declared canonical tool IDs are parse-time resolvable."""
-    discovered_tools = discover_custom_tools(base_dir)
+    discovered_tools = ToolScanner(base_dir).scan().stems()
     available_builtin_ids = sorted(RESERVED_BUILTIN_TOOL_IDS)
     available_custom_ids = sorted(discovered_tools.keys())
 
@@ -360,7 +360,7 @@ def _attach_tool_runtime_metadata(tool: object, tool_id: str, *, base_dir: str) 
     if tool_id in RESERVED_BUILTIN_TOOL_IDS:
         setattr(tool, "tool_type", "builtin")
     else:
-        tool_meta = discover_custom_tools(base_dir).get(tool_id)
+        tool_meta = ToolScanner(base_dir).scan().stems().get(tool_id)
         setattr(tool, "tool_type", tool_meta.type if tool_meta is not None else "")
     setattr(tool, "config", {"id": tool_id})
     return tool
