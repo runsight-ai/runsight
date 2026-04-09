@@ -28,7 +28,7 @@ class TestDiscoverSoulFieldPreservation:
                 """)
             )
 
-            from runsight_core.yaml.discovery._base import SoulScanner
+            from runsight_core.yaml.discovery import SoulScanner
 
             souls = SoulScanner(base_dir).scan().stems()
             soul = souls["extended_soul"]
@@ -55,7 +55,7 @@ class TestDiscoverSoulFieldPreservation:
                 """)
             )
 
-            from runsight_core.yaml.discovery._base import SoulScanner
+            from runsight_core.yaml.discovery import SoulScanner
 
             souls = SoulScanner(base_dir).scan().stems()
             soul = souls["minimal_soul"]
@@ -88,7 +88,7 @@ class TestDiscoverSoulFieldPreservation:
                 """)
             )
 
-            from runsight_core.yaml.discovery._base import SoulScanner
+            from runsight_core.yaml.discovery import SoulScanner
 
             try:
                 SoulScanner(base_dir).scan()
@@ -115,7 +115,7 @@ class TestDiscoverSoulFieldPreservation:
                 """)
             )
 
-            from runsight_core.yaml.discovery._base import SoulScanner
+            from runsight_core.yaml.discovery import SoulScanner
 
             souls = SoulScanner(base_dir).scan().stems()
             soul = souls["future_soul"]
@@ -138,7 +138,7 @@ class TestDiscoverSoulFieldPreservation:
                 encoding="utf-8",
             )
 
-            from runsight_core.yaml.discovery._base import SoulScanner
+            from runsight_core.yaml.discovery import SoulScanner
 
             souls = SoulScanner(base_dir).scan().stems()
 

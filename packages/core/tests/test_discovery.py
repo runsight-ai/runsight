@@ -207,7 +207,7 @@ class TestDiscoverSouls:
             souls_dir = base_dir / "custom" / "souls"
             souls_dir.mkdir(parents=True)
 
-            from runsight_core.yaml.discovery._base import SoulScanner
+            from runsight_core.yaml.discovery import SoulScanner
 
             souls = SoulScanner(base_dir).scan().stems()
             assert souls == {}
@@ -217,7 +217,7 @@ class TestDiscoverSouls:
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
 
-            from runsight_core.yaml.discovery._base import SoulScanner
+            from runsight_core.yaml.discovery import SoulScanner
 
             souls = SoulScanner(base_dir).scan().stems()
             assert souls == {}
@@ -238,7 +238,7 @@ class TestDiscoverSouls:
                 """)
             )
 
-            from runsight_core.yaml.discovery._base import SoulScanner
+            from runsight_core.yaml.discovery import SoulScanner
 
             souls = SoulScanner(base_dir).scan().stems()
 
@@ -270,7 +270,7 @@ class TestDiscoverSouls:
                 """)
             )
 
-            from runsight_core.yaml.discovery._base import SoulScanner
+            from runsight_core.yaml.discovery import SoulScanner
 
             souls = SoulScanner(base_dir).scan().stems()
 
@@ -296,7 +296,7 @@ class TestDiscoverSouls:
                 """)
             )
 
-            from runsight_core.yaml.discovery._base import SoulScanner
+            from runsight_core.yaml.discovery import SoulScanner
 
             souls = SoulScanner(base_dir).scan().stems()
 
@@ -326,12 +326,21 @@ class TestDiscoverSouls:
                 """)
             )
 
-            from runsight_core.yaml.discovery._base import SoulScanner
+            from runsight_core.yaml.discovery import SoulScanner
 
             souls = SoulScanner(base_dir).scan(ignore_keys={"overridden_soul"}).stems()
 
             assert "overridden_soul" not in souls
             assert "kept_soul" in souls
+
+    def test_legacy_discover_souls_helper_is_removed_from_public_module(self):
+        """AC-7: The public discovery surface should not expose _discover_souls anymore."""
+        import runsight_core.yaml.discovery as discovery_module
+
+        assert not hasattr(
+            discovery_module,
+            "_discover_souls",
+        ), "Legacy _discover_souls helper should be removed from runsight_core.yaml.discovery"
 
 
 class TestDiscoverWorkflows:
