@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, memo } from "react";
+import { useState, useCallback, useEffect, memo } from "react";
 import { useParams } from "react-router";
 import { gitApi } from "@/api/git";
 import {
@@ -14,16 +14,16 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { useRun, useRunNodes, useRunLogs, useRunRegressions } from "@/queries/runs";
+import { useRun, useRunNodes, useRunRegressions } from "@/queries/runs";
 import { CanvasErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { Card } from "@runsight/ui/card";
 import { Button } from "@runsight/ui/button";
 import { PriorityBanner } from "@/components/shared";
+import { CanvasBottomPanel } from "@/features/canvas/CanvasBottomPanel";
 import { YamlEditor } from "@/features/canvas/YamlEditor";
 import { RunCanvasNode, CanvasNodeComponent, nodeTypes } from "./RunCanvasNode";
 import type { RunNodeData } from "./RunCanvasNode";
 import { RunInspectorPanel } from "./RunInspectorPanel";
-import { RunBottomPanel } from "./RunBottomPanel";
 import { RunDetailHeader } from "./RunDetailHeader";
 import { getIconForBlockType, mapRunStatus } from "./runDetailUtils";
 
@@ -54,7 +54,6 @@ function RunDetailInner() {
     error: runNodesError,
     refetch: refetchRunNodes,
   } = useRunNodes(id || "");
-  const { data: runLogs } = useRunLogs(id || "", undefined, { refetchInterval: undefined });
   const { data: regressionData } = useRunRegressions(id || "");
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<RunNodeData>>([]);
@@ -111,7 +110,6 @@ function RunDetailInner() {
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node<RunNodeData>) => { setSelectedNode(node); }, []);
   const onPaneClick = useCallback(() => { setSelectedNode(null); }, []);
-  const logs = useMemo(() => runLogs?.items || [], [runLogs]);
   const regressionCount = regressionData?.count ?? 0;
   const hasNodeGraph = (runNodes?.length ?? 0) > 0;
   const currentWorkflowId = run?.workflow_id;
@@ -136,6 +134,18 @@ function RunDetailInner() {
   }
 
   const isFailed = run.status === "failed" || run.status === "error";
+  const executionSummary =
+    run.status === "completed"
+      ? {
+          tone: "success" as const,
+          text: `Run completed in ${run.duration_seconds ?? 0}s`,
+        }
+      : isFailed
+        ? {
+            tone: "danger" as const,
+            text: "Run failed",
+          }
+        : undefined;
 
   return (
     <div className="flex-1 flex overflow-hidden bg-[var(--surface-primary)]">
@@ -229,7 +239,12 @@ function RunDetailInner() {
           )}
         </div>
 
-        <RunBottomPanel logs={logs} executionComplete executionFailed={isFailed} finalDuration={run.duration_seconds || 0} runId={run.id} workflowId={run.workflow_id} currentRunId={run.id} />
+        <CanvasBottomPanel
+          runId={run.id}
+          workflowId={run.workflow_id}
+          defaultState="expanded"
+          executionSummary={executionSummary}
+        />
       </main>
     </div>
   );

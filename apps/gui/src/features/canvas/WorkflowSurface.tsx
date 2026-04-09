@@ -360,6 +360,18 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     onForkTransition: handleReadonlyForkTransition,
   });
   const regressionCount = mode === "readonly" ? (regressions?.count ?? 0) : 0;
+  const executionSummary =
+    mode === "readonly" && run?.status === "completed"
+      ? {
+          tone: "success" as const,
+          text: `Run completed in ${run.duration_seconds ?? 0}s`,
+        }
+      : mode === "readonly" && (run?.status === "failed" || run?.status === "error")
+        ? {
+            tone: "danger" as const,
+            text: "Run failed",
+          }
+        : undefined;
 
   const handleSave = useCallback(() => {
     if (!editable || !workflowId) return;
@@ -535,6 +547,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
           runId={activeRunId ?? initialRunId}
           workflowId={resolvedWorkflowId}
           defaultState={defaultState}
+          executionSummary={executionSummary}
         />
       </div>
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useRunLogs, useRuns } from "@/queries/runs";
+import { useRunLogs, useRunRegressions, useRuns } from "@/queries/runs";
 import { useWorkflowRegressions } from "@/queries/workflows";
 import { useCanvasStore } from "@/store/canvas";
 import { mapSSEEventToStoreAction } from "./useRunStream";
@@ -18,7 +18,20 @@ interface CanvasBottomPanelProps {
   runId?: string;
   workflowId?: string;
   defaultState?: "collapsed" | "expanded";
+  executionSummary?: {
+    tone: "success" | "danger";
+    text: string;
+  };
 }
+
+type RegressionsData = {
+  count?: number;
+  issues?: Array<Record<string, unknown>>;
+};
+
+type CanvasBottomPanelContentProps = CanvasBottomPanelProps & {
+  regressionsData?: RegressionsData;
+};
 
 function sseEventToLogEntry(
   eventType: string,
@@ -61,7 +74,13 @@ function sseEventToLogEntry(
   }
 }
 
-export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultState = "collapsed" }: CanvasBottomPanelProps) {
+function CanvasBottomPanelContent({
+  runId: initialRunId,
+  workflowId,
+  defaultState = "collapsed",
+  executionSummary,
+  regressionsData,
+}: CanvasBottomPanelContentProps) {
   const [isExpanded, setIsExpanded] = useState(defaultState === "expanded");
   const [activeTab, setActiveTab] = useState<"logs" | "runs" | "regressions">("logs");
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>(initialRunId);
@@ -99,9 +118,11 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
     refetchInterval: undefined,
   });
 
-  const { data: regressionsData } = useWorkflowRegressions(workflowId ?? "");
   const count = regressionsData?.count ?? 0;
   const regressionsItems = regressionsData?.issues ?? [];
+  const regressionEmptyMessage = initialRunId
+    ? "No regressions detected for this run."
+    : "No regressions detected for this workflow.";
 
   const entries: LogEntry[] = [...(logData?.items ?? []), ...sseEntries];
 
@@ -236,24 +257,40 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
         </button>
       </div>
       {isExpanded && activeTab === "logs" && (
-        <div ref={logsRef} data-testid="workflow-logs-panel" className="overflow-auto flex-1">
-          {!currentRunId ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted">
-              Select a run to inspect logs.
+        <div data-testid="workflow-logs-panel" className="flex flex-1 flex-col overflow-hidden">
+          {executionSummary ? (
+            <div
+              role="status"
+              data-testid="execution-summary-banner"
+              data-tone={executionSummary.tone}
+              className={`border-b px-3 py-2 text-sm ${
+                executionSummary.tone === "success"
+                  ? "bg-success-3 border-success-7 text-success-11"
+                  : "bg-danger-3 border-danger-7 text-danger-11"
+              }`}
+            >
+              {executionSummary.text}
             </div>
-          ) : entries.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted">
-              No logs captured for this run yet.
-            </div>
-          ) : (
-            entries.map((entry, i) => (
-              <div key={i} className="border-b border-border-subtle px-3 py-1.5 text-xs font-mono last:border-b-0">
-                <span className="text-muted-foreground">{entry.timestamp}</span>{" "}
-                <span className="uppercase text-muted">{entry.level}</span>{" "}
-                <span>{entry.message}</span>
+          ) : null}
+          <div ref={logsRef} className="overflow-auto flex-1">
+            {!currentRunId ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted">
+                Select a run to inspect logs.
               </div>
-            ))
-          )}
+            ) : entries.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted">
+                No logs captured for this run yet.
+              </div>
+            ) : (
+              entries.map((entry, i) => (
+                <div key={i} className="border-b border-border-subtle px-3 py-1.5 text-xs font-mono last:border-b-0">
+                  <span className="text-muted-foreground">{entry.timestamp}</span>{" "}
+                  <span className="uppercase text-muted">{entry.level}</span>{" "}
+                  <span>{entry.message}</span>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
       {isExpanded && activeTab === "runs" && (
@@ -269,7 +306,7 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
         <div className="overflow-auto flex-1">
           {regressionsItems.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-muted">
-              No regressions detected for this workflow.
+              {regressionEmptyMessage}
             </div>
           ) : (
             <div className="px-3 py-3">
@@ -287,4 +324,24 @@ export function CanvasBottomPanel({ runId: initialRunId, workflowId, defaultStat
       )}
     </div>
   );
+}
+
+function RunScopedCanvasBottomPanel(props: CanvasBottomPanelProps & { runId: string }) {
+  const { data: regressionsData } = useRunRegressions(props.runId);
+
+  return <CanvasBottomPanelContent {...props} regressionsData={regressionsData} />;
+}
+
+function WorkflowScopedCanvasBottomPanel(props: CanvasBottomPanelProps) {
+  const { data: regressionsData } = useWorkflowRegressions(props.workflowId ?? "");
+
+  return <CanvasBottomPanelContent {...props} regressionsData={regressionsData} />;
+}
+
+export function CanvasBottomPanel(props: CanvasBottomPanelProps) {
+  if (props.runId) {
+    return <RunScopedCanvasBottomPanel {...props} runId={props.runId} />;
+  }
+
+  return <WorkflowScopedCanvasBottomPanel {...props} />;
 }
