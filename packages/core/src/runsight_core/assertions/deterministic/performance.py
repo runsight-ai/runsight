@@ -15,9 +15,15 @@ class CostAssertion:
 
     type = "cost"
 
-    def __init__(self, value: Any = None, threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = None,
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = value
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         cost = context.cost_usd
@@ -38,9 +44,15 @@ class LatencyAssertion:
 
     type = "latency"
 
-    def __init__(self, value: Any = None, threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = None,
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = value
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         latency = context.latency_ms

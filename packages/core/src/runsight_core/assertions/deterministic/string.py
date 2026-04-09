@@ -18,9 +18,15 @@ class EqualsAssertion:
 
     type = "equals"
 
-    def __init__(self, value: Any = "", threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = "",
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = value
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         value_str = str(self.value)
@@ -56,9 +62,15 @@ class ContainsAssertion:
 
     type = "contains"
 
-    def __init__(self, value: Any = "", threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = "",
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = str(value)
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         if self.value in output:
@@ -73,9 +85,15 @@ class IContainsAssertion:
 
     type = "icontains"
 
-    def __init__(self, value: Any = "", threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = "",
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = str(value)
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         if self.value.lower() in output.lower():
@@ -94,9 +112,15 @@ class ContainsAllAssertion:
 
     type = "contains-all"
 
-    def __init__(self, value: Any = None, threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = None,
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value: list[str] = value if value is not None else []
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         missing = [item for item in self.value if str(item) not in output]
@@ -112,9 +136,15 @@ class ContainsAnyAssertion:
 
     type = "contains-any"
 
-    def __init__(self, value: Any = None, threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = None,
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value: list[str] = value if value is not None else []
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         if not self.value:
@@ -132,9 +162,15 @@ class StartsWithAssertion:
 
     type = "starts-with"
 
-    def __init__(self, value: Any = "", threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = "",
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = str(value)
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         if output.startswith(self.value):
@@ -151,9 +187,15 @@ class RegexAssertion:
 
     type = "regex"
 
-    def __init__(self, value: Any = "", threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = "",
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = str(value)
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         try:
@@ -173,9 +215,15 @@ class WordCountAssertion:
 
     type = "word-count"
 
-    def __init__(self, value: Any = None, threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = None,
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = value
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         words = output.split()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 from typing import Any
 
@@ -75,6 +76,36 @@ def _apply_transform(transform: str, output: str) -> str | GradingResult:
     return str(extracted) if not isinstance(extracted, str) else extracted
 
 
+def _build_handler(
+    handler_cls: type,
+    *,
+    value: Any,
+    threshold: float | None,
+    config: dict[str, Any] | None,
+) -> Any:
+    """Construct a handler using the supported assertion constructor contract."""
+    if handler_cls.__init__ is object.__init__:
+        return handler_cls()
+
+    parameters = inspect.signature(handler_cls).parameters
+    accepts_var_kwargs = any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
+    )
+
+    if not accepts_var_kwargs and "value" not in parameters:
+        raise TypeError(
+            f"{handler_cls.__name__} must accept a 'value' keyword argument to be used as an assertion"
+        )
+
+    kwargs: dict[str, Any] = {"value": value}
+    if accepts_var_kwargs or "threshold" in parameters:
+        kwargs["threshold"] = threshold
+    if accepts_var_kwargs or "config" in parameters:
+        kwargs["config"] = config
+
+    return handler_cls(**kwargs)
+
+
 def run_assertion(
     *,
     type: str,
@@ -82,6 +113,7 @@ def run_assertion(
     context: AssertionContext,
     value: Any = "",
     threshold: float | None = None,
+    config: dict[str, Any] | None = None,
     weight: float = 1.0,
     metric: str | None = None,
     transform: str | None = None,
@@ -97,10 +129,7 @@ def run_assertion(
     base_type = type[len(NOT_PREFIX) :] if negated else type
 
     handler_cls = _get_handler(base_type)
-    try:
-        handler = handler_cls(value=value)
-    except TypeError:
-        handler = handler_cls()
+    handler = _build_handler(handler_cls, value=value, threshold=threshold, config=config)
     result = handler.evaluate(output, context)
 
     if negated:
@@ -142,6 +171,7 @@ async def run_assertions(
                 context=context,
                 value=cfg.get("value", ""),
                 threshold=cfg.get("threshold"),
+                config=cfg.get("config"),
                 weight=weight,
                 metric=cfg.get("metric"),
                 transform=cfg.get("transform"),
@@ -154,6 +184,38 @@ async def run_assertions(
     completed = await asyncio.gather(*tasks)
 
     for result, weight in completed:
+        agg.add_result(result, weight=weight)
+
+    return agg
+
+
+def run_assertions_sync(
+    config: list[dict[str, Any]],
+    *,
+    output: str,
+    context: AssertionContext,
+) -> AssertionsResult:
+    """Run a list of assertion configs synchronously and return aggregated results."""
+    agg = AssertionsResult()
+
+    if not config:
+        return agg
+
+    for cfg in config:
+        weight = cfg.get("weight", 1.0)
+        result = run_assertion(
+            type=cfg["type"],
+            output=output,
+            context=context,
+            value=cfg.get("value", ""),
+            threshold=cfg.get("threshold"),
+            config=cfg.get("config"),
+            weight=weight,
+            metric=cfg.get("metric"),
+            transform=cfg.get("transform"),
+        )
+        if cfg.get("metric"):
+            result.named_scores[cfg["metric"]] = result.score
         agg.add_result(result, weight=weight)
 
     return agg

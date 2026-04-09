@@ -10,6 +10,7 @@ from runsight_core.assertions.registry import (
     register_assertion,
     run_assertion,
     run_assertions,
+    run_assertions_sync,
 )
 from runsight_core.assertions.scoring import AssertionsResult
 
@@ -22,4 +23,5 @@ __all__ = [
     "register_assertion",
     "run_assertion",
     "run_assertions",
+    "run_assertions_sync",
 ]
