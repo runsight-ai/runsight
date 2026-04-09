@@ -121,7 +121,7 @@ describe("Runs tab shows status, duration, cost per run (AC2)", () => {
 
   it("renders run timing information (created_at/started_at) for chronological ordering", () => {
     const source = readSource(CANVAS_BOTTOM_PANEL_PATH);
-    // Uses timestamps for ordering/display — duration is shown in the separate RunDetail
+    // Uses timestamps for ordering/display — duration now lives in the shared surface banner
     const hasTiming = /created_at|started_at|timestamp/.test(source);
     expect(
       hasTiming,

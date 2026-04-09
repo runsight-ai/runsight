@@ -83,10 +83,6 @@ vi.mock("@/features/runs/RunsPage", () => ({
   Component: () => React.createElement(RouteEcho, { label: "runs" }),
 }));
 
-vi.mock("@/features/runs/RunDetail", () => ({
-  Component: () => React.createElement(RouteEcho, { label: "run-detail" }),
-}));
-
 vi.mock("@/features/souls/SoulLibraryPage", () => ({
   Component: () => React.createElement(RouteEcho, { label: "souls" }),
 }));

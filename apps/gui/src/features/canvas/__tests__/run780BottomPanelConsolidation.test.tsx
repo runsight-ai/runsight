@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 type RunRecord = {
@@ -182,8 +182,8 @@ function installCanvasBottomPanelMock() {
     CommitDialog: () => null,
   }));
 
-  vi.doMock("@/features/runs/RunInspectorPanel", () => ({
-    RunInspectorPanel: () => null,
+  vi.doMock("../SurfaceInspectorPanel", () => ({
+    SurfaceInspectorPanel: () => null,
   }));
 
   vi.doMock("../useSurfaceReadonlyHeaderSlots", () => ({
@@ -388,13 +388,10 @@ describe("WorkflowSurface bottom panel consolidation (RUN-780)", () => {
   });
 });
 
-describe("RunBottomPanel removal (RUN-780)", () => {
-  it("removes the legacy RunBottomPanel source path in favor of the shared canvas panel", () => {
-    const runBottomPanelPath = resolve(
-      __dirname,
-      "../../runs/RunBottomPanel.tsx",
-    );
+describe("Shared bottom panel consolidation (RUN-780)", () => {
+  it("keeps the shared surface free of legacy bottom-panel references", () => {
+    const workflowSurface = readFileSync(resolve(__dirname, "../WorkflowSurface.tsx"), "utf-8");
 
-    expect(existsSync(runBottomPanelPath)).toBe(false);
+    expect(workflowSurface).not.toMatch(/RunBottomPanel/);
   });
 });

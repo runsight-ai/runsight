@@ -147,8 +147,8 @@ vi.mock("@/features/git/CommitDialog", () => ({
   CommitDialog: () => null,
 }));
 
-vi.mock("@/features/runs/RunInspectorPanel", () => ({
-  RunInspectorPanel: () => null,
+vi.mock("../SurfaceInspectorPanel", () => ({
+  SurfaceInspectorPanel: () => null,
 }));
 
 vi.mock("../../runs/useForkWorkflow", () => ({

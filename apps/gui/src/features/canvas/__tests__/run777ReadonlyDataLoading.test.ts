@@ -13,7 +13,6 @@ import { resolve } from "node:path";
 
 const CANVAS_DIR = resolve(__dirname, "..");
 const ROUTES_DIR = resolve(__dirname, "../../../routes");
-const RUNS_DIR = resolve(__dirname, "../../runs");
 
 function readCanvasFile(relativePath: string): string {
   return readFileSync(resolve(CANVAS_DIR, relativePath), "utf-8");
@@ -23,14 +22,10 @@ function readRoutesFile(relativePath: string): string {
   return readFileSync(resolve(ROUTES_DIR, relativePath), "utf-8");
 }
 
-function readRunsFile(relativePath: string): string {
-  return readFileSync(resolve(RUNS_DIR, relativePath), "utf-8");
-}
-
 describe("routes/index.tsx readonly run route (RUN-777 AC1)", () => {
   const source = readRoutesFile("index.tsx");
 
-  it("does not keep /runs/:id wired to the lazy RunDetail module", () => {
+  it("does not keep /runs/:id wired to the legacy run-detail route module", () => {
     const runRouteBlock = source.match(
       /path:\s*"runs\/:id"[\s\S]*?(?=\n\s*\},\n\s*\{|\n\s*\}\s*,\n\s*\{)/,
     )?.[0] ?? "";
@@ -100,14 +95,5 @@ describe("WorkflowSurface readonly data loading (RUN-777 AC1-AC5)", () => {
   it("renders a graceful fallback when canvas_state is unavailable instead of synthetic coordinates", () => {
     expect(source).toMatch(/layout unavailable|canvas layout unavailable|canvas unavailable/i);
     expect(source).not.toMatch(/x:\s*100\s*\+\s*\(index\s*%\s*3\)\s*\*\s*300/);
-  });
-});
-
-describe("RunDetail synthetic graph builder stays out of the shared readonly path (RUN-777 AC1)", () => {
-  const runDetailSource = readRunsFile("RunDetail.tsx");
-
-  it("confirms the legacy implementation still contains the synthetic grid builder Red is guarding against", () => {
-    expect(runDetailSource).toMatch(/x:\s*100\s*\+\s*\(index\s*%\s*3\)\s*\*\s*300/);
-    expect(runDetailSource).toMatch(/for\s*\(let\s+i\s*=\s*0;\s*i\s*<\s*canvasNodes\.length\s*-\s*1;/);
   });
 });

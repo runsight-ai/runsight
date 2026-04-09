@@ -213,11 +213,9 @@ const CANVAS_FEATURES = [
 ];
 
 const RUNS_FEATURES = [
-  "features/runs/RunBottomPanel.tsx",
-  "features/runs/RunCanvasNode.tsx",
-  "features/runs/RunDetail.tsx",
-  "features/runs/RunDetailHeader.tsx",
-  "features/runs/RunInspectorPanel.tsx",
+  "features/canvas/SurfaceInspectorPanel.tsx",
+  "features/canvas/WorkflowSurface.tsx",
+  "features/canvas/surfaceUtils.ts",
 ];
 
 const SETTINGS_FEATURES = [

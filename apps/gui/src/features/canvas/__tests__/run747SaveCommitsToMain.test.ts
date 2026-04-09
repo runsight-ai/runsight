@@ -161,12 +161,8 @@ vi.mock("../CanvasStatusBar", () => ({
   CanvasStatusBar: () => React.createElement("div", null, "Status Bar"),
 }));
 
-vi.mock("../RunInspectorPanel", () => ({
-  RunInspectorPanel: () => React.createElement("div", null, "Inspector"),
-}));
-
-vi.mock("../runs/RunInspectorPanel", () => ({
-  RunInspectorPanel: () => React.createElement("div", null, "Inspector"),
+vi.mock("../SurfaceInspectorPanel", () => ({
+  SurfaceInspectorPanel: () => React.createElement("div", null, "Inspector"),
 }));
 
 vi.mock("@/components/provider/ProviderModal", () => ({

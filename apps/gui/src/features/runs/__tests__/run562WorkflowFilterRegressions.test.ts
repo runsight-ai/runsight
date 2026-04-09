@@ -272,10 +272,6 @@ function RouteEcho({ label }: { label: string }) {
   );
 }
 
-vi.mock("@/features/runs/RunDetail", () => ({
-  Component: () => React.createElement(RouteEcho, { label: "run-detail" }),
-}));
-
 /* ------------------------------------------------------------------ */
 /*  Lifecycle                                                          */
 /* ------------------------------------------------------------------ */
