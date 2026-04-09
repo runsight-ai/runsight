@@ -51,14 +51,11 @@ const harness = vi.hoisted(() => {
     runNodes: [] as Array<Record<string, unknown>>,
     getGitFile: vi.fn(),
     forkWorkflow: vi.fn(),
-    forkOptions: null as
-      | {
-          commitSha: string;
-          workflowPath: string;
-          workflowName: string;
-          onTransition?: (id: string) => void;
-        }
-      | null,
+    forkInvocations: [] as Array<{
+      commitSha: string;
+      workflowPath: string;
+      workflowName: string;
+    }>,
     cancelRun: { mutate: vi.fn(), isPending: false },
     queryClient: { invalidateQueries: vi.fn() },
     canvasStore,
@@ -161,8 +158,12 @@ vi.mock("../../runs/useForkWorkflow", () => ({
     workflowName: string;
     onTransition?: (id: string) => void;
   }) => {
-    harness.forkOptions = options;
     harness.forkWorkflow.mockImplementation(() => {
+      harness.forkInvocations.push({
+        commitSha: options.commitSha,
+        workflowPath: options.workflowPath,
+        workflowName: options.workflowName,
+      });
       options.onTransition?.("wf_forked_779");
     });
 
@@ -214,7 +215,7 @@ beforeEach(() => {
     content: "workflow:\n  name: Research Pipeline\n",
   });
   harness.forkWorkflow.mockReset();
-  harness.forkOptions = null;
+  harness.forkInvocations = [];
   harness.cancelRun.mutate.mockReset();
   harness.cancelRun.isPending = false;
   harness.queryClient.invalidateQueries.mockReset();
@@ -241,7 +242,7 @@ describe("WorkflowSurface readonly topbar wiring (RUN-779)", () => {
     await user.click(screen.getByRole("button", { name: "Fork" }));
 
     expect(harness.forkWorkflow).toHaveBeenCalledTimes(1);
-    expect(harness.forkOptions).toMatchObject({
+    expect(harness.forkInvocations[0]).toEqual({
       commitSha: "commit_779",
       workflowPath: "custom/workflows/wf_779.yaml",
       workflowName: "Research Pipeline",
