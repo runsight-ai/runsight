@@ -2,7 +2,7 @@
 
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 
@@ -448,7 +448,8 @@ describe("RUN-778 shared canvas path", () => {
     });
 
     expect(await screen.findByText("Unable to load run graph")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Retry" })).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(mockState.refetchRunNodes).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("surface-bottom-panel")).not.toBeNull();
     expect(screen.getByTestId("surface-status-bar")).not.toBeNull();
   });
