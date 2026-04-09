@@ -37,6 +37,7 @@ from runsight_core.yaml.discovery._tool import (
     ToolMeta,
     ToolScanner,
 )
+from runsight_core.yaml.discovery._workflow import WorkflowScanner
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ __all__ = [
     "SoulScanner",
     "ToolMeta",
     "ToolScanner",
+    "WorkflowScanner",
     "_to_snake_case",
     "discover_custom_assets",
 ]
@@ -164,40 +166,6 @@ def _discover_blocks(blocks_dir: Path) -> Dict[str, type]:
     return blocks
 
 
-def _discover_workflows(workflows_dir: Path) -> Dict[str, Workflow]:
-    """
-    Discover and parse all Workflow definitions from YAML files in workflows_dir.
-
-    Args:
-        workflows_dir: Path to custom/workflows/ directory.
-
-    Returns:
-        Dict mapping workflow key (from filename stem) to Workflow object.
-        Returns empty dict if workflows_dir doesn't exist.
-
-    Raises:
-        ValueError: If workflow parsing fails.
-        yaml.YAMLError: If YAML is malformed.
-    """
-    workflows: Dict[str, Workflow] = {}
-
-    if not workflows_dir.exists():
-        return workflows
-
-    from runsight_core.yaml.parser import parse_workflow_yaml
-
-    for yaml_file in workflows_dir.glob("*.yaml"):
-        workflow_key = yaml_file.stem
-
-        with open(yaml_file, "r", encoding="utf-8") as f:
-            workflow_yaml = f.read()
-
-        workflow = parse_workflow_yaml(workflow_yaml)
-        workflows[workflow_key] = workflow
-
-    return workflows
-
-
 def discover_custom_assets(
     custom_dir: str | Path = "custom",
 ) -> Tuple[Dict[str, type], Dict[str, Soul], Dict[str, Workflow]]:
@@ -233,6 +201,14 @@ def discover_custom_assets(
     # Discover each asset type
     blocks = _discover_blocks(custom_path / "blocks")
     souls = SoulScanner(custom_path, souls_subdir="souls").scan().stems()
-    workflows = _discover_workflows(custom_path / "workflows")
+    workflows: Dict[str, Workflow] = {}
+    workflow_index = WorkflowScanner(custom_path, workflows_subdir="workflows").scan()
+    if workflow_index.get_all():
+        from runsight_core.yaml.parser import parse_workflow_yaml
+
+        workflows = {
+            result.stem: parse_workflow_yaml(result.item.model_dump(mode="python"))
+            for result in workflow_index.get_all()
+        }
 
     return blocks, souls, workflows

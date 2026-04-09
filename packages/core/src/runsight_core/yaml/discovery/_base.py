@@ -221,11 +221,15 @@ class BaseScanner(Generic[T], abc.ABC):
         index: ScanIndex[T] | None = None,
         git_ref: str | None = None,
         git_service: Any = None,
+        allow_candidate_fallback: bool = True,
     ) -> ScanResult[T] | None:
         if index is not None:
             indexed = index.get(ref)
             if indexed is not None:
                 return indexed
+
+        if not allow_candidate_fallback:
+            return None
 
         for candidate in self._candidate_paths(ref):
             scanned = self._load_candidate(candidate, git_ref=git_ref, git_service=git_service)

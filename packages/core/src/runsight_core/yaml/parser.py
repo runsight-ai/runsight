@@ -25,7 +25,7 @@ from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
-from runsight_core.yaml.discovery import SoulScanner, ToolScanner
+from runsight_core.yaml.discovery import SoulScanner, ToolScanner, WorkflowScanner
 from runsight_core.yaml.schema import (
     CaseDef,
     ConditionDef,
@@ -448,81 +448,6 @@ def _resolve_workflow_block_max_depth(
     return file_def.config.get("max_workflow_depth", 10)
 
 
-def _build_workflow_validation_index(
-    base_dir: str,
-) -> dict[str, tuple[Path, RunsightWorkflowFile]]:
-    root = Path(base_dir).resolve()
-    workflows_dir = root / "custom" / "workflows"
-    validation_index: dict[str, tuple[Path, RunsightWorkflowFile]] = {}
-
-    if not workflows_dir.is_dir():
-        return validation_index
-
-    for pattern in ("*.yaml", "*.yml"):
-        for workflow_path in workflows_dir.rglob(pattern):
-            with open(workflow_path, "r", encoding="utf-8") as workflow_file_handle:
-                raw_data = yaml.safe_load(workflow_file_handle)
-
-            workflow_file = RunsightWorkflowFile.model_validate(raw_data)
-            resolved_path = workflow_path.resolve()
-
-            aliases = {str(resolved_path), workflow_path.stem}
-            try:
-                aliases.add(str(resolved_path.relative_to(root)))
-            except ValueError:
-                pass
-
-            workflow_name = getattr(workflow_file.workflow, "name", None)
-            if workflow_name:
-                aliases.add(workflow_name)
-
-            for alias in aliases:
-                validation_index[alias] = (resolved_path, workflow_file)
-
-    return validation_index
-
-
-def _resolve_workflow_call_contract_ref(
-    workflow_ref: str,
-    *,
-    base_dir: str,
-    validation_index: dict[str, tuple[Path, RunsightWorkflowFile]],
-    allow_filesystem_fallback: bool = False,
-) -> tuple[Path, RunsightWorkflowFile]:
-    indexed = validation_index.get(workflow_ref)
-    if indexed is not None:
-        return indexed
-
-    root = Path(base_dir).resolve()
-    ref_path = Path(workflow_ref)
-    candidate_paths: list[Path] = []
-    if ref_path.is_absolute():
-        candidate_paths.append(ref_path)
-    else:
-        candidate_paths.append(root / ref_path)
-        candidate_paths.append(root / "custom" / "workflows" / ref_path)
-        if ref_path.suffix == "":
-            candidate_paths.append(root / "custom" / "workflows" / f"{workflow_ref}.yaml")
-            candidate_paths.append(root / "custom" / "workflows" / f"{workflow_ref}.yml")
-
-    if allow_filesystem_fallback:
-        for candidate_path in candidate_paths:
-            resolved_path = candidate_path.resolve()
-            indexed = validation_index.get(str(resolved_path))
-            if indexed is not None:
-                return indexed
-            if resolved_path.exists():
-                with open(resolved_path, "r", encoding="utf-8") as workflow_file_handle:
-                    raw_data = yaml.safe_load(workflow_file_handle)
-                workflow_file = RunsightWorkflowFile.model_validate(raw_data)
-                return resolved_path, workflow_file
-
-    raise ValueError(
-        f"WorkflowRegistry: cannot resolve ref '{workflow_ref}'. "
-        "Not found as named workflow or filesystem path."
-    )
-
-
 def validate_workflow_call_contracts(
     file_def: RunsightWorkflowFile,
     *,
@@ -534,8 +459,16 @@ def validate_workflow_call_contracts(
     allow_filesystem_fallback: bool = True,
     _depth_uses_strict_comparison: bool = False,
 ) -> None:
+    workflow_scanner: WorkflowScanner | None = None
+    workflow_scan_index = None
     if validation_index is None:
-        validation_index = _build_workflow_validation_index(base_dir)
+        workflow_scanner = WorkflowScanner(base_dir)
+        workflow_scan_index = workflow_scanner.scan()
+        validation_index = {
+            alias: (result.path, result.item)
+            for result in workflow_scan_index.get_all()
+            for alias in result.aliases
+        }
     workflow_label = getattr(file_def.workflow, "name", None) or current_workflow_ref or "<root>"
     _validate_workflow_block_runtime_placement(file_def, workflow_label=workflow_label)
     if ancestry is None:
@@ -546,12 +479,30 @@ def validate_workflow_call_contracts(
         if block_def.type != "workflow":
             continue
 
-        child_path, child_file = _resolve_workflow_call_contract_ref(
-            block_def.workflow_ref,
-            base_dir=base_dir,
-            validation_index=validation_index,
-            allow_filesystem_fallback=allow_filesystem_fallback,
-        )
+        resolved_child = None
+        if workflow_scanner is not None:
+            resolved_child = workflow_scanner.resolve_ref(
+                block_def.workflow_ref,
+                index=workflow_scan_index,
+                allow_candidate_fallback=allow_filesystem_fallback,
+            )
+        elif allow_filesystem_fallback:
+            workflow_scanner = WorkflowScanner(base_dir)
+            resolved_child = workflow_scanner.resolve_ref(
+                block_def.workflow_ref,
+                allow_candidate_fallback=True,
+            )
+        if resolved_child is None:
+            indexed = validation_index.get(block_def.workflow_ref)
+            if indexed is None:
+                raise ValueError(
+                    f"WorkflowRegistry: cannot resolve ref '{block_def.workflow_ref}'. "
+                    "Not found as named workflow or filesystem path."
+                )
+            child_path, child_file = indexed
+        else:
+            child_path = resolved_child.path
+            child_file = resolved_child.item
         child_ref = str(child_path)
         if child_ref in ancestry:
             cycle_path = " -> ".join([*ancestry, child_ref])
