@@ -3,6 +3,7 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 
 type RunRecord = {
@@ -49,6 +50,15 @@ const harness = vi.hoisted(() => {
     regressionsCount: 0,
     runNodes: [] as Array<Record<string, unknown>>,
     getGitFile: vi.fn(),
+    forkWorkflow: vi.fn(),
+    forkOptions: null as
+      | {
+          commitSha: string;
+          workflowPath: string;
+          workflowName: string;
+          onTransition?: (id: string) => void;
+        }
+      | null,
     cancelRun: { mutate: vi.fn(), isPending: false },
     queryClient: { invalidateQueries: vi.fn() },
     canvasStore,
@@ -57,6 +67,11 @@ const harness = vi.hoisted(() => {
 
 vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => harness.queryClient,
+  useQuery: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+  }),
 }));
 
 vi.mock("@/queries/runs", () => ({
@@ -64,6 +79,10 @@ vi.mock("@/queries/runs", () => ({
     data: runId && harness.run?.id === runId ? harness.run : undefined,
     isLoading: false,
     isError: false,
+  }),
+  useCreateRun: () => ({
+    mutate: vi.fn(),
+    isPending: false,
   }),
   useRunNodes: (runId: string) => ({
     data: runId && harness.run?.id === runId ? harness.runNodes : [],
@@ -136,10 +155,22 @@ vi.mock("@/features/runs/RunInspectorPanel", () => ({
 }));
 
 vi.mock("../../runs/useForkWorkflow", () => ({
-  useForkWorkflow: () => ({
-    forkWorkflow: vi.fn(),
-    isForking: false,
-  }),
+  useForkWorkflow: (options: {
+    commitSha: string;
+    workflowPath: string;
+    workflowName: string;
+    onTransition?: (id: string) => void;
+  }) => {
+    harness.forkOptions = options;
+    harness.forkWorkflow.mockImplementation(() => {
+      options.onTransition?.("wf_forked_779");
+    });
+
+    return {
+      forkWorkflow: harness.forkWorkflow,
+      isForking: false,
+    };
+  },
 }));
 
 import { WorkflowSurface } from "../WorkflowSurface";
@@ -182,6 +213,8 @@ beforeEach(() => {
   harness.getGitFile.mockResolvedValue({
     content: "workflow:\n  name: Research Pipeline\n",
   });
+  harness.forkWorkflow.mockReset();
+  harness.forkOptions = null;
   harness.cancelRun.mutate.mockReset();
   harness.cancelRun.isPending = false;
   harness.queryClient.invalidateQueries.mockReset();
@@ -195,7 +228,8 @@ beforeEach(() => {
 });
 
 describe("WorkflowSurface readonly topbar wiring (RUN-779)", () => {
-  it("shows completed readonly run metadata, review badge, and fork action", () => {
+  it("shows completed readonly run metadata, review badge, and fork action", async () => {
+    const user = userEvent.setup();
     setReadonlyFixtures({ runStatus: "completed", regressionsCount: 0 });
 
     render(
@@ -203,6 +237,16 @@ describe("WorkflowSurface readonly topbar wiring (RUN-779)", () => {
         <WorkflowSurface mode="readonly" runId="run_779" workflowId="wf_779" />
       </MemoryRouter>,
     );
+
+    await user.click(screen.getByRole("button", { name: "Fork" }));
+
+    expect(harness.forkWorkflow).toHaveBeenCalledTimes(1);
+    expect(harness.forkOptions).toMatchObject({
+      commitSha: "commit_779",
+      workflowPath: "custom/workflows/wf_779.yaml",
+      workflowName: "Research Pipeline",
+    });
+    expect(screen.getByTestId("workflow-save-button")).toBeTruthy();
 
     expect(screen.getByRole("link", { name: "Research Pipeline" }).getAttribute("href")).toBe(
       "/workflows/wf_779/edit",
@@ -212,7 +256,6 @@ describe("WorkflowSurface readonly topbar wiring (RUN-779)", () => {
     expect(screen.getByText("1m 15s")).toBeTruthy();
     expect(screen.getByText("1.2k tok")).toBeTruthy();
     expect(screen.getByText("$4.200")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Fork" })).toBeTruthy();
   });
 
   it("shows the running-state cancel affordance and disables fork with a tooltip", () => {
