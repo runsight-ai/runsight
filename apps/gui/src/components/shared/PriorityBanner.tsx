@@ -29,7 +29,33 @@ const BANNER_PRIORITY: BannerCondition["type"][] = [
 
 const EXPLORE_DISMISS_KEY = "runsight:explore-banner-dismissed";
 
-/** Style mapping: explore -> info tokens, uncommitted/regressions -> warning tokens. */
+function getStoredExploreDismissed() {
+  if (typeof globalThis === "undefined") {
+    return false;
+  }
+
+  const storage = globalThis.localStorage;
+  if (!storage || typeof storage.getItem !== "function") {
+    return false;
+  }
+
+  return storage.getItem(EXPLORE_DISMISS_KEY) === "true";
+}
+
+function persistExploreDismissed() {
+  if (typeof globalThis === "undefined") {
+    return;
+  }
+
+  const storage = globalThis.localStorage;
+  if (!storage || typeof storage.setItem !== "function") {
+    return;
+  }
+
+  storage.setItem(EXPLORE_DISMISS_KEY, "true");
+}
+
+  /** Style mapping: explore -> info tokens, uncommitted/regressions -> warning tokens. */
 const STYLE_MAP: Record<
   BannerCondition["type"],
   { bg: string; border: string; text: string }
@@ -57,9 +83,7 @@ const STYLE_MAP: Record<
 
 export function PriorityBanner({ conditions }: PriorityBannerProps) {
   // Persistent dismiss for explore (localStorage)
-  const [exploreDismissed, setExploreDismissed] = useState(
-    () => localStorage.getItem(EXPLORE_DISMISS_KEY) === "true",
-  );
+  const [exploreDismissed, setExploreDismissed] = useState(getStoredExploreDismissed);
 
   // Session-scoped dismiss tracking via Set
   const [dismissedSet, setDismissedSet] = useState<Set<string>>(() => new Set());
@@ -83,7 +107,7 @@ export function PriorityBanner({ conditions }: PriorityBannerProps) {
   const handleDismiss = () => {
     if (winner.type === "explore") {
       setExploreDismissed(true);
-      localStorage.setItem(EXPLORE_DISMISS_KEY, "true");
+      persistExploreDismissed();
     } else {
       setDismissedSet((prev) => new Set(prev).add(winner.type));
     }

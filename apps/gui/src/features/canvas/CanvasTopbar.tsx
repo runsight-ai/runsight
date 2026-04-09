@@ -36,6 +36,11 @@ interface CanvasTopbarProps {
   metricsOverride?: React.ReactNode;
   actionsOverride?: React.ReactNode;
   runId?: string;
+  forkConfigOverride?: {
+    commitSha?: string;
+    workflowPath?: string;
+    workflowName?: string;
+  };
 }
 
 export function CanvasTopbar({
@@ -63,6 +68,7 @@ export function CanvasTopbar({
   metricsOverride,
   actionsOverride,
   runId,
+  forkConfigOverride,
 }: CanvasTopbarProps) {
   const hasRouter = useInRouterContext();
   const { data: workflow } = useWorkflow(workflowId);
@@ -70,9 +76,11 @@ export function CanvasTopbar({
   const cancelRun = useCancelRun();
 
   const { forkWorkflow, isForking } = useForkWorkflow({
-    commitSha: workflow?.commit_sha ?? "",
-    workflowPath: `custom/workflows/${workflowId}.yaml`,
-    workflowName: workflow?.name ?? "Untitled Workflow",
+    commitSha: forkConfigOverride?.commitSha ?? workflow?.commit_sha ?? "",
+    workflowPath:
+      forkConfigOverride?.workflowPath ?? `custom/workflows/${workflowId}.yaml`,
+    workflowName:
+      forkConfigOverride?.workflowName ?? workflow?.name ?? "Untitled Workflow",
     onTransition: onForkTransition,
   });
 

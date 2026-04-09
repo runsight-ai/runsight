@@ -8,6 +8,7 @@ import { YamlEditor } from "./YamlEditor";
 import { CanvasBottomPanel } from "./CanvasBottomPanel";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { WorkflowCanvas } from "./WorkflowCanvas";
+import { useSurfaceReadonlyHeaderSlots } from "./useSurfaceReadonlyHeaderSlots";
 
 import { ProviderModal } from "@/components/provider/ProviderModal";
 import { CommitDialog } from "@/features/git/CommitDialog";
@@ -16,11 +17,21 @@ import { Card } from "@runsight/ui/card";
 import { Button } from "@runsight/ui/button";
 import { LayoutGrid } from "lucide-react";
 import { useCanvasStore } from "@/store/canvas";
-import { useRun, useRunNodes } from "@/queries/runs";
+import * as runQueries from "@/queries/runs";
 import { useWorkflow } from "@/queries/workflows";
 import { gitApi } from "@/api/git";
 import { mapRunStatus } from "@/features/runs/runDetailUtils";
 import { RunInspectorPanel } from "@/features/runs/RunInspectorPanel";
+import { PriorityBanner } from "@/components/shared";
+
+const useOptionalRunRegressions =
+  "useRunRegressions" in runQueries
+    ? (
+        runQueries as {
+          useRunRegressions: (runId: string) => { data?: { count?: number } };
+        }
+      ).useRunRegressions
+    : (_runId: string) => ({ data: undefined });
 
 function RunGraphErrorCard({
   message,
@@ -92,11 +103,17 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const readonlyRunId = mode === "readonly" ? (activeRunId ?? initialRunId ?? "") : "";
 
   const handleForkTransition = useCallback((newWorkflowId: string) => {
-    setMode("edit");
-    setWorkflowId(newWorkflowId);
-    setRunId(undefined);
     window.history.replaceState(null, "", `/workflows/${newWorkflowId}/edit`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
   }, []);
+  const handleReadonlyForkTransition = useCallback((newWorkflowId: string) => {
+    if (typeof globalThis.setTimeout === "function") {
+      globalThis.setTimeout(() => handleForkTransition(newWorkflowId), 0);
+      return;
+    }
+
+    handleForkTransition(newWorkflowId);
+  }, [handleForkTransition]);
 
   const contract = getContractForMode(mode);
 
@@ -116,7 +133,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     data: run,
     isLoading: isRunLoading,
     isError: isRunError,
-  } = useRun(readonlyRunId, {
+  } = runQueries.useRun(readonlyRunId, {
     refetchInterval: (query) => {
       const status = (query?.state as { data?: { status?: string } })?.data?.status;
       if (status === "running" || status === "pending") return 2000;
@@ -135,7 +152,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     isError: isRunNodesError,
     error: runNodesError,
     refetch: refetchRunNodes,
-  } = useRunNodes(readonlyRunId);
+  } = runQueries.useRunNodes(readonlyRunId);
+  const { data: regressions } = useOptionalRunRegressions(readonlyRunId);
 
   const nodes = useCanvasStore((s) => s.nodes);
   const edges = useCanvasStore((s) => s.edges);
@@ -336,6 +354,12 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     && Boolean(workflow?.canvas_state)
     && !showRunGraphError
     && !showPreExecutionFailure;
+  const readonlyHeaderSlots = useSurfaceReadonlyHeaderSlots({
+    run,
+    workflowId: resolvedWorkflowId,
+    onForkTransition: handleReadonlyForkTransition,
+  });
+  const regressionCount = mode === "readonly" ? (regressions?.count ?? 0) : 0;
 
   const handleSave = useCallback(() => {
     if (!editable || !workflowId) return;
@@ -411,7 +435,19 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
           metricsStyle={topbar.metricsStyle}
           actionButton={actionButton}
           onAddApiKey={editable ? handleOpenApiKeyModal : undefined}
-          onForkTransition={handleForkTransition}
+          onForkTransition={mode === "readonly" ? handleReadonlyForkTransition : handleForkTransition}
+          titleAfter={mode === "readonly" ? readonlyHeaderSlots.titleAfter : undefined}
+          metricsOverride={mode === "readonly" ? readonlyHeaderSlots.metricsOverride : undefined}
+          actionsOverride={mode === "readonly" ? readonlyHeaderSlots.actionsOverride : undefined}
+          forkConfigOverride={
+            mode === "readonly"
+              ? {
+                  commitSha: run?.commit_sha ?? "",
+                  workflowPath: `custom/workflows/${resolvedWorkflowId}.yaml`,
+                  workflowName: run?.workflow_name ?? workflow?.name ?? "Untitled Workflow",
+                }
+              : undefined
+          }
         />
       </div>
 
@@ -420,6 +456,15 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         className="relative flex flex-col overflow-hidden"
         style={{ gridColumn: canvasColumn, gridRow: "2" }}
       >
+        {mode === "readonly" ? (
+          <PriorityBanner
+            conditions={[{
+              type: "regressions",
+              active: regressionCount > 0,
+              message: `${regressionCount} regressions found`,
+            }]}
+          />
+        ) : null}
         {activeTab === "canvas" ? (
           <div className="flex h-full min-h-0">
             <div className="flex-1 min-w-0">
