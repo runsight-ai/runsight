@@ -65,6 +65,7 @@ def test_base_scanner_resolve_ref_prefers_index_then_candidate_paths(tmp_path: P
     assets_dir = tmp_path / "custom" / "test-assets"
     assets_dir.mkdir(parents=True)
     (assets_dir / "ref_a.yaml").write_text("from_file: true\n", encoding="utf-8")
+    (assets_dir / "ref_b.yml").write_text("from_file: true\n", encoding="utf-8")
 
     scanner = StringScanner(tmp_path)
     index = scanner.scan()
@@ -72,8 +73,14 @@ def test_base_scanner_resolve_ref_prefers_index_then_candidate_paths(tmp_path: P
     resolved = scanner.resolve_ref("ref_a", index=index)
     assert resolved is not None
     assert resolved.stem == "ref_a"
-    assert scanner.resolve_ref("custom/test-assets/ref_a.yaml", index=index) is not None
-    assert scanner.resolve_ref("custom/test-assets/ref_a.yml", index=index) is None
+    fallback_yaml = scanner.resolve_ref("ref_a.yaml")
+    assert fallback_yaml is not None
+    assert fallback_yaml.stem == "ref_a"
+    fallback_yml = scanner.resolve_ref("ref_b")
+    assert fallback_yml is not None
+    assert fallback_yml.stem == "ref_b"
+    assert scanner.resolve_ref("custom/test-assets/ref_a.yaml") is not None
+    assert scanner.resolve_ref("custom/test-assets/ref_b.yml") is not None
 
 
 def test_base_scanner_git_scan_uses_git_service_and_ls_tree(tmp_path: Path, monkeypatch) -> None:
@@ -127,6 +134,41 @@ def test_base_scanner_git_scan_uses_git_service_and_ls_tree(tmp_path: Path, monk
     assert index.stems() == {"alpha": "alpha: git", "beta": "beta: git"}
 
 
+def test_base_scanner_git_scan_returns_empty_index_when_ls_tree_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from runsight_core.yaml.discovery._base import BaseScanner
+
+    class FakeGitService:
+        def __init__(self, repo_path: Path) -> None:
+            self.repo_path = repo_path
+
+        def read_file(self, path: str, ref: str) -> str:
+            raise AssertionError("read_file should not be called when ls-tree fails")
+
+    class StringScanner(BaseScanner[str]):
+        asset_subdir = "custom/test-assets"
+
+        def _parse_file(self, path: Path, raw_yaml: str) -> str:
+            return raw_yaml.strip()
+
+    class Completed:
+        def __init__(self, stdout: str, returncode: int) -> None:
+            self.stdout = stdout
+            self.returncode = returncode
+
+    def fake_run(cmd, cwd, capture_output, text, check):
+        return Completed("", 1)
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    index = StringScanner(tmp_path).scan(
+        git_ref="feature/test", git_service=FakeGitService(tmp_path)
+    )
+    assert index.get_all() == []
+    assert index.stems() == {}
+
+
 def test_base_scanner_reports_invalid_yaml_with_filename(tmp_path: Path) -> None:
     from runsight_core.yaml.discovery._base import BaseScanner
 
@@ -144,6 +186,42 @@ def test_base_scanner_reports_invalid_yaml_with_filename(tmp_path: Path) -> None
 
     with pytest.raises(ValueError, match="broken.yaml"):
         StringScanner(tmp_path).scan()
+
+
+def test_base_scanner_skips_null_yaml_files(tmp_path: Path) -> None:
+    from runsight_core.yaml.discovery._base import BaseScanner
+
+    class StringScanner(BaseScanner[str]):
+        asset_subdir = "custom/test-assets"
+
+        def _parse_file(self, path: Path, raw_yaml: str) -> str:
+            return raw_yaml.strip()
+
+    assets_dir = tmp_path / "custom" / "test-assets"
+    assets_dir.mkdir(parents=True)
+    (assets_dir / "empty.yaml").write_text("null\n", encoding="utf-8")
+    (assets_dir / "real.yaml").write_text("real: value\n", encoding="utf-8")
+
+    index = StringScanner(tmp_path).scan()
+    assert index.stems() == {"real": "real: value"}
+
+
+def test_base_scanner_duplicate_stems_last_yaml_wins(tmp_path: Path) -> None:
+    from runsight_core.yaml.discovery._base import BaseScanner
+
+    class StringScanner(BaseScanner[str]):
+        asset_subdir = "custom/test-assets"
+
+        def _parse_file(self, path: Path, raw_yaml: str) -> str:
+            return raw_yaml.strip()
+
+    assets_dir = tmp_path / "custom" / "test-assets"
+    assets_dir.mkdir(parents=True)
+    (assets_dir / "duplicate.yaml").write_text("from_yaml: true\n", encoding="utf-8")
+    (assets_dir / "duplicate.yml").write_text("from_yml: true\n", encoding="utf-8")
+
+    index = StringScanner(tmp_path).scan()
+    assert index.stems() == {"duplicate": "from_yml: true"}
 
 
 def test_base_scanner_skips_missing_asset_dir(tmp_path: Path) -> None:
