@@ -584,11 +584,33 @@ class TestDiscoverCustomTools:
 
     @staticmethod
     def _load_symbols():
+        from runsight_core.yaml.discovery import ToolMeta, ToolScanner
+
+        def _scan_tools(base_dir: Path):
+            return ToolScanner(base_dir).scan().stems()
+
+        return _scan_tools, ToolMeta
+
+    @staticmethod
+    def _load_discovery_module():
         import runsight_core.yaml.discovery as discovery_module
 
-        discover_custom_tools = getattr(discovery_module, "discover_custom_tools", None)
-        tool_meta = getattr(discovery_module, "ToolMeta", None)
-        return discover_custom_tools, tool_meta
+        return discovery_module
+
+    def test_tool_scanner_and_reserved_builtin_ids_are_publicly_importable(self):
+        from runsight_core.yaml.discovery import RESERVED_BUILTIN_TOOL_IDS, ToolMeta, ToolScanner
+
+        assert ToolScanner is not None
+        assert ToolMeta is not None
+        assert RESERVED_BUILTIN_TOOL_IDS == frozenset({"http", "file_io", "delegate"})
+
+    def test_legacy_discover_custom_tools_helper_is_removed_from_public_module(self):
+        discovery_module = self._load_discovery_module()
+
+        assert not hasattr(
+            discovery_module,
+            "discover_custom_tools",
+        ), "Legacy discover_custom_tools helper should be removed from runsight_core.yaml.discovery"
 
     def test_missing_custom_tools_directory_returns_empty_dict(self):
         discover_custom_tools, _ = self._load_symbols()
