@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 from pydantic import ValidationError
+
 from runsight_core.yaml.discovery._base import BaseScanner
 from runsight_core.yaml.schema import RunsightWorkflowFile
 

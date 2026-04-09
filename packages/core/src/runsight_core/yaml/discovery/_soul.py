@@ -1,5 +1,3 @@
-"""Public scanner surface for Runsight YAML asset discovery."""
-
 from __future__ import annotations
 
 import logging
@@ -10,28 +8,9 @@ import yaml
 from pydantic import ValidationError
 
 from runsight_core.primitives import Soul
-
-__path__ = [str(Path(__file__).with_name("discovery"))]
-if __spec__ is not None:
-    __spec__.submodule_search_locations = __path__
-
 from runsight_core.yaml.discovery._base import BaseScanner, ScanIndex
-from runsight_core.yaml.discovery._tool import (
-    RESERVED_BUILTIN_TOOL_IDS,
-    ToolMeta,
-    ToolScanner,
-)
-from runsight_core.yaml.discovery._workflow import WorkflowScanner
 
 logger = logging.getLogger(__name__)
-
-__all__ = [
-    "RESERVED_BUILTIN_TOOL_IDS",
-    "SoulScanner",
-    "ToolMeta",
-    "ToolScanner",
-    "WorkflowScanner",
-]
 
 
 def _fail_soul_file(yaml_file: Path, message: str) -> ValueError:

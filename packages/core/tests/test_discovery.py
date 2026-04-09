@@ -15,11 +15,30 @@ class TestPublicDiscoverySurface:
     """Legacy helpers should be removed while the scanner surface stays public."""
 
     def test_discovery_module_keeps_scanner_public_api(self):
-        from runsight_core.yaml.discovery import SoulScanner, ToolScanner, WorkflowScanner
+        from runsight_core.yaml.discovery import (
+            BaseScanner,
+            ScanIndex,
+            ScanResult,
+            SoulScanner,
+            ToolScanner,
+            WorkflowScanner,
+        )
 
+        assert BaseScanner is not None
+        assert ScanIndex is not None
+        assert ScanResult is not None
         assert SoulScanner is not None
         assert ToolScanner is not None
         assert WorkflowScanner is not None
+
+    def test_discovery_surface_uses_real_package_layout(self):
+        discovery_module = importlib.import_module("runsight_core.yaml.discovery")
+        soul_module = importlib.import_module("runsight_core.yaml.discovery._soul")
+
+        assert discovery_module.__file__ is not None
+        assert discovery_module.__file__.endswith("yaml/discovery/__init__.py")
+        assert soul_module.__file__ is not None
+        assert soul_module.__file__.endswith("yaml/discovery/_soul.py")
 
     @pytest.mark.parametrize(
         "legacy_helper_name",

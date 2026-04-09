@@ -1,68 +1,15 @@
 from __future__ import annotations
 
-import importlib
 import re
 import subprocess
-import sys
 from pathlib import Path
 from textwrap import dedent
-from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 import yaml
 from runsight_core.yaml.discovery import SoulScanner, ToolScanner, WorkflowScanner
 from runsight_core.yaml.parser import parse_workflow_yaml, validate_workflow_call_contracts
 from runsight_core.yaml.schema import RunsightWorkflowFile
-
-_API_SRC = Path(__file__).resolve().parents[3] / "apps" / "api" / "src" / "runsight_api"
-for module_name, module_path in {
-    "runsight_api": _API_SRC,
-    "runsight_api.core": _API_SRC / "core",
-    "runsight_api.data": _API_SRC / "data",
-    "runsight_api.data.filesystem": _API_SRC / "data" / "filesystem",
-    "runsight_api.domain": _API_SRC / "domain",
-}.items():
-    if module_name not in sys.modules:
-        module = ModuleType(module_name)
-        module.__path__ = [str(module_path)]
-        sys.modules[module_name] = module
-
-if "structlog" not in sys.modules:
-    structlog_stub = ModuleType("structlog")
-    structlog_stub.contextvars = SimpleNamespace(
-        bind_contextvars=lambda **_: None,
-        unbind_contextvars=lambda *_, **__: None,
-    )
-    sys.modules["structlog"] = structlog_stub
-
-if "ruamel" not in sys.modules:
-    ruamel_stub = ModuleType("ruamel")
-    ruamel_yaml_stub = ModuleType("ruamel.yaml")
-
-    class _YAML:
-        pass
-
-    ruamel_yaml_stub.YAML = _YAML
-    ruamel_stub.yaml = ruamel_yaml_stub
-    sys.modules["ruamel"] = ruamel_stub
-    sys.modules["ruamel.yaml"] = ruamel_yaml_stub
-
-if "sqlmodel" not in sys.modules:
-    sqlmodel_stub = ModuleType("sqlmodel")
-
-    class _SQLModel:
-        metadata = SimpleNamespace(
-            create_all=lambda *_args, **_kwargs: None,
-            drop_all=lambda *_args, **_kwargs: None,
-        )
-
-    sqlmodel_stub.SQLModel = _SQLModel
-    sqlmodel_stub.create_engine = lambda *args, **kwargs: SimpleNamespace(args=args, kwargs=kwargs)
-    sys.modules["sqlmodel"] = sqlmodel_stub
-
-WorkflowRepository = importlib.import_module(
-    "runsight_api.data.filesystem.workflow_repo"
-).WorkflowRepository
 
 
 class _GitReadService:
@@ -244,7 +191,9 @@ def test_all_scanners_support_git_snapshot_scan_with_real_repo(tmp_path: Path):
     assert resolved.stem == "child-impl"
 
 
-def test_workflow_repository_build_registry_matches_workflow_scanner_resolution(tmp_path: Path):
+def test_workflow_repository_build_registry_matches_workflow_scanner_resolution(
+    tmp_path: Path, workflow_repo_module
+):
     paths = _write_shared_fixture(tmp_path)
     workflow_index = WorkflowScanner(tmp_path).scan()
     resolved = WorkflowScanner(tmp_path).resolve_ref("child_flow", index=workflow_index)
@@ -252,11 +201,12 @@ def test_workflow_repository_build_registry_matches_workflow_scanner_resolution(
     assert resolved is not None
     assert resolved.path == paths["child"].resolve()
 
-    repo = WorkflowRepository(base_path=str(tmp_path))
-    registry = repo.build_runnable_workflow_registry(
-        "parent",
-        paths["parent"].read_text(encoding="utf-8"),
-    )
+    with workflow_repo_module() as workflow_repo:
+        repo = workflow_repo.WorkflowRepository(base_path=str(tmp_path))
+        registry = repo.build_runnable_workflow_registry(
+            "parent",
+            paths["parent"].read_text(encoding="utf-8"),
+        )
 
     child_by_name = registry.get("child_flow")
     child_by_path = registry.get("custom/workflows/child-impl.yaml")
@@ -264,20 +214,25 @@ def test_workflow_repository_build_registry_matches_workflow_scanner_resolution(
     assert child_by_path.workflow.name == "child_flow"
 
 
-def test_parser_and_validation_invoke_scanners_on_real_fixture(tmp_path: Path):
+def test_parser_and_validation_invoke_scanners_on_real_fixture(
+    tmp_path: Path, workflow_repo_module
+):
     paths = _write_shared_fixture(tmp_path)
 
-    with (
-        patch("runsight_core.yaml.parser.SoulScanner", wraps=SoulScanner) as soul_scanner_cls,
-        patch("runsight_core.yaml.parser.ToolScanner", wraps=ToolScanner) as tool_scanner_cls,
-    ):
-        workflow_registry = WorkflowRepository(
-            base_path=str(tmp_path)
-        ).build_runnable_workflow_registry(
-            "parent",
-            paths["parent"].read_text(encoding="utf-8"),
-        )
-        workflow = parse_workflow_yaml(str(paths["parent"]), workflow_registry=workflow_registry)
+    with workflow_repo_module() as workflow_repo:
+        with (
+            patch("runsight_core.yaml.parser.SoulScanner", wraps=SoulScanner) as soul_scanner_cls,
+            patch("runsight_core.yaml.parser.ToolScanner", wraps=ToolScanner) as tool_scanner_cls,
+        ):
+            workflow_registry = workflow_repo.WorkflowRepository(
+                base_path=str(tmp_path)
+            ).build_runnable_workflow_registry(
+                "parent",
+                paths["parent"].read_text(encoding="utf-8"),
+            )
+            workflow = parse_workflow_yaml(
+                str(paths["parent"]), workflow_registry=workflow_registry
+            )
 
     assert workflow.name == "parent_flow"
     assert any(

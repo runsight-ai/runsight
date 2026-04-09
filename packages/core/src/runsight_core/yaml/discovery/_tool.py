@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
 from runsight_core.yaml.discovery._base import BaseScanner, ScanIndex, ScanResult
 
 logger = logging.getLogger(__name__)

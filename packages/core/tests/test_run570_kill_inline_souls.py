@@ -7,6 +7,7 @@ from textwrap import dedent
 from unittest.mock import Mock, patch
 
 import pytest
+import yaml
 from pydantic import ValidationError
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.schema import RunsightWorkflowFile
@@ -31,15 +32,15 @@ def _write_soul_file(
     """Create ``custom/souls/<name>.yaml`` for external discovery coverage."""
     souls_dir = base_dir / "custom" / "souls"
     souls_dir.mkdir(parents=True, exist_ok=True)
-    model_line = f"\nmodel_name: {model_name}" if model_name else ""
+    soul_data = {
+        "id": soul_id,
+        "role": role,
+        "system_prompt": prompt,
+    }
+    if model_name:
+        soul_data["model_name"] = model_name
     (souls_dir / f"{name}.yaml").write_text(
-        dedent(
-            f"""\
-            id: {soul_id}
-            role: {role}
-            system_prompt: {prompt}{model_line}
-            """
-        ),
+        yaml.safe_dump(soul_data, sort_keys=False),
         encoding="utf-8",
     )
 
