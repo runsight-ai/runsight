@@ -20,9 +20,9 @@ import { useCanvasStore } from "@/store/canvas";
 import * as runQueries from "@/queries/runs";
 import { useWorkflow } from "@/queries/workflows";
 import { gitApi } from "@/api/git";
-import { mapRunStatus } from "@/features/runs/runDetailUtils";
-import { RunInspectorPanel } from "@/features/runs/RunInspectorPanel";
 import { PriorityBanner } from "@/components/shared";
+import { mapRunStatus } from "./surfaceUtils";
+import { SurfaceInspectorPanel } from "./SurfaceInspectorPanel";
 
 const useOptionalRunRegressions =
   "useRunRegressions" in runQueries
@@ -513,7 +513,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
               )}
             </div>
             {inspectorVisible && selectedNode ? (
-              <RunInspectorPanel
+              <SurfaceInspectorPanel
                 selectedNode={selectedNode}
                 onClose={() => {
                   setInspectedNodeId(null);
