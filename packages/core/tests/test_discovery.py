@@ -8,6 +8,7 @@ This module tests:
 - Graceful handling of missing/non-existent custom_dir
 """
 
+import importlib
 import tempfile
 from pathlib import Path
 from textwrap import dedent
@@ -600,9 +601,14 @@ class TestDiscoverCustomTools:
     def test_tool_scanner_and_reserved_builtin_ids_are_publicly_importable(self):
         from runsight_core.yaml.discovery import RESERVED_BUILTIN_TOOL_IDS, ToolMeta, ToolScanner
 
+        tool_module = importlib.import_module("runsight_core.yaml.discovery._tool")
+
         assert ToolScanner is not None
         assert ToolMeta is not None
         assert RESERVED_BUILTIN_TOOL_IDS == frozenset({"http", "file_io", "delegate"})
+        assert ToolScanner.__module__ == tool_module.ToolScanner.__module__
+        assert ToolMeta.__module__ == tool_module.ToolMeta.__module__
+        assert RESERVED_BUILTIN_TOOL_IDS is tool_module.RESERVED_BUILTIN_TOOL_IDS
 
     def test_legacy_discover_custom_tools_helper_is_removed_from_public_module(self):
         discovery_module = self._load_discovery_module()
@@ -611,6 +617,25 @@ class TestDiscoverCustomTools:
             discovery_module,
             "discover_custom_tools",
         ), "Legacy discover_custom_tools helper should be removed from runsight_core.yaml.discovery"
+
+    @pytest.mark.parametrize(
+        "legacy_helper_name",
+        [
+            "_validate_tool_main_contract",
+            "_fail_tool_file",
+            "_require_string",
+            "_require_mapping",
+            "_read_tool_code_file",
+            "_normalize_request_config",
+        ],
+    )
+    def test_legacy_tool_helpers_are_removed_from_public_module(self, legacy_helper_name):
+        discovery_module = self._load_discovery_module()
+
+        assert not hasattr(
+            discovery_module,
+            legacy_helper_name,
+        ), f"Legacy helper {legacy_helper_name} should move out of runsight_core.yaml.discovery"
 
     def test_missing_custom_tools_directory_returns_empty_dict(self):
         discover_custom_tools, _ = self._load_symbols()
