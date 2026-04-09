@@ -57,7 +57,17 @@ function convertKeysToSnake(value: unknown): unknown {
 // ---------------------------------------------------------------------------
 
 // Runtime/meta fields that must never be emitted in compiled blocks
-const RUNTIME_FIELDS = new Set(["stepId", "name", "stepType", "status", "cost", "executionCost"]);
+const RUNTIME_FIELDS = new Set([
+  "stepId",
+  "name",
+  "stepType",
+  "status",
+  "cost",
+  "executionCost",
+  "duration",
+  "tokens",
+  "error",
+]);
 
 function toCompiledBlock(node: Node<StepNodeData>): BlockDef {
   const data = node.data;

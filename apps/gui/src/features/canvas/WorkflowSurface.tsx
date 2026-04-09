@@ -147,6 +147,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const setActiveCanvasRunId = useCanvasStore((s) => s.setActiveRunId);
   const setRunCost = useCanvasStore((s) => s.setRunCost);
   const selectNode = useCanvasStore((s) => s.selectNode);
+  const resetCanvas = useCanvasStore((s) => (s as { reset?: () => void }).reset);
 
   const handleOpenApiKeyModal = useCallback(() => {
     setApiKeyModalOpen(true);
@@ -167,6 +168,16 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
       setActiveTab("canvas");
     }
   }, [toggleVisibility.yaml]);
+
+  useEffect(() => {
+    setMode(initialMode);
+    setWorkflowId(initialWorkflowId);
+    setRunId(initialRunId);
+    setInspectedNodeId(null);
+    setOverlayYaml(null);
+    setReadonlyYaml(null);
+    resetCanvas?.();
+  }, [initialMode, initialWorkflowId, initialRunId, resetCanvas]);
 
   useEffect(() => {
     if (mode !== "readonly" || !run?.workflow_id || workflowId === run.workflow_id) {
@@ -290,7 +301,20 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     }
 
     for (const runNode of runNodes) {
-      setNodeStatus(runNode.node_id, mapRunStatus(runNode.status));
+      setNodeStatus(runNode.node_id, mapRunStatus(runNode.status), {
+        executionCost:
+          typeof runNode.cost_usd === "number" ? runNode.cost_usd : undefined,
+        duration:
+          typeof runNode.duration_seconds === "number" ? runNode.duration_seconds : undefined,
+        tokens:
+          runNode.tokens && typeof runNode.tokens === "object"
+            ? (runNode.tokens as { input?: number; output?: number; total?: number })
+            : undefined,
+        error:
+          typeof runNode.error === "string" || runNode.error === null
+            ? runNode.error
+            : undefined,
+      });
     }
   }, [mode, workflow?.canvas_state, runNodes, setNodeStatus]);
 
