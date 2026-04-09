@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 from pathlib import Path
 from textwrap import dedent
 
@@ -76,12 +77,17 @@ class TestAssertionScannerPublicSurface:
         assert AssertionMeta.__module__ == assertion_module.AssertionMeta.__module__
         assert ScanIndex is not None
 
-    def test_assertion_scanner_module_does_not_reintroduce_legacy_discover_custom_assets(self):
+    def test_assertion_scanner_module_does_not_reintroduce_legacy_discover_custom_helpers(self):
         _, _, _, _, assertion_module = _load_symbols()
 
         source = Path(assertion_module.__file__).read_text(encoding="utf-8")
-        assert "discover_custom_assets" not in source
-        assert not hasattr(assertion_module, "discover_custom_assets")
+        assert re.search(r"(?<!\\w)discover_custom_(?!\\w)", source) is None
+        assert not any(name.startswith("discover_custom_") for name in vars(assertion_module))
+
+    def test_public_discovery_surface_does_not_export_legacy_discover_custom_helpers(self):
+        import runsight_core.yaml.discovery as discovery_module
+
+        assert not any(name.startswith("discover_custom_") for name in vars(discovery_module))
 
 
 class TestDiscoverCustomAssertions:
