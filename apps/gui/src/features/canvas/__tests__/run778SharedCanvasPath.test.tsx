@@ -2,7 +2,7 @@
 
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 
@@ -33,6 +33,15 @@ type CanvasStoreState = {
   hydrateFromPersisted: ReturnType<typeof vi.fn>;
 };
 
+type WorkflowCanvasProps = {
+  isDraggable?: boolean;
+  connectionsAllowed?: boolean;
+  deletionAllowed?: boolean;
+  runId?: string;
+  onNodeClick?: (nodeId: string) => void;
+  onNodeDoubleClick?: (nodeId: string) => void;
+};
+
 const mockState = {
   workflow: null as Record<string, unknown> | null,
   run: null as Record<string, unknown> | null,
@@ -45,6 +54,7 @@ const mockState = {
 
 let canvasStoreState: CanvasStoreState;
 const storeListeners = new Set<() => void>();
+const workflowCanvasRenderSpy = vi.fn();
 
 function emitStoreChange() {
   for (const listener of storeListeners) {
@@ -137,6 +147,7 @@ function resetHarness() {
   mockState.runNodesError = null;
   mockState.refetchRunNodes.mockReset();
   mockState.getGitFile.mockReset();
+  workflowCanvasRenderSpy.mockReset();
   mockState.getGitFile.mockResolvedValue({
     content: "workflow:\n  name: Shared Canvas Flow\n",
   });
@@ -228,6 +239,37 @@ function installMocks() {
       getGitFile: mockState.getGitFile,
     },
   }));
+
+  vi.doMock("../WorkflowCanvas", async () => {
+    const actual = await vi.importActual<typeof import("../WorkflowCanvas")>(
+      "../WorkflowCanvas",
+    );
+
+    return {
+      ...actual,
+      WorkflowCanvas: (props: WorkflowCanvasProps) => {
+        workflowCanvasRenderSpy({
+          isDraggable: props.isDraggable ?? true,
+          connectionsAllowed: props.connectionsAllowed ?? true,
+          deletionAllowed: props.deletionAllowed ?? true,
+          runId: props.runId,
+        });
+
+        return React.createElement(
+          "div",
+          {
+            "data-testid": "workflow-canvas-path",
+            "data-draggable": String(props.isDraggable ?? true),
+            "data-connectable": String(props.connectionsAllowed ?? true),
+            "data-delete-key": String(
+              (props.deletionAllowed ?? true) ? "Backspace" : null,
+            ),
+          },
+          React.createElement(actual.WorkflowCanvas, props),
+        );
+      },
+    };
+  });
 
   vi.doMock("../CanvasTopbar", () => ({
     CanvasTopbar: ({
@@ -384,6 +426,10 @@ async function renderSurface(props: {
   );
 }
 
+async function showCanvasTab(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Canvas" }));
+}
+
 beforeEach(() => {
   cleanup();
   resetHarness();
@@ -405,7 +451,20 @@ describe("RUN-778 shared canvas path", () => {
       runId: "run_778",
     });
 
-    expect(await screen.findByTestId("reactflow-host")).not.toBeNull();
+    const center = screen.getByTestId("surface-center");
+    await showCanvasTab(user);
+
+    const canvasPath = await within(center).findByTestId("workflow-canvas-path");
+    expect(screen.getAllByTestId("workflow-canvas-path")).toHaveLength(1);
+    expect(workflowCanvasRenderSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isDraggable: false,
+        connectionsAllowed: false,
+        deletionAllowed: false,
+      }),
+    );
+    expect(within(canvasPath).getByTestId("reactflow-host")).not.toBeNull();
+    expect(within(center).queryByTestId("yaml-editor")).toBeNull();
     expect(screen.getByText(/research soul/i)).not.toBeNull();
     expect(screen.getByText(/status:\s*completed/i)).not.toBeNull();
 
@@ -426,6 +485,11 @@ describe("RUN-778 shared canvas path", () => {
       runId: "run_778",
     });
 
+    const center = screen.getByTestId("surface-center");
+    await showCanvasTab(user);
+    expect(await within(center).findByTestId("workflow-canvas-path")).not.toBeNull();
+    expect(screen.getAllByTestId("workflow-canvas-path")).toHaveLength(1);
+
     await user.click(await screen.findByText(/research soul/i));
     expect(screen.getByRole("tab", { name: "Execution" })).not.toBeNull();
 
@@ -436,6 +500,7 @@ describe("RUN-778 shared canvas path", () => {
   });
 
   it("renders the shared-path run-node error card with Retry", async () => {
+    const user = userEvent.setup();
     mockState.workflow = buildWorkflow();
     mockState.run = buildRun();
     mockState.runNodes = [];
@@ -447,14 +512,22 @@ describe("RUN-778 shared canvas path", () => {
       runId: "run_778",
     });
 
-    expect(await screen.findByText("Unable to load run graph")).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    const center = screen.getByTestId("surface-center");
+    await showCanvasTab(user);
+
+    expect(await within(center).findByText("Unable to load run graph")).not.toBeNull();
+    expect(screen.queryByTestId("workflow-canvas-path")).toBeNull();
+    expect(
+      within(center).getByText(/could not read the node response for this run/i),
+    ).not.toBeNull();
+    fireEvent.click(within(center).getByRole("button", { name: "Retry" }));
     expect(mockState.refetchRunNodes).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("surface-bottom-panel")).not.toBeNull();
     expect(screen.getByTestId("surface-status-bar")).not.toBeNull();
   });
 
   it("renders the shared-path pre-execution failure card when the run has no nodes", async () => {
+    const user = userEvent.setup();
     mockState.workflow = buildWorkflow();
     mockState.run = buildRun({
       status: "failed",
@@ -467,14 +540,34 @@ describe("RUN-778 shared canvas path", () => {
       runId: "run_778",
     });
 
+    const center = screen.getByTestId("surface-center");
+    expect(screen.queryByText("Run failed before execution started")).toBeNull();
+
+    await showCanvasTab(user);
+
     expect(
-      await screen.findByText("Run failed before execution started"),
+      await within(center).findByText("Run failed before execution started"),
     ).not.toBeNull();
-    expect(screen.getByText("Provider configuration missing")).not.toBeNull();
+    expect(screen.queryByTestId("workflow-canvas-path")).toBeNull();
+    expect(
+      within(center).getByText(/could not prepare this workflow for execution/i),
+    ).not.toBeNull();
+    expect(within(center).getByText("Provider configuration missing")).not.toBeNull();
+    expect(screen.getByTestId("surface-topbar")).not.toBeNull();
+    expect(screen.getByTestId("surface-bottom-panel")).not.toBeNull();
+    expect(screen.getByTestId("surface-status-bar")).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "YAML" }));
+    expect(await within(center).findByTestId("yaml-editor")).not.toBeNull();
+
+    await showCanvasTab(user);
+    expect(
+      await within(center).findByText("Run failed before execution started"),
+    ).not.toBeNull();
   });
 
-  it("keeps edit and readonly on the same canonical canvas tree with runtime interaction changes", async () => {
-    const user = userEvent.setup();
+  it("keeps edit and readonly on the same canonical WorkflowCanvas host with runtime interaction changes", async () => {
+    const readonlyUser = userEvent.setup();
     mockState.workflow = buildWorkflow();
     mockState.run = buildRun();
     mockState.runNodes = [{ node_id: "node_soul", status: "completed" }];
@@ -484,25 +577,42 @@ describe("RUN-778 shared canvas path", () => {
       runId: "run_778",
     });
 
-    const readonlyHost = await screen.findByTestId("reactflow-host");
-    expect(readonlyHost.getAttribute("data-draggable")).toBe("false");
-    expect(readonlyHost.getAttribute("data-connectable")).toBe("false");
-    expect(readonlyHost.getAttribute("data-delete-key")).toBe("null");
+    const readonlyCenter = screen.getByTestId("surface-center");
+    await showCanvasTab(readonlyUser);
+
+    const readonlyCanvasPath = await within(readonlyCenter).findByTestId(
+      "workflow-canvas-path",
+    );
+    expect(screen.getAllByTestId("workflow-canvas-path")).toHaveLength(1);
+    expect(workflowCanvasRenderSpy).toHaveBeenCalledTimes(1);
+    expect(readonlyCanvasPath.getAttribute("data-draggable")).toBe("false");
+    expect(readonlyCanvasPath.getAttribute("data-connectable")).toBe("false");
+    expect(readonlyCanvasPath.getAttribute("data-delete-key")).toBe("null");
+    expect(within(readonlyCanvasPath).getByTestId("reactflow-host")).not.toBeNull();
+    expect(within(readonlyCanvasPath).getByTestId("rf-node-node_soul")).not.toBeNull();
 
     cleanup();
     resetHarness();
     mockState.workflow = buildWorkflow();
+    const editUser = userEvent.setup();
 
     await renderSurface({
       mode: "edit",
       workflowId: "wf_shared_canvas",
     });
 
-    await user.click(screen.getByRole("button", { name: "Canvas" }));
+    const editCenter = screen.getByTestId("surface-center");
+    await showCanvasTab(editUser);
 
-    const editHost = await screen.findByTestId("reactflow-host");
-    expect(editHost.getAttribute("data-draggable")).toBe("true");
-    expect(editHost.getAttribute("data-connectable")).toBe("true");
-    expect(editHost.getAttribute("data-delete-key")).toBe("Backspace");
+    const editCanvasPath = await within(editCenter).findByTestId(
+      "workflow-canvas-path",
+    );
+    expect(screen.getAllByTestId("workflow-canvas-path")).toHaveLength(1);
+    expect(workflowCanvasRenderSpy).toHaveBeenCalledTimes(1);
+    expect(editCanvasPath.getAttribute("data-draggable")).toBe("true");
+    expect(editCanvasPath.getAttribute("data-connectable")).toBe("true");
+    expect(editCanvasPath.getAttribute("data-delete-key")).toBe("Backspace");
+    expect(within(editCanvasPath).getByTestId("reactflow-host")).not.toBeNull();
+    expect(within(editCanvasPath).getByTestId("rf-node-node_soul")).not.toBeNull();
   });
 });
