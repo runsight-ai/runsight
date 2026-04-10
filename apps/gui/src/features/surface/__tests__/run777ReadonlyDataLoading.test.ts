@@ -75,11 +75,13 @@ describe("WorkflowSurface readonly data loading (RUN-777 AC1-AC5)", () => {
 
   it("loads historical YAML from run.commit_sha instead of only overlayRef search params", () => {
     expect(source).toMatch(/gitApi\.getGitFile\(\s*run\?\.commit_sha|gitApi\.getGitFile\(\s*run\.commit_sha/);
-    expect(source).toMatch(/<YamlEditor[\s\S]*yaml=/);
+    expect(source).toMatch(/<SurfaceYamlEditor[\s\S]*yaml=/);
   });
 
   it("keeps readonly YAML rendering read-only", () => {
-    expect(source).toMatch(/<YamlEditor[\s\S]*readOnly=\{[^}]*true|<YamlEditor[\s\S]*readOnly/);
+    expect(source).toMatch(
+      /<SurfaceYamlEditor[\s\S]*readOnly=\{[^}]*true|<SurfaceYamlEditor[\s\S]*readOnly/,
+    );
   });
 
   it("shows an explicit readonly loading state for runs", () => {
