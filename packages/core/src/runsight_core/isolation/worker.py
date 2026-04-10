@@ -14,6 +14,7 @@ import os
 import sys
 import threading
 from datetime import datetime, timezone
+from types import MethodType
 from typing import Any
 
 from runsight_core.isolation import ipc as isolation_ipc
@@ -24,11 +25,10 @@ from runsight_core.isolation.envelope import (
     SoulEnvelope,
     ToolDefEnvelope,
 )
-from runsight_core.llm.client import LiteLLMClient
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.primitives import Soul, Task
-from runsight_core.runner import RunsightTeamRunner, _detect_provider
+from runsight_core.runner import RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.tools import ToolInstance
 
@@ -62,15 +62,110 @@ def reconstruct_soul(
     )
 
 
-def create_llm_client(model_name: str, api_key: str) -> LiteLLMClient:
-    """Create a LiteLLMClient with the given API key."""
-    return LiteLLMClient(model_name=model_name, api_key=api_key)
+class ProxiedLLMClient:
+    """Subprocess-side LLM client that proxies completions over IPC."""
+
+    def __init__(self, model_name: str, ipc_client: Any) -> None:
+        self.model_name = model_name
+        self._ipc_client = ipc_client
+
+    async def achat(
+        self,
+        messages: list[dict[str, Any]],
+        system_prompt: str | None = None,
+        temperature: float | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model": self.model_name,
+            "messages": messages,
+            "system_prompt": system_prompt,
+            "temperature": temperature,
+            "tools": tools,
+            "tool_choice": tool_choice,
+        }
+        payload.update(kwargs)
+
+        last_chunk: dict[str, Any] | None = None
+        try:
+            async for chunk in self._ipc_client.request_stream("llm_call", payload):
+                if not isinstance(chunk, dict):
+                    raise ValueError("invalid llm_call chunk payload")
+                if chunk.get("error") is not None:
+                    raise RuntimeError(str(chunk["error"]))
+                last_chunk = chunk
+        except Exception as exc:
+            raise RuntimeError(f"llm_call failed: {exc}") from exc
+
+        if last_chunk is None:
+            raise RuntimeError("llm_call returned no payload chunks")
+
+        prompt_tokens = int(last_chunk.get("prompt_tokens", 0) or 0)
+        completion_tokens = int(last_chunk.get("completion_tokens", 0) or 0)
+        total_tokens = int(last_chunk.get("total_tokens", prompt_tokens + completion_tokens) or 0)
+        tool_calls_raw = last_chunk.get("tool_calls")
+        tool_calls = tool_calls_raw if isinstance(tool_calls_raw, list) else []
+
+        response: dict[str, Any] = {
+            "content": str(last_chunk.get("content", "")),
+            "cost_usd": float(last_chunk.get("cost_usd", 0.0) or 0.0),
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+            "tool_calls": tool_calls,
+            "finish_reason": str(last_chunk.get("finish_reason", "stop") or "stop"),
+        }
+        raw_message = last_chunk.get("raw_message")
+        if isinstance(raw_message, dict):
+            response["raw_message"] = raw_message
+        elif tool_calls:
+            response["raw_message"] = {
+                "role": "assistant",
+                "content": response["content"],
+                "tool_calls": tool_calls,
+            }
+        return response
 
 
-def create_runner(model_name: str, api_key: str) -> RunsightTeamRunner:
-    """Create a RunsightTeamRunner from a single worker key using the canonical provider-key shape."""
-    provider = _detect_provider(model_name)
-    return RunsightTeamRunner(model_name=model_name, api_keys={provider: api_key})
+def create_llm_client(model_name: str, api_key: str | None = None) -> ProxiedLLMClient:
+    """Create a ProxiedLLMClient for subprocess LLM requests."""
+    _ = api_key
+    socket_path = os.environ.get("RUNSIGHT_IPC_SOCKET", "")
+    ipc_client = isolation_ipc.IPCClient(socket_path=socket_path)
+    return ProxiedLLMClient(model_name=model_name, ipc_client=ipc_client)
+
+
+def create_runner(model_name: str, api_key: str | None = None) -> RunsightTeamRunner:
+    """Create a RunsightTeamRunner whose LLM path is fully proxied over IPC."""
+    _ = api_key
+    socket_path = os.environ.get("RUNSIGHT_IPC_SOCKET", "")
+    ipc_client = isolation_ipc.IPCClient(socket_path=socket_path)
+
+    runner = RunsightTeamRunner.__new__(RunsightTeamRunner)
+    runner.model_name = model_name
+    runner.api_keys = None
+    runner.fallback_routes = {}
+    runner._clients = {}
+
+    default_client = ProxiedLLMClient(model_name=model_name, ipc_client=ipc_client)
+    runner.llm_client = default_client
+    runner._clients[model_name] = default_client
+
+    def _get_client(self: RunsightTeamRunner, soul: Soul) -> ProxiedLLMClient:
+        explicit_model_name = self._resolve_runtime_model_name(soul)
+        cached_client = self._clients.get(explicit_model_name)
+        if cached_client is None:
+            cached_client = ProxiedLLMClient(
+                model_name=explicit_model_name,
+                ipc_client=ipc_client,
+            )
+            self._clients[explicit_model_name] = cached_client
+        return cached_client
+
+    runner._get_client = MethodType(_get_client, runner)  # type: ignore[method-assign]
+    return runner
 
 
 def create_tool_stubs(
