@@ -601,37 +601,13 @@ class IPCClient:
         """Send an NDJSON request and return the final payload frame."""
         if self._closed:
             raise ConnectionError("IPC client is closed")
+        if action == "capability_negotiation":
+            raise ValueError("capability_negotiation is only supported via connect()")
 
         if self._writer is None or self._reader is None:
             await self.connect()
 
         try:
-            if action == "capability_negotiation":
-                capability_request = CapabilityRequest(
-                    grant_token=str(payload.get("grant_token", "")),
-                    supported_actions=list(payload.get("supported_actions", [])),
-                    worker_version=str(payload.get("worker_version", self._worker_version)),
-                )
-                capability_request.id = str(uuid.uuid4())
-                if self._writer is None or self._reader is None:
-                    raise ConnectionError("IPC client is not connected")
-                line = json.dumps(capability_request.model_dump(), separators=(",", ":")) + "\n"
-                self._writer.write(line.encode())
-                await self._writer.drain()
-                raw = await self._reader.readline()
-                if not raw:
-                    self._closed = True
-                    raise ConnectionError("IPC socket disconnected")
-                response = CapabilityResponse.model_validate_json(raw)
-                self._active_actions = list(response.active_actions)
-                self._initial_engine_context = dict(response.engine_context)
-                return {
-                    "authenticated": response.accepted,
-                    "active_actions": response.active_actions,
-                    "engine_context": response.engine_context,
-                    "error": response.error,
-                }
-
             request = self._build_request_frame(action, payload)
             await self._send_request_frame(request)
 
@@ -653,6 +629,8 @@ class IPCClient:
         """Send an NDJSON request and yield non-final payload frames."""
         if self._closed:
             raise ConnectionError("IPC client is closed")
+        if action == "capability_negotiation":
+            raise ValueError("capability_negotiation is only supported via connect()")
 
         if self._writer is None or self._reader is None:
             await self.connect()
