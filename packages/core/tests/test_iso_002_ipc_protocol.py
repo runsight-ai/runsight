@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import json
 import socket
+import uuid
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
@@ -64,14 +65,67 @@ def _make_grant_token(*, block_id: str = "test-block"):
     return GrantToken(block_id=block_id)
 
 
-async def _authenticate_client_with_grant_token(client, grant_token) -> dict[str, Any]:
-    auth_result = await client.request(
-        "capability_negotiation",
-        {"grant_token": grant_token.token},
+def _capability_response_for(
+    capability_request: dict[str, Any],
+    *,
+    accepted: bool = True,
+    active_actions: list[str] | None = None,
+    error: str | None = None,
+    engine_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": capability_request.get("id", ""),
+        "done": True,
+        "accepted": accepted,
+        "active_actions": active_actions or [],
+        "engine_context": engine_context
+        or {
+            "budget_remaining_usd": 50.0,
+            "trace_id": f"trace-{uuid.uuid4().hex}",
+            "run_id": f"run-{uuid.uuid4().hex}",
+            "block_id": "test-block",
+        },
+        "error": error,
+    }
+
+
+def _configure_client_for_handshake(
+    client,
+    grant_token,
+    *,
+    supported_actions: list[str] | None = None,
+    worker_version: str = "worker-396-test",
+) -> None:
+    token_value = grant_token.token if hasattr(grant_token, "token") else str(grant_token)
+    if hasattr(client, "_grant_token"):
+        client._grant_token = token_value
+    if supported_actions is not None and hasattr(client, "_supported_actions"):
+        client._supported_actions = list(supported_actions)
+    if hasattr(client, "_worker_version"):
+        client._worker_version = worker_version
+
+
+async def _connect_client_with_grant_token(
+    client,
+    grant_token,
+    *,
+    supported_actions: list[str] | None = None,
+    worker_version: str = "worker-396-test",
+) -> Any:
+    _configure_client_for_handshake(
+        client,
+        grant_token,
+        supported_actions=supported_actions,
+        worker_version=worker_version,
     )
-    assert isinstance(auth_result, dict)
-    assert auth_result.get("authenticated") is True
-    return auth_result
+    capability_response = await client.connect()
+    accepted = (
+        capability_response.accepted
+        if hasattr(capability_response, "accepted")
+        else capability_response.get("accepted")
+    )
+    assert accepted is True
+    return capability_response
 
 
 async def _raw_authenticate_with_grant_token(socket_path: Path, grant_token) -> dict[str, Any]:
@@ -80,11 +134,15 @@ async def _raw_authenticate_with_grant_token(socket_path: Path, grant_token) -> 
         {
             "id": "req-auth-1",
             "action": "capability_negotiation",
-            "payload": {"grant_token": grant_token.token},
+            "grant_token": grant_token.token,
+            "supported_actions": ["http", "tool_call", "delegate", "file_io", "write_artifact"],
+            "worker_version": "worker-396-test",
         },
     )
     assert len(frames) == 1
     assert frames[0]["done"] is True
+    assert frames[0]["accepted"] is True
+    assert frames[0]["active_actions"] is not None
     assert frames[0]["error"] is None
     return frames[0]
 
@@ -104,7 +162,17 @@ async def _send_raw_authenticated_request_and_collect_frames(
                 {
                     "id": "req-auth-1",
                     "action": "capability_negotiation",
-                    "payload": {"grant_token": grant_token.token},
+                    "grant_token": grant_token.token,
+                    "supported_actions": [
+                        "http",
+                        "tool_call",
+                        "delegate",
+                        "file_io",
+                        "write_artifact",
+                        "simple",
+                        "stream",
+                    ],
+                    "worker_version": "worker-396-test",
                 },
                 separators=(",", ":"),
             )
@@ -117,6 +185,7 @@ async def _send_raw_authenticated_request_and_collect_frames(
         assert auth_raw
         auth_frame = json.loads(auth_raw)
         assert auth_frame["done"] is True
+        assert auth_frame["accepted"] is True
         assert auth_frame["error"] is None
 
         line = json.dumps(request, separators=(",", ":")) + "\n"
@@ -213,30 +282,46 @@ class TestNDJSONFraming:
         async def fake_server():
             loop = asyncio.get_event_loop()
             conn, _ = await loop.sock_accept(server_sock)
+            reader, writer = await asyncio.open_connection(sock=conn)
             try:
-                while True:
-                    chunk = await loop.sock_recv(conn, 4096)
-                    if not chunk:
-                        break
-                    received_data.extend(chunk)
-                    request = json.loads(chunk.decode().strip())
-                    # Send a valid IPCResponseFrame
-                    response = (
-                        json.dumps(
-                            {
-                                "id": request["id"],
-                                "done": True,
-                                "payload": {"ok": True},
-                                "engine_context": None,
-                                "error": None,
-                            }
+                raw_capability = await reader.readline()
+                assert raw_capability
+                received_data.extend(raw_capability)
+                capability_request = json.loads(raw_capability)
+
+                capability_response = (
+                    json.dumps(
+                        _capability_response_for(
+                            capability_request,
+                            active_actions=["http"],
                         )
-                        + "\n"
                     )
-                    await loop.sock_sendall(conn, response.encode())
-                    break
+                    + "\n"
+                )
+                writer.write(capability_response.encode())
+                await writer.drain()
+
+                raw_request = await reader.readline()
+                assert raw_request
+                received_data.extend(raw_request)
+                request = json.loads(raw_request)
+                response = (
+                    json.dumps(
+                        {
+                            "id": request["id"],
+                            "done": True,
+                            "payload": {"ok": True},
+                            "engine_context": None,
+                            "error": None,
+                        }
+                    )
+                    + "\n"
+                )
+                writer.write(response.encode())
+                await writer.drain()
             finally:
-                conn.close()
+                writer.close()
+                await writer.wait_closed()
 
         server_task = asyncio.create_task(fake_server())
         try:
@@ -249,10 +334,19 @@ class TestNDJSONFraming:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
-        # Verify the sent data is valid NDJSON (one line, parseable JSON)
+        # Verify the sent data is valid NDJSON with handshake then request frame.
         lines = received_data.decode().strip().split("\n")
-        assert len(lines) == 1, "Client should send exactly one NDJSON line per request"
-        parsed = json.loads(lines[0])
+        assert len(lines) == 2
+        handshake = json.loads(lines[0])
+        parsed = json.loads(lines[1])
+        assert set(handshake) == {
+            "action",
+            "id",
+            "grant_token",
+            "supported_actions",
+            "worker_version",
+        }
+        assert handshake["action"] == "capability_negotiation"
         assert set(parsed) == {"id", "action", "payload"}
         assert parsed["action"] == "http"
         assert parsed["payload"] == {"method": "GET", "url": "http://example.com"}
@@ -273,10 +367,28 @@ class TestNDJSONFraming:
         async def fake_server():
             loop = asyncio.get_event_loop()
             conn, _ = await loop.sock_accept(server_sock)
+            reader, writer = await asyncio.open_connection(sock=conn)
             try:
-                chunk = await loop.sock_recv(conn, 4096)
-                received_data.extend(chunk)
-                request = json.loads(chunk.decode().strip())
+                raw_capability = await reader.readline()
+                assert raw_capability
+                received_data.extend(raw_capability)
+                capability_request = json.loads(raw_capability)
+                capability_response = (
+                    json.dumps(
+                        _capability_response_for(
+                            capability_request,
+                            active_actions=["file_io"],
+                        )
+                    )
+                    + "\n"
+                )
+                writer.write(capability_response.encode())
+                await writer.drain()
+
+                raw_request = await reader.readline()
+                assert raw_request
+                received_data.extend(raw_request)
+                request = json.loads(raw_request)
                 response = (
                     json.dumps(
                         {
@@ -289,9 +401,11 @@ class TestNDJSONFraming:
                     )
                     + "\n"
                 )
-                await loop.sock_sendall(conn, response.encode())
+                writer.write(response.encode())
+                await writer.drain()
             finally:
-                conn.close()
+                writer.close()
+                await writer.wait_closed()
 
         server_task = asyncio.create_task(fake_server())
         try:
@@ -313,10 +427,12 @@ class TestNDJSONFraming:
             sock_path.unlink(missing_ok=True)
 
         raw = received_data.decode().strip()
-        # The entire message must be one line (newlines in content must be escaped)
+        # The request line must stay single-line NDJSON (newlines must be escaped).
         lines = raw.split("\n")
-        assert len(lines) == 1, "NDJSON message with embedded newlines must escape them"
-        parsed = json.loads(lines[0])
+        assert len(lines) == 2
+        handshake = json.loads(lines[0])
+        parsed = json.loads(lines[1])
+        assert handshake["action"] == "capability_negotiation"
         assert set(parsed) == {"id", "action", "payload"}
         assert parsed["action"] == "file_io"
         assert parsed["payload"]["content"] == "line1\nline2\nline3"
@@ -368,8 +484,7 @@ class TestIPCClientRequestResponseCorrelation:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             result = await client.request("http", {"method": "GET", "url": "http://example.com"})
 
             assert isinstance(result, dict)
@@ -398,10 +513,24 @@ class TestIPCClientRequestResponseCorrelation:
         async def fake_server():
             loop = asyncio.get_event_loop()
             conn, _ = await loop.sock_accept(server_sock)
+            reader, writer = await asyncio.open_connection(sock=conn)
             try:
-                data = await loop.sock_recv(conn, 4096)
+                raw_capability = await reader.readline()
+                assert raw_capability
+                capability_request = json.loads(raw_capability)
+                cap_response = (
+                    json.dumps(
+                        _capability_response_for(capability_request, active_actions=["delegate"])
+                    )
+                    + "\n"
+                )
+                writer.write(cap_response.encode())
+                await writer.drain()
+
+                data = await reader.readline()
+                assert data
                 received_msg.update(json.loads(data.decode().strip()))
-                resp = (
+                response = (
                     json.dumps(
                         {
                             "id": received_msg.get("id", ""),
@@ -413,9 +542,11 @@ class TestIPCClientRequestResponseCorrelation:
                     )
                     + "\n"
                 )
-                await loop.sock_sendall(conn, resp.encode())
+                writer.write(response.encode())
+                await writer.drain()
             finally:
-                conn.close()
+                writer.close()
+                await writer.wait_closed()
 
         server_task = asyncio.create_task(fake_server())
         try:
@@ -468,8 +599,7 @@ class TestIPCServerDispatches:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             result = await client.request("http", {"method": "GET", "url": "http://example.com"})
             assert http_called
             assert result["status_code"] == 200
@@ -503,8 +633,7 @@ class TestIPCServerDispatches:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             result = await client.request("file_io", {"action_type": "read", "path": "/tmp/f.txt"})
             assert result["content"] == "file contents here"
         finally:
@@ -537,8 +666,7 @@ class TestIPCServerDispatches:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             result = await client.request("delegate", {"port": "output", "task": "do thing"})
             assert result["ok"] is True
         finally:
@@ -571,8 +699,7 @@ class TestIPCServerDispatches:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             result = await client.request(
                 "write_artifact", {"key": "my-key", "content": "data", "metadata": {}}
             )
@@ -622,8 +749,7 @@ class TestRPCActions:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             result = await client.request("llm_call", {"prompt": "hello"})
 
             assert llm_called is True
@@ -657,8 +783,7 @@ class TestRPCActions:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             result = await client.request("totally_fake_action", {"foo": "bar"})
 
             assert "error" in result
@@ -1201,6 +1326,76 @@ class TestRUN396IPCClientConnectHandshake:
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+    @pytest.mark.asyncio
+    async def test_request_rejects_manual_capability_negotiation_action(self, tmp_path: Path):
+        """Only connect() owns capability negotiation; request() must reject it."""
+        from runsight_core.isolation import IPCClient
+
+        sock_path = tmp_path / "run396-no-dual.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+        server_sock.setblocking(False)
+
+        async def fake_server() -> None:
+            loop = asyncio.get_running_loop()
+            conn, _ = await loop.sock_accept(server_sock)
+            reader, writer = await asyncio.open_connection(sock=conn)
+            try:
+                raw_capability = await reader.readline()
+                assert raw_capability
+                capability_request = json.loads(raw_capability)
+                capability_response = (
+                    json.dumps(
+                        _capability_response_for(capability_request, active_actions=["tool_call"])
+                    )
+                    + "\n"
+                )
+                writer.write(capability_response.encode())
+                await writer.drain()
+
+                try:
+                    raw_manual = await asyncio.wait_for(reader.readline(), timeout=0.2)
+                except asyncio.TimeoutError:
+                    raw_manual = b""
+
+                if raw_manual:
+                    manual_request = json.loads(raw_manual)
+                    manual_response = (
+                        json.dumps(
+                            _capability_response_for(
+                                manual_request,
+                                accepted=True,
+                                active_actions=["tool_call"],
+                            )
+                        )
+                        + "\n"
+                    )
+                    writer.write(manual_response.encode())
+                    await writer.drain()
+            finally:
+                writer.close()
+                await writer.wait_closed()
+
+        server_task = asyncio.create_task(fake_server())
+        client = IPCClient(socket_path=str(sock_path))
+        try:
+            await client.connect()
+            with pytest.raises((ValueError, RuntimeError, ConnectionError)):
+                await client.request(
+                    "capability_negotiation",
+                    {
+                        "grant_token": "manual-token",
+                        "supported_actions": ["tool_call"],
+                        "worker_version": "worker-396",
+                    },
+                )
+        finally:
+            await client.close()
+            await server_task
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
 
 # ---------------------------------------------------------------------------
 # AC5: Socket cleaned up on subprocess exit
@@ -1248,15 +1443,27 @@ class TestSocketCleanup:
         server_sock.setblocking(False)
 
         async def accept_once():
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             conn, _ = await loop.sock_accept(server_sock)
-            # Hold connection until closed
+            reader, writer = await asyncio.open_connection(sock=conn)
             try:
-                await loop.sock_recv(conn, 4096)
+                raw_capability = await reader.readline()
+                assert raw_capability
+                capability_request = json.loads(raw_capability)
+                capability_response = (
+                    json.dumps(
+                        _capability_response_for(capability_request, active_actions=["http"])
+                    )
+                    + "\n"
+                )
+                writer.write(capability_response.encode())
+                await writer.drain()
+                await asyncio.wait_for(reader.readline(), timeout=0.2)
             except Exception:
                 pass
             finally:
-                conn.close()
+                writer.close()
+                await writer.wait_closed()
 
         accept_task = asyncio.create_task(accept_once())
 
@@ -1294,10 +1501,24 @@ class TestSocketDropFailure:
         server_sock.setblocking(False)
 
         async def accept_then_close():
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             conn, _ = await loop.sock_accept(server_sock)
-            # Accept connection then immediately close it (simulating crash)
-            conn.close()
+            reader, writer = await asyncio.open_connection(sock=conn)
+            try:
+                raw_capability = await reader.readline()
+                assert raw_capability
+                capability_request = json.loads(raw_capability)
+                capability_response = (
+                    json.dumps(
+                        _capability_response_for(capability_request, active_actions=["http"])
+                    )
+                    + "\n"
+                )
+                writer.write(capability_response.encode())
+                await writer.drain()
+            finally:
+                writer.close()
+                await writer.wait_closed()
 
         accept_task = asyncio.create_task(accept_then_close())
 
@@ -1331,12 +1552,29 @@ class TestSocketDropFailure:
 
         async def counting_server():
             nonlocal connection_count
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             while True:
                 try:
                     conn, _ = await loop.sock_accept(server_sock)
                     connection_count += 1
-                    conn.close()  # Immediately drop
+                    reader, writer = await asyncio.open_connection(sock=conn)
+                    if connection_count == 1:
+                        raw_capability = await reader.readline()
+                        if raw_capability:
+                            capability_request = json.loads(raw_capability)
+                            capability_response = (
+                                json.dumps(
+                                    _capability_response_for(
+                                        capability_request,
+                                        active_actions=["http"],
+                                    )
+                                )
+                                + "\n"
+                            )
+                            writer.write(capability_response.encode())
+                            await writer.drain()
+                    writer.close()
+                    await writer.wait_closed()
                 except Exception:
                     break
 
@@ -1409,8 +1647,7 @@ class TestWriteArtifactReturnsRef:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             result = await client.request(
                 "write_artifact",
                 {
@@ -1456,8 +1693,7 @@ class TestWriteArtifactReturnsRef:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             await client.request(
                 "write_artifact",
                 {
@@ -1515,8 +1751,7 @@ class TestHTTPRoundTrip:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             result = await client.request(
                 "http",
                 {
@@ -1566,8 +1801,7 @@ class TestHTTPRoundTrip:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             result = await client.request(
                 "http",
                 {
@@ -1627,8 +1861,7 @@ class TestWriteArtifactRoundTrip:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
             result = await client.request(
                 "write_artifact",
                 {
@@ -1681,8 +1914,7 @@ class TestWriteArtifactRoundTrip:
 
         try:
             client = IPCClient(socket_path=str(sock_path))
-            await client.connect()
-            await _authenticate_client_with_grant_token(client, grant_token)
+            await _connect_client_with_grant_token(client, grant_token)
 
             ref1 = await client.request(
                 "write_artifact", {"key": "artifact-a", "content": "aaa", "metadata": {}}
@@ -1925,8 +2157,22 @@ class TestRUN392IPCClientFrameConsumption:
         async def fake_stream_server() -> None:
             loop = asyncio.get_running_loop()
             conn, _ = await loop.sock_accept(server_sock)
+            reader, writer = await asyncio.open_connection(sock=conn)
             try:
-                _ = await loop.sock_recv(conn, 4096)
+                raw_capability = await reader.readline()
+                assert raw_capability
+                capability_request = json.loads(raw_capability)
+                capability_response = (
+                    json.dumps(
+                        _capability_response_for(capability_request, active_actions=["http"])
+                    )
+                    + "\n"
+                )
+                writer.write(capability_response.encode())
+                await writer.drain()
+
+                raw_request = await reader.readline()
+                assert raw_request
                 for frame in [
                     {
                         "id": "ignored",
@@ -1943,9 +2189,11 @@ class TestRUN392IPCClientFrameConsumption:
                         "error": None,
                     },
                 ]:
-                    await loop.sock_sendall(conn, (json.dumps(frame) + "\n").encode())
+                    writer.write((json.dumps(frame) + "\n").encode())
+                    await writer.drain()
             finally:
-                conn.close()
+                writer.close()
+                await writer.wait_closed()
 
         server_task = asyncio.create_task(fake_stream_server())
         client = IPCClient(socket_path=str(sock_path))
@@ -2371,12 +2619,11 @@ class TestRUN393IPCServerRegistryIntegration:
         assert InterceptorRegistry is not None
         registry = InterceptorRegistry()
 
-        on_request_calls = 0
+        on_request_actions: list[str] = []
 
         class SpyInterceptor:
             async def on_request(self, action: str, payload: dict, engine_context: dict) -> dict:
-                nonlocal on_request_calls
-                on_request_calls += 1
+                on_request_actions.append(action)
                 return engine_context
 
             async def on_response(self, action: str, payload: dict, engine_context: dict) -> dict:
@@ -2395,17 +2642,19 @@ class TestRUN393IPCServerRegistryIntegration:
         async def simple_handler(_payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "ok"}
 
+        grant_token = _make_grant_token(block_id="run393-tamper")
         server = IPCServer(
             sock=server_sock,
             handlers={"simple": simple_handler},
             registry=registry,
-            grant_token=_make_grant_token(block_id="run393-tamper"),
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
-            frames = await _send_raw_request_and_collect_frames(
+            frames = await _send_raw_authenticated_request_and_collect_frames(
                 sock_path,
+                grant_token,
                 {
                     "id": "req-393-tamper-1",
                     "action": "simple",
@@ -2413,7 +2662,7 @@ class TestRUN393IPCServerRegistryIntegration:
                     "engine_context": {"subprocess_injected": True},
                 },
             )
-            assert on_request_calls == 0
+            assert on_request_actions == ["capability_negotiation"]
             assert len(frames) == 1
             assert frames[0]["done"] is True
             assert frames[0]["payload"] is None
@@ -2437,8 +2686,22 @@ class TestRUN393IPCServerRegistryIntegration:
         async def fake_stream_server() -> None:
             loop = asyncio.get_running_loop()
             conn, _ = await loop.sock_accept(server_sock)
+            reader, writer = await asyncio.open_connection(sock=conn)
             try:
-                _ = await loop.sock_recv(conn, 4096)
+                raw_capability = await reader.readline()
+                assert raw_capability
+                capability_request = json.loads(raw_capability)
+                capability_response = (
+                    json.dumps(
+                        _capability_response_for(capability_request, active_actions=["delegate"])
+                    )
+                    + "\n"
+                )
+                writer.write(capability_response.encode())
+                await writer.drain()
+
+                raw_request = await reader.readline()
+                assert raw_request
                 for frame in [
                     {
                         "id": "ignored",
@@ -2469,9 +2732,11 @@ class TestRUN393IPCServerRegistryIntegration:
                         "error": None,
                     },
                 ]:
-                    await loop.sock_sendall(conn, (json.dumps(frame) + "\n").encode())
+                    writer.write((json.dumps(frame) + "\n").encode())
+                    await writer.drain()
             finally:
-                conn.close()
+                writer.close()
+                await writer.wait_closed()
 
         server_task = asyncio.create_task(fake_stream_server())
         client = IPCClient(socket_path=str(sock_path))
