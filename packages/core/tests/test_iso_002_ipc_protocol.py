@@ -65,6 +65,37 @@ def _make_grant_token(*, block_id: str = "test-block"):
     return GrantToken(block_id=block_id)
 
 
+def _make_budget_interceptor(ipc_module, *, session, block_id: str = "block-810"):
+    BudgetInterceptor = getattr(ipc_module, "BudgetInterceptor", None)
+    assert BudgetInterceptor is not None
+
+    constructor_candidates: list[dict[str, Any]] = [
+        {"session": session, "block_id": block_id},
+        {"budget_session": session, "block_id": block_id},
+        {"session": session},
+        {"budget_session": session},
+    ]
+
+    for kwargs in constructor_candidates:
+        try:
+            return BudgetInterceptor(**kwargs)
+        except TypeError:
+            continue
+
+    for args in [
+        (session, block_id),
+        (session,),
+    ]:
+        try:
+            return BudgetInterceptor(*args)
+        except TypeError:
+            continue
+
+    raise AssertionError(
+        "BudgetInterceptor must be constructible with a BudgetSession (and optional block_id)"
+    )
+
+
 def _capability_response_for(
     capability_request: dict[str, Any],
     *,
@@ -2203,6 +2234,146 @@ class TestRUN392IPCClientFrameConsumption:
             assert result == {"final": "result"}
         finally:
             await client.close()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+
+class TestRUN810BudgetInterceptorContract:
+    """RUN-810: BudgetInterceptor budget checks, accrual, and IPC short-circuit behavior."""
+
+    @pytest.mark.asyncio
+    async def test_on_response_accrues_cost_and_updates_remaining_budget_context(self):
+        from runsight_core.budget_enforcement import BudgetSession
+        from runsight_core.isolation import ipc as ipc_module
+
+        budget_session = BudgetSession(
+            scope_name="block:run810",
+            cost_cap_usd=0.50,
+            token_cap=100,
+            on_exceed="fail",
+        )
+        interceptor = _make_budget_interceptor(
+            ipc_module,
+            session=budget_session,
+            block_id="run810-block",
+        )
+
+        engine_context: dict[str, Any] = {}
+        engine_context = await interceptor.on_request(
+            "llm_call", {"model": "gpt-4o-mini"}, engine_context
+        )
+        engine_context = await interceptor.on_response(
+            "llm_call",
+            {"cost_usd": 0.10, "total_tokens": 12},
+            engine_context,
+        )
+
+        assert budget_session.cost_usd == pytest.approx(0.10)
+        assert budget_session.tokens == 12
+        assert engine_context["budget_remaining_usd"] == pytest.approx(0.40)
+        assert engine_context["budget_remaining_tokens"] == 88
+
+    @pytest.mark.asyncio
+    async def test_on_stream_chunk_accrues_partial_tokens_incrementally(self):
+        from runsight_core.budget_enforcement import BudgetSession
+        from runsight_core.isolation import ipc as ipc_module
+
+        budget_session = BudgetSession(
+            scope_name="block:run810-stream",
+            cost_cap_usd=5.0,
+            token_cap=100,
+            on_exceed="fail",
+        )
+        interceptor = _make_budget_interceptor(
+            ipc_module,
+            session=budget_session,
+            block_id="run810-stream",
+        )
+
+        engine_context: dict[str, Any] = {}
+        engine_context = await interceptor.on_request(
+            "llm_call", {"model": "gpt-4o-mini"}, engine_context
+        )
+        engine_context = await interceptor.on_stream_chunk(
+            "llm_call",
+            {"total_tokens": 3, "tokens": 3},
+            engine_context,
+        )
+        engine_context = await interceptor.on_stream_chunk(
+            "llm_call",
+            {"total_tokens": 4, "tokens": 4},
+            engine_context,
+        )
+
+        assert budget_session.tokens == 7
+        assert engine_context["budget_remaining_tokens"] == 93
+
+    @pytest.mark.asyncio
+    async def test_budget_interceptor_kills_request_before_handler_when_budget_exhausted(
+        self, tmp_path: Path
+    ):
+        from runsight_core.budget_enforcement import BudgetSession
+        from runsight_core.isolation import IPCServer
+        from runsight_core.isolation import ipc as ipc_module
+
+        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        assert InterceptorRegistry is not None
+        registry = InterceptorRegistry()
+
+        budget_session = BudgetSession(
+            scope_name="block:run810-exhausted",
+            cost_cap_usd=0.01,
+            token_cap=100,
+            on_exceed="fail",
+        )
+        budget_session.accrue(cost_usd=0.02, tokens=0)
+        registry.register(
+            _make_budget_interceptor(
+                ipc_module,
+                session=budget_session,
+                block_id="run810-exhausted",
+            )
+        )
+
+        sock_path = tmp_path / "run810-exhausted.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+
+        handler_called = False
+
+        async def should_not_run(_payload: dict[str, Any]) -> dict[str, Any]:
+            nonlocal handler_called
+            handler_called = True
+            return {"status": "unexpected"}
+
+        grant_token = _make_grant_token(block_id="run810-exhausted")
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"simple": should_not_run},
+            registry=registry,
+            grant_token=grant_token,
+        )
+        server_task = asyncio.create_task(server.serve())
+
+        try:
+            frames = await _send_raw_authenticated_request_and_collect_frames(
+                sock_path,
+                grant_token,
+                {
+                    "id": "req-810-kill-1",
+                    "action": "simple",
+                    "payload": {"value": "blocked"},
+                },
+            )
+            assert handler_called is False
+            assert len(frames) == 1
+            assert frames[0]["done"] is True
+            assert frames[0]["payload"] is None
+            assert "budget" in (frames[0]["error"] or "").lower()
+        finally:
+            await server.shutdown()
             server_task.cancel()
             server_sock.close()
             sock_path.unlink(missing_ok=True)

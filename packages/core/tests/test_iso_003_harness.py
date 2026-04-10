@@ -280,6 +280,172 @@ class TestRUN745LLMCallHandlerContract:
         assert observed["api_keys"] != {}
 
 
+class TestRUN810HarnessBudgetInterceptorWiring:
+    """RUN-810: SubprocessHarness must wire BudgetInterceptor and reconcile child costs."""
+
+    @pytest.mark.asyncio
+    async def test_run_builds_budget_interceptor_from_block_limits_and_reconciles_to_parent_budget(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ):
+        from runsight_core.budget_enforcement import BudgetSession, _active_budget
+        from runsight_core.isolation import SubprocessHarness
+        from runsight_core.isolation import harness as harness_module
+        from runsight_core.yaml.schema import BlockLimitsDef
+
+        workflow_budget = BudgetSession(
+            scope_name="workflow:run810",
+            cost_cap_usd=5.0,
+            token_cap=5_000,
+            on_exceed="fail",
+        )
+        active_token = _active_budget.set(workflow_budget)
+        captured: dict[str, Any] = {}
+
+        class FakeBudgetInterceptor:
+            def __init__(self, *args: Any, **kwargs: Any):
+                session = kwargs.get("session") or kwargs.get("budget_session")
+                if session is None:
+                    for arg in args:
+                        if isinstance(arg, BudgetSession):
+                            session = arg
+                            break
+                captured["child_session"] = session
+
+            async def on_request(
+                self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+            ) -> dict[str, Any]:
+                return engine_context
+
+            async def on_response(
+                self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+            ) -> dict[str, Any]:
+                session = captured.get("child_session")
+                if session is not None:
+                    session.accrue(
+                        cost_usd=float(payload.get("cost_usd", 0.0)),
+                        tokens=int(payload.get("total_tokens", 0)),
+                    )
+                return engine_context
+
+            async def on_stream_chunk(
+                self, action: str, chunk: dict[str, Any], engine_context: dict[str, Any]
+            ) -> dict[str, Any]:
+                return engine_context
+
+        class FakeIPCServer:
+            def __init__(
+                self,
+                *,
+                sock,
+                handlers: dict[str, Any],
+                registry=None,
+                grant_token=None,
+            ) -> None:
+                captured["registry"] = registry
+                captured["grant_token"] = grant_token
+                self._registry = registry
+
+            async def serve(self) -> None:
+                if self._registry is not None:
+                    request_ctx = await self._registry.run_on_request(
+                        "llm_call",
+                        {"model": "gpt-4o-mini"},
+                        {},
+                    )
+                    await self._registry.run_on_response(
+                        "llm_call",
+                        {"cost_usd": 0.10, "total_tokens": 15},
+                        request_ctx,
+                    )
+                await asyncio.sleep(0)
+
+            async def shutdown(self) -> None:
+                return None
+
+        class _FakeStdIn:
+            def __init__(self) -> None:
+                self.writes: list[bytes] = []
+
+            def write(self, data: bytes) -> None:
+                self.writes.append(data)
+
+            async def drain(self) -> None:
+                return None
+
+            def close(self) -> None:
+                return None
+
+        class _FakeStdOut:
+            async def read(self) -> bytes:
+                return (
+                    _make_result_envelope(
+                        block_id="run810-block",
+                        output="ok",
+                    )
+                    .model_dump_json()
+                    .encode()
+                )
+
+        class _FakeStdErr:
+            async def readline(self) -> bytes:
+                await asyncio.sleep(0)
+                return b""
+
+        class FakeProc:
+            def __init__(self) -> None:
+                self.stdin = _FakeStdIn()
+                self.stdout = _FakeStdOut()
+                self.stderr = _FakeStdErr()
+                self.returncode = 0
+                self.pid = 12345
+
+            async def wait(self) -> int:
+                return 0
+
+            def terminate(self) -> None:
+                self.returncode = -15
+
+            def kill(self) -> None:
+                self.returncode = -9
+
+        async def fake_create_subprocess_exec(*args: Any, **kwargs: Any) -> FakeProc:
+            return FakeProc()
+
+        monkeypatch.setattr(
+            harness_module, "BudgetInterceptor", FakeBudgetInterceptor, raising=False
+        )
+        monkeypatch.setattr(harness_module, "IPCServer", FakeIPCServer)
+        monkeypatch.setattr(
+            harness_module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec
+        )
+
+        harness = SubprocessHarness(api_key="sk-test-key-123")
+        monkeypatch.setattr(harness, "_monitor_heartbeats", AsyncMock(return_value=False))
+
+        envelope = _make_context_envelope(block_id="run810-block", block_type="linear")
+        block_limits = BlockLimitsDef(cost_cap_usd=1.0, token_cap=200)
+        envelope.block_config = {
+            "block_id": "run810-block",
+            "block_type": "linear",
+            "limits": block_limits.model_dump(),
+        }
+
+        try:
+            result = await harness.run(envelope)
+        finally:
+            _active_budget.reset(active_token)
+
+        assert isinstance(result, ResultEnvelope)
+        assert captured.get("registry") is not None
+        assert captured.get("child_session") is not None
+        assert captured["child_session"] is not workflow_budget
+        assert captured["child_session"].cost_cap_usd == pytest.approx(1.0)
+        assert workflow_budget.cost_usd == pytest.approx(0.10)
+        assert workflow_budget.tokens == 15
+
+
 class TestMinimalEnvironment:
     """Subprocess must receive minimal env with grant token, not API key."""
 
