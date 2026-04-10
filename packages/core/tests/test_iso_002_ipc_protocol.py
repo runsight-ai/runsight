@@ -480,30 +480,34 @@ class TestIPCServerDispatches:
 
 
 # ---------------------------------------------------------------------------
-# AC6: No llm_call action
+# AC6: RPC action allowlist
 # ---------------------------------------------------------------------------
 
 
-class TestNoLLMCallAction:
-    """IPCServer must reject llm_call action — IPC is for tool calls only."""
+class TestRPCActions:
+    """IPCServer should dispatch allowed actions and reject unknown actions."""
 
     @pytest.mark.asyncio
-    async def test_llm_call_action_rejected(self, tmp_path: Path):
-        """Sending an llm_call action results in an error response."""
+    async def test_llm_call_action_dispatched_when_handler_registered(self, tmp_path: Path):
+        """llm_call is dispatchable when explicitly registered in handlers."""
         from runsight_core.isolation import IPCClient, IPCServer
 
-        sock_path = tmp_path / "no_llm.sock"
+        sock_path = tmp_path / "llm_allowed.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
 
+        llm_called = False
+
+        async def llm_handler(params: dict[str, Any]) -> dict[str, Any]:
+            nonlocal llm_called
+            llm_called = True
+            return {"output": f"completion for {params['prompt']}"}
+
         server = IPCServer(
             sock=server_sock,
             handlers={
-                "http": AsyncMock(return_value={}),
-                "file_io": AsyncMock(return_value={}),
-                "delegate": AsyncMock(return_value={}),
-                "write_artifact": AsyncMock(return_value={}),
+                "llm_call": llm_handler,
             },
         )
         server_task = asyncio.create_task(server.serve())
@@ -513,8 +517,8 @@ class TestNoLLMCallAction:
             await client.connect()
             result = await client.request("llm_call", {"prompt": "hello"})
 
-            # The server should return an error for unsupported action
-            assert "error" in result
+            assert llm_called is True
+            assert result == {"output": "completion for hello"}
         finally:
             await client.close()
             await server.shutdown()
@@ -548,6 +552,168 @@ class TestNoLLMCallAction:
             assert "error" in result
         finally:
             await client.close()
+            await server.shutdown()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# RUN-398: Grant token authentication + RPC allowlist contract
+# ---------------------------------------------------------------------------
+
+
+class TestRUN398GrantTokenAuthAndAllowlist:
+    """Grant-token auth and allowlist-based action control for IPC server."""
+
+    def test_rpc_allowlist_includes_llm_and_capability_actions(self):
+        from runsight_core.isolation import ipc as ipc_module
+
+        allowlist = getattr(ipc_module, "RPC_ALLOWLIST", None)
+        assert allowlist is not None
+        assert {
+            "llm_call",
+            "tool_call",
+            "http",
+            "file_io",
+            "capability_negotiation",
+        }.issubset(set(allowlist))
+
+        blocked_actions = getattr(ipc_module, "BLOCKED_ACTIONS", None)
+        assert blocked_actions is None or "llm_call" not in blocked_actions
+
+    @pytest.mark.asyncio
+    async def test_unauthenticated_request_rejected_before_handler_executes(self, tmp_path: Path):
+        from runsight_core.isolation import IPCServer
+        from runsight_core.isolation import ipc as ipc_module
+
+        GrantToken = getattr(ipc_module, "GrantToken", None)
+        assert GrantToken is not None
+        grant = GrantToken(block_id="block-398")
+
+        sock_path = tmp_path / "run398-unauth.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+
+        handler_called = False
+
+        async def http_handler(_payload: dict[str, Any]) -> dict[str, Any]:
+            nonlocal handler_called
+            handler_called = True
+            return {"status_code": 200}
+
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"http": http_handler},
+            grant_token=grant,
+        )
+        server_task = asyncio.create_task(server.serve())
+
+        try:
+            frames = await _send_raw_request_and_collect_frames(
+                sock_path,
+                {
+                    "id": "req-398-unauth-1",
+                    "action": "http",
+                    "payload": {"method": "GET", "url": "https://example.com"},
+                },
+            )
+            assert handler_called is False
+            assert len(frames) == 1
+            assert frames[0]["done"] is True
+            assert frames[0]["payload"] is None
+            assert "auth" in (frames[0]["error"] or "").lower()
+        finally:
+            await server.shutdown()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_second_connection_with_same_token_is_rejected(self, tmp_path: Path):
+        from runsight_core.isolation import IPCServer
+        from runsight_core.isolation import ipc as ipc_module
+
+        GrantToken = getattr(ipc_module, "GrantToken", None)
+        assert GrantToken is not None
+        grant = GrantToken(block_id="block-398")
+
+        sock_path = tmp_path / "run398-consume.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"capability_negotiation": AsyncMock(return_value={"authenticated": True})},
+            grant_token=grant,
+        )
+        server_task = asyncio.create_task(server.serve())
+
+        try:
+            first_frames = await _send_raw_request_and_collect_frames(
+                sock_path,
+                {
+                    "id": "req-398-auth-1",
+                    "action": "capability_negotiation",
+                    "payload": {"grant_token": grant.token},
+                },
+            )
+            assert first_frames[-1]["error"] is None
+
+            second_frames = await _send_raw_request_and_collect_frames(
+                sock_path,
+                {
+                    "id": "req-398-auth-2",
+                    "action": "capability_negotiation",
+                    "payload": {"grant_token": grant.token},
+                },
+            )
+            assert second_frames[-1]["done"] is True
+            assert second_frames[-1]["payload"] is None
+            assert "consumed" in (second_frames[-1]["error"] or "").lower()
+        finally:
+            await server.shutdown()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_expired_grant_token_is_rejected(self, tmp_path: Path):
+        from runsight_core.isolation import IPCServer
+        from runsight_core.isolation import ipc as ipc_module
+
+        GrantToken = getattr(ipc_module, "GrantToken", None)
+        assert GrantToken is not None
+        grant = GrantToken(block_id="block-398", created_at=0.0, ttl_seconds=30.0)
+
+        sock_path = tmp_path / "run398-expired.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"capability_negotiation": AsyncMock(return_value={"authenticated": True})},
+            grant_token=grant,
+        )
+        server_task = asyncio.create_task(server.serve())
+
+        try:
+            frames = await _send_raw_request_and_collect_frames(
+                sock_path,
+                {
+                    "id": "req-398-expired-1",
+                    "action": "capability_negotiation",
+                    "payload": {"grant_token": grant.token},
+                },
+            )
+            assert len(frames) == 1
+            assert frames[0]["done"] is True
+            assert frames[0]["payload"] is None
+            assert "expired" in (frames[0]["error"] or "").lower()
+        finally:
             await server.shutdown()
             server_task.cancel()
             server_sock.close()

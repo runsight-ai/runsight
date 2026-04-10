@@ -136,7 +136,7 @@ class TestIpcHandlerRegistration:
 
 
 class TestMinimalEnvironment:
-    """Subprocess must receive only PATH + ONE API key + macOS dylib paths."""
+    """Subprocess must receive minimal env with grant token, not API key."""
 
     @pytest.mark.asyncio
     async def test_subprocess_harness_importable(self):
@@ -156,14 +156,26 @@ class TestMinimalEnvironment:
         assert "PATH" in env
 
     @pytest.mark.asyncio
-    async def test_spawn_env_contains_api_key(self):
-        """Subprocess env must include RUNSIGHT_BLOCK_API_KEY."""
+    async def test_spawn_env_contains_grant_token(self):
+        """Subprocess env must include RUNSIGHT_GRANT_TOKEN."""
         from runsight_core.isolation import SubprocessHarness
 
         harness = SubprocessHarness(api_key="sk-test-key-123")
         env = harness._build_subprocess_env()
 
-        assert env.get("RUNSIGHT_BLOCK_API_KEY") == "sk-test-key-123"
+        assert "RUNSIGHT_GRANT_TOKEN" in env
+        assert isinstance(env["RUNSIGHT_GRANT_TOKEN"], str)
+        assert env["RUNSIGHT_GRANT_TOKEN"] != ""
+
+    @pytest.mark.asyncio
+    async def test_spawn_env_does_not_include_block_api_key(self):
+        """Subprocess env must not include RUNSIGHT_BLOCK_API_KEY."""
+        from runsight_core.isolation import SubprocessHarness
+
+        harness = SubprocessHarness(api_key="sk-test-key-123")
+        env = harness._build_subprocess_env()
+
+        assert "RUNSIGHT_BLOCK_API_KEY" not in env
 
     @pytest.mark.asyncio
     async def test_spawn_env_does_not_inherit_host_env(self):
@@ -208,7 +220,7 @@ class TestMinimalEnvironment:
         harness = SubprocessHarness(api_key="sk-test-key-123")
         env = harness._build_subprocess_env(socket_path="/tmp/rs-test.sock")
 
-        # PATH + API key + socket + maybe macOS dylib paths = at most ~5-6 keys
+        # PATH + grant token + socket + maybe macOS dylib paths = at most ~5-6 keys
         assert len(env) <= 10, f"Env has too many keys ({len(env)}), should be minimal"
 
 
@@ -950,3 +962,39 @@ class TestLinearBlockRoundTrip:
         assert result.block_id == envelope.block_id
         assert isinstance(result.cost_usd, float)
         assert isinstance(result.total_tokens, int)
+
+
+class TestRUN398GrantTokenContract:
+    """GrantToken model and harness env wiring for single-use subprocess auth."""
+
+    def test_grant_token_model_exists_with_expected_defaults(self):
+        from runsight_core.isolation import harness as harness_module
+
+        GrantToken = getattr(harness_module, "GrantToken", None)
+        assert GrantToken is not None
+
+        token = GrantToken(block_id="block-398")
+        assert isinstance(token.token, str)
+        assert token.token != ""
+        assert token.block_id == "block-398"
+        assert token.ttl_seconds == 30.0
+        assert token.consumed is False
+
+    def test_grant_token_consume_is_single_use(self):
+        from runsight_core.isolation import harness as harness_module
+
+        GrantToken = getattr(harness_module, "GrantToken", None)
+        assert GrantToken is not None
+
+        token = GrantToken(block_id="block-398")
+        assert token.consume() is True
+        assert token.consume() is False
+
+    def test_grant_token_rejects_when_expired(self):
+        from runsight_core.isolation import harness as harness_module
+
+        GrantToken = getattr(harness_module, "GrantToken", None)
+        assert GrantToken is not None
+
+        token = GrantToken(block_id="block-398", created_at=0.0, ttl_seconds=30.0)
+        assert token.consume() is False

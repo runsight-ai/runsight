@@ -9,7 +9,7 @@ Tests cover every AC item:
 5.  fit_to_budget local
 6.  Stateful history round-trips
 7.  Zero workflow/observer/api imports
-8.  Missing RUNSIGHT_BLOCK_API_KEY env var: exit 1 with clear error
+8.  Missing RUNSIGHT_GRANT_TOKEN env var: exit 1 with clear error
 9.  Missing RUNSIGHT_IPC_SOCKET env var: exit 1 with clear error
 10. Exit 0/1
 """
@@ -75,7 +75,7 @@ def _run_worker(
     """Invoke the worker as a subprocess, piping the envelope via stdin."""
     env = os.environ.copy()
     # Defaults for required env vars
-    env.setdefault("RUNSIGHT_BLOCK_API_KEY", "test-key-123")
+    env.setdefault("RUNSIGHT_GRANT_TOKEN", "grant-token-123")
     env.setdefault("RUNSIGHT_IPC_SOCKET", "/tmp/test_ipc.sock")
     if env_extra:
         env.update(env_extra)
@@ -103,7 +103,7 @@ class TestWorkerUsesLiteLLMClient:
         import runsight_core.isolation.worker  # noqa: F401
 
     def test_worker_creates_litellm_client_with_api_key(self):
-        """Worker creates LiteLLMClient with RUNSIGHT_BLOCK_API_KEY."""
+        """Worker helper can create LiteLLMClient from an explicit api_key argument."""
         from runsight_core.isolation.worker import create_llm_client
 
         client = create_llm_client(model_name="gpt-4o", api_key="test-key")
@@ -479,18 +479,18 @@ class TestWorkerImportBoundary:
 
 
 # ==============================================================================
-# AC8: Missing RUNSIGHT_BLOCK_API_KEY → exit 1 with clear error
+# AC8: Missing RUNSIGHT_GRANT_TOKEN → exit 1 with clear error
 # ==============================================================================
 
 
-class TestWorkerMissingApiKey:
-    """Missing RUNSIGHT_BLOCK_API_KEY must exit 1 with error in ResultEnvelope."""
+class TestWorkerMissingGrantToken:
+    """Missing RUNSIGHT_GRANT_TOKEN must exit 1 with error in ResultEnvelope."""
 
-    def test_missing_api_key_exits_nonzero(self):
-        """Worker exits with code 1 when RUNSIGHT_BLOCK_API_KEY is absent."""
+    def test_missing_grant_token_exits_nonzero(self):
+        """Worker exits with code 1 when RUNSIGHT_GRANT_TOKEN is absent."""
         envelope = _make_context_envelope()
         env_override = os.environ.copy()
-        env_override.pop("RUNSIGHT_BLOCK_API_KEY", None)
+        env_override.pop("RUNSIGHT_GRANT_TOKEN", None)
         env_override["RUNSIGHT_IPC_SOCKET"] = "/tmp/test.sock"
         result = subprocess.run(
             [sys.executable, "-m", "runsight_core.isolation.worker"],
@@ -507,11 +507,11 @@ class TestWorkerMissingApiKey:
         result_env = ResultEnvelope.model_validate_json(stdout)
         assert result_env.error is not None
 
-    def test_missing_api_key_has_error_in_result(self):
-        """ResultEnvelope on stdout describes the missing API key."""
+    def test_missing_grant_token_has_error_in_result(self):
+        """ResultEnvelope on stdout describes the missing grant token."""
         envelope = _make_context_envelope()
         env_override = os.environ.copy()
-        env_override.pop("RUNSIGHT_BLOCK_API_KEY", None)
+        env_override.pop("RUNSIGHT_GRANT_TOKEN", None)
         env_override["RUNSIGHT_IPC_SOCKET"] = "/tmp/test.sock"
         result = subprocess.run(
             [sys.executable, "-m", "runsight_core.isolation.worker"],
@@ -525,7 +525,33 @@ class TestWorkerMissingApiKey:
         assert stdout, "Expected ResultEnvelope on stdout even on env error"
         result_env = ResultEnvelope.model_validate_json(stdout)
         assert result_env.error is not None
-        assert "RUNSIGHT_BLOCK_API_KEY" in result_env.error
+        assert "RUNSIGHT_GRANT_TOKEN" in result_env.error
+
+
+class TestRUN398WorkerGrantTokenContract:
+    """RUN-398: worker authenticates via grant token, not raw API key env injection."""
+
+    def test_worker_does_not_fail_for_missing_block_api_key_when_grant_token_present(self):
+        envelope = _make_context_envelope(block_type="nonexistent_block_type_xyz")
+        env_override = os.environ.copy()
+        env_override.pop("RUNSIGHT_BLOCK_API_KEY", None)
+        env_override["RUNSIGHT_GRANT_TOKEN"] = "grant-token-123"
+        env_override["RUNSIGHT_IPC_SOCKET"] = "/tmp/test.sock"
+
+        result = subprocess.run(
+            [sys.executable, "-m", "runsight_core.isolation.worker"],
+            input=envelope.model_dump_json(),
+            capture_output=True,
+            text=True,
+            env=env_override,
+            timeout=10,
+        )
+
+        stdout = result.stdout.strip()
+        assert stdout, "Expected ResultEnvelope on stdout"
+        result_env = ResultEnvelope.model_validate_json(stdout)
+        assert result_env.error is not None
+        assert "RUNSIGHT_BLOCK_API_KEY" not in result_env.error
 
 
 # ==============================================================================
@@ -541,7 +567,7 @@ class TestWorkerMissingIpcSocket:
         envelope = _make_context_envelope()
         env_override = os.environ.copy()
         env_override.pop("RUNSIGHT_IPC_SOCKET", None)
-        env_override["RUNSIGHT_BLOCK_API_KEY"] = "test-key"
+        env_override["RUNSIGHT_GRANT_TOKEN"] = "grant-token-123"
         result = subprocess.run(
             [sys.executable, "-m", "runsight_core.isolation.worker"],
             input=envelope.model_dump_json(),
@@ -562,7 +588,7 @@ class TestWorkerMissingIpcSocket:
         envelope = _make_context_envelope()
         env_override = os.environ.copy()
         env_override.pop("RUNSIGHT_IPC_SOCKET", None)
-        env_override["RUNSIGHT_BLOCK_API_KEY"] = "test-key"
+        env_override["RUNSIGHT_GRANT_TOKEN"] = "grant-token-123"
         result = subprocess.run(
             [sys.executable, "-m", "runsight_core.isolation.worker"],
             input=envelope.model_dump_json(),
@@ -632,7 +658,7 @@ class TestWorkerEnvelopeParsing:
     def test_invalid_json_produces_error_result(self):
         """Malformed JSON input yields exit 1 with error in ResultEnvelope."""
         env = os.environ.copy()
-        env["RUNSIGHT_BLOCK_API_KEY"] = "test-key"
+        env["RUNSIGHT_GRANT_TOKEN"] = "grant-token-123"
         env["RUNSIGHT_IPC_SOCKET"] = "/tmp/test.sock"
         result = subprocess.run(
             [sys.executable, "-m", "runsight_core.isolation.worker"],
