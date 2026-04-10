@@ -2439,6 +2439,52 @@ class TestRUN397ObserverInterceptorContract:
 
         assert response_ctx == {}
 
+    @pytest.mark.asyncio
+    async def test_observer_interceptor_noop_when_opentelemetry_import_fails(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        import builtins
+        import importlib
+
+        from runsight_core.isolation import ipc as ipc_module
+
+        real_import = builtins.__import__
+        real_import_module = importlib.import_module
+
+        def _failing_import(name: str, *args: Any, **kwargs: Any):
+            if name == "opentelemetry" or name.startswith("opentelemetry."):
+                raise ImportError("simulated missing opentelemetry")
+            return real_import(name, *args, **kwargs)
+
+        def _failing_import_module(name: str, package: str | None = None):
+            if name == "opentelemetry" or name.startswith("opentelemetry."):
+                raise ImportError("simulated missing opentelemetry")
+            return real_import_module(name, package)
+
+        monkeypatch.setattr(builtins, "__import__", _failing_import)
+        monkeypatch.setattr(importlib, "import_module", _failing_import_module)
+
+        observer = _make_observer_interceptor(
+            ipc_module,
+            tracer=None,
+            block_id="run397-no-otel",
+        )
+        request_ctx = await observer.on_request(
+            "llm_call",
+            {"model": "gpt-4o-mini"},
+            {"trace.parent_id": "parent-397"},
+        )
+        response_ctx = await observer.on_response(
+            "llm_call",
+            {"cost_usd": 0.04, "total_tokens": 19},
+            request_ctx,
+        )
+
+        assert response_ctx["trace.parent_id"] == "parent-397"
+        assert "trace_id" not in response_ctx
+        assert "span_id" not in response_ctx
+
 
 class TestRUN810BudgetInterceptorContract:
     """RUN-810: BudgetInterceptor budget checks, accrual, and IPC short-circuit behavior."""
