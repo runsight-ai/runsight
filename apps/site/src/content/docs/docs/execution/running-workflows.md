@@ -29,7 +29,7 @@ A production run executes the workflow YAML as committed on the **main branch**.
 1. The API reads the workflow YAML from `git show main:custom/workflows/{id}.yaml`.
 2. A `Run` record is created with `status: pending` and `branch: "main"`.
 3. The execution service acquires a concurrency slot (default: 5 concurrent runs), then transitions the run to `running`.
-4. The engine parses the YAML, builds a `Workflow` graph, and calls `Workflow.run()`.
+4. The engine parses the YAML, builds the workflow graph, and starts execution.
 5. Each block executes sequentially through the transition graph. A `RunNode` record is created per block.
 6. On completion, the observer writes `status: completed` with final cost and token totals.
 

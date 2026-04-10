@@ -91,7 +91,7 @@ There are no `ge`, `le`, or `min_length` constraints on soul fields. The `max_to
 
 When the parser encounters a `soul_ref` on a block, it resolves the reference through these steps:
 
-1. **Discover external souls.** The parser calls `SoulScanner(base_dir).scan()`, which scans `custom/souls/` for `.yaml` files. Each file is loaded, validated against the `Soul` model, and stored in a dictionary keyed by filename stem.
+1. **Discover external souls.** The parser scans `custom/souls/` for `.yaml` files. Each file is loaded, validated against the Soul schema, and stored in a dictionary keyed by filename stem.
 
 2. **Merge inline souls.** If the workflow YAML contains a `souls:` section, inline definitions are merged over the external map. When keys overlap, the inline soul wins and a warning is logged: `"Inline soul 'X' overrides external soul file"`.
 
