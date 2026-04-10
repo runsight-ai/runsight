@@ -13,7 +13,7 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from runsight_core.budget_enforcement import BudgetKilledException
+from runsight_core.budget_enforcement import BudgetKilledException, BudgetSession
 
 HandlerResult = Awaitable[dict[str, Any]] | AsyncIterable[dict[str, Any]]
 Handler = Callable[[dict[str, Any]], HandlerResult]
@@ -141,6 +141,77 @@ class InterceptorRegistry:
     ) -> dict[str, Any]:
         for interceptor in self._interceptors:
             engine_context = await interceptor.on_stream_chunk(action, chunk, engine_context)
+        return engine_context
+
+
+class BudgetInterceptor:
+    """Interceptor that enforces and accrues cross-process budget usage."""
+
+    def __init__(
+        self,
+        *,
+        session: BudgetSession | None = None,
+        budget_session: BudgetSession | None = None,
+        block_id: str | None = None,
+    ) -> None:
+        self._session = session or budget_session
+        if self._session is None:
+            raise TypeError("BudgetInterceptor requires a BudgetSession")
+        self._block_id = block_id
+
+    @staticmethod
+    def _to_float(value: Any) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
+
+    @staticmethod
+    def _to_int(value: Any) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    def _remaining_context(self) -> dict[str, Any]:
+        context: dict[str, Any] = {}
+        if self._session.cost_cap_usd is not None:
+            context["budget_remaining_usd"] = self._session.cost_cap_usd - self._session.cost_usd
+        if self._session.token_cap is not None:
+            context["budget_remaining_tokens"] = self._session.token_cap - self._session.tokens
+        return context
+
+    async def on_request(
+        self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        if action != "capability_negotiation":
+            self._session.check_or_raise(block_id=self._block_id)
+        engine_context.update(self._remaining_context())
+        return engine_context
+
+    async def on_response(
+        self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        if action != "capability_negotiation":
+            self._session.accrue(
+                cost_usd=self._to_float(payload.get("cost_usd")),
+                tokens=self._to_int(payload.get("total_tokens")),
+            )
+            self._session.check_or_raise(block_id=self._block_id)
+        engine_context.update(self._remaining_context())
+        return engine_context
+
+    async def on_stream_chunk(
+        self, action: str, chunk: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        if action != "capability_negotiation":
+            tokens = self._to_int(chunk.get("tokens", chunk.get("total_tokens")))
+            self._session.accrue(
+                cost_usd=self._to_float(chunk.get("cost_usd")),
+                tokens=tokens,
+            )
+            self._session.check_or_raise(block_id=self._block_id)
+        engine_context.update(self._remaining_context())
         return engine_context
 
 

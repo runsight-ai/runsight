@@ -24,6 +24,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from runsight_core.budget_enforcement import BudgetSession, _active_budget
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     HeartbeatMessage,
@@ -31,7 +32,13 @@ from runsight_core.isolation.envelope import (
     SoulEnvelope,
     TaskEnvelope,
 )
-from runsight_core.isolation.ipc import GrantToken, IPCServer
+from runsight_core.isolation.ipc import (
+    BudgetInterceptor,
+    GrantToken,
+    InterceptorRegistry,
+    IPCServer,
+)
+from runsight_core.yaml.schema import BlockLimitsDef
 
 # ---------------------------------------------------------------------------
 # HeartbeatTracker — tracks phase changes and detects stalls
@@ -350,6 +357,8 @@ class SubprocessHarness:
         sock = None
         sock_path: str | None = None
         work_dir: str | None = None
+        parent_budget: BudgetSession | None = None
+        child_budget: BudgetSession | None = None
 
         try:
             # Create socket and working dir
@@ -369,9 +378,32 @@ class SubprocessHarness:
 
             # Start IPC server task
             ipc_handlers = self._build_ipc_handlers()
+            registry: InterceptorRegistry | None = None
+
+            active_budget = _active_budget.get(None)
+            if isinstance(active_budget, BudgetSession):
+                raw_limits = envelope.block_config.get("limits")
+                if raw_limits is not None:
+                    block_limits = (
+                        raw_limits
+                        if isinstance(raw_limits, BlockLimitsDef)
+                        else BlockLimitsDef.model_validate(raw_limits)
+                    )
+                    parent_budget = active_budget
+                    child_budget = BudgetSession.from_block_limits(
+                        block_limits,
+                        envelope.block_id,
+                        parent=None,
+                    )
+                    registry = InterceptorRegistry()
+                    registry.register(
+                        BudgetInterceptor(session=child_budget, block_id=envelope.block_id)
+                    )
+
             ipc_server = IPCServer(
                 sock=sock,
                 handlers=ipc_handlers,
+                registry=registry,
                 grant_token=self._grant_token,
             )
             ipc_task = asyncio.create_task(ipc_server.serve())
@@ -421,6 +453,8 @@ class SubprocessHarness:
 
                 # Check return code
                 if proc.returncode != 0:
+                    if parent_budget is not None and child_budget is not None:
+                        parent_budget.reconcile_child(child_budget)
                     error_msg = self._map_return_code(proc.returncode or 1)
                     return ResultEnvelope(
                         block_id=envelope.block_id,
@@ -437,6 +471,8 @@ class SubprocessHarness:
 
                 # Validate and return result
                 raw_output = stdout_data.decode("utf-8").strip()
+                if parent_budget is not None and child_budget is not None:
+                    parent_budget.reconcile_child(child_budget)
                 return self._validate_result(
                     raw_output,
                     max_bytes=envelope.max_output_bytes,
