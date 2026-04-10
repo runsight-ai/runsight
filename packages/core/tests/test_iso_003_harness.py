@@ -135,6 +135,151 @@ class TestIpcHandlerRegistration:
         assert callable(handlers["tool_call"])
 
 
+class TestRUN745LLMCallHandlerContract:
+    """RUN-745: engine-side llm_call handler factory + harness registration contract."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("model_name", "api_keys", "expected_key"),
+        [
+            (
+                "claude-sonnet-4-20250514",
+                {"anthropic": "sk-anthropic-real", "openai": "sk-openai-real"},
+                "sk-anthropic-real",
+            ),
+            (
+                "gpt-4o-mini",
+                {"anthropic": "sk-anthropic-real", "openai": "sk-openai-real"},
+                "sk-openai-real",
+            ),
+        ],
+    )
+    async def test_make_llm_call_handler_resolves_provider_key_and_passes_explicit_model(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        model_name: str,
+        api_keys: dict[str, str],
+        expected_key: str,
+    ):
+        from runsight_core.isolation import handlers as handlers_module
+
+        make_llm_call_handler = getattr(handlers_module, "make_llm_call_handler", None)
+        assert make_llm_call_handler is not None
+
+        captured: dict[str, Any] = {}
+
+        class FakeLiteLLMClient:
+            def __init__(self, model_name: str, api_key: str, **_kwargs: Any):
+                captured["model_name"] = model_name
+                captured["api_key"] = api_key
+
+            async def achat(
+                self,
+                messages: list[dict[str, Any]],
+                system_prompt: str | None = None,
+                temperature: float | None = None,
+                tools: list[dict[str, Any]] | None = None,
+                tool_choice: str | None = None,
+                **kwargs: Any,
+            ) -> dict[str, Any]:
+                captured["messages"] = messages
+                captured["system_prompt"] = system_prompt
+                captured["temperature"] = temperature
+                captured["tools"] = tools
+                captured["tool_choice"] = tool_choice
+                captured["extra_kwargs"] = dict(kwargs)
+                return {
+                    "content": "engine completion",
+                    "cost_usd": 0.123,
+                    "total_tokens": 77,
+                    "tool_calls": [],
+                    "finish_reason": "stop",
+                }
+
+        monkeypatch.setattr(handlers_module, "LiteLLMClient", FakeLiteLLMClient, raising=False)
+
+        handler = make_llm_call_handler(api_keys=api_keys)
+        stream = handler(
+            {
+                "model": model_name,
+                "messages": [{"role": "user", "content": "hello"}],
+                "system_prompt": "be concise",
+                "temperature": 0.3,
+                "tools": [{"type": "function", "function": {"name": "calc"}}],
+                "tool_choice": "auto",
+                "max_tokens": 256,
+            }
+        )
+        assert hasattr(stream, "__aiter__"), "llm_call handler must stream chunks"
+
+        chunks = [chunk async for chunk in stream]
+        assert len(chunks) == 1
+        assert chunks[0]["content"] == "engine completion"
+        assert chunks[0]["cost_usd"] == pytest.approx(0.123)
+        assert chunks[0]["total_tokens"] == 77
+
+        assert captured["model_name"] == model_name
+        assert captured["api_key"] == expected_key
+        assert captured["messages"] == [{"role": "user", "content": "hello"}]
+        assert captured["system_prompt"] == "be concise"
+        assert captured["temperature"] == 0.3
+        assert captured["tool_choice"] == "auto"
+        assert captured["extra_kwargs"]["max_tokens"] == 256
+
+    @pytest.mark.asyncio
+    async def test_make_llm_call_handler_returns_in_band_error_when_provider_key_missing(self):
+        from runsight_core.isolation import handlers as handlers_module
+
+        make_llm_call_handler = getattr(handlers_module, "make_llm_call_handler", None)
+        assert make_llm_call_handler is not None
+
+        handler = make_llm_call_handler(api_keys={"anthropic": "sk-anthropic-real"})
+        stream = handler(
+            {
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": "hello"}],
+            }
+        )
+        assert hasattr(stream, "__aiter__"), "llm_call handler must stream chunks"
+
+        chunks = [chunk async for chunk in stream]
+        assert len(chunks) == 1
+        assert "error" in chunks[0]
+        assert "api key" in str(chunks[0]["error"]).lower()
+
+    @pytest.mark.asyncio
+    async def test_harness_build_ipc_handlers_registers_llm_call_factory(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        from runsight_core.isolation import SubprocessHarness
+        from runsight_core.isolation import handlers as handlers_module
+
+        observed: dict[str, Any] = {}
+
+        async def fake_llm_handler(_payload: dict[str, Any]) -> dict[str, Any]:
+            return {"content": "ok", "cost_usd": 0.0, "total_tokens": 0}
+
+        def fake_make_llm_call_handler(api_keys: dict[str, str]):
+            observed["api_keys"] = dict(api_keys)
+            return fake_llm_handler
+
+        monkeypatch.setattr(
+            handlers_module,
+            "make_llm_call_handler",
+            fake_make_llm_call_handler,
+            raising=False,
+        )
+
+        harness = SubprocessHarness(api_key="sk-legacy-single-key")
+        harness._api_keys = {"anthropic": "sk-anthropic-real"}
+        handlers = harness._build_ipc_handlers()
+
+        assert "llm_call" in handlers
+        assert handlers["llm_call"] is fake_llm_handler
+        assert observed["api_keys"] != {}
+
+
 class TestMinimalEnvironment:
     """Subprocess must receive minimal env with grant token, not API key."""
 
