@@ -7,6 +7,7 @@ export interface ParseWorkflowResult {
   nodes: Node<StepNodeData>[];
   edges: Edge[];
   viewport?: PersistedCanvasState["viewport"];
+  entryNodeId?: string;
   error?: { message: string };
   config?: Record<string, unknown>;
 }
@@ -214,7 +215,12 @@ export function parseWorkflowYamlToGraph(
     });
   });
 
-  const result: ParseWorkflowResult = { nodes, edges, viewport: canvasState?.viewport };
+  const result: ParseWorkflowResult = {
+    nodes,
+    edges,
+    viewport: canvasState?.viewport,
+    entryNodeId: parsed.workflow?.entry,
+  };
   if (buildErrors.length > 0) result.error = { message: buildErrors.join("; ") };
   if (parsed.config !== undefined) result.config = parsed.config;
   return result;

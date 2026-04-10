@@ -56,9 +56,9 @@ export function SurfaceCanvas({
   }, [selectNode, onPaneClickProp]);
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       {/* React Flow Canvas - Unified Workflow View (no DAG/State Machine toggle per spec) */}
-      <div className="flex-1">
+      <div className="h-full min-h-0 flex-1">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -84,7 +84,7 @@ export function SurfaceCanvas({
             },
           }}
           proOptions={{ hideAttribution: true }}
-          className="bg-surface"
+          className="h-full bg-surface"
         >
           <Background
             variant={BackgroundVariant.Dots}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./surfaceContract";
@@ -28,6 +28,7 @@ import { gitApi } from "@/api/git";
 import { PriorityBanner } from "@/components/shared";
 import { mapRunStatus } from "./surfaceUtils";
 import { SurfaceInspectorPanel } from "./SurfaceInspectorPanel";
+import { buildWorkflowLayout, hasRenderableCanvasState } from "./workflowLayout";
 
 function RunGraphErrorCard({
   message,
@@ -94,6 +95,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const [readonlyYaml, setReadonlyYaml] = useState<string | null>(null);
   const [isReadonlyYamlLoading, setIsReadonlyYamlLoading] = useState(false);
   const [inspectedNodeId, setInspectedNodeId] = useState<string | null>(null);
+  const [canvasHydrationRevision, setCanvasHydrationRevision] = useState(0);
+  const lastCanvasHydrationKeyRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
   const overlayRef = getOverlayRefFromLocation();
   const readonlyRunId = mode === "readonly" ? (activeRunId ?? initialRunId ?? "") : "";
@@ -162,6 +165,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const setRunCost = useCanvasStore((s) => s.setRunCost);
   const selectNode = useCanvasStore((s) => s.selectNode);
   const resetCanvas = useCanvasStore((s) => (s as { reset?: () => void }).reset);
+  const toPersistedState = useCanvasStore((s) => s.toPersistedState);
 
   const handleOpenApiKeyModal = useCallback(() => {
     setApiKeyModalOpen(true);
@@ -190,6 +194,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     setInspectedNodeId(null);
     setOverlayYaml(null);
     setReadonlyYaml(null);
+    setCanvasHydrationRevision(0);
+    lastCanvasHydrationKeyRef.current = null;
     resetCanvas?.();
   }, [initialMode, initialWorkflowId, initialRunId, resetCanvas]);
 
@@ -233,18 +239,40 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   }, [overlayRef, workflowId]);
 
   useEffect(() => {
-    if (!resolvedWorkflowId || !workflow?.yaml) {
+    if (!resolvedWorkflowId) {
       return;
     }
 
-    if (mode !== "readonly" && overlayRef && overlayYaml !== null) {
-      setYamlContent(overlayYaml);
+    const preferredYaml =
+      mode === "readonly"
+        ? (readonlyYaml ?? workflow?.yaml ?? null)
+        : (overlayRef && overlayYaml !== null ? overlayYaml : (workflow?.yaml ?? null));
+
+    if (!preferredYaml) {
       return;
     }
 
-    setYamlContent(workflow.yaml);
+    setYamlContent(preferredYaml);
 
-    if (workflow.canvas_state && nodes.length === 0 && edges.length === 0) {
+    const renderableCanvasState = hasRenderableCanvasState(workflow?.canvas_state);
+    const hydrationKind = renderableCanvasState ? "persisted" : "computed";
+    const yamlKind =
+      mode === "readonly"
+        ? (readonlyYaml != null ? "historical" : "live")
+        : (overlayRef && overlayYaml !== null ? `overlay:${overlayRef}` : "live");
+    const hydrationKey = [
+      mode,
+      resolvedWorkflowId,
+      activeRunId ?? initialRunId ?? "",
+      hydrationKind,
+      yamlKind,
+    ].join(":");
+
+    if (lastCanvasHydrationKeyRef.current === hydrationKey) {
+      return;
+    }
+
+    if (renderableCanvasState) {
       hydrateFromPersisted({
         nodes: workflow.canvas_state.nodes ?? [],
         edges: workflow.canvas_state.edges ?? [],
@@ -253,18 +281,24 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         canvas_mode:
           workflow.canvas_state.canvas_mode === "state-machine" ? "state-machine" : "dag",
       });
+    } else {
+      hydrateFromPersisted(buildWorkflowLayout(preferredYaml, workflow?.canvas_state ?? null));
     }
+
+    setCanvasHydrationRevision((revision) => revision + 1);
+    lastCanvasHydrationKeyRef.current = hydrationKey;
   }, [
-    edges.length,
+    activeRunId,
     hydrateFromPersisted,
-    nodes.length,
-    setYamlContent,
-    workflow?.canvas_state,
-    workflow?.yaml,
-    resolvedWorkflowId,
+    initialRunId,
     mode,
     overlayRef,
     overlayYaml,
+    readonlyYaml,
+    resolvedWorkflowId,
+    setYamlContent,
+    workflow?.canvas_state,
+    workflow?.yaml,
   ]);
 
   useEffect(() => {
@@ -310,7 +344,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   }, [mode, run, setActiveCanvasRunId, setRunCost]);
 
   useEffect(() => {
-    if (mode !== "readonly" || !workflow?.canvas_state || !runNodes?.length) {
+    if (mode !== "readonly" || nodes.length === 0 || !runNodes?.length) {
       return;
     }
 
@@ -330,7 +364,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
             : undefined,
       });
     }
-  }, [mode, workflow?.canvas_state, runNodes, setNodeStatus]);
+  }, [canvasHydrationRevision, mode, runNodes, setNodeStatus]);
 
   const selectedNode = inspectedNodeId
     ? (nodes.find((node) => node.id === inspectedNodeId) ?? null)
@@ -346,7 +380,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     && run.error.length > 0;
   const showReadonlyCanvas =
     mode === "readonly"
-    && Boolean(workflow?.canvas_state)
+    && nodes.length > 0
     && !showRunGraphError
     && !showPreExecutionFailure;
   const headerSlots = useSurfaceHeaderSlots({
@@ -385,9 +419,16 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const canvasStoreState = useCanvasStore.getState();
   const currentDraft = {
     yaml: canvasStoreState.yamlContent,
+    canvas_state: editable ? toPersistedState() : undefined,
   };
   const currentFiles: { path: string; status: string }[] = [
     { path: `custom/workflows/${resolvedWorkflowId}.yaml`, status: "modified" },
+    ...(editable
+      ? [{
+          path: `custom/workflows/.canvas/${resolvedWorkflowId}.canvas.json`,
+          status: "modified",
+        }]
+      : []),
   ];
 
   if (mode === "readonly" && (isRunLoading || (!!resolvedWorkflowId && isWorkflowLoading))) {

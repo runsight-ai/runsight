@@ -223,7 +223,7 @@ test.describe("RUN-783 readonly surface browser flows", () => {
     });
   });
 
-  test("readonly mode falls back gracefully when canvas_state is missing and YAML stays accessible", async ({
+  test("readonly mode lays out canvas from YAML when canvas_state is missing and YAML stays accessible", async ({
     page,
     request,
   }) => {
@@ -256,12 +256,15 @@ test.describe("RUN-783 readonly surface browser flows", () => {
 
       await expectSurfaceShell(page);
       await page.getByTestId("workflow-tab-canvas").click();
+      const researchNode = page
+        .getByTestId("surface-center")
+        .locator('[role="application"] [role="group"]')
+        .filter({ hasText: "Research" })
+        .first();
+      await expect(researchNode).toBeVisible({ timeout: 15000 });
       await expect(
         page.getByText("Canvas layout unavailable", { exact: true }),
-      ).toBeVisible({ timeout: 15000 });
-      await expect(
-        page.getByText("Switch to the YAML tab to inspect the workflow definition."),
-      ).toBeVisible({ timeout: 15000 });
+      ).toHaveCount(0);
 
       await page.getByTestId("workflow-tab-yaml").click();
       const historicalYamlResponse = await historicalYamlPromise;

@@ -579,6 +579,46 @@ describe("WorkflowSurface readonly integration (RUN-782)", () => {
     });
   });
 
+  it("lays out readonly canvas from YAML when canvas_state is missing", async () => {
+    const user = userEvent.setup();
+    const layoutYaml = `
+version: "1.0"
+blocks:
+  node_brain:
+    type: linear
+    soul_ref: souls/researcher
+workflow:
+  name: Historical Snapshot
+  entry: node_brain
+  transitions: []
+`;
+    setReadonlyFixtures({
+      canvasState: null,
+    });
+    harness.workflow = buildWorkflow({
+      canvas_state: null,
+      yaml: layoutYaml,
+    });
+    harness.getGitFile.mockResolvedValue({ content: layoutYaml });
+
+    render(
+      <MemoryRouter>
+        <WorkflowSurface mode="readonly" runId="run_782" workflowId="wf_782" />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByTestId("workflow-tab-canvas"));
+
+    await waitFor(() => {
+      expect(useCanvasStore.getState().nodes[0]?.id).toBe("node_brain");
+      expect(useCanvasStore.getState().nodes[0]?.type).toBe("start");
+      expect(useCanvasStore.getState().nodes[0]?.data.status).toBe("completed");
+    });
+
+    expect(screen.queryByText("Canvas layout unavailable")).toBeNull();
+    expect(screen.getByTestId("react-flow-node-node_brain").textContent).toContain("completed");
+  });
+
   it("forks a completed readonly run into edit mode", async () => {
     const user = userEvent.setup();
     setReadonlyFixtures();
@@ -620,5 +660,42 @@ describe("WorkflowSurface readonly integration (RUN-782)", () => {
     expect(screen.queryByRole("button", { name: "Fork" })).toBeNull();
     expect(screen.queryByText(/regressions found/i)).toBeNull();
     expect(screen.getByTestId("workflow-run-button")).toBeTruthy();
+  });
+
+  it("lays out edit mode from YAML when canvas_state is missing", async () => {
+    harness.workflow = buildWorkflow({
+      canvas_state: null,
+      yaml: `
+version: "1.0"
+blocks:
+  start_here:
+    type: linear
+    soul_ref: souls/researcher
+  finish_here:
+    type: linear
+    soul_ref: souls/reviewer
+workflow:
+  name: Edit Layout Flow
+  entry: start_here
+  transitions:
+    - from: start_here
+      to: finish_here
+`,
+    });
+
+    render(
+      <MemoryRouter>
+        <WorkflowSurface mode="edit" workflowId="wf_782" />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(useCanvasStore.getState().nodes.map((node) => node.id)).toEqual([
+        "start_here",
+        "finish_here",
+      ]);
+      expect(useCanvasStore.getState().nodes[0]?.type).toBe("start");
+      expect(useCanvasStore.getState().nodes[1]?.type).toBe("task");
+    });
   });
 });
