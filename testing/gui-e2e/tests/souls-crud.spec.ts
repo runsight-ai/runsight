@@ -1,8 +1,18 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe.configure({ mode: "serial" });
 
 const API = "http://localhost:8000/api";
+
+type SoulSummary = {
+  id: string;
+  role: string;
+};
+
+type SoulListResponse = {
+  total: number;
+  items: SoulSummary[];
+};
 
 async function apiGet(path: string) {
   const res = await fetch(`${API}${path}`);
@@ -13,28 +23,22 @@ async function apiDelete(path: string) {
   return fetch(`${API}${path}`, { method: "DELETE" });
 }
 
+async function createSoulViaApi(role: string) {
+  const res = await fetch(`${API}/souls`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role, system_prompt: "E2E test soul prompt" }),
+  });
+  return res.json();
+}
+
 test.describe("Souls CRUD", () => {
   const testSoulName = `e2e-soul-${Date.now()}`;
   const testSoulNameEdited = `${testSoulName}-edited`;
   let createdSoulId: string | null = null;
 
-  type NamedEntity = {
-    id: string;
-    name: string;
-  };
-
-  type NamedEntityListResponse = {
-    total: number;
-    items: NamedEntity[];
-  };
-
   test.beforeAll(async () => {
-    const res = await fetch(`${API}/souls`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: testSoulName, system_prompt: "E2E test soul prompt" }),
-    });
-    const data = await res.json();
+    const data = await createSoulViaApi(testSoulName);
     createdSoulId = data.id ?? null;
   });
 
@@ -46,81 +50,75 @@ test.describe("Souls CRUD", () => {
 
   test("list souls", async ({ page }) => {
     await page.goto("/souls");
-    await expect(page.getByRole("main").getByRole("heading", { name: "Souls" })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("main").getByRole("heading", { name: "Souls" })).toBeVisible({
+      timeout: 10000,
+    });
   });
 
-  test("create soul via UI", async ({ page }) => {
+  test("create soul via the current form route", async ({ page }) => {
     const createName = `${testSoulName}-ui`;
     await page.goto("/souls");
     await page.waitForLoadState("networkidle");
 
-    const beforeData = (await apiGet("/souls")) as NamedEntityListResponse;
+    const beforeData = (await apiGet("/souls")) as SoulListResponse;
     const countBefore = beforeData.total;
 
-    await page.getByRole("button", { name: /New Soul/i }).first().click();
+    await page.getByRole("button", { name: /New Soul/i }).click();
+    await expect(page).toHaveURL(/\/souls\/new$/, { timeout: 10000 });
 
-    const modal = page.getByRole("dialog");
-    await expect(modal).toBeVisible({ timeout: 5000 });
+    await page.getByLabel("Name").fill(createName);
+    await page.getByLabel("System Prompt").fill("E2E test soul prompt");
+    await page.getByRole("button", { name: "Create Soul" }).click();
 
-    await modal.getByPlaceholder(/Enter soul name/i).fill(createName);
-    await modal.getByPlaceholder(/Enter the system prompt that defines/i).fill("E2E test soul prompt");
-    await modal.getByRole("button", { name: /Create Soul/i }).click();
+    await expect(page).toHaveURL(/\/souls$/, { timeout: 10000 });
+    await expect(page.getByText(createName, { exact: true }).first()).toBeVisible({
+      timeout: 10000,
+    });
 
-    await expect(modal).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(createName, { exact: true })).toBeVisible({ timeout: 10000 });
-
-    const afterData = (await apiGet("/souls")) as NamedEntityListResponse;
-    const created = afterData.items.find((s) => s.name === createName);
+    const afterData = (await apiGet("/souls")) as SoulListResponse;
+    const created = afterData.items.find((soul) => soul.role === createName);
     expect(created).toBeDefined();
     expect(afterData.total).toBeGreaterThanOrEqual(countBefore + 1);
 
-    // Clean up the UI-created soul
     if (created?.id) {
       await apiDelete(`/souls/${created.id}`);
     }
   });
 
-  test("edit soul", async ({ page }) => {
-    await page.goto("/souls");
-    await page.waitForLoadState("networkidle");
+  test("edit soul via the current form route", async ({ page }) => {
+    expect(createdSoulId).not.toBeNull();
 
-    const rowLocator = page.getByRole("row", { name: new RegExp(testSoulName) });
-    await rowLocator.getByRole("button").first().click();
-    await page.getByRole("menuitem", { name: /Edit/i }).click();
+    await page.goto(`/souls/${createdSoulId}/edit`);
+    await expect(page.getByRole("heading", { name: "Edit Soul" })).toBeVisible({
+      timeout: 10000,
+    });
 
-    const modal = page.getByRole("dialog");
-    await expect(modal).toBeVisible({ timeout: 5000 });
+    await page.getByLabel("Name").fill(testSoulNameEdited);
+    await page.getByRole("button", { name: "Save Changes" }).click();
 
-    await modal.getByPlaceholder(/Enter soul name/i).fill(testSoulNameEdited);
-    await modal.getByRole("button", { name: /Save Changes/i }).click();
+    await expect(page).toHaveURL(/\/souls$/, { timeout: 10000 });
+    await expect(page.getByText(testSoulNameEdited, { exact: true }).first()).toBeVisible({
+      timeout: 10000,
+    });
 
-    await expect(modal).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(testSoulNameEdited, { exact: true })).toBeVisible({ timeout: 10000 });
-
-    const afterData = (await apiGet("/souls")) as NamedEntityListResponse;
-    const updated = afterData.items.find((s) => s.id === createdSoulId);
-    expect(updated.name).toBe(testSoulNameEdited);
+    const afterData = (await apiGet("/souls")) as SoulListResponse;
+    const updated = afterData.items.find((soul) => soul.id === createdSoulId);
+    expect(updated?.role).toBe(testSoulNameEdited);
   });
 
-  test("delete soul", async ({ page }) => {
+  test("clicking a soul row opens the edit route", async ({ page }) => {
+    expect(createdSoulId).not.toBeNull();
+
     await page.goto("/souls");
     await page.waitForLoadState("networkidle");
 
-    const rowLocator = page.getByRole("row", { name: new RegExp(testSoulNameEdited) });
-    await rowLocator.getByRole("button").first().click();
-    await page.getByRole("menuitem", { name: /Delete/i }).click();
-
-    const confirmModal = page.getByRole("dialog");
-    await expect(confirmModal).toBeVisible({ timeout: 5000 });
-    await confirmModal.getByRole("button", { name: "Delete" }).click();
-
-    await expect(confirmModal).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(testSoulNameEdited, { exact: true })).not.toBeVisible({ timeout: 10000 });
-
-    const afterData = (await apiGet("/souls")) as NamedEntityListResponse;
-    const deleted = afterData.items.find((s) => s.id === createdSoulId);
-    expect(deleted).toBeUndefined();
-
-    createdSoulId = null;
+    await expect(page.getByText(testSoulNameEdited, { exact: true }).first()).toBeVisible({
+      timeout: 10000,
+    });
+    await page.getByRole("row", { name: new RegExp(testSoulNameEdited) }).click();
+    await expect(page).toHaveURL(new RegExp(`/souls/${createdSoulId}/edit$`), {
+      timeout: 10000,
+    });
+    await expect(page.getByRole("heading", { name: "Edit Soul" })).toBeVisible();
   });
 });

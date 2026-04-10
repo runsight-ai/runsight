@@ -140,9 +140,9 @@ export function SurfaceTopbar({
     setIsEditing(true);
   }
 
-  function saveName() {
+  function saveName(nextName = editName) {
     setIsEditing(false);
-    const trimmed = editName.trim();
+    const trimmed = nextName.trim();
     if (trimmed && trimmed !== workflowName) {
       updateWorkflow.mutate({
         id: workflowId,
@@ -156,7 +156,7 @@ export function SurfaceTopbar({
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
-      saveName();
+      saveName(e.currentTarget?.value ?? editName);
     }
   }
 
@@ -189,7 +189,7 @@ export function SurfaceTopbar({
             className="font-sans text-lg font-medium text-heading bg-transparent border border-transparent rounded-sm px-1 py-[2px] outline-none hover:bg-surface-hover focus:border-border-focus"
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
-            onBlur={saveName}
+            onBlur={(e) => saveName(e?.currentTarget?.value ?? editName)}
             onKeyDown={handleKeyDown}
             data-testid="workflow-name-input"
             autoFocus

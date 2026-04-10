@@ -75,6 +75,22 @@ def test_workflow_repository_rejects_update_without_yaml():
             repo.update(entity.id, {"name": "Updated Workflow"})
 
 
+def test_workflow_repository_persists_name_updates_into_blank_yaml():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+        entity = repo.create({"yaml": ""})
+
+        updated = repo.update(entity.id, {"name": "Renamed Workflow", "yaml": ""})
+
+        assert updated.name == "Renamed Workflow"
+        assert updated.yaml == "workflow:\n  name: Renamed Workflow\n"
+
+        fetched = repo.get_by_id(entity.id)
+        assert fetched is not None
+        assert fetched.name == "Renamed Workflow"
+        assert fetched.yaml == "workflow:\n  name: Renamed Workflow\n"
+
+
 def test_workflow_create_does_not_mutate_input():
     """create() must not mutate the caller's dict (Fix 2)."""
     with tempfile.TemporaryDirectory() as tmpdir:

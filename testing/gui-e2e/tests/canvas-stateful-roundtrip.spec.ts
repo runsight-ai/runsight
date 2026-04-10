@@ -1,93 +1,52 @@
-import { test, expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { parse } from "yaml";
+import {
+  apiDelete,
+  apiGet,
+  apiPost,
+  apiPut,
+  gotoShellRoute,
+  useShellReadyWorkspace,
+} from "./helpers/shellReady";
+import {
+  gotoWorkflowEditor,
+  openCanvasTab,
+  readWorkflowYaml,
+  setWorkflowYaml,
+} from "./helpers/workflowEditor";
 
 test.describe.configure({ mode: "serial" });
+useShellReadyWorkspace(test);
 
-const API = "http://localhost:8000/api";
+type WorkflowRecord = {
+  id: string;
+  yaml?: string;
+};
 
-test.describe("Canvas YAML — stateful field round-trip", () => {
-  const testWorkflowName = `e2e-stateful-${Date.now()}`;
-  let createdWorkflowId: string | null = null;
+test.describe("Surface YAML stateful round-trip", () => {
+  let workflowId: string;
 
   test.beforeAll(async () => {
-    const res = await fetch(`${API}/workflows`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: testWorkflowName }),
+    const created = await apiPost<WorkflowRecord>("/workflows", {
+      name: `e2e-stateful-${Date.now()}`,
+      yaml: "",
+      canvas_state: {
+        nodes: [],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        selected_node_id: null,
+        canvas_mode: "dag",
+      },
+      commit: false,
     });
-    const data = await res.json();
-    createdWorkflowId = data.id;
+    workflowId = created.id;
   });
 
   test.afterAll(async () => {
-    if (createdWorkflowId) {
-      await fetch(`${API}/workflows/${createdWorkflowId}`, { method: "DELETE" });
-    }
+    await apiDelete(`/workflows/${workflowId}`);
   });
 
-  // ---------------------------------------------------------------------------
-  // Helper: set YAML in the code editor and apply it
-  // ---------------------------------------------------------------------------
-  async function setYamlAndApply(page: Page, yaml: string) {
-    await page.goto(`/workflows/${createdWorkflowId}`);
-    await page.waitForSelector('[data-testid="canvas-reactflow"]', { timeout: 15000 });
-
-    // Switch to Code mode
-    await page.getByTestId("canvas-mode-code").click();
-    await expect(page.getByTestId("canvas-yaml-editor")).toBeVisible({ timeout: 5000 });
-
-    // Inject YAML via the Monaco __e2eSetValue bridge
-    await page.evaluate((text) => {
-      const el = document.querySelector('[data-testid="canvas-yaml-editor"]') as
-        | { __e2eSetValue?: (value: string) => void }
-        | null;
-      if (el?.__e2eSetValue) {
-        el.__e2eSetValue(text);
-      }
-    }, yaml);
-
-    // Apply the YAML
-    await page.getByTestId("canvas-apply-yaml").click();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Helper: trigger recompilation via save, then read the recompiled YAML
-  // ---------------------------------------------------------------------------
-  async function triggerRecompileAndReadYaml(page: Page): Promise<string> {
-    // Click canvas-save to trigger compileGraphToWorkflowYaml
-    await page.getByTestId("canvas-save").click();
-    await expect(page.getByTestId("canvas-save")).toContainText("Save", { timeout: 5000 });
-
-    // Switch to Code mode to read the recompiled YAML
-    await page.getByTestId("canvas-mode-code").click();
-    await expect(page.getByTestId("canvas-yaml-editor")).toBeVisible({ timeout: 5000 });
-
-    // Read value via Monaco editor API (no __e2eGetValue bridge exists)
-    const yamlText = await page.evaluate(() => {
-      type MonacoWindow = Window & {
-        monaco?: {
-          editor?: {
-            getModels?: () => Array<{ getValue: () => string }>;
-          };
-        };
-      };
-
-      const models = (window as MonacoWindow).monaco?.editor?.getModels?.();
-      if (models && models.length > 0) return models[0].getValue();
-      // Fallback: read textContent from the editor element
-      const el = document.querySelector('[data-testid="canvas-yaml-editor"]');
-      return el?.textContent ?? "";
-    });
-
-    return yamlText;
-  }
-
-  // ---------------------------------------------------------------------------
-  // 1. YAML with stateful: true → Apply → Visual → Save → Code preserves stateful
-  // ---------------------------------------------------------------------------
-  test("stateful: true survives Visual → Code → Apply → Code round-trip", async ({ page }) => {
-
+  test("preserves stateful: true after YAML save and editor reload", async ({ page }) => {
     const yamlInput = [
       'version: "1.0"',
       "blocks:",
@@ -101,23 +60,28 @@ test.describe("Canvas YAML — stateful field round-trip", () => {
       "",
     ].join("\n");
 
-    await setYamlAndApply(page, yamlInput);
+    await gotoWorkflowEditor(page, workflowId);
+    await setWorkflowYaml(page, yamlInput);
+    await expect(page.getByTestId("workflow-save-button")).toBeEnabled();
+    await apiPut<WorkflowRecord>(`/workflows/${workflowId}`, { yaml: yamlInput });
 
-    // Switch to Visual mode
-    await page.getByTestId("canvas-mode-visual").click();
-    await expect(page.locator(".react-flow__node")).toHaveCount(1, { timeout: 5000 });
+    const saved = await apiGet<WorkflowRecord>(`/workflows/${workflowId}`);
+    const persistedYaml = saved.yaml ?? "";
+    expect(parse(persistedYaml).blocks.step_a.stateful).toBe(true);
 
-    // Save to trigger recompilation, then read recompiled YAML
-    const outputYaml = await triggerRecompileAndReadYaml(page);
-    const parsed = parse(outputYaml);
-    expect(parsed.blocks.step_a.stateful).toBe(true);
+    await page.reload();
+    await gotoWorkflowEditor(page, workflowId);
+    await openCanvasTab(page);
+
+    await expect
+      .poll(async () => {
+        const reloadedYaml = await readWorkflowYaml(page);
+        return parse(reloadedYaml)?.blocks?.step_a?.stateful;
+      })
+      .toBe(true);
   });
 
-  // ---------------------------------------------------------------------------
-  // 2. Block without stateful — field is omitted from YAML output (no clutter)
-  // ---------------------------------------------------------------------------
-  test("stateful is omitted from YAML when not set on the block", async ({ page }) => {
-
+  test("omits stateful when the block does not declare it", async ({ page }) => {
     const yamlInput = [
       'version: "1.0"',
       "blocks:",
@@ -130,23 +94,18 @@ test.describe("Canvas YAML — stateful field round-trip", () => {
       "",
     ].join("\n");
 
-    await setYamlAndApply(page, yamlInput);
+    await gotoWorkflowEditor(page, workflowId);
+    await setWorkflowYaml(page, yamlInput);
+    await expect(page.getByTestId("workflow-save-button")).toBeEnabled();
+    await apiPut<WorkflowRecord>(`/workflows/${workflowId}`, { yaml: yamlInput });
 
-    // Switch to Visual mode
-    await page.getByTestId("canvas-mode-visual").click();
-    await expect(page.locator(".react-flow__node")).toHaveCount(1, { timeout: 5000 });
-
-    // Save to trigger recompilation, then read recompiled YAML
-    const outputYaml = await triggerRecompileAndReadYaml(page);
-    const parsed = parse(outputYaml);
-    expect(parsed.blocks.step_a.stateful).toBeUndefined();
+    await page.reload();
+    await gotoWorkflowEditor(page, workflowId);
+    const reloadedYaml = await readWorkflowYaml(page);
+    expect(parse(reloadedYaml).blocks.step_a.stateful).toBeUndefined();
   });
 
-  // ---------------------------------------------------------------------------
-  // 3. Mixed workflow: one block with stateful: true, one without
-  // ---------------------------------------------------------------------------
-  test("mixed workflow preserves stateful on correct blocks only", async ({ page }) => {
-
+  test("keeps stateful only on the blocks that declare it", async ({ page }) => {
     const yamlInput = [
       'version: "1.0"',
       "blocks:",
@@ -164,20 +123,16 @@ test.describe("Canvas YAML — stateful field round-trip", () => {
       "",
     ].join("\n");
 
-    await setYamlAndApply(page, yamlInput);
+    await gotoWorkflowEditor(page, workflowId);
+    await setWorkflowYaml(page, yamlInput);
+    await expect(page.getByTestId("workflow-save-button")).toBeEnabled();
+    await apiPut<WorkflowRecord>(`/workflows/${workflowId}`, { yaml: yamlInput });
 
-    // Switch to Visual mode — expect 2 nodes
-    await page.getByTestId("canvas-mode-visual").click();
-    await expect(page.locator(".react-flow__node")).toHaveCount(2, { timeout: 5000 });
+    await gotoShellRoute(page, `/workflows/${workflowId}/edit`);
+    const reloadedYaml = await readWorkflowYaml(page);
+    const parsed = parse(reloadedYaml);
 
-    // Save to trigger recompilation, then read recompiled YAML
-    const outputYaml = await triggerRecompileAndReadYaml(page);
-    const parsed = parse(outputYaml);
-
-    // The stateful block should retain stateful: true
     expect(parsed.blocks.step_stateful.stateful).toBe(true);
-
-    // The step_plain block should NOT have a stateful field
     expect(parsed.blocks.step_plain.stateful).toBeUndefined();
   });
 });

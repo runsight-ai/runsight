@@ -236,8 +236,9 @@ test.describe("Onboarding journeys", () => {
 
     const workflow = await apiGet<WorkflowDetail>(`/workflows/${workflowId}`);
     expect(workflow.name).toBe("Research & Review");
-    expect(workflow.yaml).toContain("quality_review:");
-    expect(workflow.yaml).toContain("write_summary:");
+    expect(workflow.yaml).toContain("quality_gate:");
+    expect(workflow.yaml).toContain("draft_report:");
+    expect(workflow.yaml).toContain("write_error_stub:");
 
     const settings = await apiGet<{ onboarding_completed?: boolean }>("/settings/app");
     expect(settings.onboarding_completed).toBe(true);
@@ -263,7 +264,7 @@ test.describe("Onboarding journeys", () => {
     await expect(page.getByRole("button", { name: "Add API Key" })).toBeVisible();
 
     const workflow = await apiGet<WorkflowDetail>(`/workflows/${workflowId}`);
-    expect(workflow.name).toBe("Untitled Workflow");
+    expect(workflow.name).toBeNull();
     expect(workflow.yaml === "" || workflow.yaml === null || workflow.yaml === undefined).toBe(true);
   });
 
@@ -288,6 +289,6 @@ test.describe("Onboarding journeys", () => {
 
     await page.goto("/setup/start");
     await expect(page).toHaveURL(/\/$/, { timeout: 10_000 });
-    await expect(page.getByRole("heading", { name: "Dashboard" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Home" }).first()).toBeVisible();
   });
 });

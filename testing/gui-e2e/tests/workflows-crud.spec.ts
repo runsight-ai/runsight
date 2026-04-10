@@ -1,105 +1,94 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import {
+  apiDelete,
+  apiGet,
+  apiPost,
+  gotoShellRoute,
+  useShellReadyWorkspace,
+} from "./helpers/shellReady";
+import { workflowUrlId } from "./helpers/workflowEditor";
 
 test.describe.configure({ mode: "serial" });
+useShellReadyWorkspace(test);
 
-const API = "http://localhost:8000/api";
+type WorkflowSummary = {
+  id: string;
+  name: string;
+};
 
-async function apiGet(path: string) {
-  const res = await fetch(`${API}${path}`);
-  return res.json();
-}
+type WorkflowListResponse = {
+  items: WorkflowSummary[];
+  total: number;
+};
 
-async function apiDelete(path: string) {
-  return fetch(`${API}${path}`, { method: "DELETE" });
-}
-
-test.describe("Workflows CRUD", () => {
-  const testWorkflowName = `e2e-workflow-${Date.now()}`;
-  let createdWorkflowId: string | null = null;
-
-  type NamedEntity = {
-    id: string;
-    name: string;
-  };
-
-  type NamedEntityListResponse = {
-    total: number;
-    items: NamedEntity[];
-  };
+test.describe("Flows CRUD", () => {
+  let deleteTargetId: string | null = null;
+  const createdWorkflowIds = new Set<string>();
 
   test.beforeAll(async () => {
-    const res = await fetch(`${API}/workflows`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: testWorkflowName }),
+    const workflow = await apiPost<WorkflowSummary>("/workflows", {
+      yaml: "",
+      canvas_state: {
+        nodes: [],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        selected_node_id: null,
+        canvas_mode: "dag",
+      },
+      commit: false,
     });
-    const data = await res.json();
-    createdWorkflowId = data.id ?? null;
+    deleteTargetId = workflow.id;
+    createdWorkflowIds.add(workflow.id);
   });
 
   test.afterAll(async () => {
-    if (createdWorkflowId) {
-      await apiDelete(`/workflows/${createdWorkflowId}`);
+    for (const workflowId of createdWorkflowIds) {
+      await apiDelete(`/workflows/${workflowId}`);
     }
   });
 
-  test("list workflows", async ({ page }) => {
-    await page.goto("/workflows");
-    const heading = page.getByRole("main").getByRole("heading", { name: "Workflows" });
-    const emptyState = page.getByText(/No workflows yet|Create your first workflow/i);
-    await expect(heading.or(emptyState).first()).toBeVisible({ timeout: 10000 });
+  test("loads the canonical /flows route with the current page shell", async ({ page }) => {
+    await gotoShellRoute(page, "/flows");
+
+    await expect(page.getByRole("heading", { name: "Flows" })).toBeVisible();
+    await expect(page.getByTestId("flows-create-workflow-button")).toBeVisible();
+    await expect(page.getByTestId("flows-search-workflows-input")).toBeVisible();
   });
 
-  test("create workflow via UI", async ({ page }) => {
-    const createName = `${testWorkflowName}-ui`;
-    await page.goto("/workflows");
-    await page.waitForLoadState("networkidle");
+  test("creates a workflow directly from Flows and lands on the edit route", async ({ page }) => {
+    await gotoShellRoute(page, "/flows");
 
-    const beforeData = (await apiGet("/workflows")) as NamedEntityListResponse;
-    const countBefore = beforeData.total;
+    await page.getByTestId("flows-create-workflow-button").click();
 
-    await page.getByRole("button", { name: /New Workflow/i }).first().click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page).toHaveURL(/\/workflows\/[^/]+\/edit(?:\?.*)?$/, { timeout: 15_000 });
 
-    const modal = page.getByRole("dialog");
-    await expect(modal).toBeVisible({ timeout: 5000 });
+    const workflowId = workflowUrlId(page.url());
+    createdWorkflowIds.add(workflowId);
 
-    await modal.getByPlaceholder(/Enter workflow name/i).fill(createName);
-    await modal.getByPlaceholder(/Describe what this workflow does/i).fill("E2E test workflow description");
-    await modal.getByRole("button", { name: /Create/i }).click();
-
-    // Verify navigation to canvas
-    await expect(page).toHaveURL(/\/workflows\//, { timeout: 15000 });
-
-    const afterData = (await apiGet("/workflows")) as NamedEntityListResponse;
-    const created = afterData.items.find((w) => w.name === createName);
-    expect(created).toBeDefined();
-    expect(afterData.total).toBe(countBefore + 1);
-
-    // Clean up the UI-created workflow
-    if (created?.id) {
-      await apiDelete(`/workflows/${created.id}`);
-    }
+    const workflows = await apiGet<WorkflowListResponse>("/workflows");
+    expect(workflows.items.some((workflow) => workflow.id === workflowId)).toBe(true);
   });
 
-  test("delete workflow", async ({ page }) => {
-    await page.goto("/workflows");
-    await page.waitForLoadState("networkidle");
+  test("deletes a workflow from the Flows list through the confirm dialog", async ({ page }) => {
+    expect(deleteTargetId).not.toBeNull();
 
-    const rowLocator = page.getByRole('row', { name: testWorkflowName });
-    await rowLocator.locator('button').first().click();
-    await page.getByRole('menuitem', { name: /Delete/i }).click();
+    await gotoShellRoute(page, "/flows");
 
-    const confirmModal = page.getByRole("dialog");
-    await expect(confirmModal).toBeVisible({ timeout: 5000 });
-    await confirmModal.getByRole("button", { name: "Delete" }).click();
+    await expect(page.getByTestId(`workflow-row-${deleteTargetId}`)).toBeVisible();
+    await page.getByTestId(`workflow-delete-${deleteTargetId}`).click();
 
-    await expect(confirmModal).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(testWorkflowName, { exact: true })).not.toBeVisible({ timeout: 10000 });
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Delete" }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId(`workflow-row-${deleteTargetId}`)).toHaveCount(0);
 
-    const afterData = (await apiGet("/workflows")) as NamedEntityListResponse;
-    const deleted = afterData.items.find((w) => w.id === createdWorkflowId);
-    expect(deleted).toBeUndefined();
+    const workflows = await apiGet<WorkflowListResponse>("/workflows");
+    expect(workflows.items.some((workflow) => workflow.id === deleteTargetId)).toBe(false);
 
-    createdWorkflowId = null;
+    createdWorkflowIds.delete(deleteTargetId!);
+    deleteTargetId = null;
   });
 });

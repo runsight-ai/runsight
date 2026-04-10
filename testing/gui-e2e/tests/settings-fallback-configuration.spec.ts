@@ -211,8 +211,8 @@ test.describe("Per-provider fallback configuration", () => {
 
     await openFallbackTab(page);
 
+    await expect(page.getByRole("tab", { name: "Fallback" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByText("No providers configured")).toBeVisible();
-    await expect(page.getByText("Fallback", { exact: true })).toHaveCount(0);
     await expect(page.getByLabel("Enable fallback")).toHaveCount(0);
   });
 
@@ -221,7 +221,7 @@ test.describe("Per-provider fallback configuration", () => {
 
     await openFallbackTab(page);
 
-    await expect(page.getByText("Fallback", { exact: true })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Fallback" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByLabel("Enable fallback")).toBeDisabled();
     await expect(
       page.getByText(
