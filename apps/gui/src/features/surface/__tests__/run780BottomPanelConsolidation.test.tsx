@@ -44,6 +44,13 @@ const harness = vi.hoisted(() => ({
     edgeCount: 0,
     yamlContent: "",
     activeRunId: null as string | null,
+    toPersistedState: vi.fn(() => ({
+      nodes: [],
+      edges: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      selected_node_id: null,
+      canvas_mode: "dag",
+    })),
     setYamlContent: vi.fn(),
     hydrateFromPersisted: vi.fn(),
     setNodeStatus: vi.fn(),
@@ -288,6 +295,7 @@ beforeEach(() => {
   harness.runRegressionsCalls = [];
   harness.bottomPanelProps = [];
   harness.queryClient.invalidateQueries.mockReset();
+  harness.canvasStore.toPersistedState.mockClear();
   harness.canvasStore.setYamlContent.mockReset();
   harness.canvasStore.hydrateFromPersisted.mockReset();
   harness.canvasStore.setNodeStatus.mockReset();

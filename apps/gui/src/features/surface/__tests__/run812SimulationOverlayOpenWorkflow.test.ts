@@ -12,6 +12,13 @@ const mocks = vi.hoisted(() => {
     blockCount: 0,
     edgeCount: 0,
     yamlContent: "",
+    toPersistedState: vi.fn(() => ({
+      nodes: [],
+      edges: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      selected_node_id: null,
+      canvas_mode: "dag",
+    })),
     setYamlContent: vi.fn(),
     hydrateFromPersisted: vi.fn(),
     setActiveRunId: vi.fn(),
@@ -105,6 +112,7 @@ describe("WorkflowSurface simulation overlay recovery", () => {
       content: "workflow:\n  name: Snapshot Flow\n",
     });
     mocks.yamlEditorProps.length = 0;
+    mocks.store.toPersistedState.mockClear();
     mocks.store.setYamlContent.mockReset();
     mocks.store.hydrateFromPersisted.mockReset();
     window.history.pushState({}, "", "/workflows/wf_test/edit?overlayRef=sim_sha&overlaySource=simulation");

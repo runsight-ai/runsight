@@ -315,9 +315,11 @@ describe("WorkflowSurface renders CommitDialog (AC1)", () => {
       mocks.commitDialogProps.length,
       "WorkflowSurface must render CommitDialog",
     ).toBeGreaterThan(0);
-    expect(commitDialog.draft).toEqual({
-      yaml: "workflow:\n  name: Test\n",
-    });
+    expect(commitDialog.draft).toEqual(
+      expect.objectContaining({
+        yaml: "workflow:\n  name: Test\n",
+      }),
+    );
   });
 
   it("passes onCommitSuccess prop to CommitDialog", () => {

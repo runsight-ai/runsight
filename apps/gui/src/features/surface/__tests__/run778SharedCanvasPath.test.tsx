@@ -2,7 +2,7 @@
 
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 
@@ -31,6 +31,7 @@ type CanvasStoreState = {
   setRunCost: ReturnType<typeof vi.fn>;
   setYamlContent: ReturnType<typeof vi.fn>;
   hydrateFromPersisted: ReturnType<typeof vi.fn>;
+  toPersistedState: ReturnType<typeof vi.fn>;
 };
 
 type WorkflowCanvasProps = {
@@ -115,6 +116,13 @@ function createCanvasStoreState(): CanvasStoreState {
       canvasStoreState.selectedNodeId = persisted?.selected_node_id ?? null;
       emitStoreChange();
     }),
+    toPersistedState: vi.fn(() => ({
+      nodes: canvasStoreState.nodes,
+      edges: canvasStoreState.edges,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      selected_node_id: canvasStoreState.selectedNodeId,
+      canvas_mode: "dag",
+    })),
   };
 }
 
@@ -407,7 +415,7 @@ function installMocks() {
       MiniMap,
       Handle,
       BackgroundVariant: { Dots: "dots" },
-      Position: { Top: "top", Bottom: "bottom" },
+      Position: { Top: "top", Bottom: "bottom", Left: "left", Right: "right" },
     };
   });
 }
@@ -474,10 +482,23 @@ describe("RUN-778 shared canvas path", () => {
     );
     expect(within(canvasPath).getByTestId("reactflow-host")).not.toBeNull();
     expect(within(center).queryByTestId("yaml-editor")).toBeNull();
-    expect(screen.getByText(/research soul/i)).not.toBeNull();
-    expect(screen.getByText(/status:\s*completed/i)).not.toBeNull();
+    const node = screen.getByTestId("node-Research Soul");
+    expect(node).not.toBeNull();
+    expect(within(node).getByText(/research soul/i)).not.toBeNull();
+    await waitFor(() => {
+      expect(canvasStoreState.setNodeStatus).toHaveBeenCalledWith(
+        "node_soul",
+        "completed",
+        expect.objectContaining({
+          duration: undefined,
+          error: undefined,
+          executionCost: undefined,
+          tokens: undefined,
+        }),
+      );
+    });
 
-    await user.click(screen.getByText(/research soul/i));
+    await user.click(node);
 
     expect(screen.getByRole("tab", { name: "Execution" })).not.toBeNull();
     expect(screen.getByRole("tab", { name: "Overview" })).not.toBeNull();
@@ -499,7 +520,7 @@ describe("RUN-778 shared canvas path", () => {
     expect(await within(center).findByTestId("workflow-canvas-path")).not.toBeNull();
     expect(screen.getAllByTestId("workflow-canvas-path")).toHaveLength(1);
 
-    await user.click(await screen.findByText(/research soul/i));
+    await user.click(await screen.findByTestId("node-Research Soul"));
     expect(screen.getByRole("tab", { name: "Execution" })).not.toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Canvas Pane" }));
