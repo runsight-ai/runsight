@@ -155,7 +155,6 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const { data: regressions } = useRunRegressions(readonlyRunId);
 
   const nodes = useCanvasStore((s) => s.nodes);
-  const edges = useCanvasStore((s) => s.edges);
   const blockCount = useCanvasStore((s) => s.blockCount);
   const edgeCount = useCanvasStore((s) => s.edgeCount);
   const setYamlContent = useCanvasStore((s) => s.setYamlContent);
@@ -364,7 +363,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
             : undefined,
       });
     }
-  }, [canvasHydrationRevision, mode, runNodes, setNodeStatus]);
+  }, [canvasHydrationRevision, mode, nodes.length, runNodes, setNodeStatus]);
 
   const selectedNode = inspectedNodeId
     ? (nodes.find((node) => node.id === inspectedNodeId) ?? null)

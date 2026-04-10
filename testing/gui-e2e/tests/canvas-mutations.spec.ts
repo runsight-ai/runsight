@@ -3,12 +3,12 @@ import {
   apiDelete,
   apiGet,
   apiPost,
-  useShellReadyWorkspace,
+  setupShellReadyWorkspace,
 } from "./helpers/shellReady";
 import { gotoWorkflowEditor, readWorkflowYaml } from "./helpers/workflowEditor";
 
 test.describe.configure({ mode: "serial" });
-useShellReadyWorkspace(test);
+setupShellReadyWorkspace(test);
 
 type WorkflowRecord = {
   id: string;

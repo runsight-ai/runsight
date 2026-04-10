@@ -5,7 +5,7 @@ import {
   apiGet,
   apiPost,
   apiPut,
-  useShellReadyWorkspace,
+  setupShellReadyWorkspace,
 } from "./helpers/shellReady";
 import {
   gotoWorkflowEditor,
@@ -15,7 +15,7 @@ import {
 } from "./helpers/workflowEditor";
 
 test.describe.configure({ mode: "serial" });
-useShellReadyWorkspace(test);
+setupShellReadyWorkspace(test);
 
 type WorkflowResponse = {
   id: string;

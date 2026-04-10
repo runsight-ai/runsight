@@ -15,10 +15,6 @@ async function apiGet(path: string) {
   return res.json();
 }
 
-async function apiDelete(path: string) {
-  return fetch(`${API}${path}`, { method: "DELETE" });
-}
-
 test.describe("Error states: validation", () => {
   test("create soul with empty name → Create button is disabled", async ({
     page,

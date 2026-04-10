@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import type { Page, test as PlaywrightTest } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -205,8 +206,8 @@ export async function applyFixture(
     .toBe(settings.onboarding_completed);
 }
 
-export function useShellReadyWorkspace(
-  testInstance: Pick<typeof test, "beforeAll" | "afterAll">,
+export function setupShellReadyWorkspace(
+  testInstance: Pick<typeof PlaywrightTest, "beforeAll" | "afterAll">,
 ) {
   testInstance.beforeAll(async () => {
     await applyFixture([READY_PROVIDER], {

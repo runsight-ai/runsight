@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-import { gotoShellRoute, useShellReadyWorkspace } from "./helpers/shellReady";
+import { gotoShellRoute, setupShellReadyWorkspace } from "./helpers/shellReady";
 
 test.describe.configure({ mode: "serial" });
-useShellReadyWorkspace(test);
+setupShellReadyWorkspace(test);
 
 const NAV_ITEMS = [
   { label: "Home", url: "/", heading: "Home" },

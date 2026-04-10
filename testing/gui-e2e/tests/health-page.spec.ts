@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { gotoShellRoute, useShellReadyWorkspace } from "./helpers/shellReady";
+import { gotoShellRoute, setupShellReadyWorkspace } from "./helpers/shellReady";
 
-useShellReadyWorkspace(test);
+setupShellReadyWorkspace(test);
 
 test.describe("Retired health route", () => {
   test("direct visits to /health redirect into the supported shell, not onboarding", async ({

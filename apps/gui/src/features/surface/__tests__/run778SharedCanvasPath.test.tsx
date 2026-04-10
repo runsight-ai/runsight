@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
+import type * as SurfaceCanvasModule from "../SurfaceCanvas";
 
 type MockNode = {
   id: string;
@@ -258,9 +259,7 @@ function installMocks() {
   }));
 
   vi.doMock("../SurfaceCanvas", async () => {
-    const actual = await vi.importActual<typeof import("../SurfaceCanvas")>(
-      "../SurfaceCanvas",
-    );
+    const actual = await vi.importActual<SurfaceCanvasModule>("../SurfaceCanvas");
 
     return {
       ...actual,

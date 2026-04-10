@@ -4,7 +4,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Outlet, useLocation } from "react-router";
+import { Outlet } from "react-router";
 
 /* ------------------------------------------------------------------ */
 /*  Mock data                                                          */
@@ -262,15 +262,6 @@ vi.mock("@/queries/workflows", () => ({
 vi.mock("@/lib/queryClient", () => ({
   queryClient: {},
 }));
-
-function RouteEcho({ label }: { label: string }) {
-  const location = useLocation();
-  return React.createElement(
-    "div",
-    null,
-    `${label}:${location.pathname}${location.search}`,
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  Lifecycle                                                          */

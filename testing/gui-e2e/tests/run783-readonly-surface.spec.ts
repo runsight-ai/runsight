@@ -28,11 +28,6 @@ type RunListResponse = {
   items: RunSummary[];
 };
 
-type RunNode = {
-  node_id: string;
-  status: string;
-};
-
 type WorkflowResponse = {
   id: string;
   name: string | null;

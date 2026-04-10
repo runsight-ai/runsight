@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { gotoShellRoute, useShellReadyWorkspace } from "./helpers/shellReady";
+import { gotoShellRoute, setupShellReadyWorkspace } from "./helpers/shellReady";
 
-useShellReadyWorkspace(test);
+setupShellReadyWorkspace(test);
 
 test.describe("Settings tabs", () => {
   test("uses Providers and Fallback tabs and only shows provider actions on Providers", async ({

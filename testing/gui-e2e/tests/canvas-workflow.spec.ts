@@ -4,12 +4,12 @@ import {
   apiDelete,
   apiPost,
   gotoShellRoute,
-  useShellReadyWorkspace,
+  setupShellReadyWorkspace,
 } from "./helpers/shellReady";
 import { gotoWorkflowEditor, openCanvasTab, workflowUrlId } from "./helpers/workflowEditor";
 
 test.describe.configure({ mode: "serial" });
-useShellReadyWorkspace(test);
+setupShellReadyWorkspace(test);
 
 type WorkflowSummary = {
   id: string;
