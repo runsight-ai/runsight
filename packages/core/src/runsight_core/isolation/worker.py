@@ -14,7 +14,6 @@ import os
 import sys
 import threading
 from datetime import datetime, timezone
-from types import MethodType
 from typing import Any
 
 from runsight_core.isolation import ipc as isolation_ipc
@@ -129,6 +128,32 @@ class ProxiedLLMClient:
         return response
 
 
+class ProxiedRunsightTeamRunner(RunsightTeamRunner):
+    """Runsight runner variant that always resolves LLM clients through IPC proxying."""
+
+    def __init__(self, *, model_name: str, ipc_client: Any) -> None:
+        self.model_name = model_name
+        self.api_keys = None
+        self.fallback_routes = {}
+        self._ipc_client = ipc_client
+        self._clients: dict[str, ProxiedLLMClient] = {}
+
+        default_client = ProxiedLLMClient(model_name=model_name, ipc_client=ipc_client)
+        self.llm_client = default_client
+        self._clients[model_name] = default_client
+
+    def _get_client(self, soul: Soul) -> ProxiedLLMClient:
+        explicit_model_name = self._resolve_runtime_model_name(soul)
+        cached_client = self._clients.get(explicit_model_name)
+        if cached_client is None:
+            cached_client = ProxiedLLMClient(
+                model_name=explicit_model_name,
+                ipc_client=self._ipc_client,
+            )
+            self._clients[explicit_model_name] = cached_client
+        return cached_client
+
+
 def create_llm_client(model_name: str, api_key: str | None = None) -> ProxiedLLMClient:
     """Create a ProxiedLLMClient for subprocess LLM requests."""
     _ = api_key
@@ -142,30 +167,7 @@ def create_runner(model_name: str, api_key: str | None = None) -> RunsightTeamRu
     _ = api_key
     socket_path = os.environ.get("RUNSIGHT_IPC_SOCKET", "")
     ipc_client = isolation_ipc.IPCClient(socket_path=socket_path)
-
-    runner = RunsightTeamRunner.__new__(RunsightTeamRunner)
-    runner.model_name = model_name
-    runner.api_keys = None
-    runner.fallback_routes = {}
-    runner._clients = {}
-
-    default_client = ProxiedLLMClient(model_name=model_name, ipc_client=ipc_client)
-    runner.llm_client = default_client
-    runner._clients[model_name] = default_client
-
-    def _get_client(self: RunsightTeamRunner, soul: Soul) -> ProxiedLLMClient:
-        explicit_model_name = self._resolve_runtime_model_name(soul)
-        cached_client = self._clients.get(explicit_model_name)
-        if cached_client is None:
-            cached_client = ProxiedLLMClient(
-                model_name=explicit_model_name,
-                ipc_client=ipc_client,
-            )
-            self._clients[explicit_model_name] = cached_client
-        return cached_client
-
-    runner._get_client = MethodType(_get_client, runner)  # type: ignore[method-assign]
-    return runner
+    return ProxiedRunsightTeamRunner(model_name=model_name, ipc_client=ipc_client)
 
 
 def create_tool_stubs(
