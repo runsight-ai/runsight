@@ -38,28 +38,6 @@ class IPCResponseFrame(BaseModel):
     error: str | None
 
 
-def _normalize_request(raw_request: dict[str, Any]) -> IPCRequest:
-    """Build a typed request, accepting both framed and legacy flat request shapes."""
-    if "payload" in raw_request:
-        payload = raw_request.get("payload", {})
-        if not isinstance(payload, dict):
-            payload = {}
-        return IPCRequest.model_validate(
-            {
-                "id": str(raw_request.get("id", "")),
-                "action": str(raw_request.get("action", "")),
-                "payload": payload,
-            }
-        )
-
-    payload = {k: v for k, v in raw_request.items() if k not in {"id", "action"}}
-    return IPCRequest(
-        id=str(raw_request.get("id", "")),
-        action=str(raw_request.get("action", "")),
-        payload=payload,
-    )
-
-
 def _is_async_iterable(value: Any) -> bool:
     return hasattr(value, "__aiter__")
 
@@ -121,25 +99,48 @@ class IPCServer:
                 line = await reader.readline()
                 if not line:
                     break
+
+                raw_request: Any
                 try:
                     raw_request = json.loads(line)
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as exc:
+                    await self._write_frame(
+                        writer,
+                        IPCResponseFrame(
+                            id="",
+                            done=True,
+                            payload=None,
+                            engine_context=None,
+                            error=f"invalid request frame: {exc.msg}",
+                        ),
+                    )
                     continue
 
                 if not isinstance(raw_request, dict):
+                    await self._write_frame(
+                        writer,
+                        IPCResponseFrame(
+                            id="",
+                            done=True,
+                            payload=None,
+                            engine_context=None,
+                            error="invalid request frame: expected JSON object",
+                        ),
+                    )
                     continue
 
+                request_id = str(raw_request.get("id", ""))
                 try:
-                    request = _normalize_request(raw_request)
+                    request = IPCRequest.model_validate(raw_request)
                 except Exception as exc:
                     await self._write_frame(
                         writer,
                         IPCResponseFrame(
-                            id=str(raw_request.get("id", "")),
+                            id=request_id,
                             done=True,
                             payload=None,
                             engine_context=None,
-                            error=str(exc),
+                            error=f"invalid request frame: {exc}",
                         ),
                     )
                     continue
@@ -264,20 +265,43 @@ class IPCClient:
         if self._reader is None:
             raise ConnectionError("IPC client is not connected")
 
-        response_line = await self._reader.readline()
-        if not response_line:
+        raw_response = await self._reader.readline()
+        if not raw_response:
             self._closed = True
             raise ConnectionError("IPC socket disconnected")
 
-        response = json.loads(response_line)
+        response: Any
+        try:
+            response = json.loads(raw_response)
+        except json.JSONDecodeError as exc:
+            raise ConnectionError("invalid response frame") from exc
 
-        if isinstance(response, dict) and "done" in response:
+        try:
             frame = IPCResponseFrame.model_validate(response)
-            return frame.done, frame.payload, frame.error
+        except Exception as exc:
+            raise ConnectionError("invalid response frame") from exc
 
-        legacy = dict(response) if isinstance(response, dict) else {"response": response}
-        legacy.pop("id", None)
-        return True, legacy, None
+        return frame.done, frame.payload, frame.error
+
+    def _build_request_frame(
+        self,
+        action: str,
+        payload: dict[str, Any] | None,
+        params: dict[str, Any],
+    ) -> IPCRequest:
+        request_payload = self._build_request_payload(payload, params)
+        return IPCRequest(
+            id=str(uuid.uuid4()),
+            action=action,
+            payload=request_payload,
+        )
+
+    async def _send_request_frame(self, request: IPCRequest) -> None:
+        if self._writer is None:
+            raise ConnectionError("IPC client is not connected")
+        line = json.dumps(request.model_dump(), separators=(",", ":")) + "\n"
+        self._writer.write(line.encode())
+        await self._writer.drain()
 
     async def request(
         self,
@@ -292,17 +316,10 @@ class IPCClient:
         if self._writer is None or self._reader is None:
             await self.connect()
 
-        request_id = str(uuid.uuid4())
-        request_payload = self._build_request_payload(payload, params)
-        msg = IPCRequest(id=request_id, action=action, payload=request_payload).model_dump()
-        for key, value in request_payload.items():
-            if key not in {"id", "action", "payload"}:
-                msg[key] = value
-        line = json.dumps(msg, separators=(",", ":")) + "\n"
+        request = self._build_request_frame(action, payload, params)
 
         try:
-            self._writer.write(line.encode())
-            await self._writer.drain()
+            await self._send_request_frame(request)
 
             while True:
                 done, frame_payload, frame_error = await self._read_response_line()
@@ -327,17 +344,10 @@ class IPCClient:
         if self._writer is None or self._reader is None:
             await self.connect()
 
-        request_id = str(uuid.uuid4())
-        request_payload = self._build_request_payload(payload, params)
-        msg = IPCRequest(id=request_id, action=action, payload=request_payload).model_dump()
-        for key, value in request_payload.items():
-            if key not in {"id", "action", "payload"}:
-                msg[key] = value
-        line = json.dumps(msg, separators=(",", ":")) + "\n"
+        request = self._build_request_frame(action, payload, params)
 
         try:
-            self._writer.write(line.encode())
-            await self._writer.drain()
+            await self._send_request_frame(request)
 
             while True:
                 done, frame_payload, frame_error = await self._read_response_line()
