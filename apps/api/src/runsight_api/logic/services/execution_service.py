@@ -202,6 +202,7 @@ class ExecutionService:
                 workflow_registry=workflow_registry,
                 api_keys=api_keys,
                 runner=runner,
+                _base_dir=str(self.workflow_repo.base_path),
             )
 
             # Store branch + commit_sha on Run record
