@@ -220,6 +220,15 @@ function installMocks() {
       error: mockState.runNodesError,
       refetch: mockState.refetchRunNodes,
     }),
+    useRunRegressions: () => ({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    }),
+    useCancelRun: () => ({
+      mutate: vi.fn(),
+      isPending: false,
+    }),
   }));
 
   vi.doMock("@/queries/workflows", () => ({
