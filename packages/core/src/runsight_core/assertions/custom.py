@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import sys
+import threading
 from typing import Any, Callable
 
 from runsight_core.assertions.base import AssertionContext, GradingResult
@@ -78,6 +79,8 @@ _RETURN_VALIDATORS: dict[str, Callable[[Any, str], GradingResult]] = {
     "bool": _validate_bool_return,
     "grading_result": _validate_grading_result_return,
 }
+
+_DEFAULT_PLUGIN_TIMEOUT_SECONDS = 30
 
 
 def _validate_adapter_code(code: str) -> None:
@@ -181,7 +184,13 @@ def _minimal_subprocess_env() -> dict[str, str]:
     return minimal_env
 
 
-async def _run_plugin(harness: str, output: str, plugin_context: dict[str, Any]) -> Any:
+async def _run_plugin(
+    harness: str,
+    output: str,
+    plugin_context: dict[str, Any],
+    *,
+    timeout_seconds: int = _DEFAULT_PLUGIN_TIMEOUT_SECONDS,
+) -> Any:
     proc = await asyncio.create_subprocess_exec(
         sys.executable,
         "-c",
@@ -193,7 +202,18 @@ async def _run_plugin(harness: str, output: str, plugin_context: dict[str, Any])
     )
 
     stdin_data = json.dumps({"output": output, "context": plugin_context}).encode()
-    stdout_bytes, stderr_bytes = await proc.communicate(input=stdin_data)
+    try:
+        stdout_bytes, stderr_bytes = await asyncio.wait_for(
+            proc.communicate(input=stdin_data),
+            timeout=timeout_seconds,
+        )
+    except asyncio.TimeoutError as exc:
+        try:
+            proc.kill()
+            await proc.wait()
+        except ProcessLookupError:
+            pass
+        raise TimeoutError(f"custom assertion plugin timed out after {timeout_seconds}s") from exc
 
     if proc.returncode != 0:
         error_msg = stderr_bytes.decode(errors="replace").strip() or "plugin subprocess failed"
@@ -204,6 +224,44 @@ async def _run_plugin(harness: str, output: str, plugin_context: dict[str, Any])
         return json.loads(stdout)
     except json.JSONDecodeError as exc:
         raise ValueError(f"plugin returned invalid JSON: {stdout!r}") from exc
+
+
+def _run_plugin_sync(
+    harness: str,
+    output: str,
+    plugin_context: dict[str, Any],
+    *,
+    timeout_seconds: int = _DEFAULT_PLUGIN_TIMEOUT_SECONDS,
+) -> Any:
+    coroutine = _run_plugin(
+        harness,
+        output,
+        plugin_context,
+        timeout_seconds=timeout_seconds,
+    )
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coroutine)
+
+    result: Any | None = None
+    error: BaseException | None = None
+
+    def _runner() -> None:
+        nonlocal result, error
+        try:
+            result = asyncio.run(coroutine)
+        except BaseException as exc:  # pragma: no cover - surfaced to caller
+            error = exc
+
+    thread = threading.Thread(target=_runner, daemon=True)
+    thread.start()
+    thread.join()
+
+    if error is not None:
+        raise error
+    return result
 
 
 def _build_adapter_class(plugin_name: str, code: str, returns: str) -> type:
@@ -233,7 +291,7 @@ def _build_adapter_class(plugin_name: str, code: str, returns: str) -> type:
         def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
             plugin_context = _build_plugin_context(self.config, context)
             try:
-                raw = asyncio.run(_run_plugin(harness, output, plugin_context))
+                raw = _run_plugin_sync(harness, output, plugin_context)
                 return validator(raw, plugin_name)
             except Exception as exc:
                 return GradingResult(
