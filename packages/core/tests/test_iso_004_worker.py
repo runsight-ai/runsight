@@ -562,6 +562,67 @@ class TestRUN398WorkerGrantTokenContract:
         assert "RUNSIGHT_BLOCK_API_KEY" not in result_env.error
 
 
+class TestRUN396WorkerCapabilityNegotiationStartup:
+    """RUN-396: worker startup uses IPCClient.connect capability handshake."""
+
+    @pytest.mark.asyncio
+    async def test_tool_stub_uses_connect_handshake_without_legacy_capability_request(self):
+        from runsight_core.isolation.worker import create_tool_stubs
+
+        tool_defs = [
+            ToolDefEnvelope(
+                source="custom/echo",
+                config={},
+                exits=["done"],
+                name="echo_tool",
+                description="Echoes a string",
+                parameters={"type": "object", "properties": {"value": {"type": "string"}}},
+                tool_type="custom",
+            )
+        ]
+
+        call_log: list[tuple[str, str | None]] = []
+
+        class FakeIPCClient:
+            def __init__(self, *, socket_path: str) -> None:
+                self._socket_path = socket_path
+
+            async def connect(self):
+                call_log.append(("connect", None))
+                return {
+                    "id": "cap-1",
+                    "done": True,
+                    "accepted": True,
+                    "active_actions": ["tool_call"],
+                    "engine_context": {
+                        "budget_remaining_usd": 15.0,
+                        "trace_id": "trace-worker-396",
+                        "run_id": "run-worker-396",
+                        "block_id": "blk_1",
+                    },
+                    "error": None,
+                }
+
+            async def request(self, action: str, payload: dict[str, object]):
+                call_log.append(("request", action))
+                if action == "tool_call":
+                    return {"output": f"echo:{payload['arguments']['value']}"}
+                return {"error": "unexpected action"}
+
+        with patch("runsight_core.isolation.ipc.IPCClient", FakeIPCClient):
+            stub = create_tool_stubs(
+                tool_defs,
+                socket_path="/tmp/test.sock",
+                grant_token="grant-396-worker",
+            )[0]
+            result = await stub.execute({"value": "hello"})
+
+        assert call_log[0] == ("connect", None)
+        assert ("request", "capability_negotiation") not in call_log
+        assert ("request", "tool_call") in call_log
+        assert result == "echo:hello"
+
+
 # ==============================================================================
 # AC9: Missing RUNSIGHT_IPC_SOCKET → exit 1 with clear error
 # ==============================================================================
