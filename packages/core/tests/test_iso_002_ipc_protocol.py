@@ -20,9 +20,41 @@ import asyncio
 import json
 import socket
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
+
+
+async def _send_raw_request_and_collect_frames(
+    socket_path: Path,
+    request: dict[str, Any],
+    *,
+    max_frames: int = 10,
+) -> list[dict[str, Any]]:
+    """Send one NDJSON request and collect response frames until done or timeout."""
+    reader, writer = await asyncio.open_unix_connection(str(socket_path))
+    try:
+        line = json.dumps(request, separators=(",", ":")) + "\n"
+        writer.write(line.encode())
+        await writer.drain()
+
+        frames: list[dict[str, Any]] = []
+        for _ in range(max_frames):
+            try:
+                raw = await asyncio.wait_for(reader.readline(), timeout=0.2)
+            except asyncio.TimeoutError:
+                break
+            if not raw:
+                break
+            frames.append(json.loads(raw))
+            if frames[-1].get("done") is True:
+                break
+        return frames
+    finally:
+        writer.close()
+        await writer.wait_closed()
+
 
 # ---------------------------------------------------------------------------
 # AC3: IPCServer accepts existing socket (does not create it)
@@ -948,6 +980,277 @@ class TestWriteArtifactRoundTrip:
         finally:
             await client.close()
             await server.shutdown()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# RUN-392: IPCFrame protocol + NDJSON streaming
+# ---------------------------------------------------------------------------
+
+
+class TestRUN392IPCFrameModels:
+    """Typed request/response frame models define the IPC contract."""
+
+    def test_ipc_request_has_id_action_payload_and_forbids_engine_context(self):
+        from pydantic import ValidationError
+        from runsight_core.isolation import ipc as ipc_module
+
+        IPCRequest = getattr(ipc_module, "IPCRequest", None)
+        assert IPCRequest is not None, "IPCRequest model must exist"
+
+        assert set(IPCRequest.model_fields) == {"id", "action", "payload"}
+
+        req = IPCRequest(id="req-1", action="http", payload={"url": "https://example.com"})
+        assert req.id == "req-1"
+        assert req.action == "http"
+        assert req.payload == {"url": "https://example.com"}
+
+        with pytest.raises(ValidationError):
+            IPCRequest(
+                id="req-2",
+                action="http",
+                payload={"url": "https://example.com"},
+                engine_context={"trace_id": "forbidden"},
+            )
+
+    def test_ipc_response_frame_has_complete_contract(self):
+        from runsight_core.isolation import ipc as ipc_module
+
+        IPCResponseFrame = getattr(ipc_module, "IPCResponseFrame", None)
+        assert IPCResponseFrame is not None, "IPCResponseFrame model must exist"
+
+        assert set(IPCResponseFrame.model_fields) == {
+            "id",
+            "done",
+            "payload",
+            "engine_context",
+            "error",
+        }
+
+        frame = IPCResponseFrame(
+            id="req-1",
+            done=False,
+            payload={"chunk": "A"},
+            engine_context={"trace_id": "t-1"},
+            error=None,
+        )
+        assert frame.done is False
+        assert frame.payload == {"chunk": "A"}
+        assert frame.engine_context == {"trace_id": "t-1"}
+        assert frame.error is None
+
+
+class TestRUN392ServerStreamingFrames:
+    """IPCServer must emit response frames for both simple and streaming handlers."""
+
+    @pytest.mark.asyncio
+    async def test_simple_handler_returns_single_done_frame_with_engine_context(
+        self, tmp_path: Path
+    ):
+        from runsight_core.isolation import IPCServer
+
+        sock_path = tmp_path / "run392-simple.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+
+        async def simple_handler(payload: dict[str, Any]) -> dict[str, Any]:
+            return {"status": "ok", "echo": payload.get("value")}
+
+        server = IPCServer(sock=server_sock, handlers={"simple": simple_handler})
+        setattr(
+            server,
+            "_engine_context_interceptor",
+            lambda *_args, **_kwargs: {"trace_id": "trace-simple-1"},
+        )
+        server_task = asyncio.create_task(server.serve())
+
+        try:
+            frames = await _send_raw_request_and_collect_frames(
+                sock_path,
+                {
+                    "id": "req-simple-1",
+                    "action": "simple",
+                    "payload": {"value": 123},
+                },
+            )
+            assert len(frames) == 1
+            assert frames[0]["id"] == "req-simple-1"
+            assert frames[0]["done"] is True
+            assert frames[0]["payload"] == {"status": "ok", "echo": 123}
+            assert frames[0]["engine_context"] == {"trace_id": "trace-simple-1"}
+            assert frames[0]["error"] is None
+        finally:
+            await server.shutdown()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_stream_handler_returns_three_non_final_frames_and_one_final(
+        self, tmp_path: Path
+    ):
+        from runsight_core.isolation import IPCServer
+
+        sock_path = tmp_path / "run392-stream.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+
+        async def stream_handler(payload: dict[str, Any]):
+            assert payload == {"topic": "demo"}
+            yield {"chunk": 1}
+            yield {"chunk": 2}
+            yield {"chunk": 3}
+
+        server = IPCServer(sock=server_sock, handlers={"stream": stream_handler})
+        setattr(
+            server,
+            "_engine_context_interceptor",
+            lambda *_args, **_kwargs: {"trace_id": "trace-stream-1"},
+        )
+        server_task = asyncio.create_task(server.serve())
+
+        try:
+            frames = await _send_raw_request_and_collect_frames(
+                sock_path,
+                {
+                    "id": "req-stream-1",
+                    "action": "stream",
+                    "payload": {"topic": "demo"},
+                },
+                max_frames=8,
+            )
+            assert len(frames) == 4
+            assert [frame["done"] for frame in frames] == [False, False, False, True]
+            assert [frame["payload"] for frame in frames[:-1]] == [
+                {"chunk": 1},
+                {"chunk": 2},
+                {"chunk": 3},
+            ]
+            assert frames[-1]["payload"] is None
+            assert all(
+                frame["engine_context"] == {"trace_id": "trace-stream-1"} for frame in frames
+            )
+            assert all(frame["error"] is None for frame in frames)
+        finally:
+            await server.shutdown()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+
+class TestRUN392IPCClientFrameConsumption:
+    """IPCClient must consume streamed frames through request/request_stream APIs."""
+
+    @pytest.mark.asyncio
+    async def test_request_returns_payload_from_final_done_frame(self, tmp_path: Path):
+        from runsight_core.isolation import IPCClient
+
+        sock_path = tmp_path / "run392-client-final.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+        server_sock.setblocking(False)
+
+        async def fake_stream_server() -> None:
+            loop = asyncio.get_running_loop()
+            conn, _ = await loop.sock_accept(server_sock)
+            try:
+                _ = await loop.sock_recv(conn, 4096)
+                for frame in [
+                    {
+                        "id": "ignored",
+                        "done": False,
+                        "payload": {"chunk": 1},
+                        "engine_context": {"trace_id": "c1"},
+                        "error": None,
+                    },
+                    {
+                        "id": "ignored",
+                        "done": True,
+                        "payload": {"final": "result"},
+                        "engine_context": {"trace_id": "c1"},
+                        "error": None,
+                    },
+                ]:
+                    await loop.sock_sendall(conn, (json.dumps(frame) + "\n").encode())
+            finally:
+                conn.close()
+
+        server_task = asyncio.create_task(fake_stream_server())
+        client = IPCClient(socket_path=str(sock_path))
+        try:
+            await client.connect()
+            result = await client.request("http", {"url": "https://example.com"})
+            assert result == {"final": "result"}
+        finally:
+            await client.close()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_request_stream_yields_only_non_final_payloads(self, tmp_path: Path):
+        from runsight_core.isolation import IPCClient
+
+        sock_path = tmp_path / "run392-client-stream.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+        server_sock.setblocking(False)
+
+        async def fake_stream_server() -> None:
+            loop = asyncio.get_running_loop()
+            conn, _ = await loop.sock_accept(server_sock)
+            try:
+                _ = await loop.sock_recv(conn, 4096)
+                for frame in [
+                    {
+                        "id": "ignored",
+                        "done": False,
+                        "payload": {"chunk": "A"},
+                        "engine_context": {"trace_id": "s1"},
+                        "error": None,
+                    },
+                    {
+                        "id": "ignored",
+                        "done": False,
+                        "payload": {"chunk": "B"},
+                        "engine_context": {"trace_id": "s1"},
+                        "error": None,
+                    },
+                    {
+                        "id": "ignored",
+                        "done": False,
+                        "payload": {"chunk": "C"},
+                        "engine_context": {"trace_id": "s1"},
+                        "error": None,
+                    },
+                    {
+                        "id": "ignored",
+                        "done": True,
+                        "payload": {"final": True},
+                        "engine_context": {"trace_id": "s1"},
+                        "error": None,
+                    },
+                ]:
+                    await loop.sock_sendall(conn, (json.dumps(frame) + "\n").encode())
+            finally:
+                conn.close()
+
+        server_task = asyncio.create_task(fake_stream_server())
+        client = IPCClient(socket_path=str(sock_path))
+        try:
+            await client.connect()
+            chunks = []
+            async for payload in client.request_stream("delegate", {"task": "demo"}):
+                chunks.append(payload)
+            assert chunks == [{"chunk": "A"}, {"chunk": "B"}, {"chunk": "C"}]
+        finally:
+            await client.close()
             server_task.cancel()
             server_sock.close()
             sock_path.unlink(missing_ok=True)
