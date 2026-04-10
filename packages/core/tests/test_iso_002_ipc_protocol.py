@@ -131,8 +131,20 @@ class TestNDJSONFraming:
                     if not chunk:
                         break
                     received_data.extend(chunk)
-                    # Send a valid NDJSON response
-                    response = json.dumps({"id": "req-1", "ok": True}) + "\n"
+                    request = json.loads(chunk.decode().strip())
+                    # Send a valid IPCResponseFrame
+                    response = (
+                        json.dumps(
+                            {
+                                "id": request["id"],
+                                "done": True,
+                                "payload": {"ok": True},
+                                "engine_context": None,
+                                "error": None,
+                            }
+                        )
+                        + "\n"
+                    )
                     await loop.sock_sendall(conn, response.encode())
                     break
             finally:
@@ -142,7 +154,7 @@ class TestNDJSONFraming:
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
-            await client.request("http", method="GET", url="http://example.com")
+            await client.request("http", {"method": "GET", "url": "http://example.com"})
             await client.close()
         finally:
             server_task.cancel()
@@ -153,8 +165,9 @@ class TestNDJSONFraming:
         lines = received_data.decode().strip().split("\n")
         assert len(lines) == 1, "Client should send exactly one NDJSON line per request"
         parsed = json.loads(lines[0])
-        assert "action" in parsed
-        assert "id" in parsed
+        assert set(parsed) == {"id", "action", "payload"}
+        assert parsed["action"] == "http"
+        assert parsed["payload"] == {"method": "GET", "url": "http://example.com"}
 
     @pytest.mark.asyncio
     async def test_ndjson_messages_are_single_line(self, tmp_path: Path):
@@ -175,7 +188,19 @@ class TestNDJSONFraming:
             try:
                 chunk = await loop.sock_recv(conn, 4096)
                 received_data.extend(chunk)
-                response = json.dumps({"id": "req-1", "ok": True}) + "\n"
+                request = json.loads(chunk.decode().strip())
+                response = (
+                    json.dumps(
+                        {
+                            "id": request["id"],
+                            "done": True,
+                            "payload": {"ok": True},
+                            "engine_context": None,
+                            "error": None,
+                        }
+                    )
+                    + "\n"
+                )
                 await loop.sock_sendall(conn, response.encode())
             finally:
                 conn.close()
@@ -187,9 +212,11 @@ class TestNDJSONFraming:
             # Send a request with content that might tempt multi-line
             await client.request(
                 "file_io",
-                action_type="write",
-                path="/tmp/test.txt",
-                content="line1\nline2\nline3",
+                {
+                    "action_type": "write",
+                    "path": "/tmp/test.txt",
+                    "content": "line1\nline2\nline3",
+                },
             )
             await client.close()
         finally:
@@ -202,7 +229,9 @@ class TestNDJSONFraming:
         lines = raw.split("\n")
         assert len(lines) == 1, "NDJSON message with embedded newlines must escape them"
         parsed = json.loads(lines[0])
-        assert parsed["content"] == "line1\nline2\nline3"
+        assert set(parsed) == {"id", "action", "payload"}
+        assert parsed["action"] == "file_io"
+        assert parsed["payload"]["content"] == "line1\nline2\nline3"
 
 
 # ---------------------------------------------------------------------------
@@ -247,7 +276,7 @@ class TestIPCClientRequestResponseCorrelation:
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
-            result = await client.request("http", method="GET", url="http://example.com")
+            result = await client.request("http", {"method": "GET", "url": "http://example.com"})
 
             assert isinstance(result, dict)
             assert result["status_code"] == 200
@@ -278,7 +307,18 @@ class TestIPCClientRequestResponseCorrelation:
             try:
                 data = await loop.sock_recv(conn, 4096)
                 received_msg.update(json.loads(data.decode().strip()))
-                resp = json.dumps({"id": received_msg.get("id", ""), "ok": True}) + "\n"
+                resp = (
+                    json.dumps(
+                        {
+                            "id": received_msg.get("id", ""),
+                            "done": True,
+                            "payload": {"ok": True},
+                            "engine_context": None,
+                            "error": None,
+                        }
+                    )
+                    + "\n"
+                )
                 await loop.sock_sendall(conn, resp.encode())
             finally:
                 conn.close()
@@ -287,14 +327,16 @@ class TestIPCClientRequestResponseCorrelation:
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
-            await client.request("delegate", port="output", task="run sub-task")
+            await client.request("delegate", {"port": "output", "task": "run sub-task"})
             await client.close()
         finally:
             server_task.cancel()
             server_sock.close()
             sock_path.unlink(missing_ok=True)
 
+        assert set(received_msg) == {"id", "action", "payload"}
         assert received_msg["action"] == "delegate"
+        assert received_msg["payload"] == {"port": "output", "task": "run sub-task"}
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +373,7 @@ class TestIPCServerDispatches:
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
-            result = await client.request("http", method="GET", url="http://example.com")
+            result = await client.request("http", {"method": "GET", "url": "http://example.com"})
             assert http_called
             assert result["status_code"] == 200
         finally:
@@ -363,7 +405,7 @@ class TestIPCServerDispatches:
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
-            result = await client.request("file_io", action_type="read", path="/tmp/f.txt")
+            result = await client.request("file_io", {"action_type": "read", "path": "/tmp/f.txt"})
             assert result["content"] == "file contents here"
         finally:
             await client.close()
@@ -394,7 +436,7 @@ class TestIPCServerDispatches:
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
-            result = await client.request("delegate", port="output", task="do thing")
+            result = await client.request("delegate", {"port": "output", "task": "do thing"})
             assert result["ok"] is True
         finally:
             await client.close()
@@ -426,7 +468,7 @@ class TestIPCServerDispatches:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
             result = await client.request(
-                "write_artifact", key="my-key", content="data", metadata={}
+                "write_artifact", {"key": "my-key", "content": "data", "metadata": {}}
             )
             assert result["ref"] == "artifact://block-1/my-key"
         finally:
@@ -469,7 +511,7 @@ class TestNoLLMCallAction:
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
-            result = await client.request("llm_call", prompt="hello")
+            result = await client.request("llm_call", {"prompt": "hello"})
 
             # The server should return an error for unsupported action
             assert "error" in result
@@ -501,7 +543,7 @@ class TestNoLLMCallAction:
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
-            result = await client.request("totally_fake_action", foo="bar")
+            result = await client.request("totally_fake_action", {"foo": "bar"})
 
             assert "error" in result
         finally:
@@ -577,7 +619,7 @@ class TestSocketCleanup:
 
             # After close, request should raise
             with pytest.raises(Exception):
-                await client.request("http", method="GET", url="http://x.com")
+                await client.request("http", {"method": "GET", "url": "http://x.com"})
         finally:
             accept_task.cancel()
             server_sock.close()
@@ -620,7 +662,7 @@ class TestSocketDropFailure:
 
             # Request after server disconnect should fail
             with pytest.raises((ConnectionError, OSError, EOFError)):
-                await client.request("http", method="GET", url="http://example.com")
+                await client.request("http", {"method": "GET", "url": "http://example.com"})
         finally:
             accept_task.cancel()
             server_sock.close()
@@ -659,13 +701,13 @@ class TestSocketDropFailure:
 
             # First request fails due to drop
             try:
-                await client.request("http", method="GET", url="http://example.com")
+                await client.request("http", {"method": "GET", "url": "http://example.com"})
             except Exception:
                 pass
 
             # Second request should also fail (no reconnect)
             try:
-                await client.request("http", method="GET", url="http://example.com")
+                await client.request("http", {"method": "GET", "url": "http://example.com"})
             except Exception:
                 pass
 
@@ -720,9 +762,11 @@ class TestWriteArtifactReturnsRef:
             await client.connect()
             result = await client.request(
                 "write_artifact",
-                key="report",
-                content="# Summary\nAll good.",
-                metadata={"format": "markdown"},
+                {
+                    "key": "report",
+                    "content": "# Summary\nAll good.",
+                    "metadata": {"format": "markdown"},
+                },
             )
 
             assert "ref" in result
@@ -762,9 +806,11 @@ class TestWriteArtifactReturnsRef:
             await client.connect()
             await client.request(
                 "write_artifact",
-                key="test-key",
-                content="binary data here",
-                metadata={"type": "binary"},
+                {
+                    "key": "test-key",
+                    "content": "binary data here",
+                    "metadata": {"type": "binary"},
+                },
             )
 
             assert received_params["key"] == "test-key"
@@ -816,10 +862,12 @@ class TestHTTPRoundTrip:
             await client.connect()
             result = await client.request(
                 "http",
-                method="GET",
-                url="https://api.example.com/data",
-                headers={"Authorization": "Bearer tok"},
-                body=None,
+                {
+                    "method": "GET",
+                    "url": "https://api.example.com/data",
+                    "headers": {"Authorization": "Bearer tok"},
+                    "body": None,
+                },
             )
 
             assert result["status_code"] == 200
@@ -862,10 +910,12 @@ class TestHTTPRoundTrip:
             await client.connect()
             result = await client.request(
                 "http",
-                method="POST",
-                url="https://api.example.com/items",
-                headers={"content-type": "application/json"},
-                body='{"name": "test"}',
+                {
+                    "method": "POST",
+                    "url": "https://api.example.com/items",
+                    "headers": {"content-type": "application/json"},
+                    "body": '{"name": "test"}',
+                },
             )
 
             assert result["status_code"] == 201
@@ -918,9 +968,11 @@ class TestWriteArtifactRoundTrip:
             await client.connect()
             result = await client.request(
                 "write_artifact",
-                key="analysis-output",
-                content="The analysis shows growth of 15%.",
-                metadata={"category": "report", "format": "text"},
+                {
+                    "key": "analysis-output",
+                    "content": "The analysis shows growth of 15%.",
+                    "metadata": {"category": "report", "format": "text"},
+                },
             )
 
             # Client gets a ref back
@@ -967,10 +1019,10 @@ class TestWriteArtifactRoundTrip:
             await client.connect()
 
             ref1 = await client.request(
-                "write_artifact", key="artifact-a", content="aaa", metadata={}
+                "write_artifact", {"key": "artifact-a", "content": "aaa", "metadata": {}}
             )
             ref2 = await client.request(
-                "write_artifact", key="artifact-b", content="bbb", metadata={}
+                "write_artifact", {"key": "artifact-b", "content": "bbb", "metadata": {}}
             )
 
             assert ref1["ref"] != ref2["ref"]
@@ -1144,6 +1196,15 @@ class TestRUN392ServerStreamingFrames:
 
 class TestRUN392IPCClientFrameConsumption:
     """IPCClient must consume streamed frames through request/request_stream APIs."""
+
+    def test_request_signature_has_no_legacy_var_keyword_params(self):
+        """Public API is frame-first: request(action, payload) without flattened kwargs."""
+        import inspect
+
+        from runsight_core.isolation import IPCClient
+
+        params = inspect.signature(IPCClient.request).parameters.values()
+        assert all(param.kind is not inspect.Parameter.VAR_KEYWORD for param in params)
 
     @pytest.mark.asyncio
     async def test_request_returns_payload_from_final_done_frame(self, tmp_path: Path):
