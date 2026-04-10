@@ -3,9 +3,11 @@ title: Custom Assertions
 description: Create project-local Python assertions under custom/assertions and use them in offline evals and live workflow runs.
 ---
 
-Custom assertions let you add workspace-local checks alongside Runsight's built-in assertions. Runsight discovers them from `custom/assertions/*.yaml`, registers each one under `custom:{file_stem}`, and can run them in both offline evals and live API workflow runs.
+Custom assertions let you add workspace-local checks alongside Runsight's 15 built-in assertions. The Python contract is **promptfoo-compatible** — if you already have promptfoo assertion functions, they work in Runsight with minimal changes. Add a YAML manifest, drop your Python file next to it, and reference it as `custom:<name>` in your workflow.
 
-Use this page for custom assertions. For built-in assertion types and shared assertion config fields, see [Assertions](/docs/evaluation/assertions).
+Runsight discovers custom assertions from `custom/assertions/*.yaml`, registers each one under `custom:{file_stem}`, and runs them in both offline evals and live API workflow runs.
+
+For built-in assertion types and shared assertion config fields, see [Assertions](/docs/evaluation/assertions).
 
 ## Quick Start
 
@@ -74,7 +76,7 @@ What this does:
 - The same custom assertion can also be used under a block's normal `assertions:` list during API workflow runs.
 
 :::note
-Offline eval auto-discovers custom assertions only when `run_eval()` is given a workflow file path. Passing raw YAML text to `run_eval()` does not trigger scanner-based custom assertion registration.
+Custom assertion discovery requires a workflow file on disk — the scanner reads your project's `custom/assertions/` directory relative to the workflow file path. If you pass raw YAML strings programmatically instead of file paths, custom assertions won't be discovered automatically.
 :::
 
 ## YAML Manifest Reference
