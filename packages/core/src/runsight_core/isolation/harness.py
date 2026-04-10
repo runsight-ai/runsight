@@ -359,6 +359,15 @@ class SubprocessHarness:
         work_dir: str | None = None
         parent_budget: BudgetSession | None = None
         child_budget: BudgetSession | None = None
+        reconciled = False
+
+        def _reconcile_child_budget_once() -> None:
+            nonlocal reconciled
+            if reconciled:
+                return
+            if parent_budget is not None and child_budget is not None:
+                parent_budget.reconcile_child(child_budget)
+            reconciled = True
 
         try:
             # Create socket and working dir
@@ -453,8 +462,6 @@ class SubprocessHarness:
 
                 # Check return code
                 if proc.returncode != 0:
-                    if parent_budget is not None and child_budget is not None:
-                        parent_budget.reconcile_child(child_budget)
                     error_msg = self._map_return_code(proc.returncode or 1)
                     return ResultEnvelope(
                         block_id=envelope.block_id,
@@ -471,8 +478,6 @@ class SubprocessHarness:
 
                 # Validate and return result
                 raw_output = stdout_data.decode("utf-8").strip()
-                if parent_budget is not None and child_budget is not None:
-                    parent_budget.reconcile_child(child_budget)
                 return self._validate_result(
                     raw_output,
                     max_bytes=envelope.max_output_bytes,
@@ -487,4 +492,5 @@ class SubprocessHarness:
                     pass
 
         finally:
+            _reconcile_child_budget_once()
             self._cleanup(socket_path=sock_path, working_dir=work_dir)
