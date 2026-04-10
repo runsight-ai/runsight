@@ -98,6 +98,7 @@ export default defineConfig({
 					label: 'Evaluation',
 					items: [
 						{ label: 'Assertions', slug: 'docs/evaluation/assertions' },
+						{ label: 'Custom Assertions', slug: 'docs/evaluation/custom-assertions' },
 						{ label: 'Transform Hooks', slug: 'docs/evaluation/transform-hooks' },
 						{ label: 'Eval Test Harness', slug: 'docs/evaluation/eval-test-harness' },
 						{ label: 'Regressions', slug: 'docs/evaluation/regressions' },

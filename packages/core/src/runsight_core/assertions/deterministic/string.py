@@ -14,7 +14,7 @@ from runsight_core.assertions.base import AssertionContext, GradingResult
 
 
 class EqualsAssertion:
-    """Exact string match or JSON deep-equal."""
+    """Exact string match, or explicit JSON deep-equal when configured."""
 
     type = "equals"
 
@@ -30,11 +30,25 @@ class EqualsAssertion:
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         value_str = str(self.value)
+        if self.config is not None and not isinstance(self.config, dict):
+            return GradingResult(
+                passed=False,
+                score=0.0,
+                reason="equals config must be a mapping when provided",
+            )
 
-        # Try JSON deep-equal first
-        try:
-            output_parsed = json.loads(output)
-            value_parsed = json.loads(value_str)
+        mode = self.config.get("mode", "string") if self.config else "string"
+        if mode == "json":
+            try:
+                output_parsed = json.loads(output)
+                value_parsed = json.loads(value_str)
+            except (json.JSONDecodeError, TypeError):
+                return GradingResult(
+                    passed=False,
+                    score=0.0,
+                    reason="JSON comparison failed: output or expected value is not valid JSON",
+                )
+
             if output_parsed == value_parsed:
                 return GradingResult(
                     passed=True, score=1.0, reason="Output matches expected value (JSON deep-equal)"
@@ -44,10 +58,14 @@ class EqualsAssertion:
                 score=0.0,
                 reason=f"JSON values differ: expected {value_str!r}, got {output!r}",
             )
-        except (json.JSONDecodeError, TypeError):
-            pass
 
-        # Fall back to exact string match
+        if mode != "string":
+            return GradingResult(
+                passed=False,
+                score=0.0,
+                reason=f"Unsupported equals mode: {mode!r}",
+            )
+
         if output == value_str:
             return GradingResult(
                 passed=True, score=1.0, reason="Output exactly matches expected value"

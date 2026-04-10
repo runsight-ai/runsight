@@ -37,6 +37,12 @@ def _validate_bool_return(raw: Any, plugin_name: str) -> GradingResult:
 
 
 def _validate_grading_result_return(raw: Any, plugin_name: str) -> GradingResult:
+    """Validate promptfoo-compatible grading results at the adapter boundary.
+
+    We accept ``passed``, ``pass_``, and ``pass`` here so existing promptfoo-style
+    Python plugins can run unchanged while the rest of the system uses a single
+    normalized GradingResult shape internally.
+    """
     if not isinstance(raw, dict):
         raise TypeError(
             f"Custom assertion {plugin_name!r} declares returns: grading_result but get_assert "
