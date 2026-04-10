@@ -59,7 +59,7 @@ vi.mock("@/features/flows/FlowsPage", () => ({
 }));
 
 // /workflows/:id/edit uses WorkflowEditRoute which renders WorkflowSurface
-vi.mock("@/features/canvas/WorkflowSurface", () => ({
+vi.mock("@/features/surface/WorkflowSurface", () => ({
   WorkflowSurface: () =>
     React.createElement(
       "section",
@@ -74,17 +74,13 @@ vi.mock("@/features/canvas/WorkflowSurface", () => ({
     ),
 }));
 
-vi.mock("@/features/canvas/WorkflowCanvas", () => ({
+vi.mock("@/features/surface/SurfaceCanvas", () => ({
   Component: () => React.createElement(RouteEcho, { label: "legacy-canvas" }),
-  WorkflowCanvas: () => React.createElement(RouteEcho, { label: "legacy-canvas" }),
+  SurfaceCanvas: () => React.createElement(RouteEcho, { label: "legacy-canvas" }),
 }));
 
 vi.mock("@/features/runs/RunsPage", () => ({
   Component: () => React.createElement(RouteEcho, { label: "runs" }),
-}));
-
-vi.mock("@/features/runs/RunDetail", () => ({
-  Component: () => React.createElement(RouteEcho, { label: "run-detail" }),
 }));
 
 vi.mock("@/features/souls/SoulLibraryPage", () => ({

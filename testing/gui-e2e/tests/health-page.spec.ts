@@ -1,34 +1,33 @@
-/**
- * Real E2E tests for retired health route behavior — NO MOCKS.
- *
- * Prerequisites: API on localhost:8000, GUI on localhost:3000
- * Run: pnpm -C testing/gui-e2e test -- health-page --reporter=list --retries=0
- */
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { gotoShellRoute, setupShellReadyWorkspace } from "./helpers/shellReady";
+
+setupShellReadyWorkspace(test);
 
 test.describe("Retired health route", () => {
-  test("direct visits to /health redirect to the supported shell", async ({ page }) => {
-    await page.goto("/health");
-
-    await expect(page).not.toHaveURL(/\/health/);
-    await expect(page).toHaveURL(/\/$/);
-  });
-
-  test("retired /health bookmarks no longer render placeholder content", async ({
+  test("direct visits to /health redirect into the supported shell, not onboarding", async ({
     page,
   }) => {
-    await page.goto("/health");
+    await gotoShellRoute(page, "/health");
+
+    await expect(page).not.toHaveURL(/\/health$/);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+  });
+
+  test("retired /health bookmarks no longer render health placeholder content", async ({
+    page,
+  }) => {
+    await gotoShellRoute(page, "/health");
 
     await expect(page.getByText(/Health.*TODO|TODO.*Health/i)).toHaveCount(0);
     await expect(page.getByText(/^Health$/i)).toHaveCount(0);
   });
 
   test("shell navigation no longer exposes a Health route", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
+    await gotoShellRoute(page, "/");
 
     await expect(
-      page.getByRole("navigation").getByRole("link", { name: "Health" })
+      page.getByRole("navigation").getByRole("link", { name: "Health" }),
     ).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Health" })).toHaveCount(0);
   });

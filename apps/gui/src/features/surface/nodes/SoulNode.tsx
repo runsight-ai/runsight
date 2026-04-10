@@ -1,0 +1,14 @@
+"use client";
+
+import { memo, type NodeProps } from "react";
+import type { Node } from "@xyflow/react";
+import type { StepNodeData } from "@/types/schemas/canvas";
+import { SurfaceNodeCard } from "./SurfaceNodeCard";
+
+type SoulNodeType = Node<StepNodeData, "soul">;
+
+function SoulNodeComponent({ id, data, selected }: NodeProps<SoulNodeType>) {
+  return <SurfaceNodeCard id={id} data={data} selected={selected} kind="soul" />;
+}
+
+export const SoulNode = memo(SoulNodeComponent);

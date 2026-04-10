@@ -1,221 +1,102 @@
-/**
- * Real E2E integration tests for Dashboard — NO MOCKS.
- *
- * Prerequisites:
- *   - API running on localhost:8000
- *   - GUI running on localhost:3000 (proxies /api → :8000)
- *
- * Run:
- *   pnpm -C testing/gui-e2e test -- dashboard --reporter=list
- */
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import {
+  apiDelete,
+  apiGet,
+  apiPost,
+  gotoShellRoute,
+  setupShellReadyWorkspace,
+} from "./helpers/shellReady";
+import { workflowUrlId } from "./helpers/workflowEditor";
 
 test.describe.configure({ mode: "serial" });
+setupShellReadyWorkspace(test);
 
-const API = "http://localhost:8000/api";
+type WorkflowSummary = {
+  id: string;
+  name: string;
+};
 
-async function apiGet(path: string) {
-  const res = await fetch(`${API}${path}`);
-  return res.json();
-}
+type WorkflowListResponse = {
+  items: WorkflowSummary[];
+  total: number;
+};
 
-async function apiDelete(path: string) {
-  return fetch(`${API}${path}`, { method: "DELETE" });
-}
+type DashboardResponse = {
+  runs_today: number;
+  eval_pass_rate: number | null;
+  cost_today_usd: number;
+  regressions: number | null;
+};
 
-test.describe("Dashboard - Real E2E", () => {
-  const testWorkflowName = `e2e-dash-workflow-${Date.now()}`;
-  let createdWorkflowId: string | null = null;
+test.describe("Home dashboard", () => {
+  const createdWorkflowIds = new Set<string>();
+
+  test.beforeAll(async () => {
+    const workflow = await apiPost<WorkflowSummary>("/workflows", {
+      yaml: "",
+      canvas_state: {
+        nodes: [],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        selected_node_id: null,
+        canvas_mode: "dag",
+      },
+      commit: false,
+    });
+    createdWorkflowIds.add(workflow.id);
+  });
 
   test.afterAll(async () => {
-    if (createdWorkflowId) {
-      await apiDelete(`/workflows/${createdWorkflowId}`);
+    for (const workflowId of createdWorkflowIds) {
+      await apiDelete(`/workflows/${workflowId}`);
     }
   });
 
-  test("dashboard shows heading Dashboard when workflows exist", async ({
+  test("renders the Home dashboard shell with KPI cards and the current no-runs state", async ({
     page,
   }) => {
-    const { total } = await apiGet("/workflows");
-    test.skip(total === 0, "Need at least one workflow to see populated dashboard");
+    await gotoShellRoute(page, "/");
 
-    await page.goto("/");
-    await expect(page).toHaveURL(/\//);
-
-    // ShellLayout header bar shows page title (use first to avoid strict mode when multiple match)
+    await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "New Workflow" })).toBeVisible();
+    await expect(page.getByText("Runs Today", { exact: true })).toBeVisible();
+    await expect(page.getByText("Eval Pass Rate", { exact: true })).toBeVisible();
+    await expect(page.getByText("Cost Today", { exact: true })).toBeVisible();
+    await expect(page.getByText("Regressions", { exact: true })).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Dashboard" }).first()
-    ).toBeVisible({ timeout: 15000 });
-  });
-
-  test("dashboard shows summary cards with real data from /api/dashboard", async ({
-    page,
-  }) => {
-    const { total } = await apiGet("/workflows");
-    test.skip(total === 0, "Need workflows for populated dashboard");
-
-    const dashboardData = await apiGet("/dashboard");
-    expect(dashboardData).toHaveProperty("active_runs");
-    expect(dashboardData).toHaveProperty("completed_runs");
-    expect(dashboardData).toHaveProperty("total_cost_usd");
-
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-
-    // Summary cards: Active Runs, Completed, Total Cost, System Health
-    await expect(
-      page.getByText("Active Runs", { exact: true }).first()
-    ).toBeVisible({ timeout: 15000 });
-    await expect(
-      page.getByText("Completed", { exact: true }).first()
-    ).toBeVisible({ timeout: 5000 });
-    await expect(
-      page.getByText("Total Cost", { exact: true }).first()
-    ).toBeVisible({ timeout: 5000 });
-    await expect(
-      page.getByText("System Health", { exact: true }).first()
-    ).toBeVisible({ timeout: 5000 });
-
-    // Values match API
-    await expect(
-      page.locator(`text=${String(dashboardData.active_runs)}`).first()
-    ).toBeVisible({ timeout: 5000 });
-    await expect(
-      page.locator(`text=${String(dashboardData.completed_runs)}`).first()
-    ).toBeVisible({ timeout: 5000 });
-  });
-
-  test("dashboard shows Active Workflows section with real workflows from API", async ({
-    page,
-  }) => {
-    const { items, total } = await apiGet("/workflows");
-    test.skip(total === 0, "Need workflows for Active Workflows section");
-
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-
-    await expect(
-      page.getByRole("heading", { name: "Active Workflows", level: 2 })
-    ).toBeVisible({ timeout: 15000 });
-
-    // At least first workflow from API should appear
-    await expect(
-      page.getByText(items[0].name, { exact: true }).first()
-    ).toBeVisible({ timeout: 10000 });
-  });
-
-  test("dashboard shows empty state Create your first workflow when no workflows", async ({
-    page,
-  }) => {
-    const { total } = await apiGet("/workflows");
-    test.skip(total > 0, "Empty state only visible when no workflows exist");
-
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-    await expect(
-      page.getByRole("heading", { name: "Create your first workflow", level: 2 })
-    ).toBeVisible({ timeout: 15000 });
-  });
-
-  test("New Workflow button on dashboard opens modal", async ({ page }) => {
-    const { total } = await apiGet("/workflows");
-    test.skip(total === 0, "Need workflows to see dashboard with New Workflow button");
-
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-
-    await page.getByRole("button", { name: /New Workflow/i }).first().click();
-
-    const modal = page.getByRole("dialog");
-    await expect(modal).toBeVisible({ timeout: 5000 });
-    await expect(modal.getByText("Create New Workflow")).toBeVisible();
-  });
-
-  test("New Workflow modal has name input, description input, Cancel/Create buttons", async ({
-    page,
-  }) => {
-    const { total } = await apiGet("/workflows");
-    test.skip(total === 0, "Need workflows for dashboard");
-
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-
-    await page.getByRole("button", { name: /New Workflow/i }).first().click();
-
-    const modal = page.getByRole("dialog");
-    await expect(modal).toBeVisible({ timeout: 5000 });
-
-    await expect(
-      modal.getByPlaceholder(/Enter workflow name/i)
+      page.getByRole("heading", { name: "No runs yet" }).or(
+        page.getByRole("region", { name: "Items needing attention" }),
+      ),
     ).toBeVisible();
+  });
+
+  test("shows dashboard KPI values from the live dashboard API", async ({ page }) => {
+    const dashboard = await apiGet<DashboardResponse>("/dashboard");
+
+    await gotoShellRoute(page, "/");
+
+    await expect(page.getByText(String(dashboard.runs_today), { exact: true }).first()).toBeVisible();
     await expect(
-      modal.getByPlaceholder(/Describe what this workflow does/i)
+      page.getByText(
+        dashboard.regressions == null ? "—" : String(dashboard.regressions),
+        { exact: true },
+      ).first(),
     ).toBeVisible();
-    await expect(modal.getByRole("button", { name: /Cancel/i })).toBeVisible();
-    await expect(modal.getByRole("button", { name: /Create/i })).toBeVisible();
   });
 
-  test("Create button disabled when name empty, enabled when filled", async ({
-    page,
-  }) => {
-    const { total } = await apiGet("/workflows");
-    test.skip(total === 0, "Need workflows for dashboard");
+  test("creates a workflow directly from Home without opening a modal", async ({ page }) => {
+    await gotoShellRoute(page, "/");
 
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "New Workflow" }).click();
 
-    await page.getByRole("button", { name: /New Workflow/i }).first().click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page).toHaveURL(/\/workflows\/[^/]+\/edit(?:\?.*)?$/, { timeout: 15_000 });
 
-    const modal = page.getByRole("dialog");
-    await expect(modal).toBeVisible({ timeout: 5000 });
+    const workflowId = workflowUrlId(page.url());
+    createdWorkflowIds.add(workflowId);
 
-    const createBtn = modal.getByRole("button", { name: /^Create$/ });
-    await expect(createBtn).toBeDisabled();
-
-    await modal.getByPlaceholder(/Enter workflow name/i).fill("x");
-    await expect(createBtn).toBeEnabled();
-  });
-
-  test("creating a workflow navigates to canvas", async ({ page }) => {
-    const { total } = await apiGet("/workflows");
-    test.skip(total === 0, "Need workflows for dashboard modal access");
-
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-
-    await page.getByRole("button", { name: /New Workflow/i }).first().click();
-
-    const modal = page.getByRole("dialog");
-    await expect(modal).toBeVisible({ timeout: 5000 });
-
-    await modal.getByPlaceholder(/Enter workflow name/i).fill(testWorkflowName);
-    await modal.getByRole("button", { name: /Create/i }).click();
-
-    await expect(page).toHaveURL(/\/workflows\/[^/]+/, { timeout: 15000 });
-
-    const data = await apiGet("/workflows");
-    const created = data.items.find((w: { name: string }) => w.name === testWorkflowName);
-    expect(created).toBeDefined();
-    createdWorkflowId = created.id;
-  });
-
-  test("Cancel dismisses New Workflow modal without side effects", async ({
-    page,
-  }) => {
-    const { total } = await apiGet("/workflows");
-    test.skip(total === 0, "Need workflows for dashboard");
-
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-
-    await page.getByRole("button", { name: /New Workflow/i }).first().click();
-
-    const modal = page.getByRole("dialog");
-    await expect(modal).toBeVisible({ timeout: 5000 });
-
-    await modal.getByRole("button", { name: /Cancel/i }).click();
-
-    await expect(modal).not.toBeVisible({ timeout: 5000 });
-    await expect(page).toHaveURL(/\//);
+    const workflows = await apiGet<WorkflowListResponse>("/workflows");
+    expect(workflows.items.some((workflow) => workflow.id === workflowId)).toBe(true);
   });
 });

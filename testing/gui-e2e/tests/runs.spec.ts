@@ -12,54 +12,48 @@ async function apiGet(path: string) {
 test.describe("Runs", () => {
   test("navigate to runs page, verify it loads", async ({ page }) => {
     await page.goto("/runs");
-    
-    // BUG: Runs page might not load correctly
-    await expect(
-      page.getByRole("main").getByRole("heading", { name: /Runs/i })
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("main").getByRole("heading", { name: /Runs/i })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByRole("searchbox", { name: "Search runs" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Active" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Needs attention" })).toBeVisible();
   });
 
-  test("check active and history tabs", async ({ page }) => {
+  test("active and attention filters use button toggles instead of the retired tab bar", async ({
+    page,
+  }) => {
     await page.goto("/runs");
-    
-    // BUG: Tabs might be missing or broken
-    const activeTab = page.getByRole("tab", { name: /Active/i });
-    const historyTab = page.getByRole("tab", { name: /History/i });
-    
-    await expect(activeTab).toBeVisible();
-    await expect(historyTab).toBeVisible();
-    await historyTab.click();
-    await expect(historyTab).toHaveAttribute("aria-selected", "true");
-    
-    await activeTab.click();
-    await expect(activeTab).toHaveAttribute("aria-selected", "true");
+
+    const activeButton = page.getByRole("button", { name: "Active" });
+    const attentionButton = page.getByRole("button", { name: "Needs attention" });
+
+    await expect(page.getByRole("tab", { name: /Active/i })).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: /History/i })).toHaveCount(0);
+
+    await activeButton.click();
+    await expect(activeButton).toHaveAttribute("aria-pressed", "true");
+    await expect(page).toHaveURL(/status=active/);
+
+    await attentionButton.click();
+    await expect(attentionButton).toHaveAttribute("aria-pressed", "true");
+    await expect(page).toHaveURL(/attention=only/);
   });
 
   test("existing runs display correctly", async ({ page }) => {
     await page.goto("/runs");
-    
     const data = await apiGet("/runs");
-    
-    // BUG: Run list rendering might be broken
-    if (data.items && data.items.length > 0) {
-      await expect(
-        page.getByText(data.items[0].id.substring(0, 8), { exact: false }).first()
-      ).toBeVisible({ timeout: 10000 });
-    } else {
-      await expect(
-        page.getByText(/No active runs|No runs in history/i, { exact: false })
-      ).toBeVisible({ timeout: 10000 });
-    }
-  });
 
-  test("run creation (known limitation without LLM)", async () => {
-    // Documenting known limitation: Run creation may not work without LLM
-    // BUG: Run creation fails gracefully or ungracefully if no LLM is configured
-    test.info().annotations.push({
-      type: "known limitation",
-      description: "Run creation may not work without LLM configured"
-    });
-    
-    test.skip(true, 'Run creation requires LLM — known limitation');
+    if (data.items && data.items.length > 0) {
+      await expect(page.getByText(data.items[0].workflow_name, { exact: true }).first()).toBeVisible({
+        timeout: 10000,
+      });
+      await page.getByRole("searchbox", { name: "Search runs" }).fill(data.items[0].workflow_name);
+      await expect(page.getByText(data.items[0].workflow_name, { exact: true }).first()).toBeVisible();
+    } else {
+      await expect(page.getByText(/No runs yet|No matching runs/i, { exact: false })).toBeVisible({
+        timeout: 10000,
+      });
+    }
   });
 });

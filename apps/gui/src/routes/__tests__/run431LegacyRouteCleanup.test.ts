@@ -63,21 +63,17 @@ vi.mock("@/features/flows/FlowsPage", () => ({
   Component: () => React.createElement(RouteEcho, { label: "flows" }),
 }));
 
-vi.mock("@/features/canvas/WorkflowCanvas", () => ({
+vi.mock("@/features/surface/SurfaceCanvas", () => ({
   Component: () => React.createElement("div", null, "Workflow canvas page"),
-  WorkflowCanvas: () => React.createElement("div", null, "Workflow canvas page"),
+  SurfaceCanvas: () => React.createElement("div", null, "Workflow canvas page"),
 }));
 
 vi.mock("@/features/runs/RunsPage", () => ({
   Component: () => React.createElement(RouteEcho, { label: "canonical-runs" }),
 }));
 
-vi.mock("@/features/runs/RunDetail", () => ({
-  Component: () => React.createElement(RouteEcho, { label: "run-detail" }),
-}));
-
 // RUN-590: /runs/:id now renders HistoricalRunRoute which uses WorkflowSurface
-vi.mock("@/features/canvas/WorkflowSurface", () => ({
+vi.mock("@/features/surface/WorkflowSurface", () => ({
   WorkflowSurface: ({ runId }: { runId?: string }) =>
     React.createElement(RouteEcho, { label: `run-surface-${runId ?? "unknown"}` }),
 }));
@@ -161,6 +157,6 @@ describe("RUN-431 legacy list route cleanup", () => {
   it("keeps /runs/:id working", async () => {
     await renderAppAt("/runs/run_123");
 
-    expect(await screen.findByText("run-detail:/runs/run_123")).toBeTruthy();
+    expect(await screen.findByText("run-surface-run_123:/runs/run_123")).toBeTruthy();
   });
 });

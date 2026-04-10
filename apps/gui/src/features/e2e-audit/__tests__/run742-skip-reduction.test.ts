@@ -170,15 +170,13 @@ describe("AC3 — key files use beforeAll for test data setup", () => {
 // ---------------------------------------------------------------------------
 // AC3b: CRUD files that still lack beforeAll must be identified.
 //
-// souls-crud, steps-crud, tasks-crud have cascade skips but no beforeAll.
-// After the cleanup, these must also have beforeAll fixtures.
+// The remaining CRUD browser specs should use beforeAll fixtures instead of
+// previous-test chains. Retired tasks/steps browser specs are intentionally gone.
 // ---------------------------------------------------------------------------
 
 describe("AC3b — CRUD spec files must use beforeAll, not previous-test chains", () => {
   const CRUD_FILES_REQUIRING_BEFORE_ALL = [
     "souls-crud.spec.ts",
-    "steps-crud.spec.ts",
-    "tasks-crud.spec.ts",
     "workflows-crud.spec.ts",
     "settings-providers.spec.ts",
   ];

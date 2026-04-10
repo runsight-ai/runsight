@@ -30,7 +30,7 @@ describe("RUN-508 soul surface cleanup", () => {
       "Expected the supported soul form page to remain available",
     ).toBe(true);
     expect(
-      existsSync(resolve(SRC_DIR, "features/canvas/PaletteSidebar.tsx")),
+      existsSync(resolve(SRC_DIR, "features/surface/PaletteSidebar.tsx")),
       "Expected the supported canvas palette to remain available",
     ).toBe(true);
   });

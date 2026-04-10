@@ -42,7 +42,7 @@ describe("RUN-508 legacy sidebar CRUD cleanup", () => {
 
     expect(existsSync(resolve(SRC_DIR, "features/souls/SoulLibraryPage.tsx"))).toBe(true);
     expect(existsSync(resolve(SRC_DIR, "features/souls/SoulFormPage.tsx"))).toBe(true);
-    expect(existsSync(resolve(SRC_DIR, "features/canvas/PaletteSidebar.tsx"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/surface/PaletteSidebar.tsx"))).toBe(true);
     expect(existsSync(resolve(SRC_DIR, "queries/souls.ts"))).toBe(true);
     expect(existsSync(resolve(SRC_DIR, "api/souls.ts"))).toBe(true);
   });

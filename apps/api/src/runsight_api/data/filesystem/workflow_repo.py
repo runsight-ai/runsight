@@ -456,6 +456,34 @@ class WorkflowRepository:
         if raw_yaml is None:
             raise InputValidationError("yaml is required")
         yaml_content = raw_yaml
+        next_name = data.get("name")
+
+        if next_name is not None:
+            ryaml = YAML()
+            ryaml.preserve_quotes = True
+            try:
+                yaml_doc = ryaml.load(yaml_content) if yaml_content.strip() else {}
+            except Exception as e:
+                raise InputValidationError(f"Malformed YAML: {e}") from e
+
+            if yaml_doc is None:
+                yaml_doc = {}
+
+            if not isinstance(yaml_doc, dict):
+                raise InputValidationError("YAML content is not a mapping")
+
+            workflow_section = yaml_doc.get("workflow")
+            if workflow_section is None:
+                workflow_section = {}
+                yaml_doc["workflow"] = workflow_section
+            elif not isinstance(workflow_section, dict):
+                raise InputValidationError("workflow section is not a mapping")
+
+            workflow_section["name"] = next_name
+
+            stream = io.StringIO()
+            ryaml.dump(yaml_doc, stream)
+            yaml_content = stream.getvalue()
 
         self._atomic_write(yaml_path, yaml_content)
 

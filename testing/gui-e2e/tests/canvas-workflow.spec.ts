@@ -1,70 +1,70 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import {
+  apiDelete,
+  apiPost,
+  gotoShellRoute,
+  setupShellReadyWorkspace,
+} from "./helpers/shellReady";
+import { gotoWorkflowEditor, openCanvasTab, workflowUrlId } from "./helpers/workflowEditor";
 
 test.describe.configure({ mode: "serial" });
+setupShellReadyWorkspace(test);
 
-const API = "http://localhost:8000/api";
+type WorkflowSummary = {
+  id: string;
+  name: string;
+};
 
-async function apiGet(path: string) {
-  const res = await fetch(`${API}${path}`);
-  return res.json();
-}
-
-async function apiDelete(path: string) {
-  return fetch(`${API}${path}`, { method: "DELETE" });
-}
-
-test.describe("Canvas Workflow", () => {
-  const testWorkflowName = `e2e-canvas-test-${Date.now()}`;
-  let createdWorkflowId: string | null = null;
+test.describe("Workflow editor shell", () => {
+  let seededWorkflowId: string | null = null;
+  const createdWorkflowIds = new Set<string>();
 
   test.beforeAll(async () => {
-    const res = await fetch(`${API}/workflows`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: testWorkflowName }),
+    const workflow = await apiPost<WorkflowSummary>("/workflows", {
+      yaml: "",
+      canvas_state: {
+        nodes: [],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        selected_node_id: null,
+        canvas_mode: "dag",
+      },
+      commit: false,
     });
-    const data = await res.json();
-    createdWorkflowId = data.id ?? null;
+    seededWorkflowId = workflow.id;
+    createdWorkflowIds.add(workflow.id);
   });
 
   test.afterAll(async () => {
-    if (createdWorkflowId) {
-      await apiDelete(`/workflows/${createdWorkflowId}`);
+    for (const workflowId of createdWorkflowIds) {
+      await apiDelete(`/workflows/${workflowId}`);
     }
   });
 
-  test("create a workflow via UI, navigate to canvas", async ({ page }) => {
-    const uiWorkflowName = `${testWorkflowName}-ui`;
-    await page.goto("/workflows");
-    await page.waitForLoadState("networkidle");
+  test("creates a workflow from Flows and opens the shared editor route directly", async ({
+    page,
+  }) => {
+    await gotoShellRoute(page, "/flows");
 
-    await page.getByRole("button", { name: /New Workflow/i }).first().click();
-    const modal = page.getByRole("dialog");
-    await expect(modal).toBeVisible({ timeout: 5000 });
-    await modal.getByPlaceholder(/workflow name/i).fill(uiWorkflowName);
-    await modal.getByRole("button", { name: /Create/i }).click();
-    await expect(page).toHaveURL(/\/workflows\//, { timeout: 15000 });
+    await page.getByTestId("flows-create-workflow-button").click();
 
-    const data = await apiGet("/workflows");
-    const created = data.items.find((w: { name: string }) => w.name === uiWorkflowName);
-    expect(created).toBeDefined();
+    await expect(page).toHaveURL(/\/workflows\/[^/]+\/edit(?:\?.*)?$/, { timeout: 15_000 });
+    await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    // Clean up the UI-created workflow
-    if (created?.id) {
-      await apiDelete(`/workflows/${created.id}`);
-    }
+    const workflowId = workflowUrlId(page.url());
+    createdWorkflowIds.add(workflowId);
+    await expect(page.getByTestId("workflow-name-display")).toBeVisible();
   });
 
-  test("verify canvas loads and can save workflow state", async ({ page }) => {
-    await page.goto(`/workflows/${createdWorkflowId}`);
-    await expect(page.getByTestId("canvas-reactflow")).toBeVisible({ timeout: 10000 });
+  test("loads the shared surface editor and lets the user switch to the canvas view", async ({
+    page,
+  }) => {
+    await gotoWorkflowEditor(page, seededWorkflowId!);
 
-    // Save without editing should still persist baseline canvas state safely.
-    await page.getByTestId("canvas-save").click();
-    await expect(page.getByTestId("canvas-save")).toContainText("Save");
+    await expect(page.getByTestId("workflow-tab-yaml")).toBeVisible();
+    await expect(page.getByTestId("workflow-yaml-editor")).toBeVisible();
 
-    const saved = await apiGet(`/workflows/${createdWorkflowId}`);
-    expect(saved.canvas_state).toBeDefined();
-    expect(saved.yaml === null || typeof saved.yaml === "string").toBeTruthy();
+    await openCanvasTab(page);
   });
 });

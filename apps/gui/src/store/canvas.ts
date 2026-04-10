@@ -20,6 +20,13 @@ export interface PersistedCanvasState {
   canvas_mode: CanvasMode;
 }
 
+interface RuntimeNodeOverlay {
+  executionCost?: number;
+  duration?: number;
+  tokens?: { input?: number; output?: number; total?: number };
+  error?: string | null;
+}
+
 interface CanvasState {
   nodes: Node[];
   edges: Edge[];
@@ -45,7 +52,11 @@ interface CanvasState {
   setActiveRunId: (runId: string | null) => void;
   setRunCost: (cost: number) => void;
   setYamlContent: (content: string) => void;
-  setNodeStatus: (nodeId: string, status: RunStatus) => void;
+  setNodeStatus: (
+    nodeId: string,
+    status: RunStatus,
+    runtime?: RuntimeNodeOverlay,
+  ) => void;
   resetNodeStatuses: () => void;
   hydrateFromPersisted: (state: PersistedCanvasState | null | undefined) => void;
   toPersistedState: () => PersistedCanvasState;
@@ -101,11 +112,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const edgeCount = transitionMatches ? transitionMatches.length : 0;
     set({ yamlContent: content, blockCount: blockMatches ? blockMatches.length : 0, edgeCount, isDirty: true });
   },
-  setNodeStatus: (nodeId, status) =>
+  setNodeStatus: (nodeId, status, runtime) =>
     set((state) => ({
       nodes: state.nodes.map((node) =>
         node.id === nodeId
-          ? { ...node, data: { ...node.data, status } as StepNodeData }
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                status,
+                ...(runtime ?? {}),
+              } as StepNodeData,
+            }
           : node,
       ),
     })),

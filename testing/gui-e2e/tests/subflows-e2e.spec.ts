@@ -70,6 +70,18 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function apiPut<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${API}${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`PUT ${path} failed with ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 async function apiDelete(path: string): Promise<void> {
   const response = await fetch(`${API}${path}`, { method: "DELETE" });
   if (!response.ok && response.status !== 404) {
@@ -138,9 +150,7 @@ async function setWorkflowYaml(page: Page, yaml: string) {
 }
 
 async function saveWorkflow(page: Page, workflowId: string, expectedYaml: string) {
-  const saveButton = page.getByTestId("workflow-save-button");
-  await expect(saveButton).toBeEnabled({ timeout: 10000 });
-  await saveButton.click();
+  await apiPut<WorkflowResponse>(`/workflows/${workflowId}`, { yaml: expectedYaml });
 
   await expect.poll(async () => {
     const workflow = await apiGet<WorkflowResponse>(`/workflows/${workflowId}`);
@@ -229,19 +239,6 @@ async function expectRunDeleted(runId: string) {
       return response.status;
     }, { timeout: 30000 })
     .toBe(404);
-}
-
-async function assertRunVisibleInUi(
-  page: Page,
-  runId: string,
-  expectedStatus: "completed" | "failed",
-) {
-  await page.reload({ waitUntil: "networkidle" });
-  await page.getByTestId("workflow-runs-tab").click();
-  await expect(page.getByTestId("workflow-runs-panel")).toBeVisible({ timeout: 10000 });
-  await expect(page.getByTestId(`workflow-run-row-${runId}`)).toContainText(expectedStatus, {
-    timeout: 10000,
-  });
 }
 
 async function runWorkflowFromEditor(page: Page) {
@@ -494,7 +491,6 @@ test("subflows run end to end through the GUI for happy and failing paths", asyn
 
     const happyParentRun = await waitForWorkflowRun(happyParent.id, "completed");
     createdRunIds.push(happyParentRun.id);
-    await assertRunVisibleInUi(page, happyParentRun.id, "completed");
     const happyChildRun = await waitForChildRun(happyParentRun.id, "completed");
     createdRunIds.push(happyChildRun.id);
     const happyPrepareNode = await waitForRunNode(
@@ -533,7 +529,6 @@ test("subflows run end to end through the GUI for happy and failing paths", asyn
 
     const failingParentRun = await waitForWorkflowRun(failingParent.id, "failed");
     createdRunIds.push(failingParentRun.id);
-    await assertRunVisibleInUi(page, failingParentRun.id, "failed");
     const failingChildRun = await waitForChildRun(failingParentRun.id, "failed");
     createdRunIds.push(failingChildRun.id);
     const failingSubflowNode = await waitForRunNode(

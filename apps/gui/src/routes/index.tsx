@@ -2,12 +2,17 @@ import { createBrowserRouter, Navigate, useParams } from "react-router";
 import { ShellLayout } from "./layouts/ShellLayout";
 import { createSetupGuardLoader, createReverseGuardLoader } from "./guards";
 import { queryClient } from "@/lib/queryClient";
-import { WorkflowSurface } from "@/features/canvas/WorkflowSurface";
+import { WorkflowSurface } from "@/features/surface/WorkflowSurface";
 const ROUTE_HYDRATE_FALLBACK = <div aria-hidden="true" />;
 
 function WorkflowEditRoute() {
   const { id } = useParams<{ id: string }>();
   return <WorkflowSurface mode="edit" workflowId={id!} />;
+}
+
+function ReadonlyRunRoute() {
+  const { id } = useParams<{ id: string }>();
+  return <WorkflowSurface mode="readonly" runId={id!} />;
 }
 
 export const router = createBrowserRouter([
@@ -62,11 +67,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "runs/:id",
-        hydrateFallbackElement: ROUTE_HYDRATE_FALLBACK,
-        lazy: () =>
-          import("@/features/runs/RunDetail").then((m) => ({
-            Component: m.Component,
-          })),
+        Component: ReadonlyRunRoute,
       },
       {
         path: "souls",

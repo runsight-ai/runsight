@@ -1,135 +1,212 @@
-import { test, expect } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import {
+  apiGet,
+  applyFixture,
+  captureWorkspace,
+  gotoShellRoute,
+  restoreWorkspace,
+  type ProviderFixture,
+  type SettingsFixture,
+  type WorkspaceSnapshot,
+} from "./helpers/shellReady";
 
 test.describe.configure({ mode: "serial" });
 
-const API = "http://localhost:8000/api";
+const READY_SETTINGS: SettingsFixture = {
+  onboarding_completed: true,
+  fallback_enabled: false,
+};
 
-async function apiGet(path: string) {
-  const res = await fetch(`${API}${path}`);
-  return res.json();
-}
+async function stubProviderConnection(
+  page: Page,
+  result: {
+    success: boolean;
+    message: string;
+    models?: string[];
+  } = {
+    success: true,
+    message: "Connection successful",
+    models: ["gpt-4.1-mini"],
+  },
+) {
+  let credentialChecks = 0;
+  let savedProviderChecks = 0;
 
-async function apiDelete(path: string) {
-  return fetch(`${API}${path}`, { method: "DELETE" });
+  await page.route(/\/api\/settings\/providers\/test$/, async (route) => {
+    credentialChecks += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: result.success,
+        message: result.message,
+        models: result.models ?? [],
+        model_count: result.models?.length ?? 0,
+        latency_ms: 8,
+      }),
+    });
+  });
+
+  await page.route(/\/api\/settings\/providers\/[^/]+\/test$/, async (route) => {
+    savedProviderChecks += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: result.success,
+        message: result.message,
+        models: result.models ?? [],
+        model_count: result.models?.length ?? 0,
+        latency_ms: 9,
+      }),
+    });
+  });
+
+  return {
+    get credentialChecks() {
+      return credentialChecks;
+    },
+    get savedProviderChecks() {
+      return savedProviderChecks;
+    },
+  };
 }
 
 test.describe("Settings: Providers CRUD", () => {
-  const testProviderName = `e2e-test-provider-${Date.now()}`;
-  let createdProviderId: string | null = null;
-
-  // Determine provider availability once for the whole suite
-  let hasOllama = false;
-  let hasOpenAI = false;
+  let snapshot: WorkspaceSnapshot;
 
   test.beforeAll(async () => {
-    hasOllama = await fetch("http://localhost:11434/api/tags")
-      .then((r) => r.ok)
-      .catch(() => false);
-    hasOpenAI = Boolean(
-      process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10
-    );
+    snapshot = await captureWorkspace();
   });
 
   test.afterAll(async () => {
-    if (createdProviderId) {
-      await apiDelete(`/settings/providers/${createdProviderId}`);
-    }
+    await restoreWorkspace(snapshot);
   });
 
-  test("providers page lists real providers from API", async ({ page }) => {
-    await page.goto("/settings");
-
-    const data = await apiGet("/settings/providers");
-
-    // We expect at least one provider (Anthropic) to be there.
-    if (data.items && data.items.length > 0) {
-      await expect(
-        page.getByText(data.items[0].name, { exact: true }).first()
-      ).toBeVisible({ timeout: 10000 });
-    }
+  test.beforeEach(async () => {
+    await applyFixture([], READY_SETTINGS);
   });
 
-  test("add provider via form → appears in list and API", async ({ page }) => {
-    // Ollama: requires localhost:11434. OpenAI: requires real API key. Done enables only after successful connection.
-    test.skip(
-      !hasOllama && !hasOpenAI,
-      "Ollama (localhost:11434) or OPENAI_API_KEY required"
-    );
+  test("providers page lists providers from the local API", async ({ page }) => {
+    const seededProvider: ProviderFixture = {
+      id: "qa-openai-seed",
+      name: "QA OpenAI Seed",
+      type: "openai",
+      status: "unknown",
+      is_active: true,
+      models: [],
+      api_key: null,
+    };
 
-    await page.goto("/settings");
-    await page.waitForLoadState("networkidle");
+    await applyFixture([seededProvider], READY_SETTINGS);
+    await gotoShellRoute(page, "/settings");
 
-    const beforeData = await apiGet("/settings/providers");
-    const countBefore = beforeData.items ? beforeData.items.length : 0;
+    await expect(page.getByText("QA OpenAI Seed", { exact: true })).toBeVisible();
+    await expect(
+      page.getByLabel("Provider QA OpenAI Seed status Unknown"),
+    ).toBeVisible();
+    await expect(page.getByText("0 models", { exact: true })).toBeVisible();
+  });
 
-    await page.getByRole("button", { name: /Add Provider/i }).first().click();
+  test("add provider via form appears in list and API without third-party access", async ({
+    page,
+  }) => {
+    const calls = await stubProviderConnection(page);
+
+    await gotoShellRoute(page, "/settings");
+
+    await page
+      .locator("button:visible", { hasText: "Add Provider" })
+      .first()
+      .click();
 
     const modal = page.getByRole("dialog");
-    await expect(modal).toBeVisible({ timeout: 5000 });
+    await expect(modal).toBeVisible();
 
-    if (hasOllama) {
-      // Step 1: Select Ollama from "Other Provider" dropdown
-      await modal.getByRole("combobox").click();
-      await page.getByRole("option", { name: /Ollama/i }).click();
-      await modal.getByPlaceholder(/Ollama/i).fill(testProviderName);
-    } else {
-      // Step 1: Select OpenAI
-      await modal.getByRole("button", { name: /OpenAI/i }).click();
-      await modal.getByPlaceholder(/OpenAI/i).fill(testProviderName);
-      await modal.locator('input[type="password"]').fill(process.env.OPENAI_API_KEY!);
-    }
+    const saveButton = modal.getByRole("button", { name: "Save" });
+    await expect(saveButton).toBeDisabled();
 
-    const doneButton = modal.getByRole("button", { name: /Done/i });
-    await expect(doneButton).toBeEnabled({ timeout: 15000 });
-    await doneButton.click();
+    await modal.getByPlaceholder("sk-proj-...").fill("sk-test-local-only");
+    await expect(modal.getByRole("status")).toContainText("Connected", {
+      timeout: 5000,
+    });
+    await expect(saveButton).toBeEnabled();
 
-    await expect(modal).not.toBeVisible({ timeout: 10000 });
+    await saveButton.click();
+    await expect(modal).not.toBeVisible();
 
-    await expect(page.getByText(testProviderName, { exact: true }).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("OpenAI", { exact: true })).toBeVisible();
+    await expect.poll(() => calls.credentialChecks).toBeGreaterThan(0);
+    await expect.poll(() => calls.savedProviderChecks).toBe(1);
 
-    const afterData = await apiGet("/settings/providers");
-    const created = afterData.items?.find(
-      (p: { name: string }) => p.name === testProviderName
+    const data = await apiGet<{ items: Array<{ id: string; name: string }> }>(
+      "/settings/providers",
     );
-    expect(created).toBeDefined();
-    expect(afterData.items.length).toBeGreaterThanOrEqual(countBefore + 1);
-    createdProviderId = created.id;
+    expect(data.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "openai", name: "OpenAI" }),
+      ]),
+    );
   });
 
-  test("test connection on a provider", async ({ page }) => {
-    test.skip(!hasOllama && !hasOpenAI, "Ollama or OPENAI_API_KEY required — provider was not created");
+  test("test connection triggers the local test endpoint and surfaces feedback", async ({
+    page,
+  }) => {
+    const seededProvider: ProviderFixture = {
+      id: "qa-openai-check",
+      name: "QA OpenAI Check",
+      type: "openai",
+      status: "unknown",
+      is_active: true,
+      models: [],
+      api_key: null,
+    };
 
-    await page.goto("/settings");
-
-    const card = page.locator(".rounded-lg").filter({
-      has: page.getByRole("heading", { name: testProviderName }),
+    await applyFixture([seededProvider], READY_SETTINGS);
+    const calls = await stubProviderConnection(page, {
+      success: true,
+      message: "Connection successful",
+      models: ["gpt-4.1-mini"],
     });
-    await card.getByRole("button", { name: /Test Connection/i }).click();
 
-    await expect(page.getByText(/Connection successful|Connection failed|Connected|Failed/i)).toBeVisible({ timeout: 10000 });
+    await gotoShellRoute(page, "/settings");
+
+    await page
+      .getByRole("button", { name: "Test QA OpenAI Check connection" })
+      .click();
+
+    await expect.poll(() => calls.savedProviderChecks).toBe(1);
+    await expect(page.getByText("Connection successful", { exact: true })).toBeVisible();
   });
 
-  test("delete provider → confirm dialog, verify removed", async ({ page }) => {
-    test.skip(!hasOllama && !hasOpenAI, "Ollama or OPENAI_API_KEY required — provider was not created");
+  test("delete provider removes it after explicit confirmation", async ({ page }) => {
+    const seededProvider: ProviderFixture = {
+      id: "qa-delete-provider",
+      name: "QA Delete Provider",
+      type: "openai",
+      status: "unknown",
+      is_active: true,
+      models: [],
+      api_key: null,
+    };
 
-    await page.goto("/settings");
+    await applyFixture([seededProvider], READY_SETTINGS);
+    await gotoShellRoute(page, "/settings");
 
-    // Use native confirm handler — ProvidersTab uses window.confirm()
-    page.once("dialog", (d) => d.accept());
+    await page
+      .getByRole("button", { name: "Delete QA Delete Provider provider" })
+      .click();
 
-    const card = page.locator(".rounded-lg").filter({
-      has: page.getByRole("heading", { name: testProviderName }),
-    });
-    await card.getByRole("button", { name: /Remove provider/i }).click();
+    const dialog = page.getByTestId("delete-confirm-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('QA Delete Provider');
 
-    await expect(page.getByText(testProviderName)).not.toBeVisible({ timeout: 10000 });
+    await dialog.getByTestId("delete-confirm-submit-button").click();
 
-    const afterData = await apiGet("/settings/providers");
-    const stillExists = afterData.items?.find(
-      (p: { id: string }) => p.id === createdProviderId
-    );
-    expect(stillExists).toBeFalsy();
+    await expect(dialog).not.toBeVisible();
+    await expect(page.getByText("QA Delete Provider", { exact: true })).toHaveCount(0);
 
-    createdProviderId = null;
+    const data = await apiGet<{ items: Array<{ id: string }> }>("/settings/providers");
+    expect(data.items).toEqual([]);
   });
 });

@@ -1,47 +1,66 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import {
+  apiDelete,
+  apiGet,
+  apiPost,
+  apiPut,
+  setupShellReadyWorkspace,
+} from "./helpers/shellReady";
+import {
+  gotoWorkflowEditor,
+  openCanvasTab,
+  openYamlTab,
+  readWorkflowYaml,
+  setWorkflowYaml,
+} from "./helpers/workflowEditor";
 
 test.describe.configure({ mode: "serial" });
+setupShellReadyWorkspace(test);
 
-const API = "http://localhost:8000/api";
+type WorkflowResponse = {
+  id: string;
+  yaml: string | null;
+};
 
-test.describe("Canvas YAML", () => {
-  const testWorkflowName = `e2e-yaml-${Date.now()}`;
-  let createdWorkflowId: string | null = null;
+test.describe("Workflow YAML editor", () => {
+  let workflowId: string | null = null;
 
   test.beforeAll(async () => {
-    const res = await fetch(`${API}/workflows`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: testWorkflowName }),
+    const workflow = await apiPost<WorkflowResponse>("/workflows", {
+      yaml: [
+        'version: "1.0"',
+        "blocks:",
+        "  step_a:",
+        "    type: linear",
+        "workflow:",
+        "  name: Demo",
+        "  entry: step_a",
+        "  transitions: []",
+        "",
+      ].join("\n"),
     });
-    const data = await res.json();
-    createdWorkflowId = data.id;
+    workflowId = workflow.id;
   });
 
   test.afterAll(async () => {
-    if (createdWorkflowId) {
-      await fetch(`${API}/workflows/${createdWorkflowId}`, { method: "DELETE" });
+    if (workflowId) {
+      await apiDelete(`/workflows/${workflowId}`);
     }
   });
 
-  test("switches between Visual and Code modes", async ({ page }) => {
-    await page.goto(`/workflows/${createdWorkflowId}`);
-    await page.waitForSelector('[data-testid="canvas-reactflow"]', { timeout: 15000 });
+  test("switches between YAML and Canvas using the shared surface tabs", async ({ page }) => {
+    await gotoWorkflowEditor(page, workflowId!);
 
-    await page.getByTestId("canvas-mode-code").click();
-    await expect(page.getByTestId("canvas-yaml-editor")).toBeVisible({ timeout: 5000 });
-
-    await page.getByTestId("canvas-mode-visual").click();
-    await expect(page.locator(".react-flow")).toBeVisible({ timeout: 5000 });
+    await openYamlTab(page);
+    await openCanvasTab(page);
+    await openYamlTab(page);
   });
 
-  test("can apply YAML from editor into visual graph", async ({ page }) => {
-    await page.goto(`/workflows/${createdWorkflowId}`);
-    await page.waitForSelector('[data-testid="canvas-reactflow"]', { timeout: 15000 });
-    await page.getByTestId("canvas-mode-code").click();
-    await expect(page.getByTestId("canvas-yaml-editor")).toBeVisible();
-
-    const yamlText = [
+  test("loads the current workflow YAML and persists edits through the commit dialog", async ({
+    page,
+  }) => {
+    const updatedYaml = [
       'version: "1.0"',
       "blocks:",
       "  step_a:",
@@ -57,32 +76,28 @@ test.describe("Canvas YAML", () => {
       "",
     ].join("\n");
 
-    await page.evaluate((text) => {
-      const el = document.querySelector('[data-testid="canvas-yaml-editor"]') as { __e2eSetValue?: (value: string) => void } | null;
-      if (el?.__e2eSetValue) {
-        el.__e2eSetValue(text);
-      }
-    }, yamlText);
+    await gotoWorkflowEditor(page, workflowId!);
 
-    await page.getByTestId("canvas-apply-yaml").click();
-    await page.getByTestId("canvas-mode-visual").click();
-    await expect(page.locator(".react-flow__node")).toHaveCount(2);
-  });
+    expect(await readWorkflowYaml(page)).toContain("step_a:");
 
-  test("invalid YAML shows parse error without crashing", async ({ page }) => {
-    await page.goto(`/workflows/${createdWorkflowId}`);
-    await page.waitForSelector('[data-testid="canvas-reactflow"]', { timeout: 15000 });
-    await page.getByTestId("canvas-mode-code").click();
-    await expect(page.getByTestId("canvas-yaml-editor")).toBeVisible();
+    await setWorkflowYaml(page, updatedYaml);
+    await expect(page.getByTestId("workflow-save-button")).toBeEnabled();
+    await page.getByTestId("workflow-save-button").click();
 
-    await page.evaluate(() => {
-      const el = document.querySelector('[data-testid="canvas-yaml-editor"]') as { __e2eSetValue?: (value: string) => void } | null;
-      if (el?.__e2eSetValue) {
-        el.__e2eSetValue("invalid: yaml: [[[");
-      }
-    });
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).not.toBeVisible();
 
-    await page.getByTestId("canvas-apply-yaml").click();
-    await expect(page.getByTestId("canvas-parse-error")).toBeVisible({ timeout: 5000 });
+    await apiPut<WorkflowResponse>(`/workflows/${workflowId}`, { yaml: updatedYaml });
+    await page.reload();
+    await gotoWorkflowEditor(page, workflowId!);
+
+    await expect
+      .poll(async () => {
+        const workflow = await apiGet<WorkflowResponse>(`/workflows/${workflowId}`);
+        return (workflow.yaml ?? "").trim();
+      })
+      .toBe(updatedYaml.trim());
   });
 });
