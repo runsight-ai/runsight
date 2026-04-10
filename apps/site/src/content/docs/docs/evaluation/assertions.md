@@ -159,7 +159,7 @@ assertions:
 
 ## Custom assertions
 
-Custom assertions are discovered from manifest files under `custom/assertions/*.yaml` and are referenced by file stem:
+Beyond the 15 built-in types, you can create your own assertions in Python. The contract is **promptfoo-compatible** — existing promptfoo assertion functions work with minimal changes. Custom assertions are discovered from manifest files under `custom/assertions/*.yaml` and are referenced by file stem:
 
 ```yaml title="Custom assertion usage"
 assertions:
