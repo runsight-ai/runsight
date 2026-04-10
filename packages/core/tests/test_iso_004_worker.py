@@ -161,7 +161,52 @@ class TestRUN395ProxiedLLMClientContract:
         assert payload["tools"] == tools
         assert payload["tool_choice"] == "auto"
         assert payload["temperature"] == 0.2
-        assert response["content"] == "hi"
+        assert response == {
+            "content": "hi",
+            "cost_usd": 0.12,
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+            "tool_calls": [],
+            "finish_reason": "stop",
+        }
+
+    @pytest.mark.asyncio
+    async def test_proxied_achat_forwards_extra_kwargs_into_llm_call_payload(self):
+        from runsight_core.isolation import worker
+
+        ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
+        assert ProxiedLLMClient is not None
+
+        captured_payload: dict[str, object] = {}
+
+        class FakeIPCClient:
+            async def request_stream(self, action: str, payload: dict[str, object]):
+                nonlocal captured_payload
+                assert action == "llm_call"
+                captured_payload = payload
+                yield {
+                    "content": "ok",
+                    "cost_usd": 0.0,
+                    "prompt_tokens": 1,
+                    "completion_tokens": 1,
+                    "total_tokens": 2,
+                    "tool_calls": [],
+                    "finish_reason": "stop",
+                }
+
+        proxied = ProxiedLLMClient(model_name="gpt-4o", ipc_client=FakeIPCClient())
+        await proxied.achat(
+            messages=[{"role": "user", "content": "hello"}],
+            system_prompt="sys",
+            max_tokens=512,
+            response_format={"type": "json_object"},
+            seed=7,
+        )
+
+        assert captured_payload["max_tokens"] == 512
+        assert captured_payload["response_format"] == {"type": "json_object"}
+        assert captured_payload["seed"] == 7
 
     @pytest.mark.asyncio
     async def test_proxied_achat_raises_when_ipc_returns_error(self):
@@ -197,6 +242,20 @@ class TestRUN395ProxiedLLMClientContract:
         )
         client = runner._get_client(alt_soul)
         assert isinstance(client, ProxiedLLMClient)
+
+    def test_default_worker_runner_path_does_not_construct_direct_litellm_clients(self):
+        from runsight_core.isolation import worker
+        from runsight_core.isolation.worker import create_runner
+
+        ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
+        assert ProxiedLLMClient is not None
+
+        with patch(
+            "runsight_core.runner.LiteLLMClient",
+            side_effect=AssertionError("direct LiteLLMClient construction is forbidden in worker"),
+        ):
+            runner = create_runner(model_name="gpt-4o")
+            assert isinstance(runner.llm_client, ProxiedLLMClient)
 
     @pytest.mark.asyncio
     async def test_worker_runner_failover_path_uses_proxied_client_for_fallback(self):
