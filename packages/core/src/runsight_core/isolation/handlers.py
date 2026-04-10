@@ -11,6 +11,8 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 from runsight_core.isolation.ipc import Handler
+from runsight_core.llm.client import LiteLLMClient
+from runsight_core.runner import _detect_provider
 from runsight_core.security import SSRFError, validate_ssrf
 
 # ---------------------------------------------------------------------------
@@ -137,5 +139,70 @@ def make_tool_call_handler(resolved_tools: dict[str, Any]) -> Handler:
             return {"error": f"Tool '{tool_name}' failed: {exc}"}
 
         return {"output": output}
+
+    return _handle
+
+
+# ---------------------------------------------------------------------------
+# LLM proxy handler
+# ---------------------------------------------------------------------------
+
+
+def make_llm_call_handler(api_keys: dict[str, str]) -> Handler:
+    """Return an IPC streaming handler that proxies subprocess ``llm_call`` payloads."""
+
+    async def _handle(params: dict[str, Any]):
+        model_name = str(params.get("model", ""))
+        if not model_name:
+            yield {"error": "Missing required llm_call field: model"}
+            return
+
+        try:
+            provider = _detect_provider(model_name)
+        except Exception as exc:
+            yield {"error": f"Unable to determine provider for model '{model_name}': {exc}"}
+            return
+
+        api_key = api_keys.get(provider)
+        if not api_key:
+            yield {
+                "error": f"No API key configured for provider '{provider}' "
+                f"(required by model '{model_name}')",
+            }
+            return
+
+        extra_kwargs = {
+            key: value
+            for key, value in params.items()
+            if key
+            not in {
+                "model",
+                "messages",
+                "system_prompt",
+                "temperature",
+                "tools",
+                "tool_choice",
+            }
+        }
+
+        try:
+            client = LiteLLMClient(model_name=model_name, api_key=api_key)
+            response = await client.achat(
+                messages=list(params.get("messages", [])),
+                system_prompt=params.get("system_prompt"),
+                temperature=params.get("temperature"),
+                tools=params.get("tools"),
+                tool_choice=params.get("tool_choice"),
+                **extra_kwargs,
+            )
+        except Exception as exc:
+            yield {"error": f"llm_call failed: {exc}"}
+            return
+
+        chunk = dict(response)
+        chunk.setdefault("content", "")
+        chunk.setdefault("cost_usd", 0.0)
+        chunk.setdefault("total_tokens", 0)
+        yield chunk
 
     return _handle

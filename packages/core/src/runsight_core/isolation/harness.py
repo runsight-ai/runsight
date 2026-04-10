@@ -85,6 +85,7 @@ class SubprocessHarness:
         tool_credentials: dict[str, dict[str, str]] | None = None,
     ) -> None:
         self._api_key = api_key
+        self._api_keys: dict[str, str] = {"openai": api_key}
         self._timeout_seconds = timeout_seconds
         self._heartbeat_timeout = heartbeat_timeout
         self._phase_timeout = phase_timeout
@@ -100,6 +101,7 @@ class SubprocessHarness:
         from runsight_core.isolation.handlers import (
             make_file_io_handler,
             make_http_handler,
+            make_llm_call_handler,
             make_tool_call_handler,
         )
 
@@ -112,6 +114,7 @@ class SubprocessHarness:
 
         return {
             "capability_negotiation": _capability_negotiation_handler,
+            "llm_call": make_llm_call_handler(api_keys=dict(self._api_keys)),
             "http": make_http_handler(credentials=merged_headers, url_allowlist=["*"]),
             "file_io": make_file_io_handler(base_dir=tempfile.mkdtemp(prefix="rs-fio-")),
             "tool_call": make_tool_call_handler(self._resolved_tools),
