@@ -9,7 +9,7 @@ import socket
 import time
 import uuid
 from collections.abc import AsyncIterable, Awaitable, Callable
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -62,6 +62,29 @@ class IPCRequest(BaseModel):
     id: str
     action: str
     payload: dict[str, Any]
+
+
+class CapabilityRequest(BaseModel):
+    """Dedicated startup capability negotiation request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["capability_negotiation"] = "capability_negotiation"
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    grant_token: str
+    supported_actions: list[str]
+    worker_version: str
+
+
+class CapabilityResponse(BaseModel):
+    """Dedicated startup capability negotiation response."""
+
+    id: str
+    done: bool = True
+    accepted: bool
+    active_actions: list[str]
+    engine_context: dict[str, Any]
+    error: str | None
 
 
 class IPCResponseFrame(BaseModel):
@@ -158,6 +181,97 @@ class IPCServer:
         writer.write(line.encode())
         await writer.drain()
 
+    async def _write_capability_response(
+        self,
+        writer: asyncio.StreamWriter,
+        response: CapabilityResponse,
+    ) -> None:
+        line = json.dumps(response.model_dump(), separators=(",", ":")) + "\n"
+        writer.write(line.encode())
+        await writer.drain()
+
+    async def _negotiate_capabilities(
+        self,
+        request: CapabilityRequest,
+    ) -> CapabilityResponse:
+        if self._grant_token is None:
+            return CapabilityResponse(
+                id=request.id,
+                accepted=False,
+                active_actions=[],
+                engine_context={},
+                error="authentication failed: grant token not configured",
+            )
+
+        if request.grant_token != self._grant_token.token:
+            return CapabilityResponse(
+                id=request.id,
+                accepted=False,
+                active_actions=[],
+                engine_context={},
+                error="authentication failed: invalid grant token",
+            )
+
+        if self._grant_token.is_expired():
+            return CapabilityResponse(
+                id=request.id,
+                accepted=False,
+                active_actions=[],
+                engine_context={},
+                error="authentication failed: grant token expired",
+            )
+
+        if self._grant_token.consumed:
+            return CapabilityResponse(
+                id=request.id,
+                accepted=False,
+                active_actions=[],
+                engine_context={},
+                error="authentication failed: grant token consumed",
+            )
+
+        if not self._grant_token.consume():
+            return CapabilityResponse(
+                id=request.id,
+                accepted=False,
+                active_actions=[],
+                engine_context={},
+                error="authentication failed: grant token rejected",
+            )
+
+        active_actions = [
+            action
+            for action in request.supported_actions
+            if action in RPC_ALLOWLIST and action in self._handlers
+        ]
+        engine_context: dict[str, Any] = {
+            "budget_remaining_usd": 0.0,
+            "trace_id": uuid.uuid4().hex,
+            "run_id": uuid.uuid4().hex,
+            "block_id": self._grant_token.block_id,
+        }
+        engine_context = await self._registry.run_on_request(
+            request.action,
+            {
+                "supported_actions": request.supported_actions,
+                "worker_version": request.worker_version,
+            },
+            engine_context,
+        )
+        engine_context = await self._registry.run_on_response(
+            request.action,
+            {"accepted": True, "active_actions": active_actions},
+            engine_context,
+        )
+
+        return CapabilityResponse(
+            id=request.id,
+            accepted=True,
+            active_actions=active_actions,
+            engine_context=engine_context,
+            error=None,
+        )
+
     async def serve(self) -> None:
         """Start accepting connections on the pre-bound socket."""
         self._sock.setblocking(False)
@@ -212,6 +326,43 @@ class IPCServer:
                     continue
 
                 request_id = str(raw_request.get("id", ""))
+
+                if not authenticated:
+                    action = str(raw_request.get("action", ""))
+                    if action != "capability_negotiation":
+                        await self._write_frame(
+                            writer,
+                            IPCResponseFrame(
+                                id=request_id,
+                                done=True,
+                                payload=None,
+                                engine_context=None,
+                                error="authentication required: perform capability_negotiation first",
+                            ),
+                        )
+                        continue
+
+                    try:
+                        capability_request = CapabilityRequest.model_validate(raw_request)
+                    except Exception as exc:
+                        await self._write_capability_response(
+                            writer,
+                            CapabilityResponse(
+                                id=request_id,
+                                accepted=False,
+                                active_actions=[],
+                                engine_context={},
+                                error=f"invalid capability request: {exc}",
+                            ),
+                        )
+                        continue
+
+                    capability_response = await self._negotiate_capabilities(capability_request)
+                    await self._write_capability_response(writer, capability_response)
+                    if capability_response.accepted:
+                        authenticated = True
+                    continue
+
                 try:
                     request = IPCRequest.model_validate(raw_request)
                 except Exception as exc:
@@ -226,89 +377,6 @@ class IPCServer:
                         ),
                     )
                     continue
-
-                if not authenticated:
-                    if self._grant_token is None:
-                        await self._write_frame(
-                            writer,
-                            IPCResponseFrame(
-                                id=request.id,
-                                done=True,
-                                payload=None,
-                                engine_context=None,
-                                error="authentication failed: grant token not configured",
-                            ),
-                        )
-                        continue
-
-                    if request.action != "capability_negotiation":
-                        await self._write_frame(
-                            writer,
-                            IPCResponseFrame(
-                                id=request.id,
-                                done=True,
-                                payload=None,
-                                engine_context=None,
-                                error="authentication required: perform capability_negotiation first",
-                            ),
-                        )
-                        continue
-
-                    submitted_token = str(request.payload.get("grant_token", ""))
-                    expected_token = self._grant_token.token
-                    if submitted_token != expected_token:
-                        await self._write_frame(
-                            writer,
-                            IPCResponseFrame(
-                                id=request.id,
-                                done=True,
-                                payload=None,
-                                engine_context=None,
-                                error="authentication failed: invalid grant token",
-                            ),
-                        )
-                        continue
-
-                    if self._grant_token.is_expired():
-                        await self._write_frame(
-                            writer,
-                            IPCResponseFrame(
-                                id=request.id,
-                                done=True,
-                                payload=None,
-                                engine_context=None,
-                                error="authentication failed: grant token expired",
-                            ),
-                        )
-                        continue
-
-                    if self._grant_token.consumed:
-                        await self._write_frame(
-                            writer,
-                            IPCResponseFrame(
-                                id=request.id,
-                                done=True,
-                                payload=None,
-                                engine_context=None,
-                                error="authentication failed: grant token consumed",
-                            ),
-                        )
-                        continue
-
-                    if not self._grant_token.consume():
-                        await self._write_frame(
-                            writer,
-                            IPCResponseFrame(
-                                id=request.id,
-                                done=True,
-                                payload=None,
-                                engine_context=None,
-                                error="authentication failed: grant token rejected",
-                            ),
-                        )
-                        continue
-
-                    authenticated = True
 
                 engine_context: dict[str, Any] = {}
                 try:
@@ -345,28 +413,6 @@ class IPCServer:
 
                 handler = self._handlers.get(request.action)
                 try:
-                    if handler is None and request.action == "capability_negotiation":
-                        payload = {
-                            "authenticated": True,
-                            "capabilities": sorted(RPC_ALLOWLIST),
-                        }
-                        engine_context = await self._registry.run_on_response(
-                            request.action,
-                            payload,
-                            engine_context,
-                        )
-                        await self._write_frame(
-                            writer,
-                            IPCResponseFrame(
-                                id=request.id,
-                                done=True,
-                                payload=payload,
-                                engine_context=engine_context,
-                                error=None,
-                            ),
-                        )
-                        continue
-
                     if handler is None:
                         await self._write_frame(
                             writer,
@@ -480,10 +526,36 @@ class IPCClient:
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._closed = False
+        self._grant_token = os.environ.get("RUNSIGHT_GRANT_TOKEN", "")
+        self._supported_actions = ["llm_call", "tool_call", "http", "file_io"]
+        self._worker_version = "worker-396"
+        self._active_actions: list[str] = []
+        self._initial_engine_context: dict[str, Any] = {}
 
-    async def connect(self) -> None:
+    async def connect(self) -> CapabilityResponse:
         """Open a connection to the IPC socket."""
         self._reader, self._writer = await asyncio.open_unix_connection(self._socket_path)
+        capability_request = CapabilityRequest(
+            grant_token=self._grant_token,
+            supported_actions=list(self._supported_actions),
+            worker_version=self._worker_version,
+        )
+        line = json.dumps(capability_request.model_dump(), separators=(",", ":")) + "\n"
+        self._writer.write(line.encode())
+        await self._writer.drain()
+
+        raw_response = await self._reader.readline()
+        if not raw_response:
+            self._closed = True
+            raise ConnectionError("IPC socket disconnected during capability negotiation")
+        try:
+            response = CapabilityResponse.model_validate_json(raw_response)
+        except Exception as exc:
+            raise ConnectionError("invalid capability response") from exc
+
+        self._active_actions = list(response.active_actions)
+        self._initial_engine_context = dict(response.engine_context)
+        return response
 
     async def _read_response_line(self) -> tuple[bool, Any, str | None]:
         if self._reader is None:
@@ -533,9 +605,34 @@ class IPCClient:
         if self._writer is None or self._reader is None:
             await self.connect()
 
-        request = self._build_request_frame(action, payload)
-
         try:
+            if action == "capability_negotiation":
+                capability_request = CapabilityRequest(
+                    grant_token=str(payload.get("grant_token", "")),
+                    supported_actions=list(payload.get("supported_actions", [])),
+                    worker_version=str(payload.get("worker_version", self._worker_version)),
+                )
+                capability_request.id = str(uuid.uuid4())
+                if self._writer is None or self._reader is None:
+                    raise ConnectionError("IPC client is not connected")
+                line = json.dumps(capability_request.model_dump(), separators=(",", ":")) + "\n"
+                self._writer.write(line.encode())
+                await self._writer.drain()
+                raw = await self._reader.readline()
+                if not raw:
+                    self._closed = True
+                    raise ConnectionError("IPC socket disconnected")
+                response = CapabilityResponse.model_validate_json(raw)
+                self._active_actions = list(response.active_actions)
+                self._initial_engine_context = dict(response.engine_context)
+                return {
+                    "authenticated": response.accepted,
+                    "active_actions": response.active_actions,
+                    "engine_context": response.engine_context,
+                    "error": response.error,
+                }
+
+            request = self._build_request_frame(action, payload)
             await self._send_request_frame(request)
 
             while True:

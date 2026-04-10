@@ -76,33 +76,36 @@ def create_runner(model_name: str, api_key: str) -> RunsightTeamRunner:
 def create_tool_stubs(
     tool_envelopes: list[ToolDefEnvelope],
     socket_path: str,
-    grant_token: str,
+    grant_token: str | None = None,
 ) -> list[ToolInstance]:
     """Convert ToolDefEnvelope list into IPC-backed callable tool stubs."""
     stubs: list[ToolInstance] = []
     client: isolation_ipc.IPCClient | None = None
-    authenticated = False
+    connected = False
+    _ = grant_token
 
-    async def _get_authenticated_client() -> isolation_ipc.IPCClient:
-        nonlocal client, authenticated
+    async def _get_connected_client() -> isolation_ipc.IPCClient:
+        nonlocal client, connected
         if client is None:
             client = isolation_ipc.IPCClient(socket_path=socket_path)
-            await client.connect()
-        if not authenticated:
-            auth_result = await client.request(
-                "capability_negotiation",
-                {"grant_token": grant_token},
+        if not connected:
+            capability = await client.connect()
+            accepted = (
+                capability.get("accepted") if isinstance(capability, dict) else capability.accepted
             )
-            if isinstance(auth_result, dict) and "error" in auth_result:
-                raise PermissionError(f"IPC auth failed: {auth_result['error']}")
-            authenticated = True
+            error = capability.get("error") if isinstance(capability, dict) else capability.error
+            if not accepted:
+                raise PermissionError(
+                    f"IPC auth failed: {error or 'capability negotiation rejected'}"
+                )
+            connected = True
         return client
 
     for tool_def in tool_envelopes:
 
         async def _execute(args: dict[str, Any], *, td: ToolDefEnvelope = tool_def) -> str:
             try:
-                active_client = await _get_authenticated_client()
+                active_client = await _get_connected_client()
                 result = await active_client.request(
                     "tool_call",
                     {"name": td.name, "arguments": args},
