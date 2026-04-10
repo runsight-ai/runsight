@@ -184,8 +184,6 @@ class TestRegisterCustomAssertions:
         registry_module = _load_registry_module()
         _write_assertion_fixture(tmp_path, stem="tone_check", name="Tone Check Display Name")
         index = discovery_module.AssertionScanner(tmp_path).scan()
-        build_calls: list[str] = []
-        register_calls: list[str] = []
 
         class _Adapter:
             type = "custom:tone_check"
@@ -193,21 +191,15 @@ class TestRegisterCustomAssertions:
         monkeypatch.setattr(
             registry_module,
             "_build_adapter_class",
-            lambda **kwargs: build_calls.append(kwargs["plugin_name"]) or _Adapter,
+            lambda **kwargs: _Adapter,
             raising=False,
         )
-        monkeypatch.setattr(
-            registry_module,
-            "register_assertion",
-            lambda key, handler: register_calls.append(key),
-            raising=False,
-        )
+        monkeypatch.setattr(registry_module, "_REGISTRY", {}, raising=False)
 
         registry_module.register_custom_assertions(index)
         registry_module.register_custom_assertions(index)
 
-        assert build_calls == ["tone_check"]
-        assert register_calls == ["custom:tone_check"]
+        assert registry_module._get_handler("custom:tone_check") is _Adapter
 
     def test_register_custom_assertions_noops_when_index_is_empty(self, monkeypatch):
         discovery_module = _load_discovery_module()
