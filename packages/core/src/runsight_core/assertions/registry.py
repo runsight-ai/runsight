@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from jsonpath_ng import parse as jp_parse
 
+from runsight_core.assertions import custom as custom_assertions
 from runsight_core.assertions.base import AssertionContext, GradingResult
 from runsight_core.assertions.custom import _build_adapter_class
 from runsight_core.assertions.scoring import AssertionsResult
@@ -29,6 +30,10 @@ def register_assertion(type_str: str, handler: type) -> None:
 def register_custom_assertions(index: "ScanIndex[AssertionMeta]") -> None:
     """Register custom assertions from a discovery scan index."""
     for meta in index.stems().values():
+        if meta.manifest.params is not None:
+            custom_assertions._PARAM_SCHEMAS[meta.assertion_id] = meta.manifest.params
+        else:
+            custom_assertions._PARAM_SCHEMAS.pop(meta.assertion_id, None)
         adapter_class = _build_adapter_class(
             plugin_name=meta.assertion_id,
             code=meta.code or "",

@@ -10,6 +10,8 @@ import sys
 import threading
 from typing import Any, Callable
 
+from jsonschema import ValidationError, validate
+
 from runsight_core.assertions.base import AssertionContext, GradingResult
 from runsight_core.assertions.contract import ASSERTION_FUNCTION_NAME, ASSERTION_FUNCTION_PARAMS
 from runsight_core.blocks.code import BLOCKED_BUILTINS, BLOCKED_MODULES, DEFAULT_ALLOWED_IMPORTS
@@ -80,6 +82,7 @@ _RETURN_VALIDATORS: dict[str, Callable[[Any, str], GradingResult]] = {
     "bool": _validate_bool_return,
     "grading_result": _validate_grading_result_return,
 }
+_PARAM_SCHEMAS: dict[str, dict[str, Any]] = {}
 
 _DEFAULT_PLUGIN_TIMEOUT_SECONDS = 30
 
@@ -292,6 +295,18 @@ def _build_adapter_class(plugin_name: str, code: str, returns: str) -> type:
             self.config = config
 
         def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
+            param_schema = _PARAM_SCHEMAS.get(plugin_name)
+            if param_schema is not None:
+                try:
+                    validate(instance=self.config, schema=param_schema)
+                except ValidationError as exc:
+                    return GradingResult(
+                        passed=False,
+                        score=0.0,
+                        reason=f"Config validation failed: {exc.message}",
+                        assertion_type=assertion_type,
+                    )
+
             plugin_context = _build_plugin_context(self.config, context)
             try:
                 raw = _run_plugin_sync(harness, output, plugin_context)
