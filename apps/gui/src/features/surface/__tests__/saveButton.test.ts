@@ -82,7 +82,7 @@ vi.mock("lucide-react", () => ({
   X: () => React.createElement("span", null, "x"),
 }));
 
-const { CanvasTopbar } = await import("../SurfaceTopbar");
+const { SurfaceTopbar } = await import("../SurfaceTopbar");
 
 function findSaveButton() {
   const saveButton = mocks.buttonProps.find((props) =>
@@ -93,11 +93,11 @@ function findSaveButton() {
   return saveButton as { onClick?: () => void; variant?: string };
 }
 
-function renderTopbar(overrides: Partial<React.ComponentProps<typeof CanvasTopbar>> = {}) {
+function renderTopbar(overrides: Partial<React.ComponentProps<typeof SurfaceTopbar>> = {}) {
   mocks.buttonProps.length = 0;
 
   const markup = renderToStaticMarkup(
-    React.createElement(CanvasTopbar, {
+    React.createElement(SurfaceTopbar, {
       workflowId: "wf_1",
       activeTab: "yaml",
       onValueChange: vi.fn(),
@@ -120,7 +120,7 @@ beforeEach(() => {
   });
 });
 
-describe("CanvasTopbar save behavior (RUN-433)", () => {
+describe("SurfaceTopbar save behavior (RUN-433)", () => {
   it("renders a quiet save button when the canvas is clean", () => {
     const { markup, saveButton } = renderTopbar({ isDirty: false });
 

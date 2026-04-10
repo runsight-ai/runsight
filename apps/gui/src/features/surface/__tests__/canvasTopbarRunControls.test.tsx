@@ -53,25 +53,25 @@ vi.mock("../ExecutionMetrics", () => ({
   ExecutionMetrics: () => React.createElement("div", null, "metrics"),
 }));
 
-vi.mock("../../runs/useForkWorkflow", () => ({
+vi.mock("../useForkWorkflow", () => ({
   useForkWorkflow: () => ({
     forkWorkflow: vi.fn(),
     isForking: false,
   }),
 }));
 
-import { CanvasTopbar } from "../SurfaceTopbar";
+import { SurfaceTopbar } from "../SurfaceTopbar";
 
 beforeEach(() => {
   mocks.cancelRun.mockReset();
 });
 
-describe("CanvasTopbar run controls", () => {
+describe("SurfaceTopbar run controls", () => {
   it("cancels a live simulation run when the topbar cancel action is clicked", async () => {
     const user = userEvent.setup();
 
     render(
-      <CanvasTopbar
+      <SurfaceTopbar
         workflowId="wf_1"
         runId="run_live"
         activeTab="canvas"

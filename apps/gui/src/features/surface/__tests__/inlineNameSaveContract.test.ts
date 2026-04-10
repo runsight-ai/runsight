@@ -96,12 +96,12 @@ vi.mock("lucide-react", () => ({
   X: () => React.createElement("span", null, "x"),
 }));
 
-const { CanvasTopbar } = await import("../SurfaceTopbar");
+const { SurfaceTopbar } = await import("../SurfaceTopbar");
 
 function renderTopbar(onSave = vi.fn()) {
   mocks.stateCursor = 0;
 
-  const tree = CanvasTopbar({
+  const tree = SurfaceTopbar({
     workflowId: "wf_1",
     activeTab: "yaml",
     onValueChange: vi.fn(),
@@ -160,7 +160,7 @@ beforeEach(() => {
   mocks.stateCursor = 0;
 });
 
-describe("CanvasTopbar inline rename save contract (RUN-424)", () => {
+describe("SurfaceTopbar inline rename save contract (RUN-424)", () => {
   it("does not trigger the explicit production save path when a blurred inline rename completes", () => {
     const onSave = vi.fn();
     const initialTree = renderTopbar(onSave);

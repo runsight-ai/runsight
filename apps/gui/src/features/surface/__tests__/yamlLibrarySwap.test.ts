@@ -66,7 +66,7 @@ describe("No js-yaml imports in source files", () => {
   const sourceFiles = [
     "yamlCompiler.ts",
     "yamlParser.ts",
-    "WorkflowCanvas.tsx",
+    "SurfaceCanvas.tsx",
   ];
 
   it.each(sourceFiles)(

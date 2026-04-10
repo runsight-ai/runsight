@@ -178,12 +178,12 @@ describe("Compiler no placeholder fallback", () => {
 });
 
 // ===========================================================================
-// 7. WorkflowCanvas no longer contains placeholder-specific fallback logic
+// 7. SurfaceCanvas no longer contains placeholder-specific fallback logic
 // ===========================================================================
 
 describe("Canvas display fallback", () => {
-  it("WorkflowCanvas.tsx does not encode placeholder-specific display fallback", () => {
-    const source = readSourceFile("WorkflowCanvas.tsx");
+  it("SurfaceCanvas.tsx does not encode placeholder-specific display fallback", () => {
+    const source = readSourceFile("SurfaceCanvas.tsx");
     expect(source).not.toContain('"placeholder"');
   });
 });
