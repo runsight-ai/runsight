@@ -124,7 +124,14 @@ class AssertionScanner(BaseScanner[AssertionMeta]):
             return ScanIndex()
 
         results: list[ScanResult[AssertionMeta]] = []
+        seen_stems: set[str] = set()
         for yaml_file in self._glob_yaml_files(asset_dir):
+            if yaml_file.stem in seen_stems:
+                raise _fail_assertion_file(
+                    yaml_file,
+                    f"duplicate custom assertion id collision for {yaml_file.stem!r}",
+                )
+            seen_stems.add(yaml_file.stem)
             result = self._scan_yaml_file(yaml_file)
             if result is not None:
                 results.append(result)
@@ -151,15 +158,23 @@ class AssertionScanner(BaseScanner[AssertionMeta]):
             return ScanIndex()
 
         results: list[ScanResult[AssertionMeta]] = []
+        seen_stems: set[str] = set()
         for line in result.stdout.splitlines():
             candidate = line.strip()
             if not candidate or not candidate.endswith(".yaml"):
                 continue
+            candidate_path = Path(candidate)
+            if candidate_path.stem in seen_stems:
+                raise _fail_assertion_file(
+                    candidate_path,
+                    f"duplicate custom assertion id collision for {candidate_path.stem!r}",
+                )
+            seen_stems.add(candidate_path.stem)
             try:
                 raw_yaml = git_service.read_file(candidate, git_ref)
             except Exception:
                 continue
-            result_item = self._scan_yaml_content(Path(candidate), raw_yaml)
+            result_item = self._scan_yaml_content(candidate_path, raw_yaml)
             if result_item is not None:
                 results.append(result_item)
         return ScanIndex(results)

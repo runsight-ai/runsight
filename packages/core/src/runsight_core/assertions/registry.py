@@ -5,12 +5,16 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jsonpath_ng import parse as jp_parse
 
 from runsight_core.assertions.base import AssertionContext, GradingResult
+from runsight_core.assertions.custom import _build_adapter_class
 from runsight_core.assertions.scoring import AssertionsResult
+
+if TYPE_CHECKING:
+    from runsight_core.yaml.discovery import AssertionMeta, ScanIndex
 
 _REGISTRY: dict[str, type] = {}
 
@@ -20,6 +24,17 @@ NOT_PREFIX = "not-"
 def register_assertion(type_str: str, handler: type) -> None:
     """Register an assertion handler class by type string."""
     _REGISTRY[type_str] = handler
+
+
+def register_custom_assertions(index: "ScanIndex[AssertionMeta]") -> None:
+    """Register custom assertions from a discovery scan index."""
+    for meta in index.stems().values():
+        adapter_class = _build_adapter_class(
+            plugin_name=meta.assertion_id,
+            code=meta.code or "",
+            returns=meta.manifest.returns,
+        )
+        register_assertion(f"custom:{meta.assertion_id}", adapter_class)
 
 
 def _get_handler(type_str: str) -> type:

@@ -16,6 +16,7 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     from runsight_core.yaml.registry import WorkflowRegistry
 
+from runsight_core.assertions.registry import register_custom_assertions
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import (
     Condition,
@@ -25,7 +26,7 @@ from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
-from runsight_core.yaml.discovery import SoulScanner, ToolScanner, WorkflowScanner
+from runsight_core.yaml.discovery import AssertionScanner, SoulScanner, ToolScanner, WorkflowScanner
 from runsight_core.yaml.schema import (
     CaseDef,
     ConditionDef,
@@ -384,8 +385,16 @@ def _find_project_root(start: Path) -> str:
     """Walk up from *start* to find the directory that contains ``custom/``."""
     current = start.resolve()
     for candidate in [current, *current.parents]:
-        if (candidate / "custom").is_dir():
+        custom_dir = candidate / "custom"
+        if not custom_dir.is_dir():
+            continue
+        if candidate == current:
             return str(candidate)
+        try:
+            current.relative_to(custom_dir)
+        except ValueError:
+            continue
+        return str(candidate)
     return str(start)
 
 
@@ -624,6 +633,9 @@ def parse_workflow_yaml(
         file_def,
         workflow_label=getattr(file_def.workflow, "name", "<root>"),
     )
+
+    assertion_index = AssertionScanner(workflow_base_dir).scan()
+    register_custom_assertions(assertion_index)
 
     # Step 3: Discover library souls from custom/souls/.
     souls_dir = Path(workflow_base_dir) / "custom" / "souls"
