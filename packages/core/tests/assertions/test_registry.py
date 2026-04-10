@@ -9,6 +9,7 @@ from runsight_core.assertions.registry import (
     register_assertion,
     run_assertion,
     run_assertions,
+    run_assertions_sync,
 )
 from runsight_core.assertions.scoring import AssertionsResult
 
@@ -227,6 +228,62 @@ class TestRunAssertion:
         assert isinstance(result, GradingResult)
         assert result.passed is True
 
+    def test_run_assertion_passes_threshold_to_cost_constructor(self, monkeypatch):
+        """Cost assertions receive the configured threshold during construction."""
+        import runsight_core.assertions.deterministic  # noqa: F401
+        from runsight_core.assertions.deterministic.performance import CostAssertion
+
+        register_assertion("cost", CostAssertion)
+        ctx = _make_context(cost_usd=0.04)
+        captured: dict[str, object] = {}
+        original_init = CostAssertion.__init__
+
+        def recording_init(self, value=None, threshold=None, config=None):
+            captured["value"] = value
+            captured["threshold"] = threshold
+            captured["config"] = config
+            original_init(self, value=value, threshold=threshold)
+
+        monkeypatch.setattr(CostAssertion, "__init__", recording_init)
+
+        run_assertion(
+            type="cost",
+            output="Hello",
+            context=ctx,
+            threshold=0.05,
+        )
+
+        assert captured["threshold"] == 0.05
+
+    def test_run_assertion_raises_when_constructor_rejects_kwargs(self):
+        """Unsupported assertion constructors should fail loudly instead of falling back."""
+
+        class NoKwargsAssertion:
+            type: str = "no-kwargs"
+
+            def __init__(self):
+                self.initialized = True
+
+            def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
+                return GradingResult(
+                    passed=True,
+                    score=1.0,
+                    reason="unexpected success",
+                    assertion_type="no-kwargs",
+                )
+
+        register_assertion("no-kwargs", NoKwargsAssertion)
+        ctx = _make_context()
+
+        with pytest.raises(TypeError):
+            run_assertion(
+                type="no-kwargs",
+                output="Hello",
+                context=ctx,
+                value="Hello",
+                threshold=0.5,
+            )
+
     def test_run_assertion_accepts_threshold_and_weight_and_metric(self):
         """run_assertion accepts threshold, weight, and metric parameters."""
         register_assertion("contains", _ContainsAssertion)
@@ -243,6 +300,35 @@ class TestRunAssertion:
             metric="accuracy",
         )
         assert isinstance(result, GradingResult)
+
+    def test_run_assertion_passes_config_to_builtin_constructor_without_changing_behavior(
+        self, monkeypatch
+    ):
+        """Builtins receive config in the constructor and still behave the same."""
+        import runsight_core.assertions.deterministic  # noqa: F401
+        from runsight_core.assertions.deterministic.performance import CostAssertion
+
+        register_assertion("cost", CostAssertion)
+        ctx = _make_context(cost_usd=0.04)
+        captured: dict[str, object] = {}
+        original_init = CostAssertion.__init__
+
+        def recording_init(self, value=None, threshold=None, config=None):
+            captured["config"] = config
+            original_init(self, value=value, threshold=threshold, config=config)
+
+        monkeypatch.setattr(CostAssertion, "__init__", recording_init)
+
+        result = run_assertion(
+            type="cost",
+            output="Hello",
+            context=ctx,
+            threshold=0.05,
+            config={"mode": "strict"},
+        )
+
+        assert captured["config"] == {"mode": "strict"}
+        assert result.passed is True
 
 
 # ---------------------------------------------------------------------------
@@ -351,3 +437,123 @@ class TestRunAssertions:
         result = await run_assertions(config, output="Hello world", context=ctx)
         # Only weight=1.0 assertion in aggregate
         assert abs(result.aggregate_score - 1.0) < 1e-9
+
+    @pytest.mark.asyncio
+    async def test_run_assertions_passes_config_to_custom_handler_constructor(self):
+        captured: list[object] = []
+
+        class RecordingAssertion:
+            type = "recording-async-config"
+
+            def __init__(self, value="", threshold=None, config=None):
+                captured.append(config)
+
+            def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
+                return GradingResult(
+                    passed=True,
+                    score=1.0,
+                    reason="config recorded",
+                    assertion_type=self.type,
+                )
+
+        register_assertion("recording-async-config", RecordingAssertion)
+        ctx = _make_context()
+
+        result = await run_assertions(
+            [{"type": "recording-async-config", "config": {"mode": "strict"}}],
+            output="Hello world",
+            context=ctx,
+        )
+
+        assert result.results[0].passed is True
+        assert captured == [{"mode": "strict"}]
+
+    @pytest.mark.asyncio
+    async def test_run_assertions_missing_config_defaults_to_none(self):
+        captured: list[object] = []
+
+        class RecordingAssertion:
+            type = "recording-none-config"
+
+            def __init__(self, value="", threshold=None, config=None):
+                captured.append(config)
+
+            def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
+                return GradingResult(
+                    passed=True,
+                    score=1.0,
+                    reason="config recorded",
+                    assertion_type=self.type,
+                )
+
+        register_assertion("recording-none-config", RecordingAssertion)
+        ctx = _make_context()
+
+        result = await run_assertions(
+            [{"type": "recording-none-config"}],
+            output="Hello world",
+            context=ctx,
+        )
+
+        assert result.results[0].passed is True
+        assert captured == [None]
+
+
+class TestRunAssertionsSync:
+    def test_run_assertions_sync_passes_config_to_custom_handler_constructor(self):
+        captured: list[object] = []
+
+        class RecordingAssertion:
+            type = "recording-sync-config"
+
+            def __init__(self, value="", threshold=None, config=None):
+                captured.append(config)
+
+            def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
+                return GradingResult(
+                    passed=True,
+                    score=1.0,
+                    reason="config recorded",
+                    assertion_type=self.type,
+                )
+
+        register_assertion("recording-sync-config", RecordingAssertion)
+        ctx = _make_context()
+
+        result = run_assertions_sync(
+            [{"type": "recording-sync-config", "config": {"mode": "strict"}}],
+            output="Hello world",
+            context=ctx,
+        )
+
+        assert result.results[0].passed is True
+        assert captured == [{"mode": "strict"}]
+
+    def test_run_assertions_sync_passes_non_dict_config_through_unchanged(self):
+        captured: list[object] = []
+
+        class RecordingAssertion:
+            type = "recording-raw-config"
+
+            def __init__(self, value="", threshold=None, config=None):
+                captured.append(config)
+
+            def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
+                return GradingResult(
+                    passed=True,
+                    score=1.0,
+                    reason="config recorded",
+                    assertion_type=self.type,
+                )
+
+        register_assertion("recording-raw-config", RecordingAssertion)
+        ctx = _make_context()
+
+        result = run_assertions_sync(
+            [{"type": "recording-raw-config", "config": "raw-config-token"}],
+            output="Hello world",
+            context=ctx,
+        )
+
+        assert result.results[0].passed is True
+        assert captured == ["raw-config-token"]

@@ -13,7 +13,9 @@ Tests target the new EvalObserver that lives in the CompositeObserver chain:
 All tests should FAIL until the implementation exists.
 """
 
+import ast
 import asyncio
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -169,6 +171,27 @@ class TestEvalObserverImport:
             assertion_configs={"block_a": [{"type": "contains", "value": "x"}]},
         )
         assert obs is not None
+
+    def test_module_uses_public_registry_sync_runner(self):
+        """EvalObserver should depend on the shared registry sync runner, not local duplicates."""
+        import runsight_api.logic.observers.eval_observer as eval_observer_module
+        from runsight_core.assertions import registry as assertion_registry
+
+        source = Path(eval_observer_module.__file__).read_text()
+        tree = ast.parse(source)
+        defined_functions = {
+            node.name
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+
+        assert hasattr(assertion_registry, "run_assertions_sync")
+        assert "_run_assertion_sync" not in defined_functions
+        assert "_run_assertions_sync" not in defined_functions
+        assert (
+            getattr(eval_observer_module, "run_assertions_sync")
+            is assertion_registry.run_assertions_sync
+        )
 
 
 # ---------------------------------------------------------------------------

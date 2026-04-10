@@ -18,9 +18,15 @@ class IsJsonAssertion:
 
     type = "is-json"
 
-    def __init__(self, value: Any = None, threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = None,
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = value
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         try:
@@ -44,9 +50,15 @@ class ContainsJsonAssertion:
 
     type = "contains-json"
 
-    def __init__(self, value: Any = None, threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = None,
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = value
         self.threshold = threshold
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         parsed = _extract_json(output)

@@ -25,7 +25,7 @@ These fields live on the `RunNode` entity and are populated by the `EvalObserver
 
 - **`eval_score`** (`Optional[float]`): The weighted average of all assertion scores for that node. A value of `1.0` means every assertion scored perfectly; `0.0` means all failed.
 - **`eval_passed`** (`Optional[bool]`): `True` only if every individual assertion passed. A node can have a high score but still fail if one assertion did not pass.
-- **`eval_results`** (`Optional[Dict]`): Detailed breakdown with per-assertion `type`, `passed`, `score`, and `reason`.
+- **`eval_results`** (`Optional[Dict]`): Detailed breakdown with per-assertion `passed`, `score`, and `reason`, plus `type` when the assertion handler sets one. Custom assertions do; many built-in deterministic assertions leave it as `null`.
 
 When a block has no assertions, all three fields are `None` and the node is excluded from regression detection.
 
@@ -57,7 +57,7 @@ Each regression issue in the response contains:
 | Field | Type | Description |
 |-------|------|-------------|
 | `node_id` | `str` | The block that regressed |
-| `node_name` | `str` | Display name of the node |
+| `node_name` | `str` | Display label for the node when available; otherwise it falls back to `node_id` |
 | `type` | `str` | One of `assertion_regression`, `cost_spike`, `quality_drop` |
 | `delta` | `dict` | Type-specific comparison data (see table above) |
 | `run_id` | `str` | (workflow endpoint only) Which run introduced this regression |
@@ -88,4 +88,4 @@ The regression response schema on the frontend validates three regression types:
 
 The `EvalService.get_attention_items` method scans production runs from the last 24 hours and surfaces regressions as attention items on the dashboard. It flags the same three conditions as the regression endpoints, plus a `new_baseline` info item for the first production run of a soul version. Items are sorted by severity (warnings before info) and recency.
 
-<!-- Linear: RUN-555, RUN-558 -- last verified against codebase 2026-04-07 -->
+<!-- Linear: RUN-555, RUN-558, RUN-769, RUN-801 -- last verified against codebase 2026-04-10 -->

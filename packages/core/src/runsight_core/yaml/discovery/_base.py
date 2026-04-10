@@ -12,6 +12,24 @@ import yaml
 T = TypeVar("T")
 
 
+def resolve_discovery_base_dir(start: Path) -> str:
+    """Resolve the authoritative discovery base directory for a workflow location."""
+    current = start.resolve()
+    current_custom_dir = current / "custom"
+    if current_custom_dir.is_dir():
+        return str(current)
+
+    for candidate in current.parents:
+        custom_dir = candidate / "custom"
+        if not custom_dir.is_dir():
+            continue
+        workflows_dir = candidate / "workflows"
+        if current.is_relative_to(workflows_dir) or current.is_relative_to(custom_dir):
+            return str(candidate)
+
+    return str(current)
+
+
 class AssetType(str, Enum):
     SOUL = "SOUL"
     TOOL = "TOOL"

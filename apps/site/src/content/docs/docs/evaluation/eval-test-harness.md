@@ -13,9 +13,10 @@ Add an `eval:` section at the top level of your workflow file, alongside `blocks
 version: "1.0"
 blocks:
   analyze:
-    type: llm
-    soul_ref: analyst
-    prompt_template: "Analyze: {task_instruction}"
+    type: code
+    code: |
+      def main(data):
+          return "unused in fixture mode"
     assertions:
       - type: contains
         value: "analysis"
@@ -47,7 +48,7 @@ The `eval:` section is parsed as an `EvalSectionDef` model:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `threshold` | `float` | no | `1.0` (when omitted) | Minimum aggregate score for the suite to pass. Range: 0.0 to 1.0 |
+| `threshold` | `float` | no | `None` in the schema, treated as `1.0` at runtime when omitted | Minimum aggregate score for the suite to pass. Range: 0.0 to 1.0 |
 | `cases` | `list[EvalCaseDef]` | yes | -- | At least one test case required (`min_length=1`) |
 
 Case IDs must be unique within the eval section. Duplicates cause a validation error.
@@ -92,6 +93,10 @@ eval:
 
 If a case has `expected` blocks without matching fixtures, the runner requires an executor callback. If no executor is provided, it raises a `RuntimeError`.
 
+:::note
+Custom assertions are supported in `expected` just like built-in assertions, but scanner-based auto-discovery only happens when `run_eval()` is given a workflow file path. Passing raw YAML text does not scan `custom/assertions`.
+:::
+
 ## Running offline evals
 
 When you run evals, the harness loads your workflow YAML, finds the `eval:` section, and executes each case. Fixture-only cases run instantly with no LLM calls. The result tells you whether the suite passed and gives per-case scores.
@@ -104,7 +109,7 @@ The suite result contains:
 |-------|------|-------------|
 | `passed` | `bool` | `True` if `score >= threshold` |
 | `score` | `float` | Average of all case scores |
-| `threshold` | `float` | From `eval.threshold` (defaults to `1.0` if omitted) |
+| `threshold` | `float` | From `eval.threshold`, or `1.0` at runtime when the field is omitted |
 | `case_results` | `list[EvalCaseResult]` | Per-case breakdown |
 
 Each `EvalCaseResult` contains:
@@ -118,7 +123,7 @@ Each `EvalCaseResult` contains:
 
 ### Score computation
 
-1. Each assertion produces a score (0.0 or 1.0 for deterministic types)
+1. Each assertion produces a score between `0.0` and `1.0`
 2. Block score = weighted average of assertion scores
 3. Case score = average of block scores
 4. Suite score = average of case scores
@@ -126,7 +131,7 @@ Each `EvalCaseResult` contains:
 
 ## Executor mode
 
-For cases that need actual LLM execution (no fixtures for some blocks), the harness runs each block through the real execution pipeline. This means those cases make live LLM calls, cost tokens, and produce non-deterministic results. Use executor mode when you want to validate actual model behavior rather than testing assertion logic against known outputs.
+For cases that need live execution (no fixtures for some blocks), `run_eval()` awaits a caller-supplied `executor(raw, inputs)` function that must return a `WorkflowState`. That executor can call the real workflow runtime, a test double, or any other harness you provide. `run_eval()` itself does not automatically run the full execution pipeline.
 
 ## Mixing fixture and executor cases
 
@@ -152,6 +157,6 @@ eval:
             value: "transformer"
 ```
 
-The fixture case runs without an executor. The live case requires one. If no executor is provided, only fixture cases succeed -- the live case raises a `RuntimeError`.
+The fixture case runs without an executor. The live case requires one. If no executor is provided, `run_eval()` raises a `RuntimeError` when it reaches the first executor-required case; it does not return partial suite results.
 
-<!-- Linear: RUN-694, RUN-695, RUN-699, RUN-700 -- last verified against codebase 2026-04-07 -->
+<!-- Linear: RUN-694, RUN-695, RUN-699, RUN-700, RUN-769, RUN-800, RUN-801 -- last verified against codebase 2026-04-10 -->

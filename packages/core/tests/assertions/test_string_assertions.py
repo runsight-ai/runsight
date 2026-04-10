@@ -51,7 +51,7 @@ def make_context(output: str = "", **overrides) -> AssertionContext:
 
 
 class TestEqualsAssertion:
-    """AC-1: registered as 'equals', exact string match or deep-equal JSON."""
+    """AC-1: registered as 'equals', exact string match by default."""
 
     def test_type_attribute(self):
         a = EqualsAssertion(value="x")
@@ -89,18 +89,38 @@ class TestEqualsAssertion:
         result = a.evaluate("", ctx)
         assert result.passed is False
 
-    def test_json_deep_equal(self):
-        """equals should deep-equal JSON objects regardless of key order."""
+    def test_default_string_mode_does_not_do_implicit_json_deep_equal(self):
         a = EqualsAssertion(value='{"b": 2, "a": 1}')
+        ctx = make_context('{"a": 1, "b": 2}')
+        result = a.evaluate('{"a": 1, "b": 2}', ctx)
+        assert result.passed is False
+
+    def test_json_mode_deep_equal(self):
+        """JSON deep-equal is available only through explicit config."""
+        a = EqualsAssertion(value='{"b": 2, "a": 1}', config={"mode": "json"})
         ctx = make_context('{"a": 1, "b": 2}')
         result = a.evaluate('{"a": 1, "b": 2}', ctx)
         assert result.passed is True
 
-    def test_json_deep_equal_fails_different_values(self):
-        a = EqualsAssertion(value='{"a": 1}')
+    def test_json_mode_fails_different_values(self):
+        a = EqualsAssertion(value='{"a": 1}', config={"mode": "json"})
         ctx = make_context('{"a": 2}')
         result = a.evaluate('{"a": 2}', ctx)
         assert result.passed is False
+
+    def test_json_mode_fails_invalid_json(self):
+        a = EqualsAssertion(value='{"a": 1}', config={"mode": "json"})
+        ctx = make_context("not json")
+        result = a.evaluate("not json", ctx)
+        assert result.passed is False
+        assert "not valid JSON" in result.reason
+
+    def test_invalid_mode_fails_explicitly(self):
+        a = EqualsAssertion(value="x", config={"mode": "yaml"})
+        ctx = make_context("x")
+        result = a.evaluate("x", ctx)
+        assert result.passed is False
+        assert "Unsupported equals mode" in result.reason
 
     def test_returns_grading_result(self):
         a = EqualsAssertion(value="x")

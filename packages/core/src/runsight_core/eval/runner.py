@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 import yaml
 
 from runsight_core.assertions.base import AssertionContext
-from runsight_core.assertions.registry import run_assertions
+from runsight_core.assertions.registry import register_custom_assertions, run_assertions
 from runsight_core.assertions.scoring import AssertionsResult
 from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.yaml.discovery import AssertionScanner, resolve_discovery_base_dir
 from runsight_core.yaml.schema import EvalSectionDef
 
 
@@ -65,6 +67,21 @@ def _has_fixtures_for_all_expected(
     return all(block_id in fixtures for block_id in expected)
 
 
+def _load_eval_workflow_source(workflow_yaml: str) -> tuple[dict[str, Any], str | None]:
+    """Load eval workflow input from either raw YAML content or a workflow file path."""
+    stripped = workflow_yaml.strip()
+    is_file_path = (
+        "\n" not in stripped
+        and stripped.endswith((".yaml", ".yml", ".json"))
+        and Path(stripped).exists()
+    )
+    if is_file_path:
+        workflow_path = Path(stripped).resolve()
+        with open(workflow_path, "r", encoding="utf-8") as handle:
+            return yaml.safe_load(handle), resolve_discovery_base_dir(workflow_path.parent)
+    return yaml.safe_load(workflow_yaml), None
+
+
 async def run_eval(
     workflow_yaml: str,
     *,
@@ -77,7 +94,10 @@ async def run_eval(
     - Otherwise, calls executor to get a WorkflowState.
     - Runs assertions per block and aggregates scores.
     """
-    raw = yaml.safe_load(workflow_yaml)
+    raw, workflow_base_dir = _load_eval_workflow_source(workflow_yaml)
+    if workflow_base_dir is not None:
+        assertion_index = AssertionScanner(workflow_base_dir).scan()
+        register_custom_assertions(assertion_index)
     eval_raw = raw.get("eval")
     if eval_raw is None:
         raise ValueError("Workflow YAML has no eval section")

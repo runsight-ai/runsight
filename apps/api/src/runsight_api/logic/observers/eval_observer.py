@@ -3,9 +3,8 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from runsight_core.assertions.base import AssertionContext, GradingResult
-from runsight_core.assertions.registry import NOT_PREFIX, _apply_transform, _get_handler
-from runsight_core.assertions.scoring import AssertionsResult
+from runsight_core.assertions.base import AssertionContext
+from runsight_core.assertions.registry import run_assertions_sync
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
 from runsight_core.state import BlockResult, WorkflowState
@@ -15,80 +14,6 @@ from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.domain.entities.run import RunNode
 
 logger = logging.getLogger(__name__)
-
-
-def _run_assertion_sync(
-    *,
-    type: str,
-    output: str,
-    context: AssertionContext,
-    value: Any = "",
-    threshold: float | None = None,
-    weight: float = 1.0,
-    transform: str | None = None,
-) -> GradingResult:
-    """Dispatch a single assertion synchronously, forwarding all kwargs to the handler."""
-    if transform is not None:
-        transformed = _apply_transform(transform, output)
-        if isinstance(transformed, GradingResult):
-            return transformed
-        output = transformed
-
-    negated = type.startswith(NOT_PREFIX)
-    base_type = type[len(NOT_PREFIX) :] if negated else type
-
-    handler_cls = _get_handler(base_type)
-    try:
-        handler = handler_cls(value=value, threshold=threshold)
-    except TypeError:
-        try:
-            handler = handler_cls(value=value)
-        except TypeError:
-            handler = handler_cls()
-    result = handler.evaluate(output, context)
-
-    if negated:
-        return GradingResult(
-            passed=not result.passed,
-            score=1.0 - result.score,
-            reason=result.reason,
-            named_scores=result.named_scores,
-            tokens_used=result.tokens_used,
-            component_results=result.component_results,
-            assertion_type=result.assertion_type,
-            metadata=result.metadata,
-        )
-
-    return result
-
-
-def _run_assertions_sync(
-    config: List[Dict[str, Any]],
-    *,
-    output: str,
-    context: AssertionContext,
-) -> AssertionsResult:
-    """Run a list of assertion configs synchronously and return aggregated results."""
-    agg = AssertionsResult()
-    if not config:
-        return agg
-
-    for cfg in config:
-        weight = cfg.get("weight", 1.0)
-        result = _run_assertion_sync(
-            type=cfg["type"],
-            output=output,
-            context=context,
-            value=cfg.get("value", ""),
-            threshold=cfg.get("threshold"),
-            weight=weight,
-            transform=cfg.get("transform"),
-        )
-        if cfg.get("metric"):
-            result.named_scores[cfg["metric"]] = result.score
-        agg.add_result(result, weight=weight)
-
-    return agg
 
 
 class EvalObserver:
@@ -223,7 +148,7 @@ class EvalObserver:
         )
 
         # Run assertions synchronously
-        assertion_result = _run_assertions_sync(block_configs, output=output, context=context)
+        assertion_result = run_assertions_sync(block_configs, output=output, context=context)
         eval_score = assertion_result.aggregate_score
         eval_passed = assertion_result.passed()
 
