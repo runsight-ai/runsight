@@ -87,8 +87,7 @@ def create_tool_stubs(
             try:
                 result = await client.request(
                     "tool_call",
-                    name=td.name,
-                    arguments=args,
+                    {"name": td.name, "arguments": args},
                 )
             finally:
                 close_result = client.close()

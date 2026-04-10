@@ -252,15 +252,6 @@ class IPCClient:
         """Open a connection to the IPC socket."""
         self._reader, self._writer = await asyncio.open_unix_connection(self._socket_path)
 
-    def _build_request_payload(
-        self, payload: dict[str, Any] | None, params: dict[str, Any]
-    ) -> dict[str, Any]:
-        if payload is None:
-            return dict(params)
-        merged = dict(payload)
-        merged.update(params)
-        return merged
-
     async def _read_response_line(self) -> tuple[bool, Any, str | None]:
         if self._reader is None:
             raise ConnectionError("IPC client is not connected")
@@ -283,17 +274,11 @@ class IPCClient:
 
         return frame.done, frame.payload, frame.error
 
-    def _build_request_frame(
-        self,
-        action: str,
-        payload: dict[str, Any] | None,
-        params: dict[str, Any],
-    ) -> IPCRequest:
-        request_payload = self._build_request_payload(payload, params)
+    def _build_request_frame(self, action: str, payload: dict[str, Any]) -> IPCRequest:
         return IPCRequest(
             id=str(uuid.uuid4()),
             action=action,
-            payload=request_payload,
+            payload=payload,
         )
 
     async def _send_request_frame(self, request: IPCRequest) -> None:
@@ -306,8 +291,7 @@ class IPCClient:
     async def request(
         self,
         action: str,
-        payload: dict[str, Any] | None = None,
-        **params: Any,
+        payload: dict[str, Any],
     ) -> Any:
         """Send an NDJSON request and return the final payload frame."""
         if self._closed:
@@ -316,7 +300,7 @@ class IPCClient:
         if self._writer is None or self._reader is None:
             await self.connect()
 
-        request = self._build_request_frame(action, payload, params)
+        request = self._build_request_frame(action, payload)
 
         try:
             await self._send_request_frame(request)
@@ -334,8 +318,7 @@ class IPCClient:
     async def request_stream(
         self,
         action: str,
-        payload: dict[str, Any] | None = None,
-        **params: Any,
+        payload: dict[str, Any],
     ):
         """Send an NDJSON request and yield non-final payload frames."""
         if self._closed:
@@ -344,7 +327,7 @@ class IPCClient:
         if self._writer is None or self._reader is None:
             await self.connect()
 
-        request = self._build_request_frame(action, payload, params)
+        request = self._build_request_frame(action, payload)
 
         try:
             await self._send_request_frame(request)
