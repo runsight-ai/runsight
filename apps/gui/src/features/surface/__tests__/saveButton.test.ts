@@ -82,7 +82,7 @@ vi.mock("lucide-react", () => ({
   X: () => React.createElement("span", null, "x"),
 }));
 
-const { CanvasTopbar } = await import("../CanvasTopbar");
+const { CanvasTopbar } = await import("../SurfaceTopbar");
 
 function findSaveButton() {
   const saveButton = mocks.buttonProps.find((props) =>

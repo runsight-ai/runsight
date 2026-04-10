@@ -94,7 +94,7 @@ function compileOne(node: Node<StepNodeData>) {
 // ===========================================================================
 
 describe("PaletteSidebar — FileWriter removed (AC1)", () => {
-  const PALETTE_PATH = "features/canvas/PaletteSidebar.tsx";
+  const PALETTE_PATH = "features/surface/PaletteSidebar.tsx";
 
   it("BLOCK_TYPES does NOT contain a 'FileWriter' entry", () => {
     const source = readSource(PALETTE_PATH);
@@ -135,7 +135,7 @@ describe("PaletteSidebar — FileWriter removed (AC1)", () => {
 
 describe("PaletteSidebar — all BLOCK_TYPES entries are valid engine types (AC2)", () => {
   it("every BLOCK_TYPES label maps to a canonical StepType", () => {
-    const source = readSource("features/canvas/PaletteSidebar.tsx");
+    const source = readSource("features/surface/PaletteSidebar.tsx");
 
     // Extract labels from the BLOCK_TYPES array: `{ label: "Foo", ... }`
     const labelMatches = [...source.matchAll(/label:\s*["']([^"']+)["']/g)];
@@ -175,7 +175,7 @@ describe("PaletteSidebar — all BLOCK_TYPES entries are valid engine types (AC2
   });
 
   it("FileWriter label is not present anywhere in BLOCK_TYPES labels", () => {
-    const source = readSource("features/canvas/PaletteSidebar.tsx");
+    const source = readSource("features/surface/PaletteSidebar.tsx");
 
     const blockTypesMatch = source.match(/const\s+BLOCK_TYPES\s*=\s*\[[\s\S]*?\]\s*as\s+const/);
     const blockTypesSource = blockTypesMatch ? blockTypesMatch[0] : "";
@@ -258,7 +258,7 @@ describe("yamlCompiler — rejects unknown stepType instead of defaulting to lin
 
   it("compiler source does not contain the bare ?? ('linear' as StepType) fallback", () => {
     // The literal silent-default pattern from yamlCompiler.ts:64 must be gone.
-    const source = readSource("features/canvas/yamlCompiler.ts");
+    const source = readSource("features/surface/yamlCompiler.ts");
 
     const hasSilentDefault =
       /\?\?\s*\(["']linear["']\s+as\s+StepType\)/.test(source) ||

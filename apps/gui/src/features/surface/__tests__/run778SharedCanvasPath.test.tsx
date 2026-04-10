@@ -240,14 +240,14 @@ function installMocks() {
     },
   }));
 
-  vi.doMock("../WorkflowCanvas", async () => {
-    const actual = await vi.importActual<typeof import("../WorkflowCanvas")>(
-      "../WorkflowCanvas",
+  vi.doMock("../SurfaceCanvas", async () => {
+    const actual = await vi.importActual<typeof import("../SurfaceCanvas")>(
+      "../SurfaceCanvas",
     );
 
     return {
       ...actual,
-      WorkflowCanvas: (props: WorkflowCanvasProps) => {
+      SurfaceCanvas: (props: WorkflowCanvasProps) => {
         workflowCanvasRenderSpy({
           isDraggable: props.isDraggable ?? true,
           connectionsAllowed: props.connectionsAllowed ?? true,
@@ -265,14 +265,14 @@ function installMocks() {
               (props.deletionAllowed ?? true) ? "Backspace" : null,
             ),
           },
-          React.createElement(actual.WorkflowCanvas, props),
+          React.createElement(actual.SurfaceCanvas, props),
         );
       },
     };
   });
 
-  vi.doMock("../CanvasTopbar", () => ({
-    CanvasTopbar: ({
+  vi.doMock("../SurfaceTopbar", () => ({
+    SurfaceTopbar: ({
       onValueChange,
     }: {
       onValueChange: (value: string) => void;
@@ -293,18 +293,18 @@ function installMocks() {
       ),
   }));
 
-  vi.doMock("../CanvasBottomPanel", () => ({
-    CanvasBottomPanel: () =>
+  vi.doMock("../SurfaceBottomPanel", () => ({
+    SurfaceBottomPanel: () =>
       React.createElement("div", { "data-testid": "canvas-bottom-panel" }, "bottom panel"),
   }));
 
-  vi.doMock("../CanvasStatusBar", () => ({
-    CanvasStatusBar: () =>
+  vi.doMock("../SurfaceStatusBar", () => ({
+    SurfaceStatusBar: () =>
       React.createElement("div", { "data-testid": "canvas-status-bar" }, "status bar"),
   }));
 
-  vi.doMock("../YamlEditor", () => ({
-    YamlEditor: () =>
+  vi.doMock("../SurfaceYamlEditor", () => ({
+    SurfaceYamlEditor: () =>
       React.createElement("div", { "data-testid": "yaml-editor" }, "yaml"),
   }));
 

@@ -123,8 +123,8 @@ vi.mock("@/api/git", () => ({
   },
 }));
 
-vi.mock("../../surface/YamlEditor", () => ({
-  YamlEditor: () => <div data-testid="yaml-editor" />,
+vi.mock("../../surface/SurfaceYamlEditor", () => ({
+  SurfaceYamlEditor: () => <div data-testid="yaml-editor" />,
 }));
 
 vi.mock("../../surface/SurfaceBottomPanel", () => ({

@@ -30,7 +30,7 @@ import {
   getActionButton,
   getSaveButtonState,
   getCanvasYamlToggleVisibility,
-} from "../workflowSurfaceContract";
+} from "../surfaceContract";
 
 // ===========================================================================
 // 1. WORKFLOW_SURFACE_MODES — exactly 3 modes

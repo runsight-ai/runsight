@@ -60,7 +60,7 @@ vi.mock("../../runs/useForkWorkflow", () => ({
   }),
 }));
 
-import { CanvasTopbar } from "../CanvasTopbar";
+import { CanvasTopbar } from "../SurfaceTopbar";
 
 beforeEach(() => {
   mocks.cancelRun.mockReset();

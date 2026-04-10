@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     yamlContent: "",
     setYamlContent: vi.fn(),
     hydrateFromPersisted: vi.fn(),
+    setActiveRunId: vi.fn(),
   };
 
   const useCanvasStore = ((selector: (state: typeof store) => unknown) =>
@@ -33,6 +34,8 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQuery: () => ({ data: undefined, isLoading: false, isError: false }),
+  useMutation: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock("@/queries/workflows", () => ({
@@ -58,23 +61,23 @@ vi.mock("@/store/canvas", () => ({
   useCanvasStore: mocks.useCanvasStore,
 }));
 
-vi.mock("../CanvasTopbar", () => ({
-  CanvasTopbar: () => React.createElement("div", null, "topbar"),
+vi.mock("../SurfaceTopbar", () => ({
+  SurfaceTopbar: () => React.createElement("div", null, "topbar"),
 }));
 
-vi.mock("../YamlEditor", () => ({
-  YamlEditor: (props: Record<string, unknown>) => {
+vi.mock("../SurfaceYamlEditor", () => ({
+  SurfaceYamlEditor: (props: Record<string, unknown>) => {
     mocks.yamlEditorProps.push(props);
     return React.createElement("div", null, "yaml-editor");
   },
 }));
 
-vi.mock("../CanvasBottomPanel", () => ({
-  CanvasBottomPanel: () => React.createElement("div", null, "bottom-panel"),
+vi.mock("../SurfaceBottomPanel", () => ({
+  SurfaceBottomPanel: () => React.createElement("div", null, "bottom-panel"),
 }));
 
-vi.mock("../CanvasStatusBar", () => ({
-  CanvasStatusBar: () => React.createElement("div", null, "status-bar"),
+vi.mock("../SurfaceStatusBar", () => ({
+  SurfaceStatusBar: () => React.createElement("div", null, "status-bar"),
 }));
 
 vi.mock("@/components/provider/ProviderModal", () => ({

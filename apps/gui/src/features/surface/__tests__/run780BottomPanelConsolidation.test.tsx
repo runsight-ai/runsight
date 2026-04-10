@@ -162,8 +162,8 @@ function installCanvasBottomPanelMock() {
     SurfaceTopbar: () => <div data-testid="canvas-topbar" />,
   }));
 
-  vi.doMock("../../surface/YamlEditor", () => ({
-    YamlEditor: () => <div data-testid="yaml-editor" />,
+  vi.doMock("../../surface/SurfaceYamlEditor", () => ({
+    SurfaceYamlEditor: () => <div data-testid="yaml-editor" />,
   }));
 
   vi.doMock("../../surface/SurfaceStatusBar", () => ({

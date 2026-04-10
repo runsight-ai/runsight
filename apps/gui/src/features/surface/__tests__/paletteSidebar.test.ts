@@ -36,7 +36,7 @@ function fileExists(relativePath: string): boolean {
 // File paths
 // ---------------------------------------------------------------------------
 
-const PALETTE_SIDEBAR_PATH = "features/canvas/PaletteSidebar.tsx";
+const PALETTE_SIDEBAR_PATH = "features/surface/PaletteSidebar.tsx";
 
 // ===========================================================================
 // 1. PaletteSidebar component exists
@@ -46,7 +46,7 @@ describe("PaletteSidebar component exists", () => {
   it("PaletteSidebar.tsx file exists", () => {
     expect(
       fileExists(PALETTE_SIDEBAR_PATH),
-      "Expected features/canvas/PaletteSidebar.tsx to exist",
+      "Expected features/surface/PaletteSidebar.tsx to exist",
     ).toBe(true);
   });
 

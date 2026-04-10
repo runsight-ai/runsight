@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parse } from "yaml";
-import { parseWorkflowYamlToGraph } from "@/features/canvas/yamlParser";
+import { parseWorkflowYamlToGraph } from "@/features/surface/yamlParser";
 import { TEMPLATE_YAML } from "../constants";
 
 function parseTemplate(): Record<string, any> {

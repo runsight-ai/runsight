@@ -34,7 +34,7 @@ function readSource(relativePath: string): string {
 // File paths
 // ---------------------------------------------------------------------------
 
-const PALETTE_SIDEBAR_PATH = "features/canvas/PaletteSidebar.tsx";
+const PALETTE_SIDEBAR_PATH = "features/surface/PaletteSidebar.tsx";
 
 // ===========================================================================
 // 1. Search input exists in palette (AC1)

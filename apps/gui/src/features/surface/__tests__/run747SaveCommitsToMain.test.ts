@@ -114,6 +114,9 @@ vi.mock("@/queries/runs", () => ({
   useCreateRun: () => ({ mutate: vi.fn() }),
   useCancelRun: () => ({ mutate: vi.fn() }),
   useRun: () => ({ data: undefined }),
+  useRunNodes: () => ({ data: [], isLoading: false, isError: false, error: null, refetch: vi.fn() }),
+  useRunRegressions: () => ({ data: { count: 0, issues: [] }, isLoading: false, isError: false }),
+  useRunLogs: () => ({ data: { items: [] }, isLoading: false, isError: false }),
 }));
 
 vi.mock("@/queries/settings", () => ({
@@ -124,15 +127,15 @@ vi.mock("@/store/canvas", () => ({
   useCanvasStore: mocks.useCanvasStore,
 }));
 
-vi.mock("../CanvasTopbar", () => ({
-  CanvasTopbar: (props: Record<string, unknown>) => {
+vi.mock("../SurfaceTopbar", () => ({
+  SurfaceTopbar: (props: Record<string, unknown>) => {
     mocks.topbarProps.push(props);
     return React.createElement("canvas-topbar");
   },
 }));
 
-vi.mock("../YamlEditor", () => ({
-  YamlEditor: (props: Record<string, unknown>) => {
+vi.mock("../SurfaceYamlEditor", () => ({
+  SurfaceYamlEditor: (props: Record<string, unknown>) => {
     mocks.yamlEditorProps.push(props);
     return React.createElement("yaml-editor");
   },
@@ -145,20 +148,20 @@ vi.mock("@/features/git/CommitDialog", () => ({
   },
 }));
 
-vi.mock("../WorkflowCanvas", () => ({
-  WorkflowCanvas: () => React.createElement("div", null, "Canvas"),
+vi.mock("../SurfaceCanvas", () => ({
+  SurfaceCanvas: () => React.createElement("div", null, "Canvas"),
 }));
 
 vi.mock("../PaletteSidebar", () => ({
   PaletteSidebar: () => React.createElement("div", null, "Palette"),
 }));
 
-vi.mock("../CanvasBottomPanel", () => ({
-  CanvasBottomPanel: () => React.createElement("div", null, "Bottom Panel"),
+vi.mock("../SurfaceBottomPanel", () => ({
+  SurfaceBottomPanel: () => React.createElement("div", null, "Bottom Panel"),
 }));
 
-vi.mock("../CanvasStatusBar", () => ({
-  CanvasStatusBar: () => React.createElement("div", null, "Status Bar"),
+vi.mock("../SurfaceStatusBar", () => ({
+  SurfaceStatusBar: () => React.createElement("div", null, "Status Bar"),
 }));
 
 vi.mock("../SurfaceInspectorPanel", () => ({
@@ -169,10 +172,10 @@ vi.mock("@/components/provider/ProviderModal", () => ({
   ProviderModal: () => React.createElement("div", null, "Provider Modal"),
 }));
 
-vi.mock("./workflowSurfaceContract", async () => {
+vi.mock("../surfaceContract", async () => {
   const actual = await vi.importActual<
-    typeof import("../workflowSurfaceContract") // eslint-disable-line @typescript-eslint/consistent-type-imports
-  >("../workflowSurfaceContract");
+    typeof import("../surfaceContract") // eslint-disable-line @typescript-eslint/consistent-type-imports
+  >("../surfaceContract");
   return actual;
 });
 

@@ -68,7 +68,7 @@ describe("RunDetail debris cleanup in the canvas surface (RUN-781)", () => {
     expect(existsSync(resolve(CANVAS_DIR, "SurfaceInspectorPanel.tsx"))).toBe(true);
   });
 
-  it("exposes mapRunStatus and getIconForBlockType from features/canvas/surfaceUtils.ts", () => {
+  it("exposes mapRunStatus and getIconForBlockType from features/surface/surfaceUtils.ts", () => {
     const surfaceUtilsPath = resolve(CANVAS_DIR, "surfaceUtils.ts");
 
     expect(existsSync(surfaceUtilsPath)).toBe(true);
