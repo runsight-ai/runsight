@@ -355,3 +355,240 @@ def get_assert(output, context):
         assert "30" in result.reason or "timed out" in result.reason
         assert proc.kill_called is True
         assert proc.wait_called is True
+
+
+class TestAdapterParamSchemaValidation:
+    def test_valid_config_against_declared_params_schema_runs_plugin_and_passes(self, monkeypatch):
+        module, build_adapter_class = _load_symbols()
+        monkeypatch.setattr(
+            module,
+            "_PARAM_SCHEMAS",
+            {
+                "budget_guard": {
+                    "type": "object",
+                    "properties": {"budget": {"type": "number"}},
+                    "required": ["budget"],
+                }
+            },
+            raising=False,
+        )
+        plugin_calls: list[dict[str, Any]] = []
+        adapter_cls = build_adapter_class(
+            "budget_guard",
+            """
+def get_assert(output, context):
+    return True
+""",
+            "bool",
+        )
+        adapter = adapter_cls(config={"budget": 0.05})
+
+        def fake_run_plugin_sync(harness, output, plugin_context, *, timeout_seconds=30):
+            plugin_calls.append(plugin_context)
+            return True
+
+        monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
+
+        result = adapter.evaluate("needle in haystack", _make_context())
+
+        assert result.passed is True
+        assert plugin_calls == [
+            {
+                "vars": {"topic": "launch", "severity": "high"},
+                "config": {"budget": 0.05},
+                "prompt": "Find the launch blocker.",
+                "prompt_hash": "prompt-hash-123",
+                "soul_id": "soul-1",
+                "soul_version": "v7",
+                "block_id": "block-a",
+                "block_type": "LinearBlock",
+                "cost_usd": 0.031,
+                "total_tokens": 321,
+                "latency_ms": 245.5,
+                "run_id": "run-123",
+                "workflow_id": "wf-456",
+            }
+        ]
+
+    def test_missing_required_field_returns_failing_grading_result_and_skips_plugin(
+        self, monkeypatch
+    ):
+        module, build_adapter_class = _load_symbols()
+        monkeypatch.setattr(
+            module,
+            "_PARAM_SCHEMAS",
+            {
+                "budget_guard": {
+                    "type": "object",
+                    "properties": {"budget": {"type": "number"}},
+                    "required": ["budget"],
+                }
+            },
+            raising=False,
+        )
+        plugin_calls: list[dict[str, Any]] = []
+        adapter_cls = build_adapter_class(
+            "budget_guard",
+            """
+def get_assert(output, context):
+    return True
+""",
+            "bool",
+        )
+        adapter = adapter_cls(config={})
+
+        def fake_run_plugin_sync(harness, output, plugin_context, *, timeout_seconds=30):
+            plugin_calls.append(plugin_context)
+            return True
+
+        monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
+
+        result = adapter.evaluate("needle in haystack", _make_context())
+
+        assert result.passed is False
+        assert result.reason.startswith("Config validation failed:")
+        assert plugin_calls == []
+
+    def test_wrong_type_returns_failing_grading_result_and_skips_plugin(self, monkeypatch):
+        module, build_adapter_class = _load_symbols()
+        monkeypatch.setattr(
+            module,
+            "_PARAM_SCHEMAS",
+            {
+                "budget_guard": {
+                    "type": "object",
+                    "properties": {"budget": {"type": "number"}},
+                    "required": ["budget"],
+                }
+            },
+            raising=False,
+        )
+        plugin_calls: list[dict[str, Any]] = []
+        adapter_cls = build_adapter_class(
+            "budget_guard",
+            """
+def get_assert(output, context):
+    return True
+""",
+            "bool",
+        )
+        adapter = adapter_cls(config={"budget": "expensive"})
+
+        def fake_run_plugin_sync(harness, output, plugin_context, *, timeout_seconds=30):
+            plugin_calls.append(plugin_context)
+            return True
+
+        monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
+
+        result = adapter.evaluate("needle in haystack", _make_context())
+
+        assert result.passed is False
+        assert result.reason.startswith("Config validation failed:")
+        assert plugin_calls == []
+
+    def test_no_params_schema_skips_validation_and_runs_plugin(self, monkeypatch):
+        module, build_adapter_class = _load_symbols()
+        monkeypatch.setattr(module, "_PARAM_SCHEMAS", {}, raising=False)
+        plugin_calls: list[dict[str, Any]] = []
+        adapter_cls = build_adapter_class(
+            "no_schema_guard",
+            """
+def get_assert(output, context):
+    return True
+""",
+            "bool",
+        )
+        adapter = adapter_cls(config=None)
+
+        def fake_run_plugin_sync(harness, output, plugin_context, *, timeout_seconds=30):
+            plugin_calls.append(plugin_context)
+            return True
+
+        monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
+
+        result = adapter.evaluate("needle in haystack", _make_context())
+
+        assert result.passed is True
+        assert len(plugin_calls) == 1
+
+    def test_config_none_with_required_params_returns_failing_grading_result(self, monkeypatch):
+        module, build_adapter_class = _load_symbols()
+        monkeypatch.setattr(
+            module,
+            "_PARAM_SCHEMAS",
+            {
+                "budget_guard": {
+                    "type": "object",
+                    "properties": {"budget": {"type": "number"}},
+                    "required": ["budget"],
+                }
+            },
+            raising=False,
+        )
+        plugin_calls: list[dict[str, Any]] = []
+        adapter_cls = build_adapter_class(
+            "budget_guard",
+            """
+def get_assert(output, context):
+    return True
+""",
+            "bool",
+        )
+        adapter = adapter_cls(config=None)
+
+        def fake_run_plugin_sync(harness, output, plugin_context, *, timeout_seconds=30):
+            plugin_calls.append(plugin_context)
+            return True
+
+        monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
+
+        result = adapter.evaluate("needle in haystack", _make_context())
+
+        assert result.passed is False
+        assert result.reason.startswith("Config validation failed:")
+        assert plugin_calls == []
+
+    def test_nested_schema_validation_returns_failing_grading_result_and_skips_plugin(
+        self, monkeypatch
+    ):
+        module, build_adapter_class = _load_symbols()
+        monkeypatch.setattr(
+            module,
+            "_PARAM_SCHEMAS",
+            {
+                "nested_guard": {
+                    "type": "object",
+                    "properties": {
+                        "limits": {
+                            "type": "object",
+                            "properties": {"budget": {"type": "number"}},
+                            "required": ["budget"],
+                        }
+                    },
+                    "required": ["limits"],
+                }
+            },
+            raising=False,
+        )
+        plugin_calls: list[dict[str, Any]] = []
+        adapter_cls = build_adapter_class(
+            "nested_guard",
+            """
+def get_assert(output, context):
+    return True
+""",
+            "bool",
+        )
+        adapter = adapter_cls(config={"limits": {"budget": "too-high"}})
+
+        def fake_run_plugin_sync(harness, output, plugin_context, *, timeout_seconds=30):
+            plugin_calls.append(plugin_context)
+            return True
+
+        monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
+
+        result = adapter.evaluate("needle in haystack", _make_context())
+
+        assert result.passed is False
+        assert result.reason.startswith("Config validation failed:")
+        assert plugin_calls == []

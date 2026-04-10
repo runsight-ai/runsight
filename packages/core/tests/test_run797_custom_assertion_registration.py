@@ -26,6 +26,10 @@ def _load_discovery_module():
     return importlib.import_module("runsight_core.yaml.discovery")
 
 
+def _load_custom_assertion_module():
+    return importlib.import_module("runsight_core.assertions.custom")
+
+
 def _write_yaml(path: Path, data: dict[str, Any]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
@@ -40,6 +44,7 @@ def _write_assertion_fixture(
     returns: str = "bool",
     source_name: str | None = None,
     code: str = "def get_assert(output, context):\n    return 'calm' in output\n",
+    params: dict[str, Any] | None = None,
 ) -> Path:
     assertions_dir = base_dir / "custom" / "assertions"
     assertions_dir.mkdir(parents=True, exist_ok=True)
@@ -56,6 +61,8 @@ def _write_assertion_fixture(
         "returns": returns,
         "source": source_name,
     }
+    if params is not None:
+        manifest["params"] = params
     manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
     source_path.write_text(code, encoding="utf-8")
     return manifest_path
@@ -216,6 +223,37 @@ class TestRegisterCustomAssertions:
         registry_module.register_custom_assertions(discovery_module.ScanIndex())
 
         assert register_calls == []
+
+    def test_register_custom_assertions_stores_param_schemas_keyed_by_plugin_name(
+        self, tmp_path: Path, monkeypatch
+    ):
+        custom_module = _load_custom_assertion_module()
+        discovery_module = _load_discovery_module()
+        registry_module = _load_registry_module()
+        params_schema = {
+            "type": "object",
+            "properties": {"budget": {"type": "number"}},
+            "required": ["budget"],
+        }
+        _write_assertion_fixture(
+            tmp_path,
+            stem="tone_check",
+            name="Tone Check Display Name",
+            params=params_schema,
+        )
+        index = discovery_module.AssertionScanner(tmp_path).scan()
+
+        monkeypatch.setattr(custom_module, "_PARAM_SCHEMAS", {}, raising=False)
+        monkeypatch.setattr(
+            registry_module,
+            "_build_adapter_class",
+            lambda **kwargs: type("ToneCheckAdapter", (), {"type": "custom:tone_check"}),
+            raising=False,
+        )
+
+        registry_module.register_custom_assertions(index)
+
+        assert custom_module._PARAM_SCHEMAS == {"tone_check": params_schema}
 
 
 class TestAssertionScannerDuplicateStem:
