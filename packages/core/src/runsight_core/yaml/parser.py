@@ -386,15 +386,13 @@ def _find_project_root(start: Path) -> str:
     current = start.resolve()
     for candidate in [current, *current.parents]:
         custom_dir = candidate / "custom"
+        workflows_dir = candidate / "workflows"
         if not custom_dir.is_dir():
             continue
         if candidate == current:
             return str(candidate)
-        try:
-            current.relative_to(custom_dir)
-        except ValueError:
-            continue
-        return str(candidate)
+        if current.is_relative_to(custom_dir) or current.is_relative_to(workflows_dir):
+            return str(candidate)
     return str(start)
 
 

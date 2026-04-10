@@ -13,6 +13,7 @@ from runsight_core.assertions.registry import register_custom_assertions, run_as
 from runsight_core.assertions.scoring import AssertionsResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.discovery import AssertionScanner
+from runsight_core.yaml.parser import _find_project_root
 from runsight_core.yaml.schema import EvalSectionDef
 
 
@@ -65,23 +66,6 @@ def _has_fixtures_for_all_expected(
     if not fixtures:
         return False
     return all(block_id in fixtures for block_id in expected)
-
-
-def _find_project_root(start: Path) -> str:
-    """Walk up from *start* to find the directory that contains ``custom/``."""
-    current = start.resolve()
-    for candidate in [current, *current.parents]:
-        custom_dir = candidate / "custom"
-        if not custom_dir.is_dir():
-            continue
-        if candidate == current:
-            return str(candidate)
-        try:
-            current.relative_to(custom_dir)
-        except ValueError:
-            continue
-        return str(candidate)
-    return str(start)
 
 
 def _load_eval_workflow_source(workflow_yaml: str) -> tuple[dict[str, Any], str | None]:
