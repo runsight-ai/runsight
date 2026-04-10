@@ -100,7 +100,7 @@ vi.mock("react-router", () => ({
   useNavigate: () => vi.fn(),
 }));
 
-import { RunButton } from "../RunButton";
+import { RunButton } from "../../surface/RunButton";
 
 function renderButton(
   workflowId = "wf_1",
@@ -212,19 +212,19 @@ describe("Run gating and wiring for RUN-588", () => {
   });
 
   it("RunButton accepts an isCommitted prop for the main-branch gate", () => {
-    const source = readSource("features/canvas/RunButton.tsx");
+    const source = readSource("features/surface/RunButton.tsx");
     expect(source).toMatch(/isCommitted/);
   });
 
   it("RunButton keeps committed-state gating logic in the component", () => {
-    const source = readSource("features/canvas/RunButton.tsx");
+    const source = readSource("features/surface/RunButton.tsx");
     expect(source).toMatch(/isCommitted/);
     expect(source).toMatch(/createSimBranch|source:\s*["']simulation["']/);
     expect(source).toMatch(/source:\s*["']manual["']/);
   });
 
   it("CanvasTopbar passes committed workflow state into RunButton", () => {
-    const source = readSource("features/canvas/CanvasTopbar.tsx");
+    const source = readSource("features/surface/SurfaceTopbar.tsx");
     expect(source).toMatch(/<RunButton[\s\S]*isCommitted/);
     expect(source).toMatch(/workflow[\s\S]*commit_sha|commit_sha[\s\S]*workflow/);
   });

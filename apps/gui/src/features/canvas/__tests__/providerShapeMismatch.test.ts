@@ -37,8 +37,8 @@ function readSource(relativePath: string): string {
 // Paths
 // ---------------------------------------------------------------------------
 
-const RUN_BUTTON_PATH = "features/canvas/RunButton.tsx";
-const STATUS_BAR_PATH = "features/canvas/CanvasStatusBar.tsx";
+const RUN_BUTTON_PATH = "features/surface/RunButton.tsx";
+const STATUS_BAR_PATH = "features/surface/SurfaceStatusBar.tsx";
 const SETTINGS_QUERY_PATH = "queries/settings.ts";
 const SETTINGS_API_PATH = "api/settings.ts";
 
@@ -108,7 +108,7 @@ describe("RunButton accesses providers via .items (RUN-406 AC1)", () => {
 // 2. CanvasStatusBar — must access .items, not .length on data (AC2)
 // ===========================================================================
 
-describe("CanvasStatusBar no longer uses providers (RUN-406 AC2)", () => {
+describe("SurfaceStatusBar no longer uses providers (RUN-406 AC2)", () => {
   it("does NOT import or reference useProviders", () => {
     const source = readSource(STATUS_BAR_PATH);
     expect(source).not.toMatch(/useProviders/);

@@ -9,8 +9,8 @@
  * AC4: Sorted by newest first
  *
  * Expected failures (current state):
- *   - CanvasBottomPanel.tsx has no "Runs" tab — only "Logs"
- *   - No useRuns() call with workflow_id filter in CanvasBottomPanel
+ *   - SurfaceBottomPanel.tsx has no "Runs" tab — only "Logs"
+ *   - No useRuns() call with workflow_id filter in SurfaceBottomPanel
  *   - No run selection / tab switching logic
  *   - runsApi.listRuns does not pass workflow_id parameter
  */
@@ -33,7 +33,7 @@ function readSource(relativePath: string): string {
 // File paths
 // ---------------------------------------------------------------------------
 
-const CANVAS_BOTTOM_PANEL_PATH = "features/canvas/CanvasBottomPanel.tsx";
+const CANVAS_BOTTOM_PANEL_PATH = "features/surface/SurfaceBottomPanel.tsx";
 const RUNS_QUERY_PATH = "queries/runs.ts";
 const RUNS_API_PATH = "api/runs.ts";
 
@@ -42,17 +42,17 @@ const RUNS_API_PATH = "api/runs.ts";
 // ===========================================================================
 
 describe("Runs tab exists in bottom panel (AC1)", () => {
-  it("CanvasBottomPanel has a Runs tab button", () => {
+  it("SurfaceBottomPanel has a Runs tab button", () => {
     const source = readSource(CANVAS_BOTTOM_PANEL_PATH);
     // There should be a tab labeled "Runs" alongside the existing "Logs" tab
     const hasRunsTab = /role\s*=\s*["']tab["'][^>]*>.*Runs|>Runs<\/button>|>\s*Runs\s*</.test(source);
     expect(
       hasRunsTab,
-      'Expected a "Runs" tab button in CanvasBottomPanel (role="tab")',
+      'Expected a "Runs" tab button in SurfaceBottomPanel (role="tab")',
     ).toBe(true);
   });
 
-  it("CanvasBottomPanel has both Logs and Runs tabs", () => {
+  it("SurfaceBottomPanel has both Logs and Runs tabs", () => {
     const source = readSource(CANVAS_BOTTOM_PANEL_PATH);
     expect(source).toMatch(/Logs/);
     expect(source).toMatch(/Runs/);
@@ -74,12 +74,12 @@ describe("Runs tab exists in bottom panel (AC1)", () => {
 // ===========================================================================
 
 describe("Runs tab fetches workflow-scoped runs (AC1)", () => {
-  it("CanvasBottomPanel imports useRuns hook", () => {
+  it("SurfaceBottomPanel imports useRuns hook", () => {
     const source = readSource(CANVAS_BOTTOM_PANEL_PATH);
     expect(source).toMatch(/import.*useRuns.*from/);
   });
 
-  it("CanvasBottomPanel calls useRuns with workflow_id parameter", () => {
+  it("SurfaceBottomPanel calls useRuns with workflow_id parameter", () => {
     const source = readSource(CANVAS_BOTTOM_PANEL_PATH);
     // Should pass workflow_id to useRuns or to the query params
     const hasWorkflowFilter = /useRuns\s*\(\s*\{[^}]*workflow_id|workflow_id/.test(source);
@@ -208,22 +208,22 @@ describe("Runs sorted by newest first (AC4)", () => {
 // 6. CanvasBottomPanel receives workflowId prop
 // ===========================================================================
 
-describe("CanvasBottomPanel receives workflowId prop", () => {
+describe("SurfaceBottomPanel receives workflowId prop", () => {
   it("component accepts workflowId in its props", () => {
     const source = readSource(CANVAS_BOTTOM_PANEL_PATH);
     const hasWorkflowIdProp = /workflowId|workflow_id/.test(source);
     expect(
       hasWorkflowIdProp,
-      "Expected workflowId prop on CanvasBottomPanel for scoping runs",
+      "Expected workflowId prop on SurfaceBottomPanel for scoping runs",
     ).toBe(true);
   });
 
-  it("CanvasBottomPanelProps interface includes workflowId", () => {
+  it("SurfaceBottomPanelProps interface includes workflowId", () => {
     const source = readSource(CANVAS_BOTTOM_PANEL_PATH);
-    const hasInInterface = /interface\s+CanvasBottomPanelProps[\s\S]*?workflowId/.test(source);
+    const hasInInterface = /interface\s+SurfaceBottomPanelProps[\s\S]*?workflowId/.test(source);
     expect(
       hasInInterface,
-      "Expected workflowId in CanvasBottomPanelProps interface",
+      "Expected workflowId in SurfaceBottomPanelProps interface",
     ).toBe(true);
   });
 });

@@ -29,13 +29,13 @@ function readSource(relativePath: string): string {
 // File paths
 // ---------------------------------------------------------------------------
 
-const CANVAS_BOTTOM_PANEL_PATH = "features/canvas/CanvasBottomPanel.tsx";
+const CANVAS_BOTTOM_PANEL_PATH = "features/surface/SurfaceBottomPanel.tsx";
 
 // ===========================================================================
 // 1. CanvasBottomPanel uses activeRunId from canvas store (AC1)
 // ===========================================================================
 
-describe("CanvasBottomPanel uses activeRunId from canvas store (AC1)", () => {
+describe("SurfaceBottomPanel uses activeRunId from canvas store (AC1)", () => {
   it("imports useCanvasStore", () => {
     const source = readSource(CANVAS_BOTTOM_PANEL_PATH);
     expect(source).toMatch(/import.*useCanvasStore.*from/);

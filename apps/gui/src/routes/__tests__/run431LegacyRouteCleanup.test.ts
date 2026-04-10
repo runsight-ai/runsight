@@ -63,9 +63,9 @@ vi.mock("@/features/flows/FlowsPage", () => ({
   Component: () => React.createElement(RouteEcho, { label: "flows" }),
 }));
 
-vi.mock("@/features/canvas/WorkflowCanvas", () => ({
+vi.mock("@/features/surface/SurfaceCanvas", () => ({
   Component: () => React.createElement("div", null, "Workflow canvas page"),
-  WorkflowCanvas: () => React.createElement("div", null, "Workflow canvas page"),
+  SurfaceCanvas: () => React.createElement("div", null, "Workflow canvas page"),
 }));
 
 vi.mock("@/features/runs/RunsPage", () => ({
@@ -73,7 +73,7 @@ vi.mock("@/features/runs/RunsPage", () => ({
 }));
 
 // RUN-590: /runs/:id now renders HistoricalRunRoute which uses WorkflowSurface
-vi.mock("@/features/canvas/WorkflowSurface", () => ({
+vi.mock("@/features/surface/WorkflowSurface", () => ({
   WorkflowSurface: ({ runId }: { runId?: string }) =>
     React.createElement(RouteEcho, { label: `run-surface-${runId ?? "unknown"}` }),
 }));

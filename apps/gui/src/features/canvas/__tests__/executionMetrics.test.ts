@@ -33,8 +33,8 @@ function fileExists(relativePath: string): boolean {
 // Paths
 // ---------------------------------------------------------------------------
 
-const EXECUTION_METRICS_PATH = "features/canvas/ExecutionMetrics.tsx";
-const CANVAS_TOPBAR_PATH = "features/canvas/CanvasTopbar.tsx";
+const EXECUTION_METRICS_PATH = "features/surface/ExecutionMetrics.tsx";
+const CANVAS_TOPBAR_PATH = "features/surface/SurfaceTopbar.tsx";
 
 // ===========================================================================
 // 1. ExecutionMetrics component exists
@@ -44,7 +44,7 @@ describe("ExecutionMetrics component exists (RUN-372)", () => {
   it("ExecutionMetrics.tsx file exists", () => {
     expect(
       fileExists(EXECUTION_METRICS_PATH),
-      "Expected features/canvas/ExecutionMetrics.tsx to exist",
+      "Expected features/surface/ExecutionMetrics.tsx to exist",
     ).toBe(true);
   });
 
@@ -209,17 +209,17 @@ describe("Run button returns to idle after completion (RUN-372 AC4)", () => {
   it("RunButton already clears activeRunId on terminal states", () => {
     // This is already implemented in RunButton.tsx (RUN-359)
     // Verify it still works — the setActiveRunId(null) on completed/failed/cancelled
-    const source = readSource("features/canvas/RunButton.tsx");
+    const source = readSource("features/surface/RunButton.tsx");
     expect(source).toMatch(/setActiveRunId\(\s*null\s*\)/);
   });
 
   it("RunButton handles completed status", () => {
-    const source = readSource("features/canvas/RunButton.tsx");
+    const source = readSource("features/surface/RunButton.tsx");
     expect(source).toMatch(/completed/);
   });
 
   it("RunButton handles failed status", () => {
-    const source = readSource("features/canvas/RunButton.tsx");
+    const source = readSource("features/surface/RunButton.tsx");
     expect(source).toMatch(/failed/);
   });
 });

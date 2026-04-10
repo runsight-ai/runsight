@@ -246,8 +246,8 @@ vi.mock("sonner", () => ({
   },
 }));
 
-vi.mock("../../surface/YamlEditor", () => ({
-  YamlEditor: ({
+vi.mock("../../surface/SurfaceYamlEditor", () => ({
+  SurfaceYamlEditor: ({
     workflowId,
     yaml,
     readOnly,

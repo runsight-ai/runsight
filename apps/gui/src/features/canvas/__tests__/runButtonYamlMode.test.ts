@@ -32,7 +32,7 @@ function readSource(relativePath: string): string {
   return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
 }
 
-const RUN_BUTTON_PATH = "features/canvas/RunButton.tsx";
+const RUN_BUTTON_PATH = "features/surface/RunButton.tsx";
 
 // ===========================================================================
 // 1. RunButton reads blockCount from the store (AC1, AC3)

@@ -215,7 +215,7 @@ function RouteEcho({ label }: { label: string }) {
 }
 
 // /runs/:id now renders HistoricalRunRoute which uses WorkflowSurface
-vi.mock("@/features/canvas/WorkflowSurface", () => ({
+vi.mock("@/features/surface/WorkflowSurface", () => ({
   WorkflowSurface: () =>
     React.createElement(RouteEcho, { label: "run-detail" }),
 }));

@@ -1,14 +1,14 @@
 /**
- * RED-TEAM tests for RUN-241: CanvasNode React.memo + Monaco lazy loading.
+ * RED-TEAM tests for RUN-241: SurfaceYamlEditor Monaco lazy loading.
  *
  * These tests verify:
- * 1. LazyMonacoEditor.tsx exists and uses React.lazy()
- * 2. LazyMonacoEditor.tsx wraps the lazy component in Suspense
- * 3. LazyMonacoEditor.tsx shows "Loading editor" placeholder during load
- * 4. LazyMonacoEditor.tsx imports from @monaco-editor/react
+ * 1. SurfaceYamlEditor.tsx exists and uses React.lazy()
+ * 2. SurfaceYamlEditor.tsx wraps the lazy component in Suspense
+ * 3. SurfaceYamlEditor.tsx shows "Loading editor" placeholder during load
+ * 4. SurfaceYamlEditor.tsx imports from @monaco-editor/react
  *
  * All tests are expected to FAIL against the current implementation because:
- * - LazyMonacoEditor.tsx does not exist yet
+ * - SurfaceYamlEditor.tsx does not exist yet
  */
 
 import { describe, it, expect } from "vitest";
@@ -38,9 +38,9 @@ function fileExists(relativePath: string): boolean {
 // 1. Monaco lazy loading — LazyMonacoEditor.tsx
 // ===========================================================================
 
-describe("LazyMonacoEditor — lazy Monaco loading (RUN-241)", () => {
-  it("LazyMonacoEditor.tsx file exists", () => {
-    expect(fileExists("features/canvas/LazyMonacoEditor.tsx")).toBe(true);
+describe("SurfaceYamlEditor — lazy Monaco loading (RUN-241)", () => {
+  it("SurfaceYamlEditor.tsx file exists", () => {
+    expect(fileExists("features/surface/SurfaceYamlEditor.tsx")).toBe(true);
   });
 
   // All remaining tests in this describe will fail with a read error if file
@@ -49,7 +49,7 @@ describe("LazyMonacoEditor — lazy Monaco loading (RUN-241)", () => {
     let source: string;
 
     try {
-      source = readSource("features/canvas/LazyMonacoEditor.tsx");
+      source = readSource("features/surface/SurfaceYamlEditor.tsx");
     } catch {
       // File doesn't exist yet — set source to empty so assertions fail clearly
       source = "";

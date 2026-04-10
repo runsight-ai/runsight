@@ -206,16 +206,16 @@ const SHARED_COMPONENTS = [
 const PROVIDER_COMPONENTS = ["components/provider/ProviderSetup.tsx"];
 
 const CANVAS_FEATURES = [
-  "features/canvas/WorkflowCanvas.tsx",
-  "features/canvas/nodes/SoulNode.tsx",
-  "features/canvas/nodes/StartNode.tsx",
-  "features/canvas/nodes/TaskNode.tsx",
+  "features/surface/SurfaceCanvas.tsx",
+  "features/surface/nodes/SoulNode.tsx",
+  "features/surface/nodes/StartNode.tsx",
+  "features/surface/nodes/TaskNode.tsx",
 ];
 
 const RUNS_FEATURES = [
-  "features/canvas/SurfaceInspectorPanel.tsx",
-  "features/canvas/WorkflowSurface.tsx",
-  "features/canvas/surfaceUtils.ts",
+  "features/surface/SurfaceInspectorPanel.tsx",
+  "features/surface/WorkflowSurface.tsx",
+  "features/surface/surfaceUtils.ts",
 ];
 
 const SETTINGS_FEATURES = [

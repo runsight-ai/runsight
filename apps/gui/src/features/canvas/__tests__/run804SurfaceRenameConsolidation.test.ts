@@ -47,6 +47,11 @@ function listSourceFiles(relativeDir: string): string[] {
 describe("RUN-804 surface rename and consolidation", () => {
   it("moves the live surface entrypoint into features/surface", () => {
     expect(existsSync(resolve(SRC_DIR, "features/surface/WorkflowSurface.tsx"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/surface/SurfaceShell.tsx"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/surface/SurfaceYamlEditor.tsx"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/surface/surfaceContract.ts"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/surface/useSurfaceHeaderSlots.tsx"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/surface/LazyMonacoEditor.tsx"))).toBe(false);
     expect(existsSync(resolve(SRC_DIR, "features/canvas/WorkflowSurface.tsx"))).toBe(false);
   });
 
@@ -64,6 +69,13 @@ describe("RUN-804 surface rename and consolidation", () => {
 
     expect(routesSource).toMatch(/from "@\/features\/surface\/WorkflowSurface"/);
     expect(routesSource).not.toMatch(/@\/features\/canvas\/WorkflowSurface/);
+  });
+
+  it("keeps RunStatusDot and runTable.styles in packages/ui", () => {
+    expect(existsSync(resolve(SRC_DIR, "../../../packages/ui/RunStatusDot.tsx"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "../../../packages/ui/runTable.styles.ts"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/runs/RunStatusDot.tsx"))).toBe(false);
+    expect(existsSync(resolve(SRC_DIR, "features/runs/runTable.styles.ts"))).toBe(false);
   });
 
   it("consolidates features/runs down to RunsPage, RunsTab, and RunRow only", () => {

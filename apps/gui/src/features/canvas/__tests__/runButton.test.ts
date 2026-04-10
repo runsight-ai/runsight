@@ -45,8 +45,8 @@ function fileExists(relativePath: string): boolean {
 // Paths
 // ---------------------------------------------------------------------------
 
-const RUN_BUTTON_PATH = "features/canvas/RunButton.tsx";
-const CANVAS_TOPBAR_PATH = "features/canvas/CanvasTopbar.tsx";
+const RUN_BUTTON_PATH = "features/surface/RunButton.tsx";
+const CANVAS_TOPBAR_PATH = "features/surface/SurfaceTopbar.tsx";
 
 // ===========================================================================
 // 1. RunButton component exists (AC5)
@@ -56,7 +56,7 @@ describe("RunButton component exists (RUN-359)", () => {
   it("RunButton.tsx file exists", () => {
     expect(
       fileExists(RUN_BUTTON_PATH),
-      "Expected features/canvas/RunButton.tsx to exist",
+      "Expected features/surface/RunButton.tsx to exist",
     ).toBe(true);
   });
 

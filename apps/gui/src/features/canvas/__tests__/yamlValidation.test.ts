@@ -10,7 +10,7 @@
  * AC4: Sync indicator in topbar (checkmark when valid, warning when errors)
  *
  * Expected failures (current state):
- *   - YamlEditor.tsx has no validation logic
+ *   - SurfaceYamlEditor.tsx has no validation logic
  *   - No debounce on YAML content changes
  *   - No yaml parsing for syntax errors
  *   - No Monaco markers API usage
@@ -39,10 +39,9 @@ function fileExists(relativePath: string): boolean {
 function getAllValidationSources(): string {
   const sources: string[] = [];
   const candidates = [
-    "features/canvas/YamlEditor.tsx",
-    "features/canvas/yamlValidation.ts",
-    "features/canvas/useYamlValidation.ts",
-    "features/canvas/useYamlValidation.tsx",
+    "features/surface/SurfaceYamlEditor.tsx",
+    "features/surface/useYamlValidation.ts",
+    "features/surface/useYamlValidation.tsx",
   ];
   for (const c of candidates) {
     if (fileExists(c)) sources.push(readSource(c));
@@ -54,9 +53,9 @@ function getAllValidationSources(): string {
 // File paths
 // ---------------------------------------------------------------------------
 
-const YAML_EDITOR_PATH = "features/canvas/YamlEditor.tsx";
-const CANVAS_TOPBAR_PATH = "features/canvas/CanvasTopbar.tsx";
-const WORKFLOW_SURFACE_PATH = "features/canvas/WorkflowSurface.tsx";
+const YAML_EDITOR_PATH = "features/surface/SurfaceYamlEditor.tsx";
+const CANVAS_TOPBAR_PATH = "features/surface/SurfaceTopbar.tsx";
+const WORKFLOW_SURFACE_PATH = "features/surface/WorkflowSurface.tsx";
 
 // ===========================================================================
 // 1. YAML parsing — imports `yaml` package for client-side validation (AC2)
@@ -212,7 +211,7 @@ describe("Monaco markers for syntax errors (AC3)", () => {
 // ===========================================================================
 
 describe("Sync indicator in topbar (AC4)", () => {
-  it("CanvasTopbar accepts a validation state prop (e.g., yamlValid, validationErrors, syncStatus)", () => {
+  it("SurfaceTopbar accepts a validation state prop (e.g., yamlValid, validationErrors, syncStatus)", () => {
     const source = readSource(CANVAS_TOPBAR_PATH);
     const hasValidationProp =
       /yamlValid|validationErrors|syncStatus|errorCount|hasErrors|isValid/.test(
@@ -220,13 +219,13 @@ describe("Sync indicator in topbar (AC4)", () => {
       );
     expect(
       hasValidationProp,
-      "Expected CanvasTopbar to accept a validation state prop (yamlValid, validationErrors, syncStatus, etc.)",
+      "Expected SurfaceTopbar to accept a validation state prop (yamlValid, validationErrors, syncStatus, etc.)",
     ).toBe(true);
   });
 
-  it.skip("CanvasTopbar renders a checkmark icon when YAML is valid — removed: indicator was static noise", () => {});
+  it.skip("SurfaceTopbar renders a checkmark icon when YAML is valid — removed: indicator was static noise", () => {});
 
-  it.skip("CanvasTopbar renders a warning icon when YAML has errors — removed: indicator was static noise", () => {});
+  it.skip("SurfaceTopbar renders a warning icon when YAML has errors — removed: indicator was static noise", () => {});
 
   it("sync indicator conditionally switches between valid and error states", () => {
     const source = readSource(CANVAS_TOPBAR_PATH);
@@ -241,16 +240,15 @@ describe("Sync indicator in topbar (AC4)", () => {
     ).toBe(true);
   });
 
-  it("WorkflowSurface passes validation state from YamlEditor to CanvasTopbar", () => {
+  it("WorkflowSurface passes validation state from SurfaceYamlEditor to SurfaceTopbar", () => {
     const surfaceSource = readSource(WORKFLOW_SURFACE_PATH);
-    // WorkflowSurface should wire validation state between editor and topbar
     const passesValidation =
       /yamlValid|validationErrors|syncStatus|errorCount|hasErrors|isValid|isDirty/.test(
         surfaceSource,
       );
     expect(
       passesValidation,
-      "Expected WorkflowSurface to manage and pass validation state between YamlEditor and CanvasTopbar",
+      "Expected WorkflowSurface to manage and pass validation state between SurfaceYamlEditor and SurfaceTopbar",
     ).toBe(true);
   });
 });
