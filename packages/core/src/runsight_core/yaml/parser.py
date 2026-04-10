@@ -385,23 +385,7 @@ def _find_project_root(start: Path) -> str:
     """Walk up from *start* to find the directory that contains ``custom/``."""
     current = start.resolve()
     for candidate in [current, *current.parents]:
-        if not (candidate / "custom").is_dir():
-            continue
-        if candidate == current:
-            return str(candidate)
-        # Prefer project-like roots over unrelated ambient temp directories that
-        # may also contain a top-level custom/ folder.
-        if any(
-            (
-                (candidate / "workflows").is_dir(),
-                (candidate / "examples").is_dir(),
-                (candidate / "tests").is_dir(),
-                (candidate / "packages").is_dir(),
-                (candidate / "apps").is_dir(),
-                (candidate / "pyproject.toml").is_file(),
-                (candidate / ".git").is_dir(),
-            )
-        ):
+        if (candidate / "custom").is_dir():
             return str(candidate)
     return str(start)
 
