@@ -26,7 +26,13 @@ from runsight_core.primitives import Soul, Step, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
-from runsight_core.yaml.discovery import AssertionScanner, SoulScanner, ToolScanner, WorkflowScanner
+from runsight_core.yaml.discovery import (
+    AssertionScanner,
+    SoulScanner,
+    ToolScanner,
+    WorkflowScanner,
+    resolve_discovery_base_dir,
+)
 from runsight_core.yaml.schema import (
     CaseDef,
     ConditionDef,
@@ -381,15 +387,6 @@ _rebuild()
 del _rebuild
 
 
-def _find_project_root(start: Path) -> str:
-    """Walk up from *start* to find the directory that contains ``custom/``."""
-    current = start.resolve()
-    for candidate in [current, *current.parents]:
-        if (candidate / "custom").is_dir():
-            return str(candidate)
-    return str(start)
-
-
 def _validate_workflow_block_contract(
     block_id: str,
     block_def: Any,
@@ -539,7 +536,7 @@ def validate_workflow_call_contracts(
 
         validate_workflow_call_contracts(
             child_file,
-            base_dir=_find_project_root(child_path.parent),
+            base_dir=resolve_discovery_base_dir(child_path.parent),
             validation_index=validation_index,
             current_workflow_ref=child_ref,
             ancestry=(*ancestry, child_ref),
@@ -587,7 +584,9 @@ def parse_workflow_yaml(
             stripped.endswith(".yaml") or stripped.endswith(".yml") or stripped.endswith(".json")
         )
         if is_file_path:
-            workflow_base_dir = _base_dir or _find_project_root(Path(stripped).resolve().parent)
+            workflow_base_dir = _base_dir or resolve_discovery_base_dir(
+                Path(stripped).resolve().parent
+            )
             require_custom_metadata = True
             with open(stripped, "r", encoding="utf-8") as f:
                 raw: Any = yaml.safe_load(f)

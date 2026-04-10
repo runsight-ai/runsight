@@ -5,7 +5,12 @@ from runsight_core.yaml.discovery._assertion import (
     AssertionMeta,
     AssertionScanner,
 )
-from runsight_core.yaml.discovery._base import BaseScanner, ScanIndex, ScanResult
+from runsight_core.yaml.discovery._base import (
+    BaseScanner,
+    ScanIndex,
+    ScanResult,
+    resolve_discovery_base_dir,
+)
 from runsight_core.yaml.discovery._soul import SoulScanner
 from runsight_core.yaml.discovery._tool import (
     RESERVED_BUILTIN_TOOL_IDS,
@@ -26,4 +31,5 @@ __all__ = [
     "ToolMeta",
     "ToolScanner",
     "WorkflowScanner",
+    "resolve_discovery_base_dir",
 ]

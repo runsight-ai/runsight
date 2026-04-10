@@ -12,8 +12,7 @@ from runsight_core.assertions.base import AssertionContext
 from runsight_core.assertions.registry import register_custom_assertions, run_assertions
 from runsight_core.assertions.scoring import AssertionsResult
 from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.yaml.discovery import AssertionScanner
-from runsight_core.yaml.parser import _find_project_root
+from runsight_core.yaml.discovery import AssertionScanner, resolve_discovery_base_dir
 from runsight_core.yaml.schema import EvalSectionDef
 
 
@@ -79,7 +78,7 @@ def _load_eval_workflow_source(workflow_yaml: str) -> tuple[dict[str, Any], str 
     if is_file_path:
         workflow_path = Path(stripped).resolve()
         with open(workflow_path, "r", encoding="utf-8") as handle:
-            return yaml.safe_load(handle), _find_project_root(workflow_path.parent)
+            return yaml.safe_load(handle), resolve_discovery_base_dir(workflow_path.parent)
     return yaml.safe_load(workflow_yaml), None
 
 
