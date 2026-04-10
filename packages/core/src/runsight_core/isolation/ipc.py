@@ -8,9 +8,11 @@ import os
 import socket
 import uuid
 from collections.abc import AsyncIterable, Awaitable, Callable
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict
+
+from runsight_core.budget_enforcement import BudgetKilledException
 
 HandlerResult = Awaitable[dict[str, Any]] | AsyncIterable[dict[str, Any]]
 Handler = Callable[[dict[str, Any]], HandlerResult]
@@ -38,6 +40,53 @@ class IPCResponseFrame(BaseModel):
     error: str | None
 
 
+class IPCInterceptor(Protocol):
+    """Interceptor hook contract for IPC request lifecycle events."""
+
+    async def on_request(
+        self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]: ...
+
+    async def on_response(
+        self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]: ...
+
+    async def on_stream_chunk(
+        self, action: str, chunk: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]: ...
+
+
+class InterceptorRegistry:
+    """Registry that executes IPC interceptors using chain-of-responsibility order."""
+
+    def __init__(self) -> None:
+        self._interceptors: list[IPCInterceptor] = []
+
+    def register(self, interceptor: IPCInterceptor) -> None:
+        self._interceptors.append(interceptor)
+
+    async def run_on_request(
+        self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        for interceptor in self._interceptors:
+            engine_context = await interceptor.on_request(action, payload, engine_context)
+        return engine_context
+
+    async def run_on_response(
+        self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        for interceptor in reversed(self._interceptors):
+            engine_context = await interceptor.on_response(action, payload, engine_context)
+        return engine_context
+
+    async def run_on_stream_chunk(
+        self, action: str, chunk: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        for interceptor in self._interceptors:
+            engine_context = await interceptor.on_stream_chunk(action, chunk, engine_context)
+        return engine_context
+
+
 def _is_async_iterable(value: Any) -> bool:
     return hasattr(value, "__aiter__")
 
@@ -48,11 +97,18 @@ class IPCServer:
     Accepts an already-bound socket object (does not create or bind one).
     """
 
-    def __init__(self, *, sock: socket.socket, handlers: dict[str, Handler]) -> None:
+    def __init__(
+        self,
+        *,
+        sock: socket.socket,
+        handlers: dict[str, Handler],
+        registry: InterceptorRegistry | None = None,
+    ) -> None:
         if not isinstance(sock, socket.socket):
             raise TypeError("sock must be a socket.socket instance, not a path string")
         self._sock = sock
         self._handlers = handlers
+        self._registry = registry or InterceptorRegistry()
         self._server: asyncio.AbstractServer | None = None
         self._shutdown_event = asyncio.Event()
         # Capture the socket path for cleanup
@@ -61,17 +117,21 @@ class IPCServer:
         except OSError:
             self._sock_path = None
 
-    def _build_engine_context(self, request: IPCRequest) -> dict[str, Any] | None:
+    def _apply_legacy_engine_context_interceptor(
+        self,
+        request: IPCRequest,
+        engine_context: dict[str, Any],
+    ) -> dict[str, Any]:
         interceptor = getattr(self, "_engine_context_interceptor", None)
         if not callable(interceptor):
-            return None
+            return engine_context
         try:
             value = interceptor(request)
         except TypeError:
             value = interceptor()
         except Exception:
-            return None
-        return value if isinstance(value, dict) else None
+            return engine_context
+        return value if isinstance(value, dict) else engine_context
 
     async def _write_frame(self, writer: asyncio.StreamWriter, frame: IPCResponseFrame) -> None:
         line = json.dumps(frame.model_dump(), separators=(",", ":")) + "\n"
@@ -145,7 +205,29 @@ class IPCServer:
                     )
                     continue
 
-                engine_context = self._build_engine_context(request)
+                engine_context: dict[str, Any] = {}
+                engine_context = self._apply_legacy_engine_context_interceptor(
+                    request,
+                    engine_context,
+                )
+                try:
+                    engine_context = await self._registry.run_on_request(
+                        request.action,
+                        request.payload,
+                        engine_context,
+                    )
+                except BudgetKilledException as exc:
+                    await self._write_frame(
+                        writer,
+                        IPCResponseFrame(
+                            id=request.id,
+                            done=True,
+                            payload=None,
+                            engine_context=engine_context,
+                            error=str(exc),
+                        ),
+                    )
+                    continue
 
                 if request.action in BLOCKED_ACTIONS or request.action not in self._handlers:
                     await self._write_frame(
@@ -165,6 +247,11 @@ class IPCServer:
                     result_or_stream = handler(request.payload)
                     if _is_async_iterable(result_or_stream):
                         async for chunk in result_or_stream:
+                            engine_context = await self._registry.run_on_stream_chunk(
+                                request.action,
+                                chunk,
+                                engine_context,
+                            )
                             await self._write_frame(
                                 writer,
                                 IPCResponseFrame(
@@ -175,6 +262,11 @@ class IPCServer:
                                     error=None,
                                 ),
                             )
+                        engine_context = await self._registry.run_on_response(
+                            request.action,
+                            {},
+                            engine_context,
+                        )
                         await self._write_frame(
                             writer,
                             IPCResponseFrame(
@@ -194,6 +286,11 @@ class IPCServer:
                     else:
                         payload = result_or_stream
 
+                    engine_context = await self._registry.run_on_response(
+                        request.action,
+                        payload,
+                        engine_context,
+                    )
                     await self._write_frame(
                         writer,
                         IPCResponseFrame(
