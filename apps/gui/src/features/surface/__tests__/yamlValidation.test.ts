@@ -223,10 +223,6 @@ describe("Sync indicator in topbar (AC4)", () => {
     ).toBe(true);
   });
 
-  it.skip("SurfaceTopbar renders a checkmark icon when YAML is valid — removed: indicator was static noise", () => {});
-
-  it.skip("SurfaceTopbar renders a warning icon when YAML has errors — removed: indicator was static noise", () => {});
-
   it("sync indicator conditionally switches between valid and error states", () => {
     const source = readSource(CANVAS_TOPBAR_PATH);
     // Should have conditional rendering based on validation state

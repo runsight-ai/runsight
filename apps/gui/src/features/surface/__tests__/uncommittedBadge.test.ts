@@ -58,11 +58,6 @@ describe("GitBadge component exists (AC1)", () => {
     expect(source).toMatch(/export\s+(function|const)\s+GitBadge/);
   });
 
-  it.skip("CanvasTopbar imports GitBadge — removed: GitBadge moved to dedicated git UI", () => {});
-
-  it.skip("CanvasTopbar renders GitBadge in JSX — removed: GitBadge moved to dedicated git UI", () => {});
-
-  it.skip("GitBadge appears before Save button — removed: GitBadge moved to dedicated git UI", () => {});
 });
 
 // ===========================================================================
