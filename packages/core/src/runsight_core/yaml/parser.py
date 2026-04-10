@@ -51,11 +51,6 @@ _UNSET_RUNNER_MODEL_NAME = "__runsight_explicit_model_required__"
 logger = logging.getLogger(__name__)
 
 
-def _find_project_root(start: str | Path) -> str:
-    """Backward-compatible alias for shared discovery base-dir resolution."""
-    return resolve_discovery_base_dir(Path(start))
-
-
 def _bootstrap_runner_model_name(souls_map: Dict[str, Soul]) -> str:
     """Choose an explicit bootstrap model for parser-owned runner construction."""
     for soul in souls_map.values():
