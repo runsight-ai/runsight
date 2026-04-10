@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./workflowSurfaceContract";
-import { getContractForMode, getCanvasYamlToggleVisibility, getSaveButtonState, getActionButton, isEditable } from "./workflowSurfaceContract";
+import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./surfaceContract";
+import { getContractForMode, getCanvasYamlToggleVisibility, getSaveButtonState, getActionButton, isEditable } from "./surfaceContract";
 import { SurfaceTopbar } from "./SurfaceTopbar";
-import { YamlEditor } from "./YamlEditor";
+import { SurfaceYamlEditor } from "./SurfaceYamlEditor";
 import { SurfaceBottomPanel } from "./SurfaceBottomPanel";
 import { SurfaceStatusBar } from "./SurfaceStatusBar";
 import { SurfaceCanvas } from "./SurfaceCanvas";
-import { useSurfaceReadonlyHeaderSlots } from "./useSurfaceReadonlyHeaderSlots";
+import { useSurfaceHeaderSlots } from "./useSurfaceHeaderSlots";
+import { SurfaceShell } from "./SurfaceShell";
 
 import { ProviderModal } from "@/components/provider/ProviderModal";
 import { CommitDialog } from "@/features/git/CommitDialog";
@@ -336,7 +337,6 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     }
   }, [mode, workflow?.canvas_state, runNodes, setNodeStatus]);
 
-  const canvasColumn = "1";
   const selectedNode = inspectedNodeId
     ? (nodes.find((node) => node.id === inspectedNodeId) ?? null)
     : null;
@@ -354,7 +354,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     && Boolean(workflow?.canvas_state)
     && !showRunGraphError
     && !showPreExecutionFailure;
-  const readonlyHeaderSlots = useSurfaceReadonlyHeaderSlots({
+  const headerSlots = useSurfaceHeaderSlots({
+    mode,
     run,
     workflowId: resolvedWorkflowId,
     onForkTransition: handleReadonlyForkTransition,
@@ -424,146 +425,138 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     );
   }
 
-  return (
-    <div
-      className="grid h-full"
-      style={{
-        gridTemplateRows: "var(--header-height) 1fr auto var(--status-bar-height)",
-        gridTemplateColumns: "1fr",
-      }}
-    >
-      <div data-testid="surface-topbar" style={{ gridColumn: "1 / -1", gridRow: "1" }}>
-        <SurfaceTopbar
-          workflowId={resolvedWorkflowId}
-          runId={activeRunId ?? initialRunId}
-          activeTab={activeTab}
-          onValueChange={(v) => setActiveTab(v as "canvas" | "yaml")}
-          isDirty={isDirty}
-          onSave={handleSave}
-          nameEditable={nameEditable}
-          toggleVisibility={toggleVisibility}
-          saveButton={saveButtonState}
-          metricsVisible={topbar.metricsVisible}
-          metricsStyle={topbar.metricsStyle}
-          actionButton={actionButton}
-          onAddApiKey={editable ? handleOpenApiKeyModal : undefined}
-          onForkTransition={mode === "readonly" ? handleReadonlyForkTransition : handleForkTransition}
-          titleAfter={mode === "readonly" ? readonlyHeaderSlots.titleAfter : undefined}
-          metricsOverride={mode === "readonly" ? readonlyHeaderSlots.metricsOverride : undefined}
-          actionsOverride={mode === "readonly" ? readonlyHeaderSlots.actionsOverride : undefined}
-          forkConfigOverride={
-            mode === "readonly"
-              ? {
-                  commitSha: run?.commit_sha ?? "",
-                  workflowPath: `custom/workflows/${resolvedWorkflowId}.yaml`,
-                  workflowName: run?.workflow_name ?? workflow?.name ?? "Untitled Workflow",
-                }
-              : undefined
-          }
-        />
-      </div>
+  const topbarNode = (
+    <SurfaceTopbar
+      workflowId={resolvedWorkflowId}
+      runId={activeRunId ?? initialRunId}
+      activeTab={activeTab}
+      onValueChange={(v) => setActiveTab(v as "canvas" | "yaml")}
+      isDirty={isDirty}
+      onSave={handleSave}
+      nameEditable={nameEditable}
+      toggleVisibility={toggleVisibility}
+      saveButton={saveButtonState}
+      metricsVisible={topbar.metricsVisible}
+      metricsStyle={topbar.metricsStyle}
+      actionButton={actionButton}
+      onAddApiKey={editable ? handleOpenApiKeyModal : undefined}
+      onForkTransition={mode === "readonly" ? handleReadonlyForkTransition : handleForkTransition}
+      titleAfter={headerSlots.titleAfter}
+      metricsOverride={headerSlots.metricsOverride}
+      actionsOverride={headerSlots.actionsOverride}
+      forkConfigOverride={
+        mode === "readonly"
+          ? {
+              commitSha: run?.commit_sha ?? "",
+              workflowPath: `custom/workflows/${resolvedWorkflowId}.yaml`,
+              workflowName: run?.workflow_name ?? workflow?.name ?? "Untitled Workflow",
+            }
+          : undefined
+      }
+    />
+  );
 
-      <div
-        data-testid="surface-center"
-        className="relative flex flex-col overflow-hidden"
-        style={{ gridColumn: canvasColumn, gridRow: "2" }}
-      >
-        {mode === "readonly" ? (
-          <PriorityBanner
-            conditions={[{
-              type: "regressions",
-              active: regressionCount > 0,
-              message: `${regressionCount} regressions found`,
-            }]}
-          />
-        ) : null}
-        {activeTab === "canvas" ? (
-          <div className="flex h-full min-h-0">
-            <div className="flex-1 min-w-0">
-              {showRunGraphError ? (
-                <RunGraphErrorCard
-                  message={runNodesError instanceof Error ? runNodesError.message : undefined}
-                  onRetry={() => void refetchRunNodes()}
-                />
-              ) : showPreExecutionFailure ? (
-                <RunPreExecutionFailureCard error={run.error as string} />
-              ) : showReadonlyCanvas ? (
-                <SurfaceCanvas
-                  isDraggable={false}
-                  connectionsAllowed={false}
-                  deletionAllowed={false}
-                  runId={readonlyRunId}
-                  onNodeClick={setInspectedNodeId}
-                  onPaneClick={() => setInspectedNodeId(null)}
-                />
-              ) : mode === "readonly" ? (
-                <div className="flex h-full items-center justify-center">
-                  <EmptyState
-                    icon={LayoutGrid}
-                    title="Canvas layout unavailable"
-                    description="Canvas layout unavailable for this run. Switch to the YAML tab to inspect the workflow definition."
-                  />
-                </div>
-              ) : (
-                <SurfaceCanvas
-                  isDraggable={contract.canvas.draggable}
-                  connectionsAllowed={contract.canvas.connectionsAllowed}
-                  deletionAllowed={contract.canvas.deletionAllowed}
-                />
-              )}
-            </div>
-            {inspectorVisible && selectedNode ? (
-              <SurfaceInspectorPanel
-                selectedNode={selectedNode}
-                onClose={() => {
-                  setInspectedNodeId(null);
-                  selectNode(null);
-                }}
-                trigger={inspector.trigger}
+  const centerNode = (
+    <>
+      {mode === "readonly" ? (
+        <PriorityBanner
+          conditions={[{
+            type: "regressions",
+            active: regressionCount > 0,
+            message: `${regressionCount} regressions found`,
+          }]}
+        />
+      ) : null}
+      {activeTab === "canvas" ? (
+        <div className="flex h-full min-h-0">
+          <div className="flex-1 min-w-0">
+            {showRunGraphError ? (
+              <RunGraphErrorCard
+                message={runNodesError instanceof Error ? runNodesError.message : undefined}
+                onRetry={() => void refetchRunNodes()}
               />
-            ) : null}
+            ) : showPreExecutionFailure ? (
+              <RunPreExecutionFailureCard error={run.error as string} />
+            ) : showReadonlyCanvas ? (
+              <SurfaceCanvas
+                isDraggable={false}
+                connectionsAllowed={false}
+                deletionAllowed={false}
+                runId={readonlyRunId}
+                onNodeClick={setInspectedNodeId}
+                onPaneClick={() => setInspectedNodeId(null)}
+              />
+            ) : mode === "readonly" ? (
+              <div className="flex h-full items-center justify-center">
+                <EmptyState
+                  icon={LayoutGrid}
+                  title="Canvas layout unavailable"
+                  description="Canvas layout unavailable for this run. Switch to the YAML tab to inspect the workflow definition."
+                />
+              </div>
+            ) : (
+              <SurfaceCanvas
+                isDraggable={contract.canvas.draggable}
+                connectionsAllowed={contract.canvas.connectionsAllowed}
+                deletionAllowed={contract.canvas.deletionAllowed}
+              />
+            )}
           </div>
-        ) : activeTab === "yaml" ? (
-          (mode === "readonly" && isReadonlyYamlLoading) || isOverlayLoading ? (
-            <div className="flex h-full items-center justify-center text-muted">
-              {mode === "readonly" ? "Loading run details..." : "Loading workflow snapshot..."}
-            </div>
-          ) : (
-            <YamlEditor
-              workflowId={resolvedWorkflowId}
-              yaml={mode === "readonly" ? (readonlyYaml ?? undefined) : (overlayYaml ?? undefined)}
-              readOnly={!editable}
-              onDirtyChange={(dirty: boolean) => setIsDirty(dirty)}
+          {inspectorVisible && selectedNode ? (
+            <SurfaceInspectorPanel
+              selectedNode={selectedNode}
+              onClose={() => {
+                setInspectedNodeId(null);
+                selectNode(null);
+              }}
+              trigger={inspector.trigger}
             />
-          )
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      ) : activeTab === "yaml" ? (
+        (mode === "readonly" && isReadonlyYamlLoading) || isOverlayLoading ? (
+          <div className="flex h-full items-center justify-center text-muted">
+            {mode === "readonly" ? "Loading run details..." : "Loading workflow snapshot..."}
+          </div>
+        ) : (
+          <SurfaceYamlEditor
+            workflowId={resolvedWorkflowId}
+            yaml={mode === "readonly" ? (readonlyYaml ?? undefined) : (overlayYaml ?? undefined)}
+            readOnly={!editable}
+            onDirtyChange={(dirty: boolean) => setIsDirty(dirty)}
+          />
+        )
+      ) : null}
+    </>
+  );
 
-      <div
-        data-testid="surface-bottom-panel"
-        style={{ gridColumn: "1 / -1", gridRow: "3" }}
-      >
-        <SurfaceBottomPanel
-          runId={activeRunId ?? initialRunId}
-          workflowId={resolvedWorkflowId}
-          defaultState={defaultState}
-          executionSummary={executionSummary}
-        />
-      </div>
+  const bottomPanelNode = (
+    <SurfaceBottomPanel
+      runId={activeRunId ?? initialRunId}
+      workflowId={resolvedWorkflowId}
+      defaultState={defaultState}
+      executionSummary={executionSummary}
+    />
+  );
 
-      <div
-        data-testid="surface-status-bar"
-        style={{ gridColumn: "1 / -1", gridRow: "4" }}
-      >
-        <SurfaceStatusBar
-          activeTab={activeTab}
-          blockCount={blockCount}
-          edgeCount={edgeCount}
-          stepCountFormat={stepCountFormat}
-          metricsVisibility={metricsVisibility}
-        />
-      </div>
+  const statusBarNode = (
+    <SurfaceStatusBar
+      activeTab={activeTab}
+      blockCount={blockCount}
+      edgeCount={edgeCount}
+      stepCountFormat={stepCountFormat}
+      metricsVisibility={metricsVisibility}
+    />
+  );
 
+  return (
+    <>
+      <SurfaceShell
+        topbar={topbarNode}
+        center={centerNode}
+        bottomPanel={bottomPanelNode}
+        statusBar={statusBarNode}
+      />
       <ProviderModal
         mode="canvas"
         open={apiKeyModalOpen}
@@ -579,6 +572,6 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         draft={currentDraft}
         onCommitSuccess={handleCommitSuccess}
       />
-    </div>
+    </>
   );
 }

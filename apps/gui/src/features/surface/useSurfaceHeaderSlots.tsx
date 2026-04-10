@@ -13,6 +13,7 @@ import { Save, X } from "lucide-react";
 
 import * as runQueries from "@/queries/runs";
 import { useForkWorkflow } from "./useForkWorkflow";
+import type { WorkflowSurfaceMode } from "./surfaceContract";
 import { formatCost, formatDuration } from "@/utils/formatting";
 
 const useOptionalCancelRun =
@@ -41,23 +42,25 @@ function formatTokenCount(totalTokens: number) {
   return totalTokens.toLocaleString();
 }
 
-type SurfaceReadonlyHeaderSlotsArgs = {
+type SurfaceHeaderSlotsArgs = {
+  mode: WorkflowSurfaceMode;
   run: RunResponse | null | undefined;
   workflowId: string;
   onForkTransition?: (newWorkflowId: string) => void;
 };
 
-type SurfaceReadonlyHeaderSlots = {
+type SurfaceHeaderSlots = {
   titleAfter?: ReactNode;
   metricsOverride?: ReactNode;
   actionsOverride?: ReactNode;
 };
 
-export function useSurfaceReadonlyHeaderSlots({
+export function useSurfaceHeaderSlots({
+  mode,
   run,
   workflowId,
   onForkTransition,
-}: SurfaceReadonlyHeaderSlotsArgs): SurfaceReadonlyHeaderSlots {
+}: SurfaceHeaderSlotsArgs): SurfaceHeaderSlots {
   const cancelRun = useOptionalCancelRun();
   const forkTransition = useCallback(
     (newWorkflowId: string) => {
@@ -94,7 +97,7 @@ export function useSurfaceReadonlyHeaderSlots({
     cancelRun.mutate(run.id);
   }, [cancelRun, isActive, run]);
 
-  if (!run) {
+  if (mode !== "readonly" || !run) {
     return {};
   }
 

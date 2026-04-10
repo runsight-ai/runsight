@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useWorkflow } from "@/queries/workflows";
-import { LazyMonacoEditor } from "./LazyMonacoEditor";
 import { defineYamlTheme } from "./yamlTheme";
 import { useYamlValidation, type ValidationState } from "./useYamlValidation";
 import { useCanvasStore } from "@/store/canvas";
 
-interface YamlEditorProps {
+const MonacoEditor = lazy(() => import("@monaco-editor/react"));
+
+interface SurfaceYamlEditorProps {
   workflowId?: string;
   yaml?: string;
   readOnly?: boolean;
@@ -13,7 +14,13 @@ interface YamlEditorProps {
   onValidation?: (state: ValidationState) => void;
 }
 
-export function YamlEditor({ workflowId, yaml: yamlProp, readOnly = false, onDirtyChange, onValidation }: YamlEditorProps) {
+export function SurfaceYamlEditor({
+  workflowId,
+  yaml: yamlProp,
+  readOnly = false,
+  onDirtyChange,
+  onValidation,
+}: SurfaceYamlEditorProps) {
   const { data: workflow } = useWorkflow(workflowId ?? "");
   const resolvedYaml = yamlProp ?? workflow?.yaml ?? "";
   const [editorYaml, setEditorYaml] = useState(resolvedYaml);
@@ -22,18 +29,23 @@ export function YamlEditor({ workflowId, yaml: yamlProp, readOnly = false, onDir
   const { validate, setEditorRefs } = useYamlValidation(onValidation);
 
   useEffect(() => {
+    const canvasState = useCanvasStore.getState() as {
+      setYamlContent: (yaml: string) => void;
+      markSaved?: () => void;
+    };
+
     setEditorYaml(resolvedYaml);
     contentRef.current = resolvedYaml;
     setIsDirty(false);
 
     if (yamlProp != null) {
-      useCanvasStore.getState().setYamlContent(yamlProp);
-      useCanvasStore.getState().markSaved();
+      canvasState.setYamlContent(yamlProp);
+      canvasState.markSaved?.();
       return;
     }
     if (workflow?.yaml != null) {
-      useCanvasStore.getState().setYamlContent(workflow.yaml);
-      useCanvasStore.getState().markSaved();
+      canvasState.setYamlContent(workflow.yaml);
+      canvasState.markSaved?.();
     }
   }, [resolvedYaml, yamlProp, workflow?.yaml]);
 
@@ -60,16 +72,18 @@ export function YamlEditor({ workflowId, yaml: yamlProp, readOnly = false, onDir
 
   return (
     <div data-testid="workflow-yaml-editor" className="flex-1 h-full">
-      <LazyMonacoEditor
-        language="yaml"
-        theme="runsight-yaml"
-        value={editorYaml}
-        height="100%"
-        onChange={onChange}
-        onMount={onMount}
-        beforeMount={handleEditorMount}
-        options={{ readOnly }}
-      />
+      <Suspense fallback={<div>Loading editor...</div>}>
+        <MonacoEditor
+          language="yaml"
+          theme="runsight-yaml"
+          value={editorYaml}
+          height="100%"
+          onChange={onChange}
+          onMount={onMount}
+          beforeMount={handleEditorMount}
+          options={{ readOnly }}
+        />
+      </Suspense>
     </div>
   );
 }

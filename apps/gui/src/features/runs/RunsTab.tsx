@@ -2,6 +2,13 @@ import { PageHeader } from "@/components/shared";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { Input } from "@runsight/ui/input";
 import { Button } from "@runsight/ui/button";
+import {
+  RUN_TABLE_CLASS,
+  RUN_TABLE_CONTAINER_CLASS,
+  RUN_TABLE_HEAD_CLASS,
+  RUN_TABLE_HEADER_ROW_CLASS,
+  RUN_TABLE_STATUS_HEAD_CLASS,
+} from "@runsight/ui/runTable.styles";
 import { Skeleton } from "@runsight/ui/skeleton";
 import { cn } from "@runsight/ui/utils";
 import {
@@ -44,13 +51,6 @@ const SOURCE_FILTER_LABELS: Record<SourceFilter, string> = {
   production: "Production runs",
   all: "All runs",
 };
-const RUN_TABLE_CONTAINER_CLASS = "overflow-hidden rounded-lg bg-surface-primary";
-const RUN_TABLE_CLASS = "text-sm";
-const RUN_TABLE_HEADER_ROW_CLASS = "hover:bg-transparent";
-const RUN_TABLE_HEAD_CLASS =
-  "h-9 border-b border-border-subtle px-2.5 text-2xs font-medium uppercase tracking-wider text-muted";
-const RUN_TABLE_STATUS_HEAD_CLASS =
-  "w-9 border-b border-border-subtle px-0 text-center";
 
 function RunSkeletonRow({ index }: { index: number }) {
   return (

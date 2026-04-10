@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./styles.css": "./src/styles/globals.css",
+    "./RunStatusDot": "./RunStatusDot.tsx",
     "./badge": "./src/components/ui/badge.tsx",
     "./button": "./src/components/ui/button.tsx",
     "./card": "./src/components/ui/card.tsx",
@@ -26,6 +27,7 @@
     "./tabs": "./src/components/ui/tabs.tsx",
     "./textarea": "./src/components/ui/textarea.tsx",
     "./tooltip": "./src/components/ui/tooltip.tsx",
+    "./runTable.styles": "./runTable.styles.ts",
     "./utils": "./src/utils/helpers.ts"
   },
   "scripts": {

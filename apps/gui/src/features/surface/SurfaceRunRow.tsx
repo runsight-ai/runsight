@@ -6,14 +6,9 @@ import {
   RUN_TABLE_ROW_CLASS,
   RUN_TABLE_STATUS_CELL_CLASS,
 } from "@runsight/ui/runTable.styles";
-import { cn } from "@runsight/ui/utils";
 import { TableCell, TableRow } from "@runsight/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@runsight/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
+import { cn } from "@runsight/ui/utils";
 import type { RunResponse } from "@runsight/shared/zod";
 import { AlertTriangle } from "lucide-react";
 
@@ -21,37 +16,6 @@ import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody
 import { useRunRegressions } from "@/queries/runs";
 import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
-
-function formatCommit(commitSha: string | null | undefined) {
-  return commitSha ? commitSha.slice(0, 7) : null;
-}
-
-function formatRunNumber(runNumber: number | null | undefined) {
-  return typeof runNumber === "number" ? `#${runNumber}` : "—";
-}
-
-function formatEval(
-  evalPassPct: number | null | undefined,
-  evalScoreAvg: number | null | undefined,
-) {
-  if (typeof evalPassPct === "number") {
-    return `${Math.round(evalPassPct)}%`;
-  }
-
-  if (typeof evalScoreAvg === "number") {
-    return evalScoreAvg.toFixed(2);
-  }
-
-  return "—";
-}
-
-function formatStartedAt(startedAt: number | null | undefined) {
-  if (!startedAt) {
-    return "—";
-  }
-
-  return getTimeAgo(new Date(startedAt * 1000).toISOString());
-}
 
 function getSourceVariant(source: RunResponse["source"]) {
   switch (source) {
@@ -68,30 +32,7 @@ function getSourceVariant(source: RunResponse["source"]) {
   }
 }
 
-function SourceBadge({ source }: { source: RunResponse["source"] }) {
-  return <Badge variant={getSourceVariant(source)}>{source}</Badge>;
-}
-
-function EvalCell({
-  evalPassPct,
-  evalScoreAvg,
-}: {
-  evalPassPct: number | null | undefined;
-  evalScoreAvg: number | null | undefined;
-}) {
-  const formattedEval = formatEval(evalPassPct, evalScoreAvg);
-  if (formattedEval === "—") {
-    return <span className="text-muted">—</span>;
-  }
-
-  return (
-    <span className="text-primary" aria-label={formattedEval} title={formattedEval}>
-      {formattedEval}
-    </span>
-  );
-}
-
-function RegressionCell({
+function SurfaceRegressionCell({
   runId,
   regressionCount,
 }: {
@@ -130,29 +71,26 @@ function RegressionCell({
   );
 }
 
-export type RunRowProps = {
+export type SurfaceRunRowProps = {
   run: RunResponse;
-  onOpen: (runId: string) => void;
+  currentRunId?: string;
+  onSelect: (runId: string) => void;
 };
 
-export function RunRow({ run, onOpen }: RunRowProps) {
+export function SurfaceRunRow({
+  run,
+  currentRunId,
+  onSelect,
+}: SurfaceRunRowProps) {
   const rowHasRegression = (run.regression_count ?? 0) > 0;
-  const commit = formatCommit(run.commit_sha);
 
   return (
     <TableRow
       className={cn(
         RUN_TABLE_ROW_CLASS,
-        run.source === "simulation" && "bg-surface-secondary text-muted",
+        currentRunId === run.id && "bg-surface-selected",
       )}
-      tabIndex={0}
-      onClick={() => onOpen(run.id)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpen(run.id);
-        }
-      }}
+      onClick={() => onSelect(run.id)}
     >
       <TableCell
         className={cn(
@@ -162,35 +100,14 @@ export function RunRow({ run, onOpen }: RunRowProps) {
       >
         <RunStatusDot status={run.status} className="w-full justify-center" />
       </TableCell>
-      <TableCell className={RUN_TABLE_CELL_CLASS}>
-        <span className="font-medium text-heading">{run.workflow_name}</span>
-      </TableCell>
       <TableCell data-type="data" className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}>
-        {formatRunNumber(run.run_number)}
-      </TableCell>
-      <TableCell
-        data-type="id"
-        className={cn(RUN_TABLE_CELL_CLASS, "text-2xs text-muted")}
-      >
-        {commit ? (
-          <span
-            aria-label={commit}
-            className="before:content-[attr(data-commit)]"
-            data-commit={commit}
-            title={commit}
-          />
-        ) : (
-          <span
-            aria-label="Commit unavailable"
-            className="text-muted"
-            title="Commit unavailable"
-          >
-            —
-          </span>
-        )}
+        {run.run_number != null ? `#${run.run_number}` : "—"}
       </TableCell>
       <TableCell data-type="data" className={RUN_TABLE_CELL_CLASS}>
-        <SourceBadge source={run.source} />
+        <Badge variant={getSourceVariant(run.source)}>{run.source}</Badge>
+      </TableCell>
+      <TableCell data-type="timestamp" className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}>
+        {run.started_at ? getTimeAgo(new Date(run.started_at * 1000).toISOString()) : "—"}
       </TableCell>
       <TableCell data-type="metric" className={cn(RUN_TABLE_CELL_CLASS, "text-secondary")}>
         {formatDuration(run.duration_seconds)}
@@ -199,16 +116,17 @@ export function RunRow({ run, onOpen }: RunRowProps) {
         {formatCost(run.total_cost_usd)}
       </TableCell>
       <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>
-        <EvalCell
-          evalPassPct={run.eval_pass_pct}
-          evalScoreAvg={run.eval_score_avg}
-        />
+        {typeof run.eval_pass_pct === "number"
+          ? `${Math.round(run.eval_pass_pct)}%`
+          : typeof run.eval_score_avg === "number"
+            ? run.eval_score_avg.toFixed(2)
+            : <span className="text-muted">—</span>}
       </TableCell>
       <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>
-        <RegressionCell runId={run.id} regressionCount={run.regression_count} />
-      </TableCell>
-      <TableCell data-type="timestamp" className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}>
-        {formatStartedAt(run.started_at)}
+        <SurfaceRegressionCell
+          runId={run.id}
+          regressionCount={run.regression_count}
+        />
       </TableCell>
     </TableRow>
   );
