@@ -107,8 +107,8 @@ function installCanvasBottomPanelMock() {
     },
   }));
 
-  vi.doMock("../CanvasBottomPanel", () => ({
-    CanvasBottomPanel: (props: {
+  vi.doMock("../../surface/SurfaceBottomPanel", () => ({
+    SurfaceBottomPanel: (props: {
       executionSummary?: { tone: "success" | "danger"; text: string };
     }) => {
       const [activeTab, setActiveTab] = React.useState<"logs" | "runs" | "regressions">("logs");
@@ -158,20 +158,20 @@ function installCanvasBottomPanelMock() {
     },
   }));
 
-  vi.doMock("../CanvasTopbar", () => ({
-    CanvasTopbar: () => <div data-testid="canvas-topbar" />,
+  vi.doMock("../../surface/SurfaceTopbar", () => ({
+    SurfaceTopbar: () => <div data-testid="canvas-topbar" />,
   }));
 
-  vi.doMock("../YamlEditor", () => ({
+  vi.doMock("../../surface/YamlEditor", () => ({
     YamlEditor: () => <div data-testid="yaml-editor" />,
   }));
 
-  vi.doMock("../CanvasStatusBar", () => ({
-    CanvasStatusBar: () => <div data-testid="status-bar" />,
+  vi.doMock("../../surface/SurfaceStatusBar", () => ({
+    SurfaceStatusBar: () => <div data-testid="status-bar" />,
   }));
 
-  vi.doMock("../WorkflowCanvas", () => ({
-    WorkflowCanvas: () => <div data-testid="workflow-canvas" />,
+  vi.doMock("../../surface/SurfaceCanvas", () => ({
+    SurfaceCanvas: () => <div data-testid="workflow-canvas" />,
   }));
 
   vi.doMock("@/components/provider/ProviderModal", () => ({
@@ -182,11 +182,11 @@ function installCanvasBottomPanelMock() {
     CommitDialog: () => null,
   }));
 
-  vi.doMock("../SurfaceInspectorPanel", () => ({
+  vi.doMock("../../surface/SurfaceInspectorPanel", () => ({
     SurfaceInspectorPanel: () => null,
   }));
 
-  vi.doMock("../useSurfaceReadonlyHeaderSlots", () => ({
+  vi.doMock("../../surface/useSurfaceReadonlyHeaderSlots", () => ({
     useSurfaceReadonlyHeaderSlots: () => ({}),
   }));
 
@@ -198,12 +198,12 @@ function installCanvasBottomPanelMock() {
 async function loadWorkflowSurface() {
   vi.resetModules();
   installCanvasBottomPanelMock();
-  return import("../WorkflowSurface");
+  return import("../../surface/WorkflowSurface");
 }
 
 async function loadCanvasBottomPanel() {
   vi.resetModules();
-  vi.doUnmock("../CanvasBottomPanel");
+  vi.doUnmock("../../surface/SurfaceBottomPanel");
 
   vi.doMock("@tanstack/react-query", () => ({
     useQueryClient: () => harness.queryClient,
@@ -251,8 +251,8 @@ async function loadCanvasBottomPanel() {
     RegressionTooltipBody: () => <div data-testid="regression-tooltip" />,
   }));
 
-  const mod = await import("../CanvasBottomPanel");
-  return mod.CanvasBottomPanel;
+  const mod = await import("../../surface/SurfaceBottomPanel");
+  return mod.SurfaceBottomPanel;
 }
 
 function setReadonlyRun(status: RunRecord["status"]): void {
@@ -390,7 +390,7 @@ describe("WorkflowSurface bottom panel consolidation (RUN-780)", () => {
 
 describe("Shared bottom panel consolidation (RUN-780)", () => {
   it("keeps the shared surface free of legacy bottom-panel references", () => {
-    const workflowSurface = readFileSync(resolve(__dirname, "../WorkflowSurface.tsx"), "utf-8");
+    const workflowSurface = readFileSync(resolve(__dirname, "../../surface/WorkflowSurface.tsx"), "utf-8");
 
     expect(workflowSurface).not.toMatch(/RunBottomPanel/);
   });

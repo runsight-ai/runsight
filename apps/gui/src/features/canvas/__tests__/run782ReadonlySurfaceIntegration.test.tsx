@@ -246,7 +246,7 @@ vi.mock("sonner", () => ({
   },
 }));
 
-vi.mock("../YamlEditor", () => ({
+vi.mock("../../surface/YamlEditor", () => ({
   YamlEditor: ({
     workflowId,
     yaml,
@@ -266,8 +266,8 @@ vi.mock("../YamlEditor", () => ({
   ),
 }));
 
-vi.mock("../CanvasStatusBar", () => ({
-  CanvasStatusBar: ({
+vi.mock("../../surface/SurfaceStatusBar", () => ({
+  SurfaceStatusBar: ({
     blockCount,
     edgeCount,
   }: {
@@ -288,11 +288,11 @@ vi.mock("@/features/git/CommitDialog", () => ({
   CommitDialog: () => null,
 }));
 
-vi.mock("../RunButton", () => ({
+vi.mock("../../surface/RunButton", () => ({
   RunButton: () => <button type="button" data-testid="workflow-run-button">Run</button>,
 }));
 
-import { WorkflowSurface } from "../WorkflowSurface";
+import { WorkflowSurface } from "../../surface/WorkflowSurface";
 
 function buildWorkflow(overrides: Partial<WorkflowRecord> = {}): WorkflowRecord {
   return {

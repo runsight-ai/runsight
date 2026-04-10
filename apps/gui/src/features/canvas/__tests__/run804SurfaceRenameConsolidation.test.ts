@@ -69,9 +69,10 @@ describe("RUN-804 surface rename and consolidation", () => {
   it("consolidates features/runs down to RunsPage, RunsTab, and RunRow only", () => {
     const files = listSourceFiles("features/runs")
       .map((file) => file.replace(`${SRC_DIR}/`, ""))
-      .filter((file) => !file.includes("/__tests__/"));
+      .filter((file) => !file.includes("/__tests__/"))
+      .sort();
 
-    expect(files).toEqual([
+    expect(files).toStrictEqual([
       "features/runs/RunRow.tsx",
       "features/runs/RunsPage.tsx",
       "features/runs/RunsTab.tsx",

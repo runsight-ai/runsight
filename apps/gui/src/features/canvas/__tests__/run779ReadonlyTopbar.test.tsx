@@ -123,20 +123,20 @@ vi.mock("@/api/git", () => ({
   },
 }));
 
-vi.mock("../YamlEditor", () => ({
+vi.mock("../../surface/YamlEditor", () => ({
   YamlEditor: () => <div data-testid="yaml-editor" />,
 }));
 
-vi.mock("../CanvasBottomPanel", () => ({
-  CanvasBottomPanel: () => <div data-testid="bottom-panel" />,
+vi.mock("../../surface/SurfaceBottomPanel", () => ({
+  SurfaceBottomPanel: () => <div data-testid="bottom-panel" />,
 }));
 
-vi.mock("../CanvasStatusBar", () => ({
-  CanvasStatusBar: () => <div data-testid="status-bar" />,
+vi.mock("../../surface/SurfaceStatusBar", () => ({
+  SurfaceStatusBar: () => <div data-testid="status-bar" />,
 }));
 
-vi.mock("../WorkflowCanvas", () => ({
-  WorkflowCanvas: () => <div data-testid="workflow-canvas" />,
+vi.mock("../../surface/SurfaceCanvas", () => ({
+  SurfaceCanvas: () => <div data-testid="workflow-canvas" />,
 }));
 
 vi.mock("@/components/provider/ProviderModal", () => ({
@@ -147,11 +147,11 @@ vi.mock("@/features/git/CommitDialog", () => ({
   CommitDialog: () => null,
 }));
 
-vi.mock("../SurfaceInspectorPanel", () => ({
+vi.mock("../../surface/SurfaceInspectorPanel", () => ({
   SurfaceInspectorPanel: () => null,
 }));
 
-vi.mock("../../runs/useForkWorkflow", () => ({
+vi.mock("../../surface/useForkWorkflow", () => ({
   useForkWorkflow: (options: {
     commitSha: string;
     workflowPath: string;
@@ -174,7 +174,7 @@ vi.mock("../../runs/useForkWorkflow", () => ({
   },
 }));
 
-import { WorkflowSurface } from "../WorkflowSurface";
+import { WorkflowSurface } from "../../surface/WorkflowSurface";
 
 function setReadonlyFixtures({
   runStatus,
