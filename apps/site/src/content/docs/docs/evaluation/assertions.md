@@ -217,21 +217,16 @@ The `AssertionsResult` class accumulates weighted results. Its `aggregate_score`
 
 Assertions do not share state with each other. Each configured assertion is evaluated independently against the same block result.
 
-Runsight has two execution surfaces:
+Runsight evaluates assertions in two contexts:
 
-- Offline eval and other async callers use the shared async registry path, `run_assertions()`
-- Live API block evaluation uses `EvalObserver` and the shared sync registry path, `run_assertions_sync()`
+- **Offline eval** — assertions run concurrently for each block
+- **Live API runs** — assertions run sequentially after each block completes
 
-That means assertions are not always executed through the same concurrency model:
+In both contexts:
 
-- Async registry callers can evaluate a block's assertions concurrently
-- The live API `EvalObserver` path evaluates the block's assertions through the synchronous registry surface
-
-In both paths:
-
-- every configured assertion still gets its own result
-- transform failures on one assertion do not prevent the rest of the list from producing results
-- aggregate scoring still follows the same weighted scoring rules
+- Every configured assertion produces its own result
+- A transform failure on one assertion does not prevent the rest from running
+- Aggregate scoring follows the same weighted scoring rules
 
 ## Assertion chaining
 
@@ -255,17 +250,12 @@ If a transform fails on one assertion (e.g., the output is not valid JSON, or th
 
 ## How assertions fire during execution
 
-When a workflow runs via the API, the engine wires assertions automatically:
+When a workflow runs via the API, assertions fire automatically — no extra configuration needed beyond defining them on your blocks:
 
-1. `parse_workflow_yaml()` attaches each block's `assertions` to the runtime workflow
-2. `ExecutionService._build_assertion_configs()` collects those assertion lists by block ID
-3. `EvalObserver` receives the config map and watches block completion events
-4. After a block completes, `EvalObserver.on_block_complete()`:
-   - Extracts the block output from `WorkflowState`
-   - Builds an `AssertionContext` with output, cost, latency, soul info, and tokens
-   - Calls the shared sync registry path for that block's assertion list
-   - Persists `eval_score`, `eval_passed`, and `eval_results` on the `RunNode` record
-   - Emits a `node_eval_complete` SSE event
+1. The engine reads each block's `assertions` list from the workflow YAML
+2. After a block completes, the engine evaluates all configured assertions against the block output
+3. Each assertion receives the block's output text plus execution context (cost, latency, soul info, tokens)
+4. Results are persisted on the run record and pushed to the UI via SSE
 
 The `RunNode` entity stores three eval fields:
 

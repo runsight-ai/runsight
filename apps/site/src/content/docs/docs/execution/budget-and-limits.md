@@ -104,23 +104,23 @@ With this configuration, a warning event is emitted at 80% of the cost cap ($0.8
 
 ## How enforcement works
 
-Budget enforcement uses Python `contextvars` to track the active budget session per asyncio task. The enforcement point is inside `LiteLLMClient.achat()` --- the single chokepoint for all LLM calls.
+Budget enforcement tracks the active budget session per async task. The enforcement point is inside the LLM client --- every LLM call passes through a single chokepoint where cost and token limits are checked.
 
 ### The enforcement chain
 
-1. **Workflow start:** If the workflow has `limits`, a `BudgetSession` is created and set as the active budget via `_active_budget` ContextVar.
+1. **Workflow start:** If the workflow has `limits`, a budget session is created and set as the active budget for the run.
 
-2. **Block start:** If a block has `limits`, a child `BudgetSession` is created with the workflow session as its `parent`. The child session replaces the active budget for the duration of that block.
+2. **Block start:** If a block has `limits`, a child budget session is created with the workflow session as its parent. The child replaces the active budget for the duration of that block.
 
-3. **LLM call returns:** After each `achat()` call, the session's `accrue()` method adds the cost and tokens. If the session has a parent, costs propagate up the chain automatically.
+3. **LLM call returns:** After each LLM call, the session records the cost and tokens. If the session has a parent, costs propagate up the chain automatically.
 
-4. **Cap check:** After accrual, `check_or_raise()` walks the entire parent chain. If any session (block or workflow) has exceeded its cap with `on_exceed: "fail"`, a `BudgetKilledException` is raised.
+4. **Cap check:** After recording, the engine walks the entire parent chain. If any session (block or workflow) has exceeded its cap with `on_exceed: "fail"`, execution is killed immediately.
 
 5. **Block end:** The block's budget session is removed and the workflow session is restored.
 
 ### Parent propagation
 
-When a block has its own limits, the `BudgetSession` is created with the workflow session as `parent`. Every `accrue()` call on the child **also increments the parent's counters** recursively up the chain. After accrual, `check_or_raise()` walks the entire parent chain, so both the block's caps and the workflow's caps are enforced on every LLM call:
+When a block has its own limits, a child budget session is created with the workflow session as its parent. Every cost recorded on the child **also increments the parent's counters** recursively up the chain. After recording, the engine walks the entire parent chain, so both the block's caps and the workflow's caps are enforced on every LLM call:
 
 ```
 Block accrues $0.50, 1000 tokens
@@ -134,9 +134,9 @@ This means a workflow with `cost_cap_usd: 2.00` will kill the run even if the in
 
 Timeouts work differently from cost and token caps:
 
-- **Workflow timeout:** `Workflow.run()` wraps the main execution loop in `asyncio.wait_for(timeout=max_duration_seconds)`. If the timeout fires, a `BudgetKilledException` is raised with `limit_kind="timeout"`.
+- **Workflow timeout:** The engine wraps the main execution loop with the configured `max_duration_seconds`. If the timeout fires, execution is killed immediately with a budget exception (`limit_kind="timeout"`).
 
-- **Block timeout:** `execute_block()` wraps the individual block dispatch in `asyncio.wait_for(timeout=max_duration_seconds)`. Block timeouts are independent of the workflow timeout.
+- **Block timeout:** Each block is individually wrapped with its own `max_duration_seconds`. Block timeouts are independent of the workflow timeout.
 
 ### Dispatch branch isolation
 

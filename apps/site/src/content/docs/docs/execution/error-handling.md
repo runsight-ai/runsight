@@ -156,7 +156,7 @@ Here is how errors flow through the execution engine:
 
 3. **Error route check:** If `error_route` is set on the block, the exception is caught, a `BlockResult` with error metadata is written, and execution redirects to the error route target.
 
-4. **Workflow-level propagation:** If no error_route is set, the exception propagates up to `Workflow.run()`. If the workflow is a child (running inside a `workflow` block), the parent's `on_error` determines what happens next.
+4. **Workflow-level propagation:** If no error_route is set, the exception propagates up to the workflow runner. If the workflow is a child (running inside a `workflow` block), the parent's `on_error` determines what happens next.
 
 5. **Terminal state:** If the exception reaches the top-level workflow, the run is marked as `failed` with the error message and traceback stored on the `Run` record.
 
