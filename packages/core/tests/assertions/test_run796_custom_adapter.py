@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import json
 from dataclasses import dataclass
@@ -44,6 +45,23 @@ class _FakeProc:
 
     async def communicate(self, input: bytes | None = None):
         return self.stdout_payload, self.stderr_payload
+
+
+@dataclass
+class _HangingProc:
+    kill_called: bool = False
+    wait_called: bool = False
+    returncode: int | None = None
+
+    async def communicate(self, input: bytes | None = None):
+        raise asyncio.TimeoutError("timed out after 30s")
+
+    def kill(self):
+        self.kill_called = True
+
+    async def wait(self):
+        self.wait_called = True
+        self.returncode = -9
 
 
 class TestBuildAdapterClass:
@@ -275,3 +293,49 @@ def get_assert(output, context):
         assert "PATH" in captured_env
         assert "OPENAI_API_KEY" not in captured_env
         assert "ANTHROPIC_API_KEY" not in captured_env
+
+    @pytest.mark.asyncio
+    async def test_adapter_evaluate_succeeds_inside_running_event_loop(self):
+        _, build_adapter_class = _load_symbols()
+        adapter_cls = build_adapter_class(
+            "loop_safe_guard",
+            """
+def get_assert(output, context):
+    return output == "needle in haystack" and context["vars"]["topic"] == "launch"
+""",
+            "bool",
+        )
+        adapter = adapter_cls(config={"budget": 0.05})
+
+        result = adapter.evaluate("needle in haystack", _make_context())
+
+        assert result.passed is True
+        assert result.assertion_type == "custom:loop_safe_guard"
+
+    def test_adapter_timeout_kills_process_waits_and_returns_failing_result(self, monkeypatch):
+        module, build_adapter_class = _load_symbols()
+        adapter_cls = build_adapter_class(
+            "timeout_guard",
+            """
+def get_assert(output, context):
+    return True
+""",
+            "bool",
+        )
+        adapter = adapter_cls()
+        proc = _HangingProc()
+
+        async def fake_create_subprocess_exec(*args, **kwargs):
+            return proc
+
+        monkeypatch.setattr(module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+
+        result = adapter.evaluate("needle in haystack", _make_context())
+
+        assert isinstance(result, GradingResult)
+        assert result.passed is False
+        assert result.score == 0.0
+        assert "timeout_guard" in result.reason
+        assert "30" in result.reason or "timed out" in result.reason
+        assert proc.kill_called is True
+        assert proc.wait_called is True
