@@ -56,6 +56,90 @@ async def _send_raw_request_and_collect_frames(
         await writer.wait_closed()
 
 
+def _make_grant_token(*, block_id: str = "test-block"):
+    from runsight_core.isolation import ipc as ipc_module
+
+    GrantToken = getattr(ipc_module, "GrantToken", None)
+    assert GrantToken is not None
+    return GrantToken(block_id=block_id)
+
+
+async def _authenticate_client_with_grant_token(client, grant_token) -> dict[str, Any]:
+    auth_result = await client.request(
+        "capability_negotiation",
+        {"grant_token": grant_token.token},
+    )
+    assert isinstance(auth_result, dict)
+    assert auth_result.get("authenticated") is True
+    return auth_result
+
+
+async def _raw_authenticate_with_grant_token(socket_path: Path, grant_token) -> dict[str, Any]:
+    frames = await _send_raw_request_and_collect_frames(
+        socket_path,
+        {
+            "id": "req-auth-1",
+            "action": "capability_negotiation",
+            "payload": {"grant_token": grant_token.token},
+        },
+    )
+    assert len(frames) == 1
+    assert frames[0]["done"] is True
+    assert frames[0]["error"] is None
+    return frames[0]
+
+
+async def _send_raw_authenticated_request_and_collect_frames(
+    socket_path: Path,
+    grant_token,
+    request: dict[str, Any],
+    *,
+    max_frames: int = 10,
+) -> list[dict[str, Any]]:
+    """Authenticate and send one NDJSON request on the same connection."""
+    reader, writer = await asyncio.open_unix_connection(str(socket_path))
+    try:
+        auth_line = (
+            json.dumps(
+                {
+                    "id": "req-auth-1",
+                    "action": "capability_negotiation",
+                    "payload": {"grant_token": grant_token.token},
+                },
+                separators=(",", ":"),
+            )
+            + "\n"
+        )
+        writer.write(auth_line.encode())
+        await writer.drain()
+
+        auth_raw = await asyncio.wait_for(reader.readline(), timeout=0.2)
+        assert auth_raw
+        auth_frame = json.loads(auth_raw)
+        assert auth_frame["done"] is True
+        assert auth_frame["error"] is None
+
+        line = json.dumps(request, separators=(",", ":")) + "\n"
+        writer.write(line.encode())
+        await writer.drain()
+
+        frames: list[dict[str, Any]] = []
+        for _ in range(max_frames):
+            try:
+                raw = await asyncio.wait_for(reader.readline(), timeout=0.2)
+            except asyncio.TimeoutError:
+                break
+            if not raw:
+                break
+            frames.append(json.loads(raw))
+            if frames[-1].get("done") is True:
+                break
+        return frames
+    finally:
+        writer.close()
+        await writer.wait_closed()
+
+
 # ---------------------------------------------------------------------------
 # AC3: IPCServer accepts existing socket (does not create it)
 # ---------------------------------------------------------------------------
@@ -83,7 +167,7 @@ class TestIPCServerAcceptsExistingSocket:
         try:
             sock.bind(str(sock_path))
             sock.listen(1)
-            server = IPCServer(sock=sock, handlers={})
+            server = IPCServer(sock=sock, handlers={}, grant_token=_make_grant_token())
             # The server should wrap the existing socket, not create a new file
             assert sock_path.exists()
             assert server is not None
@@ -98,7 +182,11 @@ class TestIPCServerAcceptsExistingSocket:
         from runsight_core.isolation import IPCServer
 
         with pytest.raises((TypeError, ValueError)):
-            IPCServer(sock=str(tmp_path / "no.sock"), handlers={})
+            IPCServer(
+                sock=str(tmp_path / "no.sock"),
+                handlers={},
+                grant_token=_make_grant_token(),
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -270,12 +358,18 @@ class TestIPCClientRequestResponseCorrelation:
         async def http_handler(params: dict) -> dict:
             return {"status_code": 200, "body": "ok", "headers": {}}
 
-        server = IPCServer(sock=server_sock, handlers={"http": http_handler})
+        grant_token = _make_grant_token(block_id="corr")
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"http": http_handler},
+            grant_token=grant_token,
+        )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             result = await client.request("http", {"method": "GET", "url": "http://example.com"})
 
             assert isinstance(result, dict)
@@ -364,15 +458,18 @@ class TestIPCServerDispatches:
             http_called = True
             return {"status_code": 200, "body": "response", "headers": {}}
 
+        grant_token = _make_grant_token(block_id="dispatch-http")
         server = IPCServer(
             sock=server_sock,
             handlers={"http": http_handler},
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             result = await client.request("http", {"method": "GET", "url": "http://example.com"})
             assert http_called
             assert result["status_code"] == 200
@@ -396,15 +493,18 @@ class TestIPCServerDispatches:
         async def file_io_handler(params: dict) -> dict:
             return {"content": "file contents here"}
 
+        grant_token = _make_grant_token(block_id="dispatch-fileio")
         server = IPCServer(
             sock=server_sock,
             handlers={"file_io": file_io_handler},
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             result = await client.request("file_io", {"action_type": "read", "path": "/tmp/f.txt"})
             assert result["content"] == "file contents here"
         finally:
@@ -427,15 +527,18 @@ class TestIPCServerDispatches:
         async def delegate_handler(params: dict) -> dict:
             return {"ok": True}
 
+        grant_token = _make_grant_token(block_id="dispatch-delegate")
         server = IPCServer(
             sock=server_sock,
             handlers={"delegate": delegate_handler},
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             result = await client.request("delegate", {"port": "output", "task": "do thing"})
             assert result["ok"] is True
         finally:
@@ -458,15 +561,18 @@ class TestIPCServerDispatches:
         async def write_artifact_handler(params: dict) -> dict:
             return {"ref": "artifact://block-1/my-key"}
 
+        grant_token = _make_grant_token(block_id="dispatch-artifact")
         server = IPCServer(
             sock=server_sock,
             handlers={"write_artifact": write_artifact_handler},
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             result = await client.request(
                 "write_artifact", {"key": "my-key", "content": "data", "metadata": {}}
             )
@@ -504,17 +610,20 @@ class TestRPCActions:
             llm_called = True
             return {"output": f"completion for {params['prompt']}"}
 
+        grant_token = _make_grant_token(block_id="llm-allowed")
         server = IPCServer(
             sock=server_sock,
             handlers={
                 "llm_call": llm_handler,
             },
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             result = await client.request("llm_call", {"prompt": "hello"})
 
             assert llm_called is True
@@ -536,17 +645,20 @@ class TestRPCActions:
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
 
+        grant_token = _make_grant_token(block_id="unknown-action")
         server = IPCServer(
             sock=server_sock,
             handlers={
                 "http": AsyncMock(return_value={}),
             },
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             result = await client.request("totally_fake_action", {"foo": "bar"})
 
             assert "error" in result
@@ -581,6 +693,50 @@ class TestRUN398GrantTokenAuthAndAllowlist:
 
         blocked_actions = getattr(ipc_module, "BLOCKED_ACTIONS", None)
         assert blocked_actions is None or "llm_call" not in blocked_actions
+
+    @pytest.mark.asyncio
+    async def test_ipc_server_without_grant_token_does_not_allow_unauthenticated_mode(
+        self, tmp_path: Path
+    ):
+        from runsight_core.isolation import IPCServer
+
+        sock_path = tmp_path / "run398-no-bypass.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+
+        handler_called = False
+
+        async def simple_handler(_payload: dict[str, Any]) -> dict[str, Any]:
+            nonlocal handler_called
+            handler_called = True
+            return {"status": "ok"}
+
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"simple": simple_handler},
+        )
+        server_task = asyncio.create_task(server.serve())
+
+        try:
+            frames = await _send_raw_request_and_collect_frames(
+                sock_path,
+                {
+                    "id": "req-398-no-bypass-1",
+                    "action": "simple",
+                    "payload": {"value": 1},
+                },
+            )
+            assert handler_called is False
+            assert len(frames) == 1
+            assert frames[0]["done"] is True
+            assert frames[0]["payload"] is None
+            assert "auth" in (frames[0]["error"] or "").lower()
+        finally:
+            await server.shutdown()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
 
     @pytest.mark.asyncio
     async def test_unauthenticated_request_rejected_before_handler_executes(self, tmp_path: Path):
@@ -738,7 +894,7 @@ class TestSocketCleanup:
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
 
-        server = IPCServer(sock=server_sock, handlers={})
+        server = IPCServer(sock=server_sock, handlers={}, grant_token=_make_grant_token())
         server_task = asyncio.create_task(server.serve())
 
         await server.shutdown()
@@ -917,15 +1073,18 @@ class TestWriteArtifactReturnsRef:
             }
             return {"ref": f"artifact://{key}"}
 
+        grant_token = _make_grant_token(block_id="artifact-ref")
         server = IPCServer(
             sock=server_sock,
             handlers={"write_artifact": write_artifact_handler},
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             result = await client.request(
                 "write_artifact",
                 {
@@ -961,15 +1120,18 @@ class TestWriteArtifactReturnsRef:
             received_params.update(params)
             return {"ref": "artifact://test-key"}
 
+        grant_token = _make_grant_token(block_id="artifact-params")
         server = IPCServer(
             sock=server_sock,
             handlers={"write_artifact": write_artifact_handler},
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             await client.request(
                 "write_artifact",
                 {
@@ -1017,15 +1179,18 @@ class TestHTTPRoundTrip:
                 "headers": {"content-type": "application/json"},
             }
 
+        grant_token = _make_grant_token(block_id="http-get")
         server = IPCServer(
             sock=server_sock,
             handlers={"http": http_handler},
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             result = await client.request(
                 "http",
                 {
@@ -1065,15 +1230,18 @@ class TestHTTPRoundTrip:
                 "headers": {},
             }
 
+        grant_token = _make_grant_token(block_id="http-post")
         server = IPCServer(
             sock=server_sock,
             handlers={"http": http_handler},
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             result = await client.request(
                 "http",
                 {
@@ -1123,15 +1291,18 @@ class TestWriteArtifactRoundTrip:
             }
             return {"ref": f"artifact://block-x/{key}"}
 
+        grant_token = _make_grant_token(block_id="wa-rt")
         server = IPCServer(
             sock=server_sock,
             handlers={"write_artifact": write_artifact_handler},
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
             result = await client.request(
                 "write_artifact",
                 {
@@ -1174,15 +1345,18 @@ class TestWriteArtifactRoundTrip:
             artifact_store[key] = {"content": params["content"]}
             return {"ref": f"artifact://{key}"}
 
+        grant_token = _make_grant_token(block_id="wa-multi")
         server = IPCServer(
             sock=server_sock,
             handlers={"write_artifact": write_artifact_handler},
+            grant_token=grant_token,
         )
         server_task = asyncio.create_task(server.serve())
 
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
+            await _authenticate_client_with_grant_token(client, grant_token)
 
             ref1 = await client.request(
                 "write_artifact", {"key": "artifact-a", "content": "aaa", "metadata": {}}
@@ -1295,12 +1469,19 @@ class TestRUN392ServerStreamingFrames:
         async def simple_handler(payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "ok", "echo": payload.get("value")}
 
-        server = IPCServer(sock=server_sock, handlers={"simple": simple_handler}, registry=registry)
+        grant_token = _make_grant_token(block_id="run392-simple")
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"simple": simple_handler},
+            registry=registry,
+            grant_token=grant_token,
+        )
         server_task = asyncio.create_task(server.serve())
 
         try:
-            frames = await _send_raw_request_and_collect_frames(
+            frames = await _send_raw_authenticated_request_and_collect_frames(
                 sock_path,
+                grant_token,
                 {
                     "id": "req-simple-1",
                     "action": "simple",
@@ -1354,12 +1535,19 @@ class TestRUN392ServerStreamingFrames:
             yield {"chunk": 2}
             yield {"chunk": 3}
 
-        server = IPCServer(sock=server_sock, handlers={"stream": stream_handler}, registry=registry)
+        grant_token = _make_grant_token(block_id="run392-stream")
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"stream": stream_handler},
+            registry=registry,
+            grant_token=grant_token,
+        )
         server_task = asyncio.create_task(server.serve())
 
         try:
-            frames = await _send_raw_request_and_collect_frames(
+            frames = await _send_raw_authenticated_request_and_collect_frames(
                 sock_path,
+                grant_token,
                 {
                     "id": "req-stream-1",
                     "action": "stream",
@@ -1594,11 +1782,15 @@ class TestRUN393IPCServerRegistryIntegration:
 
         class TestInterceptor:
             async def on_request(self, action: str, payload: dict, engine_context: dict) -> dict:
+                if action == "capability_negotiation":
+                    return engine_context
                 assert engine_context == {}
                 engine_context["request_seen"] = action
                 return engine_context
 
             async def on_response(self, action: str, payload: dict, engine_context: dict) -> dict:
+                if action == "capability_negotiation":
+                    return engine_context
                 engine_context["response_status"] = payload["status"]
                 return engine_context
 
@@ -1619,12 +1811,19 @@ class TestRUN393IPCServerRegistryIntegration:
             handler_called = True
             return {"status": "ok", "echo": payload["value"]}
 
-        server = IPCServer(sock=server_sock, handlers={"simple": simple_handler}, registry=registry)
+        grant_token = _make_grant_token(block_id="run393-simple")
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"simple": simple_handler},
+            registry=registry,
+            grant_token=grant_token,
+        )
         server_task = asyncio.create_task(server.serve())
 
         try:
-            frames = await _send_raw_request_and_collect_frames(
+            frames = await _send_raw_authenticated_request_and_collect_frames(
                 sock_path,
+                grant_token,
                 {
                     "id": "req-393-simple-1",
                     "action": "simple",
@@ -1660,7 +1859,12 @@ class TestRUN393IPCServerRegistryIntegration:
         async def simple_handler(payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "ok", "echo": payload.get("value")}
 
-        server = IPCServer(sock=server_sock, handlers={"simple": simple_handler})
+        grant_token = _make_grant_token(block_id="run393-no-shim")
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"simple": simple_handler},
+            grant_token=grant_token,
+        )
         setattr(
             server,
             "_engine_context_interceptor",
@@ -1669,8 +1873,9 @@ class TestRUN393IPCServerRegistryIntegration:
         server_task = asyncio.create_task(server.serve())
 
         try:
-            frames = await _send_raw_request_and_collect_frames(
+            frames = await _send_raw_authenticated_request_and_collect_frames(
                 sock_path,
+                grant_token,
                 {
                     "id": "req-393-no-shim-1",
                     "action": "simple",
@@ -1725,12 +1930,19 @@ class TestRUN393IPCServerRegistryIntegration:
             yield {"index": 2, "value": "B"}
             yield {"index": 3, "value": "C"}
 
-        server = IPCServer(sock=server_sock, handlers={"stream": stream_handler}, registry=registry)
+        grant_token = _make_grant_token(block_id="run393-stream")
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"stream": stream_handler},
+            registry=registry,
+            grant_token=grant_token,
+        )
         server_task = asyncio.create_task(server.serve())
 
         try:
-            frames = await _send_raw_request_and_collect_frames(
+            frames = await _send_raw_authenticated_request_and_collect_frames(
                 sock_path,
+                grant_token,
                 {
                     "id": "req-393-stream-1",
                     "action": "stream",
@@ -1762,6 +1974,8 @@ class TestRUN393IPCServerRegistryIntegration:
 
         class KillSwitchInterceptor:
             async def on_request(self, action: str, payload: dict, engine_context: dict) -> dict:
+                if action == "capability_negotiation":
+                    return engine_context
                 raise BudgetKilledException(
                     scope="workflow",
                     block_id=None,
@@ -1790,12 +2004,19 @@ class TestRUN393IPCServerRegistryIntegration:
             handler_called = True
             return {"status": "unexpected"}
 
-        server = IPCServer(sock=server_sock, handlers={"simple": should_not_run}, registry=registry)
+        grant_token = _make_grant_token(block_id="run393-killed")
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"simple": should_not_run},
+            registry=registry,
+            grant_token=grant_token,
+        )
         server_task = asyncio.create_task(server.serve())
 
         try:
-            frames = await _send_raw_request_and_collect_frames(
+            frames = await _send_raw_authenticated_request_and_collect_frames(
                 sock_path,
+                grant_token,
                 {
                     "id": "req-393-kill-1",
                     "action": "simple",
@@ -1848,7 +2069,12 @@ class TestRUN393IPCServerRegistryIntegration:
         async def simple_handler(_payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "ok"}
 
-        server = IPCServer(sock=server_sock, handlers={"simple": simple_handler}, registry=registry)
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"simple": simple_handler},
+            registry=registry,
+            grant_token=_make_grant_token(block_id="run393-tamper"),
+        )
         server_task = asyncio.create_task(server.serve())
 
         try:
