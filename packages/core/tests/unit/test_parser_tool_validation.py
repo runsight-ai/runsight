@@ -913,7 +913,7 @@ souls:
                 version: "1.0"
                 type: http
                 """,
-                r"legacy_http.*type.*custom|legacy_http.*unsupported",
+                r"(?s)(?:legacy_http.*type.*custom|legacy_http.*unsupported)",
             ),
             (
                 "missing_request_url",
@@ -928,7 +928,7 @@ souls:
                 request:
                   method: GET
                 """,
-                r"missing_request_url.*url",
+                r"(?s)missing_request_url.*url",
             ),
             (
                 "python_with_request",
