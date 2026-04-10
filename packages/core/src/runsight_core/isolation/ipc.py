@@ -174,7 +174,7 @@ class IPCServer:
         writer: asyncio.StreamWriter,
     ) -> None:
         """Process NDJSON lines from a single client connection."""
-        authenticated = self._grant_token is None
+        authenticated = False
 
         try:
             while True:
@@ -228,6 +228,19 @@ class IPCServer:
                     continue
 
                 if not authenticated:
+                    if self._grant_token is None:
+                        await self._write_frame(
+                            writer,
+                            IPCResponseFrame(
+                                id=request.id,
+                                done=True,
+                                payload=None,
+                                engine_context=None,
+                                error="authentication failed: grant token not configured",
+                            ),
+                        )
+                        continue
+
                     if request.action != "capability_negotiation":
                         await self._write_frame(
                             writer,
@@ -242,9 +255,7 @@ class IPCServer:
                         continue
 
                     submitted_token = str(request.payload.get("grant_token", ""))
-                    expected_token = (
-                        self._grant_token.token if self._grant_token is not None else ""
-                    )
+                    expected_token = self._grant_token.token
                     if submitted_token != expected_token:
                         await self._write_frame(
                             writer,
@@ -258,7 +269,7 @@ class IPCServer:
                         )
                         continue
 
-                    if self._grant_token is not None and self._grant_token.is_expired():
+                    if self._grant_token.is_expired():
                         await self._write_frame(
                             writer,
                             IPCResponseFrame(
@@ -271,7 +282,7 @@ class IPCServer:
                         )
                         continue
 
-                    if self._grant_token is not None and self._grant_token.consumed:
+                    if self._grant_token.consumed:
                         await self._write_frame(
                             writer,
                             IPCResponseFrame(
@@ -284,7 +295,7 @@ class IPCServer:
                         )
                         continue
 
-                    if self._grant_token is not None and not self._grant_token.consume():
+                    if not self._grant_token.consume():
                         await self._write_frame(
                             writer,
                             IPCResponseFrame(

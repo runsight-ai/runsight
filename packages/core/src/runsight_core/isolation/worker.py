@@ -267,7 +267,6 @@ def main() -> None:
     try:
         # Check required env vars
         grant_token = os.environ.get("RUNSIGHT_GRANT_TOKEN")
-        api_key = os.environ.get("RUNSIGHT_BLOCK_API_KEY", "")
         ipc_socket = os.environ.get("RUNSIGHT_IPC_SOCKET")
 
         if not grant_token:
@@ -317,7 +316,7 @@ def main() -> None:
         soul = reconstruct_soul(envelope.soul, resolved_tools=resolved_tools)
         runner = create_runner(
             model_name=envelope.soul.model_name,
-            api_key=api_key,
+            api_key="",
         )
 
         # Build scoped state
