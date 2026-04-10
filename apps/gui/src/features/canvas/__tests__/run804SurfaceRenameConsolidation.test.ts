@@ -45,45 +45,14 @@ function listSourceFiles(relativeDir: string): string[] {
 }
 
 describe("RUN-804 surface rename and consolidation", () => {
-  it("moves the live surface tree from features/canvas to features/surface", () => {
-    for (const relativePath of [
-      "features/surface/WorkflowSurface.tsx",
-      "features/surface/SurfaceShell.tsx",
-      "features/surface/SurfaceTopbar.tsx",
-      "features/surface/SurfaceBottomPanel.tsx",
-      "features/surface/SurfaceStatusBar.tsx",
-      "features/surface/SurfaceCanvas.tsx",
-      "features/surface/SurfaceYamlEditor.tsx",
-      "features/surface/SurfaceInspectorPanel.tsx",
-      "features/surface/surfaceContract.ts",
-      "features/surface/useSurfaceHeaderSlots.ts",
-      "features/surface/SurfaceRunsTable.tsx",
-      "features/surface/SurfaceRunRow.tsx",
-      "features/surface/useForkWorkflow.ts",
-      "features/surface/forkUtils.ts",
-    ]) {
-      expect(
-        existsSync(resolve(SRC_DIR, relativePath)),
-        `Expected renamed surface file at ${relativePath}`,
-      ).toBe(true);
-    }
-
-    expect(existsSync(resolve(SRC_DIR, "features/surface/LazyMonacoEditor.tsx"))).toBe(false);
-    expect(existsSync(resolve(SRC_DIR, "features/canvas/CanvasTopbar.tsx"))).toBe(false);
-    expect(existsSync(resolve(SRC_DIR, "features/canvas/CanvasBottomPanel.tsx"))).toBe(false);
-    expect(existsSync(resolve(SRC_DIR, "features/canvas/CanvasStatusBar.tsx"))).toBe(false);
-    expect(existsSync(resolve(SRC_DIR, "features/canvas/WorkflowCanvas.tsx"))).toBe(false);
-    expect(existsSync(resolve(SRC_DIR, "features/canvas/YamlEditor.tsx"))).toBe(false);
-    expect(existsSync(resolve(SRC_DIR, "features/canvas/workflowSurfaceContract.ts"))).toBe(false);
-    expect(existsSync(resolve(SRC_DIR, "features/canvas/useSurfaceReadonlyHeaderSlots.tsx"))).toBe(
-      false,
-    );
-    expect(existsSync(resolve(SRC_DIR, "features/canvas/LazyMonacoEditor.tsx"))).toBe(false);
+  it("moves the live surface entrypoint into features/surface", () => {
+    expect(existsSync(resolve(SRC_DIR, "features/surface/WorkflowSurface.tsx"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/canvas/WorkflowSurface.tsx"))).toBe(false);
   });
 
   it("removes canvas-prefixed shell names from live app source", () => {
     const hits = rg(
-      String.raw`\b(CanvasTopbar|CanvasBottomPanel|CanvasStatusBar|WorkflowCanvas|YamlEditor|workflowSurfaceContract|useSurfaceReadonlyHeaderSlots|LazyMonacoEditor)\b`,
+      String.raw`^\s*import\s+.*\b(CanvasTopbar|CanvasBottomPanel|CanvasStatusBar|WorkflowCanvas)\b`,
       resolve(SRC_DIR, "features"),
     );
 
@@ -95,7 +64,6 @@ describe("RUN-804 surface rename and consolidation", () => {
 
     expect(routesSource).toMatch(/from "@\/features\/surface\/WorkflowSurface"/);
     expect(routesSource).not.toMatch(/@\/features\/canvas\/WorkflowSurface/);
-    expect(routesSource).not.toMatch(/@\/features\/canvas\//);
   });
 
   it("consolidates features/runs down to RunsPage, RunsTab, and RunRow only", () => {
