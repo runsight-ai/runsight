@@ -1,4 +1,4 @@
-interface CanvasStatusBarProps {
+interface SurfaceStatusBarProps {
   activeTab: string;
   blockCount?: number;
   edgeCount?: number;
@@ -6,13 +6,13 @@ interface CanvasStatusBarProps {
   metricsVisibility?: "hidden" | "elapsed-and-cost" | "duration-and-cost";
 }
 
-export function CanvasStatusBar({
+export function SurfaceStatusBar({
   activeTab,
   blockCount = 0,
   edgeCount = 0,
   stepCountFormat = "steps-and-edges",
   metricsVisibility = "hidden",
-}: CanvasStatusBarProps) {
+}: SurfaceStatusBarProps) {
   const hasCounts = blockCount > 0 || edgeCount > 0;
   const stepCountDisplay = !hasCounts
     ? null

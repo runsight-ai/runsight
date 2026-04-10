@@ -2,7 +2,7 @@ import { createBrowserRouter, Navigate, useParams } from "react-router";
 import { ShellLayout } from "./layouts/ShellLayout";
 import { createSetupGuardLoader, createReverseGuardLoader } from "./guards";
 import { queryClient } from "@/lib/queryClient";
-import { WorkflowSurface } from "@/features/canvas/WorkflowSurface";
+import { WorkflowSurface } from "@/features/surface/WorkflowSurface";
 const ROUTE_HYDRATE_FALLBACK = <div aria-hidden="true" />;
 
 function WorkflowEditRoute() {

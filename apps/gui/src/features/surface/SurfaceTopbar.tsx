@@ -8,10 +8,10 @@ import { ExecutionMetrics } from "./ExecutionMetrics";
 import { useCanvasStore } from "@/store/canvas";
 import { useCancelRun, useRun } from "@/queries/runs";
 import { Save, X } from "lucide-react";
-import { useForkWorkflow } from "../runs/useForkWorkflow";
+import { useForkWorkflow } from "./useForkWorkflow";
 import { WorkflowTopbar } from "@/components/shared";
 
-interface CanvasTopbarProps {
+interface SurfaceTopbarProps {
   workflowId: string;
   activeTab: string;
   onValueChange: (value: string) => void;
@@ -43,7 +43,7 @@ interface CanvasTopbarProps {
   };
 }
 
-export function CanvasTopbar({
+export function SurfaceTopbar({
   workflowId,
   activeTab,
   onValueChange,
@@ -69,7 +69,7 @@ export function CanvasTopbar({
   actionsOverride,
   runId,
   forkConfigOverride,
-}: CanvasTopbarProps) {
+}: SurfaceTopbarProps) {
   const hasRouter = useInRouterContext();
   const { data: workflow } = useWorkflow(workflowId);
   const updateWorkflow = useUpdateWorkflow();

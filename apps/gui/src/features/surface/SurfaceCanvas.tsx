@@ -14,7 +14,7 @@ import "@xyflow/react/dist/style.css";
 import { useCanvasStore } from "@/store/canvas";
 import { nodeTypes } from "./nodes";
 
-interface WorkflowCanvasProps {
+interface SurfaceCanvasProps {
   isDraggable?: boolean;
   connectionsAllowed?: boolean;
   deletionAllowed?: boolean;
@@ -24,14 +24,14 @@ interface WorkflowCanvasProps {
   onPaneClick?: () => void;
 }
 
-export function WorkflowCanvas({
+export function SurfaceCanvas({
   isDraggable = true,
   connectionsAllowed = true,
   deletionAllowed = true,
   onNodeClick: onNodeClickProp,
   onNodeDoubleClick: onNodeDoubleClickProp,
   onPaneClick: onPaneClickProp,
-}: WorkflowCanvasProps) {
+}: SurfaceCanvasProps) {
   const { nodes, edges, onNodesChange, onEdgesChange, selectNode } =
     useCanvasStore();
 

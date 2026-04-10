@@ -3,11 +3,11 @@ import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./workflowSurfaceContract";
 import { getContractForMode, getCanvasYamlToggleVisibility, getSaveButtonState, getActionButton, isEditable } from "./workflowSurfaceContract";
-import { CanvasTopbar } from "./CanvasTopbar";
+import { SurfaceTopbar } from "./SurfaceTopbar";
 import { YamlEditor } from "./YamlEditor";
-import { CanvasBottomPanel } from "./CanvasBottomPanel";
-import { CanvasStatusBar } from "./CanvasStatusBar";
-import { WorkflowCanvas } from "./WorkflowCanvas";
+import { SurfaceBottomPanel } from "./SurfaceBottomPanel";
+import { SurfaceStatusBar } from "./SurfaceStatusBar";
+import { SurfaceCanvas } from "./SurfaceCanvas";
 import { useSurfaceReadonlyHeaderSlots } from "./useSurfaceReadonlyHeaderSlots";
 
 import { ProviderModal } from "@/components/provider/ProviderModal";
@@ -433,7 +433,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
       }}
     >
       <div data-testid="surface-topbar" style={{ gridColumn: "1 / -1", gridRow: "1" }}>
-        <CanvasTopbar
+        <SurfaceTopbar
           workflowId={resolvedWorkflowId}
           runId={activeRunId ?? initialRunId}
           activeTab={activeTab}
@@ -488,7 +488,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
               ) : showPreExecutionFailure ? (
                 <RunPreExecutionFailureCard error={run.error as string} />
               ) : showReadonlyCanvas ? (
-                <WorkflowCanvas
+                <SurfaceCanvas
                   isDraggable={false}
                   connectionsAllowed={false}
                   deletionAllowed={false}
@@ -505,7 +505,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
                   />
                 </div>
               ) : (
-                <WorkflowCanvas
+                <SurfaceCanvas
                   isDraggable={contract.canvas.draggable}
                   connectionsAllowed={contract.canvas.connectionsAllowed}
                   deletionAllowed={contract.canvas.deletionAllowed}
@@ -543,7 +543,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         data-testid="surface-bottom-panel"
         style={{ gridColumn: "1 / -1", gridRow: "3" }}
       >
-        <CanvasBottomPanel
+        <SurfaceBottomPanel
           runId={activeRunId ?? initialRunId}
           workflowId={resolvedWorkflowId}
           defaultState={defaultState}
@@ -555,7 +555,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
         data-testid="surface-status-bar"
         style={{ gridColumn: "1 / -1", gridRow: "4" }}
       >
-        <CanvasStatusBar
+        <SurfaceStatusBar
           activeTab={activeTab}
           blockCount={blockCount}
           edgeCount={edgeCount}

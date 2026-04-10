@@ -12,7 +12,7 @@ import {
 import { Save, X } from "lucide-react";
 
 import * as runQueries from "@/queries/runs";
-import { useForkWorkflow } from "@/features/runs/useForkWorkflow";
+import { useForkWorkflow } from "./useForkWorkflow";
 import { formatCost, formatDuration } from "@/utils/formatting";
 
 const useOptionalCancelRun =
