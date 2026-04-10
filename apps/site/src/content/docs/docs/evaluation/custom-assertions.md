@@ -3,7 +3,11 @@ title: Custom Assertions
 description: Create project-local Python assertions under custom/assertions and use them in offline evals and live workflow runs.
 ---
 
-Custom assertions let you add workspace-local checks alongside Runsight's 15 built-in assertions. The Python contract is **promptfoo-compatible** — if you already have promptfoo assertion functions, they work in Runsight with minimal changes. Add a YAML manifest, drop your Python file next to it, and reference it as `custom:<name>` in your workflow.
+Custom assertions let you add workspace-local checks alongside Runsight's 15 built-in assertions. Add a YAML manifest, drop your Python file next to it, and reference it as `custom:<name>` in your workflow.
+
+:::tip[Promptfoo compatible]
+The Python contract is the same as promptfoo's `get_assert(output, context)`. If you already have promptfoo assertion functions, they work in Runsight with minimal changes — see [Migrating from Promptfoo](#migrating-from-promptfoo).
+:::
 
 Runsight discovers custom assertions from `custom/assertions/*.yaml`, registers each one under `custom:{file_stem}`, and runs them in both offline evals and live API workflow runs.
 
