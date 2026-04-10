@@ -263,6 +263,22 @@ def get_assert(output, context):
 
         assert result.passed is True
 
+    def test_adapter_passes_non_dict_config_through_to_plugin_context(self):
+        _, build_adapter_class = _load_symbols()
+        adapter_cls = build_adapter_class(
+            "raw_config_passthrough",
+            """
+def get_assert(output, context):
+    return context["config"] == "raw-config-token"
+""",
+            "bool",
+        )
+        adapter = adapter_cls(config="raw-config-token")
+
+        result = adapter.evaluate("needle in haystack", _make_context())
+
+        assert result.passed is True
+
     def test_adapter_subprocess_env_is_minimal_and_does_not_forward_api_keys(self, monkeypatch):
         module, build_adapter_class = _load_symbols()
         adapter_cls = build_adapter_class(
