@@ -10,12 +10,19 @@ from runsight_core.isolation.envelope import (
     ToolDefEnvelope,
 )
 from runsight_core.isolation.harness import SubprocessHarness
-from runsight_core.isolation.ipc import InterceptorRegistry, IPCClient, IPCInterceptor, IPCServer
+from runsight_core.isolation.ipc import (
+    GrantToken,
+    InterceptorRegistry,
+    IPCClient,
+    IPCInterceptor,
+    IPCServer,
+)
 from runsight_core.isolation.wrapper import IsolatedBlockWrapper
 
 __all__ = [
     "ContextEnvelope",
     "DelegateArtifact",
+    "GrantToken",
     "HeartbeatMessage",
     "IPCClient",
     "IPCInterceptor",

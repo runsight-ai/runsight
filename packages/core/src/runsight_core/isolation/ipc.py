@@ -6,18 +6,52 @@ import asyncio
 import json
 import os
 import socket
+import time
 import uuid
 from collections.abc import AsyncIterable, Awaitable, Callable
 from typing import Any, Protocol
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from runsight_core.budget_enforcement import BudgetKilledException
 
 HandlerResult = Awaitable[dict[str, Any]] | AsyncIterable[dict[str, Any]]
 Handler = Callable[[dict[str, Any]], HandlerResult]
 
-BLOCKED_ACTIONS = frozenset({"llm_call"})
+RPC_ALLOWLIST = frozenset(
+    {
+        "capability_negotiation",
+        "delegate",
+        "file_io",
+        "http",
+        "llm_call",
+        "simple",
+        "stream",
+        "tool_call",
+        "write_artifact",
+    }
+)
+
+
+class GrantToken(BaseModel):
+    """Single-use grant token for subprocess->engine IPC authentication."""
+
+    block_id: str
+    token: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    created_at: float = Field(default_factory=time.monotonic)
+    ttl_seconds: float = 30.0
+    consumed: bool = False
+
+    def is_expired(self) -> bool:
+        return (time.monotonic() - self.created_at) > self.ttl_seconds
+
+    def consume(self) -> bool:
+        if self.consumed:
+            return False
+        if self.is_expired():
+            return False
+        self.consumed = True
+        return True
 
 
 class IPCRequest(BaseModel):
@@ -103,12 +137,14 @@ class IPCServer:
         sock: socket.socket,
         handlers: dict[str, Handler],
         registry: InterceptorRegistry | None = None,
+        grant_token: GrantToken | None = None,
     ) -> None:
         if not isinstance(sock, socket.socket):
             raise TypeError("sock must be a socket.socket instance, not a path string")
         self._sock = sock
         self._handlers = handlers
         self._registry = registry or InterceptorRegistry()
+        self._grant_token = grant_token
         self._server: asyncio.AbstractServer | None = None
         self._shutdown_event = asyncio.Event()
         # Capture the socket path for cleanup
@@ -138,6 +174,8 @@ class IPCServer:
         writer: asyncio.StreamWriter,
     ) -> None:
         """Process NDJSON lines from a single client connection."""
+        authenticated = self._grant_token is None
+
         try:
             while True:
                 line = await reader.readline()
@@ -189,6 +227,78 @@ class IPCServer:
                     )
                     continue
 
+                if not authenticated:
+                    if request.action != "capability_negotiation":
+                        await self._write_frame(
+                            writer,
+                            IPCResponseFrame(
+                                id=request.id,
+                                done=True,
+                                payload=None,
+                                engine_context=None,
+                                error="authentication required: perform capability_negotiation first",
+                            ),
+                        )
+                        continue
+
+                    submitted_token = str(request.payload.get("grant_token", ""))
+                    expected_token = (
+                        self._grant_token.token if self._grant_token is not None else ""
+                    )
+                    if submitted_token != expected_token:
+                        await self._write_frame(
+                            writer,
+                            IPCResponseFrame(
+                                id=request.id,
+                                done=True,
+                                payload=None,
+                                engine_context=None,
+                                error="authentication failed: invalid grant token",
+                            ),
+                        )
+                        continue
+
+                    if self._grant_token is not None and self._grant_token.is_expired():
+                        await self._write_frame(
+                            writer,
+                            IPCResponseFrame(
+                                id=request.id,
+                                done=True,
+                                payload=None,
+                                engine_context=None,
+                                error="authentication failed: grant token expired",
+                            ),
+                        )
+                        continue
+
+                    if self._grant_token is not None and self._grant_token.consumed:
+                        await self._write_frame(
+                            writer,
+                            IPCResponseFrame(
+                                id=request.id,
+                                done=True,
+                                payload=None,
+                                engine_context=None,
+                                error="authentication failed: grant token consumed",
+                            ),
+                        )
+                        continue
+
+                    if self._grant_token is not None and not self._grant_token.consume():
+                        await self._write_frame(
+                            writer,
+                            IPCResponseFrame(
+                                id=request.id,
+                                done=True,
+                                payload=None,
+                                engine_context=None,
+                                error="authentication failed: grant token rejected",
+                            ),
+                        )
+                        continue
+
+                    authenticated = True
+
                 engine_context: dict[str, Any] = {}
                 try:
                     engine_context = await self._registry.run_on_request(
@@ -209,7 +319,7 @@ class IPCServer:
                     )
                     continue
 
-                if request.action in BLOCKED_ACTIONS or request.action not in self._handlers:
+                if request.action not in RPC_ALLOWLIST:
                     await self._write_frame(
                         writer,
                         IPCResponseFrame(
@@ -222,8 +332,43 @@ class IPCServer:
                     )
                     continue
 
-                handler = self._handlers[request.action]
+                handler = self._handlers.get(request.action)
                 try:
+                    if handler is None and request.action == "capability_negotiation":
+                        payload = {
+                            "authenticated": True,
+                            "capabilities": sorted(RPC_ALLOWLIST),
+                        }
+                        engine_context = await self._registry.run_on_response(
+                            request.action,
+                            payload,
+                            engine_context,
+                        )
+                        await self._write_frame(
+                            writer,
+                            IPCResponseFrame(
+                                id=request.id,
+                                done=True,
+                                payload=payload,
+                                engine_context=engine_context,
+                                error=None,
+                            ),
+                        )
+                        continue
+
+                    if handler is None:
+                        await self._write_frame(
+                            writer,
+                            IPCResponseFrame(
+                                id=request.id,
+                                done=True,
+                                payload=None,
+                                engine_context=engine_context,
+                                error=f"unsupported action: {request.action}",
+                            ),
+                        )
+                        continue
+
                     result_or_stream = handler(request.payload)
                     if _is_async_iterable(result_or_stream):
                         async for chunk in result_or_stream:

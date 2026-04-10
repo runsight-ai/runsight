@@ -9,7 +9,6 @@ runner, llm, memory, state, and blocks sub-packages.
 
 from __future__ import annotations
 
-import inspect
 import json
 import os
 import sys
@@ -77,22 +76,39 @@ def create_runner(model_name: str, api_key: str) -> RunsightTeamRunner:
 def create_tool_stubs(
     tool_envelopes: list[ToolDefEnvelope],
     socket_path: str,
+    grant_token: str,
 ) -> list[ToolInstance]:
     """Convert ToolDefEnvelope list into IPC-backed callable tool stubs."""
     stubs: list[ToolInstance] = []
+    client: isolation_ipc.IPCClient | None = None
+    authenticated = False
+
+    async def _get_authenticated_client() -> isolation_ipc.IPCClient:
+        nonlocal client, authenticated
+        if client is None:
+            client = isolation_ipc.IPCClient(socket_path=socket_path)
+            await client.connect()
+        if not authenticated:
+            auth_result = await client.request(
+                "capability_negotiation",
+                {"grant_token": grant_token},
+            )
+            if isinstance(auth_result, dict) and "error" in auth_result:
+                raise PermissionError(f"IPC auth failed: {auth_result['error']}")
+            authenticated = True
+        return client
+
     for tool_def in tool_envelopes:
 
         async def _execute(args: dict[str, Any], *, td: ToolDefEnvelope = tool_def) -> str:
-            client = isolation_ipc.IPCClient(socket_path=socket_path)
             try:
-                result = await client.request(
+                active_client = await _get_authenticated_client()
+                result = await active_client.request(
                     "tool_call",
                     {"name": td.name, "arguments": args},
                 )
-            finally:
-                close_result = client.close()
-                if inspect.isawaitable(close_result):
-                    await close_result
+            except Exception as exc:
+                return f"Error: {exc}"
             if "error" in result:
                 return f"Error: {result['error']}"
             return str(result.get("output", ""))
@@ -250,14 +266,15 @@ def main() -> None:
 
     try:
         # Check required env vars
-        api_key = os.environ.get("RUNSIGHT_BLOCK_API_KEY")
+        grant_token = os.environ.get("RUNSIGHT_GRANT_TOKEN")
+        api_key = os.environ.get("RUNSIGHT_BLOCK_API_KEY", "")
         ipc_socket = os.environ.get("RUNSIGHT_IPC_SOCKET")
 
-        if not api_key:
+        if not grant_token:
             _write_result(
                 _error_result(
                     block_id,
-                    "Missing required environment variable: RUNSIGHT_BLOCK_API_KEY",
+                    "Missing required environment variable: RUNSIGHT_GRANT_TOKEN",
                     "EnvironmentError",
                 ),
                 exit_code=1,
@@ -292,7 +309,11 @@ def main() -> None:
 
         # Reconstruct primitives
         _heartbeat_phase = "setup"
-        resolved_tools = create_tool_stubs(envelope.tools, socket_path=ipc_socket)
+        resolved_tools = create_tool_stubs(
+            envelope.tools,
+            socket_path=ipc_socket,
+            grant_token=grant_token,
+        )
         soul = reconstruct_soul(envelope.soul, resolved_tools=resolved_tools)
         runner = create_runner(
             model_name=envelope.soul.model_name,

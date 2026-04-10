@@ -31,7 +31,7 @@ from runsight_core.isolation.envelope import (
     SoulEnvelope,
     TaskEnvelope,
 )
-from runsight_core.isolation.ipc import IPCServer
+from runsight_core.isolation.ipc import GrantToken, IPCServer
 
 # ---------------------------------------------------------------------------
 # HeartbeatTracker — tracks phase changes and detects stalls
@@ -91,6 +91,7 @@ class SubprocessHarness:
         self._stall_thresholds = stall_thresholds or {}
         self._tool_credentials = tool_credentials or {}
         self._resolved_tools: dict[str, Any] = {}
+        self._grant_token: GrantToken | None = None
 
     # -- ISO-008: IPC handlers with baked-in credentials --------------------
 
@@ -106,7 +107,11 @@ class SubprocessHarness:
         for creds in self._tool_credentials.values():
             merged_headers.update(creds)
 
+        async def _capability_negotiation_handler(_params: dict[str, Any]) -> dict[str, Any]:
+            return {"authenticated": True}
+
         return {
+            "capability_negotiation": _capability_negotiation_handler,
             "http": make_http_handler(credentials=merged_headers, url_allowlist=["*"]),
             "file_io": make_file_io_handler(base_dir=tempfile.mkdtemp(prefix="rs-fio-")),
             "tool_call": make_tool_call_handler(self._resolved_tools),
@@ -118,11 +123,13 @@ class SubprocessHarness:
         self,
         *,
         socket_path: str | None = None,
+        block_id: str = "unknown",
     ) -> dict[str, str]:
         """Return a minimal environment dict for the subprocess."""
+        self._grant_token = GrantToken(block_id=block_id)
         env: dict[str, str] = {
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-            "RUNSIGHT_BLOCK_API_KEY": self._api_key,
+            "RUNSIGHT_GRANT_TOKEN": self._grant_token.token,
         }
         if socket_path is not None:
             env["RUNSIGHT_IPC_SOCKET"] = socket_path
@@ -347,7 +354,7 @@ class SubprocessHarness:
             work_dir = self._create_working_dir()
 
             # Build environment
-            env = self._build_subprocess_env(socket_path=sock_path)
+            env = self._build_subprocess_env(socket_path=sock_path, block_id=envelope.block_id)
 
             # Serialize envelope for stdin
             envelope_json = envelope.model_dump_json()
@@ -358,8 +365,12 @@ class SubprocessHarness:
             timeout = envelope.timeout_seconds or self._timeout_seconds
 
             # Start IPC server task
-            ipc_handlers: dict[str, Any] = {}
-            ipc_server = IPCServer(sock=sock, handlers=ipc_handlers)
+            ipc_handlers = self._build_ipc_handlers()
+            ipc_server = IPCServer(
+                sock=sock,
+                handlers=ipc_handlers,
+                grant_token=self._grant_token,
+            )
             ipc_task = asyncio.create_task(ipc_server.serve())
 
             try:
