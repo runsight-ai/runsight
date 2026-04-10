@@ -21,9 +21,9 @@ from urllib.parse import unquote
 import yaml as yaml_mod
 from ruamel.yaml import YAML
 from pydantic import ValidationError as PydanticValidationError
+from runsight_core.yaml.discovery import SoulScanner, WorkflowScanner
 from runsight_core.yaml.parser import (
     _validate_declared_tool_definitions,
-    _discovery_module,
     validate_workflow_call_contracts,
     validate_tool_governance,
 )
@@ -128,150 +128,6 @@ class WorkflowRepository:
     def _has_workflow_blocks(file_def: RunsightWorkflowFile) -> bool:
         return any(block_def.type == "workflow" for block_def in file_def.blocks.values())
 
-    def _candidate_workflow_paths(self, workflow_ref: str) -> List[Path]:
-        root = self.base_path.resolve()
-        ref_path = Path(workflow_ref)
-        if ref_path.is_absolute():
-            return [ref_path.resolve()]
-
-        candidate_paths: List[Path] = []
-        if workflow_ref.startswith("custom/"):
-            candidate_paths.append((root / ref_path).resolve())
-        else:
-            candidate_paths.append((root / "custom" / "workflows" / ref_path).resolve())
-            if ref_path.suffix == "":
-                candidate_paths.append(
-                    (root / "custom" / "workflows" / f"{workflow_ref}.yaml").resolve()
-                )
-                candidate_paths.append(
-                    (root / "custom" / "workflows" / f"{workflow_ref}.yml").resolve()
-                )
-        return candidate_paths
-
-    def _read_workflow_from_source(
-        self,
-        workflow_ref: str,
-        *,
-        git_ref: Optional[str] = None,
-        git_service: Any = None,
-        name_index: Optional[Dict[str, Tuple[Path, RunsightWorkflowFile]]] = None,
-    ) -> Optional[Tuple[Path, RunsightWorkflowFile]]:
-        if name_index is not None:
-            indexed = name_index.get(workflow_ref)
-            if indexed is not None:
-                return indexed
-
-        for candidate_path in self._candidate_workflow_paths(workflow_ref):
-            try:
-                if git_service is not None and git_ref is not None:
-                    raw_yaml = git_service.read_file(str(candidate_path), git_ref)
-                else:
-                    if not candidate_path.exists():
-                        continue
-                    raw_yaml = candidate_path.read_text(encoding="utf-8")
-            except Exception:
-                continue
-
-            data = yaml_mod.safe_load(raw_yaml)
-            if not isinstance(data, dict):
-                raise ValueError(f"Workflow '{workflow_ref}' YAML content is not a mapping")
-            return candidate_path, RunsightWorkflowFile.model_validate(data)
-
-        return None
-
-    def _register_workflow_aliases(
-        self,
-        registry: WorkflowRegistry,
-        validation_index: Dict[str, Tuple[Path, RunsightWorkflowFile]],
-        workflow_path: Path,
-        workflow_file: RunsightWorkflowFile,
-    ) -> None:
-        resolved_path = workflow_path.resolve()
-        aliases = {str(resolved_path), workflow_path.stem}
-        try:
-            aliases.add(str(resolved_path.relative_to(self.base_path.resolve())))
-        except ValueError:
-            pass
-
-        workflow_name = getattr(workflow_file.workflow, "name", None)
-        if workflow_name:
-            aliases.add(workflow_name)
-
-        for alias in aliases:
-            registry.register(alias, workflow_file)
-            validation_index[alias] = (resolved_path, workflow_file)
-
-    def _build_name_index(
-        self,
-        *,
-        git_ref: Optional[str] = None,
-        git_service: Any = None,
-    ) -> Dict[str, Tuple[Path, RunsightWorkflowFile]]:
-        """Pre-scan all workflow files and build an alias-to-file index.
-
-        Indexes by resolved path, filename stem, relative path, and
-        workflow.name so that child refs can be resolved by any alias.
-        Uses git_service to read from a branch snapshot when available,
-        otherwise reads from the filesystem.
-        """
-        index: Dict[str, Tuple[Path, RunsightWorkflowFile]] = {}
-        root = self.base_path.resolve()
-
-        if git_service is not None and git_ref is not None:
-            import subprocess
-
-            result = subprocess.run(
-                ["git", "ls-tree", "-r", "--name-only", git_ref, "--", "custom/workflows/"],
-                cwd=str(git_service.repo_path),
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.returncode == 0:
-                for line in result.stdout.strip().splitlines():
-                    line = line.strip()
-                    if not line or not (line.endswith(".yaml") or line.endswith(".yml")):
-                        continue
-                    try:
-                        raw_yaml = git_service.read_file(line, git_ref)
-                        data = yaml_mod.safe_load(raw_yaml)
-                        if not isinstance(data, dict):
-                            continue
-                        wf_file = RunsightWorkflowFile.model_validate(data)
-                    except Exception:
-                        continue
-                    wf_path = (root / line).resolve()
-                    aliases = {str(wf_path), Path(line).stem, line}
-                    wf_name = getattr(wf_file.workflow, "name", None)
-                    if wf_name:
-                        aliases.add(wf_name)
-                    for alias in aliases:
-                        index[alias] = (wf_path, wf_file)
-        else:
-            for pattern in ("*.yaml", "*.yml"):
-                for wf_path in self.workflows_dir.glob(pattern):
-                    try:
-                        raw_yaml = wf_path.read_text(encoding="utf-8")
-                        data = yaml_mod.safe_load(raw_yaml)
-                        if not isinstance(data, dict):
-                            continue
-                        wf_file = RunsightWorkflowFile.model_validate(data)
-                    except Exception:
-                        continue
-                    resolved = wf_path.resolve()
-                    aliases = {str(resolved), wf_path.stem}
-                    try:
-                        aliases.add(str(resolved.relative_to(root)))
-                    except ValueError:
-                        pass
-                    wf_name = getattr(wf_file.workflow, "name", None)
-                    if wf_name:
-                        aliases.add(wf_name)
-                    for alias in aliases:
-                        index[alias] = (resolved, wf_file)
-
-        return index
-
     def build_runnable_workflow_registry(
         self,
         workflow_id: str,
@@ -287,10 +143,23 @@ class WorkflowRepository:
         root_file = RunsightWorkflowFile.model_validate(data)
         root_path = self._get_path(workflow_id).resolve()
         registry = WorkflowRegistry(allow_filesystem_fallback=False)
+        workflow_scanner = WorkflowScanner(self.base_path)
+        workflow_index = workflow_scanner.scan(
+            git_ref=git_ref,
+            git_service=git_service,
+        )
         validation_index: Dict[str, Tuple[Path, RunsightWorkflowFile]] = {}
-        self._register_workflow_aliases(registry, validation_index, root_path, root_file)
-
-        name_index = self._build_name_index(git_ref=git_ref, git_service=git_service)
+        root_aliases = {str(root_path), workflow_id}
+        try:
+            root_aliases.add(root_path.relative_to(self.base_path.resolve()).as_posix())
+        except ValueError:
+            pass
+        root_name = getattr(root_file.workflow, "name", None)
+        if isinstance(root_name, str) and root_name.strip():
+            root_aliases.add(root_name)
+        for alias in root_aliases:
+            registry.register(alias, root_file)
+            validation_index[alias] = (root_path, root_file)
 
         pending: List[RunsightWorkflowFile] = [root_file]
         loaded_paths = {str(root_path)}
@@ -301,23 +170,25 @@ class WorkflowRepository:
                 if block_def.type != "workflow":
                     continue
 
-                resolved_child = self._read_workflow_from_source(
+                resolved_child = workflow_scanner.resolve_ref(
                     block_def.workflow_ref,
+                    index=workflow_index,
                     git_ref=git_ref,
                     git_service=git_service,
-                    name_index=name_index,
                 )
                 if resolved_child is None:
                     continue
 
-                child_path, child_file = resolved_child
-                child_ref = str(child_path.resolve())
+                child_path = resolved_child.path
+                child_ref = str(child_path)
                 if child_ref in loaded_paths:
                     continue
 
                 loaded_paths.add(child_ref)
-                self._register_workflow_aliases(registry, validation_index, child_path, child_file)
-                pending.append(child_file)
+                for alias in resolved_child.aliases:
+                    registry.register(alias, resolved_child.item)
+                    validation_index[alias] = (child_path, resolved_child.item)
+                pending.append(resolved_child.item)
 
         validate_workflow_call_contracts(
             root_file,
@@ -343,8 +214,7 @@ class WorkflowRepository:
             if not isinstance(data, dict):
                 return False, "YAML content is not a mapping"
             file_def = RunsightWorkflowFile.model_validate(data)
-            souls_dir = Path(self.base_path) / "custom" / "souls"
-            souls_map = _discovery_module._discover_souls(souls_dir)
+            souls_map = SoulScanner(self.base_path).scan().stems()
             validate_tool_governance(file_def, souls_map)
             _validate_declared_tool_definitions(
                 file_def,

@@ -300,9 +300,9 @@ def test_update_resolves_child_workflow_by_declared_name_alias(tmp_path) -> None
         with ``workflow: { name: child-by-name }`` and an interface declared
       - Resolution must succeed because workflow.name == workflow_ref
 
-    This currently FAILS because _read_workflow_from_source() only tries
-    path-like candidate guesses (e.g. ``child-by-name.yaml``) and never
-    consults the workflow.name alias index.
+    This previously failed when child resolution only tried path-like
+    candidate guesses (e.g. ``child-by-name.yaml``) and skipped the
+    workflow.name alias index.
     """
     repo = WorkflowRepository(base_path=str(tmp_path))
 

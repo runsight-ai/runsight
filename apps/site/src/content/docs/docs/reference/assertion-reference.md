@@ -16,6 +16,7 @@ Every assertion config supports these fields:
 | `type` | `str` | -- | Assertion type name (see sections below). Prefix with `not-` to negate. |
 | `value` | `Any` | `""` | Comparison value (type-specific) |
 | `threshold` | `float` | varies | Pass threshold (type-specific) |
+| `config` | `Any` | none | Optional per-assertion config. Built-ins usually ignore it; `equals` uses `config.mode: json` for JSON deep-equal |
 | `weight` | `float` | `1.0` | Weight for aggregated scoring |
 | `metric` | `str` | none | Named score key for tracking |
 | `transform` | `str` | none | Pre-processing transform (see [Transform hooks](#transform-hooks)) |
@@ -26,7 +27,7 @@ Every assertion config supports these fields:
 
 ### equals
 
-Exact string match or JSON deep-equal. Tries JSON parsing first; falls back to string comparison.
+Exact string match by default. To compare parsed JSON values explicitly, set `config.mode: json`.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -35,6 +36,13 @@ Exact string match or JSON deep-equal. Tries JSON parsing first; falls back to s
 ```yaml
 - type: equals
   value: "expected output"
+```
+
+```yaml
+- type: equals
+  value: '{"a": 1, "b": 2}'
+  config:
+    mode: json
 ```
 
 ### contains

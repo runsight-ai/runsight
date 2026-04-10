@@ -20,9 +20,15 @@ class LevenshteinAssertion:
 
     type = "levenshtein"
 
-    def __init__(self, value: Any = "", threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = "",
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = str(value)
         self.threshold = threshold if threshold is not None else 5
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         distance = editdistance.eval(output, self.value)
@@ -37,9 +43,15 @@ class BleuAssertion:
 
     type = "bleu"
 
-    def __init__(self, value: Any = "", threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = "",
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = str(value)
         self.threshold = threshold if threshold is not None else 0.5
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         score = _compute_bleu(reference=self.value, candidate=output)
@@ -55,9 +67,15 @@ class RougeNAssertion:
 
     type = "rouge-n"
 
-    def __init__(self, value: Any = "", threshold: float | None = None) -> None:
+    def __init__(
+        self,
+        value: Any = "",
+        threshold: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.value = str(value)
         self.threshold = threshold if threshold is not None else 0.75
+        self.config = config
 
     def evaluate(self, output: str, context: AssertionContext) -> GradingResult:
         if not output or not self.value:

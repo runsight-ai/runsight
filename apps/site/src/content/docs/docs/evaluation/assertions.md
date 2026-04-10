@@ -1,27 +1,38 @@
 ---
 title: Assertions
-description: All block-level assertion types, their parameters, and how pass/fail is computed per node.
+description: Built-in and custom block-level assertions, their config fields, and how Runsight computes eval results.
 ---
 
-Assertions are quality checks that run automatically after a block completes. You define them directly on a block in your workflow YAML, and the engine evaluates each one against the block's output. Every assertion produces a pass/fail result and a numeric score (0.0 to 1.0).
+Assertions are quality checks that run after a block completes. You define them directly in workflow YAML, and each assertion produces a pass/fail result plus a numeric score from `0.0` to `1.0`.
+
+Runsight ships 15 built-in deterministic assertion types. You can also add your own scanner-discovered Python assertions under `custom/assertions/`. See [Custom Assertions](/docs/evaluation/custom-assertions) for the custom plugin workflow.
 
 ## Where assertions live
 
 Assertions are defined on the `assertions` field of any block definition. The field accepts a list of assertion config objects:
 
 ```yaml title="custom/workflows/research.yaml"
+version: "1.0"
 blocks:
   analyze:
-    type: llm
-    soul_ref: analyst
+    type: code
+    code: |
+      def main(data):
+          return "analysis ready"
     assertions:
       - type: contains
         value: "analysis"
       - type: cost
         threshold: 0.05
+workflow:
+  name: assertions_demo
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null
 ```
 
-The `assertions` field is declared on `BaseBlockDef` as `Optional[List[Dict[str, Any]]]` and defaults to `None`. Every block type inherits it.
+The `assertions` field is declared on `BaseBlockDef` as `Optional[List[Dict[str, Any]]]` and defaults to `None`.
 
 ## Assertion config fields
 
@@ -29,14 +40,15 @@ Each assertion in the list is a dict with these fields:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `type` | `str` | yes | -- | Assertion type identifier (see table below) |
-| `value` | `any` | depends | `""` | Comparison value. Required for string assertions, optional for performance assertions |
+| `type` | `str` | yes | -- | Assertion type identifier. For custom assertions, use `custom:<file_stem>` |
+| `value` | `any` | depends | `""` | Comparison value. Required for most string and linguistic assertions |
 | `threshold` | `float` | no | varies | Numeric threshold. Meaning depends on assertion type |
+| `config` | `any` | no | `None` | Per-assertion config payload. Built-ins ignore it. Custom assertions receive it as `context["config"]` |
 | `weight` | `float` | no | `1.0` | Weight in the aggregate score calculation |
 | `metric` | `str` | no | `None` | Named metric label. When set, the score is stored in `named_scores` under this key |
 | `transform` | `str` | no | `None` | Pre-process output before evaluation. See [Transform Hooks](/docs/evaluation/transform-hooks) |
 
-## Assertion types
+## Built-in assertion types
 
 Runsight ships 15 deterministic assertion types across four categories.
 
@@ -44,7 +56,7 @@ Runsight ships 15 deterministic assertion types across four categories.
 
 | Type | Value | Behavior |
 |------|-------|----------|
-| `equals` | `str` | Exact string match. Also attempts JSON deep-equal if both sides parse as JSON |
+| `equals` | `str` | Exact string match. Use `config: {mode: json}` to opt into JSON deep-equal |
 | `contains` | `str` | Case-sensitive substring check |
 | `icontains` | `str` | Case-insensitive substring check |
 | `contains-all` | `list[str]` | All items must appear as substrings |
@@ -117,7 +129,7 @@ assertions:
 | `cost` | -- | `float` (USD) | Passes if `cost_usd` from the execution context is at or below `threshold` |
 | `latency` | -- | `float` (ms) | Passes if `latency_ms` from the execution context is at or below `threshold` |
 
-Performance assertions read from the `AssertionContext`, not from the block output string. The context is populated with actual execution metrics (cost, latency, tokens) from the `RunNode` record.
+Performance assertions read from the `AssertionContext`, not from the block output string. In live API runs that context is populated with run metrics such as cost, latency, and tokens; offline eval uses zeroed metric fields.
 
 ```yaml title="Performance assertion examples"
 assertions:
@@ -145,6 +157,26 @@ assertions:
     threshold: 0.3
 ```
 
+## Custom assertions
+
+Custom assertions are discovered from manifest files under `custom/assertions/*.yaml` and are referenced by file stem:
+
+```yaml title="Custom assertion usage"
+assertions:
+  - type: custom:tone_check
+    config:
+      prefix: calm
+```
+
+Important details:
+
+- The runtime key is always `custom:<file_stem>`.
+- The manifest `name` is display-only.
+- Custom assertions can be used alongside built-in assertions in the same list.
+- Custom assertions support the same `not-` negation prefix as built-in assertions.
+
+See [Custom Assertions](/docs/evaluation/custom-assertions) for the manifest format, Python contract, params schema validation, context keys, and migration guidance.
+
 ## Negation with not- prefix
 
 Any assertion type can be negated by prefixing it with `not-`. The engine inverts both the pass/fail boolean and the score (1.0 - original):
@@ -154,7 +186,12 @@ assertions:
   - type: not-contains
     value: "error"
   - type: not-contains-json
+  - type: not-custom:blocked_word
+    config:
+      blocked: storm
 ```
+
+Negation works for both built-in and custom assertion types.
 
 ## Weighted scoring
 
@@ -176,29 +213,43 @@ assertions:
 
 The `AssertionsResult` class accumulates weighted results. Its `aggregate_score` property returns the weighted average: `total_score / total_weight`. The `passed()` method without a threshold returns `True` only if every individual assertion passed.
 
-## Assertion chaining
+## Execution model
 
-A block can have any number of assertions. Each assertion runs independently -- they do not share state or depend on each other's results. The engine runs all of them concurrently via `asyncio.gather`, so a failure in one assertion never prevents the others from completing.
+Assertions do not share state with each other. Each configured assertion is evaluated independently against the same block result.
+
+Runsight has two execution surfaces:
+
+- Offline eval and other async callers use the shared async registry path, `run_assertions()`
+- Live API block evaluation uses `EvalObserver` and the shared sync registry path, `run_assertions_sync()`
+
+That means assertions are not always executed through the same concurrency model:
+
+- Async registry callers can evaluate a block's assertions concurrently
+- The live API `EvalObserver` path evaluates the block's assertions through the synchronous registry surface
+
+In both paths:
+
+- every configured assertion still gets its own result
+- transform failures on one assertion do not prevent the rest of the list from producing results
+- aggregate scoring still follows the same weighted scoring rules
+
+## Assertion chaining
 
 This is especially useful with `transform` hooks. Each assertion can target a different field in the block output using its own `json_path` transform:
 
 ```yaml title="Multiple assertions with different transforms"
-blocks:
-  process_order:
-    type: llm
-    soul_ref: processor
-    assertions:
-      - type: equals
-        value: "completed"
-        transform: "json_path:$.status"
-      - type: contains
-        value: "success"
-        transform: "json_path:$.message"
-      - type: cost
-        threshold: 0.02
+assertions:
+  - type: equals
+    value: "completed"
+    transform: "json_path:$.status"
+  - type: contains
+    value: "success"
+    transform: "json_path:$.message"
+  - type: cost
+    threshold: 0.02
 ```
 
-In this example, the first assertion extracts `$.status` and checks for an exact match, the second extracts `$.message` and checks for a substring, and the third checks execution cost without any transform. All three run in parallel.
+In this example, the first assertion extracts `$.status` and checks for an exact match, the second extracts `$.message` and checks for a substring, and the third checks execution cost without any transform.
 
 If a transform fails on one assertion (e.g., the output is not valid JSON, or the path does not exist), that assertion returns `passed=False` with a descriptive reason. The other assertions still run normally and produce their own results. The aggregate score and pass/fail are then computed across all of them using the standard [weighted scoring](#weighted-scoring) rules.
 
@@ -206,23 +257,24 @@ If a transform fails on one assertion (e.g., the output is not valid JSON, or th
 
 When a workflow runs via the API, the engine wires assertions automatically:
 
-1. The `ExecutionService._build_assertion_configs` method reads `assertions` from each block in the parsed workflow
-2. An `EvalObserver` is created with the assertion configs and attached to the workflow run
-3. After each block completes, `EvalObserver.on_block_complete` fires:
+1. `parse_workflow_yaml()` attaches each block's `assertions` to the runtime workflow
+2. `ExecutionService._build_assertion_configs()` collects those assertion lists by block ID
+3. `EvalObserver` receives the config map and watches block completion events
+4. After a block completes, `EvalObserver.on_block_complete()`:
    - Extracts the block output from `WorkflowState`
    - Builds an `AssertionContext` with output, cost, latency, soul info, and tokens
-   - Runs all assertion configs for that block
+   - Calls the shared sync registry path for that block's assertion list
    - Persists `eval_score`, `eval_passed`, and `eval_results` on the `RunNode` record
-   - Emits a `node_eval_complete` SSE event with scores, pass/fail, and baseline delta
+   - Emits a `node_eval_complete` SSE event
 
 The `RunNode` entity stores three eval fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `eval_score` | `Optional[float]` | Weighted average score across all assertions (0.0 to 1.0) |
-| `eval_passed` | `Optional[bool]` | `True` if all individual assertions passed |
-| `eval_results` | `Optional[Dict]` | Detailed results with per-assertion type, passed, score, and reason |
+| `eval_score` | `Optional[float]` | Weighted average score across all assertions on the block |
+| `eval_passed` | `Optional[bool]` | `True` when every individual assertion passed |
+| `eval_results` | `Optional[Dict]` | Per-assertion results including pass/fail, score, reason, and handler type when the handler sets one |
 
 These fields are `None` when a block has no assertions configured.
 
-<!-- Linear: RUN-555, RUN-693, RUN-685, RUN-705 -- last verified against codebase 2026-04-07 -->
+<!-- Linear: RUN-555, RUN-685, RUN-693, RUN-705, RUN-769, RUN-800, RUN-801 -- last verified against codebase 2026-04-10 -->

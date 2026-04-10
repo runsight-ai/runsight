@@ -13,8 +13,8 @@ from pathlib import Path
 from textwrap import dedent
 
 import yaml
+from runsight_core.yaml.discovery import WorkflowScanner
 from runsight_core.yaml.parser import (
-    _build_workflow_validation_index,
     parse_workflow_yaml,
     validate_workflow_call_contracts,
 )
@@ -181,7 +181,12 @@ def test_validate_workflow_call_contracts_allows_nested_loop_workflow_recursivel
     _write_workflow_file(child_path, child_data)
     _write_workflow_file(parent_path, parent_data)
 
-    validation_index = _build_workflow_validation_index(str(tmp_path))
+    scan_index = WorkflowScanner(str(tmp_path)).scan()
+    validation_index = {
+        alias: (result.path, result.item)
+        for result in scan_index.get_all()
+        for alias in result.aliases
+    }
     parent_file = RunsightWorkflowFile.model_validate(parent_data)
 
     validate_workflow_call_contracts(

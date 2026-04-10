@@ -7,13 +7,15 @@ When a block produces structured output (like JSON), you often want to assert on
 
 ## Add a transform to an assertion
 
-Set the `transform` field on any assertion config. The transform runs before the assertion evaluator sees the output:
+Set the `transform` field on any assertion config. The transform runs before handler lookup and before the assertion evaluator sees the output, so it works with built-in assertions, `custom:*` assertions, and `not-custom:*` assertions:
 
 ```yaml title="custom/workflows/extract-check.yaml"
 blocks:
   classify:
-    type: llm
-    soul_ref: classifier
+    type: code
+    code: |
+      def main(data):
+          return '{"sentiment": "positive"}'
     assertions:
       - type: contains-any
         value: ["positive", "negative", "neutral"]
@@ -56,8 +58,10 @@ Runsight uses the `jsonpath_ng` library. Common patterns:
 ```yaml title="Extract and assert on a JSON field"
 blocks:
   analyze:
-    type: llm
-    soul_ref: analyst
+    type: code
+    code: |
+      def main(data):
+          return '{"outlook": "bullish", "confidence": 0.92}'
     assertions:
       - type: contains-any
         value: ["bullish", "bearish", "neutral"]
@@ -71,8 +75,10 @@ If the block output is `{"outlook": "bullish", "confidence": 0.92}`, the asserti
 ```yaml title="Check a numeric field with equals"
 blocks:
   scorer:
-    type: llm
-    soul_ref: evaluator
+    type: code
+    code: |
+      def main(data):
+          return '{"rating": 4, "explanation": "Good quality"}'
     assertions:
       - type: regex
         value: "^[1-5]$"
@@ -109,4 +115,4 @@ When a transform fails, the assertion itself does not run. The failing `GradingR
 A single transform extracts only the **first match** from the JSONPath expression. If your path matches multiple values (e.g., `$.items[*].name`), only the first one is used for that assertion. To check multiple fields, add separate assertions each with its own `transform` -- see [Assertion chaining](/docs/evaluation/assertions#assertion-chaining).
 :::
 
-<!-- Linear: RUN-695, RUN-685 -- last verified against codebase 2026-04-07 -->
+<!-- Linear: RUN-685, RUN-695, RUN-769, RUN-801 -- last verified against codebase 2026-04-10 -->

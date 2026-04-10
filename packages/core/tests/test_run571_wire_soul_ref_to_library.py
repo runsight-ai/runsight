@@ -2,7 +2,7 @@
 Failing tests for RUN-571: Wire ``soul_ref`` to library discovery.
 
 After implementation:
-1. ``parse_workflow_yaml()`` calls ``_discover_souls(custom/souls/)`` to build souls_map
+1. ``parse_workflow_yaml()`` calls ``SoulScanner(custom).scan().stems()`` to build souls_map
 2. ``soul_ref`` in linear, gate, synthesize, and dispatch blocks resolves against library souls
 3. Missing soul produces error with available souls listed and guidance to create the file
 4. Discovery is called once per parse (not per block)
@@ -19,6 +19,7 @@ from textwrap import dedent
 from unittest.mock import patch
 
 import pytest
+from runsight_core.primitives import Soul
 from runsight_core.yaml.parser import parse_workflow_yaml
 
 # ---------------------------------------------------------------------------
@@ -45,6 +46,13 @@ def _write_soul_file(base_dir: Path, name: str, *, soul_id: str, role: str, prom
         """),
         encoding="utf-8",
     )
+
+
+def _souls_map() -> dict[str, Soul]:
+    return {
+        "soul_a": Soul(id="a1", role="A", system_prompt="A."),
+        "soul_b": Soul(id="b1", role="B", system_prompt="B."),
+    }
 
 
 # ===========================================================================
@@ -412,7 +420,7 @@ class TestMissingSoulErrorMessage:
 
 
 class TestDiscoveryCalledOnce:
-    """_discover_souls must be called exactly once per parse_workflow_yaml call."""
+    """Soul discovery must run exactly once per parse_workflow_yaml call."""
 
     def test_discover_souls_called_once_for_multi_block_workflow(self):
         """Even with multiple blocks referencing different souls, discovery runs once."""
@@ -443,16 +451,12 @@ class TestDiscoveryCalledOnce:
                       to: null
                 """,
             )
-            from runsight_core.yaml import discovery as discovery_module
-
-            original_discover = discovery_module._discover_souls
-            with patch.object(
-                discovery_module,
-                "_discover_souls",
-                wraps=original_discover,
-            ) as mock_discover:
+            with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
+                mock_scanner.return_value.scan.return_value.stems.return_value = _souls_map()
                 parse_workflow_yaml(path)
-                assert mock_discover.call_count == 1
+                mock_scanner.assert_called_once()
+                mock_scanner.return_value.scan.assert_called_once()
+                mock_scanner.return_value.scan.return_value.stems.assert_called_once()
 
 
 # ===========================================================================

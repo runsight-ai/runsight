@@ -86,10 +86,8 @@ workflow:
     - from: branch
       to: null
 """
-        with patch(
-            "runsight_core.yaml.parser._discovery_module._discover_souls",
-            return_value=self._souls_map(),
-        ):
+        with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
+            mock_scanner.return_value.scan.return_value.stems.return_value = self._souls_map()
             workflow = parse_workflow_yaml(yaml_content, runner=MagicMock())
 
         assert workflow.name == "dispatch_parse_test"

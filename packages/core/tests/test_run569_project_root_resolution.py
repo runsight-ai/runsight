@@ -14,7 +14,8 @@ import textwrap
 from pathlib import Path
 
 import pytest
-from runsight_core.yaml.parser import _find_project_root, parse_workflow_yaml
+from runsight_core.yaml.discovery import resolve_discovery_base_dir
+from runsight_core.yaml.parser import parse_workflow_yaml
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -44,7 +45,7 @@ def _setup_project(tmp_path: Path) -> Path:
 
 
 # ===========================================================================
-# _find_project_root
+# resolve_discovery_base_dir
 # ===========================================================================
 
 
@@ -54,7 +55,7 @@ class TestFindProjectRoot:
         workflows_dir = root / "custom" / "workflows"
         workflows_dir.mkdir(parents=True, exist_ok=True)
 
-        result = Path(_find_project_root(workflows_dir)).resolve()
+        result = Path(resolve_discovery_base_dir(workflows_dir)).resolve()
 
         assert result == root.resolve()
 
@@ -63,7 +64,7 @@ class TestFindProjectRoot:
         deep = root / "custom" / "workflows" / "nested" / "deep"
         deep.mkdir(parents=True, exist_ok=True)
 
-        result = Path(_find_project_root(deep)).resolve()
+        result = Path(resolve_discovery_base_dir(deep)).resolve()
 
         assert result == root.resolve()
 
@@ -72,7 +73,7 @@ class TestFindProjectRoot:
         bare = tmp_path / "isolated" / "no_custom_here"
         bare.mkdir(parents=True)
 
-        result = Path(_find_project_root(bare)).resolve()
+        result = Path(resolve_discovery_base_dir(bare)).resolve()
 
         # Result must be start or an ancestor of start, never a child
         assert bare.resolve().is_relative_to(result) or result == bare.resolve()
