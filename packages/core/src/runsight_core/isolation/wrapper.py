@@ -25,6 +25,14 @@ _SOUL_ATTR_MAP = {
 LLM_BLOCK_TYPES = frozenset({"linear", "gate", "synthesize", "dispatch"})
 
 
+_BLOCK_TYPE_MAP = {
+    "LinearBlock": "linear",
+    "GateBlock": "gate",
+    "SynthesizeBlock": "synthesize",
+    "DispatchBlock": "dispatch",
+}
+
+
 def _get_soul(inner_block: BaseBlock) -> Any:
     """Extract the soul from an inner block, handling different attribute names."""
     attr_name = _SOUL_ATTR_MAP.get(type(inner_block).__name__, "soul")
@@ -73,6 +81,48 @@ def _serialize_scoped_results(results: dict[str, Any]) -> dict[str, dict[str, An
         else:
             serialized[key] = {"output": value}
     return serialized
+
+
+def _serialize_soul_summary(soul: Any) -> dict[str, Any]:
+    return {
+        "id": getattr(soul, "id", ""),
+        "role": getattr(soul, "role", ""),
+        "system_prompt": getattr(soul, "system_prompt", ""),
+        "model_name": getattr(soul, "model_name", ""),
+    }
+
+
+def _build_block_metadata(inner_block: BaseBlock) -> tuple[str, dict[str, Any]]:
+    block_class_name = type(inner_block).__name__
+    block_type = _BLOCK_TYPE_MAP.get(
+        block_class_name, block_class_name.removesuffix("Block").lower()
+    )
+    block_config: dict[str, Any] = {}
+
+    if block_type == "gate":
+        block_config = {
+            "eval_key": getattr(inner_block, "eval_key", ""),
+            "extract_field": getattr(inner_block, "extract_field", None),
+        }
+    elif block_type == "synthesize":
+        block_config = {
+            "input_block_ids": list(getattr(inner_block, "input_block_ids", [])),
+            "synthesizer_soul": _serialize_soul_summary(
+                getattr(inner_block, "synthesizer_soul", None)
+            ),
+        }
+    elif block_type == "dispatch" and hasattr(inner_block, "branches"):
+        block_config["branches"] = [
+            {
+                "exit_id": branch.exit_id,
+                "label": branch.label,
+                "task_instruction": branch.task_instruction,
+                "soul": _serialize_soul_summary(branch.soul),
+            }
+            for branch in inner_block.branches
+        ]
+
+    return block_type, block_config
 
 
 class IsolatedBlockWrapper(BaseBlock):
@@ -154,22 +204,11 @@ class IsolatedBlockWrapper(BaseBlock):
             state.conversation_histories.get(history_key, []) if self.inner_block.stateful else []
         )
 
-        # Populate block_config with branch metadata for dispatch blocks
-        block_config: dict[str, Any] = {}
-        if hasattr(self.inner_block, "branches"):
-            block_config["branches"] = [
-                {
-                    "exit_id": b.exit_id,
-                    "label": b.label,
-                    "soul_ref": b.soul.id if b.soul else "",
-                    "task_instruction": b.task_instruction,
-                }
-                for b in self.inner_block.branches
-            ]
+        block_type, block_config = _build_block_metadata(self.inner_block)
 
         envelope = ContextEnvelope(
             block_id=self.block_id,
-            block_type=type(self.inner_block).__name__,
+            block_type=block_type,
             block_config=block_config,
             soul=soul_envelope,
             tools=_build_tool_envelopes(soul),

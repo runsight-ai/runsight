@@ -7,11 +7,61 @@ import json
 import os
 import socket
 import uuid
-from typing import Any, Awaitable, Callable
+from collections.abc import AsyncIterable, Awaitable, Callable
+from typing import Any
 
-Handler = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
+from pydantic import BaseModel, ConfigDict
+
+HandlerResult = Awaitable[dict[str, Any]] | AsyncIterable[dict[str, Any]]
+Handler = Callable[[dict[str, Any]], HandlerResult]
 
 BLOCKED_ACTIONS = frozenset({"llm_call"})
+
+
+class IPCRequest(BaseModel):
+    """Request envelope sent from engine process to worker process."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    action: str
+    payload: dict[str, Any]
+
+
+class IPCResponseFrame(BaseModel):
+    """Streamed response frame sent from worker process to engine process."""
+
+    id: str
+    done: bool
+    payload: Any | None
+    engine_context: dict[str, Any] | None
+    error: str | None
+
+
+def _normalize_request(raw_request: dict[str, Any]) -> IPCRequest:
+    """Build a typed request, accepting both framed and legacy flat request shapes."""
+    if "payload" in raw_request:
+        payload = raw_request.get("payload", {})
+        if not isinstance(payload, dict):
+            payload = {}
+        return IPCRequest.model_validate(
+            {
+                "id": str(raw_request.get("id", "")),
+                "action": str(raw_request.get("action", "")),
+                "payload": payload,
+            }
+        )
+
+    payload = {k: v for k, v in raw_request.items() if k not in {"id", "action"}}
+    return IPCRequest(
+        id=str(raw_request.get("id", "")),
+        action=str(raw_request.get("action", "")),
+        payload=payload,
+    )
+
+
+def _is_async_iterable(value: Any) -> bool:
+    return hasattr(value, "__aiter__")
 
 
 class IPCServer:
@@ -32,6 +82,23 @@ class IPCServer:
             self._sock_path: str | None = sock.getsockname()
         except OSError:
             self._sock_path = None
+
+    def _build_engine_context(self, request: IPCRequest) -> dict[str, Any] | None:
+        interceptor = getattr(self, "_engine_context_interceptor", None)
+        if not callable(interceptor):
+            return None
+        try:
+            value = interceptor(request)
+        except TypeError:
+            value = interceptor()
+        except Exception:
+            return None
+        return value if isinstance(value, dict) else None
+
+    async def _write_frame(self, writer: asyncio.StreamWriter, frame: IPCResponseFrame) -> None:
+        line = json.dumps(frame.model_dump(), separators=(",", ":")) + "\n"
+        writer.write(line.encode())
+        await writer.drain()
 
     async def serve(self) -> None:
         """Start accepting connections on the pre-bound socket."""
@@ -55,28 +122,98 @@ class IPCServer:
                 if not line:
                     break
                 try:
-                    request = json.loads(line)
+                    raw_request = json.loads(line)
                 except json.JSONDecodeError:
                     continue
 
-                request_id = request.get("id", "")
-                action = request.get("action", "")
+                if not isinstance(raw_request, dict):
+                    continue
 
-                if action in BLOCKED_ACTIONS or action not in self._handlers:
-                    response = {"id": request_id, "error": f"unsupported action: {action}"}
-                else:
-                    handler = self._handlers[action]
-                    # Build params dict: everything except 'id' and 'action'
-                    params = {k: v for k, v in request.items() if k not in ("id", "action")}
-                    try:
-                        result = await handler(params)
-                        response = {"id": request_id, **result}
-                    except Exception as exc:
-                        response = {"id": request_id, "error": str(exc)}
+                try:
+                    request = _normalize_request(raw_request)
+                except Exception as exc:
+                    await self._write_frame(
+                        writer,
+                        IPCResponseFrame(
+                            id=str(raw_request.get("id", "")),
+                            done=True,
+                            payload=None,
+                            engine_context=None,
+                            error=str(exc),
+                        ),
+                    )
+                    continue
 
-                response_line = json.dumps(response, separators=(",", ":")) + "\n"
-                writer.write(response_line.encode())
-                await writer.drain()
+                engine_context = self._build_engine_context(request)
+
+                if request.action in BLOCKED_ACTIONS or request.action not in self._handlers:
+                    await self._write_frame(
+                        writer,
+                        IPCResponseFrame(
+                            id=request.id,
+                            done=True,
+                            payload=None,
+                            engine_context=engine_context,
+                            error=f"unsupported action: {request.action}",
+                        ),
+                    )
+                    continue
+
+                handler = self._handlers[request.action]
+                try:
+                    result_or_stream = handler(request.payload)
+                    if _is_async_iterable(result_or_stream):
+                        async for chunk in result_or_stream:
+                            await self._write_frame(
+                                writer,
+                                IPCResponseFrame(
+                                    id=request.id,
+                                    done=False,
+                                    payload=chunk,
+                                    engine_context=engine_context,
+                                    error=None,
+                                ),
+                            )
+                        await self._write_frame(
+                            writer,
+                            IPCResponseFrame(
+                                id=request.id,
+                                done=True,
+                                payload=None,
+                                engine_context=engine_context,
+                                error=None,
+                            ),
+                        )
+                        continue
+
+                    if asyncio.iscoroutine(result_or_stream) or isinstance(
+                        result_or_stream, Awaitable
+                    ):
+                        payload = await result_or_stream
+                    else:
+                        payload = result_or_stream
+
+                    await self._write_frame(
+                        writer,
+                        IPCResponseFrame(
+                            id=request.id,
+                            done=True,
+                            payload=payload,
+                            engine_context=engine_context,
+                            error=None,
+                        ),
+                    )
+                except Exception as exc:
+                    await self._write_frame(
+                        writer,
+                        IPCResponseFrame(
+                            id=request.id,
+                            done=True,
+                            payload=None,
+                            engine_context=engine_context,
+                            error=str(exc),
+                        ),
+                    )
         except (ConnectionResetError, BrokenPipeError):
             pass
         finally:
@@ -114,8 +251,41 @@ class IPCClient:
         """Open a connection to the IPC socket."""
         self._reader, self._writer = await asyncio.open_unix_connection(self._socket_path)
 
-    async def request(self, action: str, **params: Any) -> dict[str, Any]:
-        """Send an NDJSON request and return the response with matching id."""
+    def _build_request_payload(
+        self, payload: dict[str, Any] | None, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        if payload is None:
+            return dict(params)
+        merged = dict(payload)
+        merged.update(params)
+        return merged
+
+    async def _read_response_line(self) -> tuple[bool, Any, str | None]:
+        if self._reader is None:
+            raise ConnectionError("IPC client is not connected")
+
+        response_line = await self._reader.readline()
+        if not response_line:
+            self._closed = True
+            raise ConnectionError("IPC socket disconnected")
+
+        response = json.loads(response_line)
+
+        if isinstance(response, dict) and "done" in response:
+            frame = IPCResponseFrame.model_validate(response)
+            return frame.done, frame.payload, frame.error
+
+        legacy = dict(response) if isinstance(response, dict) else {"response": response}
+        legacy.pop("id", None)
+        return True, legacy, None
+
+    async def request(
+        self,
+        action: str,
+        payload: dict[str, Any] | None = None,
+        **params: Any,
+    ) -> Any:
+        """Send an NDJSON request and return the final payload frame."""
         if self._closed:
             raise ConnectionError("IPC client is closed")
 
@@ -123,22 +293,59 @@ class IPCClient:
             await self.connect()
 
         request_id = str(uuid.uuid4())
-        msg = {"id": request_id, "action": action, **params}
+        request_payload = self._build_request_payload(payload, params)
+        msg = IPCRequest(id=request_id, action=action, payload=request_payload).model_dump()
+        for key, value in request_payload.items():
+            if key not in {"id", "action", "payload"}:
+                msg[key] = value
         line = json.dumps(msg, separators=(",", ":")) + "\n"
 
         try:
             self._writer.write(line.encode())
             await self._writer.drain()
 
-            response_line = await self._reader.readline()
-            if not response_line:
-                self._closed = True
-                raise ConnectionError("IPC socket disconnected")
+            while True:
+                done, frame_payload, frame_error = await self._read_response_line()
+                if frame_error is not None:
+                    return {"error": frame_error}
+                if done:
+                    return frame_payload
+        except (ConnectionResetError, BrokenPipeError) as exc:
+            self._closed = True
+            raise ConnectionError("IPC socket disconnected") from exc
 
-            response = json.loads(response_line)
-            # Strip the correlation id before returning
-            response.pop("id", None)
-            return response
+    async def request_stream(
+        self,
+        action: str,
+        payload: dict[str, Any] | None = None,
+        **params: Any,
+    ):
+        """Send an NDJSON request and yield non-final payload frames."""
+        if self._closed:
+            raise ConnectionError("IPC client is closed")
+
+        if self._writer is None or self._reader is None:
+            await self.connect()
+
+        request_id = str(uuid.uuid4())
+        request_payload = self._build_request_payload(payload, params)
+        msg = IPCRequest(id=request_id, action=action, payload=request_payload).model_dump()
+        for key, value in request_payload.items():
+            if key not in {"id", "action", "payload"}:
+                msg[key] = value
+        line = json.dumps(msg, separators=(",", ":")) + "\n"
+
+        try:
+            self._writer.write(line.encode())
+            await self._writer.drain()
+
+            while True:
+                done, frame_payload, frame_error = await self._read_response_line()
+                if frame_error is not None:
+                    raise ConnectionError(frame_error)
+                if done:
+                    break
+                yield frame_payload
         except (ConnectionResetError, BrokenPipeError) as exc:
             self._closed = True
             raise ConnectionError("IPC socket disconnected") from exc
@@ -148,5 +355,6 @@ class IPCClient:
         self._closed = True
         if self._writer is not None:
             self._writer.close()
+            await self._writer.wait_closed()
             self._writer = None
             self._reader = None
