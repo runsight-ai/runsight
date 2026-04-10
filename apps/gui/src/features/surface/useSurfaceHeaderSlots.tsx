@@ -11,15 +11,10 @@ import {
 } from "@runsight/ui/tooltip";
 import { Save, X } from "lucide-react";
 
-import * as runQueries from "@/queries/runs";
+import { useCancelRun } from "@/queries/runs";
 import { useForkWorkflow } from "./useForkWorkflow";
 import type { WorkflowSurfaceMode } from "./surfaceContract";
 import { formatCost, formatDuration } from "@/utils/formatting";
-
-const useOptionalCancelRun =
-  "useCancelRun" in runQueries
-    ? (runQueries as { useCancelRun: () => { mutate: (runId: string) => void; isPending: boolean } }).useCancelRun
-    : () => ({ mutate: (_runId: string) => undefined, isPending: false });
 
 function getRunStatusBadgeVariant(status: string) {
   switch (status) {
@@ -61,7 +56,7 @@ export function useSurfaceHeaderSlots({
   workflowId,
   onForkTransition,
 }: SurfaceHeaderSlotsArgs): SurfaceHeaderSlots {
-  const cancelRun = useOptionalCancelRun();
+  const cancelRun = useCancelRun();
   const forkTransition = useCallback(
     (newWorkflowId: string) => {
       if (!onForkTransition) return;

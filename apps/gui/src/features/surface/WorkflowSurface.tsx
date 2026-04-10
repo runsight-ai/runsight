@@ -18,21 +18,16 @@ import { Card } from "@runsight/ui/card";
 import { Button } from "@runsight/ui/button";
 import { LayoutGrid } from "lucide-react";
 import { useCanvasStore } from "@/store/canvas";
-import * as runQueries from "@/queries/runs";
+import {
+  useRun,
+  useRunNodes,
+  useRunRegressions,
+} from "@/queries/runs";
 import { useWorkflow } from "@/queries/workflows";
 import { gitApi } from "@/api/git";
 import { PriorityBanner } from "@/components/shared";
 import { mapRunStatus } from "./surfaceUtils";
 import { SurfaceInspectorPanel } from "./SurfaceInspectorPanel";
-
-const useOptionalRunRegressions =
-  "useRunRegressions" in runQueries
-    ? (
-        runQueries as {
-          useRunRegressions: (runId: string) => { data?: { count?: number } };
-        }
-      ).useRunRegressions
-    : (_runId: string) => ({ data: undefined });
 
 function RunGraphErrorCard({
   message,
@@ -134,7 +129,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     data: run,
     isLoading: isRunLoading,
     isError: isRunError,
-  } = runQueries.useRun(readonlyRunId, {
+  } = useRun(readonlyRunId, {
     refetchInterval: (query) => {
       const status = (query?.state as { data?: { status?: string } })?.data?.status;
       if (status === "running" || status === "pending") return 2000;
@@ -153,8 +148,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     isError: isRunNodesError,
     error: runNodesError,
     refetch: refetchRunNodes,
-  } = runQueries.useRunNodes(readonlyRunId);
-  const { data: regressions } = useOptionalRunRegressions(readonlyRunId);
+  } = useRunNodes(readonlyRunId);
+  const { data: regressions } = useRunRegressions(readonlyRunId);
 
   const nodes = useCanvasStore((s) => s.nodes);
   const edges = useCanvasStore((s) => s.edges);
