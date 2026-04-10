@@ -87,35 +87,6 @@ class InterceptorRegistry:
         return engine_context
 
 
-class _RegistryCompatibleEngineContextInterceptor:
-    """Adapt legacy callable signature into registry-based request hook execution."""
-
-    def __init__(self, interceptor: Callable[..., Any]) -> None:
-        self._interceptor = interceptor
-
-    async def on_request(
-        self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
-    ) -> dict[str, Any]:
-        request = IPCRequest(id="", action=action, payload=payload)
-        try:
-            value = self._interceptor(request)
-        except TypeError:
-            value = self._interceptor()
-        if isinstance(value, dict):
-            return value
-        return engine_context
-
-    async def on_response(
-        self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
-    ) -> dict[str, Any]:
-        return engine_context
-
-    async def on_stream_chunk(
-        self, action: str, chunk: dict[str, Any], engine_context: dict[str, Any]
-    ) -> dict[str, Any]:
-        return engine_context
-
-
 def _is_async_iterable(value: Any) -> bool:
     return hasattr(value, "__aiter__")
 
@@ -125,14 +96,6 @@ class IPCServer:
 
     Accepts an already-bound socket object (does not create or bind one).
     """
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name == "_engine_context_interceptor" and callable(value):
-            registry = self.__dict__.get("_registry")
-            if isinstance(registry, InterceptorRegistry):
-                registry.register(_RegistryCompatibleEngineContextInterceptor(value))
-                return
-        super().__setattr__(name, value)
 
     def __init__(
         self,
