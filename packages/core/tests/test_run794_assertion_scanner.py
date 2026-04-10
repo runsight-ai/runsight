@@ -1,4 +1,4 @@
-"""Red tests for RUN-794: YAML assertion manifest discovery and validation."""
+"""Red tests for RUN-794: assertion manifest scanner architecture."""
 
 from __future__ import annotations
 
@@ -9,49 +9,48 @@ from textwrap import dedent
 
 import pytest
 import yaml
+from pydantic import BaseModel, ValidationError
 
 
-def _load_symbols():
-    from runsight_core.yaml.discovery import AssertionScanner, BaseScanner, ScanIndex
+def _load_discovery_module():
+    import runsight_core.yaml.discovery as discovery_module
 
-    assertion_module = importlib.import_module("runsight_core.yaml.discovery._assertion")
-    return (
-        AssertionScanner,
-        assertion_module.AssertionMeta,
-        BaseScanner,
-        ScanIndex,
-        assertion_module,
-    )
+    return discovery_module
+
+
+def _load_assertion_module():
+    return importlib.import_module("runsight_core.yaml.discovery._assertion")
+
+
+def _load_contract_module():
+    return importlib.import_module("runsight_core.assertions.contract")
 
 
 def _write_assertion_fixture(
     base_dir: Path,
     *,
     stem: str = "budget_guard",
+    name: str = "Budget Guard Display",
     returns: str = "bool",
     source_name: str = "budget_guard.py",
-    code: str = "def get_assert(args):\n    return True\n",
+    code: str = "def get_assert(output, context):\n    return True\n",
     params: dict | None = None,
-    extra_fields: dict | None = None,
     manifest_overrides: dict | None = None,
     drop_fields: set[str] | None = None,
     write_source: bool = True,
-    source_is_directory: bool = False,
 ) -> tuple[Path, Path]:
     assertions_dir = base_dir / "custom" / "assertions"
     assertions_dir.mkdir(parents=True, exist_ok=True)
 
     manifest = {
         "version": "1.0",
-        "name": "Budget Guard",
+        "name": name,
         "description": "Keeps cost under budget.",
         "returns": returns,
         "source": source_name,
     }
     if params is not None:
         manifest["params"] = params
-    if extra_fields:
-        manifest.update(extra_fields)
     if manifest_overrides:
         manifest.update(manifest_overrides)
     if drop_fields:
@@ -62,81 +61,101 @@ def _write_assertion_fixture(
     source_path = assertions_dir / source_name
     manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
     if write_source:
-        if source_is_directory:
-            source_path.mkdir()
-        else:
-            source_path.write_text(code, encoding="utf-8")
+        source_path.write_text(code, encoding="utf-8")
     return manifest_path, source_path
 
 
 class TestAssertionScannerPublicSurface:
-    def test_assertion_scanner_uses_base_scanner_pattern(self):
-        AssertionScanner, AssertionMeta, BaseScanner, ScanIndex, assertion_module = _load_symbols()
+    def test_public_discovery_surface_exports_assertion_scanner_and_manifest_types(self):
+        discovery_module = _load_discovery_module()
 
-        assert issubclass(AssertionScanner, BaseScanner)
-        assert AssertionMeta.__module__ == assertion_module.AssertionMeta.__module__
-        assert ScanIndex is not None
+        assert hasattr(discovery_module, "AssertionScanner")
+        assert hasattr(discovery_module, "AssertionManifest")
+        assert hasattr(discovery_module, "AssertionMeta")
+        assert issubclass(discovery_module.AssertionScanner, discovery_module.BaseScanner)
 
-    def test_assertion_scanner_module_does_not_reintroduce_legacy_discover_custom_helpers(self):
-        _, _, _, _, assertion_module = _load_symbols()
+    def test_contract_module_exposes_shared_assertion_function_signature_constants(self):
+        contract_module = _load_contract_module()
 
+        assert contract_module.ASSERTION_FUNCTION_NAME == "get_assert"
+        assert contract_module.ASSERTION_FUNCTION_PARAMS == ("output", "context")
+
+    def test_assertion_module_does_not_reintroduce_legacy_discover_custom_helpers(self):
+        assertion_module = _load_assertion_module()
         source = Path(assertion_module.__file__).read_text(encoding="utf-8")
-        assert re.search(r"(?<!\\w)discover_custom_(?!\\w)", source) is None
+
+        assert re.search(r"(?<!\w)discover_custom_(?!\w)", source) is None
         assert not any(name.startswith("discover_custom_") for name in vars(assertion_module))
 
     def test_public_discovery_surface_does_not_export_legacy_discover_custom_helpers(self):
-        import runsight_core.yaml.discovery as discovery_module
+        discovery_module = _load_discovery_module()
 
         assert not any(name.startswith("discover_custom_") for name in vars(discovery_module))
 
+    def test_assertion_module_no_longer_exposes_hand_rolled_manifest_field_helpers(self):
+        assertion_module = _load_assertion_module()
 
-class TestDiscoverCustomAssertions:
+        assert not hasattr(assertion_module, "_require_string")
+        assert not hasattr(assertion_module, "_require_optional_mapping")
+
+
+class TestAssertionManifestModel:
+    def test_assertion_manifest_is_a_pydantic_model(self):
+        assertion_module = _load_assertion_module()
+
+        assert issubclass(assertion_module.AssertionManifest, BaseModel)
+
     @pytest.mark.parametrize(
-        ("drop_fields", "manifest_overrides", "expected_fragment"),
+        "manifest_overrides",
         [
-            ({"version"}, None, "version"),
-            (None, {"version": 1}, "version"),
-            ({"name"}, None, "name"),
-            (None, {"name": ""}, "name"),
-            ({"description"}, None, "description"),
-            (None, {"description": ""}, "description"),
-            ({"returns"}, None, "returns"),
-            (None, {"returns": ""}, "returns"),
-            ({"source"}, None, "source"),
-            (None, {"source": ""}, "source"),
+            {"timeout_seconds": 10},
+            {"returns": "number"},
         ],
     )
-    def test_missing_or_invalid_required_manifest_fields_raise_file_specific_error(
-        self,
-        tmp_path: Path,
-        drop_fields: set[str] | None,
-        manifest_overrides: dict | None,
-        expected_fragment: str,
+    def test_assertion_manifest_model_rejects_extra_fields_and_invalid_returns(
+        self, manifest_overrides: dict
     ):
-        AssertionScanner, _, _, _, _ = _load_symbols()
-        _write_assertion_fixture(
-            tmp_path,
-            drop_fields=drop_fields,
-            manifest_overrides=manifest_overrides,
-        )
+        assertion_module = _load_assertion_module()
+        raw = {
+            "version": "1.0",
+            "name": "Budget Guard Display",
+            "description": "Keeps cost under budget.",
+            "returns": "bool",
+            "source": "budget_guard.py",
+        }
+        raw.update(manifest_overrides)
 
-        with pytest.raises(ValueError) as exc_info:
-            AssertionScanner(tmp_path).scan()
+        with pytest.raises(ValidationError):
+            assertion_module.AssertionManifest.model_validate(raw)
 
-        message = str(exc_info.value)
-        assert "budget_guard.yaml" in message
-        assert expected_fragment in message
+    @pytest.mark.parametrize("drop_field", ["version", "name", "description", "returns", "source"])
+    def test_assertion_manifest_model_rejects_missing_required_fields(self, drop_field: str):
+        assertion_module = _load_assertion_module()
+        raw = {
+            "version": "1.0",
+            "name": "Budget Guard Display",
+            "description": "Keeps cost under budget.",
+            "returns": "bool",
+            "source": "budget_guard.py",
+        }
+        raw.pop(drop_field)
 
+        with pytest.raises(ValidationError):
+            assertion_module.AssertionManifest.model_validate(raw)
+
+
+class TestDiscoverCustomAssertions:
     def test_missing_custom_assertions_directory_returns_empty_scan_index(self, tmp_path: Path):
-        AssertionScanner, _, _, ScanIndex, _ = _load_symbols()
+        discovery_module = _load_discovery_module()
 
-        result = AssertionScanner(tmp_path).scan()
+        result = discovery_module.AssertionScanner(tmp_path).scan()
 
-        assert isinstance(result, ScanIndex)
+        assert isinstance(result, discovery_module.ScanIndex)
         assert result.stems() == {}
 
-    def test_valid_manifest_and_source_scan_into_assertion_meta(self, tmp_path: Path):
-        AssertionScanner, AssertionMeta, _, _, _ = _load_symbols()
+    def test_valid_manifest_and_source_scan_into_nested_assertion_meta(self, tmp_path: Path):
+        discovery_module = _load_discovery_module()
+        assertion_module = _load_assertion_module()
         manifest_path, source_path = _write_assertion_fixture(
             tmp_path,
             params={
@@ -146,73 +165,125 @@ class TestDiscoverCustomAssertions:
             },
         )
 
-        index = AssertionScanner(tmp_path).scan()
-        discovered = index.stems()
+        index = discovery_module.AssertionScanner(tmp_path).scan()
+        meta = index.stems()["budget_guard"]
 
-        assert set(discovered) == {"budget_guard"}
-        assert isinstance(discovered["budget_guard"], AssertionMeta)
-        meta = discovered["budget_guard"]
+        assert isinstance(meta, assertion_module.AssertionMeta)
         assert meta.assertion_id == "budget_guard"
         assert meta.file_path.resolve() == manifest_path.resolve()
-        assert meta.version == "1.0"
-        assert meta.name == "Budget Guard"
-        assert meta.description == "Keeps cost under budget."
-        assert meta.returns == "bool"
         assert meta.code == source_path.read_text(encoding="utf-8")
-        assert meta.params == {
+        assert meta.manifest.name == "Budget Guard Display"
+        assert meta.manifest.description == "Keeps cost under budget."
+        assert meta.manifest.returns == "bool"
+        assert meta.manifest.source == "budget_guard.py"
+        assert meta.manifest.params == {
             "type": "object",
             "properties": {"threshold": {"type": "number"}},
             "required": ["threshold"],
         }
-        assert index.get("budget_guard") is not None
-        assert index.get("custom/assertions/budget_guard.yaml") is not None
 
-    def test_invalid_returns_value_raises_file_specific_error(self, tmp_path: Path):
-        AssertionScanner, _, _, _, _ = _load_symbols()
-        _write_assertion_fixture(tmp_path, returns="number")
+    def test_assertion_meta_does_not_expose_flattened_manifest_fields_directly(
+        self, tmp_path: Path
+    ):
+        discovery_module = _load_discovery_module()
+        _write_assertion_fixture(tmp_path)
+
+        meta = discovery_module.AssertionScanner(tmp_path).scan().stems()["budget_guard"]
+
+        assert not hasattr(meta, "name")
+        assert not hasattr(meta, "description")
+        assert not hasattr(meta, "returns")
+        assert not hasattr(meta, "source")
+        assert not hasattr(meta, "version")
+        assert not hasattr(meta, "params")
+
+    def test_file_stem_slug_is_canonical_id_and_manifest_name_is_display_only(self, tmp_path: Path):
+        discovery_module = _load_discovery_module()
+        _write_assertion_fixture(
+            tmp_path,
+            stem="budget_guard",
+            name="Friendly Display Title",
+            source_name="friendly_name.py",
+        )
+
+        meta = discovery_module.AssertionScanner(tmp_path).scan().stems()["budget_guard"]
+
+        assert meta.assertion_id == "budget_guard"
+        assert meta.manifest.name == "Friendly Display Title"
+        assert meta.assertion_id != meta.manifest.name
+
+    def test_scanner_uses_assertion_manifest_model_validate(self, tmp_path: Path, monkeypatch):
+        discovery_module = _load_discovery_module()
+        assertion_module = _load_assertion_module()
+        _write_assertion_fixture(tmp_path)
+        calls: list[object] = []
+        original = assertion_module.AssertionManifest.model_validate
+
+        def spy_model_validate(cls, raw: object, *args, **kwargs):
+            calls.append(raw)
+            return original(raw, *args, **kwargs)
+
+        monkeypatch.setattr(
+            assertion_module,
+            "AssertionManifest",
+            assertion_module.AssertionManifest,
+        )
+        monkeypatch.setattr(
+            assertion_module.AssertionManifest,
+            "model_validate",
+            classmethod(spy_model_validate),
+        )
+
+        discovery_module.AssertionScanner(tmp_path).scan()
+
+        assert calls
+        assert isinstance(calls[0], dict)
+        assert calls[0]["name"] == "Budget Guard Display"
+
+    @pytest.mark.parametrize(
+        ("manifest_overrides", "drop_fields", "expected_fragment"),
+        [
+            ({"timeout_seconds": 10}, None, "timeout_seconds"),
+            ({"returns": "number"}, None, "returns"),
+            (None, {"version"}, "version"),
+        ],
+    )
+    def test_scanner_wraps_manifest_model_validation_errors_with_filename(
+        self,
+        tmp_path: Path,
+        manifest_overrides: dict | None,
+        drop_fields: set[str] | None,
+        expected_fragment: str,
+    ):
+        discovery_module = _load_discovery_module()
+        _write_assertion_fixture(
+            tmp_path,
+            manifest_overrides=manifest_overrides,
+            drop_fields=drop_fields,
+        )
 
         with pytest.raises(ValueError) as exc_info:
-            AssertionScanner(tmp_path).scan()
+            discovery_module.AssertionScanner(tmp_path).scan()
 
         message = str(exc_info.value)
         assert "budget_guard.yaml" in message
-        assert "bool" in message
-        assert "grading_result" in message
+        assert expected_fragment in message
 
-    def test_extra_unsupported_fields_raise_value_error(self, tmp_path: Path):
-        AssertionScanner, _, _, _, _ = _load_symbols()
-        _write_assertion_fixture(tmp_path, extra_fields={"timeout_seconds": 10})
+    def test_scanner_accepts_shared_get_assert_output_context_contract(self, tmp_path: Path):
+        discovery_module = _load_discovery_module()
+        _write_assertion_fixture(
+            tmp_path,
+            code=dedent(
+                """\
+                def get_assert(output, context):
+                    return output == "needle in haystack"
+                """
+            ),
+        )
 
-        with pytest.raises(ValueError) as exc_info:
-            AssertionScanner(tmp_path).scan()
+        meta = discovery_module.AssertionScanner(tmp_path).scan().stems()["budget_guard"]
 
-        message = str(exc_info.value)
-        assert "budget_guard.yaml" in message
-        assert "timeout_seconds" in message
-
-    def test_missing_source_file_raises_file_specific_error(self, tmp_path: Path):
-        AssertionScanner, _, _, _, _ = _load_symbols()
-        _write_assertion_fixture(tmp_path, write_source=False)
-
-        with pytest.raises(ValueError) as exc_info:
-            AssertionScanner(tmp_path).scan()
-
-        message = str(exc_info.value)
-        assert "budget_guard.yaml" in message
-        assert "budget_guard.py" in message
-        assert "source" in message
-
-    def test_unreadable_source_path_raises_file_specific_error(self, tmp_path: Path):
-        AssertionScanner, _, _, _, _ = _load_symbols()
-        _write_assertion_fixture(tmp_path, source_is_directory=True)
-
-        with pytest.raises(ValueError) as exc_info:
-            AssertionScanner(tmp_path).scan()
-
-        message = str(exc_info.value)
-        assert "budget_guard.yaml" in message
-        assert "budget_guard.py" in message
-        assert "source" in message
+        assert meta.code is not None
 
     @pytest.mark.parametrize(
         ("code", "expected_fragment"),
@@ -220,54 +291,56 @@ class TestDiscoverCustomAssertions:
             (
                 dedent(
                     """\
-                    def get_assert():
+                    def get_assert(args):
                         return True
                     """
                 ),
-                "get_assert",
+                "output",
             ),
             (
                 dedent(
                     """\
-                    def get_assert(config, context):
+                    def get_assert(output):
                         return True
                     """
                 ),
-                "get_assert",
+                "context",
             ),
             (
                 dedent(
                     """\
-                    def get_assert(payload):
+                    def get_assert(output, context, extra):
                         return True
                     """
                 ),
-                "args",
+                "get_assert",
             ),
         ],
     )
-    def test_bad_get_assert_signature_raises_value_error(
+    def test_scanner_rejects_legacy_or_wrong_arity_assertion_contract(
         self, tmp_path: Path, code: str, expected_fragment: str
     ):
-        AssertionScanner, _, _, _, _ = _load_symbols()
-        _write_assertion_fixture(
-            tmp_path,
-            code=code,
-        )
+        discovery_module = _load_discovery_module()
+        _write_assertion_fixture(tmp_path, code=code)
 
         with pytest.raises(ValueError) as exc_info:
-            AssertionScanner(tmp_path).scan()
+            discovery_module.AssertionScanner(tmp_path).scan()
 
         message = str(exc_info.value)
         assert "budget_guard.yaml" in message
         assert expected_fragment in message
 
-    def test_reserved_builtin_assertion_name_collision_raises_value_error(self, tmp_path: Path):
-        AssertionScanner, _, _, _, _ = _load_symbols()
-        _write_assertion_fixture(tmp_path, stem="contains", source_name="contains.py")
+    def test_reserved_builtin_collision_uses_file_stem_slug(self, tmp_path: Path):
+        discovery_module = _load_discovery_module()
+        _write_assertion_fixture(
+            tmp_path,
+            stem="contains",
+            name="Totally Different Display Name",
+            source_name="contains.py",
+        )
 
         with pytest.raises(ValueError) as exc_info:
-            AssertionScanner(tmp_path).scan()
+            discovery_module.AssertionScanner(tmp_path).scan()
 
         message = str(exc_info.value)
         assert "contains.yaml" in message
