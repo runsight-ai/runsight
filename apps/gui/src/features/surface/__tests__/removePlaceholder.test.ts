@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-205: Remove PlaceholderBlock from frontend.
+ * RED-TEAM tests for RUN-205: remove the legacy placeholder node from frontend.
  *
  * Verifies that "placeholder" block type, its associated fields (description),
  * the DEFAULT_STEP_TYPE constant, and all placeholder fallbacks have been
@@ -79,7 +79,7 @@ describe("StepNodeData description field removal", () => {
     );
     expect(interfaceMatch).toBeTruthy();
     const interfaceBlock = interfaceMatch![0];
-    // Should not have a description field (PlaceholderBlock-specific)
+    // Should not have a description field that only existed for the legacy placeholder node
     expect(interfaceBlock).not.toMatch(/\bdescription\b/);
   });
 });
