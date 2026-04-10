@@ -11,6 +11,7 @@ import threading
 from typing import Any, Callable
 
 from runsight_core.assertions.base import AssertionContext, GradingResult
+from runsight_core.assertions.contract import ASSERTION_FUNCTION_NAME, ASSERTION_FUNCTION_PARAMS
 from runsight_core.blocks.code import BLOCKED_BUILTINS, BLOCKED_MODULES, DEFAULT_ALLOWED_IMPORTS
 
 
@@ -83,6 +84,11 @@ _RETURN_VALIDATORS: dict[str, Callable[[Any, str], GradingResult]] = {
 _DEFAULT_PLUGIN_TIMEOUT_SECONDS = 30
 
 
+def _assertion_signature() -> str:
+    params = ", ".join(ASSERTION_FUNCTION_PARAMS)
+    return f"def {ASSERTION_FUNCTION_NAME}({params})"
+
+
 def _validate_adapter_code(code: str) -> None:
     """Validate custom assertion code before execution."""
     try:
@@ -123,26 +129,23 @@ def _validate_adapter_code(code: str) -> None:
             if attr.startswith("__") and attr.endswith("__"):
                 raise ValueError(f"Access to dunder attribute '{attr}' is not allowed")
 
-        if isinstance(node, ast.AsyncFunctionDef) and node.name == "get_assert":
-            raise ValueError("Custom assertion code must define 'def get_assert(output, context)'")
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == ASSERTION_FUNCTION_NAME:
+            raise ValueError(f"Custom assertion code must define '{_assertion_signature()}'")
 
-        if isinstance(node, ast.FunctionDef) and node.name == "get_assert":
+        if isinstance(node, ast.FunctionDef) and node.name == ASSERTION_FUNCTION_NAME:
             has_get_assert = True
             if (
                 len(node.args.posonlyargs) != 0
-                or len(node.args.args) != 2
-                or node.args.args[0].arg != "output"
-                or node.args.args[1].arg != "context"
+                or len(node.args.args) != len(ASSERTION_FUNCTION_PARAMS)
+                or tuple(arg.arg for arg in node.args.args) != ASSERTION_FUNCTION_PARAMS
                 or node.args.vararg is not None
                 or len(node.args.kwonlyargs) != 0
                 or node.args.kwarg is not None
             ):
-                raise ValueError(
-                    "Custom assertion code must define 'def get_assert(output, context)'"
-                )
+                raise ValueError(f"Custom assertion code must define '{_assertion_signature()}'")
 
     if not has_get_assert:
-        raise ValueError("Custom assertion code must define 'def get_assert(output, context)'")
+        raise ValueError(f"Custom assertion code must define '{_assertion_signature()}'")
 
 
 def _adapter_harness(code: str) -> str:
@@ -151,7 +154,7 @@ def _adapter_harness(code: str) -> str:
         + code
         + "\n\n"
         + "_input = json.loads(open(0).read())\n"
-        + "_result = get_assert(_input['output'], _input['context'])\n"
+        + f"_result = {ASSERTION_FUNCTION_NAME}(_input['output'], _input['context'])\n"
         + "print(json.dumps(_result), end='')\n"
     )
 

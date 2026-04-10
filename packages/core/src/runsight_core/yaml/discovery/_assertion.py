@@ -4,15 +4,31 @@ import ast
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal
 
 import yaml
+from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError
 
+from runsight_core.assertions.contract import ASSERTION_FUNCTION_NAME, ASSERTION_FUNCTION_PARAMS
 from runsight_core.assertions.deterministic import _ALL_ASSERTIONS
 from runsight_core.yaml.discovery._base import BaseScanner, ScanIndex, ScanResult
 
-ALLOWED_ASSERTION_RETURNS = frozenset({"bool", "grading_result"})
 RESERVED_BUILTIN_ASSERTION_IDS = frozenset(assertion.type for assertion in _ALL_ASSERTIONS)
+NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+AssertionReturn = Literal["bool", "grading_result"]
+
+
+class AssertionManifest(BaseModel):
+    """Validated custom assertion manifest schema."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: NonEmptyString
+    name: NonEmptyString
+    description: NonEmptyString
+    returns: AssertionReturn
+    source: NonEmptyString
+    params: dict[str, Any] | None = None
 
 
 @dataclass
@@ -21,35 +37,12 @@ class AssertionMeta:
 
     assertion_id: str
     file_path: Path
-    version: str
-    name: str
-    description: str
-    returns: str
-    source: str
-    params: dict[str, Any] | None = None
+    manifest: AssertionManifest
     code: str | None = None
 
 
 def _fail_assertion_file(yaml_file: Path, message: str) -> ValueError:
     return ValueError(f"{yaml_file.name}: {message}")
-
-
-def _require_string(raw: dict[str, Any], key: str, *, yaml_file: Path) -> str:
-    value = raw.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise _fail_assertion_file(yaml_file, f"missing or invalid {key!r}")
-    return value
-
-
-def _require_optional_mapping(
-    raw: dict[str, Any], key: str, *, yaml_file: Path
-) -> dict[str, Any] | None:
-    value = raw.get(key)
-    if value is None:
-        return None
-    if not isinstance(value, dict):
-        raise _fail_assertion_file(yaml_file, f"invalid {key!r}")
-    return value
 
 
 def _read_assertion_source_file(yaml_file: Path, source: str) -> str:
@@ -67,29 +60,37 @@ def _read_assertion_source_file(yaml_file: Path, source: str) -> str:
         ) from exc
 
 
+def _assertion_signature() -> str:
+    params = ", ".join(ASSERTION_FUNCTION_PARAMS)
+    return f"def {ASSERTION_FUNCTION_NAME}({params})"
+
+
 def _validate_get_assert_contract(code: str) -> None:
-    """Require a strict ``def get_assert(args)`` function in custom assertion code."""
+    """Require the shared custom assertion entrypoint contract."""
     try:
         tree = ast.parse(code)
     except SyntaxError as exc:
         raise ValueError(f"Assertion code has a syntax error: {exc}") from exc
 
     for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef) or node.name != "get_assert":
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == ASSERTION_FUNCTION_NAME:
+            raise ValueError(f"Assertion code must define '{_assertion_signature()}'")
+
+        if not isinstance(node, ast.FunctionDef) or node.name != ASSERTION_FUNCTION_NAME:
             continue
 
         if (
             len(node.args.posonlyargs) != 0
-            or len(node.args.args) != 1
-            or node.args.args[0].arg != "args"
+            or len(node.args.args) != len(ASSERTION_FUNCTION_PARAMS)
+            or tuple(arg.arg for arg in node.args.args) != ASSERTION_FUNCTION_PARAMS
             or node.args.vararg is not None
             or len(node.args.kwonlyargs) != 0
             or node.args.kwarg is not None
         ):
-            raise ValueError("Assertion code must define 'def get_assert(args)'")
+            raise ValueError(f"Assertion code must define '{_assertion_signature()}'")
         return
 
-    raise ValueError("Assertion code must define 'def get_assert(args)'")
+    raise ValueError(f"Assertion code must define '{_assertion_signature()}'")
 
 
 class AssertionScanner(BaseScanner[AssertionMeta]):
@@ -180,27 +181,12 @@ class AssertionScanner(BaseScanner[AssertionMeta]):
                 f"{collision_path}",
             )
 
-        allowed_fields = {"version", "name", "description", "returns", "source", "params"}
-        extra_fields = sorted(set(raw.keys()) - allowed_fields)
-        if extra_fields:
-            joined = ", ".join(extra_fields)
-            raise _fail_assertion_file(yaml_file, f"unsupported assertion fields: {joined}")
+        try:
+            manifest = AssertionManifest.model_validate(raw)
+        except ValidationError as exc:
+            raise _fail_assertion_file(yaml_file, str(exc)) from exc
 
-        version = _require_string(raw, "version", yaml_file=yaml_file)
-        name = _require_string(raw, "name", yaml_file=yaml_file)
-        description = _require_string(raw, "description", yaml_file=yaml_file)
-        returns = _require_string(raw, "returns", yaml_file=yaml_file)
-        source = _require_string(raw, "source", yaml_file=yaml_file)
-        params = _require_optional_mapping(raw, "params", yaml_file=yaml_file)
-
-        if returns not in ALLOWED_ASSERTION_RETURNS:
-            allowed = ", ".join(sorted(ALLOWED_ASSERTION_RETURNS))
-            raise _fail_assertion_file(
-                yaml_file,
-                f"invalid returns {returns!r}; expected one of: {allowed}",
-            )
-
-        code = _read_assertion_source_file(yaml_file, source)
+        code = _read_assertion_source_file(yaml_file, manifest.source)
         try:
             _validate_get_assert_contract(code)
         except ValueError as exc:
@@ -209,11 +195,6 @@ class AssertionScanner(BaseScanner[AssertionMeta]):
         return AssertionMeta(
             assertion_id=assertion_id,
             file_path=yaml_file,
-            version=version,
-            name=name,
-            description=description,
-            returns=returns,
-            source=source,
-            params=params,
+            manifest=manifest,
             code=code,
         )
