@@ -1102,6 +1102,24 @@ class TestRUN392ServerStreamingFrames:
         self, tmp_path: Path
     ):
         from runsight_core.isolation import IPCServer
+        from runsight_core.isolation import ipc as ipc_module
+
+        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        assert InterceptorRegistry is not None
+        registry = InterceptorRegistry()
+
+        class TraceInterceptor:
+            async def on_request(self, action: str, payload: dict, engine_context: dict) -> dict:
+                engine_context["trace_id"] = "trace-simple-1"
+                return engine_context
+
+            async def on_response(self, action: str, payload: dict, engine_context: dict) -> dict:
+                return engine_context
+
+            async def on_stream_chunk(self, action: str, chunk: dict, engine_context: dict) -> dict:
+                return engine_context
+
+        registry.register(TraceInterceptor())
 
         sock_path = tmp_path / "run392-simple.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -1111,12 +1129,7 @@ class TestRUN392ServerStreamingFrames:
         async def simple_handler(payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "ok", "echo": payload.get("value")}
 
-        server = IPCServer(sock=server_sock, handlers={"simple": simple_handler})
-        setattr(
-            server,
-            "_engine_context_interceptor",
-            lambda *_args, **_kwargs: {"trace_id": "trace-simple-1"},
-        )
+        server = IPCServer(sock=server_sock, handlers={"simple": simple_handler}, registry=registry)
         server_task = asyncio.create_task(server.serve())
 
         try:
@@ -1145,6 +1158,24 @@ class TestRUN392ServerStreamingFrames:
         self, tmp_path: Path
     ):
         from runsight_core.isolation import IPCServer
+        from runsight_core.isolation import ipc as ipc_module
+
+        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        assert InterceptorRegistry is not None
+        registry = InterceptorRegistry()
+
+        class TraceInterceptor:
+            async def on_request(self, action: str, payload: dict, engine_context: dict) -> dict:
+                engine_context["trace_id"] = "trace-stream-1"
+                return engine_context
+
+            async def on_response(self, action: str, payload: dict, engine_context: dict) -> dict:
+                return engine_context
+
+            async def on_stream_chunk(self, action: str, chunk: dict, engine_context: dict) -> dict:
+                return engine_context
+
+        registry.register(TraceInterceptor())
 
         sock_path = tmp_path / "run392-stream.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -1157,12 +1188,7 @@ class TestRUN392ServerStreamingFrames:
             yield {"chunk": 2}
             yield {"chunk": 3}
 
-        server = IPCServer(sock=server_sock, handlers={"stream": stream_handler})
-        setattr(
-            server,
-            "_engine_context_interceptor",
-            lambda *_args, **_kwargs: {"trace_id": "trace-stream-1"},
-        )
+        server = IPCServer(sock=server_sock, handlers={"stream": stream_handler}, registry=registry)
         server_task = asyncio.create_task(server.serve())
 
         try:
@@ -1447,6 +1473,49 @@ class TestRUN393IPCServerRegistryIntegration:
                 "request_seen": "simple",
                 "response_status": "ok",
             }
+        finally:
+            await server.shutdown()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_private_engine_context_interceptor_does_not_mutate_context_without_registry_register(
+        self, tmp_path: Path
+    ):
+        """Only explicit InterceptorRegistry.register() may mutate engine_context."""
+        from runsight_core.isolation import IPCServer
+
+        sock_path = tmp_path / "run393-no-shim.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+
+        async def simple_handler(payload: dict[str, Any]) -> dict[str, Any]:
+            return {"status": "ok", "echo": payload.get("value")}
+
+        server = IPCServer(sock=server_sock, handlers={"simple": simple_handler})
+        setattr(
+            server,
+            "_engine_context_interceptor",
+            lambda *_args, **_kwargs: {"trace_id": "legacy-shim"},
+        )
+        server_task = asyncio.create_task(server.serve())
+
+        try:
+            frames = await _send_raw_request_and_collect_frames(
+                sock_path,
+                {
+                    "id": "req-393-no-shim-1",
+                    "action": "simple",
+                    "payload": {"value": 42},
+                },
+            )
+            assert len(frames) == 1
+            assert frames[0]["done"] is True
+            assert frames[0]["payload"] == {"status": "ok", "echo": 42}
+            assert frames[0]["engine_context"] == {}
+            assert "trace_id" not in frames[0]["engine_context"]
         finally:
             await server.shutdown()
             server_task.cancel()
