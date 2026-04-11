@@ -108,6 +108,11 @@ def _serialize_soul_summary(soul: Any) -> dict[str, Any]:
         "role": getattr(soul, "role", ""),
         "system_prompt": getattr(soul, "system_prompt", ""),
         "model_name": getattr(soul, "model_name", ""),
+        "provider": getattr(soul, "provider", "") or "",
+        "temperature": getattr(soul, "temperature", None),
+        "max_tokens": getattr(soul, "max_tokens", None),
+        "required_tool_calls": list(getattr(soul, "required_tool_calls", None) or []),
+        "max_tool_iterations": getattr(soul, "max_tool_iterations", 5),
     }
 
 
@@ -175,11 +180,6 @@ class IsolatedBlockWrapper(BaseBlock):
         self.soul = _get_soul(inner_block)
         self.harness = harness
         self._harness_factory = harness_factory
-
-    @property
-    def __class__(self) -> type:
-        """Make isinstance() transparent: wrapper passes isinstance checks for the inner block type."""
-        return type(self.inner_block)
 
     def __getattr__(self, name: str) -> Any:
         """Forward attribute access to the inner block for attributes not on the wrapper."""

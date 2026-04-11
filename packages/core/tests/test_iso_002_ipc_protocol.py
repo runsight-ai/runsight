@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import socket
 import uuid
 from pathlib import Path
@@ -410,6 +411,55 @@ class TestNDJSONFraming:
         assert set(parsed) == {"id", "action", "payload"}
         assert parsed["action"] == "http"
         assert parsed["payload"] == {"method": "GET", "url": "http://example.com"}
+
+    @pytest.mark.asyncio
+    async def test_ipc_client_removes_grant_token_env_after_successful_connect(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """Consumed grant tokens should not remain readable in worker process env."""
+        from runsight_core.isolation import IPCClient
+
+        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-ndjson")
+        sock_path = tmp_path / "ndjson-env.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+        server_sock.setblocking(False)
+
+        async def fake_server():
+            loop = asyncio.get_event_loop()
+            conn, _ = await loop.sock_accept(server_sock)
+            reader, writer = await asyncio.open_connection(sock=conn)
+            try:
+                capability_request = json.loads(await reader.readline())
+                capability_response = (
+                    json.dumps(
+                        _capability_response_for(
+                            capability_request,
+                            active_actions=["http"],
+                        )
+                    )
+                    + "\n"
+                )
+                writer.write(capability_response.encode())
+                await writer.drain()
+            finally:
+                writer.close()
+                await writer.wait_closed()
+
+        server_task = asyncio.create_task(fake_server())
+        try:
+            client = IPCClient(socket_path=str(sock_path))
+            await client.connect()
+            await client.close()
+        finally:
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+        assert "RUNSIGHT_GRANT_TOKEN" not in os.environ
 
     @pytest.mark.asyncio
     async def test_ndjson_messages_are_single_line(self, tmp_path: Path):
@@ -1040,7 +1090,7 @@ class TestRUN398GrantTokenAuthAndAllowlist:
             assert second_frame["done"] is True
             assert second_frame["accepted"] is False
             assert second_frame["active_actions"] == []
-            assert "consumed" in (second_frame["error"] or "").lower()
+            assert "rejected" in (second_frame["error"] or "").lower()
         finally:
             await server.shutdown()
             server_task.cancel()
@@ -1092,7 +1142,7 @@ class TestRUN398GrantTokenAuthAndAllowlist:
             assert frame["done"] is True
             assert frame["accepted"] is False
             assert frame["active_actions"] == []
-            assert "expired" in (frame["error"] or "").lower()
+            assert "rejected" in (frame["error"] or "").lower()
         finally:
             await server.shutdown()
             server_task.cancel()
@@ -2418,6 +2468,61 @@ class TestRUN397ObserverInterceptorContract:
         assert len(tracer.span.events) >= 2
 
     @pytest.mark.asyncio
+    async def test_observer_interceptor_keys_active_spans_by_request_id(self):
+        from runsight_core.isolation import ipc as ipc_module
+
+        class FakeSpanContext:
+            def __init__(self, index: int):
+                self.trace_id = 0x1000 + index
+                self.span_id = 0x2000 + index
+
+        class FakeSpan:
+            def __init__(self, index: int) -> None:
+                self.ended = False
+                self._ctx = FakeSpanContext(index)
+
+            def set_attribute(self, key: str, value: Any) -> None:
+                return None
+
+            def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
+                return None
+
+            def get_span_context(self) -> FakeSpanContext:
+                return self._ctx
+
+            def end(self) -> None:
+                self.ended = True
+
+        class FakeTracer:
+            def __init__(self) -> None:
+                self.spans: list[FakeSpan] = []
+
+            def start_span(self, name: str, attributes: dict[str, Any] | None = None) -> FakeSpan:
+                span = FakeSpan(len(self.spans) + 1)
+                self.spans.append(span)
+                return span
+
+        tracer = FakeTracer()
+        observer = _make_observer_interceptor(ipc_module, tracer=tracer, block_id="run397-rid")
+
+        ctx_a = await observer.on_request(
+            "llm_call",
+            {"model": "gpt-4o-mini"},
+            {"ipc.request_id": "req-a"},
+        )
+        ctx_b = await observer.on_request(
+            "llm_call",
+            {"model": "gpt-4o-mini"},
+            {"ipc.request_id": "req-b"},
+        )
+
+        await observer.on_response("llm_call", {"cost_usd": 0.01}, ctx_a)
+        await observer.on_response("llm_call", {"cost_usd": 0.02}, ctx_b)
+
+        assert len(tracer.spans) == 2
+        assert all(span.ended for span in tracer.spans)
+
+    @pytest.mark.asyncio
     async def test_observer_interceptor_noop_when_tracer_unavailable(self):
         from runsight_core.isolation import ipc as ipc_module
 
@@ -2523,6 +2628,38 @@ class TestRUN810BudgetInterceptorContract:
         assert engine_context["budget_remaining_tokens"] == 88
 
     @pytest.mark.asyncio
+    async def test_on_response_over_cap_reports_negative_remaining_then_next_request_kills(self):
+        from runsight_core.budget_enforcement import BudgetKilledException, BudgetSession
+        from runsight_core.isolation import ipc as ipc_module
+
+        budget_session = BudgetSession(
+            scope_name="block:run810-over-response",
+            cost_cap_usd=0.04,
+            token_cap=100,
+            on_exceed="fail",
+        )
+        interceptor = _make_budget_interceptor(
+            ipc_module,
+            session=budget_session,
+            block_id="run810-over-response",
+        )
+
+        engine_context: dict[str, Any] = {}
+        engine_context = await interceptor.on_request(
+            "llm_call", {"model": "gpt-4o-mini"}, engine_context
+        )
+        engine_context = await interceptor.on_response(
+            "llm_call",
+            {"cost_usd": 0.05, "total_tokens": 12},
+            engine_context,
+        )
+
+        assert budget_session.cost_usd == pytest.approx(0.05)
+        assert engine_context["budget_remaining_usd"] == pytest.approx(-0.01)
+        with pytest.raises(BudgetKilledException):
+            await interceptor.on_request("llm_call", {"model": "gpt-4o-mini"}, engine_context)
+
+    @pytest.mark.asyncio
     async def test_on_stream_chunk_accrues_partial_tokens_incrementally(self):
         from runsight_core.budget_enforcement import BudgetSession
         from runsight_core.isolation import ipc as ipc_module
@@ -2556,6 +2693,38 @@ class TestRUN810BudgetInterceptorContract:
 
         assert budget_session.tokens == 7
         assert engine_context["budget_remaining_tokens"] == 93
+
+    @pytest.mark.asyncio
+    async def test_streaming_terminal_on_response_does_not_double_count_chunk_usage(self):
+        from runsight_core.budget_enforcement import BudgetSession
+        from runsight_core.isolation import ipc as ipc_module
+
+        budget_session = BudgetSession(
+            scope_name="block:run810-stream-final",
+            cost_cap_usd=1.0,
+            token_cap=100,
+            on_exceed="fail",
+        )
+        interceptor = _make_budget_interceptor(
+            ipc_module,
+            session=budget_session,
+            block_id="run810-stream-final",
+        )
+
+        engine_context: dict[str, Any] = {}
+        engine_context = await interceptor.on_request(
+            "llm_call", {"model": "gpt-4o-mini"}, engine_context
+        )
+        engine_context = await interceptor.on_stream_chunk(
+            "llm_call",
+            {"cost_usd": 0.03, "total_tokens": 7},
+            engine_context,
+        )
+        engine_context = await interceptor.on_response("llm_call", {}, engine_context)
+
+        assert budget_session.cost_usd == pytest.approx(0.03)
+        assert budget_session.tokens == 7
+        assert engine_context["budget_remaining_usd"] == pytest.approx(0.97)
 
     @pytest.mark.asyncio
     async def test_stream_chunk_over_cap_reports_negative_remaining_then_next_request_kills(self):
@@ -3451,7 +3620,7 @@ class TestRUN813ProcessBoundaryIntegration:
             assert first["accepted"] is True
             assert "llm_call" in first["active_actions"]
             assert second["accepted"] is False
-            assert "consumed" in (second["error"] or "")
+            assert "rejected" in (second["error"] or "")
         finally:
             await server.shutdown()
             server_task.cancel()

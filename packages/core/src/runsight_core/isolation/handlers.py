@@ -6,6 +6,7 @@ Each ``make_*`` factory returns an async handler compatible with
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
@@ -16,6 +17,21 @@ from runsight_core.isolation.ipc import Handler
 from runsight_core.llm.client import LiteLLMClient
 from runsight_core.runner import _detect_provider
 from runsight_core.security import SSRFError, validate_ssrf
+
+logger = logging.getLogger(__name__)
+_DEFAULT_MAX_FILE_WRITE_BYTES = 10 * 1024 * 1024
+_ALLOWED_LLM_EXTRA_KWARGS = frozenset(
+    {
+        "frequency_penalty",
+        "max_tokens",
+        "n",
+        "presence_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "top_p",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # HTTP handler
@@ -36,7 +52,6 @@ def make_http_handler(
         request_json = params.get("json")
         timeout_seconds = float(params.get("timeout_seconds", 30.0))
         max_response_bytes = int(params.get("max_response_bytes", 1_000_000))
-        follow_redirects = bool(params.get("follow_redirects", False))
 
         # -- URL allowlist check ------------------------------------------
         parsed = urlparse(url)
@@ -49,7 +64,8 @@ def make_http_handler(
         try:
             await validate_ssrf(url)
         except SSRFError as exc:
-            return {"error": str(exc)}
+            logger.info("ipc.http.ssrf_blocked", extra={"hostname": hostname, "reason": str(exc)})
+            return {"error": "request blocked by SSRF policy"}
 
         # -- Inject host-scoped credentials (engine-side only) ------------
         host_credentials = credentials.get(hostname, {})
@@ -58,7 +74,8 @@ def make_http_handler(
         # -- Execute request -----------------------------------------------
         client_kwargs = {
             "timeout": timeout_seconds,
-            "follow_redirects": follow_redirects,
+            # Redirect policy is engine-owned; subprocess payloads cannot relax SSRF gates.
+            "follow_redirects": False,
         }
         return await _perform_http_request(
             method=method,
@@ -94,8 +111,9 @@ async def _perform_http_request(
                 headers=headers,
                 json=request_json,
             )
-    except Exception as exc:
-        return {"error": str(exc)}
+    except Exception:
+        logger.exception("ipc.http.request_failed")
+        return {"error": "HTTP request failed"}
 
     response_body = response.text
     if len(response_body.encode("utf-8")) > max_response_bytes:
@@ -113,7 +131,11 @@ async def _perform_http_request(
 # ---------------------------------------------------------------------------
 
 
-def make_file_io_handler(*, base_dir: str) -> Handler:
+def make_file_io_handler(
+    *,
+    base_dir: str,
+    max_write_bytes: int = _DEFAULT_MAX_FILE_WRITE_BYTES,
+) -> Handler:
     """Return an IPC handler that scopes all file operations to *base_dir*.
 
     Blocks absolute paths and path-traversal attempts (``..``).
@@ -150,8 +172,11 @@ def make_file_io_handler(*, base_dir: str) -> Handler:
 
         if action_type == "write":
             content = params.get("content", "")
+            encoded = str(content).encode("utf-8")
+            if len(encoded) > max_write_bytes:
+                return {"error": f"file write exceeds max_write_bytes={max_write_bytes}"}
             resolved.parent.mkdir(parents=True, exist_ok=True)
-            resolved.write_text(content)
+            resolved.write_text(str(content))
             return {"ok": True}
 
         return {"error": f"Unknown action_type: {action_type}"}
@@ -177,8 +202,9 @@ def make_tool_call_handler(resolved_tools: dict[str, Any]) -> Handler:
 
         try:
             output = await tool.execute(tool_args)
-        except Exception as exc:
-            return {"error": f"Tool '{tool_name}' failed: {exc}"}
+        except Exception:
+            logger.exception("ipc.tool_call.failed", extra={"tool_name": tool_name})
+            return {"error": f"Tool '{tool_name}' failed"}
 
         return {"output": output}
 
@@ -201,8 +227,9 @@ def make_llm_call_handler(api_keys: dict[str, str]) -> Handler:
 
         try:
             provider = _detect_provider(model_name)
-        except Exception as exc:
-            yield {"error": f"Unable to determine provider for model '{model_name}': {exc}"}
+        except Exception:
+            logger.exception("ipc.llm.provider_detection_failed", extra={"model": model_name})
+            yield {"error": "Unable to determine provider for requested model"}
             return
 
         api_key = api_keys.get(provider)
@@ -214,17 +241,7 @@ def make_llm_call_handler(api_keys: dict[str, str]) -> Handler:
             return
 
         extra_kwargs = {
-            key: value
-            for key, value in params.items()
-            if key
-            not in {
-                "model",
-                "messages",
-                "system_prompt",
-                "temperature",
-                "tools",
-                "tool_choice",
-            }
+            key: value for key, value in params.items() if key in _ALLOWED_LLM_EXTRA_KWARGS
         }
 
         try:
@@ -237,8 +254,9 @@ def make_llm_call_handler(api_keys: dict[str, str]) -> Handler:
                 tool_choice=params.get("tool_choice"),
                 **extra_kwargs,
             )
-        except Exception as exc:
-            yield {"error": f"llm_call failed: {exc}"}
+        except Exception:
+            logger.exception("ipc.llm.call_failed", extra={"model": model_name})
+            yield {"error": "llm_call failed"}
             return
 
         chunk = dict(response)

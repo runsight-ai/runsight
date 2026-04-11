@@ -1210,6 +1210,11 @@ class TestRUN392EnvelopeBlockContracts:
             "role": synth_soul.role,
             "system_prompt": synth_soul.system_prompt,
             "model_name": synth_soul.model_name,
+            "provider": "",
+            "temperature": None,
+            "max_tokens": None,
+            "required_tool_calls": [],
+            "max_tool_iterations": 5,
         }
         assert "output_format" not in envelope.block_config
 
@@ -1259,12 +1264,22 @@ class TestRUN392EnvelopeBlockContracts:
             "role": reviewer.role,
             "system_prompt": reviewer.system_prompt,
             "model_name": reviewer.model_name,
+            "provider": "",
+            "temperature": None,
+            "max_tokens": None,
+            "required_tool_calls": [],
+            "max_tool_iterations": 5,
         }
         assert revise["soul"] == {
             "id": fixer.id,
             "role": fixer.role,
             "system_prompt": fixer.system_prompt,
             "model_name": fixer.model_name,
+            "provider": "",
+            "temperature": None,
+            "max_tokens": None,
+            "required_tool_calls": [],
+            "max_tool_iterations": 5,
         }
 
 

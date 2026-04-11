@@ -208,6 +208,11 @@ class TestRUN745LLMCallHandlerContract:
                 "tools": [{"type": "function", "function": {"name": "calc"}}],
                 "tool_choice": "auto",
                 "max_tokens": 256,
+                "n": 1,
+                "response_format": {"type": "json_object"},
+                "seed": 123,
+                "api_base": "https://attacker.example/v1",
+                "base_url": "https://attacker.example/v1",
             }
         )
         assert hasattr(stream, "__aiter__"), "llm_call handler must stream chunks"
@@ -224,7 +229,12 @@ class TestRUN745LLMCallHandlerContract:
         assert captured["system_prompt"] == "be concise"
         assert captured["temperature"] == 0.3
         assert captured["tool_choice"] == "auto"
-        assert captured["extra_kwargs"]["max_tokens"] == 256
+        assert captured["extra_kwargs"] == {
+            "max_tokens": 256,
+            "n": 1,
+            "response_format": {"type": "json_object"},
+            "seed": 123,
+        }
 
     @pytest.mark.asyncio
     async def test_make_llm_call_handler_returns_in_band_error_when_provider_key_missing(self):
@@ -280,10 +290,10 @@ class TestRUN745LLMCallHandlerContract:
 
 
 class TestRUN810HarnessBudgetInterceptorWiring:
-    """RUN-810: SubprocessHarness must wire BudgetInterceptor and reconcile child costs."""
+    """RUN-810: SubprocessHarness must wire BudgetInterceptor into IPC execution."""
 
     @pytest.mark.asyncio
-    async def test_run_builds_budget_interceptor_from_block_limits_and_reconciles_to_parent_budget(
+    async def test_run_builds_block_budget_interceptor_with_workflow_parent(
         self,
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: Path,
@@ -440,7 +450,143 @@ class TestRUN810HarnessBudgetInterceptorWiring:
         assert captured.get("registry") is not None
         assert captured.get("child_session") is not None
         assert captured["child_session"] is not workflow_budget
+        assert captured["child_session"].parent is workflow_budget
         assert captured["child_session"].cost_cap_usd == pytest.approx(1.0)
+        assert workflow_budget.cost_usd == pytest.approx(0.10)
+        assert workflow_budget.tokens == 15
+
+    @pytest.mark.asyncio
+    async def test_run_registers_workflow_budget_when_block_has_no_own_limits(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        from runsight_core.budget_enforcement import BudgetSession, _active_budget
+        from runsight_core.isolation import SubprocessHarness
+        from runsight_core.isolation import harness as harness_module
+
+        workflow_budget = BudgetSession(
+            scope_name="workflow:run810",
+            cost_cap_usd=5.0,
+            token_cap=5_000,
+            on_exceed="fail",
+        )
+        active_token = _active_budget.set(workflow_budget)
+        captured: dict[str, Any] = {}
+
+        class FakeBudgetInterceptor:
+            def __init__(self, *args: Any, **kwargs: Any):
+                captured["session"] = kwargs.get("session") or kwargs.get("budget_session")
+
+            async def on_request(
+                self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+            ) -> dict[str, Any]:
+                return engine_context
+
+            async def on_response(
+                self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+            ) -> dict[str, Any]:
+                session = captured.get("session")
+                if session is not None:
+                    session.accrue(
+                        cost_usd=float(payload.get("cost_usd", 0.0)),
+                        tokens=int(payload.get("total_tokens", 0)),
+                    )
+                return engine_context
+
+            async def on_stream_chunk(
+                self, action: str, chunk: dict[str, Any], engine_context: dict[str, Any]
+            ) -> dict[str, Any]:
+                return engine_context
+
+        class FakeIPCServer:
+            def __init__(
+                self,
+                *,
+                sock,
+                handlers: dict[str, Any],
+                registry=None,
+                grant_token=None,
+            ) -> None:
+                self._registry = registry
+
+            async def serve(self) -> None:
+                if self._registry is not None:
+                    request_ctx = await self._registry.run_on_request(
+                        "llm_call",
+                        {"model": "gpt-4o-mini"},
+                        {},
+                    )
+                    await self._registry.run_on_response(
+                        "llm_call",
+                        {"cost_usd": 0.10, "total_tokens": 15},
+                        request_ctx,
+                    )
+                await asyncio.sleep(0)
+
+            async def shutdown(self) -> None:
+                return None
+
+        class _FakeStdIn:
+            def write(self, data: bytes) -> None:
+                return None
+
+            async def drain(self) -> None:
+                return None
+
+            def close(self) -> None:
+                return None
+
+        class _FakeStdOut:
+            async def read(self) -> bytes:
+                return (
+                    _make_result_envelope(block_id="run810-block", output="ok")
+                    .model_dump_json()
+                    .encode()
+                )
+
+        class _FakeStdErr:
+            async def readline(self) -> bytes:
+                await asyncio.sleep(0)
+                return b""
+
+        class FakeProc:
+            def __init__(self) -> None:
+                self.stdin = _FakeStdIn()
+                self.stdout = _FakeStdOut()
+                self.stderr = _FakeStdErr()
+                self.returncode = 0
+
+            async def wait(self) -> int:
+                return 0
+
+            def terminate(self) -> None:
+                self.returncode = -15
+
+            def kill(self) -> None:
+                self.returncode = -9
+
+        async def fake_create_subprocess_exec(*args: Any, **kwargs: Any) -> FakeProc:
+            return FakeProc()
+
+        monkeypatch.setattr(
+            harness_module, "BudgetInterceptor", FakeBudgetInterceptor, raising=False
+        )
+        monkeypatch.setattr(harness_module, "IPCServer", FakeIPCServer)
+        monkeypatch.setattr(
+            harness_module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec
+        )
+
+        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        monkeypatch.setattr(harness, "_monitor_heartbeats", AsyncMock(return_value=False))
+        envelope = _make_context_envelope(block_id="run810-block", block_type="linear")
+
+        try:
+            result = await harness.run(envelope)
+        finally:
+            _active_budget.reset(active_token)
+
+        assert isinstance(result, ResultEnvelope)
+        assert captured["session"] is workflow_budget
         assert workflow_budget.cost_usd == pytest.approx(0.10)
         assert workflow_budget.tokens == 15
 
@@ -679,6 +825,54 @@ class TestRUN394SubprocessHarnessWiringContract:
         _ = harness._build_ipc_handlers()
 
         assert captured["url_allowlist"] == []
+
+    @pytest.mark.asyncio
+    async def test_constructor_http_allowlist_is_passed_to_http_handler(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        from runsight_core.isolation import SubprocessHarness
+        from runsight_core.isolation import handlers as handlers_module
+
+        captured: dict[str, Any] = {}
+
+        def fake_make_http_handler(*, credentials: dict[str, str], url_allowlist: list[str]):
+            captured["url_allowlist"] = list(url_allowlist)
+
+            async def _handler(_payload: dict[str, Any]) -> dict[str, Any]:
+                return {"status": 200}
+
+            return _handler
+
+        def fake_make_file_io_handler(*, base_dir: str):
+            async def _handler(_payload: dict[str, Any]) -> dict[str, Any]:
+                return {"ok": True}
+
+            return _handler
+
+        def fake_make_llm_call_handler(*, api_keys: dict[str, str]):
+            async def _handler(_payload: dict[str, Any]) -> dict[str, Any]:
+                return {"content": "ok"}
+
+            return _handler
+
+        def fake_make_tool_call_handler(_resolved_tools: dict[str, Any]):
+            async def _handler(_payload: dict[str, Any]) -> dict[str, Any]:
+                return {"output": "ok"}
+
+            return _handler
+
+        monkeypatch.setattr(handlers_module, "make_http_handler", fake_make_http_handler)
+        monkeypatch.setattr(handlers_module, "make_file_io_handler", fake_make_file_io_handler)
+        monkeypatch.setattr(handlers_module, "make_llm_call_handler", fake_make_llm_call_handler)
+        monkeypatch.setattr(handlers_module, "make_tool_call_handler", fake_make_tool_call_handler)
+
+        harness = SubprocessHarness(
+            api_keys={"openai": "sk-test-key-123"},
+            url_allowlist=["api.example.com"],
+        )
+        _ = harness._build_ipc_handlers()
+
+        assert captured["url_allowlist"] == ["api.example.com"]
 
     @pytest.mark.asyncio
     async def test_file_io_temp_dir_is_removed_by_harness_cleanup(
@@ -1674,7 +1868,7 @@ class TestRUN398GrantTokenContract:
         assert isinstance(token.token, str)
         assert token.token != ""
         assert token.block_id == "block-398"
-        assert token.ttl_seconds == 30.0
+        assert token.ttl_seconds == 120.0
         assert token.consumed is False
 
     def test_grant_token_consume_is_single_use(self):

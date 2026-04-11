@@ -91,6 +91,7 @@ class SubprocessHarness:
         phase_timeout: float = 60.0,
         stall_thresholds: dict[str, int | float] | None = None,
         tool_credentials: dict[str, dict[str, str]] | None = None,
+        url_allowlist: list[str] | None = None,
         resolved_tools: dict[str, Any] | None = None,
     ) -> None:
         self._api_keys = dict(api_keys)
@@ -99,6 +100,7 @@ class SubprocessHarness:
         self._phase_timeout = phase_timeout
         self._stall_thresholds = stall_thresholds or {}
         self._tool_credentials = tool_credentials or {}
+        self._url_allowlist = list(url_allowlist or [])
         self._resolved_tools = dict(resolved_tools or {})
         self._grant_token: GrantToken | None = None
         self._file_io_temp_dir: str | None = None
@@ -121,7 +123,7 @@ class SubprocessHarness:
             "llm_call": make_llm_call_handler(api_keys=dict(self._api_keys)),
             "http": make_http_handler(
                 credentials=dict(self._tool_credentials),
-                url_allowlist=[],
+                url_allowlist=list(self._url_allowlist),
             ),
             "file_io": make_file_io_handler(base_dir=file_io_base_dir),
             "tool_call": make_tool_call_handler(self._resolved_tools),
@@ -364,17 +366,6 @@ class SubprocessHarness:
         sock = None
         sock_path: str | None = None
         work_dir: str | None = None
-        parent_budget: BudgetSession | None = None
-        child_budget: BudgetSession | None = None
-        reconciled = False
-
-        def _reconcile_child_budget_once() -> None:
-            nonlocal reconciled
-            if reconciled:
-                return
-            if parent_budget is not None and child_budget is not None:
-                parent_budget.reconcile_child(child_budget)
-            reconciled = True
 
         try:
             # Create socket and working dir
@@ -400,21 +391,21 @@ class SubprocessHarness:
             active_budget = _active_budget.get(None)
             if isinstance(active_budget, BudgetSession):
                 raw_limits = envelope.block_config.get("limits")
+                budget_session = active_budget
                 if raw_limits is not None:
                     block_limits = (
                         raw_limits
                         if isinstance(raw_limits, BlockLimitsDef)
                         else BlockLimitsDef.model_validate(raw_limits)
                     )
-                    parent_budget = active_budget
-                    child_budget = BudgetSession.from_block_limits(
+                    budget_session = BudgetSession.from_block_limits(
                         block_limits,
                         envelope.block_id,
-                        parent=None,
+                        parent=active_budget,
                     )
-                    registry.register(
-                        BudgetInterceptor(session=child_budget, block_id=envelope.block_id)
-                    )
+                registry.register(
+                    BudgetInterceptor(session=budget_session, block_id=envelope.block_id)
+                )
 
             ipc_server = IPCServer(
                 sock=sock,
@@ -499,5 +490,4 @@ class SubprocessHarness:
                     pass
 
         finally:
-            _reconcile_child_budget_once()
             self._cleanup(socket_path=sock_path, working_dir=work_dir)

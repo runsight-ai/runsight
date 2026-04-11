@@ -140,6 +140,9 @@ class TestRUN812SmartAssertionIsolation:
                 self._api_keys = dict(api_keys)
 
             async def run(self, envelope: Any) -> ResultEnvelope:
+                active_budget = _active_budget.get(None)
+                if isinstance(active_budget, BudgetSession):
+                    active_budget.accrue(cost_usd=0.10, tokens=15)
                 return ResultEnvelope(
                     block_id=envelope.block_id,
                     output=json.dumps(

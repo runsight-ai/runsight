@@ -743,6 +743,7 @@ class TestRUN811RealHTTPHandlerContract:
                 "method": "GET",
                 "url": "https://api.example.com/old-location",
                 "headers": {},
+                "follow_redirects": True,
             }
         )
 
@@ -750,6 +751,51 @@ class TestRUN811RealHTTPHandlerContract:
         assert captured["calls"] == 1
         assert result["status_code"] == 302
         assert result["headers"]["location"] == "https://api.example.com/new-location"
+
+    @pytest.mark.asyncio
+    async def test_response_body_over_max_response_bytes_returns_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        from unittest.mock import AsyncMock
+
+        from runsight_core.isolation import handlers as handlers_module
+        from runsight_core.isolation.handlers import make_http_handler
+
+        class _FakeResponse:
+            status_code = 200
+            headers = {}
+            text = "too-large"
+
+        class _FakeAsyncClient:
+            def __init__(self, **_kwargs: Any):
+                return None
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def request(
+                self, method: str, url: str, headers: dict[str, str], json: Any = None
+            ):
+                return _FakeResponse()
+
+        fake_httpx = type("FakeHTTPX", (), {"AsyncClient": _FakeAsyncClient})
+        monkeypatch.setattr(handlers_module, "httpx", fake_httpx, raising=False)
+        monkeypatch.setattr(handlers_module, "validate_ssrf", AsyncMock(return_value=None))
+
+        handler = make_http_handler(credentials={}, url_allowlist=["api.example.com"])
+        result = await handler(
+            {
+                "method": "GET",
+                "url": "https://api.example.com/large",
+                "headers": {},
+                "max_response_bytes": 4,
+            }
+        )
+
+        assert result == {"error": "response body exceeds max_response_bytes=4"}
 
     @pytest.mark.asyncio
     async def test_private_ip_request_returns_ssrf_error_without_httpx_call(
@@ -853,6 +899,26 @@ class TestFileIOBaseDir:
 
         assert "error" not in result
         assert (base / "output.txt").read_text() == "result data"
+
+    @pytest.mark.asyncio
+    async def test_write_over_max_write_bytes_is_rejected(self, tmp_path: Path):
+        """File writes are capped engine-side to avoid disk exhaustion."""
+        from runsight_core.isolation.handlers import make_file_io_handler
+
+        base = tmp_path / "wf-output"
+        base.mkdir()
+
+        handler = make_file_io_handler(base_dir=str(base), max_write_bytes=4)
+        result = await handler(
+            {
+                "action_type": "write",
+                "path": "too-large.txt",
+                "content": "12345",
+            }
+        )
+
+        assert result == {"error": "file write exceeds max_write_bytes=4"}
+        assert not (base / "too-large.txt").exists()
 
     @pytest.mark.asyncio
     async def test_absolute_path_rejected(self, tmp_path: Path):

@@ -675,7 +675,7 @@ class TestRUN814BudgetAndAdversarialE2E:
                 await replay_writer.wait_closed()
 
             assert replay["accepted"] is False
-            assert "consumed" in (replay["error"] or "").lower()
+            assert "rejected" in (replay["error"] or "").lower()
         finally:
             await client.close()
             await _stop_ipc_server(server, server_task, server_sock, sock_path)

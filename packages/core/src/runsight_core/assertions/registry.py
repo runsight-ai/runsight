@@ -17,7 +17,6 @@ from runsight_core.assertions.base import (
 )
 from runsight_core.assertions.custom import _build_adapter_class
 from runsight_core.assertions.scoring import AssertionsResult
-from runsight_core.budget_enforcement import BudgetSession, _active_budget
 from runsight_core.isolation.envelope import ContextEnvelope, SoulEnvelope, TaskEnvelope
 from runsight_core.isolation.harness import SubprocessHarness
 
@@ -212,13 +211,8 @@ async def _run_smart_llm_assertion(
     if grading.assertion_type is None:
         grading.assertion_type = "llm_judge"
 
-    active_budget = _active_budget.get(None)
-    if isinstance(active_budget, BudgetSession):
-        active_budget.accrue(
-            cost_usd=float(result.cost_usd),
-            tokens=int(result.total_tokens),
-        )
-
+    # Active BudgetSession accounting happens inside the subprocess harness IPC path.
+    # Re-accruing result.cost_usd here would double-count the same LLM call.
     return grading
 
 
