@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, Optional
 
 from runsight_core.blocks.base import BaseBlock
@@ -138,11 +139,15 @@ class IsolatedBlockWrapper(BaseBlock):
         block_id: str,
         inner_block: BaseBlock,
         *,
+        harness: Any | None = None,
+        harness_factory: Callable[[], Any] | None = None,
         retry_config: Optional[Any] = None,
     ):
         super().__init__(block_id, retry_config=retry_config)
         self.inner_block = inner_block
         self.soul = _get_soul(inner_block)
+        self.harness = harness
+        self._harness_factory = harness_factory
 
     @property
     def __class__(self) -> type:
@@ -154,21 +159,20 @@ class IsolatedBlockWrapper(BaseBlock):
         return getattr(self.inner_block, name)
 
     async def _run_in_subprocess(self, envelope: ContextEnvelope) -> ResultEnvelope:
-        """Run the inner block in a subprocess via SubprocessHarness.
-
-        This method is the seam that tests mock.  The default implementation
-        delegates to the inner block directly as a bridge until subprocess
-        infrastructure is fully wired.
-        """
-        raise NotImplementedError("_run_in_subprocess must be mocked or overridden")
+        """Run the inner block in a subprocess via SubprocessHarness."""
+        if self.harness is None:
+            if self._harness_factory is None:
+                raise NotImplementedError(
+                    "SubprocessHarness is not configured on IsolatedBlockWrapper"
+                )
+            self.harness = self._harness_factory()
+        return await self.harness.run(envelope)
 
     async def execute(self, state: WorkflowState, **kwargs: Any) -> WorkflowState:
         """Execute the inner block through the subprocess isolation boundary.
 
-        When ``_run_in_subprocess`` is mocked (normal test path), builds a
-        ContextEnvelope and maps the ResultEnvelope back to WorkflowState.
-        When it raises NotImplementedError (integration / not-yet-wired path),
-        falls back to direct inner-block execution so existing tests stay green.
+        Builds a ContextEnvelope, executes the subprocess path, and maps the
+        ResultEnvelope back to WorkflowState.
         """
         # Build the context envelope
         soul = self.soul
@@ -206,6 +210,14 @@ class IsolatedBlockWrapper(BaseBlock):
 
         block_type, block_config = _build_block_metadata(self.inner_block)
 
+        if (
+            self.harness is not None
+            and soul is not None
+            and hasattr(self.harness, "_resolved_tools")
+        ):
+            resolved_tools = getattr(soul, "resolved_tools", None) or []
+            self.harness._resolved_tools = {tool.name: tool for tool in resolved_tools}
+
         envelope = ContextEnvelope(
             block_id=self.block_id,
             block_type=block_type,
@@ -220,11 +232,7 @@ class IsolatedBlockWrapper(BaseBlock):
             max_output_bytes=1_000_000,
         )
 
-        try:
-            result = await self._run_in_subprocess(envelope)
-        except NotImplementedError:
-            # Subprocess not wired yet — delegate to inner block directly
-            return await self.inner_block.execute(state, **kwargs)
+        result = await self._run_in_subprocess(envelope)
 
         # Handle errors from the subprocess
         if result.error is not None:

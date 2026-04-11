@@ -19,7 +19,7 @@ class SoulEnvelope(BaseModel):
     temperature: float | None = None
     max_tokens: int | None = None
     required_tool_calls: list[str] = Field(default_factory=list)
-    max_tool_iterations: int
+    max_tool_iterations: int = 5
 
 
 class ToolDefEnvelope(BaseModel):
