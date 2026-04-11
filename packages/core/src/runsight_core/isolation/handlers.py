@@ -20,6 +20,7 @@ from runsight_core.security import SSRFError, validate_ssrf
 
 logger = logging.getLogger(__name__)
 _DEFAULT_MAX_FILE_WRITE_BYTES = 10 * 1024 * 1024
+_DEFAULT_MAX_TOTAL_FILE_WRITE_BYTES = 50 * 1024 * 1024
 _ALLOWED_LLM_EXTRA_KWARGS = frozenset(
     {
         "frequency_penalty",
@@ -135,14 +136,17 @@ def make_file_io_handler(
     *,
     base_dir: str,
     max_write_bytes: int = _DEFAULT_MAX_FILE_WRITE_BYTES,
+    max_total_write_bytes: int = _DEFAULT_MAX_TOTAL_FILE_WRITE_BYTES,
 ) -> Handler:
     """Return an IPC handler that scopes all file operations to *base_dir*.
 
     Blocks absolute paths and path-traversal attempts (``..``).
     """
     base = Path(base_dir).resolve()
+    total_bytes_written = 0
 
     async def _handle(params: dict[str, Any]) -> dict[str, Any]:
+        nonlocal total_bytes_written
         action_type: str = params.get("action_type", "")
         raw_path: str = params.get("path", "")
 
@@ -175,8 +179,13 @@ def make_file_io_handler(
             encoded = str(content).encode("utf-8")
             if len(encoded) > max_write_bytes:
                 return {"error": f"file write exceeds max_write_bytes={max_write_bytes}"}
+            if total_bytes_written + len(encoded) > max_total_write_bytes:
+                return {
+                    "error": f"file writes exceed max_total_write_bytes={max_total_write_bytes}"
+                }
             resolved.parent.mkdir(parents=True, exist_ok=True)
             resolved.write_text(str(content))
+            total_bytes_written += len(encoded)
             return {"ok": True}
 
         return {"error": f"Unknown action_type: {action_type}"}

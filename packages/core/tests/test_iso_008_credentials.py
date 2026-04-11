@@ -921,6 +921,39 @@ class TestFileIOBaseDir:
         assert not (base / "too-large.txt").exists()
 
     @pytest.mark.asyncio
+    async def test_cumulative_writes_over_max_total_write_bytes_are_rejected(self, tmp_path: Path):
+        """Many individually valid writes cannot exceed the handler's total write budget."""
+        from runsight_core.isolation.handlers import make_file_io_handler
+
+        base = tmp_path / "wf-output"
+        base.mkdir()
+
+        handler = make_file_io_handler(
+            base_dir=str(base),
+            max_write_bytes=10,
+            max_total_write_bytes=8,
+        )
+        first = await handler(
+            {
+                "action_type": "write",
+                "path": "first.txt",
+                "content": "1234",
+            }
+        )
+        second = await handler(
+            {
+                "action_type": "write",
+                "path": "second.txt",
+                "content": "56789",
+            }
+        )
+
+        assert first == {"ok": True}
+        assert second == {"error": "file writes exceed max_total_write_bytes=8"}
+        assert (base / "first.txt").read_text() == "1234"
+        assert not (base / "second.txt").exists()
+
+    @pytest.mark.asyncio
     async def test_absolute_path_rejected(self, tmp_path: Path):
         """Absolute paths must be rejected — only relative paths within base_dir."""
         from runsight_core.isolation.handlers import make_file_io_handler
