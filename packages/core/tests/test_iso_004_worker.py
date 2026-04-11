@@ -24,7 +24,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from runsight_core.isolation.envelope import (
@@ -234,7 +234,8 @@ class TestRUN395ProxiedLLMClientContract:
         ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
         assert ProxiedLLMClient is not None
 
-        runner = create_runner(model_name="gpt-4o")
+        shared_ipc_client = object()
+        runner = create_runner(model_name="gpt-4o", ipc_client=shared_ipc_client)
         alt_soul = Soul(
             id="soul-alt",
             role="Alt",
@@ -244,6 +245,7 @@ class TestRUN395ProxiedLLMClientContract:
         )
         client = runner._get_client(alt_soul)
         assert isinstance(client, ProxiedLLMClient)
+        assert client._ipc_client is shared_ipc_client
 
     def test_default_worker_runner_path_does_not_construct_direct_litellm_clients(self):
         from runsight_core.isolation import worker
@@ -256,7 +258,7 @@ class TestRUN395ProxiedLLMClientContract:
             "runsight_core.runner.LiteLLMClient",
             side_effect=AssertionError("direct LiteLLMClient construction is forbidden in worker"),
         ):
-            runner = create_runner(model_name="gpt-4o")
+            runner = create_runner(model_name="gpt-4o", ipc_client=object())
             assert isinstance(runner.llm_client, ProxiedLLMClient)
 
     @pytest.mark.asyncio
@@ -269,7 +271,7 @@ class TestRUN395ProxiedLLMClientContract:
         ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
         assert ProxiedLLMClient is not None
 
-        runner = create_runner(model_name="gpt-4o")
+        runner = create_runner(model_name="gpt-4o", ipc_client=object())
         runner.fallback_routes = {
             "openai": FallbackRoute(
                 source_provider_id="openai",
@@ -375,7 +377,7 @@ class TestWorkerIPCToolStubs:
                 tool_type="http",
             ),
         ]
-        stubs = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")
+        stubs = create_tool_stubs(tool_defs, ipc_client=object())
         assert len(stubs) == 1
         assert isinstance(stubs[0], ToolInstance)
 
@@ -394,7 +396,7 @@ class TestWorkerIPCToolStubs:
                 tool_type="http",
             ),
         ]
-        stubs = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")
+        stubs = create_tool_stubs(tool_defs, ipc_client=object())
         assert callable(stubs[0].execute)
 
     def test_tool_stub_openai_schema_comes_from_envelope_metadata(self):
@@ -413,7 +415,7 @@ class TestWorkerIPCToolStubs:
             )
         ]
 
-        stub = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")[0]
+        stub = create_tool_stubs(tool_defs, ipc_client=object())[0]
         schema = stub.to_openai_schema()
 
         assert schema == {
@@ -445,17 +447,15 @@ class TestWorkerIPCToolStubs:
             )
         ]
 
-        with patch("runsight_core.isolation.ipc.IPCClient") as MockClient:
-            client = MockClient.return_value
-            client.request = AsyncMock(return_value={"output": "echo:hi"})
+        client = MagicMock()
+        client.request = AsyncMock(return_value={"output": "echo:hi"})
 
-            stub = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")[0]
-            result = await stub.execute({"value": "hi"})
+        stub = create_tool_stubs(tool_defs, ipc_client=client)[0]
+        result = await stub.execute({"value": "hi"})
 
         client.request.assert_awaited_once_with(
             "tool_call",
-            name="echo_tool",
-            arguments={"value": "hi"},
+            {"name": "echo_tool", "arguments": {"value": "hi"}},
         )
         assert result == "echo:hi"
 
@@ -476,12 +476,11 @@ class TestWorkerIPCToolStubs:
             )
         ]
 
-        with patch("runsight_core.isolation.ipc.IPCClient") as MockClient:
-            client = MockClient.return_value
-            client.request = AsyncMock(return_value={"error": "tool failed"})
+        client = MagicMock()
+        client.request = AsyncMock(return_value={"error": "tool failed"})
 
-            stub = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")[0]
-            result = await stub.execute({"value": "hi"})
+        stub = create_tool_stubs(tool_defs, ipc_client=client)[0]
+        result = await stub.execute({"value": "hi"})
 
         assert result == "Error: tool failed"
 
@@ -814,13 +813,10 @@ class TestRUN396WorkerCapabilityNegotiationStartup:
                     return {"output": f"echo:{payload['arguments']['value']}"}
                 return {"error": "unexpected action"}
 
-        with patch("runsight_core.isolation.ipc.IPCClient", FakeIPCClient):
-            stub = create_tool_stubs(
-                tool_defs,
-                socket_path="/tmp/test.sock",
-                grant_token="grant-396-worker",
-            )[0]
-            result = await stub.execute({"value": "hello"})
+        ipc_client = FakeIPCClient(socket_path="/tmp/test.sock")
+        await ipc_client.connect()
+        stub = create_tool_stubs(tool_defs, ipc_client=ipc_client)[0]
+        result = await stub.execute({"value": "hello"})
 
         assert call_log[0] == ("connect", None)
         assert ("request", "capability_negotiation") not in call_log
