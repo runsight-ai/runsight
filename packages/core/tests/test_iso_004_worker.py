@@ -319,7 +319,7 @@ class TestRUN395ProxiedLLMClientContract:
 
     def test_reconstruct_soul_preserves_extended_runtime_fields(self):
         """Worker soul reconstruction keeps provider/runtime tool-contract fields."""
-        from runsight_core.isolation.worker import reconstruct_soul
+        from runsight_core.isolation.worker_support import reconstruct_soul
 
         soul = reconstruct_soul(
             SoulEnvelope(
@@ -572,14 +572,14 @@ class TestWorkerFitToBudget:
 
     def test_worker_imports_fit_to_budget(self):
         """Worker module uses fit_to_budget from runsight_core.memory.budget."""
-        from runsight_core.isolation.worker import build_budgeted_history
+        from runsight_core.isolation.worker_support import build_budgeted_history
 
         # The function should exist and be callable
         assert callable(build_budgeted_history)
 
     def test_long_history_is_trimmed(self):
         """Conversation history exceeding budget is trimmed before execution."""
-        from runsight_core.isolation.worker import build_budgeted_history
+        from runsight_core.isolation.worker_support import build_budgeted_history
 
         # Create a long conversation history
         long_history = [{"role": "user", "content": f"Message {i} " * 500} for i in range(50)]
@@ -997,7 +997,7 @@ class TestRUN399WorkerRedesignContract:
             worker._proxies, "create_tool_stubs", _create_tool_stubs_with_shared_ipc_client
         )
         monkeypatch.setattr(worker._proxies, "create_runner", _create_runner_with_shared_ipc_client)
-        monkeypatch.setattr(worker, "_create_block", _fake_create_block)
+        monkeypatch.setattr(worker._support, "_create_block", _fake_create_block)
         monkeypatch.setattr(sys, "stdin", io.StringIO(envelope.model_dump_json()))
         captured_stdout = io.StringIO()
         monkeypatch.setattr(sys, "stdout", captured_stdout)
@@ -1017,7 +1017,7 @@ class TestRUN399WorkerRedesignContract:
     @pytest.mark.parametrize("block_type", ["GateBlock", "gate"])
     def test_create_block_supports_gate_aliases_with_gate_soul_fields(self, block_type: str):
         from runsight_core.blocks.gate import GateBlock
-        from runsight_core.isolation.worker import _create_block, reconstruct_soul
+        from runsight_core.isolation.worker_support import _create_block, reconstruct_soul
 
         envelope = _make_context_envelope(
             block_type=block_type,
@@ -1046,7 +1046,7 @@ class TestRUN399WorkerRedesignContract:
         block_type: str,
     ):
         from runsight_core.blocks.synthesize import SynthesizeBlock
-        from runsight_core.isolation.worker import _create_block, reconstruct_soul
+        from runsight_core.isolation.worker_support import _create_block, reconstruct_soul
 
         envelope = _make_context_envelope(
             block_type=block_type,
@@ -1070,7 +1070,7 @@ class TestRUN399WorkerRedesignContract:
     @pytest.mark.parametrize("block_type", ["DispatchBlock", "dispatch"])
     def test_create_block_supports_dispatch_aliases(self, block_type: str):
         from runsight_core.blocks.dispatch import DispatchBlock
-        from runsight_core.isolation.worker import _create_block, reconstruct_soul
+        from runsight_core.isolation.worker_support import _create_block, reconstruct_soul
 
         envelope = _make_context_envelope(
             block_type=block_type,
@@ -1103,7 +1103,7 @@ class TestRUN812WorkerAssertionBlockContract:
     """RUN-812: worker must construct assertion adapters for assertion block envelopes."""
 
     def test_create_block_supports_assertion_block_type_and_returns_executable_adapter(self):
-        from runsight_core.isolation.worker import _create_block, reconstruct_soul
+        from runsight_core.isolation.worker_support import _create_block, reconstruct_soul
 
         envelope = _make_context_envelope(
             block_id="assertion_1",
@@ -1178,12 +1178,12 @@ class TestRUN812WorkerAssertionBlockContract:
                     }
                 },
             )
-            soul = worker.reconstruct_soul(envelope.soul)
+            soul = worker._support.reconstruct_soul(envelope.soul)
             runner = worker._proxies.create_runner(
                 model_name=envelope.soul.model_name, ipc_client=object()
             )
-            block = worker._create_block(envelope, soul, runner=runner)
-            state = worker.build_scoped_state(envelope)
+            block = worker._support._create_block(envelope, soul, runner=runner)
+            state = worker._support.build_scoped_state(envelope)
             final_state = await block.execute(state)
 
         serialized = final_state.results["assertion_serialize"].output
@@ -1247,7 +1247,7 @@ class TestRUN812WorkerAssertionBlockContract:
         monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
         monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
         monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
-        monkeypatch.setattr(worker, "_create_block", _forbidden_create_block)
+        monkeypatch.setattr(worker._support, "_create_block", _forbidden_create_block)
         monkeypatch.setattr(sys, "stdin", io.StringIO(envelope.model_dump_json()))
         captured_stdout = io.StringIO()
         monkeypatch.setattr(sys, "stdout", captured_stdout)
@@ -1342,7 +1342,7 @@ class TestRUN812WorkerAssertionBlockContract:
         monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
         monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
         monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
-        monkeypatch.setattr(worker, "_create_block", _fake_create_block)
+        monkeypatch.setattr(worker._support, "_create_block", _fake_create_block)
         monkeypatch.setattr(sys, "stdin", io.StringIO(envelope.model_dump_json()))
         captured_stdout = io.StringIO()
         monkeypatch.setattr(sys, "stdout", captured_stdout)
@@ -1454,7 +1454,7 @@ class TestWorkerEnvelopeParsing:
 
     def test_parse_context_envelope_from_json(self):
         """Worker has a function to parse ContextEnvelope from JSON string."""
-        from runsight_core.isolation.worker import parse_context_envelope
+        from runsight_core.isolation.worker_support import parse_context_envelope
 
         envelope = _make_context_envelope()
         parsed = parse_context_envelope(envelope.model_dump_json())
@@ -1492,7 +1492,7 @@ class TestWorkerSoulReconstruction:
 
     def test_reconstruct_soul_from_envelope(self):
         """Worker converts SoulEnvelope to a runsight_core.primitives.Soul."""
-        from runsight_core.isolation.worker import reconstruct_soul
+        from runsight_core.isolation.worker_support import reconstruct_soul
 
         soul_env = SoulEnvelope(
             id="soul_1",
@@ -1513,7 +1513,7 @@ class TestWorkerSoulReconstruction:
 
     def test_reconstruct_soul_attaches_resolved_tools(self):
         """Worker should attach IPC-backed resolved_tools to the reconstructed Soul."""
-        from runsight_core.isolation.worker import reconstruct_soul
+        from runsight_core.isolation.worker_support import reconstruct_soul
         from runsight_core.tools import ToolInstance
 
         soul_env = SoulEnvelope(
@@ -1547,7 +1547,7 @@ class TestWorkerScopedState:
 
     def test_build_scoped_state(self):
         """Worker builds a WorkflowState from scoped_results and shared_memory."""
-        from runsight_core.isolation.worker import build_scoped_state
+        from runsight_core.isolation.worker_support import build_scoped_state
 
         envelope = _make_context_envelope(
             scoped_results={"prev_block": {"output": "hello", "exit_handle": "done"}},
