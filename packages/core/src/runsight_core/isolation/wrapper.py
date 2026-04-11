@@ -36,13 +36,27 @@ _BLOCK_TYPE_MAP = {
 
 def _get_soul(inner_block: BaseBlock) -> Any:
     """Extract the soul from an inner block, handling different attribute names."""
+    if type(inner_block).__name__ == "DispatchBlock":
+        branches = getattr(inner_block, "branches", [])
+        if branches:
+            return getattr(branches[0], "soul", None)
     attr_name = _SOUL_ATTR_MAP.get(type(inner_block).__name__, "soul")
     return getattr(inner_block, attr_name, None)
 
 
-def _build_tool_envelopes(soul: Any) -> list[ToolDefEnvelope]:
+def _collect_resolved_tools(inner_block: BaseBlock, soul: Any) -> list[Any]:
+    if type(inner_block).__name__ == "DispatchBlock":
+        tools_by_name: dict[str, Any] = {}
+        for branch in getattr(inner_block, "branches", []):
+            branch_soul = getattr(branch, "soul", None)
+            for tool in getattr(branch_soul, "resolved_tools", None) or []:
+                tools_by_name[tool.name] = tool
+        return list(tools_by_name.values())
+    return list(getattr(soul, "resolved_tools", None) or [])
+
+
+def _build_tool_envelopes_from_tools(resolved_tools: list[Any]) -> list[ToolDefEnvelope]:
     """Serialize resolved tool metadata for the worker-side tool loop."""
-    resolved_tools = getattr(soul, "resolved_tools", None) or []
     tool_envelopes: list[ToolDefEnvelope] = []
 
     for tool in resolved_tools:
@@ -66,6 +80,10 @@ def _build_tool_envelopes(soul: Any) -> list[ToolDefEnvelope]:
         )
 
     return tool_envelopes
+
+
+def _build_tool_envelopes(soul: Any) -> list[ToolDefEnvelope]:
+    return _build_tool_envelopes_from_tools(list(getattr(soul, "resolved_tools", None) or []))
 
 
 def _serialize_scoped_results(results: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -99,19 +117,28 @@ def _build_block_metadata(inner_block: BaseBlock) -> tuple[str, dict[str, Any]]:
         block_class_name, block_class_name.removesuffix("Block").lower()
     )
     block_config: dict[str, Any] = {}
+    limits = getattr(inner_block, "limits", None)
+    if limits is not None:
+        block_config["limits"] = (
+            limits.model_dump(exclude_none=True) if hasattr(limits, "model_dump") else limits
+        )
 
     if block_type == "gate":
-        block_config = {
-            "eval_key": getattr(inner_block, "eval_key", ""),
-            "extract_field": getattr(inner_block, "extract_field", None),
-        }
+        block_config.update(
+            {
+                "eval_key": getattr(inner_block, "eval_key", ""),
+                "extract_field": getattr(inner_block, "extract_field", None),
+            }
+        )
     elif block_type == "synthesize":
-        block_config = {
-            "input_block_ids": list(getattr(inner_block, "input_block_ids", [])),
-            "synthesizer_soul": _serialize_soul_summary(
-                getattr(inner_block, "synthesizer_soul", None)
-            ),
-        }
+        block_config.update(
+            {
+                "input_block_ids": list(getattr(inner_block, "input_block_ids", [])),
+                "synthesizer_soul": _serialize_soul_summary(
+                    getattr(inner_block, "synthesizer_soul", None)
+                ),
+            }
+        )
     elif block_type == "dispatch" and hasattr(inner_block, "branches"):
         block_config["branches"] = [
             {
@@ -209,13 +236,13 @@ class IsolatedBlockWrapper(BaseBlock):
         )
 
         block_type, block_config = _build_block_metadata(self.inner_block)
+        resolved_tools = _collect_resolved_tools(self.inner_block, soul)
 
         if (
             self.harness is not None
             and soul is not None
             and hasattr(self.harness, "_resolved_tools")
         ):
-            resolved_tools = getattr(soul, "resolved_tools", None) or []
             self.harness._resolved_tools = {tool.name: tool for tool in resolved_tools}
 
         envelope = ContextEnvelope(
@@ -223,7 +250,7 @@ class IsolatedBlockWrapper(BaseBlock):
             block_type=block_type,
             block_config=block_config,
             soul=soul_envelope,
-            tools=_build_tool_envelopes(soul),
+            tools=_build_tool_envelopes_from_tools(resolved_tools),
             task=task_envelope,
             scoped_results=_serialize_scoped_results(state.results),
             scoped_shared_memory=dict(state.shared_memory),

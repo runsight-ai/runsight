@@ -227,6 +227,7 @@ async def _send_raw_authenticated_request_and_collect_frames(
                         "tool_call",
                         "delegate",
                         "file_io",
+                        "llm_call",
                         "write_artifact",
                         "simple",
                         "stream",

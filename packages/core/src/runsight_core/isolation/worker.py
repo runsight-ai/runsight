@@ -19,6 +19,7 @@ from typing import Any
 from runsight_core.isolation import ipc as isolation_ipc
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
+    DelegateArtifact,
     HeartbeatMessage,
     ResultEnvelope,
     SoulEnvelope,
@@ -305,6 +306,115 @@ def _error_result(
     )
 
 
+async def _close_ipc_client(ipc_client: Any) -> None:
+    close = getattr(ipc_client, "close", None)
+    if close is None:
+        return
+    result = close()
+    if hasattr(result, "__await__"):
+        await result
+
+
+def _build_delegate_artifacts(
+    *,
+    block_id: str,
+    block_type: str,
+    final_state: WorkflowState,
+) -> dict[str, DelegateArtifact]:
+    if block_type != "dispatch":
+        return {}
+
+    prefix = f"{block_id}."
+    artifacts: dict[str, DelegateArtifact] = {}
+    for result_key, block_result in final_state.results.items():
+        if not result_key.startswith(prefix):
+            continue
+        port = result_key.removeprefix(prefix)
+        artifacts[port] = DelegateArtifact(task=str(block_result.output))
+    return artifacts
+
+
+async def _execute_envelope(
+    *,
+    envelope: ContextEnvelope,
+    ipc_socket: str,
+) -> tuple[ResultEnvelope, int]:
+    global _heartbeat_phase
+
+    block_id = envelope.block_id
+    ipc_client = isolation_ipc.IPCClient(socket_path=ipc_socket)
+
+    try:
+        capability = await ipc_client.connect()
+        accepted = (
+            capability.get("accepted") if isinstance(capability, dict) else capability.accepted
+        )
+        capability_error = (
+            capability.get("error") if isinstance(capability, dict) else capability.error
+        )
+        if not accepted:
+            return (
+                _error_result(
+                    block_id,
+                    f"IPC auth failed: {capability_error or 'capability negotiation rejected'}",
+                    "PermissionError",
+                ),
+                1,
+            )
+
+        resolved_tools = create_tool_stubs(envelope.tools, ipc_client=ipc_client)
+        soul = reconstruct_soul(envelope.soul, resolved_tools=resolved_tools)
+        runner = create_runner(model_name=envelope.soul.model_name, ipc_client=ipc_client)
+
+        state = build_scoped_state(envelope)
+
+        model = envelope.soul.model_name
+        history_key = f"{envelope.block_id}_{envelope.soul.id}"
+        history = state.conversation_histories.get(history_key, [])
+        if history:
+            budgeted_history = build_budgeted_history(
+                model=model,
+                system_prompt=soul.system_prompt,
+                instruction=envelope.task.instruction,
+                conversation_history=history,
+            )
+            state = state.model_copy(
+                update={"conversation_histories": {history_key: budgeted_history}}
+            )
+
+        _heartbeat_phase = "executing"
+        block = _create_block(envelope, soul, runner)
+        final_state = await block.execute(state)
+
+        _heartbeat_phase = "done"
+        block_result = final_state.results.get(block_id)
+        output_history = final_state.conversation_histories.get(history_key, [])
+        block_type = _BLOCK_TYPE_MAP.get(envelope.block_type.lower(), envelope.block_type.lower())
+        delegate_artifacts = _build_delegate_artifacts(
+            block_id=block_id,
+            block_type=block_type,
+            final_state=final_state,
+        )
+
+        return (
+            ResultEnvelope(
+                block_id=block_id,
+                output=block_result.output if block_result else None,
+                exit_handle=block_result.exit_handle or "done" if block_result else "done",
+                cost_usd=final_state.total_cost_usd,
+                total_tokens=final_state.total_tokens,
+                tool_calls_made=len(delegate_artifacts),
+                delegate_artifacts=delegate_artifacts,
+                conversation_history=output_history,
+                error=None,
+                error_type=None,
+            ),
+            0,
+        )
+    finally:
+        await _close_ipc_client(ipc_client)
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -381,73 +491,13 @@ def main() -> None:
 
         block_id = envelope.block_id
 
-        # Reconstruct primitives
+        # Reconstruct primitives and execute the block on one event loop so the
+        # persistent IPC reader/writer stay loop-affine for all LLM/tool calls.
         _heartbeat_phase = "setup"
-        ipc_client = isolation_ipc.IPCClient(socket_path=ipc_socket)
-        capability = asyncio.run(ipc_client.connect())
-        accepted = (
-            capability.get("accepted") if isinstance(capability, dict) else capability.accepted
+        result_env, exit_code = asyncio.run(
+            _execute_envelope(envelope=envelope, ipc_socket=ipc_socket)
         )
-        capability_error = (
-            capability.get("error") if isinstance(capability, dict) else capability.error
-        )
-        if not accepted:
-            _write_result(
-                _error_result(
-                    block_id,
-                    f"IPC auth failed: {capability_error or 'capability negotiation rejected'}",
-                    "PermissionError",
-                ),
-                exit_code=1,
-            )
-
-        resolved_tools = create_tool_stubs(envelope.tools, ipc_client=ipc_client)
-        soul = reconstruct_soul(envelope.soul, resolved_tools=resolved_tools)
-        runner = create_runner(model_name=envelope.soul.model_name, ipc_client=ipc_client)
-
-        # Build scoped state
-        state = build_scoped_state(envelope)
-
-        # Apply budget to conversation history
-        model = envelope.soul.model_name
-        history_key = f"{envelope.block_id}_{envelope.soul.id}"
-        history = state.conversation_histories.get(history_key, [])
-        if history:
-            budgeted_history = build_budgeted_history(
-                model=model,
-                system_prompt=soul.system_prompt,
-                instruction=envelope.task.instruction,
-                conversation_history=history,
-            )
-            state = state.model_copy(
-                update={"conversation_histories": {history_key: budgeted_history}}
-            )
-
-        # Construct and execute the block
-        _heartbeat_phase = "executing"
-        block = _create_block(envelope, soul, runner)
-        final_state = asyncio.run(block.execute(state))
-
-        # Build success result
-        _heartbeat_phase = "done"
-        block_result = final_state.results.get(block_id)
-        output_history = final_state.conversation_histories.get(history_key, [])
-
-        _write_result(
-            ResultEnvelope(
-                block_id=block_id,
-                output=block_result.output if block_result else None,
-                exit_handle=block_result.exit_handle or "done" if block_result else "done",
-                cost_usd=final_state.total_cost_usd,
-                total_tokens=final_state.total_tokens,
-                tool_calls_made=0,
-                delegate_artifacts={},
-                conversation_history=output_history,
-                error=None,
-                error_type=None,
-            ),
-            exit_code=0,
-        )
+        _write_result(result_env, exit_code=exit_code)
 
     except SystemExit:
         raise

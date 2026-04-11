@@ -556,6 +556,7 @@ class IPCServer:
     ) -> None:
         """Process NDJSON lines from a single client connection."""
         authenticated = False
+        active_actions: set[str] = set()
 
         try:
             while True:
@@ -628,6 +629,7 @@ class IPCServer:
                     await self._write_capability_response(writer, capability_response)
                     if capability_response.accepted:
                         authenticated = True
+                        active_actions = set(capability_response.active_actions)
                     continue
 
                 try:
@@ -641,6 +643,21 @@ class IPCServer:
                             payload=None,
                             engine_context=None,
                             error=f"invalid request frame: {exc}",
+                        ),
+                    )
+                    continue
+
+                if request.action not in active_actions:
+                    await self._write_frame(
+                        writer,
+                        IPCResponseFrame(
+                            id=request.id,
+                            done=True,
+                            payload=None,
+                            engine_context=None,
+                            error=(
+                                f"action '{request.action}' was not negotiated for this connection"
+                            ),
                         ),
                     )
                     continue
@@ -794,10 +811,18 @@ class IPCClient:
         self._writer: asyncio.StreamWriter | None = None
         self._closed = False
         self._grant_token = os.environ.get("RUNSIGHT_GRANT_TOKEN", "")
-        self._supported_actions = ["llm_call", "tool_call", "http", "file_io"]
+        self._supported_actions = [
+            "llm_call",
+            "tool_call",
+            "http",
+            "file_io",
+            "delegate",
+            "write_artifact",
+        ]
         self._worker_version = "worker-396"
         self._active_actions: list[str] = []
         self._initial_engine_context: dict[str, Any] = {}
+        self._request_lock = asyncio.Lock()
 
     async def connect(self) -> CapabilityResponse:
         """Open a connection to the IPC socket."""
@@ -866,27 +891,28 @@ class IPCClient:
         payload: dict[str, Any],
     ) -> Any:
         """Send an NDJSON request and return the final payload frame."""
-        if self._closed:
-            raise ConnectionError("IPC client is closed")
-        if action == "capability_negotiation":
-            raise ValueError("capability_negotiation is only supported via connect()")
+        async with self._request_lock:
+            if self._closed:
+                raise ConnectionError("IPC client is closed")
+            if action == "capability_negotiation":
+                raise ValueError("capability_negotiation is only supported via connect()")
 
-        if self._writer is None or self._reader is None:
-            await self.connect()
+            if self._writer is None or self._reader is None:
+                await self.connect()
 
-        try:
-            request = self._build_request_frame(action, payload)
-            await self._send_request_frame(request)
+            try:
+                request = self._build_request_frame(action, payload)
+                await self._send_request_frame(request)
 
-            while True:
-                done, frame_payload, frame_error = await self._read_response_line()
-                if frame_error is not None:
-                    return {"error": frame_error}
-                if done:
-                    return frame_payload
-        except (ConnectionResetError, BrokenPipeError) as exc:
-            self._closed = True
-            raise ConnectionError("IPC socket disconnected") from exc
+                while True:
+                    done, frame_payload, frame_error = await self._read_response_line()
+                    if frame_error is not None:
+                        return {"error": frame_error}
+                    if done:
+                        return frame_payload
+            except (ConnectionResetError, BrokenPipeError) as exc:
+                self._closed = True
+                raise ConnectionError("IPC socket disconnected") from exc
 
     async def request_stream(
         self,
@@ -894,29 +920,30 @@ class IPCClient:
         payload: dict[str, Any],
     ):
         """Send an NDJSON request and yield non-final payload frames."""
-        if self._closed:
-            raise ConnectionError("IPC client is closed")
-        if action == "capability_negotiation":
-            raise ValueError("capability_negotiation is only supported via connect()")
+        async with self._request_lock:
+            if self._closed:
+                raise ConnectionError("IPC client is closed")
+            if action == "capability_negotiation":
+                raise ValueError("capability_negotiation is only supported via connect()")
 
-        if self._writer is None or self._reader is None:
-            await self.connect()
+            if self._writer is None or self._reader is None:
+                await self.connect()
 
-        request = self._build_request_frame(action, payload)
+            request = self._build_request_frame(action, payload)
 
-        try:
-            await self._send_request_frame(request)
+            try:
+                await self._send_request_frame(request)
 
-            while True:
-                done, frame_payload, frame_error = await self._read_response_line()
-                if frame_error is not None:
-                    raise ConnectionError(frame_error)
-                if done:
-                    break
-                yield frame_payload
-        except (ConnectionResetError, BrokenPipeError) as exc:
-            self._closed = True
-            raise ConnectionError("IPC socket disconnected") from exc
+                while True:
+                    done, frame_payload, frame_error = await self._read_response_line()
+                    if frame_error is not None:
+                        raise ConnectionError(frame_error)
+                    if done:
+                        break
+                    yield frame_payload
+            except (ConnectionResetError, BrokenPipeError) as exc:
+                self._closed = True
+                raise ConnectionError("IPC socket disconnected") from exc
 
     async def close(self) -> None:
         """Close the connection."""
