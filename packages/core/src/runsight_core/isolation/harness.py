@@ -37,6 +37,7 @@ from runsight_core.isolation.ipc import (
     GrantToken,
     InterceptorRegistry,
     IPCServer,
+    ObserverInterceptor,
 )
 from runsight_core.yaml.schema import BlockLimitsDef
 
@@ -387,7 +388,8 @@ class SubprocessHarness:
 
             # Start IPC server task
             ipc_handlers = self._build_ipc_handlers()
-            registry: InterceptorRegistry | None = None
+            registry = InterceptorRegistry()
+            registry.register(ObserverInterceptor(block_id=envelope.block_id))
 
             active_budget = _active_budget.get(None)
             if isinstance(active_budget, BudgetSession):
@@ -404,7 +406,6 @@ class SubprocessHarness:
                         envelope.block_id,
                         parent=None,
                     )
-                    registry = InterceptorRegistry()
                     registry.register(
                         BudgetInterceptor(session=child_budget, block_id=envelope.block_id)
                     )

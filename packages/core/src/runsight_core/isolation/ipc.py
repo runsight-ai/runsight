@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 import os
 import socket
@@ -212,6 +213,124 @@ class BudgetInterceptor:
             )
             self._session.check_or_raise(block_id=self._block_id)
         engine_context.update(self._remaining_context())
+        return engine_context
+
+
+class ObserverInterceptor:
+    """Interceptor that records IPC action tracing with optional OTel support."""
+
+    def __init__(self, *, tracer: Any | None = None, block_id: str | None = None) -> None:
+        self._tracer = tracer if tracer is not None else self._resolve_tracer()
+        self._block_id = block_id
+        self._active_spans: dict[str, tuple[Any, float]] = {}
+
+    @staticmethod
+    def _resolve_tracer() -> Any | None:
+        try:
+            trace_module = importlib.import_module("opentelemetry.trace")
+            return trace_module.get_tracer("runsight_core.isolation.ipc")
+        except Exception:
+            return None
+
+    @staticmethod
+    def _normalize_id(value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return f"{value:x}"
+        return str(value)
+
+    def _start_span(
+        self,
+        action: str,
+        payload: dict[str, Any],
+        engine_context: dict[str, Any],
+    ) -> Any | None:
+        if self._tracer is None:
+            return None
+
+        attributes: dict[str, Any] = {"action": action}
+        if self._block_id is not None:
+            attributes["block_id"] = self._block_id
+        if payload.get("model") is not None:
+            attributes["model"] = payload.get("model")
+        parent_id = engine_context.get("trace.parent_id")
+        if parent_id is not None:
+            attributes["trace.parent_id"] = parent_id
+
+        try:
+            if hasattr(self._tracer, "start_span"):
+                return self._tracer.start_span(name=action, attributes=attributes)
+            if hasattr(self._tracer, "start_as_current_span"):
+                span_ctx = self._tracer.start_as_current_span(name=action, attributes=attributes)
+                if hasattr(span_ctx, "__enter__"):
+                    return span_ctx.__enter__()
+        except Exception:
+            return None
+        return None
+
+    async def on_request(
+        self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        span = self._start_span(action, payload, engine_context)
+        if span is None:
+            return engine_context
+
+        self._active_spans[action] = (span, time.monotonic())
+        try:
+            span_ctx = span.get_span_context()
+        except Exception:
+            return engine_context
+
+        trace_id = self._normalize_id(getattr(span_ctx, "trace_id", None))
+        span_id = self._normalize_id(getattr(span_ctx, "span_id", None))
+        if trace_id is not None:
+            engine_context["trace_id"] = trace_id
+        if span_id is not None:
+            engine_context["span_id"] = span_id
+        return engine_context
+
+    async def on_response(
+        self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        span_record = self._active_spans.pop(action, None)
+        if span_record is None:
+            return engine_context
+
+        span, started_at = span_record
+        duration_ms = (time.monotonic() - started_at) * 1000.0
+        try:
+            if "cost_usd" in payload:
+                span.set_attribute("cost_usd", payload.get("cost_usd"))
+            if "total_tokens" in payload:
+                span.set_attribute("total_tokens", payload.get("total_tokens"))
+            error_value = payload.get("error")
+            if error_value is not None:
+                span.set_attribute("error", error_value)
+            span.set_attribute("duration_ms", duration_ms)
+            span.end()
+        except Exception:
+            return engine_context
+        return engine_context
+
+    async def on_stream_chunk(
+        self, action: str, chunk: dict[str, Any], engine_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        span_record = self._active_spans.get(action)
+        if span_record is None:
+            return engine_context
+
+        span, _ = span_record
+        try:
+            span.add_event(
+                "stream.chunk",
+                {
+                    "total_tokens": chunk.get("total_tokens"),
+                    "tokens": chunk.get("tokens"),
+                },
+            )
+        except Exception:
+            return engine_context
         return engine_context
 
 
