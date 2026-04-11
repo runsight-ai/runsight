@@ -14,7 +14,7 @@ from urllib.parse import unquote, urlparse
 import httpx
 
 from runsight_core.budget_enforcement import _active_budget
-from runsight_core.isolation.ipc import Handler
+from runsight_core.isolation.ipc_models import Handler
 from runsight_core.llm.client import LiteLLMClient
 from runsight_core.runner import _detect_provider
 from runsight_core.security import SSRFError, validate_ssrf

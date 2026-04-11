@@ -11,12 +11,12 @@ from runsight_core.isolation.envelope import (
 )
 from runsight_core.isolation.harness import SubprocessHarness
 from runsight_core.isolation.ipc import (
-    GrantToken,
     InterceptorRegistry,
     IPCClient,
     IPCInterceptor,
     IPCServer,
 )
+from runsight_core.isolation.ipc_models import GrantToken
 from runsight_core.isolation.wrapper import IsolatedBlockWrapper
 
 __all__ = [

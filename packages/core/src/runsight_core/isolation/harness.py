@@ -34,11 +34,11 @@ from runsight_core.isolation.envelope import (
 )
 from runsight_core.isolation.ipc import (
     BudgetInterceptor,
-    GrantToken,
     InterceptorRegistry,
     IPCServer,
     ObserverInterceptor,
 )
+from runsight_core.isolation.ipc_models import GrantToken
 from runsight_core.yaml.schema import BlockLimitsDef
 
 # ---------------------------------------------------------------------------

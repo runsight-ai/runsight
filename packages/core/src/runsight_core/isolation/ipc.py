@@ -10,12 +10,10 @@ import os
 import socket
 import time
 import uuid
-from collections.abc import AsyncIterable, Awaitable, Callable
-from contextvars import ContextVar
-from typing import Any, Literal, Protocol
+from collections.abc import Awaitable
+from typing import Any, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
-
+import runsight_core.isolation.ipc_models as _ipc_models
 from runsight_core.budget_enforcement import (
     BudgetKilledException,
     BudgetSession,
@@ -23,91 +21,27 @@ from runsight_core.budget_enforcement import (
     budget_killed_exception_to_payload,
 )
 
-HandlerResult = Awaitable[dict[str, Any]] | AsyncIterable[dict[str, Any]]
-Handler = Callable[[dict[str, Any]], HandlerResult]
 logger = logging.getLogger(__name__)
-_current_ipc_request_id: ContextVar[str | None] = ContextVar(
-    "_current_ipc_request_id",
-    default=None,
-)
 
-RPC_ALLOWLIST = frozenset(
+_MODELS_ATTRS = frozenset(
     {
-        "capability_negotiation",
-        "delegate",
-        "file_io",
-        "http",
-        "llm_call",
-        "simple",
-        "stream",
-        "tool_call",
-        "write_artifact",
+        "CapabilityRequest",
+        "CapabilityResponse",
+        "GrantToken",
+        "Handler",
+        "HandlerResult",
+        "IPCRequest",
+        "IPCResponseFrame",
+        "RPC_ALLOWLIST",
+        "_current_ipc_request_id",
     }
 )
 
 
-class GrantToken(BaseModel):
-    """Single-use grant token for subprocess->engine IPC authentication."""
-
-    block_id: str
-    token: str = Field(default_factory=lambda: uuid.uuid4().hex)
-    created_at: float = Field(default_factory=time.monotonic)
-    ttl_seconds: float = 120.0
-    consumed: bool = False
-
-    def is_expired(self) -> bool:
-        return (time.monotonic() - self.created_at) > self.ttl_seconds
-
-    def consume(self) -> bool:
-        if self.consumed:
-            return False
-        if self.is_expired():
-            return False
-        self.consumed = True
-        return True
-
-
-class IPCRequest(BaseModel):
-    """Request envelope sent from engine process to worker process."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    action: str
-    payload: dict[str, Any]
-
-
-class CapabilityRequest(BaseModel):
-    """Dedicated startup capability negotiation request."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    action: Literal["capability_negotiation"] = "capability_negotiation"
-    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
-    grant_token: str
-    supported_actions: list[str]
-    worker_version: str
-
-
-class CapabilityResponse(BaseModel):
-    """Dedicated startup capability negotiation response."""
-
-    id: str
-    done: bool = True
-    accepted: bool
-    active_actions: list[str]
-    engine_context: dict[str, Any]
-    error: str | None
-
-
-class IPCResponseFrame(BaseModel):
-    """Streamed response frame sent from worker process to engine process."""
-
-    id: str
-    done: bool
-    payload: Any | None
-    engine_context: dict[str, Any] | None
-    error: str | None
+def __getattr__(name: str) -> Any:
+    if name in _MODELS_ATTRS:
+        return getattr(_ipc_models, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class IPCInterceptor(Protocol):
@@ -236,7 +170,9 @@ class ObserverInterceptor:
 
     @staticmethod
     def _span_key(action: str, engine_context: dict[str, Any]) -> str:
-        request_id = engine_context.get("ipc.request_id") or _current_ipc_request_id.get()
+        request_id = (
+            engine_context.get("ipc.request_id") or _ipc_models._current_ipc_request_id.get()
+        )
         return f"{action}:{request_id}" if request_id else action
 
     def _emit_log(
@@ -262,7 +198,9 @@ class ObserverInterceptor:
             structured_data["total_tokens"] = payload.get("total_tokens")
             structured_data["tokens"] = payload.get("tokens")
             structured_data["error"] = payload.get("error")
-        request_id = engine_context.get("ipc.request_id") or _current_ipc_request_id.get()
+        request_id = (
+            engine_context.get("ipc.request_id") or _ipc_models._current_ipc_request_id.get()
+        )
         if request_id is not None:
             structured_data["ipc_request_id"] = request_id
         if duration_ms is not None:
@@ -443,9 +381,9 @@ class IPCServer:
         self,
         *,
         sock: socket.socket,
-        handlers: dict[str, Handler],
+        handlers: dict[str, _ipc_models.Handler],
         registry: InterceptorRegistry | None = None,
-        grant_token: GrantToken | None = None,
+        grant_token: _ipc_models.GrantToken | None = None,
     ) -> None:
         if not isinstance(sock, socket.socket):
             raise TypeError("sock must be a socket.socket instance, not a path string")
@@ -461,7 +399,9 @@ class IPCServer:
         except OSError:
             self._sock_path = None
 
-    async def _write_frame(self, writer: asyncio.StreamWriter, frame: IPCResponseFrame) -> None:
+    async def _write_frame(
+        self, writer: asyncio.StreamWriter, frame: _ipc_models.IPCResponseFrame
+    ) -> None:
         line = json.dumps(frame.model_dump(), separators=(",", ":")) + "\n"
         writer.write(line.encode())
         await writer.drain()
@@ -469,7 +409,7 @@ class IPCServer:
     async def _write_capability_response(
         self,
         writer: asyncio.StreamWriter,
-        response: CapabilityResponse,
+        response: _ipc_models.CapabilityResponse,
     ) -> None:
         line = json.dumps(response.model_dump(), separators=(",", ":")) + "\n"
         writer.write(line.encode())
@@ -477,10 +417,10 @@ class IPCServer:
 
     async def _negotiate_capabilities(
         self,
-        request: CapabilityRequest,
-    ) -> CapabilityResponse:
+        request: _ipc_models.CapabilityRequest,
+    ) -> _ipc_models.CapabilityResponse:
         if self._grant_token is None:
-            return CapabilityResponse(
+            return _ipc_models.CapabilityResponse(
                 id=request.id,
                 accepted=False,
                 active_actions=[],
@@ -489,7 +429,7 @@ class IPCServer:
             )
 
         if request.grant_token != self._grant_token.token:
-            return CapabilityResponse(
+            return _ipc_models.CapabilityResponse(
                 id=request.id,
                 accepted=False,
                 active_actions=[],
@@ -498,7 +438,7 @@ class IPCServer:
             )
 
         if not self._grant_token.consume():
-            return CapabilityResponse(
+            return _ipc_models.CapabilityResponse(
                 id=request.id,
                 accepted=False,
                 active_actions=[],
@@ -509,7 +449,7 @@ class IPCServer:
         active_actions = [
             action
             for action in request.supported_actions
-            if action in RPC_ALLOWLIST and action in self._handlers
+            if action in _ipc_models.RPC_ALLOWLIST and action in self._handlers
         ]
         engine_context: dict[str, Any] = {
             "budget_remaining_usd": 0.0,
@@ -517,7 +457,7 @@ class IPCServer:
             "run_id": uuid.uuid4().hex,
             "block_id": self._grant_token.block_id,
         }
-        request_id_token = _current_ipc_request_id.set(request.id)
+        request_id_token = _ipc_models._current_ipc_request_id.set(request.id)
         try:
             engine_context = await self._registry.run_on_request(
                 request.action,
@@ -533,9 +473,9 @@ class IPCServer:
                 engine_context,
             )
         finally:
-            _current_ipc_request_id.reset(request_id_token)
+            _ipc_models._current_ipc_request_id.reset(request_id_token)
 
-        return CapabilityResponse(
+        return _ipc_models.CapabilityResponse(
             id=request.id,
             accepted=True,
             active_actions=active_actions,
@@ -574,7 +514,7 @@ class IPCServer:
                 except json.JSONDecodeError as exc:
                     await self._write_frame(
                         writer,
-                        IPCResponseFrame(
+                        _ipc_models.IPCResponseFrame(
                             id="",
                             done=True,
                             payload=None,
@@ -587,7 +527,7 @@ class IPCServer:
                 if not isinstance(raw_request, dict):
                     await self._write_frame(
                         writer,
-                        IPCResponseFrame(
+                        _ipc_models.IPCResponseFrame(
                             id="",
                             done=True,
                             payload=None,
@@ -604,7 +544,7 @@ class IPCServer:
                     if action != "capability_negotiation":
                         await self._write_frame(
                             writer,
-                            IPCResponseFrame(
+                            _ipc_models.IPCResponseFrame(
                                 id=request_id,
                                 done=True,
                                 payload=None,
@@ -615,12 +555,14 @@ class IPCServer:
                         continue
 
                     try:
-                        capability_request = CapabilityRequest.model_validate(raw_request)
+                        capability_request = _ipc_models.CapabilityRequest.model_validate(
+                            raw_request
+                        )
                     except Exception:
                         logger.exception("ipc.invalid_capability_request")
                         await self._write_capability_response(
                             writer,
-                            CapabilityResponse(
+                            _ipc_models.CapabilityResponse(
                                 id=request_id,
                                 accepted=False,
                                 active_actions=[],
@@ -638,12 +580,12 @@ class IPCServer:
                     continue
 
                 try:
-                    request = IPCRequest.model_validate(raw_request)
+                    request = _ipc_models.IPCRequest.model_validate(raw_request)
                 except Exception:
                     logger.exception("ipc.invalid_request_frame", extra={"request_id": request_id})
                     await self._write_frame(
                         writer,
-                        IPCResponseFrame(
+                        _ipc_models.IPCResponseFrame(
                             id=request_id,
                             done=True,
                             payload=None,
@@ -656,7 +598,7 @@ class IPCServer:
                 if request.action not in active_actions:
                     await self._write_frame(
                         writer,
-                        IPCResponseFrame(
+                        _ipc_models.IPCResponseFrame(
                             id=request.id,
                             done=True,
                             payload=None,
@@ -670,7 +612,7 @@ class IPCServer:
 
                 engine_context: dict[str, Any] = {}
                 try:
-                    request_id_token = _current_ipc_request_id.set(request.id)
+                    request_id_token = _ipc_models._current_ipc_request_id.set(request.id)
                     try:
                         engine_context = await self._registry.run_on_request(
                             request.action,
@@ -678,11 +620,11 @@ class IPCServer:
                             engine_context,
                         )
                     finally:
-                        _current_ipc_request_id.reset(request_id_token)
+                        _ipc_models._current_ipc_request_id.reset(request_id_token)
                 except BudgetKilledException as exc:
                     await self._write_frame(
                         writer,
-                        IPCResponseFrame(
+                        _ipc_models.IPCResponseFrame(
                             id=request.id,
                             done=True,
                             payload=budget_killed_exception_to_payload(exc),
@@ -692,10 +634,10 @@ class IPCServer:
                     )
                     continue
 
-                if request.action not in RPC_ALLOWLIST:
+                if request.action not in _ipc_models.RPC_ALLOWLIST:
                     await self._write_frame(
                         writer,
-                        IPCResponseFrame(
+                        _ipc_models.IPCResponseFrame(
                             id=request.id,
                             done=True,
                             payload=None,
@@ -710,7 +652,7 @@ class IPCServer:
                     if handler is None:
                         await self._write_frame(
                             writer,
-                            IPCResponseFrame(
+                            _ipc_models.IPCResponseFrame(
                                 id=request.id,
                                 done=True,
                                 payload=None,
@@ -723,7 +665,7 @@ class IPCServer:
                     result_or_stream = handler(request.payload)
                     if _is_async_iterable(result_or_stream):
                         async for chunk in result_or_stream:
-                            request_id_token = _current_ipc_request_id.set(request.id)
+                            request_id_token = _ipc_models._current_ipc_request_id.set(request.id)
                             try:
                                 engine_context = await self._registry.run_on_stream_chunk(
                                     request.action,
@@ -731,10 +673,10 @@ class IPCServer:
                                     engine_context,
                                 )
                             finally:
-                                _current_ipc_request_id.reset(request_id_token)
+                                _ipc_models._current_ipc_request_id.reset(request_id_token)
                             await self._write_frame(
                                 writer,
-                                IPCResponseFrame(
+                                _ipc_models.IPCResponseFrame(
                                     id=request.id,
                                     done=False,
                                     payload=chunk,
@@ -744,7 +686,7 @@ class IPCServer:
                             )
                         # Streaming handlers accrue/report usage via on_stream_chunk. The terminal
                         # on_response payload is intentionally empty so interceptors do not double-count.
-                        request_id_token = _current_ipc_request_id.set(request.id)
+                        request_id_token = _ipc_models._current_ipc_request_id.set(request.id)
                         try:
                             engine_context = await self._registry.run_on_response(
                                 request.action,
@@ -752,10 +694,10 @@ class IPCServer:
                                 engine_context,
                             )
                         finally:
-                            _current_ipc_request_id.reset(request_id_token)
+                            _ipc_models._current_ipc_request_id.reset(request_id_token)
                         await self._write_frame(
                             writer,
-                            IPCResponseFrame(
+                            _ipc_models.IPCResponseFrame(
                                 id=request.id,
                                 done=True,
                                 payload=None,
@@ -772,7 +714,7 @@ class IPCServer:
                     else:
                         payload = result_or_stream
 
-                    request_id_token = _current_ipc_request_id.set(request.id)
+                    request_id_token = _ipc_models._current_ipc_request_id.set(request.id)
                     try:
                         engine_context = await self._registry.run_on_response(
                             request.action,
@@ -780,10 +722,10 @@ class IPCServer:
                             engine_context,
                         )
                     finally:
-                        _current_ipc_request_id.reset(request_id_token)
+                        _ipc_models._current_ipc_request_id.reset(request_id_token)
                     await self._write_frame(
                         writer,
-                        IPCResponseFrame(
+                        _ipc_models.IPCResponseFrame(
                             id=request.id,
                             done=True,
                             payload=payload,
@@ -798,7 +740,7 @@ class IPCServer:
                     )
                     await self._write_frame(
                         writer,
-                        IPCResponseFrame(
+                        _ipc_models.IPCResponseFrame(
                             id=request.id,
                             done=True,
                             payload=None,
@@ -852,10 +794,10 @@ class IPCClient:
         self._initial_engine_context: dict[str, Any] = {}
         self._request_lock = asyncio.Lock()
 
-    async def connect(self) -> CapabilityResponse:
+    async def connect(self) -> _ipc_models.CapabilityResponse:
         """Open a connection to the IPC socket."""
         self._reader, self._writer = await asyncio.open_unix_connection(self._socket_path)
-        capability_request = CapabilityRequest(
+        capability_request = _ipc_models.CapabilityRequest(
             grant_token=self._grant_token,
             supported_actions=list(self._supported_actions),
             worker_version=self._worker_version,
@@ -869,7 +811,7 @@ class IPCClient:
             self._closed = True
             raise ConnectionError("IPC socket disconnected during capability negotiation")
         try:
-            response = CapabilityResponse.model_validate_json(raw_response)
+            response = _ipc_models.CapabilityResponse.model_validate_json(raw_response)
         except Exception as exc:
             raise ConnectionError("invalid capability response") from exc
 
@@ -896,20 +838,20 @@ class IPCClient:
             raise ConnectionError("invalid response frame") from exc
 
         try:
-            frame = IPCResponseFrame.model_validate(response)
+            frame = _ipc_models.IPCResponseFrame.model_validate(response)
         except Exception as exc:
             raise ConnectionError("invalid response frame") from exc
 
         return frame.done, frame.payload, frame.error
 
-    def _build_request_frame(self, action: str, payload: dict[str, Any]) -> IPCRequest:
-        return IPCRequest(
+    def _build_request_frame(self, action: str, payload: dict[str, Any]) -> _ipc_models.IPCRequest:
+        return _ipc_models.IPCRequest(
             id=str(uuid.uuid4()),
             action=action,
             payload=payload,
         )
 
-    async def _send_request_frame(self, request: IPCRequest) -> None:
+    async def _send_request_frame(self, request: _ipc_models.IPCRequest) -> None:
         if self._writer is None:
             raise ConnectionError("IPC client is not connected")
         line = json.dumps(request.model_dump(), separators=(",", ":")) + "\n"
