@@ -1111,6 +1111,101 @@ class TestRUN399WorkerRedesignContract:
         assert block.branches[0].soul.id == "dispatch_soul_1"
 
 
+class TestRUN812WorkerAssertionBlockContract:
+    """RUN-812: worker must construct assertion adapters for assertion block envelopes."""
+
+    def test_create_block_supports_assertion_block_type_and_returns_executable_adapter(self):
+        from runsight_core.isolation.worker import _create_block, reconstruct_soul
+
+        envelope = _make_context_envelope(
+            block_id="assertion_1",
+            block_type="assertion",
+            block_config={
+                "assertion": {
+                    "type": "llm_judge",
+                    "config": {"rubric": "Score factual quality"},
+                },
+                "output_to_grade": "Candidate response to grade",
+                "judge_soul": {
+                    "id": "judge_soul_1",
+                    "role": "LLM Judge",
+                    "system_prompt": "Grade this answer against the rubric.",
+                    "model_name": "gpt-4o-mini",
+                },
+            },
+            scoped_results={
+                "target_block": {
+                    "output": "Candidate response to grade",
+                    "exit_handle": "done",
+                }
+            },
+        )
+
+        fallback_soul = reconstruct_soul(envelope.soul)
+        block = _create_block(envelope, fallback_soul, runner=object())
+
+        assert callable(getattr(block, "execute", None))
+
+    @pytest.mark.asyncio
+    async def test_assertion_block_execution_serializes_grading_result_json(self):
+        from runsight_core.assertions.base import GradingResult
+        from runsight_core.assertions.scoring import AssertionsResult
+        from runsight_core.isolation import worker
+
+        async def fake_run_assertions(*args, **kwargs) -> AssertionsResult:
+            agg = AssertionsResult()
+            agg.add_result(
+                GradingResult(
+                    passed=True,
+                    score=0.85,
+                    reason="judge accepted output",
+                    named_scores={"coherence": 0.85},
+                    assertion_type="llm_judge",
+                    metadata={"judge_model": "gpt-4o-mini"},
+                )
+            )
+            return agg
+
+        with patch("runsight_core.assertions.registry.run_assertions", fake_run_assertions):
+            envelope = _make_context_envelope(
+                block_id="assertion_serialize",
+                block_type="assertion",
+                block_config={
+                    "assertion": {
+                        "type": "llm_judge",
+                        "config": {"rubric": "Score factual quality"},
+                    },
+                    "output_to_grade": "Candidate response to grade",
+                    "judge_soul": {
+                        "id": "judge_soul_1",
+                        "role": "LLM Judge",
+                        "system_prompt": "Grade this answer against the rubric.",
+                        "model_name": "gpt-4o-mini",
+                    },
+                },
+                scoped_results={
+                    "target_block": {
+                        "output": "Candidate response to grade",
+                        "exit_handle": "done",
+                    }
+                },
+            )
+            soul = worker.reconstruct_soul(envelope.soul)
+            runner = worker.create_runner(model_name=envelope.soul.model_name, ipc_client=object())
+            block = worker._create_block(envelope, soul, runner=runner)
+            state = worker.build_scoped_state(envelope)
+            final_state = await block.execute(state)
+
+        serialized = final_state.results["assertion_serialize"].output
+        assert isinstance(serialized, str)
+        payload = json.loads(serialized)
+        assert payload["passed"] is True
+        assert payload["score"] == pytest.approx(0.85)
+        assert payload["reason"] == "judge accepted output"
+        assert payload["named_scores"]["coherence"] == pytest.approx(0.85)
+        assert payload["metadata"]["judge_model"] == "gpt-4o-mini"
+
+
 # ==============================================================================
 # AC9: Missing RUNSIGHT_IPC_SOCKET → exit 1 with clear error
 # ==============================================================================
