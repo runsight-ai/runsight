@@ -59,10 +59,8 @@ async def _send_raw_request_and_collect_frames(
 
 
 def _make_grant_token(*, block_id: str = "test-block"):
-    from runsight_core.isolation import ipc as ipc_module
+    from runsight_core.isolation.ipc_models import GrantToken
 
-    GrantToken = getattr(ipc_module, "GrantToken", None)
-    assert GrantToken is not None
     return GrantToken(block_id=block_id)
 
 
@@ -915,8 +913,9 @@ class TestRUN398GrantTokenAuthAndAllowlist:
 
     def test_rpc_allowlist_includes_llm_and_capability_actions(self):
         from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation.ipc_models import RPC_ALLOWLIST
 
-        allowlist = getattr(ipc_module, "RPC_ALLOWLIST", None)
+        allowlist = RPC_ALLOWLIST
         assert allowlist is not None
         assert {
             "llm_call",
@@ -976,10 +975,8 @@ class TestRUN398GrantTokenAuthAndAllowlist:
     @pytest.mark.asyncio
     async def test_unauthenticated_request_rejected_before_handler_executes(self, tmp_path: Path):
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation.ipc_models import GrantToken
 
-        GrantToken = getattr(ipc_module, "GrantToken", None)
-        assert GrantToken is not None
         grant = GrantToken(block_id="block-398")
 
         sock_path = tmp_path / "run398-unauth.sock"
@@ -1024,10 +1021,8 @@ class TestRUN398GrantTokenAuthAndAllowlist:
     @pytest.mark.asyncio
     async def test_second_connection_with_same_token_is_rejected(self, tmp_path: Path):
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation.ipc_models import GrantToken
 
-        GrantToken = getattr(ipc_module, "GrantToken", None)
-        assert GrantToken is not None
         grant = GrantToken(block_id="block-398")
 
         sock_path = tmp_path / "run398-consume.sock"
@@ -1100,10 +1095,8 @@ class TestRUN398GrantTokenAuthAndAllowlist:
     @pytest.mark.asyncio
     async def test_expired_grant_token_is_rejected(self, tmp_path: Path):
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation.ipc_models import GrantToken
 
-        GrantToken = getattr(ipc_module, "GrantToken", None)
-        assert GrantToken is not None
         grant = GrantToken(block_id="block-398", created_at=0.0, ttl_seconds=30.0)
 
         sock_path = tmp_path / "run398-expired.sock"
@@ -1154,10 +1147,7 @@ class TestRUN396CapabilityNegotiationProtocol:
     """RUN-396: dedicated capability handshake models and startup flow."""
 
     def test_capability_request_model_exists_with_dedicated_fields(self):
-        from runsight_core.isolation import ipc as ipc_module
-
-        CapabilityRequest = getattr(ipc_module, "CapabilityRequest", None)
-        assert CapabilityRequest is not None
+        from runsight_core.isolation.ipc_models import CapabilityRequest
 
         assert set(CapabilityRequest.model_fields) == {
             "action",
@@ -1175,10 +1165,7 @@ class TestRUN396CapabilityNegotiationProtocol:
         assert "payload" not in CapabilityRequest.model_fields
 
     def test_capability_response_model_exists_with_dedicated_fields(self):
-        from runsight_core.isolation import ipc as ipc_module
-
-        CapabilityResponse = getattr(ipc_module, "CapabilityResponse", None)
-        assert CapabilityResponse is not None
+        from runsight_core.isolation.ipc_models import CapabilityResponse
 
         assert set(CapabilityResponse.model_fields) == {
             "id",
@@ -2055,10 +2042,7 @@ class TestRUN392IPCFrameModels:
 
     def test_ipc_request_has_id_action_payload_and_forbids_engine_context(self):
         from pydantic import ValidationError
-        from runsight_core.isolation import ipc as ipc_module
-
-        IPCRequest = getattr(ipc_module, "IPCRequest", None)
-        assert IPCRequest is not None, "IPCRequest model must exist"
+        from runsight_core.isolation.ipc_models import IPCRequest
 
         assert set(IPCRequest.model_fields) == {"id", "action", "payload"}
 
@@ -2076,10 +2060,7 @@ class TestRUN392IPCFrameModels:
             )
 
     def test_ipc_response_frame_has_complete_contract(self):
-        from runsight_core.isolation import ipc as ipc_module
-
-        IPCResponseFrame = getattr(ipc_module, "IPCResponseFrame", None)
-        assert IPCResponseFrame is not None, "IPCResponseFrame model must exist"
+        from runsight_core.isolation.ipc_models import IPCResponseFrame
 
         assert set(IPCResponseFrame.model_fields) == {
             "id",

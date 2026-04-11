@@ -23,26 +23,6 @@ from runsight_core.budget_enforcement import (
 
 logger = logging.getLogger(__name__)
 
-_MODELS_ATTRS = frozenset(
-    {
-        "CapabilityRequest",
-        "CapabilityResponse",
-        "GrantToken",
-        "Handler",
-        "HandlerResult",
-        "IPCRequest",
-        "IPCResponseFrame",
-        "RPC_ALLOWLIST",
-        "_current_ipc_request_id",
-    }
-)
-
-
-def __getattr__(name: str) -> Any:
-    if name in _MODELS_ATTRS:
-        return getattr(_ipc_models, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 class IPCInterceptor(Protocol):
     """Interceptor hook contract for IPC request lifecycle events."""
