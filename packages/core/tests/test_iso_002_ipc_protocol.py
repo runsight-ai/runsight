@@ -2819,7 +2819,9 @@ class TestRUN810BudgetInterceptorContract:
             assert handler_called is False
             assert len(frames) == 1
             assert frames[0]["done"] is True
-            assert frames[0]["payload"] is None
+            assert frames[0]["payload"]["error_type"] == "BudgetKilledException"
+            assert frames[0]["payload"]["block_id"] == "run810-exhausted"
+            assert frames[0]["payload"]["limit_kind"] == "cost_usd"
             assert "budget" in (frames[0]["error"] or "").lower()
         finally:
             await server.shutdown()
@@ -3220,7 +3222,9 @@ class TestRUN393IPCServerRegistryIntegration:
             assert handler_called is False
             assert len(frames) == 1
             assert frames[0]["done"] is True
-            assert frames[0]["payload"] is None
+            assert frames[0]["payload"]["error_type"] == "BudgetKilledException"
+            assert frames[0]["payload"]["scope"] == "workflow"
+            assert frames[0]["payload"]["limit_kind"] == "cost_usd"
             assert frames[0]["error"] is not None
         finally:
             await server.shutdown()
@@ -3558,7 +3562,9 @@ class TestRUN813ProcessBoundaryIntegration:
             second = await send_request(writer, reader, request_id="req-run813-budget-2")
             assert second["id"] == "req-run813-budget-2"
             assert second["done"] is True
-            assert second["payload"] is None
+            assert second["payload"]["error_type"] == "BudgetKilledException"
+            assert second["payload"]["block_id"] == "run813-budget-cap"
+            assert second["payload"]["actual_value"] == pytest.approx(0.05)
             assert "budget" in (second["error"] or "").lower()
             assert len(handler_calls) == 1
         finally:

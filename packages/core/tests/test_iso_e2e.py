@@ -19,7 +19,7 @@ from runsight_core.assertions.base import AssertionContext
 from runsight_core.assertions.registry import run_assertions
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.blocks.linear import LinearBlock
-from runsight_core.budget_enforcement import BudgetSession, _active_budget
+from runsight_core.budget_enforcement import BudgetKilledException, BudgetSession, _active_budget
 from runsight_core.isolation import (
     ContextEnvelope,
     GrantToken,
@@ -632,7 +632,9 @@ class TestRUN814BudgetAndAdversarialE2E:
             assert first["error"] is None
             assert first["payload"]["content"] == "paid response 1"
             assert first["engine_context"]["budget_remaining_usd"] == pytest.approx(-0.01)
-            assert second["payload"] is None
+            assert second["payload"]["error_type"] == "BudgetKilledException"
+            assert second["payload"]["block_id"] == "run814-budget"
+            assert second["payload"]["actual_value"] == pytest.approx(0.02)
             assert "budget" in (second["error"] or "").lower()
             assert len(handler_calls) == 1
         finally:
@@ -727,15 +729,16 @@ class TestRUN814BudgetAndAdversarialE2E:
                 "llm_call",
                 {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "2"}]},
             )
-            third = await client.request(
-                "llm_call",
-                {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "3"}]},
-            )
+            with pytest.raises(BudgetKilledException) as exc_info:
+                await client.request(
+                    "llm_call",
+                    {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "3"}]},
+                )
 
             assert first["content"] == "call 1"
             assert second["content"] == "call 2"
-            assert third["error"]
-            assert "budget" in third["error"].lower()
+            assert exc_info.value.limit_kind == "cost_usd"
+            assert exc_info.value.actual_value == pytest.approx(0.012)
             assert handler_calls == 2
         finally:
             await client.close()

@@ -217,6 +217,78 @@ class TestGenericToolCallHandler:
 
 
 # ---------------------------------------------------------------------------
+# RUN-813: LLM handler budget ownership
+# ---------------------------------------------------------------------------
+
+
+class TestLLMHandlerBudgetOwnership:
+    """Engine-side LLM calls must leave budget enforcement to the IPC interceptor."""
+
+    @staticmethod
+    def _make_litellm_response(
+        content: str = "done",
+        prompt_tokens: int = 50,
+        completion_tokens: int = 30,
+        total_tokens: int = 80,
+    ):
+        from unittest.mock import MagicMock
+
+        message = MagicMock()
+        message.content = content
+        message.tool_calls = None
+
+        choice = MagicMock()
+        choice.message = message
+        choice.finish_reason = "stop"
+
+        usage = MagicMock()
+        usage.prompt_tokens = prompt_tokens
+        usage.completion_tokens = completion_tokens
+        usage.total_tokens = total_tokens
+
+        response = MagicMock()
+        response.choices = [choice]
+        response.usage = usage
+        return response
+
+    @pytest.mark.asyncio
+    async def test_llm_handler_does_not_use_active_budget_context(self):
+        """The IPC handler should return the paid response even when it exceeds cap."""
+        from unittest.mock import AsyncMock, patch
+
+        from runsight_core.budget_enforcement import BudgetSession, _active_budget
+        from runsight_core.isolation.handlers import make_llm_call_handler
+
+        session = BudgetSession(scope_name="workflow:test", cost_cap_usd=0.001)
+        token = _active_budget.set(session)
+        try:
+            handler = make_llm_call_handler({"openai": "sk-test-openai"})
+            with (
+                patch(
+                    "runsight_core.llm.client.acompletion",
+                    new_callable=AsyncMock,
+                    return_value=self._make_litellm_response(total_tokens=100),
+                ),
+                patch("runsight_core.llm.client.completion_cost", return_value=0.002),
+            ):
+                chunks = [
+                    chunk
+                    async for chunk in handler(
+                        {
+                            "model": "gpt-4o",
+                            "messages": [{"role": "user", "content": "hi"}],
+                        }
+                    )
+                ]
+        finally:
+            _active_budget.reset(token)
+
+        assert len(chunks) == 1
+        assert chunks[0]["cost_usd"] == pytest.approx(0.002)
+        assert session.cost_usd == 0.0
+
+
+# ---------------------------------------------------------------------------
 # AC2: HTTP tool — credentials injected by engine at IPC time
 # ---------------------------------------------------------------------------
 

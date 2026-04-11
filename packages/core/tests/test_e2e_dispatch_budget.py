@@ -11,7 +11,7 @@ Mocks only: litellm.acompletion (external LLM call) and litellm.completion_cost
 
 Scenarios:
 1. Combined branch costs within flow cap — no exception, workflow continues
-2. Combined branch costs exceed flow cap — BudgetKilledException(scope="workflow")
+2. Combined terminal branch costs exceed flow cap — paid result is preserved
 3. No budget — branches run unchanged, no budget overhead
 """
 
@@ -20,13 +20,19 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from runsight_core.budget_enforcement import (
-    BudgetKilledException,
-    _active_budget,
-)
+from runsight_core.budget_enforcement import _active_budget
 from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
-from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.yaml.parser import parse_workflow_yaml as _parse_workflow_yaml
+
+_TEST_API_KEYS = {"openai": "sk-test-openai"}
+
+
+def parse_workflow_yaml(*args, **kwargs):
+    """Parse legacy e2e workflows with the engine-side IPC credential seam wired."""
+    kwargs.setdefault("api_keys", _TEST_API_KEYS)
+    return _parse_workflow_yaml(*args, **kwargs)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -281,43 +287,15 @@ class TestCombinedBranchCostsWithinFlowCap:
 class TestCombinedBranchCostsExceedFlowCap:
     """Flow limits: {cost_cap_usd: 2.00}, dispatch with 3 branches.
     Branches cost $0.80, $0.90, $0.70 (total $2.40 > $2.00).
-    After reconciliation, BudgetKilledException(scope="workflow")."""
+    The terminal dispatch result is preserved; budget killing gates a future IPC request."""
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
     @patch("runsight_core.llm.client.completion_cost")
-    async def test_budget_killed_exception_raised(self, mock_cost, mock_acompletion):
-        """Workflow.run() raises BudgetKilledException when combined branch costs exceed cap."""
-        mock_acompletion.side_effect = [
-            _make_litellm_response(content="A", total_tokens=200),
-            _make_litellm_response(content="B", total_tokens=225),
-            _make_litellm_response(content="C", total_tokens=175),
-        ]
-        mock_cost.side_effect = [0.80, 0.90, 0.70]
-
-        wf = parse_workflow_yaml(_YAML_DISPATCH_WITH_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
-
-        with pytest.raises(BudgetKilledException) as exc_info:
-            await wf.run(state)
-
-        exc = exc_info.value
-        assert exc.scope == "workflow"
-        assert exc.limit_kind == "cost_usd"
-        assert exc.limit_value == 2.00
-        assert exc.actual_value == pytest.approx(2.40)
-
-    @pytest.mark.asyncio
-    @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
-    @patch("runsight_core.llm.client.completion_cost")
-    async def test_exception_raised_after_reconciliation_not_during(
+    async def test_paid_dispatch_result_preserved_when_combined_cost_exceeds_cap(
         self, mock_cost, mock_acompletion
     ):
-        """All 3 branches should execute (LLM called 3 times) before the exception.
-        The cap is checked after reconciliation, not during individual branch execution,
-        because each branch uses an isolated child session."""
+        """Workflow returns the already-paid dispatch result even when total cost is over cap."""
         mock_acompletion.side_effect = [
             _make_litellm_response(content="A", total_tokens=200),
             _make_litellm_response(content="B", total_tokens=225),
@@ -330,17 +308,44 @@ class TestCombinedBranchCostsExceedFlowCap:
             current_task=Task(id="t1", instruction="Run dispatch"),
         )
 
-        with pytest.raises(BudgetKilledException):
-            await wf.run(state)
+        result = await wf.run(state)
 
-        # All 3 branches should have executed — the cap check happens after gather
+        assert result.total_cost_usd == pytest.approx(2.40)
+        assert result.total_tokens == 600
+        assert "dispatch_block.branch_a" in result.results
+        assert "dispatch_block.branch_b" in result.results
+        assert "dispatch_block.branch_c" in result.results
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
+    @patch("runsight_core.llm.client.completion_cost")
+    async def test_all_branches_execute_before_terminal_budget_overrun_is_observed(
+        self, mock_cost, mock_acompletion
+    ):
+        """All 3 branches execute; terminal overrun does not discard their answers."""
+        mock_acompletion.side_effect = [
+            _make_litellm_response(content="A", total_tokens=200),
+            _make_litellm_response(content="B", total_tokens=225),
+            _make_litellm_response(content="C", total_tokens=175),
+        ]
+        mock_cost.side_effect = [0.80, 0.90, 0.70]
+
+        wf = parse_workflow_yaml(_YAML_DISPATCH_WITH_COST_CAP)
+        state = WorkflowState(
+            current_task=Task(id="t1", instruction="Run dispatch"),
+        )
+
+        await wf.run(state)
+
         assert mock_acompletion.call_count == 3
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
     @patch("runsight_core.llm.client.completion_cost")
-    async def test_active_budget_cleaned_up_after_exception(self, mock_cost, mock_acompletion):
-        """After BudgetKilledException, _active_budget contextvar is reset to None."""
+    async def test_active_budget_cleaned_up_after_over_cap_completion(
+        self, mock_cost, mock_acompletion
+    ):
+        """After over-cap terminal completion, _active_budget contextvar is reset to None."""
         mock_acompletion.side_effect = [
             _make_litellm_response(total_tokens=200),
             _make_litellm_response(total_tokens=225),
@@ -353,17 +358,17 @@ class TestCombinedBranchCostsExceedFlowCap:
             current_task=Task(id="t1", instruction="Run dispatch"),
         )
 
-        with pytest.raises(BudgetKilledException):
-            await wf.run(state)
+        await wf.run(state)
 
         assert _active_budget.get(None) is None
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
     @patch("runsight_core.llm.client.completion_cost")
-    async def test_each_branch_runs_with_isolated_session(self, mock_cost, mock_acompletion):
-        """Each branch during gather should see an isolated child session,
-        not the parent workflow session."""
+    async def test_litellm_calls_do_not_receive_parent_budget_session(
+        self, mock_cost, mock_acompletion
+    ):
+        """Budget accounting is owned by IPC; LiteLLMClient does not see _active_budget."""
         captured_sessions = []
 
         async def _capturing_acompletion(**kwargs):
@@ -379,18 +384,11 @@ class TestCombinedBranchCostsExceedFlowCap:
             current_task=Task(id="t1", instruction="Run dispatch"),
         )
 
-        with pytest.raises(BudgetKilledException):
-            await wf.run(state)
+        await wf.run(state)
 
-        # All 3 branches should have run
         assert len(captured_sessions) == 3
-        # Each should be an isolated child (parent=None)
         for s in captured_sessions:
-            assert s is not None, "Branch should see a BudgetSession"
-            assert s.parent is None, "Isolated child must have parent=None"
-        # All sessions should be distinct objects
-        session_ids = {id(s) for s in captured_sessions}
-        assert len(session_ids) == 3, "Each branch must get its own isolated session"
+            assert s is None, "Engine-side LiteLLM calls should not use direct budget context"
 
 
 # ===========================================================================

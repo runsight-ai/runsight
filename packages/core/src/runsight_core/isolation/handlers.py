@@ -13,6 +13,7 @@ from urllib.parse import unquote, urlparse
 
 import httpx
 
+from runsight_core.budget_enforcement import _active_budget
 from runsight_core.isolation.ipc import Handler
 from runsight_core.llm.client import LiteLLMClient
 from runsight_core.runner import _detect_provider
@@ -255,14 +256,18 @@ def make_llm_call_handler(api_keys: dict[str, str]) -> Handler:
 
         try:
             client = LiteLLMClient(model_name=model_name, api_key=api_key)
-            response = await client.achat(
-                messages=list(params.get("messages", [])),
-                system_prompt=params.get("system_prompt"),
-                temperature=params.get("temperature"),
-                tools=params.get("tools"),
-                tool_choice=params.get("tool_choice"),
-                **extra_kwargs,
-            )
+            budget_token = _active_budget.set(None)
+            try:
+                response = await client.achat(
+                    messages=list(params.get("messages", [])),
+                    system_prompt=params.get("system_prompt"),
+                    temperature=params.get("temperature"),
+                    tools=params.get("tools"),
+                    tool_choice=params.get("tool_choice"),
+                    **extra_kwargs,
+                )
+            finally:
+                _active_budget.reset(budget_token)
         except Exception:
             logger.exception("ipc.llm.call_failed", extra={"model": model_name})
             yield {"error": "llm_call failed"}

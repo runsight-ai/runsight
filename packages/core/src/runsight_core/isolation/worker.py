@@ -16,6 +16,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Any
 
+from runsight_core.budget_enforcement import BudgetKilledException
 from runsight_core.isolation import ipc as isolation_ipc
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
@@ -96,6 +97,8 @@ class ProxiedLLMClient:
                 if chunk.get("error") is not None:
                     raise RuntimeError(str(chunk["error"]))
                 last_chunk = chunk
+        except BudgetKilledException:
+            raise
         except Exception as exc:
             raise RuntimeError(f"llm_call failed: {exc}") from exc
 
@@ -181,6 +184,8 @@ def create_tool_stubs(
                     "tool_call",
                     {"name": td.name, "arguments": args},
                 )
+            except BudgetKilledException:
+                raise
             except Exception as exc:
                 return f"Error: {exc}"
             if isinstance(result, dict) and "error" in result:

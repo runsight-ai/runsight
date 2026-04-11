@@ -460,6 +460,15 @@ class SubprocessHarness:
 
                 # Check return code
                 if proc.returncode != 0:
+                    raw_output = stdout_data.decode("utf-8").strip()
+                    if raw_output:
+                        try:
+                            return self._validate_result(
+                                raw_output,
+                                max_bytes=envelope.max_output_bytes,
+                            )
+                        except Exception:
+                            pass
                     error_msg = self._map_return_code(proc.returncode or 1)
                     return ResultEnvelope(
                         block_id=envelope.block_id,

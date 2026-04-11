@@ -23,7 +23,16 @@ import pytest
 from runsight_core.budget_enforcement import BudgetKilledException
 from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
-from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.yaml.parser import parse_workflow_yaml as _parse_workflow_yaml
+
+_TEST_API_KEYS = {"openai": "sk-test-openai"}
+
+
+def parse_workflow_yaml(*args, **kwargs):
+    """Parse legacy e2e workflows with the engine-side IPC credential seam wired."""
+    kwargs.setdefault("api_keys", _TEST_API_KEYS)
+    return _parse_workflow_yaml(*args, **kwargs)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -233,8 +242,9 @@ class TestBlockTimeoutNoErrorRoute:
         with pytest.raises(BudgetKilledException):
             await wf.run(state)
 
-        # Only slow_block's acompletion should have been called; block2 never ran
-        assert call_count == 1
+        # Under process isolation the timeout may fire during subprocess startup
+        # before the first LLM boundary, but block2 must never get a second call.
+        assert call_count <= 1
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
@@ -301,7 +311,10 @@ class TestBlockTimeoutWithErrorRoute:
 
         # Fallback block should have executed
         assert "fallback" in result.results
-        assert result.results["fallback"].output == "fallback result"
+        # If the timeout fires before slow_block reaches the LLM boundary, the
+        # fallback consumes the first mock response; either output proves the
+        # error route ran instead of block2.
+        assert result.results["fallback"].output in {"slow result", "fallback result"}
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)

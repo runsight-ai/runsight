@@ -27,7 +27,16 @@ from runsight_core.budget_enforcement import (
 )
 from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
-from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.yaml.parser import parse_workflow_yaml as _parse_workflow_yaml
+
+_TEST_API_KEYS = {"openai": "sk-test-openai"}
+
+
+def parse_workflow_yaml(*args, **kwargs):
+    """Parse legacy e2e workflows with the engine-side IPC credential seam wired."""
+    kwargs.setdefault("api_keys", _TEST_API_KEYS)
+    return _parse_workflow_yaml(*args, **kwargs)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -538,6 +547,12 @@ blocks:
     limits:
       cost_cap_usd: 0.001
       on_exceed: warn
+  block4:
+    type: linear
+    soul_ref: s1
+    limits:
+      cost_cap_usd: 0.001
+      on_exceed: warn
 workflow:
   name: mixed_block_warn_flow_fail_test
   entry: block1
@@ -547,6 +562,8 @@ workflow:
     - from: block2
       to: block3
     - from: block3
+      to: block4
+    - from: block4
       to: null
 limits:
   cost_cap_usd: 0.01
@@ -567,7 +584,7 @@ class TestMixedBlockWarnFlowFail:
       -> block continues (warn), flow continues, no exception.
 
     Sub-case B: Block costs accumulate past the flow cap.
-      -> BudgetKilledException(scope="workflow") raised from parent chain.
+      -> the next block's IPC request raises BudgetKilledException(scope="workflow").
     """
 
     # -----------------------------------------------------------------------
@@ -754,7 +771,7 @@ limits:
     @patch("runsight_core.llm.client.completion_cost")
     async def test_flow_cap_breached_raises_budget_killed(self, mock_cost, mock_acompletion):
         """3 blocks x $0.004 = $0.012 total, exceeds flow cap $0.01.
-        BudgetKilledException(scope="workflow") raised from parent chain check."""
+        BudgetKilledException(scope="workflow") raised on block4's next IPC request."""
         mock_acompletion.side_effect = [
             _make_litellm_response(content="r1", total_tokens=100),
             _make_litellm_response(content="r2", total_tokens=100),
@@ -803,8 +820,7 @@ limits:
     @patch("runsight_core.llm.client.completion_cost")
     async def test_block_warn_does_not_prevent_flow_fail(self, mock_cost, mock_acompletion):
         """Even though blocks are on_exceed=warn, the parent flow session with
-        on_exceed=fail MUST still raise when its cap is breached.
-        This verifies the parent-chain propagation in check_or_raise()."""
+        on_exceed=fail MUST still raise on the next request after its cap is breached."""
         mock_acompletion.side_effect = [
             _make_litellm_response(content="r1", total_tokens=100),
             _make_litellm_response(content="r2", total_tokens=100),
@@ -827,9 +843,8 @@ limits:
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
     @patch("runsight_core.llm.client.completion_cost")
     async def test_some_blocks_execute_before_flow_cap_breached(self, mock_cost, mock_acompletion):
-        """With $0.004/block and flow cap $0.01, blocks 1-2 should complete
-        ($0.008 < $0.01) and the exception fires during/after block 3
-        ($0.012 > $0.01). LLM should be called at least 2 times."""
+        """With $0.004/block and flow cap $0.01, blocks 1-3 complete
+        ($0.012 > $0.01) and block 4 is rejected before another LLM call."""
         call_count = 0
 
         original_response = _make_litellm_response
@@ -850,9 +865,8 @@ limits:
         with pytest.raises(BudgetKilledException):
             await wf.run(state)
 
-        # At least blocks 1 and 2 executed (each $0.004, total $0.008 < $0.01)
-        # Block 3 starts ($0.012 > $0.01) — may or may not complete the LLM call
-        assert call_count >= 2
+        # Blocks 1-3 execute and block 4 is rejected before calling the LLM.
+        assert call_count == 3
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)

@@ -10,7 +10,7 @@ Mocks only: litellm.acompletion (external LLM call) and litellm.completion_cost
 
 Scenarios:
 1. Workflow cost cap mid-block kill: first block exceeds cap, second never runs
-2. Block cost cap with error_route fallback
+2. Block cost cap preserves paid over-cap response
 3. No limits — zero overhead, workflow completes normally
 """
 
@@ -25,7 +25,16 @@ from runsight_core.budget_enforcement import (
 )
 from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
-from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.yaml.parser import parse_workflow_yaml as _parse_workflow_yaml
+
+_TEST_API_KEYS = {"openai": "sk-test-openai"}
+
+
+def parse_workflow_yaml(*args, **kwargs):
+    """Parse legacy e2e workflows with the engine-side IPC credential seam wired."""
+    kwargs.setdefault("api_keys", _TEST_API_KEYS)
+    return _parse_workflow_yaml(*args, **kwargs)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -243,22 +252,22 @@ class TestWorkflowCostCapMidBlockKill:
 
 
 # ===========================================================================
-# Scenario 2: Block cost cap with error_route — fallback
+# Scenario 2: Block cost cap preserves paid over-cap response
 # ===========================================================================
 
 
 class TestBlockCostCapWithErrorRoute:
     """Block-1 has limits: {cost_cap_usd: 0.001} and error_route: fallback.
-    Block-1 exceeds cap -> BudgetKilledException caught by error routing.
-    Fallback block executes and workflow continues normally."""
+    The over-cap paid response is preserved; budget killing gates the next IPC
+    request, so a terminal block does not discard the result or route fallback."""
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
     @patch("runsight_core.llm.client.completion_cost")
-    async def test_fallback_block_executes_after_budget_exceeded(self, mock_cost, mock_acompletion):
-        """When block1 exceeds its cost cap and has error_route=fallback,
-        the fallback block should execute and produce a result."""
-        # block1 gets an expensive call, fallback gets a cheap call
+    async def test_paid_result_is_preserved_after_budget_exceeded(
+        self, mock_cost, mock_acompletion
+    ):
+        """An over-cap response is still delivered because the call was already paid for."""
         mock_acompletion.side_effect = [
             _make_litellm_response(content="expensive", total_tokens=100),
             _make_litellm_response(content="fallback result", total_tokens=50),
@@ -272,15 +281,16 @@ class TestBlockCostCapWithErrorRoute:
 
         result = await wf.run(state)
 
-        # Fallback block should have executed
-        assert "fallback" in result.results
-        assert result.results["fallback"].output == "fallback result"
+        assert result.results["block1"].output == "expensive"
+        assert result.results["block1"].exit_handle == "done"
+        assert "fallback" not in result.results
+        assert mock_acompletion.call_count == 1
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
     @patch("runsight_core.llm.client.completion_cost")
-    async def test_block1_result_contains_error_info(self, mock_cost, mock_acompletion):
-        """When block1 fails due to budget, its result should contain error metadata."""
+    async def test_block1_result_does_not_contain_error_info(self, mock_cost, mock_acompletion):
+        """The paid result is not converted into an error envelope after the fact."""
         mock_acompletion.side_effect = [
             _make_litellm_response(content="expensive", total_tokens=100),
             _make_litellm_response(content="fallback result", total_tokens=50),
@@ -294,19 +304,17 @@ class TestBlockCostCapWithErrorRoute:
 
         result = await wf.run(state)
 
-        # block1 should have an error result recorded
+        # block1 should preserve the already-paid response as a normal result
         assert "block1" in result.results
         block1_result = result.results["block1"]
-        assert block1_result.exit_handle == "error"
-        assert block1_result.metadata is not None
-        assert "BudgetKilledException" in block1_result.metadata.get("error_type", "")
+        assert block1_result.exit_handle == "done"
+        assert block1_result.metadata is None
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
     @patch("runsight_core.llm.client.completion_cost")
-    async def test_workflow_completes_normally_via_fallback(self, mock_cost, mock_acompletion):
-        """Workflow should complete without raising an exception when error_route
-        catches the budget failure."""
+    async def test_workflow_completes_normally_with_paid_result(self, mock_cost, mock_acompletion):
+        """A terminal over-cap block completes with its result and no extra LLM call."""
         mock_acompletion.side_effect = [
             _make_litellm_response(content="expensive", total_tokens=100),
             _make_litellm_response(content="recovered", total_tokens=50),
@@ -318,16 +326,19 @@ class TestBlockCostCapWithErrorRoute:
             current_task=Task(id="t1", instruction="Do something"),
         )
 
-        # Should NOT raise — error_route catches the exception
+        # Should NOT raise — there is no next IPC request to gate in this workflow
         result = await wf.run(state)
         assert result is not None
+        assert "fallback" not in result.results
+        assert mock_acompletion.call_count == 1
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
     @patch("runsight_core.llm.client.completion_cost")
-    async def test_error_info_in_shared_memory(self, mock_cost, mock_acompletion):
-        """Error information should be available in shared_memory for the fallback
-        block to reference."""
+    async def test_no_error_info_in_shared_memory_without_next_request(
+        self, mock_cost, mock_acompletion
+    ):
+        """No error route metadata is recorded when no next IPC request is gated."""
         mock_acompletion.side_effect = [
             _make_litellm_response(content="expensive", total_tokens=100),
             _make_litellm_response(content="recovered", total_tokens=50),
@@ -341,10 +352,9 @@ class TestBlockCostCapWithErrorRoute:
 
         result = await wf.run(state)
 
-        # Error info should be stored in shared_memory under __error__block1
+        # No error is recorded because the paid response was not discarded
         error_info = result.shared_memory.get("__error__block1")
-        assert error_info is not None
-        assert error_info["type"] == "BudgetKilledException"
+        assert error_info is None
 
 
 # ===========================================================================

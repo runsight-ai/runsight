@@ -10,6 +10,7 @@ Provides:
 
 from __future__ import annotations
 
+import re
 import time
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Literal, Optional
@@ -37,11 +38,77 @@ class BudgetKilledException(Exception):
         self.limit_kind = limit_kind
         self.limit_value = limit_value
         self.actual_value = actual_value
-        target = f"block '{block_id}'" if block_id else "workflow"
+        target = f"block '{block_id}'" if scope == "block" else "workflow"
         super().__init__(
             f"Budget limit exceeded on {target}: "
             f"{limit_kind}={actual_value:.4f} > cap={limit_value:.4f}"
         )
+
+
+_BUDGET_KILLED_MESSAGE_RE = re.compile(
+    r"^Budget limit exceeded on (?:(workflow)|block '([^']+)'): "
+    r"(cost_usd|token_cap|timeout)=([0-9.]+) > cap=([0-9.]+)$"
+)
+
+
+def budget_killed_exception_to_payload(exc: BudgetKilledException) -> dict[str, object]:
+    """Serialize a BudgetKilledException for IPC error frames."""
+    return {
+        "error_type": "BudgetKilledException",
+        "scope": exc.scope,
+        "block_id": exc.block_id,
+        "limit_kind": exc.limit_kind,
+        "limit_value": exc.limit_value,
+        "actual_value": exc.actual_value,
+    }
+
+
+def budget_killed_exception_from_payload(payload: object) -> BudgetKilledException | None:
+    """Reconstruct a BudgetKilledException from a structured IPC payload."""
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("error_type") != "BudgetKilledException":
+        return None
+
+    scope = payload.get("scope")
+    limit_kind = payload.get("limit_kind")
+    if scope not in {"block", "workflow"}:
+        return None
+    if limit_kind not in {"cost_usd", "token_cap", "timeout"}:
+        return None
+
+    try:
+        limit_value = float(payload.get("limit_value"))
+        actual_value = float(payload.get("actual_value"))
+    except (TypeError, ValueError):
+        return None
+
+    block_id_raw = payload.get("block_id")
+    block_id = str(block_id_raw) if block_id_raw is not None else None
+    return BudgetKilledException(
+        scope=scope,  # type: ignore[arg-type]
+        block_id=block_id,
+        limit_kind=limit_kind,  # type: ignore[arg-type]
+        limit_value=limit_value,
+        actual_value=actual_value,
+    )
+
+
+def budget_killed_exception_from_message(message: str) -> BudgetKilledException | None:
+    """Best-effort reconstruction from the stable BudgetKilledException message."""
+    match = _BUDGET_KILLED_MESSAGE_RE.match(message)
+    if match is None:
+        return None
+
+    workflow_marker, block_id, limit_kind, actual_value, limit_value = match.groups()
+    scope = "workflow" if workflow_marker else "block"
+    return BudgetKilledException(
+        scope=scope,  # type: ignore[arg-type]
+        block_id=None if scope == "workflow" else block_id,
+        limit_kind=limit_kind,  # type: ignore[arg-type]
+        limit_value=float(limit_value),
+        actual_value=float(actual_value),
+    )
 
 
 class BudgetWarningEvent(BaseModel):

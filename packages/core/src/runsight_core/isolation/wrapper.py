@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any, Optional
 
 from runsight_core.blocks.base import BaseBlock
+from runsight_core.budget_enforcement import budget_killed_exception_from_message
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     ResultEnvelope,
@@ -264,6 +265,10 @@ class IsolatedBlockWrapper(BaseBlock):
         # Handle errors from the subprocess
         if result.error is not None:
             error_type = result.error_type or "BlockExecutionError"
+            if error_type == "BudgetKilledException":
+                budget_exc = budget_killed_exception_from_message(result.error)
+                if budget_exc is not None:
+                    raise budget_exc
             if error_type == "ValueError":
                 raise ValueError(result.error)
             if error_type == "SubprocessError":

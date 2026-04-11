@@ -16,7 +16,12 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from runsight_core.budget_enforcement import BudgetKilledException, BudgetSession
+from runsight_core.budget_enforcement import (
+    BudgetKilledException,
+    BudgetSession,
+    budget_killed_exception_from_payload,
+    budget_killed_exception_to_payload,
+)
 
 HandlerResult = Awaitable[dict[str, Any]] | AsyncIterable[dict[str, Any]]
 Handler = Callable[[dict[str, Any]], HandlerResult]
@@ -680,7 +685,7 @@ class IPCServer:
                         IPCResponseFrame(
                             id=request.id,
                             done=True,
-                            payload=None,
+                            payload=budget_killed_exception_to_payload(exc),
                             engine_context=engine_context,
                             error=str(exc),
                         ),
@@ -933,6 +938,9 @@ class IPCClient:
                 while True:
                     done, frame_payload, frame_error = await self._read_response_line()
                     if frame_error is not None:
+                        budget_exc = budget_killed_exception_from_payload(frame_payload)
+                        if budget_exc is not None:
+                            raise budget_exc
                         return {"error": frame_error}
                     if done:
                         return frame_payload
@@ -968,6 +976,9 @@ class IPCClient:
                 while True:
                     done, frame_payload, frame_error = await self._read_response_line()
                     if frame_error is not None:
+                        budget_exc = budget_killed_exception_from_payload(frame_payload)
+                        if budget_exc is not None:
+                            raise budget_exc
                         raise ConnectionError(frame_error)
                     if done:
                         break
