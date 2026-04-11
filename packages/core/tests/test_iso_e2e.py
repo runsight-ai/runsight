@@ -30,7 +30,7 @@ from runsight_core.isolation import (
     SubprocessHarness,
     TaskEnvelope,
 )
-from runsight_core.isolation import ipc as ipc_module
+from runsight_core.isolation import interceptors as interceptors_module
 from runsight_core.primitives import Soul, Task
 from runsight_core.state import WorkflowState
 from runsight_core.tools import ToolInstance
@@ -578,14 +578,16 @@ class TestRUN814BudgetAndAdversarialE2E:
         self,
         tmp_path: Path,
     ):
-        registry = ipc_module.InterceptorRegistry()
+        registry = interceptors_module.InterceptorRegistry()
         session = BudgetSession(
             scope_name="block:run814-budget",
             cost_cap_usd=0.01,
             token_cap=100,
             on_exceed="fail",
         )
-        registry.register(ipc_module.BudgetInterceptor(session=session, block_id="run814-budget"))
+        registry.register(
+            interceptors_module.BudgetInterceptor(session=session, block_id="run814-budget")
+        )
         handler_calls: list[dict[str, Any]] = []
 
         async def llm_handler(payload: dict[str, Any]) -> dict[str, Any]:
@@ -688,7 +690,7 @@ class TestRUN814BudgetAndAdversarialE2E:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ):
-        registry = ipc_module.InterceptorRegistry()
+        registry = interceptors_module.InterceptorRegistry()
         session = BudgetSession(
             scope_name="block:run814-many-calls",
             cost_cap_usd=0.01,
@@ -696,7 +698,7 @@ class TestRUN814BudgetAndAdversarialE2E:
             on_exceed="fail",
         )
         registry.register(
-            ipc_module.BudgetInterceptor(session=session, block_id="run814-many-calls")
+            interceptors_module.BudgetInterceptor(session=session, block_id="run814-many-calls")
         )
         handler_calls = 0
 

@@ -10,10 +10,12 @@ from runsight_core.isolation.envelope import (
     ToolDefEnvelope,
 )
 from runsight_core.isolation.harness import SubprocessHarness
-from runsight_core.isolation.ipc import (
+from runsight_core.isolation.interceptors import (
     InterceptorRegistry,
-    IPCClient,
     IPCInterceptor,
+)
+from runsight_core.isolation.ipc import (
+    IPCClient,
     IPCServer,
 )
 from runsight_core.isolation.ipc_models import GrantToken

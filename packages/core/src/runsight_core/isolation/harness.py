@@ -32,12 +32,12 @@ from runsight_core.isolation.envelope import (
     SoulEnvelope,
     TaskEnvelope,
 )
-from runsight_core.isolation.ipc import (
+from runsight_core.isolation.interceptors import (
     BudgetInterceptor,
     InterceptorRegistry,
-    IPCServer,
     ObserverInterceptor,
 )
+from runsight_core.isolation.ipc import IPCServer
 from runsight_core.isolation.ipc_models import GrantToken
 from runsight_core.yaml.schema import BlockLimitsDef
 

@@ -64,8 +64,8 @@ def _make_grant_token(*, block_id: str = "test-block"):
     return GrantToken(block_id=block_id)
 
 
-def _make_budget_interceptor(ipc_module, *, session, block_id: str = "block-810"):
-    BudgetInterceptor = getattr(ipc_module, "BudgetInterceptor", None)
+def _make_budget_interceptor(interceptors_module, *, session, block_id: str = "block-810"):
+    BudgetInterceptor = getattr(interceptors_module, "BudgetInterceptor", None)
     assert BudgetInterceptor is not None
 
     constructor_candidates: list[dict[str, Any]] = [
@@ -95,8 +95,8 @@ def _make_budget_interceptor(ipc_module, *, session, block_id: str = "block-810"
     )
 
 
-def _make_observer_interceptor(ipc_module, **kwargs: Any):
-    ObserverInterceptor = getattr(ipc_module, "ObserverInterceptor", None)
+def _make_observer_interceptor(interceptors_module, **kwargs: Any):
+    ObserverInterceptor = getattr(interceptors_module, "ObserverInterceptor", None)
     assert ObserverInterceptor is not None
 
     constructor_candidates: list[dict[str, Any]] = [dict(kwargs), {}]
@@ -2091,9 +2091,9 @@ class TestRUN392ServerStreamingFrames:
         self, tmp_path: Path
     ):
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        InterceptorRegistry = getattr(interceptors_module, "InterceptorRegistry", None)
         assert InterceptorRegistry is not None
         registry = InterceptorRegistry()
 
@@ -2154,9 +2154,9 @@ class TestRUN392ServerStreamingFrames:
         self, tmp_path: Path
     ):
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        InterceptorRegistry = getattr(interceptors_module, "InterceptorRegistry", None)
         assert InterceptorRegistry is not None
         registry = InterceptorRegistry()
 
@@ -2304,7 +2304,7 @@ class TestRUN397ObserverInterceptorContract:
 
     @pytest.mark.asyncio
     async def test_observer_interceptor_creates_span_and_records_response_metrics(self):
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
         class FakeSpanContext:
             def __init__(self, trace_id: int, span_id: int):
@@ -2365,7 +2365,7 @@ class TestRUN397ObserverInterceptorContract:
 
         tracer = FakeTracer()
         observer = _make_observer_interceptor(
-            ipc_module,
+            interceptors_module,
             tracer=tracer,
             block_id="run397-block",
         )
@@ -2394,7 +2394,7 @@ class TestRUN397ObserverInterceptorContract:
 
     @pytest.mark.asyncio
     async def test_observer_interceptor_records_stream_chunk_events(self):
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
         class FakeSpanContext:
             def __init__(self):
@@ -2429,7 +2429,9 @@ class TestRUN397ObserverInterceptorContract:
                 return self.span
 
         tracer = FakeTracer()
-        observer = _make_observer_interceptor(ipc_module, tracer=tracer, block_id="run397-stream")
+        observer = _make_observer_interceptor(
+            interceptors_module, tracer=tracer, block_id="run397-stream"
+        )
 
         engine_context: dict[str, Any] = {}
         engine_context = await observer.on_request(
@@ -2450,7 +2452,7 @@ class TestRUN397ObserverInterceptorContract:
 
     @pytest.mark.asyncio
     async def test_observer_interceptor_keys_active_spans_by_request_id(self):
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
         class FakeSpanContext:
             def __init__(self, index: int):
@@ -2484,7 +2486,9 @@ class TestRUN397ObserverInterceptorContract:
                 return span
 
         tracer = FakeTracer()
-        observer = _make_observer_interceptor(ipc_module, tracer=tracer, block_id="run397-rid")
+        observer = _make_observer_interceptor(
+            interceptors_module, tracer=tracer, block_id="run397-rid"
+        )
 
         ctx_a = await observer.on_request(
             "llm_call",
@@ -2505,9 +2509,9 @@ class TestRUN397ObserverInterceptorContract:
 
     @pytest.mark.asyncio
     async def test_observer_interceptor_noop_when_tracer_unavailable(self):
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        observer = _make_observer_interceptor(ipc_module)
+        observer = _make_observer_interceptor(interceptors_module)
         engine_context: dict[str, Any] = {}
 
         request_ctx = await observer.on_request(
@@ -2534,7 +2538,7 @@ class TestRUN397ObserverInterceptorContract:
         import builtins
         import importlib
 
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
         real_import = builtins.__import__
         real_import_module = importlib.import_module
@@ -2553,7 +2557,7 @@ class TestRUN397ObserverInterceptorContract:
         monkeypatch.setattr(importlib, "import_module", _failing_import_module)
 
         observer = _make_observer_interceptor(
-            ipc_module,
+            interceptors_module,
             tracer=None,
             block_id="run397-no-otel",
         )
@@ -2579,7 +2583,7 @@ class TestRUN810BudgetInterceptorContract:
     @pytest.mark.asyncio
     async def test_on_response_accrues_cost_and_updates_remaining_budget_context(self):
         from runsight_core.budget_enforcement import BudgetSession
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
         budget_session = BudgetSession(
             scope_name="block:run810",
@@ -2588,7 +2592,7 @@ class TestRUN810BudgetInterceptorContract:
             on_exceed="fail",
         )
         interceptor = _make_budget_interceptor(
-            ipc_module,
+            interceptors_module,
             session=budget_session,
             block_id="run810-block",
         )
@@ -2611,7 +2615,7 @@ class TestRUN810BudgetInterceptorContract:
     @pytest.mark.asyncio
     async def test_on_response_over_cap_reports_negative_remaining_then_next_request_kills(self):
         from runsight_core.budget_enforcement import BudgetKilledException, BudgetSession
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
         budget_session = BudgetSession(
             scope_name="block:run810-over-response",
@@ -2620,7 +2624,7 @@ class TestRUN810BudgetInterceptorContract:
             on_exceed="fail",
         )
         interceptor = _make_budget_interceptor(
-            ipc_module,
+            interceptors_module,
             session=budget_session,
             block_id="run810-over-response",
         )
@@ -2643,7 +2647,7 @@ class TestRUN810BudgetInterceptorContract:
     @pytest.mark.asyncio
     async def test_on_stream_chunk_accrues_partial_tokens_incrementally(self):
         from runsight_core.budget_enforcement import BudgetSession
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
         budget_session = BudgetSession(
             scope_name="block:run810-stream",
@@ -2652,7 +2656,7 @@ class TestRUN810BudgetInterceptorContract:
             on_exceed="fail",
         )
         interceptor = _make_budget_interceptor(
-            ipc_module,
+            interceptors_module,
             session=budget_session,
             block_id="run810-stream",
         )
@@ -2678,7 +2682,7 @@ class TestRUN810BudgetInterceptorContract:
     @pytest.mark.asyncio
     async def test_streaming_terminal_on_response_does_not_double_count_chunk_usage(self):
         from runsight_core.budget_enforcement import BudgetSession
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
         budget_session = BudgetSession(
             scope_name="block:run810-stream-final",
@@ -2687,7 +2691,7 @@ class TestRUN810BudgetInterceptorContract:
             on_exceed="fail",
         )
         interceptor = _make_budget_interceptor(
-            ipc_module,
+            interceptors_module,
             session=budget_session,
             block_id="run810-stream-final",
         )
@@ -2710,7 +2714,7 @@ class TestRUN810BudgetInterceptorContract:
     @pytest.mark.asyncio
     async def test_stream_chunk_over_cap_reports_negative_remaining_then_next_request_kills(self):
         from runsight_core.budget_enforcement import BudgetKilledException, BudgetSession
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
         budget_session = BudgetSession(
             scope_name="block:run810-stream-over",
@@ -2719,7 +2723,7 @@ class TestRUN810BudgetInterceptorContract:
             on_exceed="fail",
         )
         interceptor = _make_budget_interceptor(
-            ipc_module,
+            interceptors_module,
             session=budget_session,
             block_id="run810-stream-over",
         )
@@ -2745,9 +2749,9 @@ class TestRUN810BudgetInterceptorContract:
     ):
         from runsight_core.budget_enforcement import BudgetSession
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        InterceptorRegistry = getattr(interceptors_module, "InterceptorRegistry", None)
         assert InterceptorRegistry is not None
         registry = InterceptorRegistry()
 
@@ -2760,7 +2764,7 @@ class TestRUN810BudgetInterceptorContract:
         budget_session.accrue(cost_usd=0.02, tokens=0)
         registry.register(
             _make_budget_interceptor(
-                ipc_module,
+                interceptors_module,
                 session=budget_session,
                 block_id="run810-exhausted",
             )
@@ -2820,16 +2824,16 @@ class TestRUN393InterceptorRegistryContract:
     """Interceptor registry applies request/response/stream hooks in deterministic order."""
 
     def test_interceptor_registry_and_protocol_symbols_exist(self):
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        assert getattr(ipc_module, "IPCInterceptor", None) is not None
-        assert getattr(ipc_module, "InterceptorRegistry", None) is not None
+        assert getattr(interceptors_module, "IPCInterceptor", None) is not None
+        assert getattr(interceptors_module, "InterceptorRegistry", None) is not None
 
     @pytest.mark.asyncio
     async def test_on_request_starts_with_fresh_empty_context(self):
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        InterceptorRegistry = getattr(interceptors_module, "InterceptorRegistry", None)
         assert InterceptorRegistry is not None
         registry = InterceptorRegistry()
 
@@ -2874,9 +2878,9 @@ class TestRUN393InterceptorRegistryContract:
 
     @pytest.mark.asyncio
     async def test_request_forward_response_reverse_and_chunk_forward_order(self):
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        InterceptorRegistry = getattr(interceptors_module, "InterceptorRegistry", None)
         assert InterceptorRegistry is not None
         registry = InterceptorRegistry()
 
@@ -2930,9 +2934,9 @@ class TestRUN393InterceptorRegistryContract:
 
     @pytest.mark.asyncio
     async def test_empty_registry_is_passthrough(self):
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        InterceptorRegistry = getattr(interceptors_module, "InterceptorRegistry", None)
         assert InterceptorRegistry is not None
         registry = InterceptorRegistry()
 
@@ -2951,9 +2955,9 @@ class TestRUN393IPCServerRegistryIntegration:
         self, tmp_path: Path
     ):
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        InterceptorRegistry = getattr(interceptors_module, "InterceptorRegistry", None)
         assert InterceptorRegistry is not None
         registry = InterceptorRegistry()
 
@@ -3073,9 +3077,9 @@ class TestRUN393IPCServerRegistryIntegration:
     @pytest.mark.asyncio
     async def test_stream_handler_runs_chunk_hook_per_chunk(self, tmp_path: Path):
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        InterceptorRegistry = getattr(interceptors_module, "InterceptorRegistry", None)
         assert InterceptorRegistry is not None
         registry = InterceptorRegistry()
 
@@ -3143,9 +3147,9 @@ class TestRUN393IPCServerRegistryIntegration:
     async def test_budget_killed_in_on_request_short_circuits_handler(self, tmp_path: Path):
         from runsight_core.budget_enforcement import BudgetKilledException
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        InterceptorRegistry = getattr(interceptors_module, "InterceptorRegistry", None)
         assert InterceptorRegistry is not None
         registry = InterceptorRegistry()
 
@@ -3218,9 +3222,9 @@ class TestRUN393IPCServerRegistryIntegration:
         self, tmp_path: Path
     ):
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        InterceptorRegistry = getattr(ipc_module, "InterceptorRegistry", None)
+        InterceptorRegistry = getattr(interceptors_module, "InterceptorRegistry", None)
         assert InterceptorRegistry is not None
         registry = InterceptorRegistry()
 
@@ -3367,9 +3371,9 @@ class TestRUN813ProcessBoundaryIntegration:
     ):
         from runsight_core.budget_enforcement import BudgetSession
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        registry = ipc_module.InterceptorRegistry()
+        registry = interceptors_module.InterceptorRegistry()
         budget_session = BudgetSession(
             scope_name="block:run813-llm",
             cost_cap_usd=0.50,
@@ -3378,7 +3382,7 @@ class TestRUN813ProcessBoundaryIntegration:
         )
         registry.register(
             _make_budget_interceptor(
-                ipc_module,
+                interceptors_module,
                 session=budget_session,
                 block_id="run813-llm",
             )
@@ -3440,9 +3444,9 @@ class TestRUN813ProcessBoundaryIntegration:
     ):
         from runsight_core.budget_enforcement import BudgetSession
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        registry = ipc_module.InterceptorRegistry()
+        registry = interceptors_module.InterceptorRegistry()
         budget_session = BudgetSession(
             scope_name="block:run813-budget-cap",
             cost_cap_usd=0.01,
@@ -3451,7 +3455,7 @@ class TestRUN813ProcessBoundaryIntegration:
         )
         registry.register(
             _make_budget_interceptor(
-                ipc_module,
+                interceptors_module,
                 session=budget_session,
                 block_id="run813-budget-cap",
             )
@@ -3617,9 +3621,9 @@ class TestRUN813ProcessBoundaryIntegration:
     @pytest.mark.asyncio
     async def test_all_core_handlers_dispatch_through_same_interceptor_chain(self, tmp_path: Path):
         from runsight_core.isolation import IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        registry = ipc_module.InterceptorRegistry()
+        registry = interceptors_module.InterceptorRegistry()
         calls: list[tuple[str, str]] = []
 
         class RecordingInterceptor:
@@ -3786,9 +3790,9 @@ class TestRUN813ProcessBoundaryIntegration:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         from runsight_core.isolation import IPCClient, IPCServer
-        from runsight_core.isolation import ipc as ipc_module
+        from runsight_core.isolation import interceptors as interceptors_module
 
-        registry = ipc_module.InterceptorRegistry()
+        registry = interceptors_module.InterceptorRegistry()
         chunk_contents: list[str] = []
 
         class StreamInterceptor:
