@@ -39,7 +39,7 @@ import yaml
 from runsight_core.isolation.envelope import ResultEnvelope, ToolDefEnvelope
 from runsight_core.isolation.handlers import make_tool_call_handler
 from runsight_core.isolation.ipc import IPCServer
-from runsight_core.isolation.worker import create_tool_stubs
+from runsight_core.isolation.worker_proxies import create_tool_stubs
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import WorkflowState

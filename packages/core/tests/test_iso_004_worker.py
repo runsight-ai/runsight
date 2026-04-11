@@ -102,15 +102,15 @@ class TestRUN395ProxiedLLMClientContract:
     """Worker LLM path must use ProxiedLLMClient over IPC, not direct LiteLLM calls."""
 
     def test_worker_module_exposes_proxied_llm_client_symbol(self):
-        from runsight_core.isolation import worker
+        from runsight_core.isolation import worker_proxies
 
-        ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
+        ProxiedLLMClient = getattr(worker_proxies, "ProxiedLLMClient", None)
         assert ProxiedLLMClient is not None
 
     def test_proxied_achat_signature_matches_litellm_shape(self):
-        from runsight_core.isolation import worker
+        from runsight_core.isolation import worker_proxies
 
-        ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
+        ProxiedLLMClient = getattr(worker_proxies, "ProxiedLLMClient", None)
         assert ProxiedLLMClient is not None
 
         params = inspect.signature(ProxiedLLMClient.achat).parameters
@@ -123,9 +123,9 @@ class TestRUN395ProxiedLLMClientContract:
 
     @pytest.mark.asyncio
     async def test_proxied_achat_routes_llm_call_over_ipc_stream(self):
-        from runsight_core.isolation import worker
+        from runsight_core.isolation import worker_proxies
 
-        ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
+        ProxiedLLMClient = getattr(worker_proxies, "ProxiedLLMClient", None)
         assert ProxiedLLMClient is not None
 
         messages = [{"role": "user", "content": "hello"}]
@@ -175,9 +175,9 @@ class TestRUN395ProxiedLLMClientContract:
 
     @pytest.mark.asyncio
     async def test_proxied_achat_forwards_extra_kwargs_into_llm_call_payload(self):
-        from runsight_core.isolation import worker
+        from runsight_core.isolation import worker_proxies
 
-        ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
+        ProxiedLLMClient = getattr(worker_proxies, "ProxiedLLMClient", None)
         assert ProxiedLLMClient is not None
 
         captured_payload: dict[str, object] = {}
@@ -212,9 +212,9 @@ class TestRUN395ProxiedLLMClientContract:
 
     @pytest.mark.asyncio
     async def test_proxied_achat_raises_when_ipc_returns_error(self):
-        from runsight_core.isolation import worker
+        from runsight_core.isolation import worker_proxies
 
-        ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
+        ProxiedLLMClient = getattr(worker_proxies, "ProxiedLLMClient", None)
         assert ProxiedLLMClient is not None
 
         class FakeIPCClient:
@@ -227,12 +227,8 @@ class TestRUN395ProxiedLLMClientContract:
             await proxied.achat(messages=[{"role": "user", "content": "hello"}])
 
     def test_worker_runner_model_override_uses_proxied_client_not_direct_litellm(self):
-        from runsight_core.isolation import worker
-        from runsight_core.isolation.worker import create_runner
+        from runsight_core.isolation.worker_proxies import ProxiedLLMClient, create_runner
         from runsight_core.primitives import Soul
-
-        ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
-        assert ProxiedLLMClient is not None
 
         shared_ipc_client = object()
         runner = create_runner(model_name="gpt-4o", ipc_client=shared_ipc_client)
@@ -248,11 +244,7 @@ class TestRUN395ProxiedLLMClientContract:
         assert client._ipc_client is shared_ipc_client
 
     def test_default_worker_runner_path_does_not_construct_direct_litellm_clients(self):
-        from runsight_core.isolation import worker
-        from runsight_core.isolation.worker import create_runner
-
-        ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
-        assert ProxiedLLMClient is not None
+        from runsight_core.isolation.worker_proxies import ProxiedLLMClient, create_runner
 
         with patch(
             "runsight_core.runner.LiteLLMClient",
@@ -263,13 +255,9 @@ class TestRUN395ProxiedLLMClientContract:
 
     @pytest.mark.asyncio
     async def test_worker_runner_failover_path_uses_proxied_client_for_fallback(self):
-        from runsight_core.isolation import worker
-        from runsight_core.isolation.worker import create_runner
+        from runsight_core.isolation.worker_proxies import ProxiedLLMClient, create_runner
         from runsight_core.primitives import Soul
         from runsight_core.runner import FallbackRoute
-
-        ProxiedLLMClient = getattr(worker, "ProxiedLLMClient", None)
-        assert ProxiedLLMClient is not None
 
         runner = create_runner(model_name="gpt-4o", ipc_client=object())
         runner.fallback_routes = {
@@ -363,7 +351,7 @@ class TestWorkerIPCToolStubs:
 
     def test_worker_creates_tool_stubs_from_envelope(self):
         """Worker converts ToolDefEnvelope list into IPC-backed tool stubs."""
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
         from runsight_core.tools import ToolInstance
 
         tool_defs = [
@@ -383,7 +371,7 @@ class TestWorkerIPCToolStubs:
 
     def test_tool_stubs_are_callable(self):
         """Each tool stub must be callable (used as a tool function)."""
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
 
         tool_defs = [
             ToolDefEnvelope(
@@ -401,7 +389,7 @@ class TestWorkerIPCToolStubs:
 
     def test_tool_stub_openai_schema_comes_from_envelope_metadata(self):
         """Stub to_openai_schema should use name/description/parameters from ToolDefEnvelope."""
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
 
         tool_defs = [
             ToolDefEnvelope(
@@ -433,7 +421,7 @@ class TestWorkerIPCToolStubs:
     @pytest.mark.asyncio
     async def test_tool_stub_execute_sends_tool_call_request_to_ipc_client(self):
         """Stub execute() should call IPCClient.request('tool_call', ...) with tool name + args."""
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
 
         tool_defs = [
             ToolDefEnvelope(
@@ -462,7 +450,7 @@ class TestWorkerIPCToolStubs:
     @pytest.mark.asyncio
     async def test_tool_stub_returns_error_string_on_ipc_error(self):
         """IPC error payloads should come back as 'Error: ...' strings."""
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
 
         tool_defs = [
             ToolDefEnvelope(
@@ -771,7 +759,7 @@ class TestRUN396WorkerCapabilityNegotiationStartup:
 
     @pytest.mark.asyncio
     async def test_tool_stub_uses_connect_handshake_without_legacy_capability_request(self):
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
 
         tool_defs = [
             ToolDefEnvelope(
@@ -829,7 +817,7 @@ class TestRUN399WorkerRedesignContract:
 
     @pytest.mark.asyncio
     async def test_create_tool_stubs_uses_shared_authenticated_ipc_client(self):
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
 
         tool_defs = [
             ToolDefEnvelope(
@@ -870,7 +858,7 @@ class TestRUN399WorkerRedesignContract:
         assert result == "echo:hello"
 
     def test_create_runner_reuses_shared_ipc_client_for_default_and_alt_models(self):
-        from runsight_core.isolation.worker import create_runner
+        from runsight_core.isolation.worker_proxies import create_runner
         from runsight_core.primitives import Soul
 
         shared_client = object()
@@ -979,7 +967,9 @@ class TestRUN399WorkerRedesignContract:
             return stubs
 
         def _create_runner_with_shared_ipc_client(model_name: str, *, ipc_client):
-            return worker.ProxiedRunsightTeamRunner(model_name=model_name, ipc_client=ipc_client)
+            return worker._proxies.ProxiedRunsightTeamRunner(
+                model_name=model_name, ipc_client=ipc_client
+            )
 
         class _FakeBlock:
             def __init__(self, soul_arg, runner_arg) -> None:
@@ -1003,8 +993,10 @@ class TestRUN399WorkerRedesignContract:
         monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
         monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
         monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
-        monkeypatch.setattr(worker, "create_tool_stubs", _create_tool_stubs_with_shared_ipc_client)
-        monkeypatch.setattr(worker, "create_runner", _create_runner_with_shared_ipc_client)
+        monkeypatch.setattr(
+            worker._proxies, "create_tool_stubs", _create_tool_stubs_with_shared_ipc_client
+        )
+        monkeypatch.setattr(worker._proxies, "create_runner", _create_runner_with_shared_ipc_client)
         monkeypatch.setattr(worker, "_create_block", _fake_create_block)
         monkeypatch.setattr(sys, "stdin", io.StringIO(envelope.model_dump_json()))
         captured_stdout = io.StringIO()
@@ -1187,7 +1179,9 @@ class TestRUN812WorkerAssertionBlockContract:
                 },
             )
             soul = worker.reconstruct_soul(envelope.soul)
-            runner = worker.create_runner(model_name=envelope.soul.model_name, ipc_client=object())
+            runner = worker._proxies.create_runner(
+                model_name=envelope.soul.model_name, ipc_client=object()
+            )
             block = worker._create_block(envelope, soul, runner=runner)
             state = worker.build_scoped_state(envelope)
             final_state = await block.execute(state)
