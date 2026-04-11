@@ -85,22 +85,29 @@ class SubprocessHarness:
     def __init__(
         self,
         *,
-        api_key: str,
+        api_key: str | None = None,
+        api_keys: dict[str, str] | None = None,
         timeout_seconds: int = 300,
         heartbeat_timeout: float = 30.0,
         phase_timeout: float = 60.0,
         stall_thresholds: dict[str, int | float] | None = None,
         tool_credentials: dict[str, dict[str, str]] | None = None,
+        resolved_tools: dict[str, Any] | None = None,
     ) -> None:
-        self._api_key = api_key
-        self._api_keys: dict[str, str] = {"openai": api_key}
+        if api_keys is not None:
+            self._api_keys = dict(api_keys)
+        elif api_key is not None:
+            self._api_keys = {"openai": api_key}
+        else:
+            raise ValueError("SubprocessHarness requires api_keys or api_key")
         self._timeout_seconds = timeout_seconds
         self._heartbeat_timeout = heartbeat_timeout
         self._phase_timeout = phase_timeout
         self._stall_thresholds = stall_thresholds or {}
         self._tool_credentials = tool_credentials or {}
-        self._resolved_tools: dict[str, Any] = {}
+        self._resolved_tools = dict(resolved_tools or {})
         self._grant_token: GrantToken | None = None
+        self._file_io_temp_dir: str | None = None
 
     # -- ISO-008: IPC handlers with baked-in credentials --------------------
 
@@ -117,14 +124,13 @@ class SubprocessHarness:
         for creds in self._tool_credentials.values():
             merged_headers.update(creds)
 
-        async def _capability_negotiation_handler(_params: dict[str, Any]) -> dict[str, Any]:
-            return {"authenticated": True}
+        file_io_base_dir = tempfile.mkdtemp(prefix="rs-fio-")
+        self._file_io_temp_dir = file_io_base_dir
 
         return {
-            "capability_negotiation": _capability_negotiation_handler,
             "llm_call": make_llm_call_handler(api_keys=dict(self._api_keys)),
-            "http": make_http_handler(credentials=merged_headers, url_allowlist=["*"]),
-            "file_io": make_file_io_handler(base_dir=tempfile.mkdtemp(prefix="rs-fio-")),
+            "http": make_http_handler(credentials=merged_headers, url_allowlist=[]),
+            "file_io": make_file_io_handler(base_dir=file_io_base_dir),
             "tool_call": make_tool_call_handler(self._resolved_tools),
         }
 
@@ -350,6 +356,13 @@ class SubprocessHarness:
                 shutil.rmtree(working_dir)
             except (FileNotFoundError, OSError):
                 pass
+
+        if self._file_io_temp_dir:
+            try:
+                shutil.rmtree(self._file_io_temp_dir)
+            except (FileNotFoundError, OSError):
+                pass
+            self._file_io_temp_dir = None
 
     # -- AC12: Full lifecycle (run) ------------------------------------------
 
