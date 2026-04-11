@@ -104,7 +104,7 @@ With this configuration, a warning event is emitted at 80% of the cost cap ($0.8
 
 ## How enforcement works
 
-Budget enforcement tracks the active budget session per async task. The enforcement point is inside the LLM client --- every LLM call passes through a single chokepoint where cost and token limits are checked.
+Budget enforcement tracks the active budget session per async task. Every LLM call passes through a single chokepoint where cost and token limits are checked --- whether the block runs in the engine process or in an isolated subprocess.
 
 ### The enforcement chain
 
@@ -117,6 +117,18 @@ Budget enforcement tracks the active budget session per async task. The enforcem
 4. **Cap check:** After recording, the engine walks the entire parent chain. If any session (block or workflow) has exceeded its cap with `on_exceed: "fail"`, execution is killed immediately.
 
 5. **Block end:** The block's budget session is removed and the workflow session is restored.
+
+### Enforcement across process isolation
+
+LLM blocks run in isolated subprocesses that have no direct access to API keys or budget state. Budget enforcement still works because every LLM call from the subprocess is proxied through an IPC channel back to the engine, where a `BudgetInterceptor` enforces caps:
+
+- **Before each LLM call:** The interceptor checks the active budget session. If the budget is exceeded, the call is rejected before the LLM provider is contacted --- no money spent.
+- **After each LLM call:** The interceptor accrues the reported cost and tokens to the budget session. Costs propagate up the parent chain automatically.
+- **Budget kill propagation:** When a budget cap is breached, a `BudgetKilledException` is serialized back to the subprocess, which writes it into the `ResultEnvelope`. The engine deserializes and re-raises it in the main process.
+
+Block-level and workflow-level caps both work across the isolation boundary. The subprocess never sees or manipulates budget state directly --- the engine owns it entirely.
+
+See [Process Isolation](/docs/execution/process-isolation) for the full architecture.
 
 ### Parent propagation
 
@@ -193,4 +205,4 @@ In this example:
 - The `summarize` block will warn at $1.00 but continue running.
 - Both blocks' costs propagate to the workflow total.
 
-<!-- Linear: RUN-708, RUN-717, RUN-732 — last verified against codebase 2026-04-07 -->
+<!-- Linear: RUN-708, RUN-717, RUN-732, RUN-391 — last verified against codebase 2026-04-11 -->

@@ -73,6 +73,7 @@ export default defineConfig({
 						{ label: 'Git Integration', slug: 'docs/execution/git-integration' },
 						{ label: 'Fork Recovery', slug: 'docs/execution/fork-recovery' },
 						{ label: 'Budget & Limits', slug: 'docs/execution/budget-and-limits' },
+						{ label: 'Process Isolation', slug: 'docs/execution/process-isolation' },
 						{ label: 'Error Handling', slug: 'docs/execution/error-handling' },
 					],
 				},
