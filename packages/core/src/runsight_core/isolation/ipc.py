@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import json
+import logging
 import os
 import socket
 import time
@@ -18,6 +19,7 @@ from runsight_core.budget_enforcement import BudgetKilledException, BudgetSessio
 
 HandlerResult = Awaitable[dict[str, Any]] | AsyncIterable[dict[str, Any]]
 Handler = Callable[[dict[str, Any]], HandlerResult]
+logger = logging.getLogger(__name__)
 
 RPC_ALLOWLIST = frozenset(
     {
@@ -224,6 +226,33 @@ class ObserverInterceptor:
         self._block_id = block_id
         self._active_spans: dict[str, tuple[Any, float]] = {}
 
+    def _emit_log(
+        self,
+        *,
+        event: str,
+        action: str,
+        engine_context: dict[str, Any],
+        payload: dict[str, Any] | None = None,
+        duration_ms: float | None = None,
+    ) -> None:
+        structured_data: dict[str, Any] = {
+            "observer_event": event,
+            "action": action,
+            "block_id": self._block_id,
+            "trace_id": engine_context.get("trace_id"),
+            "span_id": engine_context.get("span_id"),
+            "trace_parent_id": engine_context.get("trace.parent_id"),
+        }
+        if payload is not None:
+            structured_data["model"] = payload.get("model")
+            structured_data["cost_usd"] = payload.get("cost_usd")
+            structured_data["total_tokens"] = payload.get("total_tokens")
+            structured_data["tokens"] = payload.get("tokens")
+            structured_data["error"] = payload.get("error")
+        if duration_ms is not None:
+            structured_data["duration_ms"] = duration_ms
+        logger.info("observer.ipc", extra=structured_data)
+
     @staticmethod
     def _resolve_tracer() -> Any | None:
         try:
@@ -274,6 +303,12 @@ class ObserverInterceptor:
     ) -> dict[str, Any]:
         span = self._start_span(action, payload, engine_context)
         if span is None:
+            self._emit_log(
+                event="ipc_request",
+                action=action,
+                payload=payload,
+                engine_context=engine_context,
+            )
             return engine_context
 
         self._active_spans[action] = (span, time.monotonic())
@@ -288,6 +323,12 @@ class ObserverInterceptor:
             engine_context["trace_id"] = trace_id
         if span_id is not None:
             engine_context["span_id"] = span_id
+        self._emit_log(
+            event="ipc_request",
+            action=action,
+            payload=payload,
+            engine_context=engine_context,
+        )
         return engine_context
 
     async def on_response(
@@ -295,6 +336,12 @@ class ObserverInterceptor:
     ) -> dict[str, Any]:
         span_record = self._active_spans.pop(action, None)
         if span_record is None:
+            self._emit_log(
+                event="ipc_response",
+                action=action,
+                payload=payload,
+                engine_context=engine_context,
+            )
             return engine_context
 
         span, started_at = span_record
@@ -310,7 +357,21 @@ class ObserverInterceptor:
             span.set_attribute("duration_ms", duration_ms)
             span.end()
         except Exception:
+            self._emit_log(
+                event="ipc_response",
+                action=action,
+                payload=payload,
+                engine_context=engine_context,
+                duration_ms=duration_ms,
+            )
             return engine_context
+        self._emit_log(
+            event="ipc_response",
+            action=action,
+            payload=payload,
+            engine_context=engine_context,
+            duration_ms=duration_ms,
+        )
         return engine_context
 
     async def on_stream_chunk(
@@ -318,6 +379,12 @@ class ObserverInterceptor:
     ) -> dict[str, Any]:
         span_record = self._active_spans.get(action)
         if span_record is None:
+            self._emit_log(
+                event="ipc_stream_chunk",
+                action=action,
+                payload=chunk,
+                engine_context=engine_context,
+            )
             return engine_context
 
         span, _ = span_record
@@ -330,7 +397,19 @@ class ObserverInterceptor:
                 },
             )
         except Exception:
+            self._emit_log(
+                event="ipc_stream_chunk",
+                action=action,
+                payload=chunk,
+                engine_context=engine_context,
+            )
             return engine_context
+        self._emit_log(
+            event="ipc_stream_chunk",
+            action=action,
+            payload=chunk,
+            engine_context=engine_context,
+        )
         return engine_context
 
 
