@@ -718,14 +718,21 @@ def parse_workflow_yaml(
             built_blocks[block_id].stateful = block_def.stateful
 
     # Step 6.5a: Wrap LLM blocks with IsolatedBlockWrapper at build time
+    from runsight_core.isolation.harness import SubprocessHarness
     from runsight_core.isolation.wrapper import LLM_BLOCK_TYPES, IsolatedBlockWrapper
 
     for block_id, block_def in file_def.blocks.items():
         if block_def.type in LLM_BLOCK_TYPES and block_id in built_blocks:
             inner = built_blocks[block_id]
+            harness = SubprocessHarness(
+                api_keys=dict(api_keys or {}),
+                timeout_seconds=block_def.timeout_seconds,
+                stall_thresholds=dict(block_def.stall_thresholds or {}),
+            )
             wrapper = IsolatedBlockWrapper(
                 block_id=block_id,
                 inner_block=inner,
+                harness=harness,
                 retry_config=inner.retry_config,
             )
             wrapper.stateful = inner.stateful

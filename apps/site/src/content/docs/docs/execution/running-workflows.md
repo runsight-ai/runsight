@@ -29,8 +29,8 @@ A production run executes the workflow YAML as committed on the **main branch**.
 1. The API reads the workflow YAML from `git show main:custom/workflows/{id}.yaml`.
 2. A `Run` record is created with `status: pending` and `branch: "main"`.
 3. The execution service acquires a concurrency slot (default: 5 concurrent runs), then transitions the run to `running`.
-4. The engine parses the YAML, builds the workflow graph, and starts execution.
-5. Each block executes sequentially through the transition graph. A `RunNode` record is created per block.
+4. The engine parses the YAML, builds the workflow graph, and wraps every LLM block in an `IsolatedBlockWrapper` with a `SubprocessHarness`.
+5. Each block executes sequentially through the transition graph. LLM blocks (linear, gate, synthesize, dispatch) run in isolated subprocesses --- the subprocess has no API keys and communicates with the engine over a Unix socket IPC channel. A `RunNode` record is created per block.
 6. On completion, the observer writes `status: completed` with final cost and token totals.
 
 ```bash title="API — create a production run"
@@ -118,4 +118,8 @@ If the server restarts while runs are in `running` status, those runs become "gh
 There is no cron or webhook trigger yet. All runs are currently triggered manually through the GUI or API.
 :::
 
-<!-- Linear: RUN-554, RUN-590, RUN-607, RUN-717 — last verified against codebase 2026-04-07 -->
+## Process isolation
+
+Every LLM block runs in an isolated subprocess. API keys stay in the engine process --- the subprocess proxies all LLM calls through the IPC channel, where budget interceptors enforce cost caps and observer interceptors record traces. This is transparent: workflow YAML and block behavior are unchanged. See [Process Isolation](/docs/execution/process-isolation) for the full architecture.
+
+<!-- Linear: RUN-554, RUN-590, RUN-607, RUN-717, RUN-391 — last verified against codebase 2026-04-11 -->

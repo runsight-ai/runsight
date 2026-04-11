@@ -24,6 +24,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from runsight_core.budget_enforcement import BudgetSession, _active_budget
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     HeartbeatMessage,
@@ -31,7 +32,14 @@ from runsight_core.isolation.envelope import (
     SoulEnvelope,
     TaskEnvelope,
 )
+from runsight_core.isolation.interceptors import (
+    BudgetInterceptor,
+    InterceptorRegistry,
+    ObserverInterceptor,
+)
 from runsight_core.isolation.ipc import IPCServer
+from runsight_core.isolation.ipc_models import GrantToken
+from runsight_core.yaml.schema import BlockLimitsDef
 
 # ---------------------------------------------------------------------------
 # HeartbeatTracker — tracks phase changes and detects stalls
@@ -77,20 +85,25 @@ class SubprocessHarness:
     def __init__(
         self,
         *,
-        api_key: str,
+        api_keys: dict[str, str],
         timeout_seconds: int = 300,
         heartbeat_timeout: float = 30.0,
         phase_timeout: float = 60.0,
         stall_thresholds: dict[str, int | float] | None = None,
         tool_credentials: dict[str, dict[str, str]] | None = None,
+        url_allowlist: list[str] | None = None,
+        resolved_tools: dict[str, Any] | None = None,
     ) -> None:
-        self._api_key = api_key
+        self._api_keys = dict(api_keys)
         self._timeout_seconds = timeout_seconds
         self._heartbeat_timeout = heartbeat_timeout
         self._phase_timeout = phase_timeout
         self._stall_thresholds = stall_thresholds or {}
         self._tool_credentials = tool_credentials or {}
-        self._resolved_tools: dict[str, Any] = {}
+        self._url_allowlist = list(url_allowlist or [])
+        self._resolved_tools = dict(resolved_tools or {})
+        self._grant_token: GrantToken | None = None
+        self._file_io_temp_dir: str | None = None
 
     # -- ISO-008: IPC handlers with baked-in credentials --------------------
 
@@ -99,16 +112,20 @@ class SubprocessHarness:
         from runsight_core.isolation.handlers import (
             make_file_io_handler,
             make_http_handler,
+            make_llm_call_handler,
             make_tool_call_handler,
         )
 
-        merged_headers: dict[str, str] = {}
-        for creds in self._tool_credentials.values():
-            merged_headers.update(creds)
+        file_io_base_dir = tempfile.mkdtemp(prefix="rs-fio-")
+        self._file_io_temp_dir = file_io_base_dir
 
         return {
-            "http": make_http_handler(credentials=merged_headers, url_allowlist=["*"]),
-            "file_io": make_file_io_handler(base_dir=tempfile.mkdtemp(prefix="rs-fio-")),
+            "llm_call": make_llm_call_handler(api_keys=dict(self._api_keys)),
+            "http": make_http_handler(
+                credentials=dict(self._tool_credentials),
+                url_allowlist=list(self._url_allowlist),
+            ),
+            "file_io": make_file_io_handler(base_dir=file_io_base_dir),
             "tool_call": make_tool_call_handler(self._resolved_tools),
         }
 
@@ -118,11 +135,13 @@ class SubprocessHarness:
         self,
         *,
         socket_path: str | None = None,
+        block_id: str = "unknown",
     ) -> dict[str, str]:
         """Return a minimal environment dict for the subprocess."""
+        self._grant_token = GrantToken(block_id=block_id)
         env: dict[str, str] = {
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-            "RUNSIGHT_BLOCK_API_KEY": self._api_key,
+            "RUNSIGHT_GRANT_TOKEN": self._grant_token.token,
         }
         if socket_path is not None:
             env["RUNSIGHT_IPC_SOCKET"] = socket_path
@@ -333,6 +352,13 @@ class SubprocessHarness:
             except (FileNotFoundError, OSError):
                 pass
 
+        if self._file_io_temp_dir:
+            try:
+                shutil.rmtree(self._file_io_temp_dir)
+            except (FileNotFoundError, OSError):
+                pass
+            self._file_io_temp_dir = None
+
     # -- AC12: Full lifecycle (run) ------------------------------------------
 
     async def run(self, envelope: ContextEnvelope) -> ResultEnvelope:
@@ -347,7 +373,7 @@ class SubprocessHarness:
             work_dir = self._create_working_dir()
 
             # Build environment
-            env = self._build_subprocess_env(socket_path=sock_path)
+            env = self._build_subprocess_env(socket_path=sock_path, block_id=envelope.block_id)
 
             # Serialize envelope for stdin
             envelope_json = envelope.model_dump_json()
@@ -358,8 +384,35 @@ class SubprocessHarness:
             timeout = envelope.timeout_seconds or self._timeout_seconds
 
             # Start IPC server task
-            ipc_handlers: dict[str, Any] = {}
-            ipc_server = IPCServer(sock=sock, handlers=ipc_handlers)
+            ipc_handlers = self._build_ipc_handlers()
+            registry = InterceptorRegistry()
+            registry.register(ObserverInterceptor(block_id=envelope.block_id))
+
+            active_budget = _active_budget.get(None)
+            if isinstance(active_budget, BudgetSession):
+                raw_limits = envelope.block_config.get("limits")
+                budget_session = active_budget
+                if raw_limits is not None:
+                    block_limits = (
+                        raw_limits
+                        if isinstance(raw_limits, BlockLimitsDef)
+                        else BlockLimitsDef.model_validate(raw_limits)
+                    )
+                    budget_session = BudgetSession.from_block_limits(
+                        block_limits,
+                        envelope.block_id,
+                        parent=active_budget,
+                    )
+                registry.register(
+                    BudgetInterceptor(session=budget_session, block_id=envelope.block_id)
+                )
+
+            ipc_server = IPCServer(
+                sock=sock,
+                handlers=ipc_handlers,
+                registry=registry,
+                grant_token=self._grant_token,
+            )
             ipc_task = asyncio.create_task(ipc_server.serve())
 
             try:
@@ -407,6 +460,15 @@ class SubprocessHarness:
 
                 # Check return code
                 if proc.returncode != 0:
+                    raw_output = stdout_data.decode("utf-8").strip()
+                    if raw_output:
+                        try:
+                            return self._validate_result(
+                                raw_output,
+                                max_bytes=envelope.max_output_bytes,
+                            )
+                        except Exception:
+                            pass
                     error_msg = self._map_return_code(proc.returncode or 1)
                     return ResultEnvelope(
                         block_id=envelope.block_id,

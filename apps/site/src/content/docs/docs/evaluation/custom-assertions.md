@@ -316,9 +316,27 @@ Current custom assertion support is intentionally narrow:
 - Plugins run in a separate subprocess with a minimal environment and a 30 second timeout.
 - API keys are not forwarded into that subprocess environment.
 - Offline eval auto-discovers custom assertions only from workflow file paths, not raw YAML strings.
-- This feature documents local Python assertions only. LLM-calling plugins are not supported today because Runsight does not forward API keys into the plugin subprocess.
+- Simple custom assertions (return `bool` or `grading_result`) run in a minimal subprocess with no API keys and no IPC access.
 
-See [RUN-306](https://linear.app/runsight/issue/RUN-306/batch-eval-llm-graded-assertions-defensive-red-team) for future LLM-graded assertion work.
+## LLM-Graded Assertions (`llm_judge`)
+
+For assertions that need to call an LLM to grade output (e.g., rubric-based evaluation, factual consistency checks), use the `llm_judge` assertion type. These assertions run through the same [process isolation](/docs/execution/process-isolation) path as regular LLM blocks --- the judge LLM call is proxied through the IPC channel with full budget enforcement and observability.
+
+```yaml title="llm_judge assertion example"
+assertions:
+  - type: llm_judge
+    config:
+      model: claude-haiku
+      rubric: "Grade the output for factual accuracy and completeness."
+```
+
+Key differences from simple custom assertions:
+
+- The `llm_judge` assertion runs inside an isolated subprocess with IPC access (not `_minimal_subprocess_env`)
+- The judge's LLM call goes through the `BudgetInterceptor` --- assertion costs count toward the block's and workflow's budget
+- A `judge_soul` is constructed from the assertion config and used to call the LLM
+- The `GradingResult` includes `assertion_type: "llm_judge"` and `metadata.judge_model` for traceability
+- Simple `get_assert()` custom plugins still use the minimal subprocess with no IPC --- only `llm_judge` type assertions use the full isolation path
 
 ## Error Messages
 
@@ -352,4 +370,4 @@ In both offline eval and live API execution:
 - Other assertions on the same block still produce their own results
 - Live API runs still persist `eval_score`, `eval_passed`, and `eval_results`, and still emit `node_eval_complete` SSE events
 
-<!-- Linear: RUN-769, RUN-794, RUN-795, RUN-796, RUN-797, RUN-798, RUN-799, RUN-800, RUN-801 -- last verified against codebase 2026-04-10 -->
+<!-- Linear: RUN-769, RUN-794, RUN-795, RUN-796, RUN-797, RUN-798, RUN-799, RUN-800, RUN-801, RUN-391 -- last verified against codebase 2026-04-11 -->

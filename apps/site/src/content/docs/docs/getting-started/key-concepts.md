@@ -184,6 +184,14 @@ The `dispatch` block type runs all branches concurrently — each exit port gets
 
 See [Dispatch & Delegate](/docs/tools/dispatch-and-delegate) for details.
 
+## Process Isolation
+
+Every LLM block runs in an isolated subprocess. The subprocess has no API keys, no access to engine memory, and no credentials. All LLM calls are proxied through a Unix socket IPC channel where the engine holds the real keys, enforces budget limits, and records observability traces.
+
+This is transparent --- you don't configure it. Workflow YAML and block behavior are identical whether isolation is enabled or not. The isolation layer protects against prompt injection, model misbehavior, and credential leakage.
+
+See [Process Isolation](/docs/execution/process-isolation) for the full architecture.
+
 ## YAML-First, Git-Native
 
 Everything in Runsight is a file:

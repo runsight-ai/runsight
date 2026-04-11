@@ -9,19 +9,22 @@ Tests cover every AC item:
 5.  fit_to_budget local
 6.  Stateful history round-trips
 7.  Zero workflow/observer/api imports
-8.  Missing RUNSIGHT_BLOCK_API_KEY env var: exit 1 with clear error
+8.  Missing RUNSIGHT_GRANT_TOKEN env var: exit 1 with clear error
 9.  Missing RUNSIGHT_IPC_SOCKET env var: exit 1 with clear error
 10. Exit 0/1
 """
 
 from __future__ import annotations
 
+import inspect
+import io
 import json
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from runsight_core.isolation.envelope import (
@@ -75,7 +78,7 @@ def _run_worker(
     """Invoke the worker as a subprocess, piping the envelope via stdin."""
     env = os.environ.copy()
     # Defaults for required env vars
-    env.setdefault("RUNSIGHT_BLOCK_API_KEY", "test-key-123")
+    env.setdefault("RUNSIGHT_GRANT_TOKEN", "grant-token-123")
     env.setdefault("RUNSIGHT_IPC_SOCKET", "/tmp/test_ipc.sock")
     if env_extra:
         env.update(env_extra)
@@ -91,40 +94,232 @@ def _run_worker(
 
 
 # ==============================================================================
-# AC1: LiteLLMClient direct LLM calls — worker uses LiteLLMClient, not IPC
+# RUN-395: ProxiedLLMClient for subprocess-side LLM calls over IPC
 # ==============================================================================
 
 
-class TestWorkerUsesLiteLLMClient:
-    """The worker must use LiteLLMClient directly for LLM calls."""
+class TestRUN395ProxiedLLMClientContract:
+    """Worker LLM path must use ProxiedLLMClient over IPC, not direct LiteLLM calls."""
 
-    def test_worker_module_importable(self):
-        """runsight_core.isolation.worker can be imported."""
-        import runsight_core.isolation.worker  # noqa: F401
+    def test_worker_module_exposes_proxied_llm_client_symbol(self):
+        from runsight_core.isolation import worker_proxies
 
-    def test_worker_creates_litellm_client_with_api_key(self):
-        """Worker creates LiteLLMClient with RUNSIGHT_BLOCK_API_KEY."""
-        from runsight_core.isolation.worker import create_llm_client
+        ProxiedLLMClient = getattr(worker_proxies, "ProxiedLLMClient", None)
+        assert ProxiedLLMClient is not None
 
-        client = create_llm_client(model_name="gpt-4o", api_key="test-key")
-        # The client should be a LiteLLMClient with the given api_key
-        from runsight_core.llm.client import LiteLLMClient
+    def test_proxied_achat_signature_matches_litellm_shape(self):
+        from runsight_core.isolation import worker_proxies
 
-        assert isinstance(client, LiteLLMClient)
-        assert client.api_key == "test-key"
+        ProxiedLLMClient = getattr(worker_proxies, "ProxiedLLMClient", None)
+        assert ProxiedLLMClient is not None
 
-    def test_worker_creates_runner_with_litellm_client(self):
-        """Worker creates RunsightTeamRunner with the correct model and key."""
-        from runsight_core.isolation.worker import create_runner
+        params = inspect.signature(ProxiedLLMClient.achat).parameters
+        assert "messages" in params
+        assert "system_prompt" in params
+        assert "temperature" in params
+        assert "tools" in params
+        assert "tool_choice" in params
+        assert any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
 
-        runner = create_runner(model_name="gpt-4o", api_key="test-key")
-        from runsight_core.runner import RunsightTeamRunner
+    @pytest.mark.asyncio
+    async def test_proxied_achat_routes_llm_call_over_ipc_stream(self):
+        from runsight_core.isolation import worker_proxies
 
-        assert isinstance(runner, RunsightTeamRunner)
+        ProxiedLLMClient = getattr(worker_proxies, "ProxiedLLMClient", None)
+        assert ProxiedLLMClient is not None
+
+        messages = [{"role": "user", "content": "hello"}]
+        tools = [
+            {"type": "function", "function": {"name": "lookup", "parameters": {"type": "object"}}}
+        ]
+        calls: list[tuple[str, dict[str, object]]] = []
+
+        class FakeIPCClient:
+            async def request_stream(self, action: str, payload: dict[str, object]):
+                calls.append((action, payload))
+                yield {
+                    "content": "hi",
+                    "cost_usd": 0.12,
+                    "prompt_tokens": 3,
+                    "completion_tokens": 2,
+                    "total_tokens": 5,
+                    "tool_calls": [],
+                    "finish_reason": "stop",
+                }
+
+        proxied = ProxiedLLMClient(model_name="gpt-4o", ipc_client=FakeIPCClient())
+        response = await proxied.achat(
+            messages=messages,
+            system_prompt="be concise",
+            tools=tools,
+            tool_choice="auto",
+            temperature=0.2,
+        )
+
+        assert calls and calls[0][0] == "llm_call"
+        payload = calls[0][1]
+        assert payload["model"] == "gpt-4o"
+        assert payload["messages"] == messages
+        assert payload["tools"] == tools
+        assert payload["tool_choice"] == "auto"
+        assert payload["temperature"] == 0.2
+        assert response == {
+            "content": "hi",
+            "cost_usd": 0.12,
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+            "tool_calls": [],
+            "finish_reason": "stop",
+        }
+
+    @pytest.mark.asyncio
+    async def test_proxied_achat_forwards_extra_kwargs_into_llm_call_payload(self):
+        from runsight_core.isolation import worker_proxies
+
+        ProxiedLLMClient = getattr(worker_proxies, "ProxiedLLMClient", None)
+        assert ProxiedLLMClient is not None
+
+        captured_payload: dict[str, object] = {}
+
+        class FakeIPCClient:
+            async def request_stream(self, action: str, payload: dict[str, object]):
+                nonlocal captured_payload
+                assert action == "llm_call"
+                captured_payload = payload
+                yield {
+                    "content": "ok",
+                    "cost_usd": 0.0,
+                    "prompt_tokens": 1,
+                    "completion_tokens": 1,
+                    "total_tokens": 2,
+                    "tool_calls": [],
+                    "finish_reason": "stop",
+                }
+
+        proxied = ProxiedLLMClient(model_name="gpt-4o", ipc_client=FakeIPCClient())
+        await proxied.achat(
+            messages=[{"role": "user", "content": "hello"}],
+            system_prompt="sys",
+            max_tokens=512,
+            response_format={"type": "json_object"},
+            seed=7,
+        )
+
+        assert captured_payload["max_tokens"] == 512
+        assert captured_payload["response_format"] == {"type": "json_object"}
+        assert captured_payload["seed"] == 7
+
+    @pytest.mark.asyncio
+    async def test_proxied_achat_raises_when_ipc_returns_error(self):
+        from runsight_core.isolation import worker_proxies
+
+        ProxiedLLMClient = getattr(worker_proxies, "ProxiedLLMClient", None)
+        assert ProxiedLLMClient is not None
+
+        class FakeIPCClient:
+            async def request_stream(self, action: str, payload: dict[str, object]):
+                raise ConnectionError("upstream llm_call failed")
+                yield {}
+
+        proxied = ProxiedLLMClient(model_name="gpt-4o", ipc_client=FakeIPCClient())
+        with pytest.raises((RuntimeError, ConnectionError, ValueError)):
+            await proxied.achat(messages=[{"role": "user", "content": "hello"}])
+
+    def test_worker_runner_model_override_uses_proxied_client_not_direct_litellm(self):
+        from runsight_core.isolation.worker_proxies import ProxiedLLMClient, create_runner
+        from runsight_core.primitives import Soul
+
+        shared_ipc_client = object()
+        runner = create_runner(model_name="gpt-4o", ipc_client=shared_ipc_client)
+        alt_soul = Soul(
+            id="soul-alt",
+            role="Alt",
+            system_prompt="alt",
+            model_name="gpt-4.1-mini",
+            provider="openai",
+        )
+        client = runner._get_client(alt_soul)
+        assert isinstance(client, ProxiedLLMClient)
+        assert client._ipc_client is shared_ipc_client
+
+    def test_default_worker_runner_path_does_not_construct_direct_litellm_clients(self):
+        from runsight_core.isolation.worker_proxies import ProxiedLLMClient, create_runner
+
+        with patch(
+            "runsight_core.runner.LiteLLMClient",
+            side_effect=AssertionError("direct LiteLLMClient construction is forbidden in worker"),
+        ):
+            runner = create_runner(model_name="gpt-4o", ipc_client=object())
+            assert isinstance(runner.llm_client, ProxiedLLMClient)
+
+    @pytest.mark.asyncio
+    async def test_worker_runner_failover_path_uses_proxied_client_for_fallback(self):
+        from runsight_core.isolation.worker_proxies import ProxiedLLMClient, create_runner
+        from runsight_core.primitives import Soul
+        from runsight_core.runner import FallbackRoute
+
+        runner = create_runner(model_name="gpt-4o", ipc_client=object())
+        runner.fallback_routes = {
+            "openai": FallbackRoute(
+                source_provider_id="openai",
+                target_provider_id="anthropic",
+                target_model_name="claude-3-opus-20240229",
+            )
+        }
+
+        call_models: list[str] = []
+
+        class FailThenSucceedClient(ProxiedLLMClient):
+            async def achat(
+                self,
+                messages,
+                system_prompt=None,
+                temperature=None,
+                tools=None,
+                tool_choice=None,
+                **kwargs,
+            ):  # type: ignore[override]
+                call_models.append(self.model_name)
+                if self.model_name == "gpt-4o":
+                    raise ConnectionError("retryable provider failure")
+                return {
+                    "content": "fallback-ok",
+                    "cost_usd": 0.01,
+                    "prompt_tokens": 1,
+                    "completion_tokens": 1,
+                    "total_tokens": 2,
+                    "tool_calls": [],
+                    "finish_reason": "stop",
+                    "raw_message": {"role": "assistant", "content": "fallback-ok"},
+                }
+
+        runner._get_client = lambda soul: FailThenSucceedClient(  # type: ignore[method-assign]
+            model_name=soul.model_name or "gpt-4o",
+            ipc_client=object(),
+        )
+
+        primary_soul = Soul(
+            id="soul-primary",
+            role="Primary",
+            system_prompt="primary",
+            model_name="gpt-4o",
+            provider="openai",
+        )
+        response, used_soul, allow_failover = await runner._achat_with_failover(
+            primary_soul,
+            messages=[{"role": "user", "content": "hello"}],
+            system_prompt=primary_soul.system_prompt,
+        )
+
+        assert response["content"] == "fallback-ok"
+        assert used_soul.model_name == "claude-3-opus-20240229"
+        assert allow_failover is False
+        assert call_models == ["gpt-4o", "claude-3-opus-20240229"]
 
     def test_reconstruct_soul_preserves_extended_runtime_fields(self):
         """Worker soul reconstruction keeps provider/runtime tool-contract fields."""
-        from runsight_core.isolation.worker import reconstruct_soul
+        from runsight_core.isolation.worker_support import reconstruct_soul
 
         soul = reconstruct_soul(
             SoulEnvelope(
@@ -156,7 +351,7 @@ class TestWorkerIPCToolStubs:
 
     def test_worker_creates_tool_stubs_from_envelope(self):
         """Worker converts ToolDefEnvelope list into IPC-backed tool stubs."""
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
         from runsight_core.tools import ToolInstance
 
         tool_defs = [
@@ -170,13 +365,13 @@ class TestWorkerIPCToolStubs:
                 tool_type="http",
             ),
         ]
-        stubs = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")
+        stubs = create_tool_stubs(tool_defs, ipc_client=object())
         assert len(stubs) == 1
         assert isinstance(stubs[0], ToolInstance)
 
     def test_tool_stubs_are_callable(self):
         """Each tool stub must be callable (used as a tool function)."""
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
 
         tool_defs = [
             ToolDefEnvelope(
@@ -189,12 +384,12 @@ class TestWorkerIPCToolStubs:
                 tool_type="http",
             ),
         ]
-        stubs = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")
+        stubs = create_tool_stubs(tool_defs, ipc_client=object())
         assert callable(stubs[0].execute)
 
     def test_tool_stub_openai_schema_comes_from_envelope_metadata(self):
         """Stub to_openai_schema should use name/description/parameters from ToolDefEnvelope."""
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
 
         tool_defs = [
             ToolDefEnvelope(
@@ -208,7 +403,7 @@ class TestWorkerIPCToolStubs:
             )
         ]
 
-        stub = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")[0]
+        stub = create_tool_stubs(tool_defs, ipc_client=object())[0]
         schema = stub.to_openai_schema()
 
         assert schema == {
@@ -226,7 +421,7 @@ class TestWorkerIPCToolStubs:
     @pytest.mark.asyncio
     async def test_tool_stub_execute_sends_tool_call_request_to_ipc_client(self):
         """Stub execute() should call IPCClient.request('tool_call', ...) with tool name + args."""
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
 
         tool_defs = [
             ToolDefEnvelope(
@@ -240,24 +435,22 @@ class TestWorkerIPCToolStubs:
             )
         ]
 
-        with patch("runsight_core.isolation.ipc.IPCClient") as MockClient:
-            client = MockClient.return_value
-            client.request = AsyncMock(return_value={"output": "echo:hi"})
+        client = MagicMock()
+        client.request = AsyncMock(return_value={"output": "echo:hi"})
 
-            stub = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")[0]
-            result = await stub.execute({"value": "hi"})
+        stub = create_tool_stubs(tool_defs, ipc_client=client)[0]
+        result = await stub.execute({"value": "hi"})
 
         client.request.assert_awaited_once_with(
             "tool_call",
-            name="echo_tool",
-            arguments={"value": "hi"},
+            {"name": "echo_tool", "arguments": {"value": "hi"}},
         )
         assert result == "echo:hi"
 
     @pytest.mark.asyncio
     async def test_tool_stub_returns_error_string_on_ipc_error(self):
         """IPC error payloads should come back as 'Error: ...' strings."""
-        from runsight_core.isolation.worker import create_tool_stubs
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
 
         tool_defs = [
             ToolDefEnvelope(
@@ -271,12 +464,11 @@ class TestWorkerIPCToolStubs:
             )
         ]
 
-        with patch("runsight_core.isolation.ipc.IPCClient") as MockClient:
-            client = MockClient.return_value
-            client.request = AsyncMock(return_value={"error": "tool failed"})
+        client = MagicMock()
+        client.request = AsyncMock(return_value={"error": "tool failed"})
 
-            stub = create_tool_stubs(tool_defs, socket_path="/tmp/test.sock")[0]
-            result = await stub.execute({"value": "hi"})
+        stub = create_tool_stubs(tool_defs, ipc_client=client)[0]
+        result = await stub.execute({"value": "hi"})
 
         assert result == "Error: tool failed"
 
@@ -380,14 +572,14 @@ class TestWorkerFitToBudget:
 
     def test_worker_imports_fit_to_budget(self):
         """Worker module uses fit_to_budget from runsight_core.memory.budget."""
-        from runsight_core.isolation.worker import build_budgeted_history
+        from runsight_core.isolation.worker_support import build_budgeted_history
 
         # The function should exist and be callable
         assert callable(build_budgeted_history)
 
     def test_long_history_is_trimmed(self):
         """Conversation history exceeding budget is trimmed before execution."""
-        from runsight_core.isolation.worker import build_budgeted_history
+        from runsight_core.isolation.worker_support import build_budgeted_history
 
         # Create a long conversation history
         long_history = [{"role": "user", "content": f"Message {i} " * 500} for i in range(50)]
@@ -479,18 +671,18 @@ class TestWorkerImportBoundary:
 
 
 # ==============================================================================
-# AC8: Missing RUNSIGHT_BLOCK_API_KEY → exit 1 with clear error
+# AC8: Missing RUNSIGHT_GRANT_TOKEN → exit 1 with clear error
 # ==============================================================================
 
 
-class TestWorkerMissingApiKey:
-    """Missing RUNSIGHT_BLOCK_API_KEY must exit 1 with error in ResultEnvelope."""
+class TestWorkerMissingGrantToken:
+    """Missing RUNSIGHT_GRANT_TOKEN must exit 1 with error in ResultEnvelope."""
 
-    def test_missing_api_key_exits_nonzero(self):
-        """Worker exits with code 1 when RUNSIGHT_BLOCK_API_KEY is absent."""
+    def test_missing_grant_token_exits_nonzero(self):
+        """Worker exits with code 1 when RUNSIGHT_GRANT_TOKEN is absent."""
         envelope = _make_context_envelope()
         env_override = os.environ.copy()
-        env_override.pop("RUNSIGHT_BLOCK_API_KEY", None)
+        env_override.pop("RUNSIGHT_GRANT_TOKEN", None)
         env_override["RUNSIGHT_IPC_SOCKET"] = "/tmp/test.sock"
         result = subprocess.run(
             [sys.executable, "-m", "runsight_core.isolation.worker"],
@@ -507,11 +699,11 @@ class TestWorkerMissingApiKey:
         result_env = ResultEnvelope.model_validate_json(stdout)
         assert result_env.error is not None
 
-    def test_missing_api_key_has_error_in_result(self):
-        """ResultEnvelope on stdout describes the missing API key."""
+    def test_missing_grant_token_has_error_in_result(self):
+        """ResultEnvelope on stdout describes the missing grant token."""
         envelope = _make_context_envelope()
         env_override = os.environ.copy()
-        env_override.pop("RUNSIGHT_BLOCK_API_KEY", None)
+        env_override.pop("RUNSIGHT_GRANT_TOKEN", None)
         env_override["RUNSIGHT_IPC_SOCKET"] = "/tmp/test.sock"
         result = subprocess.run(
             [sys.executable, "-m", "runsight_core.isolation.worker"],
@@ -525,7 +717,647 @@ class TestWorkerMissingApiKey:
         assert stdout, "Expected ResultEnvelope on stdout even on env error"
         result_env = ResultEnvelope.model_validate_json(stdout)
         assert result_env.error is not None
-        assert "RUNSIGHT_BLOCK_API_KEY" in result_env.error
+        assert "RUNSIGHT_GRANT_TOKEN" in result_env.error
+
+
+class TestRUN398WorkerGrantTokenContract:
+    """RUN-398: worker authenticates via grant token, not raw API key env injection."""
+
+    def test_worker_source_does_not_reference_block_api_key_env_var(self):
+        """Security contract: worker must not read RUNSIGHT_BLOCK_API_KEY at all."""
+        from runsight_core.isolation import worker
+
+        source_file = Path(worker.__file__)
+        source = source_file.read_text()
+        assert "RUNSIGHT_BLOCK_API_KEY" not in source
+
+    def test_worker_does_not_fail_for_missing_block_api_key_when_grant_token_present(self):
+        envelope = _make_context_envelope(block_type="nonexistent_block_type_xyz")
+        env_override = os.environ.copy()
+        env_override.pop("RUNSIGHT_BLOCK_API_KEY", None)
+        env_override["RUNSIGHT_GRANT_TOKEN"] = "grant-token-123"
+        env_override["RUNSIGHT_IPC_SOCKET"] = "/tmp/test.sock"
+
+        result = subprocess.run(
+            [sys.executable, "-m", "runsight_core.isolation.worker"],
+            input=envelope.model_dump_json(),
+            capture_output=True,
+            text=True,
+            env=env_override,
+            timeout=10,
+        )
+
+        stdout = result.stdout.strip()
+        assert stdout, "Expected ResultEnvelope on stdout"
+        result_env = ResultEnvelope.model_validate_json(stdout)
+        assert result_env.error is not None
+        assert "RUNSIGHT_BLOCK_API_KEY" not in result_env.error
+
+
+class TestRUN396WorkerCapabilityNegotiationStartup:
+    """RUN-396: worker startup uses IPCClient.connect capability handshake."""
+
+    @pytest.mark.asyncio
+    async def test_tool_stub_uses_connect_handshake_without_legacy_capability_request(self):
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
+
+        tool_defs = [
+            ToolDefEnvelope(
+                source="custom/echo",
+                config={},
+                exits=["done"],
+                name="echo_tool",
+                description="Echoes a string",
+                parameters={"type": "object", "properties": {"value": {"type": "string"}}},
+                tool_type="custom",
+            )
+        ]
+
+        call_log: list[tuple[str, str | None]] = []
+
+        class FakeIPCClient:
+            def __init__(self, *, socket_path: str) -> None:
+                self._socket_path = socket_path
+
+            async def connect(self):
+                call_log.append(("connect", None))
+                return {
+                    "id": "cap-1",
+                    "done": True,
+                    "accepted": True,
+                    "active_actions": ["tool_call"],
+                    "engine_context": {
+                        "budget_remaining_usd": 15.0,
+                        "trace_id": "trace-worker-396",
+                        "run_id": "run-worker-396",
+                        "block_id": "blk_1",
+                    },
+                    "error": None,
+                }
+
+            async def request(self, action: str, payload: dict[str, object]):
+                call_log.append(("request", action))
+                if action == "tool_call":
+                    return {"output": f"echo:{payload['arguments']['value']}"}
+                return {"error": "unexpected action"}
+
+        ipc_client = FakeIPCClient(socket_path="/tmp/test.sock")
+        await ipc_client.connect()
+        stub = create_tool_stubs(tool_defs, ipc_client=ipc_client)[0]
+        result = await stub.execute({"value": "hello"})
+
+        assert call_log[0] == ("connect", None)
+        assert ("request", "capability_negotiation") not in call_log
+        assert ("request", "tool_call") in call_log
+        assert result == "echo:hello"
+
+
+class TestRUN399WorkerRedesignContract:
+    """RUN-399: single shared IPC client + expanded block type creation."""
+
+    @pytest.mark.asyncio
+    async def test_create_tool_stubs_uses_shared_authenticated_ipc_client(self):
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
+
+        tool_defs = [
+            ToolDefEnvelope(
+                source="custom/echo",
+                config={},
+                exits=["done"],
+                name="echo_tool",
+                description="Echoes a string",
+                parameters={"type": "object", "properties": {"value": {"type": "string"}}},
+                tool_type="custom",
+            )
+        ]
+
+        class SharedIPCClient:
+            def __init__(self) -> None:
+                self.connect_calls = 0
+                self.request_calls: list[tuple[str, dict[str, object]]] = []
+
+            async def connect(self):
+                self.connect_calls += 1
+                return {"accepted": True, "error": None}
+
+            async def request(self, action: str, payload: dict[str, object]):
+                self.request_calls.append((action, payload))
+                return {"output": f"echo:{payload['arguments']['value']}"}
+
+        shared_client = SharedIPCClient()
+        stubs = create_tool_stubs(tool_defs, ipc_client=shared_client)
+        result = await stubs[0].execute({"value": "hello"})
+
+        assert shared_client.connect_calls == 0
+        assert shared_client.request_calls == [
+            (
+                "tool_call",
+                {"name": "echo_tool", "arguments": {"value": "hello"}},
+            )
+        ]
+        assert result == "echo:hello"
+
+    def test_create_runner_reuses_shared_ipc_client_for_default_and_alt_models(self):
+        from runsight_core.isolation.worker_proxies import create_runner
+        from runsight_core.primitives import Soul
+
+        shared_client = object()
+        runner = create_runner(model_name="gpt-4o", ipc_client=shared_client)
+
+        default_client = runner.llm_client
+        alt_soul = Soul(
+            id="alt",
+            role="Alt",
+            system_prompt="alt",
+            model_name="gpt-4.1-mini",
+            provider="openai",
+        )
+        alt_client = runner._get_client(alt_soul)
+
+        assert default_client._ipc_client is shared_client
+        assert alt_client._ipc_client is shared_client
+
+    def test_main_uses_single_ipc_client_and_connects_once_before_llm_and_tool_calls(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        from runsight_core.isolation import worker
+        from runsight_core.state import BlockResult
+        from runsight_core.tools import ToolInstance
+
+        envelope = _make_context_envelope(
+            tools=[
+                ToolDefEnvelope(
+                    source="custom/echo",
+                    config={},
+                    exits=["done"],
+                    name="echo_tool",
+                    description="Echoes a string",
+                    parameters={"type": "object", "properties": {"value": {"type": "string"}}},
+                    tool_type="custom",
+                )
+            ]
+        )
+
+        class FakeIPCClient:
+            instances: list["FakeIPCClient"] = []
+
+            def __init__(self, *, socket_path: str) -> None:
+                self.socket_path = socket_path
+                self.connect_calls = 0
+                self.tool_calls: list[dict[str, object]] = []
+                self.llm_calls: list[dict[str, object]] = []
+                FakeIPCClient.instances.append(self)
+
+            async def connect(self):
+                self.connect_calls += 1
+                return {
+                    "id": "cap-399",
+                    "done": True,
+                    "accepted": True,
+                    "active_actions": ["llm_call", "tool_call"],
+                    "engine_context": {},
+                    "error": None,
+                }
+
+            async def request(self, action: str, payload: dict[str, object]):
+                if action == "tool_call":
+                    self.tool_calls.append(payload)
+                    return {"output": "tool-ok"}
+                return {"error": "unexpected"}
+
+            async def request_stream(self, action: str, payload: dict[str, object]):
+                if action == "llm_call":
+                    self.llm_calls.append(payload)
+                    yield {
+                        "content": "ok",
+                        "cost_usd": 0.01,
+                        "prompt_tokens": 1,
+                        "completion_tokens": 1,
+                        "total_tokens": 2,
+                        "tool_calls": [],
+                        "finish_reason": "stop",
+                    }
+                    return
+                raise RuntimeError("unexpected action")
+
+        def _create_tool_stubs_with_shared_ipc_client(
+            tool_envelopes: list[ToolDefEnvelope],
+            *,
+            ipc_client,
+        ):
+            stubs: list[ToolInstance] = []
+            for tool_def in tool_envelopes:
+
+                async def _execute(args: dict[str, object], td: ToolDefEnvelope = tool_def) -> str:
+                    result = await ipc_client.request(
+                        "tool_call",
+                        {"name": td.name, "arguments": args},
+                    )
+                    return str(result.get("output", ""))
+
+                stubs.append(
+                    ToolInstance(
+                        name=tool_def.name,
+                        description=tool_def.description,
+                        parameters=tool_def.parameters,
+                        execute=_execute,
+                    )
+                )
+            return stubs
+
+        def _create_runner_with_shared_ipc_client(model_name: str, *, ipc_client):
+            return worker._proxies.ProxiedRunsightTeamRunner(
+                model_name=model_name, ipc_client=ipc_client
+            )
+
+        class _FakeBlock:
+            def __init__(self, soul_arg, runner_arg) -> None:
+                self._soul = soul_arg
+                self._runner = runner_arg
+
+            async def execute(self, state):
+                await self._soul.resolved_tools[0].execute({"value": "hello"})
+                await self._runner.llm_client.achat(messages=[{"role": "user", "content": "ping"}])
+                state.results[envelope.block_id] = BlockResult(output="ok", exit_handle="done")
+                state.total_cost_usd = 0.01
+                state.total_tokens = 2
+                return state
+
+        def _fake_create_block(envelope_arg, soul_arg, runner_arg):
+            return _FakeBlock(soul_arg, runner_arg)
+
+        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-399")
+        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-run399.sock")
+        monkeypatch.setattr(worker, "_emit_heartbeat", lambda *args, **kwargs: None)
+        monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
+        monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
+        monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
+        monkeypatch.setattr(
+            worker._proxies, "create_tool_stubs", _create_tool_stubs_with_shared_ipc_client
+        )
+        monkeypatch.setattr(worker._proxies, "create_runner", _create_runner_with_shared_ipc_client)
+        monkeypatch.setattr(worker._support, "_create_block", _fake_create_block)
+        monkeypatch.setattr(sys, "stdin", io.StringIO(envelope.model_dump_json()))
+        captured_stdout = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured_stdout)
+
+        with pytest.raises(SystemExit) as exc_info:
+            worker.main()
+
+        result_env = ResultEnvelope.model_validate_json(captured_stdout.getvalue().strip())
+
+        assert exc_info.value.code == 0
+        assert result_env.error is None
+        assert len(FakeIPCClient.instances) == 1
+        assert FakeIPCClient.instances[0].connect_calls == 1
+        assert FakeIPCClient.instances[0].tool_calls
+        assert FakeIPCClient.instances[0].llm_calls
+
+    @pytest.mark.parametrize("block_type", ["GateBlock", "gate"])
+    def test_create_block_supports_gate_aliases_with_gate_soul_fields(self, block_type: str):
+        from runsight_core.blocks.gate import GateBlock
+        from runsight_core.isolation.worker_support import _create_block, reconstruct_soul
+
+        envelope = _make_context_envelope(
+            block_type=block_type,
+            block_config={
+                "eval_key": "result_a",
+                "extract_field": "summary",
+                "gate_soul": {
+                    "id": "gate_soul_1",
+                    "role": "Gate Reviewer",
+                    "system_prompt": "Evaluate result quality",
+                    "model_name": "gpt-4o-mini",
+                },
+            },
+        )
+        fallback_soul = reconstruct_soul(envelope.soul)
+        block = _create_block(envelope, fallback_soul, runner=object())
+
+        assert isinstance(block, GateBlock)
+        assert block.eval_key == "result_a"
+        assert block.extract_field == "summary"
+        assert block.gate_soul.id == "gate_soul_1"
+
+    @pytest.mark.parametrize("block_type", ["SynthesizeBlock", "synthesize"])
+    def test_create_block_supports_synthesize_aliases_with_synthesizer_soul(
+        self,
+        block_type: str,
+    ):
+        from runsight_core.blocks.synthesize import SynthesizeBlock
+        from runsight_core.isolation.worker_support import _create_block, reconstruct_soul
+
+        envelope = _make_context_envelope(
+            block_type=block_type,
+            block_config={
+                "input_block_ids": ["a", "b"],
+                "synthesizer_soul": {
+                    "id": "synth_soul_1",
+                    "role": "Synthesis Agent",
+                    "system_prompt": "Merge findings",
+                    "model_name": "gpt-4.1-mini",
+                },
+            },
+        )
+        fallback_soul = reconstruct_soul(envelope.soul)
+        block = _create_block(envelope, fallback_soul, runner=object())
+
+        assert isinstance(block, SynthesizeBlock)
+        assert block.input_block_ids == ["a", "b"]
+        assert block.synthesizer_soul.id == "synth_soul_1"
+
+    @pytest.mark.parametrize("block_type", ["DispatchBlock", "dispatch"])
+    def test_create_block_supports_dispatch_aliases(self, block_type: str):
+        from runsight_core.blocks.dispatch import DispatchBlock
+        from runsight_core.isolation.worker_support import _create_block, reconstruct_soul
+
+        envelope = _make_context_envelope(
+            block_type=block_type,
+            block_config={
+                "branches": [
+                    {
+                        "exit_id": "branch_a",
+                        "label": "Branch A",
+                        "task_instruction": "Do A",
+                        "soul": {
+                            "id": "dispatch_soul_1",
+                            "role": "Dispatch Agent",
+                            "system_prompt": "Handle branch A",
+                            "model_name": "gpt-4o-mini",
+                        },
+                    }
+                ]
+            },
+        )
+        fallback_soul = reconstruct_soul(envelope.soul)
+        block = _create_block(envelope, fallback_soul, runner=object())
+
+        assert isinstance(block, DispatchBlock)
+        assert len(block.branches) == 1
+        assert block.branches[0].exit_id == "branch_a"
+        assert block.branches[0].soul.id == "dispatch_soul_1"
+
+
+class TestRUN812WorkerAssertionBlockContract:
+    """RUN-812: worker must construct assertion adapters for assertion block envelopes."""
+
+    def test_create_block_supports_assertion_block_type_and_returns_executable_adapter(self):
+        from runsight_core.isolation.worker_support import _create_block, reconstruct_soul
+
+        envelope = _make_context_envelope(
+            block_id="assertion_1",
+            block_type="assertion",
+            block_config={
+                "assertion": {
+                    "type": "llm_judge",
+                    "config": {"rubric": "Score factual quality"},
+                },
+                "output_to_grade": "Candidate response to grade",
+                "judge_soul": {
+                    "id": "judge_soul_1",
+                    "role": "LLM Judge",
+                    "system_prompt": "Grade this answer against the rubric.",
+                    "model_name": "gpt-4o-mini",
+                },
+            },
+            scoped_results={
+                "target_block": {
+                    "output": "Candidate response to grade",
+                    "exit_handle": "done",
+                }
+            },
+        )
+
+        fallback_soul = reconstruct_soul(envelope.soul)
+        block = _create_block(envelope, fallback_soul, runner=object())
+
+        assert callable(getattr(block, "execute", None))
+
+    @pytest.mark.asyncio
+    async def test_assertion_block_execution_serializes_grading_result_json(self):
+        from runsight_core.assertions.base import GradingResult
+        from runsight_core.assertions.scoring import AssertionsResult
+        from runsight_core.isolation import worker
+
+        async def fake_run_assertions(*args, **kwargs) -> AssertionsResult:
+            agg = AssertionsResult()
+            agg.add_result(
+                GradingResult(
+                    passed=True,
+                    score=0.85,
+                    reason="judge accepted output",
+                    named_scores={"coherence": 0.85},
+                    assertion_type="llm_judge",
+                    metadata={"judge_model": "gpt-4o-mini"},
+                )
+            )
+            return agg
+
+        with patch("runsight_core.assertions.registry.run_assertions", fake_run_assertions):
+            envelope = _make_context_envelope(
+                block_id="assertion_serialize",
+                block_type="assertion",
+                block_config={
+                    "assertion": {
+                        "type": "llm_judge",
+                        "config": {"rubric": "Score factual quality"},
+                    },
+                    "output_to_grade": "Candidate response to grade",
+                    "judge_soul": {
+                        "id": "judge_soul_1",
+                        "role": "LLM Judge",
+                        "system_prompt": "Grade this answer against the rubric.",
+                        "model_name": "gpt-4o-mini",
+                    },
+                },
+                scoped_results={
+                    "target_block": {
+                        "output": "Candidate response to grade",
+                        "exit_handle": "done",
+                    }
+                },
+            )
+            soul = worker._support.reconstruct_soul(envelope.soul)
+            runner = worker._proxies.create_runner(
+                model_name=envelope.soul.model_name, ipc_client=object()
+            )
+            block = worker._support._create_block(envelope, soul, runner=runner)
+            state = worker._support.build_scoped_state(envelope)
+            final_state = await block.execute(state)
+
+        serialized = final_state.results["assertion_serialize"].output
+        assert isinstance(serialized, str)
+        payload = json.loads(serialized)
+        assert payload["passed"] is True
+        assert payload["score"] == pytest.approx(0.85)
+        assert payload["reason"] == "judge accepted output"
+        assert payload["named_scores"]["coherence"] == pytest.approx(0.85)
+        assert payload["metadata"]["judge_model"] == "gpt-4o-mini"
+
+    def test_assertion_main_rejects_execution_when_capability_handshake_not_accepted(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        from runsight_core.isolation import worker
+
+        envelope = _make_context_envelope(
+            block_id="assertion_auth_fail",
+            block_type="assertion",
+            block_config={
+                "assertion": {"type": "llm_judge", "config": {"rubric": "strict"}},
+                "output_to_grade": "Candidate response",
+                "judge_soul": {
+                    "id": "judge_soul_1",
+                    "role": "LLM Judge",
+                    "system_prompt": "Grade this answer against the rubric.",
+                    "model_name": "gpt-4o-mini",
+                },
+            },
+        )
+
+        class FakeIPCClient:
+            instances: list["FakeIPCClient"] = []
+
+            def __init__(self, *, socket_path: str) -> None:
+                self.socket_path = socket_path
+                self.connect_calls = 0
+                FakeIPCClient.instances.append(self)
+
+            async def connect(self):
+                self.connect_calls += 1
+                return {
+                    "id": "cap-812",
+                    "done": True,
+                    "accepted": False,
+                    "active_actions": [],
+                    "engine_context": {},
+                    "error": "grant token rejected",
+                }
+
+        create_block_called = {"value": False}
+
+        def _forbidden_create_block(*args, **kwargs):
+            create_block_called["value"] = True
+            raise AssertionError("_create_block must not run when capability auth fails")
+
+        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-812")
+        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-run812.sock")
+        monkeypatch.setattr(worker, "_emit_heartbeat", lambda *args, **kwargs: None)
+        monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
+        monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
+        monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
+        monkeypatch.setattr(worker._support, "_create_block", _forbidden_create_block)
+        monkeypatch.setattr(sys, "stdin", io.StringIO(envelope.model_dump_json()))
+        captured_stdout = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured_stdout)
+
+        with pytest.raises(SystemExit) as exc_info:
+            worker.main()
+
+        result_env = ResultEnvelope.model_validate_json(captured_stdout.getvalue().strip())
+
+        assert exc_info.value.code == 1
+        assert len(FakeIPCClient.instances) == 1
+        assert FakeIPCClient.instances[0].connect_calls == 1
+        assert create_block_called["value"] is False
+        assert result_env.error is not None
+        assert "IPC auth failed" in result_env.error
+
+    def test_assertion_main_uses_connect_handshake_before_assertion_execution(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        from runsight_core.isolation import worker
+        from runsight_core.state import BlockResult
+
+        envelope = _make_context_envelope(
+            block_id="assertion_auth_ok",
+            block_type="assertion",
+            block_config={
+                "assertion": {"type": "llm_judge", "config": {"rubric": "strict"}},
+                "output_to_grade": "Candidate response",
+                "judge_soul": {
+                    "id": "judge_soul_1",
+                    "role": "LLM Judge",
+                    "system_prompt": "Grade this answer against the rubric.",
+                    "model_name": "gpt-4o-mini",
+                },
+            },
+        )
+
+        class FakeIPCClient:
+            instances: list["FakeIPCClient"] = []
+
+            def __init__(self, *, socket_path: str) -> None:
+                self.socket_path = socket_path
+                self.connect_calls = 0
+                self.request_calls: list[str] = []
+                FakeIPCClient.instances.append(self)
+
+            async def connect(self):
+                self.connect_calls += 1
+                return {
+                    "id": "cap-812",
+                    "done": True,
+                    "accepted": True,
+                    "active_actions": ["llm_call", "tool_call"],
+                    "engine_context": {},
+                    "error": None,
+                }
+
+            async def request(self, action: str, payload: dict[str, object]):
+                self.request_calls.append(action)
+                return {"output": "unused"}
+
+            async def request_stream(self, action: str, payload: dict[str, object]):
+                self.request_calls.append(action)
+                yield {
+                    "content": "unused",
+                    "cost_usd": 0.0,
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                    "tool_calls": [],
+                    "finish_reason": "stop",
+                }
+
+        class _FakeAssertionBlock:
+            def __init__(self, block_id: str) -> None:
+                self._block_id = block_id
+
+            async def execute(self, state):
+                state.results[self._block_id] = BlockResult(
+                    output="assertion-ok", exit_handle="done"
+                )
+                return state
+
+        def _fake_create_block(envelope_arg, soul_arg, runner_arg):
+            assert envelope_arg.block_type == "assertion"
+            return _FakeAssertionBlock(envelope_arg.block_id)
+
+        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-812")
+        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-run812.sock")
+        monkeypatch.setattr(worker, "_emit_heartbeat", lambda *args, **kwargs: None)
+        monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
+        monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
+        monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
+        monkeypatch.setattr(worker._support, "_create_block", _fake_create_block)
+        monkeypatch.setattr(sys, "stdin", io.StringIO(envelope.model_dump_json()))
+        captured_stdout = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured_stdout)
+
+        with pytest.raises(SystemExit) as exc_info:
+            worker.main()
+
+        result_env = ResultEnvelope.model_validate_json(captured_stdout.getvalue().strip())
+
+        assert exc_info.value.code == 0
+        assert len(FakeIPCClient.instances) == 1
+        assert FakeIPCClient.instances[0].connect_calls == 1
+        assert "capability_negotiation" not in FakeIPCClient.instances[0].request_calls
+        assert result_env.error is None
+        assert result_env.output == "assertion-ok"
 
 
 # ==============================================================================
@@ -541,7 +1373,7 @@ class TestWorkerMissingIpcSocket:
         envelope = _make_context_envelope()
         env_override = os.environ.copy()
         env_override.pop("RUNSIGHT_IPC_SOCKET", None)
-        env_override["RUNSIGHT_BLOCK_API_KEY"] = "test-key"
+        env_override["RUNSIGHT_GRANT_TOKEN"] = "grant-token-123"
         result = subprocess.run(
             [sys.executable, "-m", "runsight_core.isolation.worker"],
             input=envelope.model_dump_json(),
@@ -562,7 +1394,7 @@ class TestWorkerMissingIpcSocket:
         envelope = _make_context_envelope()
         env_override = os.environ.copy()
         env_override.pop("RUNSIGHT_IPC_SOCKET", None)
-        env_override["RUNSIGHT_BLOCK_API_KEY"] = "test-key"
+        env_override["RUNSIGHT_GRANT_TOKEN"] = "grant-token-123"
         result = subprocess.run(
             [sys.executable, "-m", "runsight_core.isolation.worker"],
             input=envelope.model_dump_json(),
@@ -622,7 +1454,7 @@ class TestWorkerEnvelopeParsing:
 
     def test_parse_context_envelope_from_json(self):
         """Worker has a function to parse ContextEnvelope from JSON string."""
-        from runsight_core.isolation.worker import parse_context_envelope
+        from runsight_core.isolation.worker_support import parse_context_envelope
 
         envelope = _make_context_envelope()
         parsed = parse_context_envelope(envelope.model_dump_json())
@@ -632,7 +1464,7 @@ class TestWorkerEnvelopeParsing:
     def test_invalid_json_produces_error_result(self):
         """Malformed JSON input yields exit 1 with error in ResultEnvelope."""
         env = os.environ.copy()
-        env["RUNSIGHT_BLOCK_API_KEY"] = "test-key"
+        env["RUNSIGHT_GRANT_TOKEN"] = "grant-token-123"
         env["RUNSIGHT_IPC_SOCKET"] = "/tmp/test.sock"
         result = subprocess.run(
             [sys.executable, "-m", "runsight_core.isolation.worker"],
@@ -660,7 +1492,7 @@ class TestWorkerSoulReconstruction:
 
     def test_reconstruct_soul_from_envelope(self):
         """Worker converts SoulEnvelope to a runsight_core.primitives.Soul."""
-        from runsight_core.isolation.worker import reconstruct_soul
+        from runsight_core.isolation.worker_support import reconstruct_soul
 
         soul_env = SoulEnvelope(
             id="soul_1",
@@ -681,7 +1513,7 @@ class TestWorkerSoulReconstruction:
 
     def test_reconstruct_soul_attaches_resolved_tools(self):
         """Worker should attach IPC-backed resolved_tools to the reconstructed Soul."""
-        from runsight_core.isolation.worker import reconstruct_soul
+        from runsight_core.isolation.worker_support import reconstruct_soul
         from runsight_core.tools import ToolInstance
 
         soul_env = SoulEnvelope(
@@ -715,7 +1547,7 @@ class TestWorkerScopedState:
 
     def test_build_scoped_state(self):
         """Worker builds a WorkflowState from scoped_results and shared_memory."""
-        from runsight_core.isolation.worker import build_scoped_state
+        from runsight_core.isolation.worker_support import build_scoped_state
 
         envelope = _make_context_envelope(
             scoped_results={"prev_block": {"output": "hello", "exit_handle": "done"}},

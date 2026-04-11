@@ -9,155 +9,21 @@ runner, llm, memory, state, and blocks sub-packages.
 
 from __future__ import annotations
 
-import inspect
-import json
-import os
 import sys
 import threading
 from datetime import datetime, timezone
 from typing import Any
 
 from runsight_core.isolation import ipc as isolation_ipc
+from runsight_core.isolation import worker_proxies as _proxies
+from runsight_core.isolation import worker_support as _support
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
+    DelegateArtifact,
     HeartbeatMessage,
     ResultEnvelope,
-    SoulEnvelope,
-    ToolDefEnvelope,
 )
-from runsight_core.llm.client import LiteLLMClient
-from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
-from runsight_core.memory.token_counting import litellm_token_counter
-from runsight_core.primitives import Soul, Task
-from runsight_core.runner import RunsightTeamRunner, _detect_provider
-from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.tools import ToolInstance
-
-# ---------------------------------------------------------------------------
-# Public helper functions (importable by tests)
-# ---------------------------------------------------------------------------
-
-
-def parse_context_envelope(json_str: str) -> ContextEnvelope:
-    """Parse a JSON string into a ContextEnvelope."""
-    return ContextEnvelope.model_validate_json(json_str)
-
-
-def reconstruct_soul(
-    soul_envelope: SoulEnvelope,
-    *,
-    resolved_tools: list[ToolInstance] | None = None,
-) -> Soul:
-    """Convert a SoulEnvelope into a runsight_core.primitives.Soul."""
-    return Soul(
-        id=soul_envelope.id,
-        role=soul_envelope.role,
-        system_prompt=soul_envelope.system_prompt,
-        model_name=soul_envelope.model_name,
-        provider=soul_envelope.provider or None,
-        temperature=soul_envelope.temperature,
-        max_tokens=soul_envelope.max_tokens,
-        required_tool_calls=list(soul_envelope.required_tool_calls),
-        max_tool_iterations=soul_envelope.max_tool_iterations,
-        resolved_tools=resolved_tools,
-    )
-
-
-def create_llm_client(model_name: str, api_key: str) -> LiteLLMClient:
-    """Create a LiteLLMClient with the given API key."""
-    return LiteLLMClient(model_name=model_name, api_key=api_key)
-
-
-def create_runner(model_name: str, api_key: str) -> RunsightTeamRunner:
-    """Create a RunsightTeamRunner from a single worker key using the canonical provider-key shape."""
-    provider = _detect_provider(model_name)
-    return RunsightTeamRunner(model_name=model_name, api_keys={provider: api_key})
-
-
-def create_tool_stubs(
-    tool_envelopes: list[ToolDefEnvelope],
-    socket_path: str,
-) -> list[ToolInstance]:
-    """Convert ToolDefEnvelope list into IPC-backed callable tool stubs."""
-    stubs: list[ToolInstance] = []
-    for tool_def in tool_envelopes:
-
-        async def _execute(args: dict[str, Any], *, td: ToolDefEnvelope = tool_def) -> str:
-            client = isolation_ipc.IPCClient(socket_path=socket_path)
-            try:
-                result = await client.request(
-                    "tool_call",
-                    name=td.name,
-                    arguments=args,
-                )
-            finally:
-                close_result = client.close()
-                if inspect.isawaitable(close_result):
-                    await close_result
-            if "error" in result:
-                return f"Error: {result['error']}"
-            return str(result.get("output", ""))
-
-        stubs.append(
-            ToolInstance(
-                name=tool_def.name,
-                description=tool_def.description,
-                parameters=tool_def.parameters,
-                execute=_execute,
-            )
-        )
-    return stubs
-
-
-def build_budgeted_history(
-    model: str,
-    system_prompt: str,
-    instruction: str,
-    conversation_history: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Apply fit_to_budget locally to trim conversation history.
-
-    Uses a conservative budget_ratio (0.5) to leave room for the block's
-    own output, tool calls, and instruction within the worker subprocess.
-    """
-    budgeted = fit_to_budget(
-        ContextBudgetRequest(
-            model=model,
-            system_prompt=system_prompt,
-            instruction=instruction,
-            context="",
-            conversation_history=conversation_history,
-            budget_ratio=0.5,
-        ),
-        counter=litellm_token_counter,
-    )
-    return budgeted.messages
-
-
-def build_scoped_state(envelope: ContextEnvelope) -> WorkflowState:
-    """Construct a scoped WorkflowState from envelope data."""
-    results: dict[str, BlockResult] = {}
-    for block_id, result_data in envelope.scoped_results.items():
-        if isinstance(result_data, dict):
-            results[block_id] = BlockResult(**result_data)
-        else:
-            results[block_id] = BlockResult(output=str(result_data))
-
-    task = Task(
-        id=envelope.task.id,
-        instruction=envelope.task.instruction,
-        context=json.dumps(envelope.task.context) if envelope.task.context else None,
-    )
-
-    history_key = f"{envelope.block_id}_{envelope.soul.id}"
-
-    return WorkflowState(
-        shared_memory=dict(envelope.scoped_shared_memory),
-        current_task=task,
-        results=results,
-        conversation_histories={history_key: list(envelope.conversation_history)},
-    )
-
+from runsight_core.state import WorkflowState
 
 # ---------------------------------------------------------------------------
 # Heartbeat thread
@@ -215,6 +81,117 @@ def _error_result(
     )
 
 
+async def _close_ipc_client(ipc_client: Any) -> None:
+    close = getattr(ipc_client, "close", None)
+    if close is None:
+        return
+    result = close()
+    if hasattr(result, "__await__"):
+        await result
+
+
+def _build_delegate_artifacts(
+    *,
+    block_id: str,
+    block_type: str,
+    final_state: WorkflowState,
+) -> dict[str, DelegateArtifact]:
+    if block_type != "dispatch":
+        return {}
+
+    prefix = f"{block_id}."
+    artifacts: dict[str, DelegateArtifact] = {}
+    for result_key, block_result in final_state.results.items():
+        if not result_key.startswith(prefix):
+            continue
+        port = result_key.removeprefix(prefix)
+        artifacts[port] = DelegateArtifact(task=str(block_result.output))
+    return artifacts
+
+
+async def _execute_envelope(
+    *,
+    envelope: ContextEnvelope,
+    ipc_socket: str,
+) -> tuple[ResultEnvelope, int]:
+    global _heartbeat_phase
+
+    block_id = envelope.block_id
+    ipc_client = isolation_ipc.IPCClient(socket_path=ipc_socket)
+
+    try:
+        capability = await ipc_client.connect()
+        accepted = (
+            capability.get("accepted") if isinstance(capability, dict) else capability.accepted
+        )
+        capability_error = (
+            capability.get("error") if isinstance(capability, dict) else capability.error
+        )
+        if not accepted:
+            return (
+                _error_result(
+                    block_id,
+                    f"IPC auth failed: {capability_error or 'capability negotiation rejected'}",
+                    "PermissionError",
+                ),
+                1,
+            )
+
+        resolved_tools = _proxies.create_tool_stubs(envelope.tools, ipc_client=ipc_client)
+        soul = _support.reconstruct_soul(envelope.soul, resolved_tools=resolved_tools)
+        runner = _proxies.create_runner(model_name=envelope.soul.model_name, ipc_client=ipc_client)
+
+        state = _support.build_scoped_state(envelope)
+
+        model = envelope.soul.model_name
+        history_key = f"{envelope.block_id}_{envelope.soul.id}"
+        history = state.conversation_histories.get(history_key, [])
+        if history:
+            budgeted_history = _support.build_budgeted_history(
+                model=model,
+                system_prompt=soul.system_prompt,
+                instruction=envelope.task.instruction,
+                conversation_history=history,
+            )
+            state = state.model_copy(
+                update={"conversation_histories": {history_key: budgeted_history}}
+            )
+
+        _heartbeat_phase = "executing"
+        block = _support._create_block(envelope, soul, runner)
+        final_state = await block.execute(state)
+
+        _heartbeat_phase = "done"
+        block_result = final_state.results.get(block_id)
+        output_history = final_state.conversation_histories.get(history_key, [])
+        block_type = _support._BLOCK_TYPE_MAP.get(
+            envelope.block_type.lower(), envelope.block_type.lower()
+        )
+        delegate_artifacts = _build_delegate_artifacts(
+            block_id=block_id,
+            block_type=block_type,
+            final_state=final_state,
+        )
+
+        return (
+            ResultEnvelope(
+                block_id=block_id,
+                output=block_result.output if block_result else None,
+                exit_handle=block_result.exit_handle or "done" if block_result else "done",
+                cost_usd=final_state.total_cost_usd,
+                total_tokens=final_state.total_tokens,
+                tool_calls_made=len(delegate_artifacts),
+                delegate_artifacts=delegate_artifacts,
+                conversation_history=output_history,
+                error=None,
+                error_type=None,
+            ),
+            0,
+        )
+    finally:
+        await _close_ipc_client(ipc_client)
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -224,6 +201,7 @@ def main() -> None:
     """Worker main loop: read envelope, execute block, write result."""
     import asyncio
     import io
+    import os
 
     global _heartbeat_phase
 
@@ -251,14 +229,14 @@ def main() -> None:
 
     try:
         # Check required env vars
-        api_key = os.environ.get("RUNSIGHT_BLOCK_API_KEY")
+        grant_token = os.environ.get("RUNSIGHT_GRANT_TOKEN")
         ipc_socket = os.environ.get("RUNSIGHT_IPC_SOCKET")
 
-        if not api_key:
+        if not grant_token:
             _write_result(
                 _error_result(
                     block_id,
-                    "Missing required environment variable: RUNSIGHT_BLOCK_API_KEY",
+                    "Missing required environment variable: RUNSIGHT_GRANT_TOKEN",
                     "EnvironmentError",
                 ),
                 exit_code=1,
@@ -278,7 +256,7 @@ def main() -> None:
         _heartbeat_phase = "parsing"
         raw_input = _real_stdin.read()
         try:
-            envelope = parse_context_envelope(raw_input)
+            envelope = _support.parse_context_envelope(raw_input)
         except Exception as exc:
             _write_result(
                 _error_result(
@@ -291,58 +269,13 @@ def main() -> None:
 
         block_id = envelope.block_id
 
-        # Reconstruct primitives
+        # Reconstruct primitives and execute the block on one event loop so the
+        # persistent IPC reader/writer stay loop-affine for all LLM/tool calls.
         _heartbeat_phase = "setup"
-        resolved_tools = create_tool_stubs(envelope.tools, socket_path=ipc_socket)
-        soul = reconstruct_soul(envelope.soul, resolved_tools=resolved_tools)
-        runner = create_runner(
-            model_name=envelope.soul.model_name,
-            api_key=api_key,
+        result_env, exit_code = asyncio.run(
+            _execute_envelope(envelope=envelope, ipc_socket=ipc_socket)
         )
-
-        # Build scoped state
-        state = build_scoped_state(envelope)
-
-        # Apply budget to conversation history
-        model = envelope.soul.model_name
-        history_key = f"{envelope.block_id}_{envelope.soul.id}"
-        history = state.conversation_histories.get(history_key, [])
-        if history:
-            budgeted_history = build_budgeted_history(
-                model=model,
-                system_prompt=soul.system_prompt,
-                instruction=envelope.task.instruction,
-                conversation_history=history,
-            )
-            state = state.model_copy(
-                update={"conversation_histories": {history_key: budgeted_history}}
-            )
-
-        # Construct and execute the block
-        _heartbeat_phase = "executing"
-        block = _create_block(envelope, soul, runner)
-        final_state = asyncio.run(block.execute(state))
-
-        # Build success result
-        _heartbeat_phase = "done"
-        block_result = final_state.results.get(block_id)
-        output_history = final_state.conversation_histories.get(history_key, [])
-
-        _write_result(
-            ResultEnvelope(
-                block_id=block_id,
-                output=block_result.output if block_result else None,
-                exit_handle=block_result.exit_handle or "done" if block_result else "done",
-                cost_usd=final_state.total_cost_usd,
-                total_tokens=final_state.total_tokens,
-                tool_calls_made=0,
-                delegate_artifacts={},
-                conversation_history=output_history,
-                error=None,
-                error_type=None,
-            ),
-            exit_code=0,
-        )
+        _write_result(result_env, exit_code=exit_code)
 
     except SystemExit:
         raise
@@ -360,24 +293,6 @@ def main() -> None:
         )
     finally:
         _heartbeat_stop.set()
-
-
-def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRunner):
-    """Instantiate the correct block based on envelope.block_type."""
-    block_type = envelope.block_type
-
-    if block_type == "linear":
-        from runsight_core.blocks.linear import LinearBlock
-
-        block = LinearBlock(
-            block_id=envelope.block_id,
-            soul=soul,
-            runner=runner,
-        )
-        block.stateful = True
-        return block
-
-    raise ValueError(f"Unsupported block_type: {block_type!r}")
 
 
 if __name__ == "__main__":

@@ -5,14 +5,20 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from jsonpath_ng import parse as jp_parse
 
 from runsight_core.assertions import custom as custom_assertions
-from runsight_core.assertions.base import AssertionContext, GradingResult
+from runsight_core.assertions.base import (
+    AssertionContext,
+    GradingResult,
+    grading_result_from_data,
+)
 from runsight_core.assertions.custom import _build_adapter_class
 from runsight_core.assertions.scoring import AssertionsResult
+from runsight_core.isolation.envelope import ContextEnvelope, SoulEnvelope, TaskEnvelope
+from runsight_core.isolation.harness import SubprocessHarness
 
 if TYPE_CHECKING:
     from runsight_core.yaml.discovery import AssertionMeta, ScanIndex
@@ -126,6 +132,90 @@ def _build_handler(
     return handler_cls(**kwargs)
 
 
+def _build_assertion_envelope(
+    *,
+    cfg: dict[str, Any],
+    output: str,
+    context: AssertionContext,
+) -> ContextEnvelope:
+    """Build an assertion ContextEnvelope for subprocess execution."""
+    config = cfg.get("config")
+    config_payload = config if isinstance(config, dict) else {}
+    judge_soul_raw = config_payload.get("judge_soul")
+    judge_soul = judge_soul_raw if isinstance(judge_soul_raw, dict) else {}
+    max_tool_iterations = judge_soul.get("max_tool_iterations", 1)
+    if not isinstance(max_tool_iterations, int):
+        max_tool_iterations = 1
+
+    block_config: dict[str, Any] = {
+        "assertion": {
+            "type": cfg.get("type", ""),
+            "value": cfg.get("value", ""),
+            "threshold": cfg.get("threshold"),
+            "config": config_payload,
+            "metric": cfg.get("metric"),
+            "transform": cfg.get("transform"),
+        },
+        "output_to_grade": output,
+        "judge_soul": judge_soul,
+    }
+
+    return ContextEnvelope(
+        block_id=context.block_id or "assertion",
+        block_type="assertion",
+        block_config=block_config,
+        soul=SoulEnvelope(
+            id=str(judge_soul.get("id", "assertion_judge")),
+            role=str(judge_soul.get("role", "Assertion Judge")),
+            system_prompt=str(judge_soul.get("system_prompt", "")),
+            model_name=str(judge_soul.get("model_name", "gpt-4o-mini")),
+            provider=str(judge_soul.get("provider", "")),
+            temperature=judge_soul.get("temperature"),
+            max_tokens=judge_soul.get("max_tokens"),
+            required_tool_calls=[],
+            max_tool_iterations=max_tool_iterations,
+        ),
+        tools=[],
+        task=TaskEnvelope(
+            id=f"assert-{context.block_id or 'task'}",
+            instruction=context.prompt,
+            context={},
+        ),
+        scoped_results={},
+        scoped_shared_memory={},
+        conversation_history=[],
+        timeout_seconds=30,
+        max_output_bytes=1_000_000,
+    )
+
+
+async def _run_smart_llm_assertion(
+    *,
+    cfg: dict[str, Any],
+    output: str,
+    context: AssertionContext,
+    api_keys: dict[str, str],
+) -> GradingResult:
+    """Run an llm_judge assertion through the subprocess harness."""
+    harness = SubprocessHarness(api_keys=dict(api_keys))
+    envelope = _build_assertion_envelope(cfg=cfg, output=output, context=context)
+    result = await harness.run(envelope)
+
+    if result.error:
+        raise RuntimeError(result.error)
+    if not result.output:
+        raise ValueError("smart assertion subprocess returned empty output")
+
+    payload = json.loads(result.output)
+    grading = grading_result_from_data(payload)
+    if grading.assertion_type is None:
+        grading.assertion_type = "llm_judge"
+
+    # Active BudgetSession accounting happens inside the subprocess harness IPC path.
+    # Re-accruing result.cost_usd here would double-count the same LLM call.
+    return grading
+
+
 def run_assertion(
     *,
     type: str,
@@ -172,6 +262,12 @@ async def run_assertions(
     *,
     output: str,
     context: AssertionContext,
+    api_keys: dict[str, str] | None = None,
+    llm_judge_runner: Callable[
+        [dict[str, Any], str, AssertionContext],
+        Awaitable[GradingResult],
+    ]
+    | None = None,
     max_concurrent: int = 10,
 ) -> AssertionsResult:
     """Run a list of assertion configs concurrently and return aggregated results."""
@@ -185,17 +281,32 @@ async def run_assertions(
     async def _run_one(cfg: dict[str, Any]) -> tuple[GradingResult, float]:
         async with semaphore:
             weight = cfg.get("weight", 1.0)
-            result = run_assertion(
-                type=cfg["type"],
-                output=output,
-                context=context,
-                value=cfg.get("value", ""),
-                threshold=cfg.get("threshold"),
-                config=cfg.get("config"),
-                weight=weight,
-                metric=cfg.get("metric"),
-                transform=cfg.get("transform"),
-            )
+            if cfg.get("type") == "llm_judge":
+                if llm_judge_runner is not None:
+                    result = await llm_judge_runner(cfg, output, context)
+                elif api_keys is not None:
+                    result = await _run_smart_llm_assertion(
+                        cfg=cfg,
+                        output=output,
+                        context=context,
+                        api_keys=api_keys,
+                    )
+                else:
+                    raise ValueError(
+                        "llm_judge assertions require engine api_keys or an llm_judge_runner"
+                    )
+            else:
+                result = run_assertion(
+                    type=cfg["type"],
+                    output=output,
+                    context=context,
+                    value=cfg.get("value", ""),
+                    threshold=cfg.get("threshold"),
+                    config=cfg.get("config"),
+                    weight=weight,
+                    metric=cfg.get("metric"),
+                    transform=cfg.get("transform"),
+                )
             if cfg.get("metric"):
                 result.named_scores[cfg["metric"]] = result.score
             return result, weight
@@ -222,6 +333,10 @@ def run_assertions_sync(
         return agg
 
     for cfg in config:
+        if cfg.get("type") == "llm_judge":
+            raise ValueError(
+                "llm_judge assertions require async run_assertions with api_keys or an llm_judge_runner"
+            )
         weight = cfg.get("weight", 1.0)
         result = run_assertion(
             type=cfg["type"],

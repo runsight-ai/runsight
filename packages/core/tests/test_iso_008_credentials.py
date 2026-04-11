@@ -124,7 +124,7 @@ class TestSubprocessCredentialScoping:
     def test_harness_accepts_tool_credentials(self):
         """SubprocessHarness accepts a tool_credentials dict for IPC handler setup."""
         harness = SubprocessHarness(
-            api_key="sk-test-key",
+            api_keys={"openai": "sk-test-key"},
             tool_credentials={"http_tool_1": {"Authorization": "Bearer sk-secret"}},
         )
         assert harness is not None
@@ -132,7 +132,7 @@ class TestSubprocessCredentialScoping:
     def test_tool_credentials_not_in_subprocess_env(self):
         """Tool credentials must NOT appear in the subprocess environment."""
         harness = SubprocessHarness(
-            api_key="sk-test-key",
+            api_keys={"openai": "sk-test-key"},
             tool_credentials={"http_tool_1": {"Authorization": "Bearer sk-tool-secret"}},
         )
         env = harness._build_subprocess_env(socket_path="/tmp/test.sock")
@@ -144,7 +144,7 @@ class TestSubprocessCredentialScoping:
     def test_harness_creates_handlers_with_credentials(self):
         """Harness builds IPC handlers that have the tool credentials baked in."""
         harness = SubprocessHarness(
-            api_key="sk-test-key",
+            api_keys={"openai": "sk-test-key"},
             tool_credentials={"http_tool_1": {"Authorization": "Bearer sk-injected"}},
         )
         handlers = harness._build_ipc_handlers()
@@ -217,6 +217,78 @@ class TestGenericToolCallHandler:
 
 
 # ---------------------------------------------------------------------------
+# RUN-813: LLM handler budget ownership
+# ---------------------------------------------------------------------------
+
+
+class TestLLMHandlerBudgetOwnership:
+    """Engine-side LLM calls must leave budget enforcement to the IPC interceptor."""
+
+    @staticmethod
+    def _make_litellm_response(
+        content: str = "done",
+        prompt_tokens: int = 50,
+        completion_tokens: int = 30,
+        total_tokens: int = 80,
+    ):
+        from unittest.mock import MagicMock
+
+        message = MagicMock()
+        message.content = content
+        message.tool_calls = None
+
+        choice = MagicMock()
+        choice.message = message
+        choice.finish_reason = "stop"
+
+        usage = MagicMock()
+        usage.prompt_tokens = prompt_tokens
+        usage.completion_tokens = completion_tokens
+        usage.total_tokens = total_tokens
+
+        response = MagicMock()
+        response.choices = [choice]
+        response.usage = usage
+        return response
+
+    @pytest.mark.asyncio
+    async def test_llm_handler_does_not_use_active_budget_context(self):
+        """The IPC handler should return the paid response even when it exceeds cap."""
+        from unittest.mock import AsyncMock, patch
+
+        from runsight_core.budget_enforcement import BudgetSession, _active_budget
+        from runsight_core.isolation.handlers import make_llm_call_handler
+
+        session = BudgetSession(scope_name="workflow:test", cost_cap_usd=0.001)
+        token = _active_budget.set(session)
+        try:
+            handler = make_llm_call_handler({"openai": "sk-test-openai"})
+            with (
+                patch(
+                    "runsight_core.llm.client.acompletion",
+                    new_callable=AsyncMock,
+                    return_value=self._make_litellm_response(total_tokens=100),
+                ),
+                patch("runsight_core.llm.client.completion_cost", return_value=0.002),
+            ):
+                chunks = [
+                    chunk
+                    async for chunk in handler(
+                        {
+                            "model": "gpt-4o",
+                            "messages": [{"role": "user", "content": "hi"}],
+                        }
+                    )
+                ]
+        finally:
+            _active_budget.reset(token)
+
+        assert len(chunks) == 1
+        assert chunks[0]["cost_usd"] == pytest.approx(0.002)
+        assert session.cost_usd == 0.0
+
+
+# ---------------------------------------------------------------------------
 # AC2: HTTP tool — credentials injected by engine at IPC time
 # ---------------------------------------------------------------------------
 
@@ -232,37 +304,60 @@ class TestHTTPCredentialInjection:
     @pytest.mark.asyncio
     async def test_http_handler_injects_auth_header(self, tmp_path: Path):
         """http handler adds Authorization header from tool credential config."""
+        from unittest.mock import AsyncMock, patch
+
         from runsight_core.isolation.handlers import make_http_handler
 
-        credentials = {"Authorization": "Bearer sk-engine-secret-token"}
-        handler = make_http_handler(credentials=credentials, url_allowlist=["*"])
+        credentials = {"api.example.com": {"Authorization": "Bearer sk-engine-secret-token"}}
+        handler = make_http_handler(credentials=credentials, url_allowlist=["api.example.com"])
 
-        result = await handler(
-            {
-                "method": "GET",
-                "url": "https://api.example.com/data",
-                "headers": {"Accept": "application/json"},
-            }
-        )
+        with (
+            patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock),
+            patch(
+                "runsight_core.isolation.handlers._perform_http_request",
+                new_callable=AsyncMock,
+                return_value={"status_code": 200, "body": "ok", "headers": {}},
+            ) as perform_request,
+        ):
+            result = await handler(
+                {
+                    "method": "GET",
+                    "url": "https://api.example.com/data",
+                    "headers": {"Accept": "application/json"},
+                }
+            )
 
-        # The handler should have merged the credential header into the request
         assert "error" not in result
+        assert perform_request.await_args.kwargs["headers"] == {
+            "Accept": "application/json",
+            "Authorization": "Bearer sk-engine-secret-token",
+        }
 
     @pytest.mark.asyncio
     async def test_http_handler_does_not_expose_token_in_response(self, tmp_path: Path):
         """The token injected by the engine must not appear in the IPC response."""
+        from unittest.mock import AsyncMock, patch
+
         from runsight_core.isolation.handlers import make_http_handler
 
-        credentials = {"Authorization": "Bearer sk-super-secret"}
-        handler = make_http_handler(credentials=credentials, url_allowlist=["*"])
+        credentials = {"api.example.com": {"Authorization": "Bearer sk-super-secret"}}
+        handler = make_http_handler(credentials=credentials, url_allowlist=["api.example.com"])
 
-        result = await handler(
-            {
-                "method": "GET",
-                "url": "https://api.example.com/data",
-                "headers": {},
-            }
-        )
+        with (
+            patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock),
+            patch(
+                "runsight_core.isolation.handlers._perform_http_request",
+                new_callable=AsyncMock,
+                return_value={"status_code": 200, "body": "ok", "headers": {}},
+            ),
+        ):
+            result = await handler(
+                {
+                    "method": "GET",
+                    "url": "https://api.example.com/data",
+                    "headers": {},
+                }
+            )
 
         # Response must not contain the injected credential
         result_str = json.dumps(result)
@@ -271,10 +366,12 @@ class TestHTTPCredentialInjection:
     @pytest.mark.asyncio
     async def test_subprocess_request_has_no_credential_fields(self, tmp_path: Path):
         """Subprocess sends requests without credential fields — engine adds them."""
+        from unittest.mock import AsyncMock, patch
+
         from runsight_core.isolation.handlers import make_http_handler
 
-        credentials = {"Authorization": "Bearer sk-injected"}
-        handler = make_http_handler(credentials=credentials, url_allowlist=["*"])
+        credentials = {"api.example.com": {"Authorization": "Bearer sk-injected"}}
+        handler = make_http_handler(credentials=credentials, url_allowlist=["api.example.com"])
 
         # Simulate a subprocess request with NO auth header
         subprocess_request = {
@@ -283,9 +380,18 @@ class TestHTTPCredentialInjection:
             "headers": {},
         }
 
-        # The handler should work fine even though subprocess didn't send credentials
-        result = await handler(subprocess_request)
+        with (
+            patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock),
+            patch(
+                "runsight_core.isolation.handlers._perform_http_request",
+                new_callable=AsyncMock,
+                return_value={"status_code": 200, "body": "ok", "headers": {}},
+            ) as perform_request,
+        ):
+            result = await handler(subprocess_request)
+
         assert "error" not in result
+        assert perform_request.await_args.kwargs["headers"]["Authorization"] == "Bearer sk-injected"
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +405,8 @@ class TestHTTPURLAllowlist:
     @pytest.mark.asyncio
     async def test_allowed_host_passes(self, tmp_path: Path):
         """Requests to hosts on the allowlist are permitted."""
+        from unittest.mock import AsyncMock, patch
+
         from runsight_core.isolation.handlers import make_http_handler
 
         handler = make_http_handler(
@@ -306,13 +414,21 @@ class TestHTTPURLAllowlist:
             url_allowlist=["api.example.com", "cdn.example.com"],
         )
 
-        result = await handler(
-            {
-                "method": "GET",
-                "url": "https://api.example.com/data",
-                "headers": {},
-            }
-        )
+        with (
+            patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock),
+            patch(
+                "runsight_core.isolation.handlers._perform_http_request",
+                new_callable=AsyncMock,
+                return_value={"status_code": 200, "body": "ok", "headers": {}},
+            ),
+        ):
+            result = await handler(
+                {
+                    "method": "GET",
+                    "url": "https://api.example.com/data",
+                    "headers": {},
+                }
+            )
         assert "error" not in result
 
     @pytest.mark.asyncio
@@ -352,13 +468,13 @@ class TestHTTPURLAllowlist:
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_wildcard_allowlist_permits_all(self, tmp_path: Path):
-        """A '*' entry in the allowlist permits all hosts."""
+    async def test_literal_wildcard_does_not_bypass_allowlist(self, tmp_path: Path):
+        """A '*' entry is treated literally; hosts must still be explicitly allowed."""
         from unittest.mock import AsyncMock, patch
 
         from runsight_core.isolation.handlers import make_http_handler
 
-        handler = make_http_handler(credentials={}, url_allowlist=["*"])
+        handler = make_http_handler(credentials={}, url_allowlist=["10.0.0.1"])
 
         with patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock):
             result = await handler(
@@ -368,11 +484,14 @@ class TestHTTPURLAllowlist:
                     "headers": {},
                 }
             )
-        assert "error" not in result
+        assert "error" in result
+        assert "allowed" in result["error"].lower()
 
     @pytest.mark.asyncio
     async def test_allowlist_matches_hostname_not_path(self, tmp_path: Path):
         """Allowlist checks the hostname, not the full URL path."""
+        from unittest.mock import AsyncMock, patch
+
         from runsight_core.isolation.handlers import make_http_handler
 
         handler = make_http_handler(
@@ -381,13 +500,21 @@ class TestHTTPURLAllowlist:
         )
 
         # Different paths on the same allowed host should be fine
-        result = await handler(
-            {
-                "method": "GET",
-                "url": "https://api.example.com/any/path/here",
-                "headers": {},
-            }
-        )
+        with (
+            patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock),
+            patch(
+                "runsight_core.isolation.handlers._perform_http_request",
+                new_callable=AsyncMock,
+                return_value={"status_code": 200, "body": "ok", "headers": {}},
+            ),
+        ):
+            result = await handler(
+                {
+                    "method": "GET",
+                    "url": "https://api.example.com/any/path/here",
+                    "headers": {},
+                }
+            )
         assert "error" not in result
 
 
@@ -404,7 +531,7 @@ class TestHTTPSSRFProtection:
         """Requests to 127.0.0.1 are blocked by SSRF validation."""
         from runsight_core.isolation.handlers import make_http_handler
 
-        handler = make_http_handler(credentials={}, url_allowlist=["*"])
+        handler = make_http_handler(credentials={}, url_allowlist=["127.0.0.1"])
 
         result = await handler(
             {
@@ -421,7 +548,7 @@ class TestHTTPSSRFProtection:
         """Requests to 10.x.x.x private range are blocked."""
         from runsight_core.isolation.handlers import make_http_handler
 
-        handler = make_http_handler(credentials={}, url_allowlist=["*"])
+        handler = make_http_handler(credentials={}, url_allowlist=["192.168.1.1"])
 
         result = await handler(
             {
@@ -437,7 +564,7 @@ class TestHTTPSSRFProtection:
         """Requests to 192.168.x.x private range are blocked."""
         from runsight_core.isolation.handlers import make_http_handler
 
-        handler = make_http_handler(credentials={}, url_allowlist=["*"])
+        handler = make_http_handler(credentials={}, url_allowlist=["169.254.169.254"])
 
         result = await handler(
             {
@@ -467,21 +594,324 @@ class TestHTTPSSRFProtection:
     @pytest.mark.asyncio
     async def test_public_ip_allowed(self, tmp_path: Path):
         """Requests to public IPs pass SSRF validation."""
+        from unittest.mock import AsyncMock, patch
+
         from runsight_core.isolation.handlers import make_http_handler
 
-        handler = make_http_handler(credentials={}, url_allowlist=["*"])
+        handler = make_http_handler(credentials={}, url_allowlist=["8.8.8.8"])
 
         # 8.8.8.8 is public (Google DNS)
+        with (
+            patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock),
+            patch(
+                "runsight_core.isolation.handlers._perform_http_request",
+                new_callable=AsyncMock,
+                return_value={"status_code": 200, "body": "ok", "headers": {}},
+            ),
+        ):
+            result = await handler(
+                {
+                    "method": "GET",
+                    "url": "http://8.8.8.8/",
+                    "headers": {},
+                }
+            )
+        assert "error" not in result
+
+
+# ---------------------------------------------------------------------------
+# RUN-811: Real HTTP transport contract (httpx + allowlist + SSRF)
+# ---------------------------------------------------------------------------
+
+
+class TestRUN811RealHTTPHandlerContract:
+    """RUN-811: make_http_handler must perform real httpx requests with strict controls."""
+
+    @pytest.mark.asyncio
+    async def test_allowed_host_uses_httpx_and_returns_actual_body_status_headers(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        from unittest.mock import AsyncMock
+
+        from runsight_core.isolation import handlers as handlers_module
+        from runsight_core.isolation.handlers import make_http_handler
+
+        captured: dict[str, Any] = {}
+
+        class _FakeResponse:
+            status_code = 200
+            headers = {"content-type": "application/json"}
+            text = '{"ok": true, "source": "mock"}'
+
+        class _FakeAsyncClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def request(
+                self, method: str, url: str, headers: dict[str, str], json: Any = None
+            ):
+                captured["method"] = method
+                captured["url"] = url
+                captured["headers"] = dict(headers)
+                captured["json"] = json
+                return _FakeResponse()
+
+        fake_httpx = type("FakeHTTPX", (), {"AsyncClient": _FakeAsyncClient})
+        monkeypatch.setattr(handlers_module, "httpx", fake_httpx, raising=False)
+        monkeypatch.setattr(handlers_module, "validate_ssrf", AsyncMock(return_value=None))
+
+        handler = make_http_handler(
+            credentials={"api.example.com": {"Authorization": "Bearer host-token"}},
+            url_allowlist=["api.example.com"],
+        )
         result = await handler(
             {
                 "method": "GET",
-                "url": "http://8.8.8.8/",
+                "url": "https://api.example.com/data",
+                "headers": {"Accept": "application/json"},
+            }
+        )
+
+        assert captured["method"] == "GET"
+        assert captured["url"] == "https://api.example.com/data"
+        assert captured["headers"]["Authorization"] == "Bearer host-token"
+        assert result["status_code"] == 200
+        assert result["body"] == '{"ok": true, "source": "mock"}'
+        assert result["headers"]["content-type"] == "application/json"
+
+    @pytest.mark.asyncio
+    async def test_empty_allowlist_blocks_request_before_httpx(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        from unittest.mock import AsyncMock
+
+        from runsight_core.isolation import handlers as handlers_module
+        from runsight_core.isolation.handlers import make_http_handler
+
+        captured: dict[str, Any] = {"http_calls": 0}
+
+        class _FakeAsyncClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def request(self, *args: Any, **kwargs: Any):
+                captured["http_calls"] += 1
+                raise AssertionError("httpx must not run when allowlist blocks request")
+
+        fake_httpx = type("FakeHTTPX", (), {"AsyncClient": _FakeAsyncClient})
+        monkeypatch.setattr(handlers_module, "httpx", fake_httpx, raising=False)
+        monkeypatch.setattr(handlers_module, "validate_ssrf", AsyncMock(return_value=None))
+
+        handler = make_http_handler(credentials={}, url_allowlist=[])
+        result = await handler(
+            {
+                "method": "GET",
+                "url": "https://api.example.com/private",
                 "headers": {},
             }
         )
-        # Should not have an SSRF error (may have a connection error, but not SSRF)
-        if "error" in result:
-            assert "ssrf" not in result["error"].lower()
+
+        assert "error" in result
+        assert "Host not on allowed list" in result["error"]
+        assert captured["http_calls"] == 0
+
+    @pytest.mark.asyncio
+    async def test_per_host_credentials_are_scoped_to_request_host(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        from unittest.mock import AsyncMock
+
+        from runsight_core.isolation import handlers as handlers_module
+        from runsight_core.isolation.handlers import make_http_handler
+
+        captured: dict[str, Any] = {}
+
+        class _FakeResponse:
+            status_code = 200
+            headers = {}
+            text = "ok"
+
+        class _FakeAsyncClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def request(
+                self, method: str, url: str, headers: dict[str, str], json: Any = None
+            ):
+                captured["headers"] = dict(headers)
+                return _FakeResponse()
+
+        fake_httpx = type("FakeHTTPX", (), {"AsyncClient": _FakeAsyncClient})
+        monkeypatch.setattr(handlers_module, "httpx", fake_httpx, raising=False)
+        monkeypatch.setattr(handlers_module, "validate_ssrf", AsyncMock(return_value=None))
+
+        handler = make_http_handler(
+            credentials={
+                "host-a.com": {"Authorization": "Bearer host-a", "X-Host-A": "yes"},
+                "host-b.com": {"Authorization": "Bearer host-b", "X-Host-B": "yes"},
+            },
+            url_allowlist=["host-a.com", "host-b.com"],
+        )
+
+        _ = await handler(
+            {
+                "method": "POST",
+                "url": "https://host-a.com/v1/data",
+                "headers": {"Content-Type": "application/json"},
+                "json": {"value": 1},
+            }
+        )
+
+        assert captured["headers"]["Authorization"] == "Bearer host-a"
+        assert captured["headers"]["X-Host-A"] == "yes"
+        assert "X-Host-B" not in captured["headers"]
+
+    @pytest.mark.asyncio
+    async def test_redirect_is_not_followed_by_default(self, monkeypatch: pytest.MonkeyPatch):
+        from unittest.mock import AsyncMock
+
+        from runsight_core.isolation import handlers as handlers_module
+        from runsight_core.isolation.handlers import make_http_handler
+
+        captured: dict[str, Any] = {"calls": 0, "client_kwargs": None}
+
+        class _FakeResponse:
+            status_code = 302
+            headers = {"location": "https://api.example.com/new-location"}
+            text = "redirect"
+
+        class _FakeAsyncClient:
+            def __init__(self, **kwargs: Any):
+                captured["client_kwargs"] = dict(kwargs)
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def request(
+                self, method: str, url: str, headers: dict[str, str], json: Any = None
+            ):
+                captured["calls"] += 1
+                return _FakeResponse()
+
+        fake_httpx = type("FakeHTTPX", (), {"AsyncClient": _FakeAsyncClient})
+        monkeypatch.setattr(handlers_module, "httpx", fake_httpx, raising=False)
+        monkeypatch.setattr(handlers_module, "validate_ssrf", AsyncMock(return_value=None))
+
+        handler = make_http_handler(credentials={}, url_allowlist=["api.example.com"])
+        result = await handler(
+            {
+                "method": "GET",
+                "url": "https://api.example.com/old-location",
+                "headers": {},
+                "follow_redirects": True,
+            }
+        )
+
+        assert captured["client_kwargs"]["follow_redirects"] is False
+        assert captured["calls"] == 1
+        assert result["status_code"] == 302
+        assert result["headers"]["location"] == "https://api.example.com/new-location"
+
+    @pytest.mark.asyncio
+    async def test_response_body_over_max_response_bytes_returns_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        from unittest.mock import AsyncMock
+
+        from runsight_core.isolation import handlers as handlers_module
+        from runsight_core.isolation.handlers import make_http_handler
+
+        class _FakeResponse:
+            status_code = 200
+            headers = {}
+            text = "too-large"
+
+        class _FakeAsyncClient:
+            def __init__(self, **_kwargs: Any):
+                return None
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def request(
+                self, method: str, url: str, headers: dict[str, str], json: Any = None
+            ):
+                return _FakeResponse()
+
+        fake_httpx = type("FakeHTTPX", (), {"AsyncClient": _FakeAsyncClient})
+        monkeypatch.setattr(handlers_module, "httpx", fake_httpx, raising=False)
+        monkeypatch.setattr(handlers_module, "validate_ssrf", AsyncMock(return_value=None))
+
+        handler = make_http_handler(credentials={}, url_allowlist=["api.example.com"])
+        result = await handler(
+            {
+                "method": "GET",
+                "url": "https://api.example.com/large",
+                "headers": {},
+                "max_response_bytes": 4,
+            }
+        )
+
+        assert result == {"error": "response body exceeds max_response_bytes=4"}
+
+    @pytest.mark.asyncio
+    async def test_private_ip_request_returns_ssrf_error_without_httpx_call(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        from unittest.mock import AsyncMock
+
+        from runsight_core.isolation import handlers as handlers_module
+        from runsight_core.isolation.handlers import make_http_handler
+        from runsight_core.security import SSRFError
+
+        captured: dict[str, Any] = {"http_calls": 0}
+
+        class _FakeAsyncClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def request(self, *args: Any, **kwargs: Any):
+                captured["http_calls"] += 1
+                raise AssertionError("httpx must not run after SSRF validation fails")
+
+        fake_httpx = type("FakeHTTPX", (), {"AsyncClient": _FakeAsyncClient})
+        monkeypatch.setattr(handlers_module, "httpx", fake_httpx, raising=False)
+        monkeypatch.setattr(
+            handlers_module,
+            "validate_ssrf",
+            AsyncMock(side_effect=SSRFError("SSRF blocked private IP 10.0.0.1")),
+        )
+
+        handler = make_http_handler(credentials={}, url_allowlist=["10.0.0.1"])
+        result = await handler(
+            {
+                "method": "GET",
+                "url": "http://10.0.0.1/internal",
+                "headers": {},
+            }
+        )
+
+        assert "error" in result
+        assert "ssrf" in result["error"].lower()
+        assert captured["http_calls"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -541,6 +971,59 @@ class TestFileIOBaseDir:
 
         assert "error" not in result
         assert (base / "output.txt").read_text() == "result data"
+
+    @pytest.mark.asyncio
+    async def test_write_over_max_write_bytes_is_rejected(self, tmp_path: Path):
+        """File writes are capped engine-side to avoid disk exhaustion."""
+        from runsight_core.isolation.handlers import make_file_io_handler
+
+        base = tmp_path / "wf-output"
+        base.mkdir()
+
+        handler = make_file_io_handler(base_dir=str(base), max_write_bytes=4)
+        result = await handler(
+            {
+                "action_type": "write",
+                "path": "too-large.txt",
+                "content": "12345",
+            }
+        )
+
+        assert result == {"error": "file write exceeds max_write_bytes=4"}
+        assert not (base / "too-large.txt").exists()
+
+    @pytest.mark.asyncio
+    async def test_cumulative_writes_over_max_total_write_bytes_are_rejected(self, tmp_path: Path):
+        """Many individually valid writes cannot exceed the handler's total write budget."""
+        from runsight_core.isolation.handlers import make_file_io_handler
+
+        base = tmp_path / "wf-output"
+        base.mkdir()
+
+        handler = make_file_io_handler(
+            base_dir=str(base),
+            max_write_bytes=10,
+            max_total_write_bytes=8,
+        )
+        first = await handler(
+            {
+                "action_type": "write",
+                "path": "first.txt",
+                "content": "1234",
+            }
+        )
+        second = await handler(
+            {
+                "action_type": "write",
+                "path": "second.txt",
+                "content": "56789",
+            }
+        )
+
+        assert first == {"ok": True}
+        assert second == {"error": "file writes exceed max_total_write_bytes=8"}
+        assert (base / "first.txt").read_text() == "1234"
+        assert not (base / "second.txt").exists()
 
     @pytest.mark.asyncio
     async def test_absolute_path_rejected(self, tmp_path: Path):

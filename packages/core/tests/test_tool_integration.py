@@ -36,10 +36,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import yaml
-from runsight_core.isolation.envelope import ResultEnvelope, ToolDefEnvelope
+from runsight_core.isolation.envelope import ResultEnvelope
 from runsight_core.isolation.handlers import make_tool_call_handler
 from runsight_core.isolation.ipc import IPCServer
-from runsight_core.isolation.worker import create_tool_stubs
 from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import WorkflowState
@@ -2039,7 +2038,7 @@ workflow:
     async def test_ipc_tool_call_round_trip_returns_engine_tool_output(
         self, tmp_path: Path
     ) -> None:
-        """RUN-532 AC5: worker-side tool stubs should round-trip through IPC tool_call."""
+        """RUN-532 AC5: tool_call action round-trips through IPC server."""
 
         async def _echo(args: dict[str, Any]) -> str:
             return f"echo:{args['value']}"
@@ -2049,6 +2048,9 @@ workflow:
         sock.bind(str(socket_path))
         sock.listen(1)
 
+        from runsight_core.isolation.ipc_models import GrantToken
+
+        grant = GrantToken(block_id="test-tool-call")
         server = IPCServer(
             sock=sock,
             handlers={
@@ -2067,31 +2069,51 @@ workflow:
                     }
                 )
             },
+            grant_token=grant,
         )
         server_task = asyncio.create_task(server.serve())
         await asyncio.sleep(0)
 
         try:
-            stubs = create_tool_stubs(
-                [
-                    ToolDefEnvelope(
-                        source="echo_tool",
-                        config={},
-                        exits=[],
-                        name="echo_tool",
-                        description="Echo values.",
-                        parameters={
-                            "type": "object",
-                            "properties": {"value": {"type": "string"}},
-                            "required": ["value"],
-                        },
-                        tool_type="custom",
-                    )
-                ],
-                socket_path=str(socket_path),
-            )
+            reader, writer = await asyncio.open_unix_connection(str(socket_path))
 
-            assert await stubs[0].execute({"value": "hi"}) == "echo:hi"
+            # Capability negotiation
+            cap_req = (
+                json.dumps(
+                    {
+                        "action": "capability_negotiation",
+                        "id": "cap-1",
+                        "grant_token": grant.token,
+                        "supported_actions": ["tool_call"],
+                        "worker_version": "test",
+                    }
+                )
+                + "\n"
+            )
+            writer.write(cap_req.encode())
+            await writer.drain()
+            cap_resp = json.loads(await asyncio.wait_for(reader.readline(), timeout=2))
+            assert cap_resp.get("accepted") is True
+
+            # Tool call
+            tool_req = (
+                json.dumps(
+                    {
+                        "id": "tc-1",
+                        "action": "tool_call",
+                        "payload": {"name": "echo_tool", "arguments": {"value": "hi"}},
+                    }
+                )
+                + "\n"
+            )
+            writer.write(tool_req.encode())
+            await writer.drain()
+            tool_resp = json.loads(await asyncio.wait_for(reader.readline(), timeout=2))
+            assert tool_resp.get("done") is True
+            assert tool_resp["payload"]["output"] == "echo:hi"
+
+            writer.close()
+            await writer.wait_closed()
         finally:
             await server.shutdown()
             server_task.cancel()

@@ -97,7 +97,7 @@ class TestHeartbeatStallKill:
         """If the subprocess sends no heartbeats within the heartbeat timeout,
         _monitor_heartbeats must return True (killed) and terminate the process."""
         harness = SubprocessHarness(
-            api_key="sk-test",
+            api_keys={"openai": "sk-test"},
             heartbeat_timeout=0.1,  # 100ms for fast test
         )
 
@@ -117,7 +117,7 @@ class TestHeartbeatStallKill:
     async def test_regular_heartbeats_keep_process_alive(self):
         """If heartbeats arrive within the timeout, the process is not killed."""
         harness = SubprocessHarness(
-            api_key="sk-test",
+            api_keys={"openai": "sk-test"},
             heartbeat_timeout=1.0,
         )
 
@@ -193,7 +193,7 @@ class TestPhaseStallKill:
         """The harness monitor loop must detect phase stalls and kill the process.
         This requires the monitor to use the HeartbeatTracker and per-phase thresholds."""
         harness = SubprocessHarness(
-            api_key="sk-test",
+            api_keys={"openai": "sk-test"},
             heartbeat_timeout=5.0,  # Long — so we don't trigger heartbeat stall
             phase_timeout=0.05,  # Short phase stall threshold
         )
@@ -275,7 +275,7 @@ class TestStallThresholdsConfigurable:
         to the HeartbeatTracker it creates."""
         thresholds = {"parsing": 10, "llm_call": 120}
         harness = SubprocessHarness(
-            api_key="sk-test",
+            api_keys={"openai": "sk-test"},
             stall_thresholds=thresholds,
         )
 
@@ -305,7 +305,7 @@ class TestTimeoutSecondsConfigurable:
 
     def test_harness_default_timeout_is_300(self):
         """SubprocessHarness default timeout_seconds is 300."""
-        harness = SubprocessHarness(api_key="sk-test")
+        harness = SubprocessHarness(api_keys={"openai": "sk-test"})
         assert harness._timeout_seconds == 300
 
 
@@ -642,7 +642,7 @@ class TestLlmCallPhaseStall:
     async def test_llm_call_stall_kills_subprocess(self):
         """When llm_call phase exceeds threshold, the harness must kill the subprocess."""
         harness = SubprocessHarness(
-            api_key="sk-test",
+            api_keys={"openai": "sk-test"},
             heartbeat_timeout=5.0,
             phase_timeout=60.0,
             stall_thresholds={"llm_call": 0.05},  # 50ms for fast test

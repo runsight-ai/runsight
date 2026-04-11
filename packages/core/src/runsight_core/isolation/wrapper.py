@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, Optional
 
 from runsight_core.blocks.base import BaseBlock
+from runsight_core.budget_enforcement import budget_killed_exception_from_message
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     ResultEnvelope,
@@ -25,15 +27,37 @@ _SOUL_ATTR_MAP = {
 LLM_BLOCK_TYPES = frozenset({"linear", "gate", "synthesize", "dispatch"})
 
 
+_BLOCK_TYPE_MAP = {
+    "LinearBlock": "linear",
+    "GateBlock": "gate",
+    "SynthesizeBlock": "synthesize",
+    "DispatchBlock": "dispatch",
+}
+
+
 def _get_soul(inner_block: BaseBlock) -> Any:
     """Extract the soul from an inner block, handling different attribute names."""
+    if type(inner_block).__name__ == "DispatchBlock":
+        branches = getattr(inner_block, "branches", [])
+        if branches:
+            return getattr(branches[0], "soul", None)
     attr_name = _SOUL_ATTR_MAP.get(type(inner_block).__name__, "soul")
     return getattr(inner_block, attr_name, None)
 
 
-def _build_tool_envelopes(soul: Any) -> list[ToolDefEnvelope]:
+def _collect_resolved_tools(inner_block: BaseBlock, soul: Any) -> list[Any]:
+    if type(inner_block).__name__ == "DispatchBlock":
+        tools_by_name: dict[str, Any] = {}
+        for branch in getattr(inner_block, "branches", []):
+            branch_soul = getattr(branch, "soul", None)
+            for tool in getattr(branch_soul, "resolved_tools", None) or []:
+                tools_by_name[tool.name] = tool
+        return list(tools_by_name.values())
+    return list(getattr(soul, "resolved_tools", None) or [])
+
+
+def _build_tool_envelopes_from_tools(resolved_tools: list[Any]) -> list[ToolDefEnvelope]:
     """Serialize resolved tool metadata for the worker-side tool loop."""
-    resolved_tools = getattr(soul, "resolved_tools", None) or []
     tool_envelopes: list[ToolDefEnvelope] = []
 
     for tool in resolved_tools:
@@ -59,6 +83,10 @@ def _build_tool_envelopes(soul: Any) -> list[ToolDefEnvelope]:
     return tool_envelopes
 
 
+def _build_tool_envelopes(soul: Any) -> list[ToolDefEnvelope]:
+    return _build_tool_envelopes_from_tools(list(getattr(soul, "resolved_tools", None) or []))
+
+
 def _serialize_scoped_results(results: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Normalize workflow results for the subprocess envelope.
 
@@ -75,6 +103,62 @@ def _serialize_scoped_results(results: dict[str, Any]) -> dict[str, dict[str, An
     return serialized
 
 
+def _serialize_soul_summary(soul: Any) -> dict[str, Any]:
+    return {
+        "id": getattr(soul, "id", ""),
+        "role": getattr(soul, "role", ""),
+        "system_prompt": getattr(soul, "system_prompt", ""),
+        "model_name": getattr(soul, "model_name", ""),
+        "provider": getattr(soul, "provider", "") or "",
+        "temperature": getattr(soul, "temperature", None),
+        "max_tokens": getattr(soul, "max_tokens", None),
+        "required_tool_calls": list(getattr(soul, "required_tool_calls", None) or []),
+        "max_tool_iterations": getattr(soul, "max_tool_iterations", 5),
+    }
+
+
+def _build_block_metadata(inner_block: BaseBlock) -> tuple[str, dict[str, Any]]:
+    block_class_name = type(inner_block).__name__
+    block_type = _BLOCK_TYPE_MAP.get(
+        block_class_name, block_class_name.removesuffix("Block").lower()
+    )
+    block_config: dict[str, Any] = {}
+    limits = getattr(inner_block, "limits", None)
+    if limits is not None:
+        block_config["limits"] = (
+            limits.model_dump(exclude_none=True) if hasattr(limits, "model_dump") else limits
+        )
+
+    if block_type == "gate":
+        block_config.update(
+            {
+                "eval_key": getattr(inner_block, "eval_key", ""),
+                "extract_field": getattr(inner_block, "extract_field", None),
+            }
+        )
+    elif block_type == "synthesize":
+        block_config.update(
+            {
+                "input_block_ids": list(getattr(inner_block, "input_block_ids", [])),
+                "synthesizer_soul": _serialize_soul_summary(
+                    getattr(inner_block, "synthesizer_soul", None)
+                ),
+            }
+        )
+    elif block_type == "dispatch" and hasattr(inner_block, "branches"):
+        block_config["branches"] = [
+            {
+                "exit_id": branch.exit_id,
+                "label": branch.label,
+                "task_instruction": branch.task_instruction,
+                "soul": _serialize_soul_summary(branch.soul),
+            }
+            for branch in inner_block.branches
+        ]
+
+    return block_type, block_config
+
+
 class IsolatedBlockWrapper(BaseBlock):
     """Wraps an LLM block to execute it in an isolated subprocess.
 
@@ -88,37 +172,35 @@ class IsolatedBlockWrapper(BaseBlock):
         block_id: str,
         inner_block: BaseBlock,
         *,
+        harness: Any | None = None,
+        harness_factory: Callable[[], Any] | None = None,
         retry_config: Optional[Any] = None,
     ):
         super().__init__(block_id, retry_config=retry_config)
         self.inner_block = inner_block
         self.soul = _get_soul(inner_block)
-
-    @property
-    def __class__(self) -> type:
-        """Make isinstance() transparent: wrapper passes isinstance checks for the inner block type."""
-        return type(self.inner_block)
+        self.harness = harness
+        self._harness_factory = harness_factory
 
     def __getattr__(self, name: str) -> Any:
         """Forward attribute access to the inner block for attributes not on the wrapper."""
         return getattr(self.inner_block, name)
 
     async def _run_in_subprocess(self, envelope: ContextEnvelope) -> ResultEnvelope:
-        """Run the inner block in a subprocess via SubprocessHarness.
-
-        This method is the seam that tests mock.  The default implementation
-        delegates to the inner block directly as a bridge until subprocess
-        infrastructure is fully wired.
-        """
-        raise NotImplementedError("_run_in_subprocess must be mocked or overridden")
+        """Run the inner block in a subprocess via SubprocessHarness."""
+        if self.harness is None:
+            if self._harness_factory is None:
+                raise NotImplementedError(
+                    "SubprocessHarness is not configured on IsolatedBlockWrapper"
+                )
+            self.harness = self._harness_factory()
+        return await self.harness.run(envelope)
 
     async def execute(self, state: WorkflowState, **kwargs: Any) -> WorkflowState:
         """Execute the inner block through the subprocess isolation boundary.
 
-        When ``_run_in_subprocess`` is mocked (normal test path), builds a
-        ContextEnvelope and maps the ResultEnvelope back to WorkflowState.
-        When it raises NotImplementedError (integration / not-yet-wired path),
-        falls back to direct inner-block execution so existing tests stay green.
+        Builds a ContextEnvelope, executes the subprocess path, and maps the
+        ResultEnvelope back to WorkflowState.
         """
         # Build the context envelope
         soul = self.soul
@@ -154,25 +236,22 @@ class IsolatedBlockWrapper(BaseBlock):
             state.conversation_histories.get(history_key, []) if self.inner_block.stateful else []
         )
 
-        # Populate block_config with branch metadata for dispatch blocks
-        block_config: dict[str, Any] = {}
-        if hasattr(self.inner_block, "branches"):
-            block_config["branches"] = [
-                {
-                    "exit_id": b.exit_id,
-                    "label": b.label,
-                    "soul_ref": b.soul.id if b.soul else "",
-                    "task_instruction": b.task_instruction,
-                }
-                for b in self.inner_block.branches
-            ]
+        block_type, block_config = _build_block_metadata(self.inner_block)
+        resolved_tools = _collect_resolved_tools(self.inner_block, soul)
+
+        if (
+            self.harness is not None
+            and soul is not None
+            and hasattr(self.harness, "_resolved_tools")
+        ):
+            self.harness._resolved_tools = {tool.name: tool for tool in resolved_tools}
 
         envelope = ContextEnvelope(
             block_id=self.block_id,
-            block_type=type(self.inner_block).__name__,
+            block_type=block_type,
             block_config=block_config,
             soul=soul_envelope,
-            tools=_build_tool_envelopes(soul),
+            tools=_build_tool_envelopes_from_tools(resolved_tools),
             task=task_envelope,
             scoped_results=_serialize_scoped_results(state.results),
             scoped_shared_memory=dict(state.shared_memory),
@@ -181,15 +260,15 @@ class IsolatedBlockWrapper(BaseBlock):
             max_output_bytes=1_000_000,
         )
 
-        try:
-            result = await self._run_in_subprocess(envelope)
-        except NotImplementedError:
-            # Subprocess not wired yet — delegate to inner block directly
-            return await self.inner_block.execute(state, **kwargs)
+        result = await self._run_in_subprocess(envelope)
 
         # Handle errors from the subprocess
         if result.error is not None:
             error_type = result.error_type or "BlockExecutionError"
+            if error_type == "BudgetKilledException":
+                budget_exc = budget_killed_exception_from_message(result.error)
+                if budget_exc is not None:
+                    raise budget_exc
             if error_type == "ValueError":
                 raise ValueError(result.error)
             if error_type == "SubprocessError":

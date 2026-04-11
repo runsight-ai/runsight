@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" font-family="Inter, system-ui, sans-serif">
+  <rect width="800" height="400" rx="12" fill="#141210"/>
+
+  <!-- Engine side -->
+  <rect x="30" y="30" width="300" height="340" rx="10" fill="#2a2318" stroke="#c0892a" stroke-width="1.5"/>
+  <text x="180" y="60" fill="#d4952e" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="1">ENGINE</text>
+
+  <!-- Subprocess side -->
+  <rect x="470" y="30" width="300" height="340" rx="10" fill="#1f1a28" stroke="#7b5ca0" stroke-width="1.5"/>
+  <text x="620" y="60" fill="#a07cc8" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="1">SUBPROCESS</text>
+
+  <!-- Channel 1: stdin -->
+  <rect x="50" y="90" width="120" height="40" rx="5" fill="#2a2318" stroke="#6b5c3e" stroke-width="1"/>
+  <text x="110" y="115" fill="#e8c564" font-size="11" font-weight="600" text-anchor="middle">Context</text>
+  <line x1="170" y1="110" x2="490" y2="110" stroke="#c0892a" stroke-width="2"/>
+  <polygon points="488,105 498,110 488,115" fill="#c0892a"/>
+  <rect x="340" y="96" width="60" height="22" rx="4" fill="#c0892a"/>
+  <text x="370" y="111" fill="#141210" font-size="9" font-weight="700" text-anchor="middle">stdin</text>
+  <rect x="500" y="90" width="120" height="40" rx="5" fill="#1f1a28" stroke="#4a3060" stroke-width="1"/>
+  <text x="560" y="115" fill="#c0a0e0" font-size="11" font-weight="600" text-anchor="middle">Block Config</text>
+  <text x="370" y="85" fill="#8a7a60" font-size="9" text-anchor="middle">once, at startup</text>
+
+  <!-- Channel 2: stdout -->
+  <rect x="50" y="160" width="120" height="40" rx="5" fill="#2a2318" stroke="#6b5c3e" stroke-width="1"/>
+  <text x="110" y="185" fill="#e8c564" font-size="11" font-weight="600" text-anchor="middle">Result</text>
+  <line x1="490" y1="180" x2="170" y2="180" stroke="#a07cc8" stroke-width="2"/>
+  <polygon points="172,175 162,180 172,185" fill="#a07cc8"/>
+  <rect x="340" y="166" width="60" height="22" rx="4" fill="#a07cc8"/>
+  <text x="370" y="181" fill="#141210" font-size="9" font-weight="700" text-anchor="middle">stdout</text>
+  <rect x="500" y="160" width="120" height="40" rx="5" fill="#1f1a28" stroke="#4a3060" stroke-width="1"/>
+  <text x="560" y="185" fill="#c0a0e0" font-size="11" font-weight="600" text-anchor="middle">Final Output</text>
+  <text x="370" y="155" fill="#8a7a60" font-size="9" text-anchor="middle">once, on exit</text>
+
+  <!-- Channel 3: stderr -->
+  <rect x="50" y="230" width="120" height="40" rx="5" fill="#2a2318" stroke="#6b5c3e" stroke-width="1"/>
+  <text x="110" y="255" fill="#e8c564" font-size="11" font-weight="600" text-anchor="middle">Monitor</text>
+  <line x1="490" y1="250" x2="170" y2="250" stroke="#6b8a4c" stroke-width="2"/>
+  <polygon points="172,245 162,250 172,255" fill="#6b8a4c"/>
+  <rect x="340" y="236" width="60" height="22" rx="4" fill="#6b8a4c"/>
+  <text x="370" y="251" fill="#141210" font-size="9" font-weight="700" text-anchor="middle">stderr</text>
+  <rect x="500" y="230" width="120" height="40" rx="5" fill="#1f1a28" stroke="#4a3060" stroke-width="1"/>
+  <text x="560" y="255" fill="#c0a0e0" font-size="11" font-weight="600" text-anchor="middle">Heartbeats</text>
+  <text x="370" y="225" fill="#8a7a60" font-size="9" text-anchor="middle">every 5 seconds</text>
+
+  <!-- Channel 4: IPC Socket -->
+  <rect x="50" y="300" width="120" height="40" rx="5" fill="#2a2318" stroke="#c0892a" stroke-width="1.5"/>
+  <text x="110" y="325" fill="#e8c564" font-size="11" font-weight="700" text-anchor="middle">IPC Server</text>
+  <line x1="170" y1="315" x2="490" y2="315" stroke="#d4952e" stroke-width="2.5"/>
+  <polygon points="488,310 498,315 488,320" fill="#d4952e"/>
+  <line x1="490" y1="325" x2="170" y2="325" stroke="#d4952e" stroke-width="2.5"/>
+  <polygon points="172,320 162,325 172,330" fill="#d4952e"/>
+  <rect x="330" y="306" width="80" height="22" rx="4" fill="#d4952e"/>
+  <text x="370" y="321" fill="#141210" font-size="9" font-weight="700" text-anchor="middle">Unix Socket</text>
+  <rect x="500" y="300" width="120" height="40" rx="5" fill="#1f1a28" stroke="#7b5ca0" stroke-width="1.5"/>
+  <text x="560" y="325" fill="#c0a0e0" font-size="11" font-weight="700" text-anchor="middle">IPC Client</text>
+  <text x="370" y="296" fill="#d4952e" font-size="9" font-weight="600" text-anchor="middle">LLM calls, tools, HTTP, file I/O</text>
+</svg>

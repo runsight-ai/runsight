@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 440" font-family="Inter, system-ui, sans-serif">
+  <rect width="700" height="440" rx="12" fill="#141210"/>
+
+  <!-- Title -->
+  <text x="350" y="35" fill="#d4952e" font-size="13" font-weight="700" text-anchor="middle" letter-spacing="1">INTERCEPTOR CHAIN — REQUEST / RESPONSE FLOW</text>
+
+  <!-- Request arrow (down) -->
+  <text x="80" y="70" fill="#c0892a" font-size="11" font-weight="600">REQUEST</text>
+  <text x="80" y="85" fill="#8a7a60" font-size="9">(forward order)</text>
+  <line x1="110" y1="95" x2="110" y2="350" stroke="#c0892a" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <polygon points="105,348 110,358 115,348" fill="#c0892a"/>
+
+  <!-- Response arrow (up) -->
+  <text x="560" y="70" fill="#a07cc8" font-size="11" font-weight="600">RESPONSE</text>
+  <text x="560" y="85" fill="#6b5080" font-size="9">(reverse order)</text>
+  <line x1="590" y1="350" x2="590" y2="95" stroke="#a07cc8" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <polygon points="585,97 590,87 595,97" fill="#a07cc8"/>
+
+  <!-- Incoming request -->
+  <rect x="200" y="60" width="300" height="35" rx="6" fill="#2a2318" stroke="#6b5c3e" stroke-width="1"/>
+  <text x="350" y="83" fill="#e8c564" font-size="11" font-weight="600" text-anchor="middle">Subprocess request arrives</text>
+
+  <!-- Observer interceptor (request) -->
+  <rect x="150" y="115" width="400" height="55" rx="8" fill="#1a2520" stroke="#4c8a6b" stroke-width="1.5"/>
+  <text x="200" y="140" fill="#6bc090" font-size="12" font-weight="700">Observer Interceptor</text>
+  <text x="200" y="157" fill="#4c8a6b" font-size="10">Start trace span, set trace ID</text>
+  <circle cx="530" cy="142" r="8" fill="#4c8a6b"/>
+  <text x="530" y="146" fill="#141210" font-size="9" font-weight="700" text-anchor="middle">1</text>
+
+  <!-- Budget interceptor (request) -->
+  <rect x="150" y="185" width="400" height="55" rx="8" fill="#2a1a18" stroke="#8a4c4c" stroke-width="1.5"/>
+  <text x="200" y="210" fill="#e08080" font-size="12" font-weight="700">Budget Interceptor</text>
+  <text x="200" y="227" fill="#8a4c4c" font-size="10">Check remaining budget — reject if exceeded</text>
+  <circle cx="530" cy="212" r="8" fill="#8a4c4c"/>
+  <text x="530" y="216" fill="#141210" font-size="9" font-weight="700" text-anchor="middle">2</text>
+
+  <!-- Handler -->
+  <rect x="200" y="260" width="300" height="50" rx="8" fill="#2a2318" stroke="#d4952e" stroke-width="2"/>
+  <text x="350" y="283" fill="#e8c564" font-size="13" font-weight="700" text-anchor="middle">Handler</text>
+  <text x="350" y="300" fill="#8a7a60" font-size="10" text-anchor="middle">LLM call / tool / HTTP / file I/O</text>
+
+  <!-- Budget interceptor (response) -->
+  <rect x="150" y="325" width="400" height="45" rx="8" fill="#2a1a18" stroke="#8a4c4c" stroke-width="1"/>
+  <text x="200" y="350" fill="#e08080" font-size="11" font-weight="600">Budget: accrue cost from result</text>
+  <circle cx="530" cy="347" r="8" fill="#8a4c4c"/>
+  <text x="530" y="351" fill="#141210" font-size="9" font-weight="700" text-anchor="middle">3</text>
+
+  <!-- Observer interceptor (response) -->
+  <rect x="150" y="380" width="400" height="45" rx="8" fill="#1a2520" stroke="#4c8a6b" stroke-width="1"/>
+  <text x="200" y="405" fill="#6bc090" font-size="11" font-weight="600">Observer: end span, record cost + tokens</text>
+  <circle cx="530" cy="402" r="8" fill="#4c8a6b"/>
+  <text x="530" y="406" fill="#141210" font-size="9" font-weight="700" text-anchor="middle">4</text>
+</svg>

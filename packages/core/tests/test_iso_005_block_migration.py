@@ -19,6 +19,7 @@ Tests cover all 13 acceptance criteria:
 """
 
 import asyncio
+from pathlib import Path
 
 import pytest
 from runsight_core.blocks.base import BaseBlock
@@ -1141,3 +1142,336 @@ workflow:
         wf = parse_workflow_yaml(yaml_str, runner=runner)
         block = wf._blocks["fan"]
         assert isinstance(block, IsolatedBlockWrapper)
+
+
+class TestRUN392EnvelopeBlockContracts:
+    """RUN-392: wrapper must emit full envelope config for migrated block types."""
+
+    async def _execute_and_capture_envelope(self, wrapper) -> ContextEnvelope:
+        captured: dict[str, ContextEnvelope] = {}
+
+        async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
+            captured["envelope"] = envelope
+            return ResultEnvelope(
+                block_id=wrapper.block_id,
+                output="ok",
+                exit_handle="done",
+                cost_usd=0.0,
+                total_tokens=0,
+                tool_calls_made=0,
+                delegate_artifacts={},
+                conversation_history=[],
+                error=None,
+                error_type=None,
+            )
+
+        wrapper._run_in_subprocess = _capture
+        await wrapper.execute(_make_state())
+        return captured["envelope"]
+
+    @pytest.mark.asyncio
+    async def test_gate_block_envelope_uses_lowercase_block_type_and_gate_config(self):
+        from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
+
+        inner = GateBlock(
+            "gate1",
+            _make_soul("gate_soul"),
+            "producer",
+            MagicMock(),
+            extract_field="answer",
+        )
+        wrapper = IsolatedBlockWrapper(block_id="gate1", inner_block=inner)
+
+        envelope = await self._execute_and_capture_envelope(wrapper)
+
+        assert envelope.block_type == "gate"
+        assert envelope.block_config["eval_key"] == "producer"
+        assert envelope.block_config["extract_field"] == "answer"
+        assert "pass_condition" not in envelope.block_config
+
+    @pytest.mark.asyncio
+    async def test_synthesize_block_envelope_uses_lowercase_block_type_and_full_config(self):
+        from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
+
+        synth_soul = _make_soul("synth_soul")
+        inner = SynthesizeBlock("synth1", ["draft", "facts"], synth_soul, MagicMock())
+        wrapper = IsolatedBlockWrapper(block_id="synth1", inner_block=inner)
+
+        envelope = await self._execute_and_capture_envelope(wrapper)
+
+        assert envelope.block_type == "synthesize"
+        assert envelope.block_config["input_block_ids"] == ["draft", "facts"]
+        assert envelope.block_config["synthesizer_soul"] == {
+            "id": synth_soul.id,
+            "role": synth_soul.role,
+            "system_prompt": synth_soul.system_prompt,
+            "model_name": synth_soul.model_name,
+            "provider": "",
+            "temperature": None,
+            "max_tokens": None,
+            "required_tool_calls": [],
+            "max_tool_iterations": 5,
+        }
+        assert "output_format" not in envelope.block_config
+
+    @pytest.mark.asyncio
+    async def test_dispatch_block_envelope_contains_full_per_branch_soul_fields(self):
+        from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
+
+        reviewer = _make_soul("reviewer")
+        fixer = _make_soul("fixer")
+        inner = DispatchBlock(
+            "fanout1",
+            [
+                DispatchBranch(
+                    exit_id="approve",
+                    label="Approve",
+                    soul=reviewer,
+                    task_instruction="Review draft.",
+                ),
+                DispatchBranch(
+                    exit_id="revise",
+                    label="Revise",
+                    soul=fixer,
+                    task_instruction="Revise draft.",
+                ),
+            ],
+            MagicMock(),
+        )
+        wrapper = IsolatedBlockWrapper(block_id="fanout1", inner_block=inner)
+
+        envelope = await self._execute_and_capture_envelope(wrapper)
+
+        assert envelope.block_type == "dispatch"
+        assert "branches" in envelope.block_config
+        assert len(envelope.block_config["branches"]) == 2
+
+        approve = envelope.block_config["branches"][0]
+        revise = envelope.block_config["branches"][1]
+
+        assert approve["exit_id"] == "approve"
+        assert revise["exit_id"] == "revise"
+        assert "soul_ref" not in approve
+        assert "soul_ref" not in revise
+        assert approve["soul"] == {
+            "id": reviewer.id,
+            "role": reviewer.role,
+            "system_prompt": reviewer.system_prompt,
+            "model_name": reviewer.model_name,
+            "provider": "",
+            "temperature": None,
+            "max_tokens": None,
+            "required_tool_calls": [],
+            "max_tool_iterations": 5,
+        }
+        assert revise["soul"] == {
+            "id": fixer.id,
+            "role": fixer.role,
+            "system_prompt": fixer.system_prompt,
+            "model_name": fixer.model_name,
+            "provider": "",
+            "temperature": None,
+            "max_tokens": None,
+            "required_tool_calls": [],
+            "max_tool_iterations": 5,
+        }
+
+
+class TestRUN815WrapperHarnessWiringContract:
+    """RUN-815: wrapper must delegate to SubprocessHarness with no direct-execute bypass."""
+
+    @staticmethod
+    def _write_external_soul(base_dir: Path) -> None:
+        souls_dir = base_dir / "custom" / "souls"
+        souls_dir.mkdir(parents=True, exist_ok=True)
+        (souls_dir / "writer.yaml").write_text(
+            "\n".join(
+                [
+                    "id: writer",
+                    "role: Writer",
+                    "system_prompt: Write clearly.",
+                    "model_name: gpt-4o-mini",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    @staticmethod
+    def _write_linear_workflow(base_dir: Path) -> Path:
+        workflow_path = base_dir / "workflow.yaml"
+        workflow_path.write_text(
+            "\n".join(
+                [
+                    'version: "1.0"',
+                    "config:",
+                    "  model_name: gpt-4o-mini",
+                    "blocks:",
+                    "  draft:",
+                    "    type: linear",
+                    "    soul_ref: writer",
+                    "workflow:",
+                    "  name: run815_wrapper_wiring",
+                    "  entry: draft",
+                    "  transitions:",
+                    "    - from: draft",
+                    "      to: null",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        return workflow_path
+
+    @pytest.mark.asyncio
+    async def test_execute_delegates_to_harness_run_and_never_calls_inner_execute(self):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
+
+        soul = _make_soul()
+        inner = LinearBlock("blk1", soul, MagicMock())
+        inner.execute = AsyncMock()
+
+        result = ResultEnvelope(
+            block_id="blk1",
+            output="subprocess output",
+            exit_handle="done",
+            cost_usd=0.25,
+            total_tokens=123,
+            tool_calls_made=0,
+            delegate_artifacts={},
+            conversation_history=[],
+            error=None,
+            error_type=None,
+        )
+
+        class _FakeHarness:
+            def __init__(self, result_envelope: ResultEnvelope):
+                self.result_envelope = result_envelope
+                self.calls: list[ContextEnvelope] = []
+
+            async def run(self, envelope: ContextEnvelope) -> ResultEnvelope:
+                self.calls.append(envelope)
+                return self.result_envelope
+
+        harness = _FakeHarness(result)
+        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner, harness=harness)
+
+        next_state = await wrapper.execute(_make_state(task_instruction="Summarize this"))
+
+        assert len(harness.calls) == 1
+        assert harness.calls[0].block_id == "blk1"
+        assert harness.calls[0].task.instruction == "Summarize this"
+        inner.execute.assert_not_called()
+        assert next_state.results["blk1"].output == "subprocess output"
+        assert next_state.total_cost_usd == pytest.approx(0.25)
+        assert next_state.total_tokens == 123
+
+    @pytest.mark.asyncio
+    async def test_not_implemented_from_subprocess_path_is_not_swallowed_by_direct_fallback(self):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
+
+        soul = _make_soul()
+        inner = LinearBlock("blk1", soul, MagicMock())
+        inner.execute = AsyncMock()
+        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+
+        async def _not_implemented(_: ContextEnvelope) -> ResultEnvelope:
+            raise NotImplementedError("subprocess wiring missing")
+
+        wrapper._run_in_subprocess = _not_implemented
+
+        with pytest.raises(NotImplementedError):
+            await wrapper.execute(_make_state())
+
+        inner.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_run_in_subprocess_delegates_to_harness_with_exact_envelope(self):
+        from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
+        from runsight_core.isolation.envelope import SoulEnvelope, TaskEnvelope
+
+        expected = ResultEnvelope(
+            block_id="blk1",
+            output="ok",
+            exit_handle="done",
+            cost_usd=0.0,
+            total_tokens=0,
+            tool_calls_made=0,
+            delegate_artifacts={},
+            conversation_history=[],
+            error=None,
+            error_type=None,
+        )
+
+        class _FakeHarness:
+            def __init__(self):
+                self.calls: list[ContextEnvelope] = []
+
+            async def run(self, envelope: ContextEnvelope) -> ResultEnvelope:
+                self.calls.append(envelope)
+                return expected
+
+        harness = _FakeHarness()
+        wrapper = IsolatedBlockWrapper(
+            block_id="blk1",
+            inner_block=LinearBlock("blk1", _make_soul(), MagicMock()),
+            harness=harness,
+        )
+        envelope = ContextEnvelope(
+            block_id="blk1",
+            block_type="linear",
+            block_config={},
+            soul=SoulEnvelope(
+                id="writer",
+                role="Writer",
+                system_prompt="Write clearly.",
+                model_name="gpt-4o-mini",
+                provider="openai",
+                temperature=0.0,
+                max_tokens=256,
+            ),
+            tools=[],
+            task=TaskEnvelope(id="task-1", instruction="Do the thing", context={}),
+            scoped_results={},
+            scoped_shared_memory={},
+            conversation_history=[],
+            timeout_seconds=30,
+            max_output_bytes=1_000_000,
+        )
+
+        actual = await wrapper._run_in_subprocess(envelope)
+
+        assert actual == expected
+        assert harness.calls == [envelope]
+
+    def test_parse_workflow_yaml_wires_subprocess_harness_into_wrapped_llm_block(
+        self, tmp_path: Path
+    ):
+        from unittest.mock import MagicMock
+
+        from runsight_core.isolation import SubprocessHarness
+        from runsight_core.yaml.parser import parse_workflow_yaml
+
+        self._write_external_soul(tmp_path)
+        workflow_path = self._write_linear_workflow(tmp_path)
+
+        workflow = parse_workflow_yaml(
+            str(workflow_path),
+            runner=MagicMock(),
+            api_keys={"openai": "sk-engine-key"},
+        )
+        wrapped_block = workflow.blocks["draft"]
+
+        harness = getattr(wrapped_block, "harness", None)
+        assert harness is not None
+        assert isinstance(harness, SubprocessHarness)

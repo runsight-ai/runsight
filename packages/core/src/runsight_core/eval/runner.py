@@ -86,6 +86,7 @@ async def run_eval(
     workflow_yaml: str,
     *,
     executor: Callable[..., Any] | None = None,
+    api_keys: dict[str, str] | None = None,
 ) -> EvalSuiteResult:
     """Run offline eval cases defined in a workflow's eval section.
 
@@ -131,7 +132,12 @@ async def run_eval(
         for block_id, assertion_configs in expected.items():
             output = state.results[block_id].output
             context = _build_eval_context(block_id, output)
-            agg = await run_assertions(assertion_configs, output=output, context=context)
+            agg = await run_assertions(
+                assertion_configs,
+                output=output,
+                context=context,
+                api_keys=api_keys,
+            )
             block_results[block_id] = agg
 
         # Compute case score as average of block aggregate_scores
