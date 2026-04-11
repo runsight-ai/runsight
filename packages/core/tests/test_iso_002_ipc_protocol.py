@@ -3248,6 +3248,127 @@ class TestRUN813ProcessBoundaryIntegration:
             sock_path.unlink(missing_ok=True)
 
     @pytest.mark.asyncio
+    async def test_over_cap_response_accrues_then_next_request_is_killed_on_request(
+        self, tmp_path: Path
+    ):
+        from runsight_core.budget_enforcement import BudgetSession
+        from runsight_core.isolation import IPCServer
+        from runsight_core.isolation import ipc as ipc_module
+
+        registry = ipc_module.InterceptorRegistry()
+        budget_session = BudgetSession(
+            scope_name="block:run813-budget-cap",
+            cost_cap_usd=0.01,
+            token_cap=100,
+            on_exceed="fail",
+        )
+        registry.register(
+            _make_budget_interceptor(
+                ipc_module,
+                session=budget_session,
+                block_id="run813-budget-cap",
+            )
+        )
+
+        handler_calls: list[dict[str, Any]] = []
+
+        async def llm_handler(payload: dict[str, Any]) -> dict[str, Any]:
+            handler_calls.append(payload)
+            return {
+                "content": f"ok-{len(handler_calls)}",
+                "cost_usd": 0.05,
+                "total_tokens": 7,
+            }
+
+        sock_path = tmp_path / "run813-budget-cap.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+        grant_token = _make_grant_token(block_id="run813-budget-cap")
+        server = IPCServer(
+            sock=server_sock,
+            handlers={"llm_call": llm_handler},
+            registry=registry,
+            grant_token=grant_token,
+        )
+        server_task = asyncio.create_task(server.serve())
+
+        async def send_request(
+            writer: asyncio.StreamWriter,
+            reader: asyncio.StreamReader,
+            *,
+            request_id: str,
+        ) -> dict[str, Any]:
+            writer.write(
+                (
+                    json.dumps(
+                        {
+                            "id": request_id,
+                            "action": "llm_call",
+                            "payload": {
+                                "model": "gpt-4o-mini",
+                                "messages": [{"role": "user", "content": request_id}],
+                            },
+                        },
+                        separators=(",", ":"),
+                    )
+                    + "\n"
+                ).encode()
+            )
+            await writer.drain()
+            return json.loads(await reader.readline())
+
+        reader: asyncio.StreamReader | None = None
+        writer: asyncio.StreamWriter | None = None
+        try:
+            reader, writer = await asyncio.open_unix_connection(str(sock_path))
+            writer.write(
+                (
+                    json.dumps(
+                        {
+                            "id": "cap-run813-budget",
+                            "action": "capability_negotiation",
+                            "grant_token": grant_token.token,
+                            "supported_actions": ["llm_call"],
+                            "worker_version": "worker-run813",
+                        },
+                        separators=(",", ":"),
+                    )
+                    + "\n"
+                ).encode()
+            )
+            await writer.drain()
+            capability = json.loads(await reader.readline())
+            assert capability["accepted"] is True
+
+            first = await send_request(writer, reader, request_id="req-run813-budget-1")
+            assert first["done"] is True
+            assert first["error"] is None
+            assert first["payload"] == {
+                "content": "ok-1",
+                "cost_usd": 0.05,
+                "total_tokens": 7,
+            }
+            assert first["engine_context"]["budget_remaining_usd"] == pytest.approx(-0.04)
+            assert budget_session.cost_usd == pytest.approx(0.05)
+            assert len(handler_calls) == 1
+
+            second = await send_request(writer, reader, request_id="req-run813-budget-2")
+            assert second["id"] == "req-run813-budget-2"
+            assert second["done"] is True
+            assert second["payload"] is None
+            assert "budget" in (second["error"] or "").lower()
+            assert len(handler_calls) == 1
+        finally:
+            if writer is not None:
+                writer.close()
+                await writer.wait_closed()
+            await server.shutdown()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
     async def test_grant_token_accepts_first_connection_and_rejects_second(self, tmp_path: Path):
         from runsight_core.isolation import IPCServer
 
