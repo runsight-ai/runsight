@@ -114,16 +114,15 @@ class SubprocessHarness:
             make_tool_call_handler,
         )
 
-        merged_headers: dict[str, str] = {}
-        for creds in self._tool_credentials.values():
-            merged_headers.update(creds)
-
         file_io_base_dir = tempfile.mkdtemp(prefix="rs-fio-")
         self._file_io_temp_dir = file_io_base_dir
 
         return {
             "llm_call": make_llm_call_handler(api_keys=dict(self._api_keys)),
-            "http": make_http_handler(credentials=merged_headers, url_allowlist=[]),
+            "http": make_http_handler(
+                credentials=dict(self._tool_credentials),
+                url_allowlist=[],
+            ),
             "file_io": make_file_io_handler(base_dir=file_io_base_dir),
             "tool_call": make_tool_call_handler(self._resolved_tools),
         }

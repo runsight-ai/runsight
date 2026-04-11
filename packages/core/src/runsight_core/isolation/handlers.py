@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
+import httpx
+
 from runsight_core.isolation.ipc import Handler
 from runsight_core.llm.client import LiteLLMClient
 from runsight_core.runner import _detect_provider
@@ -22,30 +24,26 @@ from runsight_core.security import SSRFError, validate_ssrf
 
 def make_http_handler(
     *,
-    credentials: dict[str, str],
+    credentials: dict[str, dict[str, str]],
     url_allowlist: list[str],
 ) -> Handler:
-    """Return an IPC handler that validates URLs and injects auth headers.
-
-    Args:
-        credentials: Headers to inject into every outgoing request
-            (e.g. ``{"Authorization": "Bearer ..."}``)
-        url_allowlist: Hostnames that are allowed.  ``"*"`` permits all hosts.
-            An empty list blocks every request.
-    """
+    """Return an IPC handler that performs real HTTP requests with SSRF/allowlist checks."""
 
     async def _handle(params: dict[str, Any]) -> dict[str, Any]:
         url: str = params.get("url", "")
         method: str = params.get("method", "GET")
         headers: dict[str, str] = dict(params.get("headers", {}))
+        request_json = params.get("json")
+        timeout_seconds = float(params.get("timeout_seconds", 30.0))
+        max_response_bytes = int(params.get("max_response_bytes", 1_000_000))
+        follow_redirects = bool(params.get("follow_redirects", False))
 
         # -- URL allowlist check ------------------------------------------
         parsed = urlparse(url)
         hostname = parsed.hostname or ""
 
-        if "*" not in url_allowlist:
-            if hostname not in url_allowlist:
-                return {"error": f"Host '{hostname}' is not on the allowed hosts list"}
+        if hostname not in url_allowlist:
+            return {"error": f"Host not on allowed list: {hostname}"}
 
         # -- SSRF validation ----------------------------------------------
         try:
@@ -53,17 +51,61 @@ def make_http_handler(
         except SSRFError as exc:
             return {"error": str(exc)}
 
-        # -- Inject credentials (engine-side only) ------------------------
-        headers.update(credentials)
+        # -- Inject host-scoped credentials (engine-side only) ------------
+        host_credentials = credentials.get(hostname, {})
+        headers.update(host_credentials)
 
-        # Return a successful result without leaking injected credentials.
-        return {
-            "status": 200,
-            "url": url,
-            "method": method,
+        # -- Execute request -----------------------------------------------
+        client_kwargs = {
+            "timeout": timeout_seconds,
+            "follow_redirects": follow_redirects,
         }
+        return await _perform_http_request(
+            method=method,
+            url=url,
+            headers=headers,
+            request_json=request_json,
+            client_kwargs=client_kwargs,
+            max_response_bytes=max_response_bytes,
+        )
 
     return _handle
+
+
+async def _perform_http_request(
+    *,
+    method: str,
+    url: str,
+    headers: dict[str, str],
+    request_json: Any,
+    client_kwargs: dict[str, Any],
+    max_response_bytes: int,
+) -> dict[str, Any]:
+    try:
+        try:
+            client_cm = httpx.AsyncClient(**client_kwargs)
+        except TypeError:
+            client_cm = httpx.AsyncClient()
+
+        async with client_cm as client:
+            response = await client.request(
+                method=method,
+                url=url,
+                headers=headers,
+                json=request_json,
+            )
+    except Exception as exc:
+        return {"error": str(exc)}
+
+    response_body = response.text
+    if len(response_body.encode("utf-8")) > max_response_bytes:
+        return {"error": f"response body exceeds max_response_bytes={max_response_bytes}"}
+
+    return {
+        "status_code": int(response.status_code),
+        "body": response_body,
+        "headers": dict(response.headers),
+    }
 
 
 # ---------------------------------------------------------------------------
