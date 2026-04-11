@@ -154,64 +154,39 @@ class ProxiedRunsightTeamRunner(RunsightTeamRunner):
         return cached_client
 
 
-def create_llm_client(model_name: str, api_key: str | None = None) -> ProxiedLLMClient:
-    """Create a ProxiedLLMClient for subprocess LLM requests."""
-    _ = api_key
-    socket_path = os.environ.get("RUNSIGHT_IPC_SOCKET", "")
-    ipc_client = isolation_ipc.IPCClient(socket_path=socket_path)
+def create_llm_client(model_name: str, *, ipc_client: Any) -> ProxiedLLMClient:
+    """Create a ProxiedLLMClient bound to a shared IPC client."""
     return ProxiedLLMClient(model_name=model_name, ipc_client=ipc_client)
 
 
-def create_runner(model_name: str, api_key: str | None = None) -> RunsightTeamRunner:
+def create_runner(model_name: str, *, ipc_client: Any) -> RunsightTeamRunner:
     """Create a RunsightTeamRunner whose LLM path is fully proxied over IPC."""
-    _ = api_key
-    socket_path = os.environ.get("RUNSIGHT_IPC_SOCKET", "")
-    ipc_client = isolation_ipc.IPCClient(socket_path=socket_path)
     return ProxiedRunsightTeamRunner(model_name=model_name, ipc_client=ipc_client)
 
 
 def create_tool_stubs(
     tool_envelopes: list[ToolDefEnvelope],
-    socket_path: str,
-    grant_token: str | None = None,
+    *,
+    ipc_client: Any,
 ) -> list[ToolInstance]:
-    """Convert ToolDefEnvelope list into IPC-backed callable tool stubs."""
+    """Convert ToolDefEnvelope list into IPC-backed callable tool stubs using shared IPC."""
     stubs: list[ToolInstance] = []
-    client: isolation_ipc.IPCClient | None = None
-    connected = False
-    _ = grant_token
-
-    async def _get_connected_client() -> isolation_ipc.IPCClient:
-        nonlocal client, connected
-        if client is None:
-            client = isolation_ipc.IPCClient(socket_path=socket_path)
-        if not connected:
-            capability = await client.connect()
-            accepted = (
-                capability.get("accepted") if isinstance(capability, dict) else capability.accepted
-            )
-            error = capability.get("error") if isinstance(capability, dict) else capability.error
-            if not accepted:
-                raise PermissionError(
-                    f"IPC auth failed: {error or 'capability negotiation rejected'}"
-                )
-            connected = True
-        return client
 
     for tool_def in tool_envelopes:
 
         async def _execute(args: dict[str, Any], *, td: ToolDefEnvelope = tool_def) -> str:
             try:
-                active_client = await _get_connected_client()
-                result = await active_client.request(
+                result = await ipc_client.request(
                     "tool_call",
                     {"name": td.name, "arguments": args},
                 )
             except Exception as exc:
                 return f"Error: {exc}"
-            if "error" in result:
+            if isinstance(result, dict) and "error" in result:
                 return f"Error: {result['error']}"
-            return str(result.get("output", ""))
+            if isinstance(result, dict):
+                return str(result.get("output", ""))
+            return str(result)
 
         stubs.append(
             ToolInstance(
@@ -408,16 +383,27 @@ def main() -> None:
 
         # Reconstruct primitives
         _heartbeat_phase = "setup"
-        resolved_tools = create_tool_stubs(
-            envelope.tools,
-            socket_path=ipc_socket,
-            grant_token=grant_token,
+        ipc_client = isolation_ipc.IPCClient(socket_path=ipc_socket)
+        capability = asyncio.run(ipc_client.connect())
+        accepted = (
+            capability.get("accepted") if isinstance(capability, dict) else capability.accepted
         )
+        capability_error = (
+            capability.get("error") if isinstance(capability, dict) else capability.error
+        )
+        if not accepted:
+            _write_result(
+                _error_result(
+                    block_id,
+                    f"IPC auth failed: {capability_error or 'capability negotiation rejected'}",
+                    "PermissionError",
+                ),
+                exit_code=1,
+            )
+
+        resolved_tools = create_tool_stubs(envelope.tools, ipc_client=ipc_client)
         soul = reconstruct_soul(envelope.soul, resolved_tools=resolved_tools)
-        runner = create_runner(
-            model_name=envelope.soul.model_name,
-            api_key="",
-        )
+        runner = create_runner(model_name=envelope.soul.model_name, ipc_client=ipc_client)
 
         # Build scoped state
         state = build_scoped_state(envelope)
@@ -481,9 +467,32 @@ def main() -> None:
         _heartbeat_stop.set()
 
 
+_BLOCK_TYPE_MAP = {
+    "linear": "linear",
+    "linearblock": "linear",
+    "gate": "gate",
+    "gateblock": "gate",
+    "synthesize": "synthesize",
+    "synthesizeblock": "synthesize",
+    "dispatch": "dispatch",
+    "dispatchblock": "dispatch",
+}
+
+
+def _resolve_block_soul(block_soul: Any, fallback_soul: Soul) -> Soul:
+    if not isinstance(block_soul, dict):
+        return fallback_soul
+    payload = fallback_soul.model_dump(exclude={"resolved_tools"})
+    payload.update(block_soul)
+    payload.setdefault("required_tool_calls", fallback_soul.required_tool_calls or [])
+    payload.setdefault("max_tool_iterations", fallback_soul.max_tool_iterations)
+    payload["resolved_tools"] = fallback_soul.resolved_tools
+    return Soul.model_validate(payload)
+
+
 def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRunner):
     """Instantiate the correct block based on envelope.block_type."""
-    block_type = envelope.block_type
+    block_type = _BLOCK_TYPE_MAP.get(envelope.block_type.lower(), envelope.block_type.lower())
 
     if block_type == "linear":
         from runsight_core.blocks.linear import LinearBlock
@@ -493,6 +502,52 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
             soul=soul,
             runner=runner,
         )
+        block.stateful = True
+        return block
+
+    if block_type == "gate":
+        from runsight_core.blocks.gate import GateBlock
+
+        gate_soul = _resolve_block_soul(envelope.block_config.get("gate_soul"), soul)
+        block = GateBlock(
+            block_id=envelope.block_id,
+            gate_soul=gate_soul,
+            eval_key=str(envelope.block_config.get("eval_key", "")),
+            extract_field=envelope.block_config.get("extract_field"),
+            runner=runner,
+        )
+        block.stateful = True
+        return block
+
+    if block_type == "synthesize":
+        from runsight_core.blocks.synthesize import SynthesizeBlock
+
+        synthesizer_soul = _resolve_block_soul(envelope.block_config.get("synthesizer_soul"), soul)
+        input_block_ids = list(envelope.block_config.get("input_block_ids", []))
+        block = SynthesizeBlock(
+            block_id=envelope.block_id,
+            input_block_ids=input_block_ids,
+            synthesizer_soul=synthesizer_soul,
+            runner=runner,
+        )
+        block.stateful = True
+        return block
+
+    if block_type == "dispatch":
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
+
+        raw_branches = list(envelope.block_config.get("branches", []))
+        branches = [
+            DispatchBranch(
+                exit_id=str(branch.get("exit_id", "")),
+                label=str(branch.get("label", "")),
+                soul=_resolve_block_soul(branch.get("soul"), soul),
+                task_instruction=str(branch.get("task_instruction", "")),
+            )
+            for branch in raw_branches
+            if isinstance(branch, dict)
+        ]
+        block = DispatchBlock(block_id=envelope.block_id, branches=branches, runner=runner)
         block.stateful = True
         return block
 
