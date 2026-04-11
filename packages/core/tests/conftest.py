@@ -27,6 +27,41 @@ def _ensure_event_loop():
         asyncio.set_event_loop(asyncio.new_event_loop())
 
 
+_ISOLATION_TEST_PREFIXES = (
+    "test_iso_",
+    "test_run817",
+    "test_run818",
+    "test_run819",
+    "test_run820",
+    "test_run812",
+    "test_tool_integration",
+)
+
+
+@pytest.fixture(autouse=True)
+def _bypass_subprocess_isolation(request, monkeypatch):
+    """Keep block execution in-process so litellm mocks are visible.
+
+    Production code spawns a real subprocess via SubprocessHarness where
+    parent-process mocks are invisible.  This patches IsolatedBlockWrapper
+    to delegate to the inner block directly.
+
+    Isolation-specific tests are excluded so they exercise the real path.
+    """
+    if request.fspath.basename.startswith(_ISOLATION_TEST_PREFIXES):
+        return
+
+    try:
+        from runsight_core.isolation.wrapper import IsolatedBlockWrapper
+    except ImportError:
+        return
+
+    async def _in_process(self, state, **kwargs):
+        return await self.inner_block.execute(state, **kwargs)
+
+    monkeypatch.setattr(IsolatedBlockWrapper, "execute", _in_process)
+
+
 def make_test_yaml(steps_yaml: str) -> str:
     """Wrap step YAML with a standard souls section containing a 'test' soul.
 
