@@ -5,12 +5,16 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from jsonpath_ng import parse as jp_parse
 
 from runsight_core.assertions import custom as custom_assertions
-from runsight_core.assertions.base import AssertionContext, GradingResult
+from runsight_core.assertions.base import (
+    AssertionContext,
+    GradingResult,
+    grading_result_from_data,
+)
 from runsight_core.assertions.custom import _build_adapter_class
 from runsight_core.assertions.scoring import AssertionsResult
 from runsight_core.budget_enforcement import BudgetSession, _active_budget
@@ -204,14 +208,9 @@ async def _run_smart_llm_assertion(
         raise ValueError("smart assertion subprocess returned empty output")
 
     payload = json.loads(result.output)
-    grading = GradingResult(
-        passed=bool(payload.get("passed", False)),
-        score=float(payload.get("score", 0.0)),
-        reason=str(payload.get("reason", "")),
-        named_scores=dict(payload.get("named_scores", {})),
-        assertion_type=payload.get("assertion_type"),
-        metadata=dict(payload.get("metadata", {})),
-    )
+    grading = grading_result_from_data(payload)
+    if grading.assertion_type is None:
+        grading.assertion_type = "llm_judge"
 
     active_budget = _active_budget.get(None)
     if isinstance(active_budget, BudgetSession):
@@ -270,6 +269,11 @@ async def run_assertions(
     output: str,
     context: AssertionContext,
     api_keys: dict[str, str] | None = None,
+    llm_judge_runner: Callable[
+        [dict[str, Any], str, AssertionContext],
+        Awaitable[GradingResult],
+    ]
+    | None = None,
     max_concurrent: int = 10,
 ) -> AssertionsResult:
     """Run a list of assertion configs concurrently and return aggregated results."""
@@ -283,13 +287,20 @@ async def run_assertions(
     async def _run_one(cfg: dict[str, Any]) -> tuple[GradingResult, float]:
         async with semaphore:
             weight = cfg.get("weight", 1.0)
-            if cfg.get("type") == "llm_judge" and api_keys is not None:
-                result = await _run_smart_llm_assertion(
-                    cfg=cfg,
-                    output=output,
-                    context=context,
-                    api_keys=api_keys,
-                )
+            if cfg.get("type") == "llm_judge":
+                if llm_judge_runner is not None:
+                    result = await llm_judge_runner(cfg, output, context)
+                elif api_keys is not None:
+                    result = await _run_smart_llm_assertion(
+                        cfg=cfg,
+                        output=output,
+                        context=context,
+                        api_keys=api_keys,
+                    )
+                else:
+                    raise ValueError(
+                        "llm_judge assertions require engine api_keys or an llm_judge_runner"
+                    )
             else:
                 result = run_assertion(
                     type=cfg["type"],
@@ -328,6 +339,10 @@ def run_assertions_sync(
         return agg
 
     for cfg in config:
+        if cfg.get("type") == "llm_judge":
+            raise ValueError(
+                "llm_judge assertions require async run_assertions with api_keys or an llm_judge_runner"
+            )
         weight = cfg.get("weight", 1.0)
         result = run_assertion(
             type=cfg["type"],

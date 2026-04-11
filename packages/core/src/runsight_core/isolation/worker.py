@@ -554,9 +554,12 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
         return block
 
     if block_type == "assertion":
-        from dataclasses import asdict
-
-        from runsight_core.assertions.base import AssertionContext
+        from runsight_core.assertions.base import (
+            AssertionContext,
+            TokenUsage,
+            grading_result_from_data,
+            grading_result_to_data,
+        )
         from runsight_core.assertions.registry import run_assertions
 
         assertion_payload = envelope.block_config.get("assertion")
@@ -564,18 +567,73 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
             raise ValueError("assertion block requires a dict assertion payload")
         output_to_grade = str(envelope.block_config.get("output_to_grade", ""))
         judge_soul_raw = envelope.block_config.get("judge_soul")
-        judge_soul = judge_soul_raw if isinstance(judge_soul_raw, dict) else {}
+        judge_soul_payload = judge_soul_raw if isinstance(judge_soul_raw, dict) else {}
+        judge_soul = _resolve_block_soul(judge_soul_payload, soul)
+        usage_totals = {"cost_usd": 0.0, "total_tokens": 0}
 
         class AssertionBlockAdapter:
             def __init__(self, block_id: str) -> None:
                 self._block_id = block_id
 
             async def execute(self, state: WorkflowState) -> WorkflowState:
+                async def _run_worker_llm_judge(
+                    cfg: dict[str, Any],
+                    assertion_output: str,
+                    _assertion_context: AssertionContext,
+                ):
+                    client = runner._get_client(judge_soul)
+                    config_payload = cfg.get("config")
+                    llm_config = config_payload if isinstance(config_payload, dict) else {}
+                    rubric = str(llm_config.get("rubric", ""))
+                    user_prompt = (
+                        "Grade the candidate output against the rubric and return JSON with fields "
+                        "'passed' (bool), 'score' (0..1), 'reason' (str), optional 'named_scores', "
+                        "'tokens_used', 'component_results', 'assertion_type', and 'metadata'.\n\n"
+                        f"Rubric:\n{rubric}\n\nCandidate output:\n{assertion_output}"
+                    )
+
+                    response = await client.achat(
+                        messages=[{"role": "user", "content": user_prompt}],
+                        system_prompt=judge_soul.system_prompt,
+                        temperature=judge_soul.temperature,
+                    )
+
+                    content = response.get("content")
+                    if not isinstance(content, str):
+                        raise ValueError("llm_judge response content must be a string")
+
+                    try:
+                        grading_payload = json.loads(content)
+                    except json.JSONDecodeError as exc:
+                        raise ValueError("llm_judge response must be valid JSON") from exc
+
+                    grading = grading_result_from_data(grading_payload)
+                    if grading.assertion_type is None:
+                        grading.assertion_type = "llm_judge"
+                    grading.metadata.setdefault("judge_model", judge_soul.model_name)
+
+                    prompt_tokens = int(response.get("prompt_tokens", 0) or 0)
+                    completion_tokens = int(response.get("completion_tokens", 0) or 0)
+                    total_tokens = int(
+                        response.get("total_tokens", prompt_tokens + completion_tokens) or 0
+                    )
+                    cost_usd = float(response.get("cost_usd", 0.0) or 0.0)
+                    usage_totals["cost_usd"] += cost_usd
+                    usage_totals["total_tokens"] += total_tokens
+
+                    if grading.tokens_used is None and total_tokens > 0:
+                        grading.tokens_used = TokenUsage(
+                            prompt=prompt_tokens,
+                            completion=completion_tokens,
+                            total=total_tokens,
+                        )
+                    return grading
+
                 assertion_context = AssertionContext(
                     output=output_to_grade,
                     prompt=state.current_task.instruction if state.current_task else "",
                     prompt_hash="",
-                    soul_id=str(judge_soul.get("id", soul.id)),
+                    soul_id=judge_soul.id,
                     soul_version="",
                     block_id=self._block_id,
                     block_type="assertion",
@@ -590,11 +648,14 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
                     [assertion_payload],
                     output=output_to_grade,
                     context=assertion_context,
+                    llm_judge_runner=_run_worker_llm_judge,
                 )
                 if not assertions_result.results:
                     raise ValueError("assertion block produced no grading result")
-                serialized = json.dumps(asdict(assertions_result.results[0]))
+                serialized = json.dumps(grading_result_to_data(assertions_result.results[0]))
                 state.results[self._block_id] = BlockResult(output=serialized, exit_handle="done")
+                state.total_cost_usd += usage_totals["cost_usd"]
+                state.total_tokens += usage_totals["total_tokens"]
                 return state
 
         return AssertionBlockAdapter(envelope.block_id)
