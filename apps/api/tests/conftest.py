@@ -41,3 +41,21 @@ def _clear_context_vars():
 
     clear_execution_context()
     request_id.set("")
+
+
+@pytest.fixture(autouse=True)
+def _bypass_subprocess_isolation(monkeypatch):
+    """Keep block execution in-process so litellm mocks are visible.
+
+    API tests mock litellm and run Workflow.run(). Without this bypass,
+    IsolatedBlockWrapper spawns a real subprocess where mocks are invisible.
+    """
+    try:
+        from runsight_core.isolation.wrapper import IsolatedBlockWrapper
+    except ImportError:
+        return
+
+    async def _in_process(self, state, **kwargs):
+        return await self.inner_block.execute(state, **kwargs)
+
+    monkeypatch.setattr(IsolatedBlockWrapper, "execute", _in_process)
