@@ -9,6 +9,7 @@ import pytest
 from runsight_core.assertions.base import AssertionContext, GradingResult
 from runsight_core.assertions.registry import register_assertion, run_assertions
 from runsight_core.assertions.scoring import AssertionsResult
+from runsight_core.budget_enforcement import BudgetSession, _active_budget
 from runsight_core.isolation.envelope import ResultEnvelope
 
 
@@ -117,6 +118,78 @@ class TestRUN812SmartAssertionIsolation:
         assert grading.reason == "judge accepted output"
         assert grading.named_scores["coherence"] == pytest.approx(0.85)
         assert grading.metadata["judge_model"] == "gpt-4o-mini"
+
+    @pytest.mark.asyncio
+    async def test_llm_judge_accrues_assertion_cost_and_tokens_into_active_budget_session(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        import runsight_core.assertions.registry as registry_module
+        import runsight_core.isolation as isolation_module
+
+        workflow_budget = BudgetSession(
+            scope_name="workflow:run812",
+            cost_cap_usd=5.0,
+            token_cap=5000,
+            on_exceed="fail",
+        )
+        budget_token = _active_budget.set(workflow_budget)
+
+        class FakeHarness:
+            def __init__(self, *, api_keys: dict[str, str], **kwargs: Any) -> None:
+                self._api_keys = dict(api_keys)
+
+            async def run(self, envelope: Any) -> ResultEnvelope:
+                return ResultEnvelope(
+                    block_id=envelope.block_id,
+                    output=json.dumps(
+                        {
+                            "passed": True,
+                            "score": 0.85,
+                            "reason": "judge accepted output",
+                            "named_scores": {"coherence": 0.85},
+                            "assertion_type": "llm_judge",
+                            "metadata": {"judge_model": "gpt-4o-mini"},
+                        }
+                    ),
+                    exit_handle="done",
+                    cost_usd=0.10,
+                    total_tokens=15,
+                    tool_calls_made=0,
+                    delegate_artifacts={},
+                    conversation_history=[],
+                    error=None,
+                    error_type=None,
+                )
+
+        monkeypatch.setattr(registry_module, "SubprocessHarness", FakeHarness, raising=False)
+        monkeypatch.setattr(isolation_module, "SubprocessHarness", FakeHarness, raising=False)
+
+        try:
+            _ = await run_assertions(
+                [
+                    {
+                        "type": "llm_judge",
+                        "config": {
+                            "rubric": "Score factual quality",
+                            "judge_soul": {
+                                "id": "judge-1",
+                                "role": "Judge",
+                                "system_prompt": "Grade output quality.",
+                                "model_name": "gpt-4o-mini",
+                            },
+                        },
+                    }
+                ],
+                output="The candidate answer.",
+                context=_make_context(),
+                api_keys={"openai": "sk-engine-openai"},
+            )
+        finally:
+            _active_budget.reset(budget_token)
+
+        assert workflow_budget.cost_usd == pytest.approx(0.10)
+        assert workflow_budget.tokens == 15
 
     @pytest.mark.asyncio
     async def test_simple_custom_assertion_keeps_minimal_env_and_never_uses_ipc_harness(

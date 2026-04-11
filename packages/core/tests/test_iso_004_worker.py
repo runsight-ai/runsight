@@ -1205,6 +1205,170 @@ class TestRUN812WorkerAssertionBlockContract:
         assert payload["named_scores"]["coherence"] == pytest.approx(0.85)
         assert payload["metadata"]["judge_model"] == "gpt-4o-mini"
 
+    def test_assertion_main_rejects_execution_when_capability_handshake_not_accepted(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        from runsight_core.isolation import worker
+
+        envelope = _make_context_envelope(
+            block_id="assertion_auth_fail",
+            block_type="assertion",
+            block_config={
+                "assertion": {"type": "llm_judge", "config": {"rubric": "strict"}},
+                "output_to_grade": "Candidate response",
+                "judge_soul": {
+                    "id": "judge_soul_1",
+                    "role": "LLM Judge",
+                    "system_prompt": "Grade this answer against the rubric.",
+                    "model_name": "gpt-4o-mini",
+                },
+            },
+        )
+
+        class FakeIPCClient:
+            instances: list["FakeIPCClient"] = []
+
+            def __init__(self, *, socket_path: str) -> None:
+                self.socket_path = socket_path
+                self.connect_calls = 0
+                FakeIPCClient.instances.append(self)
+
+            async def connect(self):
+                self.connect_calls += 1
+                return {
+                    "id": "cap-812",
+                    "done": True,
+                    "accepted": False,
+                    "active_actions": [],
+                    "engine_context": {},
+                    "error": "grant token rejected",
+                }
+
+        create_block_called = {"value": False}
+
+        def _forbidden_create_block(*args, **kwargs):
+            create_block_called["value"] = True
+            raise AssertionError("_create_block must not run when capability auth fails")
+
+        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-812")
+        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-run812.sock")
+        monkeypatch.setattr(worker, "_emit_heartbeat", lambda *args, **kwargs: None)
+        monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
+        monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
+        monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
+        monkeypatch.setattr(worker, "_create_block", _forbidden_create_block)
+        monkeypatch.setattr(sys, "stdin", io.StringIO(envelope.model_dump_json()))
+        captured_stdout = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured_stdout)
+
+        with pytest.raises(SystemExit) as exc_info:
+            worker.main()
+
+        result_env = ResultEnvelope.model_validate_json(captured_stdout.getvalue().strip())
+
+        assert exc_info.value.code == 1
+        assert len(FakeIPCClient.instances) == 1
+        assert FakeIPCClient.instances[0].connect_calls == 1
+        assert create_block_called["value"] is False
+        assert result_env.error is not None
+        assert "IPC auth failed" in result_env.error
+
+    def test_assertion_main_uses_connect_handshake_before_assertion_execution(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        from runsight_core.isolation import worker
+        from runsight_core.state import BlockResult
+
+        envelope = _make_context_envelope(
+            block_id="assertion_auth_ok",
+            block_type="assertion",
+            block_config={
+                "assertion": {"type": "llm_judge", "config": {"rubric": "strict"}},
+                "output_to_grade": "Candidate response",
+                "judge_soul": {
+                    "id": "judge_soul_1",
+                    "role": "LLM Judge",
+                    "system_prompt": "Grade this answer against the rubric.",
+                    "model_name": "gpt-4o-mini",
+                },
+            },
+        )
+
+        class FakeIPCClient:
+            instances: list["FakeIPCClient"] = []
+
+            def __init__(self, *, socket_path: str) -> None:
+                self.socket_path = socket_path
+                self.connect_calls = 0
+                self.request_calls: list[str] = []
+                FakeIPCClient.instances.append(self)
+
+            async def connect(self):
+                self.connect_calls += 1
+                return {
+                    "id": "cap-812",
+                    "done": True,
+                    "accepted": True,
+                    "active_actions": ["llm_call", "tool_call"],
+                    "engine_context": {},
+                    "error": None,
+                }
+
+            async def request(self, action: str, payload: dict[str, object]):
+                self.request_calls.append(action)
+                return {"output": "unused"}
+
+            async def request_stream(self, action: str, payload: dict[str, object]):
+                self.request_calls.append(action)
+                yield {
+                    "content": "unused",
+                    "cost_usd": 0.0,
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                    "tool_calls": [],
+                    "finish_reason": "stop",
+                }
+
+        class _FakeAssertionBlock:
+            def __init__(self, block_id: str) -> None:
+                self._block_id = block_id
+
+            async def execute(self, state):
+                state.results[self._block_id] = BlockResult(
+                    output="assertion-ok", exit_handle="done"
+                )
+                return state
+
+        def _fake_create_block(envelope_arg, soul_arg, runner_arg):
+            assert envelope_arg.block_type == "assertion"
+            return _FakeAssertionBlock(envelope_arg.block_id)
+
+        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-812")
+        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-run812.sock")
+        monkeypatch.setattr(worker, "_emit_heartbeat", lambda *args, **kwargs: None)
+        monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
+        monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
+        monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
+        monkeypatch.setattr(worker, "_create_block", _fake_create_block)
+        monkeypatch.setattr(sys, "stdin", io.StringIO(envelope.model_dump_json()))
+        captured_stdout = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured_stdout)
+
+        with pytest.raises(SystemExit) as exc_info:
+            worker.main()
+
+        result_env = ResultEnvelope.model_validate_json(captured_stdout.getvalue().strip())
+
+        assert exc_info.value.code == 0
+        assert len(FakeIPCClient.instances) == 1
+        assert FakeIPCClient.instances[0].connect_calls == 1
+        assert "capability_negotiation" not in FakeIPCClient.instances[0].request_calls
+        assert result_env.error is None
+        assert result_env.output == "assertion-ok"
+
 
 # ==============================================================================
 # AC9: Missing RUNSIGHT_IPC_SOCKET → exit 1 with clear error
