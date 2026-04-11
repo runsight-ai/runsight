@@ -85,8 +85,7 @@ class SubprocessHarness:
     def __init__(
         self,
         *,
-        api_key: str | None = None,
-        api_keys: dict[str, str] | None = None,
+        api_keys: dict[str, str],
         timeout_seconds: int = 300,
         heartbeat_timeout: float = 30.0,
         phase_timeout: float = 60.0,
@@ -94,12 +93,7 @@ class SubprocessHarness:
         tool_credentials: dict[str, dict[str, str]] | None = None,
         resolved_tools: dict[str, Any] | None = None,
     ) -> None:
-        if api_keys is not None:
-            self._api_keys = dict(api_keys)
-        elif api_key is not None:
-            self._api_keys = {"openai": api_key}
-        else:
-            raise ValueError("SubprocessHarness requires api_keys or api_key")
+        self._api_keys = dict(api_keys)
         self._timeout_seconds = timeout_seconds
         self._heartbeat_timeout = heartbeat_timeout
         self._phase_timeout = phase_timeout
