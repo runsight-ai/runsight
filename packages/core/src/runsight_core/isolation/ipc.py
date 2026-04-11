@@ -200,7 +200,6 @@ class BudgetInterceptor:
                 cost_usd=self._to_float(payload.get("cost_usd")),
                 tokens=self._to_int(payload.get("total_tokens")),
             )
-            self._session.check_or_raise(block_id=self._block_id)
         engine_context.update(self._remaining_context())
         return engine_context
 
@@ -213,7 +212,6 @@ class BudgetInterceptor:
                 cost_usd=self._to_float(chunk.get("cost_usd")),
                 tokens=tokens,
             )
-            self._session.check_or_raise(block_id=self._block_id)
         engine_context.update(self._remaining_context())
         return engine_context
 

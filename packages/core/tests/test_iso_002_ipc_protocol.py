@@ -2557,6 +2557,38 @@ class TestRUN810BudgetInterceptorContract:
         assert engine_context["budget_remaining_tokens"] == 93
 
     @pytest.mark.asyncio
+    async def test_stream_chunk_over_cap_reports_negative_remaining_then_next_request_kills(self):
+        from runsight_core.budget_enforcement import BudgetKilledException, BudgetSession
+        from runsight_core.isolation import ipc as ipc_module
+
+        budget_session = BudgetSession(
+            scope_name="block:run810-stream-over",
+            cost_cap_usd=5.0,
+            token_cap=5,
+            on_exceed="fail",
+        )
+        interceptor = _make_budget_interceptor(
+            ipc_module,
+            session=budget_session,
+            block_id="run810-stream-over",
+        )
+
+        engine_context: dict[str, Any] = {}
+        engine_context = await interceptor.on_request(
+            "llm_call", {"model": "gpt-4o-mini"}, engine_context
+        )
+        engine_context = await interceptor.on_stream_chunk(
+            "llm_call",
+            {"total_tokens": 7, "tokens": 7},
+            engine_context,
+        )
+
+        assert budget_session.tokens == 7
+        assert engine_context["budget_remaining_tokens"] == -2
+        with pytest.raises(BudgetKilledException):
+            await interceptor.on_request("llm_call", {"model": "gpt-4o-mini"}, engine_context)
+
+    @pytest.mark.asyncio
     async def test_budget_interceptor_kills_request_before_handler_when_budget_exhausted(
         self, tmp_path: Path
     ):
