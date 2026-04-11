@@ -115,7 +115,7 @@ class TestIpcHandlerRegistration:
         from runsight_core.isolation import SubprocessHarness
         from runsight_core.tools import ToolInstance
 
-        harness = SubprocessHarness(api_key="sk-test-key-123")
+        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
         harness._resolved_tools = {
             "echo_tool": ToolInstance(
                 name="echo_tool",
@@ -421,7 +421,7 @@ class TestRUN810HarnessBudgetInterceptorWiring:
             harness_module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec
         )
 
-        harness = SubprocessHarness(api_key="sk-test-key-123")
+        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
         monkeypatch.setattr(harness, "_monitor_heartbeats", AsyncMock(return_value=False))
 
         envelope = _make_context_envelope(block_id="run810-block", block_type="linear")
@@ -578,7 +578,7 @@ class TestRUN397HarnessObserverInterceptorWiring:
             fake_create_subprocess_exec,
         )
 
-        harness = SubprocessHarness(api_key="sk-test-key-123")
+        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
         monkeypatch.setattr(harness, "_monitor_heartbeats", AsyncMock(return_value=False))
 
         envelope = _make_context_envelope(block_id="run397-block", block_type="linear")
@@ -676,7 +676,7 @@ class TestRUN394SubprocessHarnessWiringContract:
         monkeypatch.setattr(handlers_module, "make_llm_call_handler", fake_make_llm_call_handler)
         monkeypatch.setattr(handlers_module, "make_tool_call_handler", fake_make_tool_call_handler)
 
-        harness = SubprocessHarness(api_key="sk-test-key-123")
+        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
         _ = harness._build_ipc_handlers()
 
         assert captured["url_allowlist"] == []
@@ -731,7 +731,7 @@ class TestRUN394SubprocessHarnessWiringContract:
         monkeypatch.setattr(handlers_module, "make_llm_call_handler", fake_make_llm_call_handler)
         monkeypatch.setattr(handlers_module, "make_tool_call_handler", fake_make_tool_call_handler)
 
-        harness = SubprocessHarness(api_key="sk-test-key-123")
+        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
         _ = harness._build_ipc_handlers()
         assert created["base_dir"].exists()
 
