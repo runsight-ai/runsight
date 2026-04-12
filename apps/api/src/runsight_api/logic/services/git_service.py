@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import tempfile
 import uuid
@@ -10,6 +11,11 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Optional
+
+from ...domain.errors import ServiceUnavailable
+
+
+_GIT_UNAVAILABLE_MESSAGE = "Git executable is unavailable; Git operations are disabled"
 
 
 @dataclass
@@ -26,6 +32,14 @@ class GitService:
     def __init__(self, repo_path: str | Path) -> None:
         self.repo_path = Path(repo_path)
 
+    def _ensure_git_available(self, env: Optional[dict[str, str]] = None) -> None:
+        path = None
+        if env is not None:
+            path = env.get("PATH", os.defpath)
+
+        if shutil.which("git", path=path) is None:
+            raise ServiceUnavailable(_GIT_UNAVAILABLE_MESSAGE)
+
     def _run(
         self,
         *args: str,
@@ -33,15 +47,19 @@ class GitService:
         input_text: Optional[str] = None,
         env: Optional[dict[str, str]] = None,
     ) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["git", *args],
-            cwd=str(self.repo_path),
-            capture_output=True,
-            text=True,
-            check=check,
-            input=input_text,
-            env=env,
-        )
+        self._ensure_git_available(env)
+        try:
+            return subprocess.run(
+                ["git", *args],
+                cwd=str(self.repo_path),
+                capture_output=True,
+                text=True,
+                check=check,
+                input=input_text,
+                env=env,
+            )
+        except FileNotFoundError as exc:
+            raise ServiceUnavailable(_GIT_UNAVAILABLE_MESSAGE) from exc
 
     def _normalize_repo_path(self, path: str | Path) -> str:
         candidate = Path(path)
