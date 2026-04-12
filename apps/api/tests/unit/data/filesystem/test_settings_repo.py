@@ -61,6 +61,25 @@ class TestFreshInstallDefaults:
         assert isinstance(settings, AppSettingsConfig)
         assert settings.fallback_enabled is False
 
+    def test_present_settings_file_without_fallback_map_is_valid(self, repo, settings_file):
+        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text(
+            yaml.safe_dump(
+                {
+                    "onboarding_completed": True,
+                    "fallback_enabled": True,
+                },
+                sort_keys=False,
+            )
+        )
+
+        settings = repo.get_settings()
+
+        assert isinstance(settings, AppSettingsConfig)
+        assert settings.onboarding_completed is True
+        assert settings.fallback_enabled is True
+        assert repo.get_fallback_map() == []
+
     def test_legacy_fallback_repo_methods_are_removed(self, repo):
         assert not hasattr(repo, "get_fallback_chain")
         assert not hasattr(repo, "update_fallback_chain")
@@ -133,6 +152,49 @@ class TestFallbackMapPersistence:
         assert repo.remove_fallback_target("missing-provider") is False
         assert settings_file.read_text() == before
         write_mock.assert_not_called()
+
+    def test_set_fallback_target_preserves_app_settings_buckets(self, repo, settings_file):
+        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text(
+            yaml.safe_dump(
+                {
+                    "onboarding_completed": True,
+                    "fallback_enabled": True,
+                    "fallback_map": [
+                        {
+                            "provider_id": "openai",
+                            "fallback_provider_id": "anthropic",
+                            "fallback_model_id": "claude-sonnet-4",
+                        }
+                    ],
+                },
+                sort_keys=False,
+            )
+        )
+        entry_cls = getattr(_settings_module(), "FallbackTargetEntry")
+
+        updated = repo.set_fallback_target(
+            entry_cls(
+                provider_id="openai",
+                fallback_provider_id="google",
+                fallback_model_id="gemini-2.5-pro",
+            )
+        )
+
+        assert updated.provider_id == "openai"
+        assert updated.fallback_provider_id == "google"
+        assert updated.fallback_model_id == "gemini-2.5-pro"
+
+        on_disk = yaml.safe_load(settings_file.read_text())
+        assert on_disk["onboarding_completed"] is True
+        assert on_disk["fallback_enabled"] is True
+        assert on_disk["fallback_map"] == [
+            {
+                "provider_id": "openai",
+                "fallback_provider_id": "google",
+                "fallback_model_id": "gemini-2.5-pro",
+            }
+        ]
 
 
 class TestStrictSchemaValidation:
@@ -224,8 +286,8 @@ class TestStrictSchemaValidation:
 
 
 class TestStrictSettingsWrites:
-    def test_update_settings_does_not_rewrite_valid_settings_on_no_op_update(
-        self, repo, settings_file, monkeypatch
+    def test_update_settings_preserves_valid_fallback_data_when_mutating_app_settings(
+        self, repo, settings_file
     ):
         settings_file.parent.mkdir(parents=True, exist_ok=True)
         settings_file.write_text(
@@ -245,17 +307,15 @@ class TestStrictSettingsWrites:
             )
         )
         before = settings_file.read_text()
-        write_mock = Mock(wraps=repo._write_yaml)
-        monkeypatch.setattr(repo, "_write_yaml", write_mock)
 
-        updated = repo.update_settings({})
+        updated = repo.update_settings({"onboarding_completed": True})
 
-        assert updated.onboarding_completed is False
+        assert updated.onboarding_completed is True
         assert updated.fallback_enabled is True
 
         on_disk = yaml.safe_load(settings_file.read_text())
-        assert settings_file.read_text() == before
-        assert on_disk["onboarding_completed"] is False
+        assert settings_file.read_text() != before
+        assert on_disk["onboarding_completed"] is True
         assert on_disk["fallback_enabled"] is True
         assert on_disk["fallback_map"] == [
             {
@@ -264,7 +324,6 @@ class TestStrictSettingsWrites:
                 "fallback_model_id": "claude-sonnet-4",
             }
         ]
-        write_mock.assert_not_called()
 
     def test_update_settings_rejects_auto_save_before_rewriting(
         self, repo, settings_file, monkeypatch
