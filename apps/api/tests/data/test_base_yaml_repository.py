@@ -214,6 +214,42 @@ class TestTaskAndStepRepoStrictness:
                 on_disk = yaml.safe_load(f)
             assert on_disk == {"id": "task-1", "name": "Task"}
 
+    def test_task_repo_get_by_id_rejects_unknown_fields_in_authored_yaml(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = TaskRepository(base_path=tmpdir)
+            task_path = repo.entity_dir / "task-1.yaml"
+            task_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "id": "task-1",
+                        "name": "Task",
+                        "custom_notes": "unsupported",
+                    },
+                    sort_keys=False,
+                )
+            )
+
+            with pytest.raises(ValidationError):
+                repo.get_by_id("task-1")
+
+    def test_task_repo_list_all_rejects_unknown_fields_in_authored_yaml(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = TaskRepository(base_path=tmpdir)
+            task_path = repo.entity_dir / "task-1.yaml"
+            task_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "id": "task-1",
+                        "name": "Task",
+                        "unsupported": True,
+                    },
+                    sort_keys=False,
+                )
+            )
+
+            with pytest.raises(ValidationError):
+                repo.list_all()
+
     def test_step_repo_create_rejects_unknown_fields_and_does_not_persist(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = StepRepository(base_path=tmpdir)
@@ -231,6 +267,42 @@ class TestTaskAndStepRepoStrictness:
             with open(repo.entity_dir / "step-1.yaml", "r") as f:
                 on_disk = yaml.safe_load(f)
             assert on_disk == {"id": "step-1", "name": "Step"}
+
+    def test_step_repo_get_by_id_rejects_unknown_fields_in_authored_yaml(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = StepRepository(base_path=tmpdir)
+            step_path = repo.entity_dir / "step-1.yaml"
+            step_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "id": "step-1",
+                        "name": "Step",
+                        "custom_notes": "unsupported",
+                    },
+                    sort_keys=False,
+                )
+            )
+
+            with pytest.raises(ValidationError):
+                repo.get_by_id("step-1")
+
+    def test_step_repo_list_all_rejects_unknown_fields_in_authored_yaml(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = StepRepository(base_path=tmpdir)
+            step_path = repo.entity_dir / "step-1.yaml"
+            step_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "id": "step-1",
+                        "name": "Step",
+                        "unsupported": True,
+                    },
+                    sort_keys=False,
+                )
+            )
+
+            with pytest.raises(ValidationError):
+                repo.list_all()
 
 
 class TestDelete:
