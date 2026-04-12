@@ -125,7 +125,6 @@ describe("canonical settings transport contracts", () => {
   it("exports the canonical app-settings schema on @runsight/shared/zod", () => {
     const appSettingsSample = {
       base_path: "/workspace",
-      auto_save: true,
       onboarding_completed: true,
       fallback_enabled: false,
     };

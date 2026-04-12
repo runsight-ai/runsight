@@ -170,6 +170,41 @@ class TestStrictSchemaValidation:
         with pytest.raises(Exception, match="fallback_map"):
             repo.get_fallback_map()
 
+    @pytest.mark.parametrize(
+        ("missing_key", "entry"),
+        [
+            (
+                "provider_id",
+                {
+                    "fallback_provider_id": "anthropic",
+                    "fallback_model_id": "claude-sonnet-4",
+                },
+            ),
+            (
+                "fallback_provider_id",
+                {
+                    "provider_id": "openai",
+                    "fallback_model_id": "claude-sonnet-4",
+                },
+            ),
+            (
+                "fallback_model_id",
+                {
+                    "provider_id": "openai",
+                    "fallback_provider_id": "anthropic",
+                },
+            ),
+        ],
+    )
+    def test_get_settings_rejects_fallback_map_entries_missing_required_fields(
+        self, repo, settings_file, missing_key, entry
+    ):
+        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text(yaml.safe_dump({"fallback_map": [entry]}, sort_keys=False))
+
+        with pytest.raises(Exception, match=missing_key):
+            repo.get_settings()
+
 
 class TestStrictSettingsWrites:
     def test_update_settings_preserves_fallback_map_but_removes_auto_save(

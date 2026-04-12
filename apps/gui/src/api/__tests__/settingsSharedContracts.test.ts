@@ -225,7 +225,6 @@ const budgetItemPayload = {
 
 const appSettingsPayload = {
   base_path: "/workspace",
-  auto_save: true,
   onboarding_completed: true,
   fallback_enabled: false,
 };
