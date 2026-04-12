@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 400" font-family="Inter, system-ui, sans-serif">
-  <rect width="700" height="400" rx="12" fill="#141210"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 410" font-family="'Satoshi', Inter, system-ui, sans-serif">
+  <rect width="700" height="410" rx="12" fill="#141210"/>
 
   <!-- Layer 1 (outermost) -->
   <rect x="30" y="30" width="640" height="280" rx="12" fill="#1a2018" stroke="#4c8a4c" stroke-width="2"/>
@@ -29,8 +29,8 @@
   <text x="120" y="240" fill="#a07cc8" font-size="12" font-weight="700">Layer 3: Nested Subprocess</text>
   <text x="120" y="258" fill="#6b5080" font-size="10">CodeBlock + simple assertions run in further-isolated subprocess with minimal env</text>
 
-  <!-- Layer 4 (future) — below Layer 1, not overlapping -->
-  <rect x="30" y="340" width="640" height="45" rx="8" fill="#1e1a15" stroke="#6b5c3e" stroke-width="1.5" stroke-dasharray="8,4"/>
-  <text x="60" y="365" fill="#a08a60" font-size="12" font-weight="600">Layer 4 (future): OS-Level Sandboxing</text>
-  <text x="60" y="380" fill="#6b5c3e" font-size="10">seccomp, containers, network namespaces — not currently implemented</text>
+  <!-- Layer 4 — Container Hardening (active) -->
+  <rect x="30" y="330" width="640" height="60" rx="8" fill="#1a1508" stroke="#c08a2a" stroke-width="2"/>
+  <text x="60" y="355" fill="#d4952e" font-size="12" font-weight="700">Layer 4: Container Hardening</text>
+  <text x="60" y="373" fill="#8a7a50" font-size="10">non-root user (UID 1000) · cap_drop: ALL · no-new-privileges · cgroup limits (mem, cpu) · tini PID 1</text>
 </svg>
