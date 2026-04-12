@@ -2715,25 +2715,11 @@
             "title": "Base Path"
           },
           "onboarding_completed": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "boolean",
             "title": "Onboarding Completed"
           },
           "fallback_enabled": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "boolean",
             "title": "Fallback Enabled"
           }
         },
@@ -2743,25 +2729,11 @@
       "AppSettingsUpdate": {
         "properties": {
           "onboarding_completed": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "boolean",
             "title": "Onboarding Completed"
           },
           "fallback_enabled": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "boolean",
             "title": "Fallback Enabled"
           }
         },

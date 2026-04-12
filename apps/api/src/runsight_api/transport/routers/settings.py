@@ -95,15 +95,15 @@ class SettingsBudgetListResponse(BaseModel):
 
 class AppSettingsOut(BaseModel):
     base_path: Optional[str] = None
-    onboarding_completed: Optional[bool] = None
-    fallback_enabled: Optional[bool] = None
+    onboarding_completed: StrictBool = None
+    fallback_enabled: StrictBool = None
 
 
 class AppSettingsUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    onboarding_completed: Optional[StrictBool] = None
-    fallback_enabled: Optional[StrictBool] = None
+    onboarding_completed: StrictBool = None
+    fallback_enabled: StrictBool = None
 
 
 def _preview_api_key(secret: Optional[str]) -> Optional[str]:

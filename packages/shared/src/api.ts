@@ -801,16 +801,16 @@ export interface components {
             /** Base Path */
             base_path?: string | null;
             /** Onboarding Completed */
-            onboarding_completed?: boolean | null;
+            onboarding_completed?: boolean;
             /** Fallback Enabled */
-            fallback_enabled?: boolean | null;
+            fallback_enabled?: boolean;
         };
         /** AppSettingsUpdate */
         AppSettingsUpdate: {
             /** Onboarding Completed */
-            onboarding_completed?: boolean | null;
+            onboarding_completed?: boolean;
             /** Fallback Enabled */
-            fallback_enabled?: boolean | null;
+            fallback_enabled?: boolean;
         };
         /** AttentionItem */
         AttentionItem: {
