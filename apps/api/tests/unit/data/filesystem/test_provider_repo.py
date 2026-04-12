@@ -311,6 +311,22 @@ class TestReadValidation:
         with pytest.raises(ValidationError):
             repo.get_by_id("openai")
 
+    def test_list_all_rejects_provider_yaml_with_unsupported_fields(self, repo, providers_dir):
+        yaml_path = providers_dir / "openai.yaml"
+        yaml_path.write_text(
+            yaml.safe_dump(
+                {
+                    "name": "OpenAI",
+                    "type": "openai",
+                    "api_key": "${OPENAI_API_KEY}",
+                    "custom_notes": "unsupported",
+                }
+            )
+        )
+
+        with pytest.raises(ValidationError):
+            repo.list_all()
+
 
 class TestDelete:
     def test_delete_removes_yaml_file(self, repo, providers_dir):

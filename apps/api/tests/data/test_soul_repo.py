@@ -127,6 +127,26 @@ def test_soul_repo_get_by_id_rejects_unsupported_yaml_fields():
             repo.get_by_id("legacy")
 
 
+def test_soul_repo_list_all_rejects_unsupported_yaml_fields():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = SoulRepository(base_path=tmpdir)
+        legacy_path = repo.entity_dir / "legacy.yaml"
+        legacy_path.write_text(
+            yaml.safe_dump(
+                {
+                    "id": "legacy",
+                    "role": "Legacy Soul",
+                    "system_prompt": "Prompt",
+                    "custom_notes": "unsupported",
+                },
+                sort_keys=False,
+            )
+        )
+
+        with pytest.raises(ValidationError):
+            repo.list_all()
+
+
 def test_soul_repo_resolves_embedded_id_when_filename_differs():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = SoulRepository(base_path=tmpdir)
