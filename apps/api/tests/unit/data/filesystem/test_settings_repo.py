@@ -231,6 +231,31 @@ class TestStrictSchemaValidation:
         with pytest.raises(Exception, match="fallback_map|YAML|parse|invalid"):
             repo.get_settings()
 
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("fallback_enabled", 1),
+            ("onboarding_completed", "yes"),
+        ],
+    )
+    def test_get_settings_rejects_wrong_type_for_supported_bool_fields(
+        self, repo, settings_file, field, value
+    ):
+        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text(
+            yaml.safe_dump(
+                {
+                    "onboarding_completed": False,
+                    "fallback_enabled": False,
+                    field: value,
+                },
+                sort_keys=False,
+            )
+        )
+
+        with pytest.raises(Exception, match=field):
+            repo.get_settings()
+
     def test_get_fallback_map_rejects_non_list_fallback_map(self, repo, settings_file):
         settings_file.parent.mkdir(parents=True, exist_ok=True)
         settings_file.write_text(
@@ -345,4 +370,44 @@ class TestStrictSettingsWrites:
         with pytest.raises(Exception, match="auto_save"):
             repo.update_settings({"onboarding_completed": True})
 
+        write_mock.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("updates", "field"),
+        [
+            ({"onboarding_completed": "yes"}, "onboarding_completed"),
+            ({"fallback_enabled": 1}, "fallback_enabled"),
+        ],
+    )
+    def test_update_settings_rejects_wrong_type_without_creating_settings_file(
+        self, repo, settings_file, updates, field
+    ):
+        assert not settings_file.exists()
+
+        with pytest.raises(Exception, match=field):
+            repo.update_settings(updates)
+
+        assert not settings_file.exists()
+
+    def test_update_settings_rejects_wrong_type_without_rewriting_existing_file(
+        self, repo, settings_file, monkeypatch
+    ):
+        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text(
+            yaml.safe_dump(
+                {
+                    "onboarding_completed": False,
+                    "fallback_enabled": True,
+                },
+                sort_keys=False,
+            )
+        )
+        before = settings_file.read_text()
+        write_mock = Mock(wraps=repo._write_yaml)
+        monkeypatch.setattr(repo, "_write_yaml", write_mock)
+
+        with pytest.raises(Exception, match="fallback_enabled"):
+            repo.update_settings({"fallback_enabled": 1})
+
+        assert settings_file.read_text() == before
         write_mock.assert_not_called()

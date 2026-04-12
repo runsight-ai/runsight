@@ -1,5 +1,6 @@
 from unittest.mock import AsyncMock, Mock
 
+import pytest
 from fastapi.testclient import TestClient
 
 from runsight_api.data.filesystem.settings_repo import FileSystemSettingsRepo
@@ -317,6 +318,29 @@ def test_app_settings_put_rejects_unsupported_fields():
             "/api/settings/app",
             json={"default_provider": "openai"},
         )
+        assert response.status_code == 422
+        mock_repo.update_settings.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"onboarding_completed": "yes"},
+        {"fallback_enabled": 1},
+    ],
+)
+def test_app_settings_put_rejects_coercible_non_boolean_values(payload):
+    mock_repo = Mock(spec=FileSystemSettingsRepo)
+    mock_repo.update_settings.return_value = AppSettingsConfig(
+        onboarding_completed=False,
+        fallback_enabled=False,
+    )
+    app.dependency_overrides[get_settings_repo] = lambda: mock_repo
+
+    try:
+        response = client.put("/api/settings/app", json=payload)
         assert response.status_code == 422
         mock_repo.update_settings.assert_not_called()
     finally:
