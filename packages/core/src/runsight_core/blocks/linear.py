@@ -112,6 +112,7 @@ def build(
     souls_map: Dict[str, Any],
     runner: Any,
     all_blocks: Dict[str, Any],
+    **_: Any,
 ) -> LinearBlock:
     """Build a LinearBlock from a block definition."""
     if block_def.soul_ref is None:

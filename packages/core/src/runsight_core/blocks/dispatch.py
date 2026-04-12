@@ -219,6 +219,7 @@ def build(
     souls_map: Dict[str, Any],
     runner: Any,
     all_blocks: Dict[str, Any],
+    **_: Any,
 ) -> DispatchBlock:
     """Build a DispatchBlock from a block definition."""
     if not block_def.exits:

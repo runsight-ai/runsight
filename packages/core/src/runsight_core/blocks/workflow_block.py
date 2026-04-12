@@ -401,17 +401,54 @@ def build(
     souls_map: Dict[str, Any],
     runner: Any,
     all_blocks: Dict[str, Any],
+    *,
+    workflow_registry: "WorkflowRegistry" | None = None,
+    api_keys: Dict[str, str] | None = None,
+    workflow_base_dir: str = ".",
+    parent_file_def: Any | None = None,
+    **_: Any,
 ) -> WorkflowBlock:
-    """Build a WorkflowBlock from a block definition.
+    """Build a WorkflowBlock from a block definition."""
+    if getattr(block_def, "workflow_ref", None) is None:
+        raise ValueError(f"WorkflowBlock '{block_id}': workflow_ref is required")
+    if workflow_registry is None:
+        raise ValueError(
+            f"WorkflowBlock '{block_id}': workflow_registry must be provided "
+            "when building workflow blocks"
+        )
 
-    Note: In practice, the workflow block is handled as a special case in
-    parse_workflow_yaml because it requires a WorkflowRegistry for recursive
-    parsing. This build() function exists for API consistency and can be
-    used when the child_workflow is already resolved.
-    """
-    raise NotImplementedError(
-        f"WorkflowBlock '{block_id}' must be built via the special-case "
-        f"handler in parse_workflow_yaml, not via the generic builder registry."
+    # Import parser helpers lazily to keep block registration free of parser cycles.
+    from runsight_core.yaml.parser import (
+        _resolve_workflow_block_max_depth,
+        _validate_workflow_block_contract,
+        parse_workflow_yaml,
+    )
+
+    child_file = workflow_registry.get(block_def.workflow_ref)
+    _validate_workflow_block_contract(block_id, block_def, child_file)
+
+    child_raw = child_file.model_dump() if hasattr(child_file, "model_dump") else child_file
+    child_wf = parse_workflow_yaml(
+        child_raw,
+        workflow_registry=workflow_registry,
+        api_keys=api_keys,
+        _base_dir=workflow_base_dir,
+    )
+
+    max_depth = (
+        _resolve_workflow_block_max_depth(parent_file_def, block_def)
+        if parent_file_def is not None
+        else block_def.max_depth or 10
+    )
+    return WorkflowBlock(
+        block_id=block_id,
+        child_workflow=child_wf,
+        inputs=block_def.inputs or {},
+        outputs=block_def.outputs or {},
+        workflow_ref=block_def.workflow_ref,
+        max_depth=max_depth,
+        interface=child_file.interface,
+        on_error=block_def.on_error,
     )
 
 

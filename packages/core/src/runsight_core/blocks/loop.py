@@ -294,6 +294,7 @@ def build(
     souls_map: Dict[str, Any],
     runner: Any,
     all_blocks: Dict[str, Any],
+    **_: Any,
 ) -> LoopBlock:
     """Build a LoopBlock from a block definition."""
     break_condition = None
