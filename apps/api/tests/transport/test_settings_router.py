@@ -109,6 +109,30 @@ def test_settings_providers_post_422():
     assert response.status_code == 422
 
 
+def test_settings_providers_post_rejects_unknown_fields():
+    mock_service = Mock()
+    mock_service.create_provider.return_value = _mock_provider(
+        provider_id="openai",
+        name="OpenAI",
+        models=[],
+    )
+    app.dependency_overrides[get_provider_service] = lambda: mock_service
+
+    try:
+        response = client.post(
+            "/api/settings/providers",
+            json={
+                "name": "OpenAI",
+                "api_key_env": "sk-xxx",
+                "custom_notes": "unsupported",
+            },
+        )
+        assert response.status_code == 422
+        mock_service.create_provider.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_settings_providers_put_404():
     mock_service = Mock()
     mock_service.update_provider.return_value = None
@@ -117,6 +141,26 @@ def test_settings_providers_put_404():
     response = client.put("/api/settings/providers/missing", json={"name": "Updated"})
     assert response.status_code == 404
     app.dependency_overrides.clear()
+
+
+def test_settings_providers_put_rejects_unknown_fields():
+    mock_service = Mock()
+    mock_service.update_provider.return_value = _mock_provider(
+        provider_id="openai",
+        name="OpenAI",
+        models=[],
+    )
+    app.dependency_overrides[get_provider_service] = lambda: mock_service
+
+    try:
+        response = client.put(
+            "/api/settings/providers/openai",
+            json={"name": "Updated", "custom_notes": "unsupported"},
+        )
+        assert response.status_code == 422
+        mock_service.update_provider.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_settings_providers_delete_404():

@@ -68,6 +68,31 @@ def test_tasks_post_422():
     assert response.status_code == 422
 
 
+def test_tasks_post_rejects_unknown_fields():
+    mock_registry = Mock()
+    mock_repo = Mock()
+    mock_entity = Mock()
+    mock_entity.model_dump.return_value = {
+        "id": "tk_new",
+        "name": "New Task",
+        "type": "task",
+        "path": "/path/to/tk_new",
+        "description": None,
+    }
+    mock_repo.create.return_value = mock_entity
+    mock_repo._get_path.return_value = "/path/to/tk_new"
+    app.dependency_overrides[get_registry_service] = lambda: mock_registry
+    app.dependency_overrides[get_task_repo] = lambda: mock_repo
+
+    response = client.post(
+        "/api/tasks",
+        json={"name": "New Task", "type": "task", "custom_notes": "unsupported"},
+    )
+    assert response.status_code == 422
+    mock_repo.create.assert_not_called()
+    app.dependency_overrides.clear()
+
+
 def test_tasks_put_404():
     mock_registry = Mock()
     mock_registry.discover_tasks.return_value = []
@@ -78,6 +103,33 @@ def test_tasks_put_404():
 
     response = client.put("/api/tasks/missing", json={"name": "Updated"})
     assert response.status_code == 404
+    app.dependency_overrides.clear()
+
+
+def test_tasks_put_rejects_unknown_fields():
+    mock_registry = Mock()
+    mock_repo = Mock()
+    mock_entity = Mock()
+    mock_entity.model_dump.return_value = {
+        "id": "tk_1",
+        "name": "Task",
+        "type": "task",
+        "path": "/path/to/tk_1",
+        "description": None,
+    }
+    mock_repo.get_by_id.return_value = mock_entity
+    mock_repo.update.return_value = mock_entity
+    mock_repo._get_path.return_value = "/path/to/tk_1"
+    app.dependency_overrides[get_registry_service] = lambda: mock_registry
+    app.dependency_overrides[get_task_repo] = lambda: mock_repo
+
+    response = client.put(
+        "/api/tasks/tk_1",
+        json={"name": "Updated", "custom_notes": "unsupported"},
+    )
+    assert response.status_code == 422
+    mock_repo.get_by_id.assert_not_called()
+    mock_repo.update.assert_not_called()
     app.dependency_overrides.clear()
 
 

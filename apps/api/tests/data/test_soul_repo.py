@@ -2,6 +2,7 @@ import tempfile
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from runsight_api.data.filesystem.soul_repo import SoulRepository
 from runsight_api.domain.errors import SoulNotFound
@@ -56,6 +57,74 @@ def test_soul_repo():
         # Test not found
         with pytest.raises(SoulNotFound):
             repo.update("missing", {"role": "Does not exist"})
+
+
+def test_soul_repo_create_rejects_unknown_fields_and_does_not_persist():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = SoulRepository(base_path=tmpdir)
+        soul_path = repo.entity_dir / "strict_soul.yaml"
+
+        with pytest.raises(ValidationError):
+            repo.create(
+                {
+                    "id": "strict_soul",
+                    "role": "Strict Soul",
+                    "system_prompt": "Prompt",
+                    "custom_notes": "unsupported",
+                }
+            )
+
+        assert not soul_path.exists()
+
+
+def test_soul_repo_update_rejects_unknown_fields_and_keeps_existing_yaml():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = SoulRepository(base_path=tmpdir)
+        repo.create(
+            {
+                "id": "strict_soul",
+                "role": "Strict Soul",
+                "system_prompt": "Prompt",
+            }
+        )
+
+        with pytest.raises(ValidationError):
+            repo.update(
+                "strict_soul",
+                {
+                    "role": "Updated",
+                    "system_prompt": "Updated prompt",
+                    "custom_notes": "unsupported",
+                },
+            )
+
+        with open(repo.entity_dir / "strict_soul.yaml", "r") as f:
+            on_disk = yaml.safe_load(f)
+        assert on_disk == {
+            "id": "strict_soul",
+            "role": "Strict Soul",
+            "system_prompt": "Prompt",
+        }
+
+
+def test_soul_repo_get_by_id_rejects_unsupported_yaml_fields():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = SoulRepository(base_path=tmpdir)
+        legacy_path = repo.entity_dir / "legacy.yaml"
+        legacy_path.write_text(
+            yaml.safe_dump(
+                {
+                    "id": "legacy",
+                    "role": "Legacy Soul",
+                    "system_prompt": "Prompt",
+                    "assertions": [{"type": "contains", "value": "x"}],
+                },
+                sort_keys=False,
+            )
+        )
+
+        with pytest.raises(ValidationError):
+            repo.get_by_id("legacy")
 
 
 def test_soul_repo_resolves_embedded_id_when_filename_differs():

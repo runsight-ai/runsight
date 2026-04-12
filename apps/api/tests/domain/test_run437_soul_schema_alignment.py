@@ -1,3 +1,4 @@
+import pytest
 from pydantic import ValidationError
 
 
@@ -11,7 +12,6 @@ def test_soul_entity_accepts_core_fields_and_avatar_color():
         tools=["web_search", "summarize"],
         max_tool_iterations=6,
         model_name="gpt-4o",
-        custom_notes="test value",
         avatar_color="lime",
     )
 
@@ -21,19 +21,21 @@ def test_soul_entity_accepts_core_fields_and_avatar_color():
     assert soul.tools == ["web_search", "summarize"]
     assert soul.max_tool_iterations == 6
     assert soul.model_name == "gpt-4o"
-    assert soul.custom_notes == "test value"
     assert soul.avatar_color == "lime"
 
 
-def test_soul_entity_preserves_legacy_name_and_models_fields_as_extras():
+def test_soul_entity_rejects_unknown_top_level_fields():
     from runsight_api.domain.value_objects import SoulEntity
 
-    soul = SoulEntity(id="legacy", name="Legacy Soul", models=["gpt-4o"])
+    with pytest.raises(ValidationError):
+        SoulEntity(id="legacy", custom_notes="test value")
 
-    assert soul.id == "legacy"
-    assert soul.role is None
-    assert soul.name == "Legacy Soul"
-    assert soul.models == ["gpt-4o"]
+
+def test_soul_entity_rejects_legacy_name_and_models_fields():
+    from runsight_api.domain.value_objects import SoulEntity
+
+    with pytest.raises(ValidationError):
+        SoulEntity(id="legacy", name="Legacy Soul", models=["gpt-4o"])
 
 
 def test_soul_create_requires_role_and_system_prompt():

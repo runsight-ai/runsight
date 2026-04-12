@@ -425,6 +425,75 @@ describe("RUN-477: generated API types stay aligned for soul contracts", () => {
   });
 });
 
+describe("RUN-823: custom YAML request schemas are strict", () => {
+  const openapi = JSON.parse(readFileSync(resolve(REPO_ROOT, "openapi.json"), "utf8"));
+
+  it.each([
+    "SoulCreate",
+    "SoulUpdate",
+    "TaskCreate",
+    "TaskUpdate",
+    "StepCreate",
+    "StepUpdate",
+    "ProviderCreate",
+    "ProviderUpdate",
+  ])("%s OpenAPI schema forbids unknown fields", (schemaName) => {
+    const schema = openapi.components?.schemas?.[schemaName];
+    expect(schema).toBeDefined();
+    expect(schema.additionalProperties).toBe(false);
+  });
+
+  it("generated request Zod schemas reject unknown fields", async () => {
+    const mod = await import("../zod");
+
+    expect(
+      mod.SoulCreateSchema.safeParse({
+        role: "Reviewer",
+        system_prompt: "Review",
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.SoulUpdateSchema.safeParse({
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.TaskCreateSchema.safeParse({
+        name: "Task",
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.TaskUpdateSchema.safeParse({
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.StepCreateSchema.safeParse({
+        name: "Step",
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.StepUpdateSchema.safeParse({
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.ProviderCreateSchema.safeParse({
+        name: "OpenAI",
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.ProviderUpdateSchema.safeParse({
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 4. package.json has codegen scripts
 // ---------------------------------------------------------------------------
