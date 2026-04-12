@@ -22,7 +22,7 @@ COPY apps/gui/index.html apps/gui/tsconfig*.json apps/gui/vite.config.ts apps/gu
 COPY packages/shared/src/ packages/shared/src/
 COPY packages/shared/tsconfig*.json packages/shared/
 COPY packages/ui/src/ packages/ui/src/
-COPY packages/ui/tsconfig*.json packages/ui/
+COPY packages/ui/*.ts packages/ui/*.tsx packages/ui/
 
 RUN pnpm -C apps/gui run build:bundle
 
