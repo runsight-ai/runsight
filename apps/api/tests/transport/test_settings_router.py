@@ -264,7 +264,7 @@ def test_settings_fallbacks_put_allows_clearing_with_empty_strings():
         app.dependency_overrides.clear()
 
 
-def test_app_settings_get_returns_fallback_enabled_without_default_provider():
+def test_app_settings_get_omits_auto_save_and_keeps_fallback_enabled():
     mock_repo = Mock(spec=FileSystemSettingsRepo)
     mock_repo.get_settings.return_value = AppSettingsConfig(
         auto_save=True,
@@ -276,14 +276,14 @@ def test_app_settings_get_returns_fallback_enabled_without_default_provider():
     try:
         response = client.get("/api/settings/app")
         assert response.status_code == 200
-        assert response.json()["auto_save"] is True
+        assert "auto_save" not in response.json()
         assert response.json()["fallback_enabled"] is False
         assert "default_provider" not in response.json()
     finally:
         app.dependency_overrides.clear()
 
 
-def test_app_settings_put_updates_fallback_enabled_without_default_provider():
+def test_app_settings_put_keeps_fallback_settings_without_auto_save():
     mock_repo = Mock(spec=FileSystemSettingsRepo)
     mock_repo.update_settings.return_value = AppSettingsConfig(
         auto_save=True,
@@ -295,14 +295,34 @@ def test_app_settings_put_updates_fallback_enabled_without_default_provider():
     try:
         response = client.put(
             "/api/settings/app",
-            json={"auto_save": True, "fallback_enabled": False},
+            json={"onboarding_completed": True, "fallback_enabled": False},
         )
         assert response.status_code == 200
         assert response.json()["fallback_enabled"] is False
+        assert "auto_save" not in response.json()
         assert "default_provider" not in response.json()
         mock_repo.update_settings.assert_called_once_with(
-            {"auto_save": True, "fallback_enabled": False}
+            {"onboarding_completed": True, "fallback_enabled": False}
         )
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_app_settings_put_rejects_unsupported_fields():
+    mock_repo = Mock(spec=FileSystemSettingsRepo)
+    mock_repo.update_settings.return_value = AppSettingsConfig(
+        onboarding_completed=True,
+        fallback_enabled=False,
+    )
+    app.dependency_overrides[get_settings_repo] = lambda: mock_repo
+
+    try:
+        response = client.put(
+            "/api/settings/app",
+            json={"default_provider": "openai"},
+        )
+        assert response.status_code == 422
+        mock_repo.update_settings.assert_not_called()
     finally:
         app.dependency_overrides.clear()
 

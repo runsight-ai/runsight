@@ -520,6 +520,7 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       invoke: (settingsApi) => settingsApi.getAppSettings(),
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(appSettingsPayload));
+        expect(result).not.toHaveProperty("auto_save");
       },
     },
     {
@@ -535,6 +536,7 @@ describe("RUN-512 settings API canonical shared contracts", () => {
         }),
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(appSettingsPayload));
+        expect(result).not.toHaveProperty("auto_save");
       },
     },
     {

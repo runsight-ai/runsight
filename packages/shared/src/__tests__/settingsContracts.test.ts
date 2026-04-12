@@ -132,9 +132,12 @@ describe("canonical settings transport contracts", () => {
 
     const appSettingsSchema = getCanonicalSchema("AppSettingsOutSchema");
 
-    expect(appSettingsSchema.parse(appSettingsSample)).toEqual(
+    const parsed = appSettingsSchema.parse(appSettingsSample);
+
+    expect(parsed).toEqual(
       expect.objectContaining(appSettingsSample),
     );
+    expect(parsed).not.toHaveProperty("auto_save");
   });
 
   it("keeps generated OpenAPI and shared contract artifacts on fallback-only settings fields", () => {
@@ -152,10 +155,12 @@ describe("canonical settings transport contracts", () => {
     expect(appSettingsProps).toHaveProperty("fallback_enabled");
     expect(appSettingsProps).not.toHaveProperty("default_provider");
     expect(appSettingsProps).not.toHaveProperty("fallback_chain_enabled");
+    expect(appSettingsProps).not.toHaveProperty("auto_save");
 
     expect(GENERATED_API_SOURCE).toContain("/api/settings/fallbacks");
     expect(GENERATED_API_SOURCE).toContain("SettingsFallbackResponse");
     expect(GENERATED_API_SOURCE).toContain("fallback_enabled");
+    expect(GENERATED_API_SOURCE).not.toContain("auto_save");
     expect(GENERATED_API_SOURCE).not.toContain("/api/settings/models");
     expect(GENERATED_API_SOURCE).not.toContain("/api/settings/models/{model_id}");
     expect(GENERATED_API_SOURCE).not.toContain("SettingsModelDefaultResponse");
@@ -169,6 +174,7 @@ describe("canonical settings transport contracts", () => {
     expect(GENERATED_ZOD_SOURCE).toContain("SettingsFallbackResponseSchema");
     expect(GENERATED_ZOD_SOURCE).toContain("FallbackUpdateSchema");
     expect(GENERATED_ZOD_SOURCE).toContain("fallback_enabled");
+    expect(GENERATED_ZOD_SOURCE).not.toContain("auto_save");
     expect(GENERATED_ZOD_SOURCE).not.toContain("SettingsModelDefaultResponseSchema");
     expect(GENERATED_ZOD_SOURCE).not.toContain("default_provider");
   });

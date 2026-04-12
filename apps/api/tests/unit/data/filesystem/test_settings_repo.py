@@ -118,22 +118,75 @@ class TestFallbackMapPersistence:
         assert repo.remove_fallback_target("missing-provider") is False
 
 
-class TestCleanSchemaOnly:
-    def test_get_settings_ignores_legacy_keys_without_rewriting_yaml(self, repo, settings_file):
+class TestStrictSchemaValidation:
+    @pytest.mark.parametrize(
+        ("key", "value"),
+        [
+            ("auto_save", True),
+            ("default_provider", "openai"),
+            ("fallback_chain_enabled", True),
+            ("fallback_chain", [{"provider_id": "openai", "model_id": "gpt-4o"}]),
+            (
+                "model_defaults",
+                [
+                    {
+                        "provider_id": "openai",
+                        "model_id": "gpt-4o",
+                        "is_default": True,
+                    }
+                ],
+            ),
+        ],
+    )
+    def test_get_settings_rejects_dead_top_level_keys(self, repo, settings_file, key, value):
+        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text(yaml.safe_dump({key: value}, sort_keys=False))
+
+        with pytest.raises(Exception, match=key):
+            repo.get_settings()
+
+    def test_get_settings_rejects_malformed_yaml(self, repo, settings_file):
+        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text("onboarding_completed: true\nfallback_map: [")
+
+        with pytest.raises(Exception, match="fallback_map|YAML|parse|invalid"):
+            repo.get_settings()
+
+    def test_get_fallback_map_rejects_non_list_fallback_map(self, repo, settings_file):
         settings_file.parent.mkdir(parents=True, exist_ok=True)
         settings_file.write_text(
             yaml.safe_dump(
                 {
-                    "default_provider": "openai",
-                    "fallback_chain_enabled": True,
-                    "fallback_chain": [
-                        {"provider_id": "openai", "model_id": "gpt-4o"},
-                    ],
-                    "model_defaults": [
+                    "fallback_map": {
+                        "provider_id": "openai",
+                        "fallback_provider_id": "anthropic",
+                        "fallback_model_id": "claude-sonnet-4",
+                    }
+                },
+                sort_keys=False,
+            )
+        )
+
+        with pytest.raises(Exception, match="fallback_map"):
+            repo.get_fallback_map()
+
+
+class TestStrictSettingsWrites:
+    def test_update_settings_preserves_fallback_map_but_removes_auto_save(
+        self, repo, settings_file
+    ):
+        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text(
+            yaml.safe_dump(
+                {
+                    "auto_save": True,
+                    "onboarding_completed": False,
+                    "fallback_enabled": True,
+                    "fallback_map": [
                         {
                             "provider_id": "openai",
-                            "model_id": "gpt-4o",
-                            "is_default": True,
+                            "fallback_provider_id": "anthropic",
+                            "fallback_model_id": "claude-sonnet-4",
                         }
                     ],
                 },
@@ -141,41 +194,19 @@ class TestCleanSchemaOnly:
             )
         )
 
-        settings = repo.get_settings()
+        updated = repo.update_settings({"onboarding_completed": True})
 
-        assert settings.fallback_enabled is False
+        assert updated.onboarding_completed is True
+        assert updated.fallback_enabled is True
 
         on_disk = yaml.safe_load(settings_file.read_text())
-        assert on_disk["fallback_chain_enabled"] is True
-        assert on_disk["fallback_chain"] == [{"provider_id": "openai", "model_id": "gpt-4o"}]
-        assert on_disk["model_defaults"] == [
+        assert on_disk["onboarding_completed"] is True
+        assert on_disk["fallback_enabled"] is True
+        assert on_disk["fallback_map"] == [
             {
                 "provider_id": "openai",
-                "model_id": "gpt-4o",
-                "is_default": True,
+                "fallback_provider_id": "anthropic",
+                "fallback_model_id": "claude-sonnet-4",
             }
         ]
-        assert repo.get_fallback_map() == []
-
-    def test_get_settings_defaults_fallback_enabled_false_when_only_legacy_chain_exists(
-        self, repo, settings_file
-    ):
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(
-            yaml.safe_dump(
-                {
-                    "fallback_chain": [
-                        {"provider_id": "openai", "model_id": "gpt-4o"},
-                    ],
-                },
-                sort_keys=False,
-            )
-        )
-
-        settings = repo.get_settings()
-
-        assert settings.fallback_enabled is False
-
-        on_disk = yaml.safe_load(settings_file.read_text())
-        assert "fallback_enabled" not in on_disk
-        assert on_disk["fallback_chain"] == [{"provider_id": "openai", "model_id": "gpt-4o"}]
+        assert "auto_save" not in on_disk
