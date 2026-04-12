@@ -329,9 +329,11 @@ def test_app_settings_put_rejects_unsupported_fields():
     [
         {"onboarding_completed": "yes"},
         {"fallback_enabled": 1},
+        {"onboarding_completed": None},
+        {"fallback_enabled": None},
     ],
 )
-def test_app_settings_put_rejects_coercible_non_boolean_values(payload):
+def test_app_settings_put_rejects_non_boolean_values(payload):
     mock_repo = Mock(spec=FileSystemSettingsRepo)
     mock_repo.update_settings.return_value = AppSettingsConfig(
         onboarding_completed=False,
@@ -361,3 +363,13 @@ def test_settings_openapi_exposes_fallback_routes_and_current_app_settings_shape
     assert "auto_save" not in app_settings_props
     assert "default_provider" not in app_settings_props
     assert "fallback_chain_enabled" not in app_settings_props
+
+    app_settings_update_props = spec["components"]["schemas"]["AppSettingsUpdate"]["properties"]
+    assert app_settings_update_props["onboarding_completed"] == {
+        "type": "boolean",
+        "title": "Onboarding Completed",
+    }
+    assert app_settings_update_props["fallback_enabled"] == {
+        "type": "boolean",
+        "title": "Fallback Enabled",
+    }
