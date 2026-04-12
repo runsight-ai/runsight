@@ -93,7 +93,7 @@ def test_souls_post():
 
 def test_souls_post_requires_role():
     mock_service = Mock()
-    mock_service.create_soul.return_value = SoulEntity(id="unexpected", name="Unexpected")
+    mock_service.create_soul.return_value = SoulEntity(id="unexpected", role="Unexpected")
     app.dependency_overrides[get_soul_service] = lambda: mock_service
     response = client.post(
         "/api/souls",
