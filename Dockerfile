@@ -66,10 +66,10 @@ RUN groupadd --gid 1000 runsight && \
     mkdir -p /workspace && \
     chown runsight:runsight /workspace
 
-# Configure git safe directory so the runsight user can operate on /workspace
-RUN git config --global --add safe.directory /workspace
-
 USER runsight
+
+# Configure git safe directory (must run AFTER USER runsight so it writes to /home/runsight/.gitconfig)
+RUN git config --global --add safe.directory /workspace
 
 ENV RUNSIGHT_BASE_PATH=/workspace \
     RUNSIGHT_STATIC_DIR=/app/static \
