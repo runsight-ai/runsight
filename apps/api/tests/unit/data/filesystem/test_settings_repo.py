@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from unittest.mock import Mock
 
 import pytest
 import yaml
@@ -114,8 +115,24 @@ class TestFallbackMapPersistence:
         assert removed is True
         assert repo.get_fallback_map() == []
 
-    def test_remove_fallback_target_returns_false_when_provider_is_missing(self, repo):
+    def test_remove_fallback_target_is_side_effect_free_for_missing_provider(
+        self, repo, settings_file, monkeypatch
+    ):
+        entry_cls = getattr(_settings_module(), "FallbackTargetEntry")
+        repo.set_fallback_target(
+            entry_cls(
+                provider_id="openai",
+                fallback_provider_id="anthropic",
+                fallback_model_id="claude-sonnet-4",
+            )
+        )
+        before = settings_file.read_text()
+        write_mock = Mock()
+        monkeypatch.setattr(repo, "_write_yaml", write_mock)
+
         assert repo.remove_fallback_target("missing-provider") is False
+        assert settings_file.read_text() == before
+        write_mock.assert_not_called()
 
 
 class TestStrictSchemaValidation:
@@ -207,14 +224,13 @@ class TestStrictSchemaValidation:
 
 
 class TestStrictSettingsWrites:
-    def test_update_settings_preserves_fallback_map_but_removes_auto_save(
-        self, repo, settings_file
+    def test_update_settings_does_not_rewrite_valid_settings_on_no_op_update(
+        self, repo, settings_file, monkeypatch
     ):
         settings_file.parent.mkdir(parents=True, exist_ok=True)
         settings_file.write_text(
             yaml.safe_dump(
                 {
-                    "auto_save": True,
                     "onboarding_completed": False,
                     "fallback_enabled": True,
                     "fallback_map": [
@@ -228,14 +244,18 @@ class TestStrictSettingsWrites:
                 sort_keys=False,
             )
         )
+        before = settings_file.read_text()
+        write_mock = Mock(wraps=repo._write_yaml)
+        monkeypatch.setattr(repo, "_write_yaml", write_mock)
 
-        updated = repo.update_settings({"onboarding_completed": True})
+        updated = repo.update_settings({})
 
-        assert updated.onboarding_completed is True
+        assert updated.onboarding_completed is False
         assert updated.fallback_enabled is True
 
         on_disk = yaml.safe_load(settings_file.read_text())
-        assert on_disk["onboarding_completed"] is True
+        assert settings_file.read_text() == before
+        assert on_disk["onboarding_completed"] is False
         assert on_disk["fallback_enabled"] is True
         assert on_disk["fallback_map"] == [
             {
@@ -244,4 +264,26 @@ class TestStrictSettingsWrites:
                 "fallback_model_id": "claude-sonnet-4",
             }
         ]
-        assert "auto_save" not in on_disk
+        write_mock.assert_not_called()
+
+    def test_update_settings_rejects_auto_save_before_rewriting(
+        self, repo, settings_file, monkeypatch
+    ):
+        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text(
+            yaml.safe_dump(
+                {
+                    "auto_save": True,
+                    "onboarding_completed": False,
+                    "fallback_enabled": True,
+                },
+                sort_keys=False,
+            )
+        )
+        write_mock = Mock(wraps=repo._write_yaml)
+        monkeypatch.setattr(repo, "_write_yaml", write_mock)
+
+        with pytest.raises(Exception, match="auto_save"):
+            repo.update_settings({"onboarding_completed": True})
+
+        write_mock.assert_not_called()
