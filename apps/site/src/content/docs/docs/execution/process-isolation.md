@@ -86,14 +86,14 @@ See [Custom Assertions](/docs/evaluation/custom-assertions#llm-graded-assertions
 
 ## Layered defense model
 
-Runsight uses defense-in-depth with three active layers and one planned.
+Runsight uses defense-in-depth with four active layers.
 
 ![Layered defense model](/diagrams/layered-defense.svg)
 
-- **Layer 1 — Process isolation:** The subprocess runs in a separate OS process. No shared memory, no API keys, no credentials.
-- **Layer 2 — IPC mediation:** Every engine interaction passes through the interceptor chain. Budgets enforced per call. Actions validated against an allowlist. Traces recorded automatically.
-- **Layer 3 — Nested subprocess:** Code execution (CodeBlock) and simple assertion plugins run in a further-nested subprocess with an even more restricted environment.
-- **Layer 4 — OS-level sandboxing** (future): seccomp, containers, network namespaces. Not currently implemented, but the architecture supports it.
+- **Layer 1 — Container hardening:** The Docker deployment runs as an unprivileged user, drops all Linux capabilities, prevents privilege escalation, and enforces memory and CPU limits. A runaway process is killed by the kernel, not the host.
+- **Layer 2 — Process isolation:** The subprocess runs in a separate OS process. No shared memory, no API keys, no credentials.
+- **Layer 3 — IPC mediation:** Every engine interaction passes through the interceptor chain. Budgets enforced per call. Actions validated against an allowlist. Traces recorded automatically.
+- **Layer 4 — Nested subprocess:** Code execution (CodeBlock) and simple assertion plugins run in a further-nested subprocess with an even more restricted environment.
 
 ## Known limitations
 
@@ -107,7 +107,7 @@ Process isolation is a credential boundary, not a full execution sandbox.
 | Observability | **Protected** | Every IPC action creates a trace span |
 | Network access | Not restricted | Subprocess can use Python `socket` directly (but has nothing to exfiltrate) |
 | Filesystem access | Partially restricted | IPC file handler is sandboxed; direct `open()` calls are not |
-| CPU / memory limits | Not enforced | Only wall-clock timeout and heartbeat stall detection |
+| CPU / memory limits | Container-level | mem_limit, memswap_limit, and cpus enforced via Docker cgroups |
 | Python imports | Not restricted | Subprocess can import any installed package |
 
 The isolation boundary works because the subprocess has **nothing valuable** — no API keys, no credentials, no engine state. Even if the subprocess makes direct network calls, it has nothing sensitive to send.

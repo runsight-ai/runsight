@@ -8,12 +8,11 @@ export PATH="/app/.venv/bin:$PATH"
 : "${RUNSIGHT_BASE_PATH:=/workspace}"
 export RUNSIGHT_BASE_PATH
 
-# Ensure workspace directory exists
+# Fail-fast: workspace must be pre-created and mounted by the host
 if [ ! -d "$RUNSIGHT_BASE_PATH" ]; then
-    mkdir -p "$RUNSIGHT_BASE_PATH"
-    echo "[runsight] Created workspace at $RUNSIGHT_BASE_PATH"
-    echo "[runsight] WARNING: No volume mounted — data will not persist when the container stops."
-    echo "[runsight] Mount a volume: docker run -v \$(pwd):/workspace ..."
+    echo "[runsight] ERROR: Workspace '$RUNSIGHT_BASE_PATH' does not exist." >&2
+    echo "[runsight] Mount a volume: docker run -v \$(pwd):/workspace ..." >&2
+    exit 1
 fi
 
 # Warn if workspace is empty

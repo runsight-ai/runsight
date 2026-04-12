@@ -60,6 +60,17 @@ COPY --from=frontend-build /app/apps/gui/dist /app/static
 COPY docker-entrypoint.sh /app/
 RUN chmod +x /app/docker-entrypoint.sh
 
+# Create non-root user and workspace directory
+RUN groupadd --gid 1000 runsight && \
+    useradd --uid 1000 --gid runsight --shell /bin/sh --create-home runsight && \
+    mkdir -p /workspace && \
+    chown runsight:runsight /workspace
+
+USER runsight
+
+# Configure git safe directory (must run AFTER USER runsight so it writes to /home/runsight/.gitconfig)
+RUN git config --global --add safe.directory /workspace
+
 ENV RUNSIGHT_BASE_PATH=/workspace \
     RUNSIGHT_STATIC_DIR=/app/static \
     RUNSIGHT_LOG_FORMAT=text
