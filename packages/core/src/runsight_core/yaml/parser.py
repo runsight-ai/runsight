@@ -386,45 +386,10 @@ from runsight_core.yaml.schema import rebuild_block_def_union as _rebuild  # noq
 _rebuild()
 del _rebuild
 
-
-def _validate_workflow_block_contract(
-    block_id: str,
-    block_def: Any,
-    child_file: RunsightWorkflowFile,
-) -> None:
-    child_interface = child_file.interface
-    if child_interface is None:
-        raise ValueError(
-            f"WorkflowBlock '{block_id}': child workflow '{block_def.workflow_ref}' "
-            "must declare an interface"
-        )
-
-    declared_inputs = {item.name: item for item in child_interface.inputs}
-    declared_outputs = {item.name for item in child_interface.outputs}
-
-    for binding_name in (block_def.inputs or {}).keys():
-        if binding_name not in declared_inputs:
-            raise ValueError(
-                f"WorkflowBlock '{block_id}': unknown interface input '{binding_name}'. "
-                f"Declared child inputs: {sorted(declared_inputs)}"
-            )
-
-    missing_required = [
-        item.name
-        for item in child_interface.inputs
-        if item.required and item.default is None and item.name not in (block_def.inputs or {})
-    ]
-    if missing_required:
-        raise ValueError(
-            f"WorkflowBlock '{block_id}': missing required interface inputs {missing_required}"
-        )
-
-    for binding_name in (block_def.outputs or {}).values():
-        if binding_name not in declared_outputs:
-            raise ValueError(
-                f"WorkflowBlock '{block_id}': unknown interface output '{binding_name}'. "
-                f"Declared child outputs: {sorted(declared_outputs)}"
-            )
+from runsight_core.blocks.workflow_block import (  # noqa: E402
+    _resolve_workflow_block_max_depth,
+    _validate_workflow_block_contract,
+)
 
 
 def _validate_workflow_block_runtime_placement(
@@ -434,16 +399,6 @@ def _validate_workflow_block_runtime_placement(
 ) -> None:
     """Reserved hook for workflow/loop placement validation."""
     return None
-
-
-def _resolve_workflow_block_max_depth(
-    file_def: RunsightWorkflowFile,
-    block_def: Any,
-) -> int:
-    """Resolve the max_depth value a workflow block will enforce at runtime."""
-    if block_def.max_depth is not None:
-        return block_def.max_depth
-    return file_def.config.get("max_workflow_depth", 10)
 
 
 def validate_workflow_call_contracts(

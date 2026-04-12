@@ -53,6 +53,10 @@ class TestDomainFoundation:
         assert not hasattr(settings, "default_provider")
         assert not hasattr(settings, "fallback_chain_enabled")
 
+    def test_app_settings_config_rejects_unknown_fields(self):
+        with pytest.raises(Exception, match="auto_save"):
+            AppSettingsConfig(auto_save=True)
+
 
 class TestFreshInstallDefaults:
     def test_get_settings_returns_defaults_for_new_install(self, repo):

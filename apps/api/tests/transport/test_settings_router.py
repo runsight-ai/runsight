@@ -308,7 +308,6 @@ def test_settings_fallbacks_put_allows_clearing_with_empty_strings():
 def test_app_settings_get_omits_auto_save_and_keeps_fallback_enabled():
     mock_repo = Mock(spec=FileSystemSettingsRepo)
     mock_repo.get_settings.return_value = AppSettingsConfig(
-        auto_save=True,
         onboarding_completed=True,
         fallback_enabled=False,
     )
@@ -327,7 +326,6 @@ def test_app_settings_get_omits_auto_save_and_keeps_fallback_enabled():
 def test_app_settings_put_keeps_fallback_settings_without_auto_save():
     mock_repo = Mock(spec=FileSystemSettingsRepo)
     mock_repo.update_settings.return_value = AppSettingsConfig(
-        auto_save=True,
         onboarding_completed=True,
         fallback_enabled=False,
     )

@@ -85,11 +85,6 @@ def generate_zod_file(openapi_path: str, output_path: str) -> None:
         "",
         'import { z } from "zod";',
         "",
-        "const markStrict = <T extends z.ZodObject<any>>(schema: T): T => {",
-        '  (schema as any)._def.unknownKeys = "strict";',
-        "  return schema;",
-        "};",
-        "",
     ]
 
     # Topological sort: schemas that reference others must come after them
@@ -121,9 +116,9 @@ def generate_zod_file(openapi_path: str, output_path: str) -> None:
     for name in sorted_names:
         schema = schemas[name]
         zod_expr = generate_object_schema(schema, schemas)
-        lines.append(f"export const {name}Schema = {zod_expr};")
         if schema_forbids_unknown_fields(schema):
-            lines.append(f"markStrict({name}Schema);")
+            zod_expr = f"{zod_expr}.strict()"
+        lines.append(f"export const {name}Schema = {zod_expr};")
         lines.append(f"export type {name} = z.infer<typeof {name}Schema>;")
         lines.append("")
 

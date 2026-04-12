@@ -93,6 +93,10 @@ class FileSystemProviderRepo:
         entity_data["id"] = stem
         return ProviderEntity(**entity_data)
 
+    def _validate_entity_data(self, data: Dict[str, Any], stem: str) -> None:
+        """Validate provider YAML before merging update fields."""
+        self._build_entity(data, stem)
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -160,7 +164,7 @@ class FileSystemProviderRepo:
             raise ProviderNotFound(f"Provider {provider_id} not found")
 
         existing = self._read_yaml(yaml_path) or {}
-        self._build_entity(existing, provider_id)
+        self._validate_entity_data(existing, provider_id)
 
         # Merge: new data overwrites existing fields (exclude meta fields)
         update_fields = {k: v for k, v in data.items() if k not in _META_FIELDS}

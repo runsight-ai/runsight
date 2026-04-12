@@ -10,6 +10,8 @@ from pydantic import StrictBool
 class AppSettingsConfig(BaseModel):
     """Flat app settings stored in .runsight/settings.yaml."""
 
+    model_config = ConfigDict(extra="forbid")
+
     onboarding_completed: StrictBool = False
     fallback_enabled: StrictBool = False
 

@@ -17,7 +17,7 @@ from runsight_core.state import BlockResult, WorkflowState
 if TYPE_CHECKING:
     from runsight_core.workflow import Workflow
     from runsight_core.yaml.registry import WorkflowRegistry
-    from runsight_core.yaml.schema import WorkflowInterfaceDef
+    from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowInterfaceDef
 
 
 class WorkflowBlock(BaseBlock):
@@ -392,6 +392,56 @@ from runsight_core.blocks._registry import register_block_def as _register_block
 _register_block_def("workflow", WorkflowBlockDef)
 
 
+def _validate_workflow_block_contract(
+    block_id: str,
+    block_def: Any,
+    child_file: "RunsightWorkflowFile",
+) -> None:
+    child_interface = child_file.interface
+    if child_interface is None:
+        raise ValueError(
+            f"WorkflowBlock '{block_id}': child workflow '{block_def.workflow_ref}' "
+            "must declare an interface"
+        )
+
+    declared_inputs = {item.name: item for item in child_interface.inputs}
+    declared_outputs = {item.name for item in child_interface.outputs}
+
+    for binding_name in (block_def.inputs or {}).keys():
+        if binding_name not in declared_inputs:
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': unknown interface input '{binding_name}'. "
+                f"Declared child inputs: {sorted(declared_inputs)}"
+            )
+
+    missing_required = [
+        item.name
+        for item in child_interface.inputs
+        if item.required and item.default is None and item.name not in (block_def.inputs or {})
+    ]
+    if missing_required:
+        raise ValueError(
+            f"WorkflowBlock '{block_id}': missing required interface inputs {missing_required}"
+        )
+
+    for binding_name in (block_def.outputs or {}).values():
+        if binding_name not in declared_outputs:
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': unknown interface output '{binding_name}'. "
+                f"Declared child outputs: {sorted(declared_outputs)}"
+            )
+
+
+def _resolve_workflow_block_max_depth(
+    file_def: Any,
+    block_def: Any,
+) -> int:
+    """Resolve the max_depth value a workflow block will enforce at runtime."""
+    if block_def.max_depth is not None:
+        return block_def.max_depth
+    return file_def.config.get("max_workflow_depth", 10)
+
+
 # -- Builder function --------------------------------------------------------
 
 
@@ -417,12 +467,8 @@ def build(
             "when building workflow blocks"
         )
 
-    # Import parser helpers lazily to keep block registration free of parser cycles.
-    from runsight_core.yaml.parser import (
-        _resolve_workflow_block_max_depth,
-        _validate_workflow_block_contract,
-        parse_workflow_yaml,
-    )
+    # Import the parser lazily to keep block registration free of parser cycles.
+    from runsight_core.yaml.parser import parse_workflow_yaml
 
     child_file = workflow_registry.get(block_def.workflow_ref)
     _validate_workflow_block_contract(block_id, block_def, child_file)

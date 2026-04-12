@@ -50,7 +50,7 @@ function extractApiComponentFieldNames(source: string, componentName: string): s
 
 function extractSchemaFieldNames(source: string, schemaName: string): string[] {
   const pattern = new RegExp(
-    `export const ${schemaName}Schema = z\\.object\\(\\{([\\s\\S]*?)\\n\\}\\);`,
+    `export const ${schemaName}Schema = z\\.object\\(\\{([\\s\\S]*?)\\n\\}\\)(?:\\.strict\\(\\))?;`,
   );
   const match = source.match(pattern);
   if (!match) {
@@ -491,6 +491,14 @@ describe("RUN-823: custom YAML request schemas are strict", () => {
         custom_notes: "unsupported",
       }).success,
     ).toBe(false);
+  });
+
+  it("generated Zod strictness uses the public Zod API", () => {
+    const source = readFileSync(COMMITTED_ZOD_PATH, "utf8");
+
+    expect(source).not.toContain("_def.unknownKeys");
+    expect(source).toContain("ProviderCreateSchema = z.object");
+    expect(source).toContain("}).strict();");
   });
 });
 

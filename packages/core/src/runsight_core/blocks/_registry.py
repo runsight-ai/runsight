@@ -33,7 +33,16 @@ def register_block_def(block_type: str, def_cls: Type["Any"]) -> None:
 
 
 def register_block_builder(block_type: str, builder: Callable) -> None:
-    """Register a builder callable for *block_type*."""
+    """Register a builder callable for *block_type*.
+
+    Raises ``ValueError`` if *block_type* is already registered with a
+    **different** callable (re-registering the same callable is idempotent).
+    """
+    existing = BLOCK_BUILDER_REGISTRY.get(block_type)
+    if existing is not None and existing is not builder:
+        raise ValueError(
+            f"Duplicate block-builder registration for '{block_type}': {existing!r} vs {builder!r}"
+        )
     BLOCK_BUILDER_REGISTRY[block_type] = builder
 
 

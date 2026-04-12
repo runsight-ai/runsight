@@ -3,11 +3,6 @@
 
 import { z } from "zod";
 
-const markStrict = <T extends z.ZodObject<any>>(schema: T): T => {
-  (schema as any)._def.unknownKeys = "strict";
-  return schema;
-};
-
 export const AppSettingsOutSchema = z.object({
   base_path: z.string().nullable().optional(),
   onboarding_completed: z.boolean().optional(),
@@ -18,8 +13,7 @@ export type AppSettingsOut = z.infer<typeof AppSettingsOutSchema>;
 export const AppSettingsUpdateSchema = z.object({
   onboarding_completed: z.boolean().optional(),
   fallback_enabled: z.boolean().optional(),
-});
-markStrict(AppSettingsUpdateSchema);
+}).strict();
 export type AppSettingsUpdate = z.infer<typeof AppSettingsUpdateSchema>;
 
 export const AttentionItemSchema = z.object({
@@ -173,8 +167,7 @@ export const ProviderCreateSchema = z.object({
   name: z.string(),
   api_key_env: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
-});
-markStrict(ProviderCreateSchema);
+}).strict();
 export type ProviderCreate = z.infer<typeof ProviderCreateSchema>;
 
 export const ProviderSummarySchema = z.object({
@@ -208,8 +201,7 @@ export const ProviderUpdateSchema = z.object({
   api_key_env: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
   is_active: z.boolean().nullable().optional(),
-});
-markStrict(ProviderUpdateSchema);
+}).strict();
 export type ProviderUpdate = z.infer<typeof ProviderUpdateSchema>;
 
 export const RunCreateSchema = z.object({
@@ -362,8 +354,7 @@ export const SoulCreateSchema = z.object({
   temperature: z.number().nullable().optional(),
   max_tokens: z.number().nullable().optional(),
   avatar_color: z.string().nullable().optional(),
-});
-markStrict(SoulCreateSchema);
+}).strict();
 export type SoulCreate = z.infer<typeof SoulCreateSchema>;
 
 export const SoulVersionEntrySchema = z.object({
@@ -415,8 +406,7 @@ export const SoulUpdateSchema = z.object({
   max_tokens: z.number().nullable().optional(),
   avatar_color: z.string().nullable().optional(),
   copy_on_edit: z.boolean().optional().default(false),
-});
-markStrict(SoulUpdateSchema);
+}).strict();
 export type SoulUpdate = z.infer<typeof SoulUpdateSchema>;
 
 export const SoulUsageEntrySchema = z.object({
@@ -450,8 +440,7 @@ export const StepCreateSchema = z.object({
   name: z.string(),
   type: z.string().optional().default("step"),
   description: z.string().nullable().optional(),
-});
-markStrict(StepCreateSchema);
+}).strict();
 export type StepCreate = z.infer<typeof StepCreateSchema>;
 
 export const StepResponseSchema = z.object({
@@ -473,8 +462,7 @@ export const StepUpdateSchema = z.object({
   name: z.string().nullable().optional(),
   type: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-});
-markStrict(StepUpdateSchema);
+}).strict();
 export type StepUpdate = z.infer<typeof StepUpdateSchema>;
 
 export const TaskCreateSchema = z.object({
@@ -482,8 +470,7 @@ export const TaskCreateSchema = z.object({
   name: z.string(),
   type: z.string().optional().default("task"),
   description: z.string().nullable().optional(),
-});
-markStrict(TaskCreateSchema);
+}).strict();
 export type TaskCreate = z.infer<typeof TaskCreateSchema>;
 
 export const TaskResponseSchema = z.object({
@@ -505,8 +492,7 @@ export const TaskUpdateSchema = z.object({
   name: z.string().nullable().optional(),
   type: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-});
-markStrict(TaskUpdateSchema);
+}).strict();
 export type TaskUpdate = z.infer<typeof TaskUpdateSchema>;
 
 export const ToolListItemResponseSchema = z.object({

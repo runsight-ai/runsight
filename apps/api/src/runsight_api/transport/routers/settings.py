@@ -97,6 +97,8 @@ class SettingsBudgetListResponse(BaseModel):
     total: int
 
 
+# Non-Optional StrictBool with a None default keeps fields optional in OpenAPI
+# while explicit null still fails validation.
 class AppSettingsOut(BaseModel):
     base_path: Optional[str] = None
     onboarding_completed: StrictBool = None
