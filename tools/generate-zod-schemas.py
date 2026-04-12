@@ -69,6 +69,11 @@ def generate_object_schema(schema: dict, schemas: dict) -> str:
     return f"z.object({{\n{body}\n}})"
 
 
+def schema_forbids_unknown_fields(schema: dict) -> bool:
+    """Return whether an OpenAPI object schema rejects additional properties."""
+    return schema.get("additionalProperties") is False
+
+
 def generate_zod_file(openapi_path: str, output_path: str) -> None:
     """Generate Zod schemas TS file from OpenAPI JSON."""
     spec = json.loads(Path(openapi_path).read_text())
@@ -79,6 +84,11 @@ def generate_zod_file(openapi_path: str, output_path: str) -> None:
         "// Source: openapi.json (RUN-134)",
         "",
         'import { z } from "zod";',
+        "",
+        "const markStrict = <T extends z.ZodObject<any>>(schema: T): T => {",
+        '  (schema as any)._def.unknownKeys = "strict";',
+        "  return schema;",
+        "};",
         "",
     ]
 
@@ -112,6 +122,8 @@ def generate_zod_file(openapi_path: str, output_path: str) -> None:
         schema = schemas[name]
         zod_expr = generate_object_schema(schema, schemas)
         lines.append(f"export const {name}Schema = {zod_expr};")
+        if schema_forbids_unknown_fields(schema):
+            lines.append(f"markStrict({name}Schema);")
         lines.append(f"export type {name} = z.infer<typeof {name}Schema>;")
         lines.append("")
 

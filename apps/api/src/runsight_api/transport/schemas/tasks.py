@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class TaskResponse(BaseModel):
@@ -12,6 +12,8 @@ class TaskResponse(BaseModel):
 
 
 class TaskCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: Optional[str] = None
     name: str
     type: str = "task"
@@ -19,6 +21,8 @@ class TaskCreate(BaseModel):
 
 
 class TaskUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: Optional[str] = None
     type: Optional[str] = None
     description: Optional[str] = None

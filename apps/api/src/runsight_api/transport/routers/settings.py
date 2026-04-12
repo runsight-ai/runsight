@@ -13,12 +13,16 @@ router = APIRouter(prefix="/settings", tags=["Settings"])
 
 
 class ProviderCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     api_key_env: Optional[str] = None  # Frontend sends the raw API key in this field
     base_url: Optional[str] = None
 
 
 class ProviderUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: Optional[str] = None
     api_key_env: Optional[str] = None  # Frontend sends the raw API key in this field
     base_url: Optional[str] = None

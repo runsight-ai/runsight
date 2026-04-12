@@ -3354,6 +3354,7 @@
             "title": "Base Url"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name"
@@ -3532,6 +3533,7 @@
             "title": "Is Active"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "ProviderUpdate"
       },
@@ -4869,6 +4871,7 @@
             "title": "Description"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name"
@@ -4971,6 +4974,7 @@
             "title": "Description"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "StepUpdate"
       },
@@ -5008,6 +5012,7 @@
             "title": "Description"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name"
@@ -5110,6 +5115,7 @@
             "title": "Description"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "TaskUpdate"
       },
