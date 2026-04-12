@@ -88,6 +88,13 @@ class FileSystemSettingsRepo:
                 raise ValueError(f"Invalid fallback_map[{index}]: {e}") from e
         return entries
 
+    def _validate_app_settings(self, data: dict[str, Any]) -> AppSettingsConfig:
+        flat = {key: data.get(key) for key in _APP_SETTINGS_KEYS if key in data}
+        try:
+            return AppSettingsConfig(**flat)
+        except Exception as e:
+            raise ValueError(f"Invalid app settings values: {e}") from e
+
     def _load_yaml(self) -> dict[str, Any] | None:
         """Read and validate settings YAML against the current schema."""
         data = self._read_yaml()
@@ -100,6 +107,7 @@ class FileSystemSettingsRepo:
 
         if "fallback_map" in data:
             self._validate_fallback_map(data["fallback_map"])
+        self._validate_app_settings(data)
 
         return data
 
@@ -112,8 +120,7 @@ class FileSystemSettingsRepo:
         data = self._load_yaml()
         if data is None:
             return AppSettingsConfig()
-        flat = {k: data.get(k) for k in _APP_SETTINGS_KEYS if k in data}
-        return AppSettingsConfig(**flat)
+        return self._validate_app_settings(data)
 
     def update_settings(self, updates: dict[str, Any]) -> AppSettingsConfig:
         """Merge partial updates into flat settings (shallow merge).
@@ -132,9 +139,9 @@ class FileSystemSettingsRepo:
         if "fallback_map" in data:
             self._validate_fallback_map(data["fallback_map"])
 
+        settings_config = self._validate_app_settings(data)
         self._write_yaml(data)
-        flat = {k: data.get(k) for k in _APP_SETTINGS_KEYS if k in data}
-        return AppSettingsConfig(**flat)
+        return settings_config
 
     # ------------------------------------------------------------------
     # Public API: fallback map

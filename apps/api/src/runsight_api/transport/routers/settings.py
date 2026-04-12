@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StrictBool
 
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
 from ...domain.errors import ProviderNotFound
@@ -102,8 +102,8 @@ class AppSettingsOut(BaseModel):
 class AppSettingsUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    onboarding_completed: Optional[bool] = None
-    fallback_enabled: Optional[bool] = None
+    onboarding_completed: Optional[StrictBool] = None
+    fallback_enabled: Optional[StrictBool] = None
 
 
 def _preview_api_key(secret: Optional[str]) -> Optional[str]:

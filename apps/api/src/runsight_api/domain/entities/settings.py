@@ -1,5 +1,6 @@
-from pydantic import BaseModel
 from pydantic import ConfigDict
+from pydantic import BaseModel
+from pydantic import StrictBool
 
 # ---------------------------------------------------------------------------
 # Pydantic models for filesystem-backed settings (RUN-233)
@@ -9,8 +10,8 @@ from pydantic import ConfigDict
 class AppSettingsConfig(BaseModel):
     """Flat app settings stored in .runsight/settings.yaml."""
 
-    onboarding_completed: bool = False
-    fallback_enabled: bool = False
+    onboarding_completed: StrictBool = False
+    fallback_enabled: StrictBool = False
 
 
 class FallbackTargetEntry(BaseModel):
