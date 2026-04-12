@@ -438,48 +438,47 @@ class TestEntrypointBehavior:
 
 
 # ===========================================================================
-# SECTION 4 — process-isolation.md: Layer 4 updated, limitations table updated
+# SECTION 4 — process-isolation.md: Container hardening is Layer 1, active
 # ===========================================================================
 
 
 class TestProcessIsolationDocsUpdated:
-    """AC3 / AC2 — Documentation must reflect container hardening as an active layer."""
+    """AC3 / AC2 — Documentation must reflect container hardening as Layer 1."""
 
-    def test_layer_4_does_not_say_future(self):
-        """Layer 4 description must not contain 'future' — it is now implemented."""
+    def test_container_hardening_is_layer_1(self):
+        """Container hardening must be Layer 1 (outermost defense layer)."""
         md = _read_process_isolation_md()
-        # Find the Layer 4 line.
-        layer4_lines = [ln for ln in md.splitlines() if "Layer 4" in ln]
-        assert layer4_lines, "No 'Layer 4' line found in process-isolation.md."
-        layer4_text = " ".join(layer4_lines).lower()
-        assert "future" not in layer4_text, (
-            f"Layer 4 description still contains 'future': {layer4_lines}. "
-            "Green must update Layer 4 to reflect that container hardening is active."
+        layer1_lines = [ln for ln in md.splitlines() if "Layer 1" in ln]
+        assert layer1_lines, "No 'Layer 1' line found in process-isolation.md."
+        layer1_text = " ".join(layer1_lines).lower()
+        assert "container" in layer1_text or "hardening" in layer1_text, (
+            f"Layer 1 does not mention container hardening: {layer1_lines}. "
+            "Container hardening must be the outermost layer (Layer 1)."
         )
 
-    def test_layer_4_does_not_say_not_currently_implemented(self):
-        """Layer 4 description must not say 'Not currently implemented'."""
+    def test_layer_1_does_not_say_future(self):
+        """Container hardening layer must not contain 'future' — it is active."""
         md = _read_process_isolation_md()
-        layer4_lines = [ln for ln in md.splitlines() if "Layer 4" in ln]
-        assert layer4_lines, "No 'Layer 4' line found in process-isolation.md."
-        layer4_text = " ".join(layer4_lines).lower()
-        assert "not currently implemented" not in layer4_text, (
-            f"Layer 4 still says 'Not currently implemented': {layer4_lines}. Green must update it."
+        layer1_lines = [ln for ln in md.splitlines() if "Layer 1" in ln]
+        assert layer1_lines, "No 'Layer 1' line found in process-isolation.md."
+        layer1_text = " ".join(layer1_lines).lower()
+        assert "future" not in layer1_text, (
+            f"Layer 1 description still contains 'future': {layer1_lines}. "
+            "Container hardening is active, not future."
         )
 
-    def test_layer_4_mentions_non_root_user_specifically(self):
+    def test_layer_1_mentions_unprivileged_user(self):
         """
-        Layer 4 description must explicitly mention 'non-root' (the UID 1000 user),
-        not just 'containers' generically as the current text does when discussing
-        network namespaces as a future direction.
+        Container hardening layer must mention the unprivileged user,
+        using human-readable language.
         """
         md = _read_process_isolation_md()
-        layer4_lines = [ln for ln in md.splitlines() if "Layer 4" in ln]
-        assert layer4_lines, "No 'Layer 4' line found in process-isolation.md."
-        layer4_text = " ".join(layer4_lines).lower()
-        assert "non-root" in layer4_text, (
-            f"Layer 4 does not mention 'non-root': {layer4_lines}. "
-            "Green must update Layer 4 to explicitly reference the non-root container user."
+        layer1_lines = [ln for ln in md.splitlines() if "Layer 1" in ln]
+        assert layer1_lines, "No 'Layer 1' line found in process-isolation.md."
+        layer1_text = " ".join(layer1_lines).lower()
+        assert "unprivileged" in layer1_text or "non-root" in layer1_text, (
+            f"Layer 1 does not mention unprivileged/non-root user: {layer1_lines}. "
+            "Container hardening layer must reference the unprivileged container user."
         )
 
     def test_cpu_memory_limits_row_not_unenforced(self):

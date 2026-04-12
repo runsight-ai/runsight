@@ -86,14 +86,14 @@ See [Custom Assertions](/docs/evaluation/custom-assertions#llm-graded-assertions
 
 ## Layered defense model
 
-Runsight uses defense-in-depth with three active layers and one planned.
+Runsight uses defense-in-depth with four active layers.
 
 ![Layered defense model](/diagrams/layered-defense.svg)
 
-- **Layer 1 — Process isolation:** The subprocess runs in a separate OS process. No shared memory, no API keys, no credentials.
-- **Layer 2 — IPC mediation:** Every engine interaction passes through the interceptor chain. Budgets enforced per call. Actions validated against an allowlist. Traces recorded automatically.
-- **Layer 3 — Nested subprocess:** Code execution (CodeBlock) and simple assertion plugins run in a further-nested subprocess with an even more restricted environment.
-- **Layer 4 — OS-level sandboxing:** Container hardening active — non-root user (UID 1000), zero Linux capabilities (cap_drop: ALL), no-new-privileges, and resource limits (mem_limit, cpus). seccomp and network namespaces are planned next steps.
+- **Layer 1 — Container hardening:** The Docker deployment runs as an unprivileged user, drops all Linux capabilities, prevents privilege escalation, and enforces memory and CPU limits. A runaway process is killed by the kernel, not the host.
+- **Layer 2 — Process isolation:** The subprocess runs in a separate OS process. No shared memory, no API keys, no credentials.
+- **Layer 3 — IPC mediation:** Every engine interaction passes through the interceptor chain. Budgets enforced per call. Actions validated against an allowlist. Traces recorded automatically.
+- **Layer 4 — Nested subprocess:** Code execution (CodeBlock) and simple assertion plugins run in a further-nested subprocess with an even more restricted environment.
 
 ## Known limitations
 
