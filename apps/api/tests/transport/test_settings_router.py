@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
@@ -13,9 +12,6 @@ from runsight_api.transport.deps import (
 )
 
 client = TestClient(app)
-ROUTER_SOURCE = (
-    Path(__file__).resolve().parents[2] / "src/runsight_api/transport/routers/settings.py"
-)
 
 
 def _mock_provider(*, provider_id: str, name: str, models: list[str]):
@@ -327,10 +323,17 @@ def test_app_settings_put_rejects_unsupported_fields():
         app.dependency_overrides.clear()
 
 
-def test_router_source_mentions_fallback_settings_only():
-    source = ROUTER_SOURCE.read_text()
+def test_settings_openapi_exposes_fallback_routes_and_current_app_settings_shape():
+    spec = app.openapi()
 
-    assert "/fallbacks" in source
-    assert "fallback_enabled" in source
-    assert "/settings/models" not in source
-    assert "default_provider" not in source
+    assert "/api/settings/fallbacks" in spec["paths"]
+    assert "/api/settings/fallbacks/{provider_id}" in spec["paths"]
+    assert "/api/settings/models" not in spec["paths"]
+    assert "/api/settings/models/{model_id}" not in spec["paths"]
+
+    app_settings_props = spec["components"]["schemas"]["AppSettingsOut"]["properties"]
+    assert "fallback_enabled" in app_settings_props
+    assert "onboarding_completed" in app_settings_props
+    assert "auto_save" not in app_settings_props
+    assert "default_provider" not in app_settings_props
+    assert "fallback_chain_enabled" not in app_settings_props
