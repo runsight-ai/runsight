@@ -47,6 +47,12 @@ class RunRepository:
     def get_run(self, run_id: str) -> Optional[Run]:
         return self.session.get(Run, run_id)
 
+    def refresh_run(self, run_id: str) -> Optional[Run]:
+        run = self.session.get(Run, run_id)
+        if run is not None:
+            self.session.refresh(run)
+        return run
+
     def list_runs(self) -> List[Run]:
         statement = select(Run).order_by(Run.created_at.desc())
         return list(self.session.exec(statement).all())

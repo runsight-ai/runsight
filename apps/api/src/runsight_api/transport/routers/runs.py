@@ -4,6 +4,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
+from ...domain.entities.run import RunStatus
+from ...domain.errors import RunFailed, ServiceUnavailable
 from ...logic.services.eval_service import EvalService
 from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
@@ -65,6 +67,19 @@ def _regression_types(result) -> list[str]:
     return types
 
 
+def _refresh_launch_run(run_service: RunService, run):
+    """Read the post-launch run state when the service exposes a real repository-backed run."""
+    if not isinstance(run_service, RunService):
+        return run
+
+    latest = run_service.refresh_run(run.id)
+    if latest is None or getattr(latest, "id", None) != run.id:
+        return run
+
+    status = getattr(latest, "status", None)
+    return latest if isinstance(status, RunStatus | str) else run
+
+
 @router.post("", response_model=RunResponse)
 async def create_run(
     body: RunCreate,
@@ -73,22 +88,31 @@ async def create_run(
 ):
     source = body.source or "manual"
     branch = body.branch or "main"
+    if execution_service is None:
+        raise ServiceUnavailable("Execution runtime is unavailable")
+
     run = run_service.create_run(
         body.workflow_id,
         body.task_data,
         source=source,
         branch=branch,
     )
-    if execution_service is not None:
-        try:
-            await execution_service.launch_execution(
-                run.id,
-                run.workflow_id,
-                body.task_data,
-                branch=branch,
-            )
-        except Exception:
-            logger.exception("Failed to launch execution for run %s", run.id)
+    try:
+        await execution_service.launch_execution(
+            run.id,
+            run.workflow_id,
+            body.task_data,
+            branch=branch,
+        )
+    except Exception as exc:
+        logger.exception("Failed to launch execution for run %s", run.id)
+        run_service.fail_run(run.id, str(exc))
+        raise RunFailed("Run failed during launch", run_id=run.id) from exc
+
+    run = _refresh_launch_run(run_service, run)
+    if run.status == RunStatus.failed or run.status == RunStatus.failed.value:
+        raise RunFailed(run.error or "Run failed during launch", run_id=run.id)
+
     return RunResponse(
         id=run.id,
         workflow_id=run.workflow_id,

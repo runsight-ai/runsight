@@ -45,9 +45,11 @@ from .transport.routers import (
 
 
 def _recover_stale_runs(engine):
-    """Mark any runs stuck in 'running' as failed after an API restart."""
+    """Mark any runs stuck in active startup states as failed after an API restart."""
     with Session(engine) as session:
-        stale_runs = session.exec(select(Run).where(Run.status == RunStatus.running)).all()
+        stale_runs = session.exec(
+            select(Run).where(Run.status.in_([RunStatus.pending, RunStatus.running]))
+        ).all()
         for run in stale_runs:
             run.status = RunStatus.failed
             run.error = "API process restarted during execution"
