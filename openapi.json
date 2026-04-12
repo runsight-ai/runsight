@@ -2136,7 +2136,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppSettingsOut"
+                "$ref": "#/components/schemas/AppSettingsUpdate"
               }
             }
           },
@@ -2644,6 +2644,59 @@
           }
         }
       }
+    },
+    "/runsight.svg": {
+      "get": {
+        "summary": " Favicon",
+        "operationId": "_favicon_runsight_svg_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{full_path}": {
+      "get": {
+        "summary": " Spa Catch All",
+        "operationId": "_spa_catch_all__full_path__get",
+        "parameters": [
+          {
+            "name": "full_path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Full Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2660,17 +2713,6 @@
               }
             ],
             "title": "Base Path"
-          },
-          "auto_save": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Auto Save"
           },
           "onboarding_completed": {
             "anyOf": [
@@ -2697,6 +2739,35 @@
         },
         "type": "object",
         "title": "AppSettingsOut"
+      },
+      "AppSettingsUpdate": {
+        "properties": {
+          "onboarding_completed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Onboarding Completed"
+          },
+          "fallback_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Enabled"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AppSettingsUpdate"
       },
       "AttentionItem": {
         "properties": {

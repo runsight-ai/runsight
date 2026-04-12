@@ -8,7 +8,6 @@ from pydantic import BaseModel
 class AppSettingsConfig(BaseModel):
     """Flat app settings stored in .runsight/settings.yaml."""
 
-    auto_save: bool | None = None
     onboarding_completed: bool = False
     fallback_enabled: bool = False
 

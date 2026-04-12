@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
 from ...domain.errors import ProviderNotFound
@@ -95,7 +95,13 @@ class SettingsBudgetListResponse(BaseModel):
 
 class AppSettingsOut(BaseModel):
     base_path: Optional[str] = None
-    auto_save: Optional[bool] = None
+    onboarding_completed: Optional[bool] = None
+    fallback_enabled: Optional[bool] = None
+
+
+class AppSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     onboarding_completed: Optional[bool] = None
     fallback_enabled: Optional[bool] = None
 
@@ -254,7 +260,7 @@ async def get_app_settings(
 
 @router.put("/app", response_model=AppSettingsOut)
 async def update_app_settings(
-    data: AppSettingsOut,
+    data: AppSettingsUpdate,
     repo: FileSystemSettingsRepo = Depends(get_settings_repo),
 ):
     settings_config = repo.update_settings(data.model_dump(exclude_none=True))

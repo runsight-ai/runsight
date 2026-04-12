@@ -5,11 +5,16 @@ import { z } from "zod";
 
 export const AppSettingsOutSchema = z.object({
   base_path: z.string().nullable().optional(),
-  auto_save: z.boolean().nullable().optional(),
   onboarding_completed: z.boolean().nullable().optional(),
   fallback_enabled: z.boolean().nullable().optional(),
 });
 export type AppSettingsOut = z.infer<typeof AppSettingsOutSchema>;
+
+export const AppSettingsUpdateSchema = z.object({
+  onboarding_completed: z.boolean().nullable().optional(),
+  fallback_enabled: z.boolean().nullable().optional(),
+});
+export type AppSettingsUpdate = z.infer<typeof AppSettingsUpdateSchema>;
 
 export const AttentionItemSchema = z.object({
   type: z.string(),

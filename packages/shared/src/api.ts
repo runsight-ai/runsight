@@ -758,6 +758,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runsight.svg": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Favicon */
+        get: operations["_favicon_runsight_svg_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/{full_path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Spa Catch All */
+        get: operations["_spa_catch_all__full_path__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -766,8 +800,13 @@ export interface components {
         AppSettingsOut: {
             /** Base Path */
             base_path?: string | null;
-            /** Auto Save */
-            auto_save?: boolean | null;
+            /** Onboarding Completed */
+            onboarding_completed?: boolean | null;
+            /** Fallback Enabled */
+            fallback_enabled?: boolean | null;
+        };
+        /** AppSettingsUpdate */
+        AppSettingsUpdate: {
             /** Onboarding Completed */
             onboarding_completed?: boolean | null;
             /** Fallback Enabled */
@@ -3198,7 +3237,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AppSettingsOut"];
+                "application/json": components["schemas"]["AppSettingsUpdate"];
             };
         };
         responses: {
@@ -3553,6 +3592,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    _favicon_runsight_svg_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    _spa_catch_all__full_path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                full_path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
