@@ -1,4 +1,15 @@
 services:
+  init-permissions:
+    image: busybox
+    user: "0"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+    volumes:
+      - ./:/workspace
+    entrypoint: ["sh", "-c", "chown -R 1000:1000 /workspace"]
+
   runsight:
     build: .
     ports:
@@ -9,6 +20,17 @@ services:
       - RUNSIGHT_BASE_PATH=/workspace
       - RUNSIGHT_LOG_FORMAT=text
     restart: unless-stopped
+    depends_on:
+      init-permissions:
+        condition: service_completed_successfully
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 4g
+    memswap_limit: 4g
+    cpus: 2
+    init: true
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
