@@ -3966,7 +3966,8 @@
                 "type": "null"
               }
             ],
-            "title": "Regression Count"
+            "title": "Regression Count",
+            "default": 0
           },
           "regression_types": {
             "items": {

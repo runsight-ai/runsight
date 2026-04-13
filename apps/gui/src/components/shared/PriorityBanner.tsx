@@ -34,12 +34,12 @@ function getStoredExploreDismissed() {
     return false;
   }
 
-  const storage = globalThis.localStorage;
-  if (!storage || typeof storage.getItem !== "function") {
+  const localStorage = globalThis.localStorage;
+  if (!localStorage || typeof localStorage.getItem !== "function") {
     return false;
   }
 
-  return storage.getItem(EXPLORE_DISMISS_KEY) === "true";
+  return localStorage.getItem(EXPLORE_DISMISS_KEY) === "true";
 }
 
 function persistExploreDismissed() {
@@ -47,15 +47,15 @@ function persistExploreDismissed() {
     return;
   }
 
-  const storage = globalThis.localStorage;
-  if (!storage || typeof storage.setItem !== "function") {
+  const localStorage = globalThis.localStorage;
+  if (!localStorage || typeof localStorage.setItem !== "function") {
     return;
   }
 
-  storage.setItem(EXPLORE_DISMISS_KEY, "true");
+  localStorage.setItem(EXPLORE_DISMISS_KEY, "true");
 }
 
-  /** Style mapping: explore -> info tokens, uncommitted/regressions -> warning tokens. */
+/** Style mapping: explore -> info tokens, uncommitted/regressions -> warning tokens. */
 const STYLE_MAP: Record<
   BannerCondition["type"],
   { bg: string; border: string; text: string }

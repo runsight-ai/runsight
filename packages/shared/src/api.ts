@@ -1216,8 +1216,11 @@ export interface components {
             eval_pass_pct?: number | null;
             /** Eval Score Avg */
             eval_score_avg?: number | null;
-            /** Regression Count */
-            regression_count?: number | null;
+            /**
+             * Regression Count
+             * @default 0
+             */
+            regression_count: number | null;
             /** Regression Types */
             regression_types?: string[];
             node_summary?: components["schemas"]["NodeSummary"] | null;

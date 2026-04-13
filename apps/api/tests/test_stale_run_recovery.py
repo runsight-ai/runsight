@@ -1,11 +1,8 @@
-"""Red tests for RUN-145: Stale run recovery on API startup.
+"""Tests for stale run recovery on API startup.
 
-When the API crashes mid-execution, Run records with status=running become
+When the API crashes mid-execution, pending and running Run records become
 zombie runs. On startup the lifespan handler must scan for these stale runs
 and mark them as failed.
-
-These tests target a `_recover_stale_runs(engine)` function that does NOT
-exist yet — every test should FAIL until the implementation is written.
 """
 
 import time
@@ -123,18 +120,19 @@ class TestStaleRunRecovery:
             # Must be a recent epoch timestamp (within last 10 seconds)
             assert abs(recovered.completed_at - time.time()) < 10
 
-    # -- Non-running statuses must be untouched ----------------------------
+    # -- Terminal statuses must be untouched -------------------------------
 
-    def test_pending_run_is_not_modified(self, db_engine, seed_runs):
-        """Pending runs must remain unchanged."""
+    def test_pending_run_is_marked_failed(self, db_engine, seed_runs):
+        """Pending runs are stale after process restart and must fail closed."""
         runs = seed_runs([_make_run(status=RunStatus.pending)])
 
         _recover_stale_runs(db_engine)
 
         with Session(db_engine) as session:
             run = session.get(Run, runs[0].id)
-            assert run.status == RunStatus.pending
-            assert run.error is None
+            assert run.status == RunStatus.failed
+            assert run.error == "API process restarted during execution"
+            assert run.completed_at is not None
 
     def test_completed_run_is_not_modified(self, db_engine, seed_runs):
         """Already-completed runs must remain unchanged."""
@@ -190,11 +188,10 @@ class TestStaleRunRecovery:
                 assert recovered.error == "API process restarted during execution"
                 assert recovered.completed_at is not None
 
-    def test_no_running_runs_is_noop(self, db_engine, seed_runs):
-        """When there are no running runs, the function must not error."""
+    def test_no_stale_runs_is_noop(self, db_engine, seed_runs):
+        """When there are no pending/running runs, the function must not error."""
         seed_runs(
             [
-                _make_run(status=RunStatus.pending),
                 _make_run(status=RunStatus.completed, completed_at=time.time()),
                 _make_run(status=RunStatus.failed, error="prev", completed_at=time.time()),
             ]
@@ -207,14 +204,14 @@ class TestStaleRunRecovery:
             # Verify nothing changed
             all_runs = session.exec(select(Run)).all()
             for run in all_runs:
-                assert run.status != RunStatus.running
+                assert run.status not in (RunStatus.pending, RunStatus.running)
 
     def test_empty_database_is_noop(self, db_engine):
         """An empty database must not cause errors."""
         _recover_stale_runs(db_engine)  # should not raise
 
     def test_mixed_statuses_only_running_affected(self, db_engine, seed_runs):
-        """In a mixed set, only running runs are modified; others stay intact."""
+        """In a mixed set, only pending/running runs are modified; terminal runs stay intact."""
         pending = _make_run(status=RunStatus.pending)
         running = _make_run(status=RunStatus.running)
         completed = _make_run(status=RunStatus.completed, completed_at=time.time())
@@ -225,7 +222,8 @@ class TestStaleRunRecovery:
         _recover_stale_runs(db_engine)
 
         with Session(db_engine) as session:
-            assert session.get(Run, pending.id).status == RunStatus.pending
+            assert session.get(Run, pending.id).status == RunStatus.failed
+            assert session.get(Run, pending.id).error == "API process restarted during execution"
             assert session.get(Run, running.id).status == RunStatus.failed
             assert session.get(Run, running.id).error == "API process restarted during execution"
             assert session.get(Run, completed.id).status == RunStatus.completed

@@ -96,7 +96,7 @@ export function Component() {
       <PageHeader
         title={getRunsPageTitle({
           workflowFilter,
-          workflowName,
+          workflowName: workflowName ?? undefined,
           attentionOnly,
           activeOnly,
         })}

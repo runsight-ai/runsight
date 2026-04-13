@@ -238,7 +238,7 @@ export const RunResponseSchema = z.object({
   run_number: z.number().nullable().optional(),
   eval_pass_pct: z.number().nullable().optional(),
   eval_score_avg: z.number().nullable().optional(),
-  regression_count: z.number().nullable().optional(),
+  regression_count: z.number().nullable().optional().default(0),
   regression_types: z.array(z.string()).optional(),
   node_summary: NodeSummarySchema.nullable().optional(),
   parent_run_id: z.string().nullable().optional(),

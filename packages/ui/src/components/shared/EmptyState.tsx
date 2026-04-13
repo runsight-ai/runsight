@@ -41,12 +41,12 @@ export function EmptyState({
       </div>
 
       {/* Title */}
-      <div
+      <h2
         data-slot="empty-state-title"
-        className="text-[length:var(--font-size-lg)] font-medium text-(--text-primary)"
+        className="m-0 text-[length:var(--font-size-lg)] font-medium text-(--text-primary)"
       >
         {title}
-      </div>
+      </h2>
 
       {/* Description */}
       {description && (

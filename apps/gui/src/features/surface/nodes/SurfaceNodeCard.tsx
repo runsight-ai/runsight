@@ -1,20 +1,21 @@
 "use client";
 
 import { memo, useCallback } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
 import { Layers, Layers2, Mail, Server, User } from "lucide-react";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useCanvasStore } from "@/store/canvas";
 import { cn } from "@runsight/ui/utils";
-import type { Node } from "@xyflow/react";
 import type { StepNodeData } from "@/types/schemas/canvas";
 import { getIconForBlockType } from "../surfaceUtils";
 
 type SurfaceNodeKind = "start" | "task" | "soul";
-type SurfaceNodeType = Node<StepNodeData, SurfaceNodeKind>;
 
-interface SurfaceNodeCardProps extends NodeProps<SurfaceNodeType> {
+interface SurfaceNodeCardProps {
+  id: string;
+  data: StepNodeData;
+  selected?: boolean;
   kind: SurfaceNodeKind;
 }
 
@@ -110,6 +111,10 @@ function SurfaceNodeCardComponent({
   const { variant, label } = mapNodeStatus(status);
   const icon = getNodeIcon(getIconForBlockType(String(data.stepType ?? kind)));
   const title = String(data.name ?? data.stepId ?? "Untitled");
+  const tokens =
+    typeof data.tokens === "object" && data.tokens !== null
+      ? (data.tokens as { total?: number })
+      : undefined;
 
   return (
     <div
@@ -182,12 +187,12 @@ function SurfaceNodeCardComponent({
         </div>
       </div>
 
-      {(typeof data.duration === "number" || data.tokens) && (
+      {(typeof data.duration === "number" || tokens) && (
         <div className="border-t border-[var(--border-default)] px-3 py-1.5 text-xs text-[var(--text-muted)]">
           {typeof data.duration === "number" ? `${data.duration.toFixed(1)}s` : ""}
-          {typeof data.duration === "number" && data.tokens ? " • " : ""}
-          {typeof data.tokens?.total === "number"
-            ? `${data.tokens.total.toLocaleString()} tokens`
+          {typeof data.duration === "number" && tokens ? " • " : ""}
+          {typeof tokens?.total === "number"
+            ? `${tokens.total.toLocaleString()} tokens`
             : ""}
         </div>
       )}

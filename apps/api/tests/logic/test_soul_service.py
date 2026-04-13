@@ -400,7 +400,7 @@ def test_update_soul_happy_path():
         id="soul_1",
         role="Old",
         system_prompt="Keep me",
-        custom_notes="test value",
+        provider="openai",
     )
     updated = SoulEntity(id="soul_1", role="New")
     soul_repo.get_by_id.return_value = existing
@@ -416,7 +416,7 @@ def test_update_soul_happy_path():
     assert payload["id"] == "soul_1"
     assert payload["role"] == "New"
     assert payload["system_prompt"] == "Keep me"
-    assert payload["custom_notes"] == "test value"
+    assert payload["provider"] == "openai"
 
 
 def test_update_soul_not_found_raises_soul_not_found():
