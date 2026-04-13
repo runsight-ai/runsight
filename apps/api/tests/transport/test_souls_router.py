@@ -93,7 +93,7 @@ def test_souls_post():
 
 def test_souls_post_requires_role():
     mock_service = Mock()
-    mock_service.create_soul.return_value = SoulEntity(id="unexpected", name="Unexpected")
+    mock_service.create_soul.return_value = SoulEntity(id="unexpected", role="Unexpected")
     app.dependency_overrides[get_soul_service] = lambda: mock_service
     response = client.post(
         "/api/souls",
@@ -111,6 +111,24 @@ def test_souls_post_requires_system_prompt():
     response = client.post(
         "/api/souls",
         json={"id": "missing-system-prompt", "role": "New Soul"},
+    )
+    assert response.status_code == 422
+    mock_service.create_soul.assert_not_called()
+    app.dependency_overrides.clear()
+
+
+def test_souls_post_rejects_unknown_fields():
+    mock_service = Mock()
+    mock_service.create_soul.return_value = SoulEntity(id="unexpected", role="Unexpected")
+    app.dependency_overrides[get_soul_service] = lambda: mock_service
+
+    response = client.post(
+        "/api/souls",
+        json={
+            "role": "New Soul",
+            "system_prompt": "Create the soul",
+            "custom_notes": "unsupported",
+        },
     )
     assert response.status_code == 422
     mock_service.create_soul.assert_not_called()
@@ -139,6 +157,28 @@ def test_souls_put():
     assert response.status_code == 200
     assert response.json()["role"] == "Updated Soul"
     assert response.json()["model_name"] == "claude-sonnet"
+    app.dependency_overrides.clear()
+
+
+def test_souls_put_rejects_unknown_fields():
+    mock_service = Mock()
+    mock_service.update_soul.return_value = SoulEntity(
+        id="sl_1",
+        role="Updated Soul",
+        system_prompt="Updated prompt",
+        model_name="claude-sonnet",
+    )
+    app.dependency_overrides[get_soul_service] = lambda: mock_service
+
+    response = client.put(
+        "/api/souls/sl_1",
+        json={
+            "role": "Updated Soul",
+            "custom_notes": "unsupported",
+        },
+    )
+    assert response.status_code == 422
+    mock_service.update_soul.assert_not_called()
     app.dependency_overrides.clear()
 
 

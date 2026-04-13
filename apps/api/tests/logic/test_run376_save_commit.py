@@ -12,72 +12,22 @@ git add + git commit via GitService.  Tests verify that:
 
 from __future__ import annotations
 
-import sys
-import types
+import importlib
 from unittest.mock import Mock
 
 import pytest
 
 from runsight_api.domain.value_objects import SoulEntity, WorkflowEntity
 
-runsight_core = sys.modules.get("runsight_core")
-if runsight_core is None:
-    runsight_core = types.ModuleType("runsight_core")
-    runsight_core.__path__ = []
-    sys.modules["runsight_core"] = runsight_core
-
-llm_pkg = sys.modules.get("runsight_core.llm")
-if llm_pkg is None:
-    llm_pkg = types.ModuleType("runsight_core.llm")
-    llm_pkg.__path__ = []
-    sys.modules["runsight_core.llm"] = llm_pkg
-    runsight_core.llm = llm_pkg
-
-model_catalog_pkg = sys.modules.get("runsight_core.llm.model_catalog")
-if model_catalog_pkg is None:
-    model_catalog_pkg = types.ModuleType("runsight_core.llm.model_catalog")
-
-    class _LiteLLMModelCatalog:
-        pass
-
-    class _ModelCatalogPort:
-        pass
-
-    model_catalog_pkg.LiteLLMModelCatalog = _LiteLLMModelCatalog
-    model_catalog_pkg.ModelCatalogPort = _ModelCatalogPort
-    sys.modules["runsight_core.llm.model_catalog"] = model_catalog_pkg
-
-llm_pkg.model_catalog = model_catalog_pkg
-runsight_core.llm = llm_pkg
-
-observer_pkg = sys.modules.get("runsight_core.observer")
-if observer_pkg is None:
-    observer_pkg = types.ModuleType("runsight_core.observer")
-
-    class _CompositeObserver:
-        pass
-
-    class _LoggingObserver:
-        pass
-
-    observer_pkg.CompositeObserver = _CompositeObserver
-    observer_pkg.LoggingObserver = _LoggingObserver
-    sys.modules["runsight_core.observer"] = observer_pkg
-
-yaml_pkg = sys.modules.get("runsight_core.yaml")
-if yaml_pkg is None:
-    yaml_pkg = types.ModuleType("runsight_core.yaml")
-    yaml_pkg.__path__ = []
-    sys.modules["runsight_core.yaml"] = yaml_pkg
-    runsight_core.yaml = yaml_pkg
-
-parser_pkg = sys.modules.get("runsight_core.yaml.parser")
-if parser_pkg is None:
-    parser_pkg = types.ModuleType("runsight_core.yaml.parser")
-    parser_pkg.parse_workflow_yaml = lambda *args, **kwargs: None
-    sys.modules["runsight_core.yaml.parser"] = parser_pkg
-
-yaml_pkg.parser = parser_pkg
+for module_name in (
+    "runsight_core",
+    "runsight_core.llm",
+    "runsight_core.llm.model_catalog",
+    "runsight_core.observer",
+    "runsight_core.yaml",
+    "runsight_core.yaml.parser",
+):
+    importlib.import_module(module_name)
 
 # ---------------------------------------------------------------------------
 # Fixtures

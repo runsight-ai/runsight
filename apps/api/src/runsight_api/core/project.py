@@ -1,6 +1,7 @@
 """Project detection: resolve base_path from marker file or directory structure."""
 
 import logging
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -110,26 +111,46 @@ def scaffold_project(base_path: Path) -> None:
 
     # Git init if no repo exists
     if not (base_path / ".git").is_dir():
-        subprocess.run(["git", "init"], cwd=base_path, capture_output=True, check=True)
-        subprocess.run(
-            ["git", "config", "user.email", "runsight@localhost"],
-            cwd=base_path,
-            capture_output=True,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Runsight"],
-            cwd=base_path,
-            capture_output=True,
-            check=True,
-        )
-        subprocess.run(["git", "add", "."], cwd=base_path, capture_output=True, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial Runsight project"],
-            cwd=base_path,
-            capture_output=True,
-            check=True,
-        )
+        if shutil.which("git") is None:
+            logger.warning(
+                "Git executable is unavailable; GitOps disabled for project at %s",
+                base_path,
+            )
+        else:
+            try:
+                subprocess.run(["git", "init"], cwd=base_path, capture_output=True, check=True)
+                subprocess.run(
+                    ["git", "config", "user.email", "runsight@localhost"],
+                    cwd=base_path,
+                    capture_output=True,
+                    check=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Runsight"],
+                    cwd=base_path,
+                    capture_output=True,
+                    check=True,
+                )
+                subprocess.run(["git", "add", "."], cwd=base_path, capture_output=True, check=True)
+                subprocess.run(
+                    ["git", "commit", "-m", "Initial Runsight project"],
+                    cwd=base_path,
+                    capture_output=True,
+                    check=True,
+                )
+            except FileNotFoundError:
+                logger.warning(
+                    "Git executable is unavailable; GitOps disabled for project at %s",
+                    base_path,
+                    exc_info=True,
+                )
+            except subprocess.CalledProcessError as exc:
+                detail = (exc.stderr or exc.stdout or str(exc)).strip()
+                logger.warning(
+                    "Git initialization failed; GitOps disabled for project at %s: %s",
+                    base_path,
+                    detail,
+                )
 
     if is_new:
         logger.info("Created new Runsight project at %s", base_path)

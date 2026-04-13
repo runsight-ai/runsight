@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class NodeTokens(BaseModel):
@@ -51,19 +51,25 @@ class SoulEntity(BaseModel):
     avatar_color: Optional[str] = None
     workflow_count: int = Field(default=0)
     modified_at: Optional[float] = None
-    model_config = {"extra": "allow"}
+    model_config = ConfigDict(extra="forbid")
 
 
 class TaskEntity(BaseModel):
     id: str
     name: Optional[str] = None
-    model_config = {"extra": "ignore"}
+    type: str = "task"
+    path: Optional[str] = None
+    description: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
 
 
 class StepEntity(BaseModel):
     id: str
     name: Optional[str] = None
-    model_config = {"extra": "ignore"}
+    type: str = "step"
+    path: Optional[str] = None
+    description: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
 
 
 class ProviderEntity(BaseModel):
@@ -74,5 +80,8 @@ class ProviderEntity(BaseModel):
     base_url: Optional[str] = None
     is_active: bool = True
     status: Optional[str] = None
-    models: list = []
-    model_config = {"extra": "allow"}
+    models: list[str] = Field(default_factory=list)
+    created_at: Optional[float] = None
+    updated_at: Optional[float] = None
+    last_status_check: Optional[float] = None
+    model_config = ConfigDict(extra="forbid")

@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class StepResponse(BaseModel):
@@ -12,6 +12,8 @@ class StepResponse(BaseModel):
 
 
 class StepCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: Optional[str] = None
     name: str
     type: str = "step"
@@ -19,6 +21,8 @@ class StepCreate(BaseModel):
 
 
 class StepUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: Optional[str] = None
     type: Optional[str] = None
     description: Optional[str] = None

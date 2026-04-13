@@ -1,16 +1,22 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
+
+import { applyFixture } from "./helpers/shellReady";
 
 test.describe.configure({ mode: "serial" });
 
 const API = "http://127.0.0.1:8000/api";
+const REPO_ROOT = process.env.RUNSIGHT_E2E_PROJECT_ROOT ?? resolve(process.cwd(), "../..");
+const DB_PATH = resolve(REPO_ROOT, ".runsight/runsight.db");
+const SEEDED_BASELINE_RUN_ID = "seed_rr_baseline";
 const SEEDED_RUN_ID = "seed_rr_regression";
 const SEEDED_WORKFLOW_ID = "research-review";
 const forkedWorkflowIds = new Set<string>();
 const CANVAS_SIDECAR_PATH = resolve(
-  process.cwd(),
-  "../../custom/workflows/.canvas/research-review.canvas.json",
+  REPO_ROOT,
+  "custom/workflows/.canvas/research-review.canvas.json",
 );
 
 type RunSummary = {
@@ -113,7 +119,180 @@ function workflowIdFromUrl(url: string) {
   return decodeURIComponent(match[1]);
 }
 
+function seedReadonlyRunFixture() {
+  const commitSha = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: REPO_ROOT,
+    encoding: "utf-8",
+  }).trim();
+
+  execFileSync("python3", [
+    "-c",
+    `
+import json
+import sqlite3
+import sys
+import time
+
+db_path, commit_sha, baseline_run_id, current_run_id = sys.argv[1:5]
+workflow_id = "research-review"
+workflow_name = "Research & Review"
+now = time.time()
+
+conn = sqlite3.connect(db_path)
+cur = conn.cursor()
+run_ids = (baseline_run_id, current_run_id)
+cur.execute(
+    "delete from logentry where run_id in (?, ?)",
+    run_ids,
+)
+cur.execute(
+    "delete from runnode where run_id in (?, ?)",
+    run_ids,
+)
+cur.execute(
+    "delete from run where id in (?, ?)",
+    run_ids,
+)
+
+def insert_run(run_id, created_at, total_cost, total_tokens):
+    cur.execute(
+        """
+        insert into run (
+            id, workflow_id, workflow_name, status, task_json, started_at,
+            completed_at, duration_s, total_cost_usd, total_tokens, branch,
+            source, commit_sha, created_at, updated_at, depth
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            run_id,
+            workflow_id,
+            workflow_name,
+            "completed",
+            "{}",
+            created_at,
+            created_at + 4,
+            4,
+            total_cost,
+            total_tokens,
+            "main",
+            "manual",
+            commit_sha,
+            created_at,
+            created_at + 4,
+            0,
+        ),
+    )
+
+def insert_node(run_id, node_id, block_type, cost, tokens, score, passed, created_at):
+    cur.execute(
+        """
+        insert into runnode (
+            id, run_id, node_id, block_type, status, started_at, completed_at,
+            duration_s, cost_usd, tokens, output, soul_id, model_name,
+            prompt_hash, soul_version, eval_score, eval_passed, eval_results,
+            created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            f"{run_id}:{node_id}",
+            run_id,
+            node_id,
+            block_type,
+            "completed",
+            created_at,
+            created_at + 1,
+            1,
+            cost,
+            json.dumps({"input": tokens // 2, "output": tokens // 2, "total": tokens}),
+            f"{node_id} output",
+            f"{node_id}_soul",
+            "gpt-5.4-mini",
+            f"{node_id}_prompt",
+            "v1",
+            score,
+            1 if passed else 0,
+            json.dumps({"assertions": []}),
+            created_at,
+            created_at + 1,
+        ),
+    )
+
+baseline_created = now - 120
+current_created = now - 60
+insert_run(baseline_run_id, baseline_created, 0.04, 4000)
+insert_run(current_run_id, current_created, 0.12, 9000)
+
+baseline_nodes = [
+    ("research", "linear", 0.01, 1000, 0.95, True),
+    ("write_summary", "linear", 0.01, 1000, 0.94, True),
+    ("quality_review", "gate", 0.01, 1000, 0.93, True),
+    ("notify", "linear", 0.01, 1000, 0.92, True),
+]
+current_nodes = [
+    ("research", "linear", 0.03, 3000, 0.70, False),
+    ("write_summary", "linear", 0.03, 3000, 0.70, False),
+    ("quality_review", "gate", 0.01, 1500, 0.70, False),
+    ("notify", "linear", 0.01, 1500, 0.92, True),
+]
+
+for index, node in enumerate(baseline_nodes):
+    insert_node(baseline_run_id, *node, baseline_created + index)
+for index, node in enumerate(current_nodes):
+    insert_node(current_run_id, *node, current_created + index)
+
+conn.commit()
+conn.close()
+`,
+    DB_PATH,
+    commitSha,
+    SEEDED_BASELINE_RUN_ID,
+    SEEDED_RUN_ID,
+  ], { cwd: REPO_ROOT });
+}
+
+function cleanupReadonlyRunFixture() {
+  execFileSync("python3", [
+    "-c",
+    `
+import sqlite3
+import sys
+
+db_path, baseline_run_id, current_run_id = sys.argv[1:4]
+run_ids = (baseline_run_id, current_run_id)
+conn = sqlite3.connect(db_path)
+cur = conn.cursor()
+cur.execute("delete from logentry where run_id in (?, ?)", run_ids)
+cur.execute("delete from runnode where run_id in (?, ?)", run_ids)
+cur.execute("delete from run where id in (?, ?)", run_ids)
+conn.commit()
+conn.close()
+`,
+    DB_PATH,
+    SEEDED_BASELINE_RUN_ID,
+    SEEDED_RUN_ID,
+  ], { cwd: REPO_ROOT });
+}
+
+test.beforeAll(async () => {
+  await applyFixture([
+    {
+      id: "openai",
+      name: "OpenAI",
+      type: "openai",
+      status: "connected",
+      is_active: true,
+      models: ["gpt-4.1-mini"],
+      api_key: null,
+    },
+  ], {
+    onboarding_completed: true,
+    fallback_enabled: false,
+  });
+  seedReadonlyRunFixture();
+});
+
 test.afterAll(async ({ request }) => {
+  cleanupReadonlyRunFixture();
   for (const workflowId of forkedWorkflowIds) {
     await apiDelete(request, `/workflows/${workflowId}`);
   }
@@ -178,7 +357,7 @@ test.describe("RUN-783 readonly surface browser flows", () => {
       "aria-selected",
       "true",
     );
-    await expect(inspector).toContainText("Research");
+    await expect(inspector).toContainText("research");
     await expect(inspector).toContainText("Completed");
 
     await page.getByTestId("workflow-tab-yaml").click();

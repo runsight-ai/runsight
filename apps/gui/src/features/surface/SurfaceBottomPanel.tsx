@@ -7,6 +7,7 @@ import { useNavigate } from "react-router";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 import { SurfaceRunsTable } from "./SurfaceRunsTable";
+import type { WorkflowRegression } from "@/types/schemas/regressions";
 
 interface LogEntry {
   timestamp: string | number;
@@ -26,7 +27,7 @@ interface SurfaceBottomPanelProps {
 
 type RegressionsData = {
   count?: number;
-  issues?: Array<Record<string, unknown>>;
+  issues?: WorkflowRegression[];
 };
 
 type SurfaceBottomPanelContentProps = SurfaceBottomPanelProps & {

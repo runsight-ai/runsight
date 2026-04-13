@@ -50,7 +50,7 @@ function extractApiComponentFieldNames(source: string, componentName: string): s
 
 function extractSchemaFieldNames(source: string, schemaName: string): string[] {
   const pattern = new RegExp(
-    `export const ${schemaName}Schema = z\\.object\\(\\{([\\s\\S]*?)\\n\\}\\);`,
+    `export const ${schemaName}Schema = z\\.object\\(\\{([\\s\\S]*?)\\n\\}\\)(?:\\.strict\\(\\))?;`,
   );
   const match = source.match(pattern);
   if (!match) {
@@ -422,6 +422,83 @@ describe("RUN-477: generated API types stay aligned for soul contracts", () => {
       expect.arrayContaining(["provider", "temperature", "max_tokens", "avatar_color", "copy_on_edit"]),
     );
     expect(fields).not.toContain("assertions");
+  });
+});
+
+describe("RUN-823: custom YAML request schemas are strict", () => {
+  const openapi = JSON.parse(readFileSync(resolve(REPO_ROOT, "openapi.json"), "utf8"));
+
+  it.each([
+    "SoulCreate",
+    "SoulUpdate",
+    "TaskCreate",
+    "TaskUpdate",
+    "StepCreate",
+    "StepUpdate",
+    "ProviderCreate",
+    "ProviderUpdate",
+  ])("%s OpenAPI schema forbids unknown fields", (schemaName) => {
+    const schema = openapi.components?.schemas?.[schemaName];
+    expect(schema).toBeDefined();
+    expect(schema.additionalProperties).toBe(false);
+  });
+
+  it("generated request Zod schemas reject unknown fields", async () => {
+    const mod = await import("../zod");
+
+    expect(
+      mod.SoulCreateSchema.safeParse({
+        role: "Reviewer",
+        system_prompt: "Review",
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.SoulUpdateSchema.safeParse({
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.TaskCreateSchema.safeParse({
+        name: "Task",
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.TaskUpdateSchema.safeParse({
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.StepCreateSchema.safeParse({
+        name: "Step",
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.StepUpdateSchema.safeParse({
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.ProviderCreateSchema.safeParse({
+        name: "OpenAI",
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+    expect(
+      mod.ProviderUpdateSchema.safeParse({
+        custom_notes: "unsupported",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("generated Zod strictness uses the public Zod API", () => {
+    const source = readFileSync(COMMITTED_ZOD_PATH, "utf8");
+
+    expect(source).not.toContain("_def.unknownKeys");
+    expect(source).toContain("ProviderCreateSchema = z.object");
+    expect(source).toContain("}).strict();");
   });
 });
 

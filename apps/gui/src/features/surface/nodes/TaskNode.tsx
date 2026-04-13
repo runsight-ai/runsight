@@ -1,7 +1,7 @@
 "use client";
 
-import { memo, type NodeProps } from "react";
-import type { Node } from "@xyflow/react";
+import { memo } from "react";
+import type { Node, NodeProps } from "@xyflow/react";
 import type { StepNodeData } from "@/types/schemas/canvas";
 import { SurfaceNodeCard } from "./SurfaceNodeCard";
 

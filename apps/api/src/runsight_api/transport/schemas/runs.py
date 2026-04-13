@@ -36,7 +36,7 @@ class RunResponse(BaseModel):
     run_number: Optional[int] = None
     eval_pass_pct: Optional[float] = None
     eval_score_avg: Optional[float] = None
-    regression_count: Optional[int] = None
+    regression_count: Optional[int] = 0
     regression_types: List[str] = Field(default_factory=list)
     node_summary: Optional[NodeSummary] = None
     parent_run_id: Optional[str] = None

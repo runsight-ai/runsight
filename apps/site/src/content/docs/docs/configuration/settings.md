@@ -11,7 +11,6 @@ Application settings are stored in `.runsight/settings.yaml`. This file is creat
 |-------|------|---------|-------------|
 | `onboarding_completed` | `bool` | `false` | Whether the first-time setup flow has been completed. Controls whether the app redirects to the setup screen. |
 | `fallback_enabled` | `bool` | `false` | Whether runtime fallback is active. See [Fallback](/docs/configuration/fallback). |
-| `auto_save` | `bool \| null` | `null` | Auto-save preference (reserved for future use). |
 
 ## Fallback map
 

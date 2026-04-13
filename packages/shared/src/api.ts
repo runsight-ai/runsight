@@ -758,6 +758,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runsight.svg": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Favicon */
+        get: operations["_favicon_runsight_svg_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/{full_path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Spa Catch All */
+        get: operations["_spa_catch_all__full_path__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -766,12 +800,17 @@ export interface components {
         AppSettingsOut: {
             /** Base Path */
             base_path?: string | null;
-            /** Auto Save */
-            auto_save?: boolean | null;
             /** Onboarding Completed */
-            onboarding_completed?: boolean | null;
+            onboarding_completed?: boolean;
             /** Fallback Enabled */
-            fallback_enabled?: boolean | null;
+            fallback_enabled?: boolean;
+        };
+        /** AppSettingsUpdate */
+        AppSettingsUpdate: {
+            /** Onboarding Completed */
+            onboarding_completed?: boolean;
+            /** Fallback Enabled */
+            fallback_enabled?: boolean;
         };
         /** AttentionItem */
         AttentionItem: {
@@ -1177,8 +1216,11 @@ export interface components {
             eval_pass_pct?: number | null;
             /** Eval Score Avg */
             eval_score_avg?: number | null;
-            /** Regression Count */
-            regression_count?: number | null;
+            /**
+             * Regression Count
+             * @default 0
+             */
+            regression_count: number | null;
             /** Regression Types */
             regression_types?: string[];
             node_summary?: components["schemas"]["NodeSummary"] | null;
@@ -3198,7 +3240,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AppSettingsOut"];
+                "application/json": components["schemas"]["AppSettingsUpdate"];
             };
         };
         responses: {
@@ -3553,6 +3595,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    _favicon_runsight_svg_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    _spa_catch_all__full_path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                full_path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

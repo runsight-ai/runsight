@@ -334,6 +334,7 @@ def build(
     souls_map: Dict[str, Any],
     runner: Any,
     all_blocks: Dict[str, Any],
+    **_: Any,
 ) -> CodeBlock:
     """Build a CodeBlock from a block definition."""
     if not block_def.code:

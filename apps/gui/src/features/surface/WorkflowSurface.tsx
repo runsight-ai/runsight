@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import type { Node } from "@xyflow/react";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./surfaceContract";
 import { getContractForMode, getCanvasYamlToggleVisibility, getSaveButtonState, getActionButton, isEditable } from "./surfaceContract";
 import { SurfaceTopbar } from "./SurfaceTopbar";
@@ -17,7 +18,9 @@ import { EmptyState } from "@runsight/ui/empty-state";
 import { Card } from "@runsight/ui/card";
 import { Button } from "@runsight/ui/button";
 import { LayoutGrid } from "lucide-react";
-import { useCanvasStore } from "@/store/canvas";
+import { useCanvasStore, type PersistedCanvasState } from "@/store/canvas";
+import type { StepNodeData } from "@/types/schemas/canvas";
+import type { WorkflowCanvasState } from "@runsight/shared/zod";
 import {
   useRun,
   useRunNodes,
@@ -29,6 +32,53 @@ import { PriorityBanner } from "@/components/shared";
 import { mapRunStatus } from "./surfaceUtils";
 import { SurfaceInspectorPanel } from "./SurfaceInspectorPanel";
 import { buildWorkflowLayout, hasRenderableCanvasState } from "./workflowLayout";
+
+type RuntimeStepNodeData = StepNodeData & {
+  model?: string;
+  duration?: number;
+  tokens?: { input?: number; output?: number; total?: number };
+  error?: string | null;
+};
+
+const DEFAULT_CANVAS_VIEWPORT = { x: 0, y: 0, zoom: 1 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizePersistedCanvasState(
+  canvasState: WorkflowCanvasState | PersistedCanvasState | Record<string, unknown> | null | undefined,
+): PersistedCanvasState | null {
+  if (!isRecord(canvasState)) {
+    return null;
+  }
+
+  const viewport = isRecord(canvasState.viewport)
+    && typeof canvasState.viewport.x === "number"
+    && typeof canvasState.viewport.y === "number"
+    && typeof canvasState.viewport.zoom === "number"
+    ? {
+        x: canvasState.viewport.x,
+        y: canvasState.viewport.y,
+        zoom: canvasState.viewport.zoom,
+      }
+    : DEFAULT_CANVAS_VIEWPORT;
+
+  return {
+    nodes: Array.isArray(canvasState.nodes)
+      ? canvasState.nodes.filter(isRecord)
+      : [],
+    edges: Array.isArray(canvasState.edges)
+      ? canvasState.edges.filter(isRecord)
+      : [],
+    viewport,
+    selected_node_id:
+      typeof canvasState.selected_node_id === "string"
+        ? canvasState.selected_node_id
+        : null,
+    canvas_mode: canvasState.canvas_mode === "state-machine" ? "state-machine" : "dag",
+  };
+}
 
 function RunGraphErrorCard({
   message,
@@ -253,7 +303,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
 
     setYamlContent(preferredYaml);
 
-    const renderableCanvasState = hasRenderableCanvasState(workflow?.canvas_state);
+    const persistedCanvasState = normalizePersistedCanvasState(workflow?.canvas_state);
+    const renderableCanvasState = hasRenderableCanvasState(persistedCanvasState);
     const hydrationKind = renderableCanvasState ? "persisted" : "computed";
     const yamlKind =
       mode === "readonly"
@@ -272,16 +323,9 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     }
 
     if (renderableCanvasState) {
-      hydrateFromPersisted({
-        nodes: workflow.canvas_state.nodes ?? [],
-        edges: workflow.canvas_state.edges ?? [],
-        viewport: workflow.canvas_state.viewport ?? { x: 0, y: 0, zoom: 1 },
-        selected_node_id: workflow.canvas_state.selected_node_id ?? null,
-        canvas_mode:
-          workflow.canvas_state.canvas_mode === "state-machine" ? "state-machine" : "dag",
-      });
+      hydrateFromPersisted(persistedCanvasState);
     } else {
-      hydrateFromPersisted(buildWorkflowLayout(preferredYaml, workflow?.canvas_state ?? null));
+      hydrateFromPersisted(buildWorkflowLayout(preferredYaml, persistedCanvasState));
     }
 
     setCanvasHydrationRevision((revision) => revision + 1);
@@ -366,7 +410,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   }, [canvasHydrationRevision, mode, nodes.length, runNodes, setNodeStatus]);
 
   const selectedNode = inspectedNodeId
-    ? (nodes.find((node) => node.id === inspectedNodeId) ?? null)
+    ? ((nodes.find((node) => node.id === inspectedNodeId) as Node<RuntimeStepNodeData> | undefined) ?? null)
     : null;
   const showRunGraphError =
     mode === "readonly" && activeTab === "canvas" && Boolean(isRunNodesError);
@@ -416,9 +460,12 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const actionButton = mode === "edit" ? undefined : getActionButton(mode);
 
   const canvasStoreState = useCanvasStore.getState();
+  const draftCanvasState = editable ? toPersistedState() : undefined;
   const currentDraft = {
     yaml: canvasStoreState.yamlContent,
-    canvas_state: editable ? toPersistedState() : undefined,
+    canvas_state: draftCanvasState
+      ? (draftCanvasState as unknown as Record<string, unknown>)
+      : undefined,
   };
   const currentFiles: { path: string; status: string }[] = [
     { path: `custom/workflows/${resolvedWorkflowId}.yaml`, status: "modified" },

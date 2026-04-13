@@ -6,6 +6,7 @@ from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 from urllib.parse import unquote
 
 import yaml
+from pydantic import ValidationError
 
 from ...domain.errors import RunsightError
 
@@ -75,9 +76,16 @@ class BaseYamlRepository(Generic[T]):
             try:
                 with open(file, "r") as f:
                     data = yaml.safe_load(f) or {}
+            except yaml.YAMLError as e:
+                logger.warning(f"Failed to load {self.entity_label.lower()} file {file}: {e}")
+                continue
+
+            try:
                 if "id" not in data:
                     data["id"] = file.stem
                 entities.append(self.entity_type(**data))
+            except ValidationError:
+                raise
             except Exception as e:
                 logger.warning(f"Failed to load {self.entity_label.lower()} file {file}: {e}")
         return entities
@@ -97,18 +105,20 @@ class BaseYamlRepository(Generic[T]):
             raise ValueError(f"{self.entity_label} must have an id")
         self._validate_id(data["id"])
         file_path = self.entity_dir / f"{data['id']}.yaml"
+        entity = self.entity_type(**data)
         with open(file_path, "w") as f:
             yaml.safe_dump(data, f, sort_keys=False)
-        return self.entity_type(**data)
+        return entity
 
     def update(self, id: str, data: Dict[str, Any]) -> T:
         file_path = self._resolve_existing_path(id)
         if not file_path.exists():
             raise self.not_found_error(f"{self.entity_label} {id} not found")
         data["id"] = id
+        entity = self.entity_type(**data)
         with open(file_path, "w") as f:
             yaml.safe_dump(data, f, sort_keys=False)
-        return self.entity_type(**data)
+        return entity
 
     def delete(self, id: str) -> bool:
         file_path = self._resolve_existing_path(id)

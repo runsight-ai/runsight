@@ -119,6 +119,7 @@ def build(
     souls_map: Dict[str, Any],
     runner: Any,
     all_blocks: Dict[str, Any],
+    **_: Any,
 ) -> SynthesizeBlock:
     """Build a SynthesizeBlock from a block definition."""
     if block_def.soul_ref is None:

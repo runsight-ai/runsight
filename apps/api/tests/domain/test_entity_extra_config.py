@@ -1,28 +1,33 @@
-"""Tests for entity extra field configuration.
+"""Tests for entity extra-field schema strictness."""
 
-SoulEntity and WorkflowEntity preserve extra fields. TaskEntity and StepEntity
-still use extra="ignore" — unknown fields are silently dropped.
-"""
+import pytest
+from pydantic import ValidationError
 
 from runsight_api.domain.value_objects import (
+    ProviderEntity,
     SoulEntity,
     StepEntity,
     TaskEntity,
     WorkflowEntity,
 )
 
-# ── SoulEntity ──────────────────────────────────────────────────────
 
+class TestSoulEntityRejectsExtraFields:
+    def test_unknown_field_is_rejected(self):
+        with pytest.raises(ValidationError):
+            SoulEntity(id="s1", role="Alpha", custom_notes="oops")
 
-class TestSoulEntityPreservesExtraFields:
-    def test_unknown_field_is_preserved(self):
-        soul = SoulEntity(id="s1", role="Alpha", bogus_field="oops")
-        assert soul.bogus_field == "oops"
+    def test_typo_field_is_rejected(self):
+        with pytest.raises(ValidationError):
+            SoulEntity(id="s1", naem="typo")
 
-    def test_typo_field_is_preserved(self):
-        soul = SoulEntity(id="s1", naem="typo")
-        assert soul.naem == "typo"
-        assert soul.role is None  # default kept
+    def test_legacy_assertions_field_is_rejected(self):
+        with pytest.raises(ValidationError):
+            SoulEntity(
+                id="s1",
+                role="Tester",
+                assertions=[{"type": "contains", "value": "hello"}],
+            )
 
     def test_known_fields_work(self):
         soul = SoulEntity(
@@ -30,46 +35,25 @@ class TestSoulEntityPreservesExtraFields:
             role="Alpha",
             system_prompt="Prompt",
             model_name="gpt-4o",
+            tools=["web_search"],
             max_tool_iterations=7,
         )
         assert soul.id == "s1"
         assert soul.role == "Alpha"
         assert soul.system_prompt == "Prompt"
         assert soul.model_name == "gpt-4o"
+        assert soul.tools == ["web_search"]
         assert soul.max_tool_iterations == 7
 
-    def test_declared_runtime_fields_are_preserved(self):
-        soul = SoulEntity(
-            id="s1",
-            name="Alpha",
-            role="Researcher",
-            system_prompt="You analyze things.",
-            model_name="gpt-4o",
-            models=["gpt-4o", "gpt-4o-mini"],
-            tools=["web_search"],
-            max_tool_iterations=3,
-        )
 
-        assert soul.role == "Researcher"
-        assert soul.system_prompt == "You analyze things."
-        assert soul.model_name == "gpt-4o"
-        assert soul.models == ["gpt-4o", "gpt-4o-mini"]
-        assert soul.tools == ["web_search"]
-        assert soul.max_tool_iterations == 3
+class TestTaskEntityRejectsExtraFields:
+    def test_unknown_field_is_rejected(self):
+        with pytest.raises(ValidationError):
+            TaskEntity(id="t1", name="Build", extra_stuff=42)
 
-
-# ── TaskEntity ──────────────────────────────────────────────────────
-
-
-class TestTaskEntityIgnoresExtraFields:
-    def test_unknown_field_is_ignored(self):
-        task = TaskEntity(id="t1", name="Build", extra_stuff=42)
-        assert not hasattr(task, "extra_stuff")
-
-    def test_typo_field_is_not_stored(self):
-        task = TaskEntity(id="t1", naem="typo")
-        assert not hasattr(task, "naem")
-        assert task.name is None
+    def test_typo_field_is_rejected(self):
+        with pytest.raises(ValidationError):
+            TaskEntity(id="t1", naem="typo")
 
     def test_known_fields_work(self):
         task = TaskEntity(id="t1", name="Build")
@@ -77,18 +61,14 @@ class TestTaskEntityIgnoresExtraFields:
         assert task.name == "Build"
 
 
-# ── StepEntity ──────────────────────────────────────────────────────
+class TestStepEntityRejectsExtraFields:
+    def test_unknown_field_is_rejected(self):
+        with pytest.raises(ValidationError):
+            StepEntity(id="st1", name="Compile", random_key="val")
 
-
-class TestStepEntityIgnoresExtraFields:
-    def test_unknown_field_is_ignored(self):
-        step = StepEntity(id="st1", name="Compile", random_key="val")
-        assert not hasattr(step, "random_key")
-
-    def test_typo_field_is_not_stored(self):
-        step = StepEntity(id="st1", naem="typo")
-        assert not hasattr(step, "naem")
-        assert step.name is None
+    def test_typo_field_is_rejected(self):
+        with pytest.raises(ValidationError):
+            StepEntity(id="st1", naem="typo")
 
     def test_known_fields_work(self):
         step = StepEntity(id="st1", name="Compile")
@@ -96,7 +76,35 @@ class TestStepEntityIgnoresExtraFields:
         assert step.name == "Compile"
 
 
-# ── WorkflowEntity (extra="allow" preserved) ───────────────────────
+class TestProviderEntityRejectsExtraFields:
+    def test_unknown_field_is_rejected(self):
+        with pytest.raises(ValidationError):
+            ProviderEntity(
+                id="openai",
+                name="OpenAI",
+                type="openai",
+                custom_notes="unsupported",
+            )
+
+    def test_typo_field_is_rejected(self):
+        with pytest.raises(ValidationError):
+            ProviderEntity(id="openai", name="OpenAI", tpye="openai")
+
+    def test_known_fields_work(self):
+        provider = ProviderEntity(
+            id="openai",
+            name="OpenAI",
+            type="openai",
+            api_key="${OPENAI_API_KEY}",
+            base_url="https://api.openai.com/v1",
+            is_active=True,
+            status="connected",
+            models=["gpt-4o"],
+        )
+        assert provider.id == "openai"
+        assert provider.name == "OpenAI"
+        assert provider.type == "openai"
+        assert provider.models == ["gpt-4o"]
 
 
 class TestWorkflowEntityPreservesExtraFields:

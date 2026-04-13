@@ -22,6 +22,7 @@ import os
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
 from runsight_api.domain.errors import ProviderNotFound
@@ -141,6 +142,14 @@ class TestCreate:
         """An empty name should still produce a usable slug."""
         entity = repo.create(_make_provider_data(name=""))
         assert entity.id  # must not be empty
+
+    def test_create_rejects_unknown_fields_and_does_not_persist_yaml(self, repo, providers_dir):
+        data = _make_provider_data(custom_notes="unsupported")
+
+        with pytest.raises(ValidationError):
+            repo.create(data)
+
+        assert not (providers_dir / "openai.yaml").exists()
 
 
 class TestCreateDuplicates:
@@ -272,6 +281,51 @@ class TestUpdate:
         created = repo.create(_make_provider_data(name="OpenAI"))
         updated = repo.update(created.id, {"status": "offline"})
         assert updated.id == created.id
+
+    def test_update_rejects_unknown_fields_and_keeps_existing_yaml(self, repo, providers_dir):
+        created = repo.create(_make_provider_data(name="OpenAI"))
+        yaml_path = providers_dir / f"{created.id}.yaml"
+
+        before = yaml.safe_load(yaml_path.read_text())
+        with pytest.raises(ValidationError):
+            repo.update(created.id, {"custom_notes": "unsupported"})
+        after = yaml.safe_load(yaml_path.read_text())
+
+        assert after == before
+
+
+class TestReadValidation:
+    def test_get_by_id_rejects_provider_yaml_with_unsupported_fields(self, repo, providers_dir):
+        yaml_path = providers_dir / "openai.yaml"
+        yaml_path.write_text(
+            yaml.safe_dump(
+                {
+                    "name": "OpenAI",
+                    "type": "openai",
+                    "api_key": "${OPENAI_API_KEY}",
+                    "custom_notes": "unsupported",
+                }
+            )
+        )
+
+        with pytest.raises(ValidationError):
+            repo.get_by_id("openai")
+
+    def test_list_all_rejects_provider_yaml_with_unsupported_fields(self, repo, providers_dir):
+        yaml_path = providers_dir / "openai.yaml"
+        yaml_path.write_text(
+            yaml.safe_dump(
+                {
+                    "name": "OpenAI",
+                    "type": "openai",
+                    "api_key": "${OPENAI_API_KEY}",
+                    "custom_notes": "unsupported",
+                }
+            )
+        )
+
+        with pytest.raises(ValidationError):
+            repo.list_all()
 
 
 class TestDelete:

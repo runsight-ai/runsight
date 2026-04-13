@@ -125,22 +125,41 @@ describe("canonical settings transport contracts", () => {
   it("exports the canonical app-settings schema on @runsight/shared/zod", () => {
     const appSettingsSample = {
       base_path: "/workspace",
-      auto_save: true,
       onboarding_completed: true,
       fallback_enabled: false,
     };
 
     const appSettingsSchema = getCanonicalSchema("AppSettingsOutSchema");
 
-    expect(appSettingsSchema.parse(appSettingsSample)).toEqual(
+    const parsed = appSettingsSchema.parse(appSettingsSample);
+
+    expect(parsed).toEqual(
       expect.objectContaining(appSettingsSample),
     );
+    expect(parsed).not.toHaveProperty("auto_save");
+  });
+
+  it("rejects null app-settings update values while allowing omitted fields", () => {
+    const appSettingsUpdateSchema = getCanonicalSchema("AppSettingsUpdateSchema");
+
+    expect(appSettingsUpdateSchema.parse({})).toEqual({});
+    expect(() =>
+      appSettingsUpdateSchema.parse({
+        onboarding_completed: null,
+      }),
+    ).toThrow();
+    expect(() =>
+      appSettingsUpdateSchema.parse({
+        fallback_enabled: null,
+      }),
+    ).toThrow();
   });
 
   it("keeps generated OpenAPI and shared contract artifacts on fallback-only settings fields", () => {
     const settingsFallbackProps = getSchemaProperties("SettingsFallbackResponse");
     const fallbackUpdateProps = getSchemaProperties("FallbackUpdate");
     const appSettingsProps = getSchemaProperties("AppSettingsOut");
+    const appSettingsUpdateProps = getSchemaProperties("AppSettingsUpdate");
 
     expect(settingsFallbackProps).toHaveProperty("fallback_provider_id");
     expect(settingsFallbackProps).toHaveProperty("fallback_model_id");
@@ -152,10 +171,26 @@ describe("canonical settings transport contracts", () => {
     expect(appSettingsProps).toHaveProperty("fallback_enabled");
     expect(appSettingsProps).not.toHaveProperty("default_provider");
     expect(appSettingsProps).not.toHaveProperty("fallback_chain_enabled");
+    expect(appSettingsProps).not.toHaveProperty("auto_save");
+    expect(appSettingsUpdateProps).toMatchObject({
+      onboarding_completed: {
+        type: "boolean",
+        title: "Onboarding Completed",
+      },
+      fallback_enabled: {
+        type: "boolean",
+        title: "Fallback Enabled",
+      },
+    });
 
     expect(GENERATED_API_SOURCE).toContain("/api/settings/fallbacks");
     expect(GENERATED_API_SOURCE).toContain("SettingsFallbackResponse");
     expect(GENERATED_API_SOURCE).toContain("fallback_enabled");
+    expect(GENERATED_API_SOURCE).toContain("onboarding_completed?: boolean;");
+    expect(GENERATED_API_SOURCE).toContain("fallback_enabled?: boolean;");
+    expect(GENERATED_API_SOURCE).not.toContain("onboarding_completed?: boolean | null;");
+    expect(GENERATED_API_SOURCE).not.toContain("fallback_enabled?: boolean | null;");
+    expect(GENERATED_API_SOURCE).not.toContain("auto_save");
     expect(GENERATED_API_SOURCE).not.toContain("/api/settings/models");
     expect(GENERATED_API_SOURCE).not.toContain("/api/settings/models/{model_id}");
     expect(GENERATED_API_SOURCE).not.toContain("SettingsModelDefaultResponse");
@@ -169,6 +204,15 @@ describe("canonical settings transport contracts", () => {
     expect(GENERATED_ZOD_SOURCE).toContain("SettingsFallbackResponseSchema");
     expect(GENERATED_ZOD_SOURCE).toContain("FallbackUpdateSchema");
     expect(GENERATED_ZOD_SOURCE).toContain("fallback_enabled");
+    expect(GENERATED_ZOD_SOURCE).toContain("onboarding_completed: z.boolean().optional()");
+    expect(GENERATED_ZOD_SOURCE).toContain("fallback_enabled: z.boolean().optional()");
+    expect(GENERATED_ZOD_SOURCE).not.toContain(
+      "onboarding_completed: z.boolean().nullable().optional()",
+    );
+    expect(GENERATED_ZOD_SOURCE).not.toContain(
+      "fallback_enabled: z.boolean().nullable().optional()",
+    );
+    expect(GENERATED_ZOD_SOURCE).not.toContain("auto_save");
     expect(GENERATED_ZOD_SOURCE).not.toContain("SettingsModelDefaultResponseSchema");
     expect(GENERATED_ZOD_SOURCE).not.toContain("default_provider");
   });

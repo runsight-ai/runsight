@@ -22,6 +22,9 @@ class RunService:
     def get_run(self, run_id: str) -> Optional[Run]:
         return self.run_repo.get_run(run_id)
 
+    def refresh_run(self, run_id: str) -> Optional[Run]:
+        return self.run_repo.refresh_run(run_id)
+
     def list_runs(self) -> List[Run]:
         return self.run_repo.list_runs()
 
@@ -89,6 +92,23 @@ class RunService:
         run.completed_at = time.time()
         if run.started_at:
             run.duration_s = run.completed_at - run.started_at
+
+        return self.run_repo.update_run(run)
+
+    def fail_run(self, run_id: str, error: str) -> Run:
+        run = self.get_run(run_id)
+        if not run:
+            raise RunNotFound(f"Run {run_id} not found")
+
+        validate_transition(run.status, RunStatus.failed)
+
+        completed_at = time.time()
+        run.status = RunStatus.failed
+        run.error = error
+        run.completed_at = completed_at
+        run.updated_at = completed_at
+        if run.started_at:
+            run.duration_s = completed_at - run.started_at
 
         return self.run_repo.update_run(run)
 

@@ -101,6 +101,44 @@ class TestBlockDefRegistry:
         # Cleanup
         BLOCK_BUILDER_REGISTRY.pop("test_builder_type", None)
 
+    def test_register_block_builder_is_idempotent_for_same_callable(self):
+        """register_block_builder permits re-registering the same callable."""
+        from runsight_core.blocks._registry import (
+            BLOCK_BUILDER_REGISTRY,
+            register_block_builder,
+        )
+
+        def fake_builder():
+            pass
+
+        try:
+            register_block_builder("same_builder_type", fake_builder)
+            register_block_builder("same_builder_type", fake_builder)
+            assert BLOCK_BUILDER_REGISTRY.get("same_builder_type") is fake_builder
+        finally:
+            BLOCK_BUILDER_REGISTRY.pop("same_builder_type", None)
+
+    def test_register_block_builder_rejects_different_duplicate(self):
+        """register_block_builder rejects silent builder replacement."""
+        from runsight_core.blocks._registry import (
+            BLOCK_BUILDER_REGISTRY,
+            register_block_builder,
+        )
+
+        def first_builder():
+            pass
+
+        def second_builder():
+            pass
+
+        try:
+            register_block_builder("conflicting_builder_type", first_builder)
+            with pytest.raises(ValueError, match="Duplicate block-builder registration"):
+                register_block_builder("conflicting_builder_type", second_builder)
+            assert BLOCK_BUILDER_REGISTRY.get("conflicting_builder_type") is first_builder
+        finally:
+            BLOCK_BUILDER_REGISTRY.pop("conflicting_builder_type", None)
+
     def test_get_all_block_types_returns_dict(self):
         """get_all_block_types() returns a dict snapshot of registered types."""
         from runsight_core.blocks._registry import get_all_block_types

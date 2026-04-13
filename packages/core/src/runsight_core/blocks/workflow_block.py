@@ -17,7 +17,7 @@ from runsight_core.state import BlockResult, WorkflowState
 if TYPE_CHECKING:
     from runsight_core.workflow import Workflow
     from runsight_core.yaml.registry import WorkflowRegistry
-    from runsight_core.yaml.schema import WorkflowInterfaceDef
+    from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowInterfaceDef
 
 
 class WorkflowBlock(BaseBlock):
@@ -392,6 +392,56 @@ from runsight_core.blocks._registry import register_block_def as _register_block
 _register_block_def("workflow", WorkflowBlockDef)
 
 
+def _validate_workflow_block_contract(
+    block_id: str,
+    block_def: Any,
+    child_file: "RunsightWorkflowFile",
+) -> None:
+    child_interface = child_file.interface
+    if child_interface is None:
+        raise ValueError(
+            f"WorkflowBlock '{block_id}': child workflow '{block_def.workflow_ref}' "
+            "must declare an interface"
+        )
+
+    declared_inputs = {item.name: item for item in child_interface.inputs}
+    declared_outputs = {item.name for item in child_interface.outputs}
+
+    for binding_name in (block_def.inputs or {}).keys():
+        if binding_name not in declared_inputs:
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': unknown interface input '{binding_name}'. "
+                f"Declared child inputs: {sorted(declared_inputs)}"
+            )
+
+    missing_required = [
+        item.name
+        for item in child_interface.inputs
+        if item.required and item.default is None and item.name not in (block_def.inputs or {})
+    ]
+    if missing_required:
+        raise ValueError(
+            f"WorkflowBlock '{block_id}': missing required interface inputs {missing_required}"
+        )
+
+    for binding_name in (block_def.outputs or {}).values():
+        if binding_name not in declared_outputs:
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': unknown interface output '{binding_name}'. "
+                f"Declared child outputs: {sorted(declared_outputs)}"
+            )
+
+
+def _resolve_workflow_block_max_depth(
+    file_def: Any,
+    block_def: Any,
+) -> int:
+    """Resolve the max_depth value a workflow block will enforce at runtime."""
+    if block_def.max_depth is not None:
+        return block_def.max_depth
+    return file_def.config.get("max_workflow_depth", 10)
+
+
 # -- Builder function --------------------------------------------------------
 
 
@@ -401,17 +451,50 @@ def build(
     souls_map: Dict[str, Any],
     runner: Any,
     all_blocks: Dict[str, Any],
+    *,
+    workflow_registry: "WorkflowRegistry" | None = None,
+    api_keys: Dict[str, str] | None = None,
+    workflow_base_dir: str = ".",
+    parent_file_def: Any | None = None,
+    **_: Any,
 ) -> WorkflowBlock:
-    """Build a WorkflowBlock from a block definition.
+    """Build a WorkflowBlock from a block definition."""
+    if getattr(block_def, "workflow_ref", None) is None:
+        raise ValueError(f"WorkflowBlock '{block_id}': workflow_ref is required")
+    if workflow_registry is None:
+        raise ValueError(
+            f"WorkflowBlock '{block_id}': workflow_registry must be provided "
+            "when building workflow blocks"
+        )
 
-    Note: In practice, the workflow block is handled as a special case in
-    parse_workflow_yaml because it requires a WorkflowRegistry for recursive
-    parsing. This build() function exists for API consistency and can be
-    used when the child_workflow is already resolved.
-    """
-    raise NotImplementedError(
-        f"WorkflowBlock '{block_id}' must be built via the special-case "
-        f"handler in parse_workflow_yaml, not via the generic builder registry."
+    # Import the parser lazily to keep block registration free of parser cycles.
+    from runsight_core.yaml.parser import parse_workflow_yaml
+
+    child_file = workflow_registry.get(block_def.workflow_ref)
+    _validate_workflow_block_contract(block_id, block_def, child_file)
+
+    child_raw = child_file.model_dump() if hasattr(child_file, "model_dump") else child_file
+    child_wf = parse_workflow_yaml(
+        child_raw,
+        workflow_registry=workflow_registry,
+        api_keys=api_keys,
+        _base_dir=workflow_base_dir,
+    )
+
+    max_depth = (
+        _resolve_workflow_block_max_depth(parent_file_def, block_def)
+        if parent_file_def is not None
+        else block_def.max_depth or 10
+    )
+    return WorkflowBlock(
+        block_id=block_id,
+        child_workflow=child_wf,
+        inputs=block_def.inputs or {},
+        outputs=block_def.outputs or {},
+        workflow_ref=block_def.workflow_ref,
+        max_depth=max_depth,
+        interface=child_file.interface,
+        on_error=block_def.on_error,
     )
 
 

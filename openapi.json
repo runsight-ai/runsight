@@ -2136,7 +2136,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppSettingsOut"
+                "$ref": "#/components/schemas/AppSettingsUpdate"
               }
             }
           },
@@ -2644,6 +2644,59 @@
           }
         }
       }
+    },
+    "/runsight.svg": {
+      "get": {
+        "summary": " Favicon",
+        "operationId": "_favicon_runsight_svg_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{full_path}": {
+      "get": {
+        "summary": " Spa Catch All",
+        "operationId": "_spa_catch_all__full_path__get",
+        "parameters": [
+          {
+            "name": "full_path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Full Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2661,42 +2714,32 @@
             ],
             "title": "Base Path"
           },
-          "auto_save": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Auto Save"
-          },
           "onboarding_completed": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "boolean",
             "title": "Onboarding Completed"
           },
           "fallback_enabled": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "boolean",
             "title": "Fallback Enabled"
           }
         },
         "type": "object",
         "title": "AppSettingsOut"
+      },
+      "AppSettingsUpdate": {
+        "properties": {
+          "onboarding_completed": {
+            "type": "boolean",
+            "title": "Onboarding Completed"
+          },
+          "fallback_enabled": {
+            "type": "boolean",
+            "title": "Fallback Enabled"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AppSettingsUpdate"
       },
       "AttentionItem": {
         "properties": {
@@ -3311,6 +3354,7 @@
             "title": "Base Url"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name"
@@ -3489,6 +3533,7 @@
             "title": "Is Active"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "ProviderUpdate"
       },
@@ -3921,7 +3966,8 @@
                 "type": "null"
               }
             ],
-            "title": "Regression Count"
+            "title": "Regression Count",
+            "default": 0
           },
           "regression_types": {
             "items": {
@@ -4826,6 +4872,7 @@
             "title": "Description"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name"
@@ -4928,6 +4975,7 @@
             "title": "Description"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "StepUpdate"
       },
@@ -4965,6 +5013,7 @@
             "title": "Description"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name"
@@ -5067,6 +5116,7 @@
             "title": "Description"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "TaskUpdate"
       },

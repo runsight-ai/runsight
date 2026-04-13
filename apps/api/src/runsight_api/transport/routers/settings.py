@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StrictBool
 
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
 from ...domain.errors import ProviderNotFound
@@ -13,12 +13,16 @@ router = APIRouter(prefix="/settings", tags=["Settings"])
 
 
 class ProviderCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     api_key_env: Optional[str] = None  # Frontend sends the raw API key in this field
     base_url: Optional[str] = None
 
 
 class ProviderUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: Optional[str] = None
     api_key_env: Optional[str] = None  # Frontend sends the raw API key in this field
     base_url: Optional[str] = None
@@ -93,11 +97,19 @@ class SettingsBudgetListResponse(BaseModel):
     total: int
 
 
+# Non-Optional StrictBool with a None default keeps fields optional in OpenAPI
+# while explicit null still fails validation.
 class AppSettingsOut(BaseModel):
     base_path: Optional[str] = None
-    auto_save: Optional[bool] = None
-    onboarding_completed: Optional[bool] = None
-    fallback_enabled: Optional[bool] = None
+    onboarding_completed: StrictBool = None
+    fallback_enabled: StrictBool = None
+
+
+class AppSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    onboarding_completed: StrictBool = None
+    fallback_enabled: StrictBool = None
 
 
 def _preview_api_key(secret: Optional[str]) -> Optional[str]:
@@ -254,7 +266,7 @@ async def get_app_settings(
 
 @router.put("/app", response_model=AppSettingsOut)
 async def update_app_settings(
-    data: AppSettingsOut,
+    data: AppSettingsUpdate,
     repo: FileSystemSettingsRepo = Depends(get_settings_repo),
 ):
     settings_config = repo.update_settings(data.model_dump(exclude_none=True))

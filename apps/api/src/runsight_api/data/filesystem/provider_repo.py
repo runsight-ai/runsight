@@ -93,6 +93,10 @@ class FileSystemProviderRepo:
         entity_data["id"] = stem
         return ProviderEntity(**entity_data)
 
+    def _validate_entity_data(self, data: Dict[str, Any], stem: str) -> None:
+        """Validate provider YAML before merging update fields."""
+        self._build_entity(data, stem)
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -107,9 +111,10 @@ class FileSystemProviderRepo:
             try:
                 with open(file, "r") as f:
                     data = yaml.safe_load(f) or {}
-                providers.append(self._build_entity(data, file.stem))
-            except Exception as e:
+            except yaml.YAMLError as e:
                 logger.warning("Failed to load provider file %s: %s", file, e)
+                continue
+            providers.append(self._build_entity(data, file.stem))
         return providers
 
     def get_by_id(self, provider_id: str) -> Optional[ProviderEntity]:
@@ -141,11 +146,12 @@ class FileSystemProviderRepo:
 
         # Build YAML data — exclude 'id' (ADR D3)
         yaml_data = {k: v for k, v in data.items() if k not in _META_FIELDS}
+        entity = self._build_entity(yaml_data, slug)
         yaml_content = yaml.dump(yaml_data, sort_keys=False, default_flow_style=False)
 
         atomic_write(yaml_path, yaml_content)
 
-        return self._build_entity(yaml_data, slug)
+        return entity
 
     def update(self, provider_id: str, data: Dict[str, Any]) -> ProviderEntity:
         """Update an existing provider file.
@@ -158,15 +164,17 @@ class FileSystemProviderRepo:
             raise ProviderNotFound(f"Provider {provider_id} not found")
 
         existing = self._read_yaml(yaml_path) or {}
+        self._validate_entity_data(existing, provider_id)
 
         # Merge: new data overwrites existing fields (exclude meta fields)
         update_fields = {k: v for k, v in data.items() if k not in _META_FIELDS}
         merged = {**existing, **update_fields}
+        entity = self._build_entity(merged, provider_id)
 
         yaml_content = yaml.dump(merged, sort_keys=False, default_flow_style=False)
         atomic_write(yaml_path, yaml_content)
 
-        return self._build_entity(merged, provider_id)
+        return entity
 
     def delete(self, provider_id: str) -> bool:
         """Delete a provider YAML file.
