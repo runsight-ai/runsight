@@ -12,6 +12,11 @@ from runsight_api.main import app
 from runsight_api.transport.deps import get_workflow_service
 
 client = TestClient(app, raise_server_exceptions=False)
+WARNING_PAYLOAD = {
+    "message": "Tool definition warning",
+    "source": "tool_definitions",
+    "context": "lookup_profile",
+}
 
 
 def teardown_function():
@@ -20,7 +25,13 @@ def teardown_function():
 
 def test_workflows_list():
     mock_service = Mock()
-    mock_wf = WorkflowEntity(id="wf_1", name="Test Flow", blocks={}, edges=[])
+    mock_wf = WorkflowEntity(
+        id="wf_1",
+        name="Test Flow",
+        blocks={},
+        edges=[],
+        warnings=[WARNING_PAYLOAD],
+    )
     mock_service.list_workflows.return_value = [mock_wf]
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
@@ -31,7 +42,7 @@ def test_workflows_list():
     assert "total" in data
     assert len(data["items"]) == 1
     assert data["items"][0]["id"] == "wf_1"
-    assert data["items"][0]["warnings"] == []
+    assert data["items"][0]["warnings"] == [WARNING_PAYLOAD]
 
 
 def test_workflows_get():
@@ -48,13 +59,7 @@ def test_workflows_get():
         blocks={},
         edges=[],
         commit_sha="abc123def456",
-        warnings=[
-            {
-                "message": "Tool definition warning",
-                "source": "tool_definitions",
-                "context": "lookup_profile",
-            }
-        ],
+        warnings=[WARNING_PAYLOAD],
     )
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
@@ -62,13 +67,7 @@ def test_workflows_get():
     assert response.status_code == 200
     assert response.json()["id"] == "wf_1"
     assert response.json()["commit_sha"] == "abc123def456"
-    assert response.json()["warnings"] == [
-        {
-            "message": "Tool definition warning",
-            "source": "tool_definitions",
-            "context": "lookup_profile",
-        }
-    ]
+    assert response.json()["warnings"] == [WARNING_PAYLOAD]
     mock_service.get_workflow_detail.assert_called_once_with("wf_1")
     mock_service.get_workflow.assert_not_called()
 
@@ -90,7 +89,13 @@ def test_workflows_get_404():
 
 def test_workflows_post():
     mock_service = Mock()
-    mock_wf = WorkflowEntity(id="wf_new", name="New Workflow", blocks={}, edges=[])
+    mock_wf = WorkflowEntity(
+        id="wf_new",
+        name="New Workflow",
+        blocks={},
+        edges=[],
+        warnings=[WARNING_PAYLOAD],
+    )
     mock_service.create_workflow.return_value = mock_wf
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
@@ -100,7 +105,7 @@ def test_workflows_post():
     )
     assert response.status_code == 200
     assert response.json()["id"] == "wf_new"
-    assert response.json()["warnings"] == []
+    assert response.json()["warnings"] == [WARNING_PAYLOAD]
 
 
 def test_workflows_post_requires_yaml():
@@ -127,7 +132,13 @@ def test_workflows_post_422():
 
 def test_workflows_put():
     mock_service = Mock()
-    mock_wf = WorkflowEntity(id="wf_1", name="Updated Flow", blocks={}, edges=[])
+    mock_wf = WorkflowEntity(
+        id="wf_1",
+        name="Updated Flow",
+        blocks={},
+        edges=[],
+        warnings=[WARNING_PAYLOAD],
+    )
     mock_service.update_workflow.return_value = mock_wf
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
@@ -137,7 +148,7 @@ def test_workflows_put():
     )
     assert response.status_code == 200
     assert response.json()["name"] == "Updated Flow"
-    assert response.json()["warnings"] == []
+    assert response.json()["warnings"] == [WARNING_PAYLOAD]
 
 
 def test_workflows_put_requires_yaml():
@@ -170,6 +181,7 @@ def test_workflows_put_with_canvas_state():
         name="Updated Flow",
         blocks={},
         edges=[],
+        warnings=[WARNING_PAYLOAD],
         canvas_state=canvas_state,
     )
     mock_service.update_workflow.return_value = mock_wf
@@ -184,7 +196,7 @@ def test_workflows_put_with_canvas_state():
     )
     assert response.status_code == 200
     assert response.json()["canvas_state"]["selected_node_id"] == "node-1"
-    assert response.json()["warnings"] == []
+    assert response.json()["warnings"] == [WARNING_PAYLOAD]
     mock_service.update_workflow.assert_called_once()
     _, called_data = mock_service.update_workflow.call_args.args
     assert "canvas_state" in called_data

@@ -528,6 +528,26 @@ describe("RUN-823: custom YAML request schemas are strict", () => {
   });
 });
 
+describe("RUN-840: generated API types stay aligned for workflow warnings", () => {
+  const apiSource = readFileSync(resolve(GENERATED_DIR, "api.ts"), "utf8");
+
+  it("declares WorkflowResponse warnings in the generated API component namespace", () => {
+    const fields = extractApiComponentFieldNames(apiSource, "WorkflowResponse");
+    expect(fields).toEqual(
+      expect.arrayContaining(["id", "valid", "warnings"]),
+    );
+    expect(fields).not.toContain("code");
+  });
+
+  it("declares WarningItem with the canonical workflow warning fields", () => {
+    const fields = extractApiComponentFieldNames(apiSource, "WarningItem");
+    expect(fields).toEqual(
+      expect.arrayContaining(["message", "source", "context"]),
+    );
+    expect(fields).toHaveLength(3);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 4. package.json has codegen scripts
 // ---------------------------------------------------------------------------
