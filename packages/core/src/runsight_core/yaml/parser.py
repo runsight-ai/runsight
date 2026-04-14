@@ -314,40 +314,117 @@ def _validate_declared_tool_definitions(
     *,
     base_dir: str,
     require_custom_metadata: bool = False,
-) -> None:
+) -> ValidationResult:
     """Validate that declared canonical tool IDs are parse-time resolvable."""
-    discovered_tools = ToolScanner(base_dir).scan().stems()
+    result = ValidationResult()
+
+    for tool_id in file_def.tools:
+        if tool_id not in RESERVED_BUILTIN_TOOL_IDS:
+            continue
+
+        expected_file = Path(base_dir) / "custom" / "tools" / f"{tool_id}.yaml"
+        if expected_file.exists():
+            result.add_error(
+                (
+                    f"reserved builtin tool id '{tool_id}' collides with custom tool metadata at "
+                    f"{expected_file}"
+                ),
+                source="tool_definitions",
+                context=tool_id,
+            )
+
+    if result.has_errors:
+        return result
+
+    try:
+        discovered_tools = ToolScanner(base_dir).scan().stems()
+    except ValueError as exc:
+        scanner_message = str(exc)
+        for tool_id in file_def.tools:
+            expected_file = Path(base_dir) / "custom" / "tools" / f"{tool_id}.yaml"
+            if tool_id in RESERVED_BUILTIN_TOOL_IDS:
+                if (
+                    f"reserved builtin tool id '{tool_id}'" in scanner_message
+                    or str(expected_file) in scanner_message
+                ):
+                    result.add_error(
+                        (
+                            f"reserved builtin tool id '{tool_id}' collides with custom tool "
+                            f"metadata at {expected_file}"
+                        ),
+                        source="tool_definitions",
+                        context=tool_id,
+                    )
+                    return result
+                continue
+
+            if expected_file.name in scanner_message and (
+                "Tool code must define" in scanner_message
+                or "Tool code has a syntax error" in scanner_message
+            ):
+                result.add_warning(
+                    f"Tool '{tool_id}': {scanner_message}",
+                    source="tool_definitions",
+                    context=tool_id,
+                )
+                return result
+
+        raise
+
     available_builtin_ids = sorted(RESERVED_BUILTIN_TOOL_IDS)
     available_custom_ids = sorted(discovered_tools.keys())
+
+    for tool_id in file_def.tools:
+        if tool_id in RESERVED_BUILTIN_TOOL_IDS and tool_id in discovered_tools:
+            result.add_error(
+                (
+                    f"reserved builtin tool id '{tool_id}' collides with custom tool metadata at "
+                    f"{Path(base_dir) / 'custom' / 'tools' / f'{tool_id}.yaml'}"
+                ),
+                source="tool_definitions",
+                context=tool_id,
+            )
+
+    if result.has_errors:
+        return result
 
     for tool_id in file_def.tools:
         expected_file = Path(base_dir) / "custom" / "tools" / f"{tool_id}.yaml"
 
         if tool_id in RESERVED_BUILTIN_TOOL_IDS:
-            if tool_id in discovered_tools:
-                raise ValueError(
-                    f"reserved builtin tool id '{tool_id}' collides with custom tool metadata at "
-                    f"{expected_file}"
-                )
             continue
 
         tool_meta = discovered_tools.get(tool_id)
         if tool_meta is None:
             if require_custom_metadata:
-                raise ValueError(
-                    f"Tool '{tool_id}' references missing custom tool metadata. "
-                    f"Expected metadata at {expected_file}"
+                result.add_warning(
+                    (
+                        f"Tool '{tool_id}' references missing custom tool metadata. "
+                        f"Expected metadata at {expected_file}"
+                    ),
+                    source="tool_definitions",
+                    context=tool_id,
                 )
-            raise ValueError(
-                f"Workflow declares unknown tool id '{tool_id}'. "
-                f"Available builtin IDs: {available_builtin_ids}. "
-                f"Discovered custom IDs: {available_custom_ids}"
-            )
+            else:
+                result.add_warning(
+                    (
+                        f"Workflow declares unknown tool id '{tool_id}'. "
+                        f"Available builtin IDs: {available_builtin_ids}. "
+                        f"Discovered custom IDs: {available_custom_ids}"
+                    ),
+                    source="tool_definitions",
+                    context=tool_id,
+                )
+            continue
 
         try:
             _resolve_tool_for_parser(tool_id, base_dir=base_dir)
         except ValueError as exc:
-            raise ValueError(f"Tool '{tool_id}': {exc}") from exc
+            result.add_warning(
+                f"Tool '{tool_id}': {exc}", source="tool_definitions", context=tool_id
+            )
+
+    return result
 
 
 def _resolve_tool_for_parser(
@@ -695,14 +772,16 @@ def parse_workflow_yaml(
                     inner_blk.max_duration_seconds = block_def.limits.max_duration_seconds
 
     # Step 6.6: Validate and resolve tools per soul
-    governance_result = validate_tool_governance(file_def, souls_map)
-    if governance_result.has_errors:
-        raise ValueError(governance_result.error_summary or "Tool governance validation failed")
-    _validate_declared_tool_definitions(
-        file_def,
-        base_dir=workflow_base_dir,
-        require_custom_metadata=require_custom_metadata,
+    validation_result = validate_tool_governance(file_def, souls_map)
+    validation_result.merge(
+        _validate_declared_tool_definitions(
+            file_def,
+            base_dir=workflow_base_dir,
+            require_custom_metadata=require_custom_metadata,
+        )
     )
+    if validation_result.has_errors:
+        raise ValueError(validation_result.error_summary or "Tool governance validation failed")
 
     # 6.6c: Resolve ToolInstance objects per soul
     referenced_souls = _collect_referenced_soul_keys(file_def)

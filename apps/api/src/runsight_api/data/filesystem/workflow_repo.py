@@ -215,12 +215,16 @@ class WorkflowRepository:
                 return False, "YAML content is not a mapping"
             file_def = RunsightWorkflowFile.model_validate(data)
             souls_map = SoulScanner(self.base_path).scan().stems()
-            validate_tool_governance(file_def, souls_map)
-            _validate_declared_tool_definitions(
-                file_def,
-                base_dir=str(self.base_path),
-                require_custom_metadata=True,
+            validation_result = validate_tool_governance(file_def, souls_map)
+            validation_result.merge(
+                _validate_declared_tool_definitions(
+                    file_def,
+                    base_dir=str(self.base_path),
+                    require_custom_metadata=True,
+                )
             )
+            if validation_result.has_errors:
+                return False, validation_result.error_summary or "Tool governance validation failed"
             if self._has_workflow_blocks(file_def):
                 self.build_runnable_workflow_registry(workflow_id, raw_yaml)
             return True, None
