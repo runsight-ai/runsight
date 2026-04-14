@@ -70,6 +70,10 @@ function extractSchemaFieldNames(source: string, schemaName: string): string[] {
     });
 }
 
+function readCommittedOpenApiSnapshot(): Record<string, unknown> {
+  return JSON.parse(readFileSync(resolve(REPO_ROOT, "openapi.json"), "utf8"));
+}
+
 function buildFreshSchemaSnapshot(): {
   runCreate: SchemaFieldSnapshot;
   runResponse: SchemaFieldSnapshot;
@@ -539,12 +543,46 @@ describe("RUN-840: generated API types stay aligned for workflow warnings", () =
     expect(fields).not.toContain("code");
   });
 
+  it("keeps RunResponse free of workflow warning fields in generated API types", () => {
+    const fields = extractApiComponentFieldNames(apiSource, "RunResponse");
+    expect(fields).not.toContain("warnings");
+  });
+
   it("declares WarningItem with the canonical workflow warning fields", () => {
     const fields = extractApiComponentFieldNames(apiSource, "WarningItem");
     expect(fields).toEqual(
       expect.arrayContaining(["message", "source", "context"]),
     );
     expect(fields).toHaveLength(3);
+  });
+
+  it("pins the committed openapi.json workflow warning contract without widening runs", () => {
+    const snapshot = readCommittedOpenApiSnapshot();
+    const schemas = snapshot.components as Record<string, unknown> | undefined;
+    const schemaMap = (schemas?.schemas ?? {}) as Record<string, Record<string, unknown>>;
+
+    const warningItem = schemaMap.WarningItem;
+    expect(warningItem).toBeDefined();
+    expect(Object.keys((warningItem?.properties ?? {}) as Record<string, unknown>).sort()).toEqual([
+      "context",
+      "message",
+      "source",
+    ]);
+
+    const workflowResponse = schemaMap.WorkflowResponse;
+    expect(workflowResponse).toBeDefined();
+    const workflowWarnings = (workflowResponse?.properties ?? {}) as Record<string, unknown>;
+    expect(workflowWarnings).toHaveProperty("warnings");
+    const warningsProperty = workflowWarnings.warnings as Record<string, unknown>;
+    expect(warningsProperty?.items).toMatchObject({
+      $ref: "#/components/schemas/WarningItem",
+    });
+
+    const runResponse = schemaMap.RunResponse;
+    expect(runResponse).toBeDefined();
+    expect((runResponse?.properties ?? {}) as Record<string, unknown>).not.toHaveProperty(
+      "warnings",
+    );
   });
 });
 

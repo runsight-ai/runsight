@@ -83,6 +83,30 @@ class TestOpenAPISpecExtraction:
         assert "code" not in warning_properties
         assert "severity" not in warning_properties
 
+    def test_committed_openapi_snapshot_pins_workflow_only_warning_contract(self):
+        """The committed OpenAPI snapshot must keep workflow warnings out of run contracts."""
+        snapshot = json.loads((REPO_ROOT / "openapi.json").read_text())
+        schemas = snapshot.get("components", {}).get("schemas", {})
+
+        warning_item_schema = schemas.get("WarningItem")
+        assert warning_item_schema is not None, "Missing committed WarningItem schema"
+        warning_properties = warning_item_schema.get("properties", {})
+        assert set(warning_properties) == {"message", "source", "context"}
+
+        workflow_schema = schemas.get("WorkflowResponse")
+        assert workflow_schema is not None, "Missing committed WorkflowResponse schema"
+        workflow_properties = workflow_schema.get("properties", {})
+        warnings_property = workflow_properties.get("warnings")
+        assert warnings_property is not None, "WorkflowResponse missing warnings"
+        assert warnings_property.get("items", {}).get("$ref", "").endswith(
+            "/WarningItem"
+        )
+
+        run_schema = schemas.get("RunResponse")
+        assert run_schema is not None, "Missing committed RunResponse schema"
+        run_properties = run_schema.get("properties", {})
+        assert "warnings" not in run_properties
+
     def test_openapi_spec_contains_run_schemas(self):
         """The spec must include RunResponse, RunCreate, RunNodeResponse schemas."""
         from runsight_api.main import app
@@ -91,6 +115,9 @@ class TestOpenAPISpecExtraction:
         schema_names = set(spec.get("components", {}).get("schemas", {}).keys())
         for expected in ["RunResponse", "RunCreate", "RunNodeResponse"]:
             assert expected in schema_names, f"Missing schema: {expected}"
+
+        run_properties = spec["components"]["schemas"]["RunResponse"]["properties"]
+        assert "warnings" not in run_properties
 
     def test_openapi_spec_contains_soul_schemas(self):
         """The spec must include SoulResponse, SoulCreate, SoulUpdate schemas."""

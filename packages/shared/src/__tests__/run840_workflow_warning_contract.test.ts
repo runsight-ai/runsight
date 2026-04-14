@@ -85,4 +85,10 @@ describe("RUN-840 workflow warning contract", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("RunResponseSchema stays free of workflow warning fields", () => {
+    const runSchema = getSchema("RunResponseSchema");
+
+    expect(runSchema.shape).not.toHaveProperty("warnings");
+  });
 });
