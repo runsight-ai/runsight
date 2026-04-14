@@ -10,8 +10,9 @@ import asyncio
 import contextvars
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Union
 
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import BudgetSession, _active_budget
@@ -82,7 +83,132 @@ class DispatchBlock(BaseBlock):
 
         return results
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(  # type: ignore[override]
+        self,
+        state_or_ctx: Union[BlockContext, WorkflowState],
+        **kwargs: Any,
+    ) -> Union[BlockOutput, WorkflowState]:
+        """Execute block. Accepts BlockContext (new path) or WorkflowState (legacy path)."""
+        if isinstance(state_or_ctx, BlockContext):
+            return await self._execute_with_context(state_or_ctx)
+        return await self._execute_with_state(state_or_ctx, **kwargs)
+
+    @staticmethod
+    async def _accrue_and_return(coro: Any) -> Any:
+        """Wrap a branch coroutine to accrue its cost into the active budget session."""
+        result = await coro
+        session = _active_budget.get(None)
+        if session is not None:
+            session.accrue(cost_usd=result.cost_usd, tokens=result.total_tokens)
+        return result
+
+    async def _execute_with_context(self, ctx: BlockContext) -> BlockOutput:
+        """New path: accept BlockContext, return pure BlockOutput (no state mutation)."""
+        context = ctx.context
+
+        if self.stateful:
+            histories = {
+                branch.exit_id: list(
+                    ctx.conversation_history
+                    if ctx.conversation_history
+                    else ctx.inputs.get(f"{self.block_id}_{branch.exit_id}", [])
+                )
+                for branch in self.branches
+            }
+
+            budgeted_per_branch = {}
+            for branch in self.branches:
+                model = branch.soul.model_name or self.runner.model_name
+                budgeted_per_branch[branch.exit_id] = fit_to_budget(
+                    ContextBudgetRequest(
+                        model=model,
+                        system_prompt=branch.soul.system_prompt or "",
+                        instruction=branch.task_instruction,
+                        context=context or "",
+                        conversation_history=histories[branch.exit_id],
+                    ),
+                    counter=litellm_token_counter,
+                )
+
+            gather_coros = []
+            for branch in self.branches:
+                budgeted = budgeted_per_branch[branch.exit_id]
+                task = Task(
+                    id=f"{self.block_id}_{branch.exit_id}",
+                    instruction=budgeted.task.instruction,
+                    context=budgeted.task.context,
+                )
+                gather_coros.append(
+                    (
+                        branch.exit_id,
+                        self._accrue_and_return(
+                            self.runner.execute_task(task, branch.soul, messages=budgeted.messages)
+                        ),
+                    )
+                )
+            results = await self._gather_with_budget_isolation(gather_coros)
+
+            conversation_updates: Dict[str, List[Dict]] = {}
+            for branch, result in zip(self.branches, results):
+                history_key = f"{self.block_id}_{branch.exit_id}"
+                budgeted = budgeted_per_branch[branch.exit_id]
+                prompt = self.runner._build_prompt(budgeted.task)
+                conversation_updates[history_key] = budgeted.messages + [
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": result.output},
+                ]
+        else:
+            gather_coros = [
+                (
+                    branch.exit_id,
+                    self._accrue_and_return(
+                        self.runner.execute_task(
+                            Task(
+                                id=f"{self.block_id}_{branch.exit_id}",
+                                instruction=branch.task_instruction,
+                                context=context,
+                            ),
+                            branch.soul,
+                        )
+                    ),
+                )
+                for branch in self.branches
+            ]
+            results = await self._gather_with_budget_isolation(gather_coros)
+            conversation_updates = None  # type: ignore[assignment]
+
+        # Build per-exit results and combined output
+        extra_results: Dict[str, Any] = {}
+        combined_list = []
+        for branch, result in zip(self.branches, results):
+            extra_results[f"{self.block_id}.{branch.exit_id}"] = BlockResult(
+                output=result.output,
+                exit_handle=branch.exit_id,
+            )
+            combined_list.append({"exit_id": branch.exit_id, "output": result.output})
+
+        total_cost = sum(r.cost_usd for r in results)
+        total_tokens = sum(r.total_tokens for r in results)
+
+        return BlockOutput(
+            output=json.dumps(combined_list),
+            cost_usd=total_cost,
+            total_tokens=total_tokens,
+            log_entries=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"[Block {self.block_id}] Dispatch completed"
+                        f" with {len(self.branches)} branches"
+                    ),
+                }
+            ],
+            extra_results=extra_results,
+            conversation_updates=conversation_updates if self.stateful else None,
+        )
+
+    async def _execute_with_state(self, state: WorkflowState, **kwargs: Any) -> WorkflowState:
+        """Legacy path: accept WorkflowState, return updated WorkflowState."""
         context = state.current_task.context if state.current_task is not None else None
 
         if self.stateful:

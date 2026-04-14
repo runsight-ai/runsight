@@ -176,6 +176,27 @@ def build_block_context(
     if not model_name and runner is not None:
         model_name = getattr(runner, "model_name", None)
 
+    # DispatchBlock strategy: detect branches attribute
+    branches = getattr(block, "branches", None)
+    if branches is not None:
+        if state.current_task is None:
+            raise ValueError(
+                f"build_block_context: state.current_task is None for block '{block.block_id}'"
+            )
+        task = state.current_task
+        first_branch = branches[0] if branches else None
+        dispatch_soul: Optional[Soul] = first_branch.soul if first_branch is not None else soul
+        return BlockContext(
+            block_id=block.block_id,
+            instruction=task.instruction or "dispatch",
+            context=task.context,
+            inputs={},
+            conversation_history=[],
+            soul=dispatch_soul,
+            model_name=model_name,
+            artifact_store=getattr(state, "artifact_store", None),
+        )
+
     # SynthesizeBlock strategy: detect input_block_ids attribute
     input_block_ids = getattr(block, "input_block_ids", None)
     if input_block_ids is not None:

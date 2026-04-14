@@ -140,11 +140,12 @@ async def execute_block(
             loop_kwargs = dict(kwargs_for_context)
             loop_kwargs.update({"blocks": ctx.blocks, "ctx": ctx})
             return await blk.execute(current_state, **loop_kwargs)
+        from runsight_core.blocks.dispatch import DispatchBlock
         from runsight_core.blocks.gate import GateBlock
         from runsight_core.blocks.linear import LinearBlock
         from runsight_core.blocks.synthesize import SynthesizeBlock
 
-        if isinstance(blk, (LinearBlock, GateBlock, SynthesizeBlock)):
+        if isinstance(blk, (LinearBlock, GateBlock, SynthesizeBlock, DispatchBlock)):
             block_ctx = build_block_context(blk, current_state, step=None)
             output = await blk.execute(block_ctx)
             return apply_block_output(current_state, blk.block_id, output)
