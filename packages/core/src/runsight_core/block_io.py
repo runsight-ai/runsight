@@ -136,15 +136,26 @@ def _resolve_ref(from_ref: str, state: WorkflowState) -> Any:
     return value
 
 
+_GATE_INSTRUCTION = (
+    "Evaluate the following content and decide if it meets quality standards.\n"
+    "Respond with EXACTLY one of:\n"
+    "PASS - if the content meets quality standards\n"
+    "FAIL: <detailed reason> - if the content needs improvement"
+)
+
+
 def build_block_context(
     block: Any,
     state: WorkflowState,
     step: Optional[Any] = None,
 ) -> BlockContext:
-    """Build a BlockContext for a LinearBlock from the current workflow state.
+    """Build a BlockContext for a block from the current workflow state.
+
+    Handles LinearBlock (uses current_task instruction/context) and GateBlock
+    (uses gate instruction + resolved eval_key content as context).
 
     Args:
-        block: A LinearBlock instance with .block_id, .soul, and .runner.
+        block: A block instance with .block_id, .soul, and .runner.
         state: Current WorkflowState with current_task, results, conversation_histories.
         step: Optional Step with declared_inputs to resolve from state.results.
 
@@ -152,10 +163,41 @@ def build_block_context(
         A fully populated BlockContext ready for block execution.
 
     Raises:
-        ValueError: If state.current_task is None or a declared input source is missing.
+        ValueError: If state.current_task is None for non-GateBlock, or eval_key missing.
     """
     from runsight_core.memory.token_counting import litellm_token_counter
 
+    # Resolve soul and model
+    soul: Optional[Soul] = getattr(block, "soul", None)
+    runner = getattr(block, "runner", None)
+    model_name: Optional[str] = None
+    if soul is not None:
+        model_name = soul.model_name
+    if not model_name and runner is not None:
+        model_name = getattr(runner, "model_name", None)
+
+    # GateBlock strategy: gate instruction + eval_key content as context
+    eval_key = getattr(block, "eval_key", None)
+    if eval_key is not None:
+        if eval_key not in state.results:
+            raise ValueError(
+                f"build_block_context: GateBlock '{block.block_id}' eval_key '{eval_key}' "
+                f"not found in state.results. Available: {sorted(state.results.keys())}"
+            )
+        raw = state.results[eval_key]
+        content = raw.output if isinstance(raw, BlockResult) else str(raw)
+        return BlockContext(
+            block_id=block.block_id,
+            instruction=_GATE_INSTRUCTION,
+            context=content,
+            inputs={},
+            conversation_history=[],
+            soul=soul,
+            model_name=model_name,
+            artifact_store=state.artifact_store,
+        )
+
+    # LinearBlock (and others) strategy: use current_task
     if state.current_task is None:
         raise ValueError(
             f"build_block_context: state.current_task is None for block '{block.block_id}'"
@@ -168,15 +210,6 @@ def build_block_context(
     if step is not None and step.declared_inputs:
         for name, from_ref in step.declared_inputs.items():
             inputs[name] = _resolve_ref(from_ref, state)
-
-    # Resolve soul and model
-    soul: Optional[Soul] = getattr(block, "soul", None)
-    runner = getattr(block, "runner", None)
-    model_name: Optional[str] = None
-    if soul is not None:
-        model_name = soul.model_name
-    if not model_name and runner is not None:
-        model_name = getattr(runner, "model_name", None)
 
     # Get conversation history (shallow copy)
     history_key = f"{block.block_id}_{soul.id}" if soul is not None else block.block_id

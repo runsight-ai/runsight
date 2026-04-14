@@ -7,10 +7,11 @@ Co-located: runtime class + BlockDef schema + build() function.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional, Union
 
 from pydantic import ConfigDict, Field, model_validator
 
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
@@ -19,13 +20,20 @@ from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
 
+_GATE_INSTRUCTION = (
+    "Evaluate the following content and decide if it meets quality standards.\n"
+    "Respond with EXACTLY one of:\n"
+    "PASS - if the content meets quality standards\n"
+    "FAIL: <detailed reason> - if the content needs improvement"
+)
+
 
 class GateBlock(BaseBlock):
     """
     Quality gate that evaluates content and either passes or fails the workflow.
 
-    On PASS: returns state with BlockResult(exit_handle="pass").
-    On FAIL: returns state with BlockResult(exit_handle="fail") and feedback as output.
+    On PASS: returns BlockResult(exit_handle="pass").
+    On FAIL: returns BlockResult(exit_handle="fail") and feedback as output.
     """
 
     def __init__(
@@ -43,7 +51,64 @@ class GateBlock(BaseBlock):
         self.runner = runner
         self.extract_field = extract_field
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(  # type: ignore[override]
+        self,
+        state_or_ctx: Union[BlockContext, WorkflowState],
+        **kwargs: Any,
+    ) -> Union[BlockOutput, WorkflowState]:
+        """Execute block. Accepts BlockContext (new path) or WorkflowState (legacy path)."""
+        if isinstance(state_or_ctx, BlockContext):
+            return await self._execute_with_context(state_or_ctx)
+        return await self._execute_with_state(state_or_ctx, **kwargs)
+
+    async def _execute_with_context(self, ctx: BlockContext) -> BlockOutput:
+        """New path: accept BlockContext, return pure BlockOutput (no state mutation)."""
+        soul = ctx.soul or self.gate_soul
+        content = ctx.context or ""
+
+        task = Task(
+            id=f"{self.block_id}_eval",
+            instruction=ctx.instruction,
+            context=content,
+        )
+        result = await self.runner.execute_task(task, soul)
+        decision_line = result.output.strip().split("\n")[0]
+        is_pass = decision_line.upper().startswith("PASS")
+
+        if is_pass:
+            output_value: Any = decision_line
+            if self.extract_field:
+                try:
+                    data = json.loads(content)
+                    if isinstance(data, list) and data:
+                        output_value = data[-1].get(self.extract_field, decision_line)
+                except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+                    output_value = decision_line
+
+            return BlockOutput(
+                output=str(output_value),
+                exit_handle="pass",
+                cost_usd=result.cost_usd,
+                total_tokens=result.total_tokens,
+                log_entries=[{"role": "system", "content": f"[Block {self.block_id}] Gate: PASS"}],
+            )
+        else:
+            feedback = decision_line[5:].strip() if ":" in decision_line else decision_line
+            return BlockOutput(
+                output=feedback,
+                exit_handle="fail",
+                cost_usd=result.cost_usd,
+                total_tokens=result.total_tokens,
+                log_entries=[
+                    {
+                        "role": "system",
+                        "content": f"[Block {self.block_id}] Gate: FAIL — {feedback}",
+                    }
+                ],
+            )
+
+    async def _execute_with_state(self, state: WorkflowState, **kwargs: Any) -> WorkflowState:
+        """Legacy path: accept WorkflowState, return updated WorkflowState."""
         if self.eval_key not in state.results:
             raise ValueError(
                 f"GateBlock '{self.block_id}': eval_key '{self.eval_key}' not found in state.results. "
@@ -58,12 +123,7 @@ class GateBlock(BaseBlock):
 
         gate_task = Task(
             id=f"{self.block_id}_eval",
-            instruction=(
-                "Evaluate the following content and decide if it meets quality standards.\n"
-                "Respond with EXACTLY one of:\n"
-                "PASS - if the content meets quality standards\n"
-                "FAIL: <detailed reason> - if the content needs improvement"
-            ),
+            instruction=_GATE_INSTRUCTION,
             context=content,
         )
         model = self.gate_soul.model_name or self.runner.model_name
@@ -82,7 +142,7 @@ class GateBlock(BaseBlock):
         is_pass = decision_line.upper().startswith("PASS")
 
         if is_pass:
-            pass_through = decision_line
+            pass_through: Any = decision_line
             if self.extract_field:
                 try:
                     data = json.loads(content)
