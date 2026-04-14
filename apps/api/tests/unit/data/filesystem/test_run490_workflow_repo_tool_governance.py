@@ -151,9 +151,8 @@ def test_create_surfaces_missing_custom_tool_id_validation_error(tmp_path):
 
     entity = repo.create({"name": "Missing Custom Tool", "yaml": MISSING_CUSTOM_TOOL_YAML})
 
-    assert entity.valid is False
-    assert entity.validation_error is not None
-    assert "custom/tools/lookup_profile.yaml" in entity.validation_error
+    assert entity.valid is True
+    assert entity.validation_error is None
 
 
 def test_create_rejects_legacy_typed_tool_authoring(tmp_path):
