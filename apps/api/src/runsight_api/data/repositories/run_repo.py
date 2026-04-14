@@ -37,6 +37,16 @@ class RunRepository:
         self.session.commit()
         return len(run_ids)
 
+    def delete_run(self, run_id: str) -> Optional[str]:
+        run = self.session.get(Run, run_id)
+        if run is None:
+            return None
+        self.session.exec(delete(LogEntry).where(LogEntry.run_id == run_id))
+        self.session.exec(delete(RunNode).where(RunNode.run_id == run_id))
+        self.session.exec(delete(Run).where(Run.id == run_id))
+        self.session.commit()
+        return run_id
+
     # Run
     def create_run(self, run: Run) -> Run:
         self.session.add(run)

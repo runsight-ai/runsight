@@ -95,8 +95,12 @@ export const runsApi = {
   },
   
   deleteRun: async (id: string): Promise<{ id: string; deleted: boolean }> => {
+    const DeleteRunResponseSchema = z.object({
+      id: z.string(),
+      deleted: z.boolean(),
+    });
     const res = await api.delete<{ id: string; deleted: boolean }>(`/runs/${id}`);
-    return res;
+    return DeleteRunResponseSchema.parse(res);
   },
 
   getRunNodes: async (id: string): Promise<RunNodeResponse[]> => {

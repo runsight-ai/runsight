@@ -359,6 +359,16 @@ async def cancel_run(
     return {"id": run.id, "status": run.status}
 
 
+@router.delete("/{run_id}")
+async def delete_run(run_id: str, run_service: RunService = Depends(get_run_service)):
+    from ...domain.errors import RunNotFound
+
+    deleted_id = run_service.delete_run(run_id)
+    if deleted_id is None:
+        raise RunNotFound(f"Run {run_id} not found")
+    return {"id": deleted_id, "deleted": True}
+
+
 @router.get("/{run_id}/logs", response_model=PaginatedLogsResponse)
 async def get_run_logs(
     run_id: str,

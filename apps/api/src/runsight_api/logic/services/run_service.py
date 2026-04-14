@@ -86,6 +86,9 @@ class RunService:
         # In a real setup, we might parse the workflow YAML and create initial RunNode records
         return run
 
+    def delete_run(self, run_id: str) -> Optional[str]:
+        return self.run_repo.delete_run(run_id)
+
     def cancel_run(self, run_id: str) -> Run:
         run = self.get_run(run_id)
         if not run:
