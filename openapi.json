@@ -3976,6 +3976,14 @@
             "type": "array",
             "title": "Regression Types"
           },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/WarningItem"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
+          },
           "node_summary": {
             "anyOf": [
               {

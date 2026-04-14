@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import time
 import uuid
@@ -64,6 +65,10 @@ class RunService:
             raise WorkflowNotFound(f"Workflow {workflow_id} not found")
 
         run_id = f"run_{uuid.uuid4().hex[:12]}"
+        workflow_warnings = getattr(workflow, "warnings", None)
+        warnings_json: Optional[List[Dict[str, Any]]] = None
+        if isinstance(workflow_warnings, list) and workflow_warnings:
+            warnings_json = copy.deepcopy(workflow_warnings)
 
         run = Run(
             id=run_id,
@@ -73,6 +78,7 @@ class RunService:
             task_json=json.dumps(task_data),
             branch=branch,
             source=source,
+            warnings_json=warnings_json,
         )
         self.run_repo.create_run(run)
 

@@ -1,6 +1,6 @@
 import time
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 from sqlmodel import JSON, Column, Field, SQLModel
@@ -80,6 +80,7 @@ class Run(SQLModel, table=True):
     # Budget-exceeded terminal state (RUN-717)
     fail_reason: Optional[str] = Field(default=None)
     fail_metadata: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    warnings_json: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
 
     # Nested-run linkage (RUN-607)
     parent_run_id: Optional[str] = Field(default=None)

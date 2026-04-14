@@ -220,6 +220,13 @@ export const RunEvalResponseSchema = z.object({
 });
 export type RunEvalResponse = z.infer<typeof RunEvalResponseSchema>;
 
+export const WarningItemSchema = z.object({
+  message: z.string(),
+  source: z.string().nullable().optional(),
+  context: z.string().nullable().optional(),
+}).strict();
+export type WarningItem = z.infer<typeof WarningItemSchema>;
+
 export const RunResponseSchema = z.object({
   id: z.string(),
   workflow_id: z.string(),
@@ -240,6 +247,7 @@ export const RunResponseSchema = z.object({
   eval_score_avg: z.number().nullable().optional(),
   regression_count: z.number().nullable().optional().default(0),
   regression_types: z.array(z.string()).optional(),
+  warnings: z.array(WarningItemSchema).optional().default([]),
   node_summary: NodeSummarySchema.nullable().optional(),
   parent_run_id: z.string().nullable().optional(),
   root_run_id: z.string().nullable().optional(),
@@ -503,13 +511,6 @@ export const ToolListItemResponseSchema = z.object({
   executor: z.string(),
 });
 export type ToolListItemResponse = z.infer<typeof ToolListItemResponseSchema>;
-
-export const WarningItemSchema = z.object({
-  message: z.string(),
-  source: z.string().nullable().optional(),
-  context: z.string().nullable().optional(),
-}).strict();
-export type WarningItem = z.infer<typeof WarningItemSchema>;
 
 export const WorkflowCanvasStateSchema = z.object({
   nodes: z.array(z.record(z.string(), z.unknown())).optional(),

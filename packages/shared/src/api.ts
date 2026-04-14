@@ -1223,6 +1223,11 @@ export interface components {
             regression_count: number | null;
             /** Regression Types */
             regression_types?: string[];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["WarningItem"][];
             node_summary?: components["schemas"]["NodeSummary"] | null;
             /** Parent Run Id */
             parent_run_id?: string | null;
