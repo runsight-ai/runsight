@@ -114,6 +114,78 @@ def test_runs_get():
     app.dependency_overrides.clear()
 
 
+def test_runs_get_wires_non_empty_warnings():
+    mock_service = Mock()
+    mock_run = _make_mock_run("run_warned_detail")
+    mock_run.warnings_json = [
+        {
+            "message": "Tool definition warning",
+            "source": "tool_definitions",
+            "context": "fetcher",
+        }
+    ]
+    mock_service.get_run.return_value = mock_run
+    mock_service.get_node_summary.return_value = {
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+        "nodes_count": 0,
+        "total": 0,
+        "completed": 0,
+        "running": 0,
+        "pending": 0,
+        "failed": 0,
+    }
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
+
+    response = client.get("/api/runs/run_warned_detail")
+    assert response.status_code == 200
+    assert response.json()["warnings"] == mock_run.warnings_json
+    app.dependency_overrides.clear()
+
+
+def test_runs_get_coerces_non_list_warning_payloads_to_empty_list():
+    """Guardrail: route coercion must ignore mock placeholders and non-list warnings_json."""
+    mock_service = Mock()
+    mock_run = Mock()
+    mock_run.id = "run_mock_warn_trap"
+    mock_run.workflow_id = "wf_1"
+    mock_run.workflow_name = "wf_1"
+    mock_run.status = RunStatus.pending
+    mock_run.started_at = 123.0
+    mock_run.completed_at = None
+    mock_run.duration_s = None
+    mock_run.created_at = 123.0
+    mock_run.branch = "main"
+    mock_run.source = "manual"
+    mock_run.commit_sha = None
+    mock_run.run_number = None
+    mock_run.eval_pass_pct = None
+    mock_run.parent_run_id = None
+    mock_run.root_run_id = None
+    mock_run.depth = 0
+    mock_run.error = None
+    # Intentionally omit warnings_json to exercise Mock getattr() trap.
+    mock_service.get_run.return_value = mock_run
+    mock_service.get_node_summary.return_value = {
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+        "nodes_count": 0,
+        "total": 0,
+        "completed": 0,
+        "running": 0,
+        "pending": 0,
+        "failed": 0,
+    }
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
+
+    response = client.get("/api/runs/run_mock_warn_trap")
+    assert response.status_code == 200
+    assert response.json()["warnings"] == []
+    app.dependency_overrides.clear()
+
+
 def test_runs_get_404():
     mock_service = Mock()
     mock_service.get_run.return_value = None

@@ -20,6 +20,7 @@ Tests MUST fail because:
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from runsight_api.domain.entities.run import RunNode
@@ -121,26 +122,96 @@ class TestSqliteBackfillColumns:
             "_ensure_sqlite_columns must include 'warnings_json' in the 'run' table backfill dict"
         )
 
+    def test_ensure_sqlite_columns_backfills_warnings_json_on_legacy_run_table(
+        self, tmp_path
+    ) -> None:
+        """Backfill must execute and add run.warnings_json on legacy SQLite tables."""
+        from sqlalchemy import create_engine
+
+        from runsight_api.main import _ensure_sqlite_columns
+
+        db_path = tmp_path / "run663_legacy.sqlite"
+        engine = create_engine(f"sqlite:///{db_path}")
+        with engine.begin() as conn:
+            conn.exec_driver_sql(
+                """
+                CREATE TABLE run (
+                    id TEXT PRIMARY KEY,
+                    workflow_id TEXT NOT NULL,
+                    workflow_name TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    task_json TEXT NOT NULL
+                )
+                """
+            )
+            conn.exec_driver_sql(
+                """
+                CREATE TABLE runnode (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL,
+                    node_id TEXT NOT NULL,
+                    block_type TEXT NOT NULL,
+                    status TEXT NOT NULL
+                )
+                """
+            )
+
+        _ensure_sqlite_columns(engine)
+
+        with engine.begin() as conn:
+            run_columns = {
+                row[1] for row in conn.exec_driver_sql("PRAGMA table_info(run)").fetchall()
+            }
+            assert "warnings_json" in run_columns, (
+                "Expected _ensure_sqlite_columns to add warnings_json to legacy run table"
+            )
+
 
 class TestAlembicMigrationAddsRunWarningsJson:
     """A migration must add and drop run.warnings_json for non-SQLite DBs."""
 
     def test_migration_file_adds_and_drops_warnings_json(self) -> None:
-        """The Alembic versions directory should contain a migration for warnings_json."""
+        """Migration after 001_initial must batch-alter run and add/drop warnings_json."""
         versions_dir = (
             Path(__file__).resolve().parents[2] / "src" / "runsight_api" / "alembic" / "versions"
         )
-        migration_sources = [
-            path.read_text() for path in versions_dir.glob("*.py") if path.name != "__init__.py"
-        ]
-
-        assert migration_sources, f"No Alembic migrations found in {versions_dir}"
-        assert any("warnings_json" in source for source in migration_sources), (
-            "Expected an Alembic migration that mentions warnings_json"
+        version_files = sorted(
+            path for path in versions_dir.glob("*.py") if path.name != "__init__.py"
         )
-        assert any(
-            "add_column" in source and "warnings_json" in source for source in migration_sources
-        ), "Expected an Alembic upgrade path that adds warnings_json"
-        assert any(
-            "drop_column" in source and "warnings_json" in source for source in migration_sources
-        ), "Expected an Alembic downgrade path that drops warnings_json"
+        assert version_files, f"No Alembic migrations found in {versions_dir}"
+
+        follow_up_revisions = [path for path in version_files if "001_initial" not in path.stem]
+        assert follow_up_revisions, "Expected at least one migration file after 001_initial"
+
+        target_migrations: list[tuple[Path, str]] = []
+        for path in follow_up_revisions:
+            source = path.read_text()
+            if re.search(r'down_revision\s*[:=][^"\']*["\']001_initial["\']', source):
+                target_migrations.append((path, source))
+
+        assert target_migrations, "Expected a migration with down_revision = '001_initial'"
+
+        warning_migrations = [
+            (path, source) for path, source in target_migrations if "warnings_json" in source
+        ]
+        assert warning_migrations, "Expected migration after 001_initial to reference warnings_json"
+
+        for path, source in warning_migrations:
+            assert 'batch_alter_table("run")' in source or "batch_alter_table('run')" in source, (
+                f"{path.name} must use batch_alter_table('run') for SQLite compatibility"
+            )
+            upgrade_body = source.split("def upgrade", 1)[1].split("def downgrade", 1)[0]
+            assert "warnings_json" in upgrade_body and "add_column" in upgrade_body, (
+                f"{path.name} upgrade() must add run.warnings_json"
+            )
+            assert "nullable=True" in upgrade_body, (
+                f"{path.name} upgrade() must add warnings_json as nullable"
+            )
+            assert "JSON" in upgrade_body, (
+                f"{path.name} upgrade() must use a JSON column type for warnings_json"
+            )
+
+            downgrade_body = source.split("def downgrade", 1)[1]
+            assert "warnings_json" in downgrade_body and "drop_column" in downgrade_body, (
+                f"{path.name} downgrade() must drop run.warnings_json"
+            )

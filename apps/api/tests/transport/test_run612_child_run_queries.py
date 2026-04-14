@@ -220,6 +220,39 @@ class TestGetChildrenReturnsChildRunsOnly:
         finally:
             app.dependency_overrides.clear()
 
+    def test_get_children_wires_non_empty_warnings(self):
+        """Children response must expose warnings from child.warnings_json when present."""
+        parent = _make_mock_run("run_612_parent")
+        child = _make_mock_run(
+            "run_612_child_warned",
+            parent_run_id="run_612_parent",
+            root_run_id="run_612_parent",
+            depth=1,
+        )
+        child.warnings_json = [
+            {
+                "message": "Tool definition warning",
+                "source": "tool_definitions",
+                "context": "fetch_child_profile",
+            }
+        ]
+        mock_service = _mock_run_service_with_children(parent, [child])
+        mock_eval = _mock_eval_service()
+
+        app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: mock_eval
+        client = TestClient(app, raise_server_exceptions=False)
+
+        try:
+            response = client.get("/api/runs/run_612_parent/children")
+            assert response.status_code == 200
+            body = response.json()
+            assert len(body) == 1
+            assert body[0]["id"] == "run_612_child_warned"
+            assert body[0]["warnings"] == child.warnings_json
+        finally:
+            app.dependency_overrides.clear()
+
 
 # ===========================================================================
 # 3. GET /runs/{run_id}/children returns empty list for leaf runs

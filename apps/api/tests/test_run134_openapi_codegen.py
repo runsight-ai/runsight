@@ -83,6 +83,24 @@ class TestOpenAPISpecExtraction:
         assert "code" not in warning_properties
         assert "severity" not in warning_properties
 
+    def test_openapi_spec_exposes_single_canonical_warning_item_component(self):
+        """Warnings must use one canonical WarningItem component across workflow/run schemas."""
+        from runsight_api.main import app
+
+        spec = app.openapi()
+        schemas = spec.get("components", {}).get("schemas", {})
+
+        warning_components = sorted(
+            name for name in schemas if "warningitem" in name.lower()
+        )
+        assert warning_components == ["WarningItem"], (
+            "OpenAPI must expose exactly one WarningItem-like component"
+        )
+
+        run_schema = schemas.get("RunResponse", {})
+        run_warnings = run_schema.get("properties", {}).get("warnings", {})
+        assert run_warnings.get("items", {}).get("$ref", "").endswith("/WarningItem")
+
     def test_committed_openapi_snapshot_pins_workflow_and_run_warning_contracts(self):
         """The committed OpenAPI snapshot must expose warnings on workflow and run responses."""
         snapshot = json.loads((REPO_ROOT / "openapi.json").read_text())
@@ -109,6 +127,13 @@ class TestOpenAPISpecExtraction:
         assert run_warnings is not None, "RunResponse missing warnings"
         assert run_warnings.get("type") == "array"
         assert run_warnings.get("items", {}).get("$ref", "").endswith("/WarningItem")
+
+        warning_components = sorted(
+            name for name in schemas if "warningitem" in name.lower()
+        )
+        assert warning_components == ["WarningItem"], (
+            "Committed snapshot must keep a single canonical WarningItem component"
+        )
 
     def test_openapi_spec_contains_run_schemas(self):
         """The spec must include RunResponse, RunCreate, RunNodeResponse schemas."""

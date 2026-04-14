@@ -430,6 +430,44 @@ class TestCreateRunPopulatesNewFields:
 
         assert run.warnings_json is None
 
+    def test_create_run_sets_warnings_json_none_when_workflow_warnings_missing(self):
+        """Guardrail: missing workflow.warnings on a Mock must not become stored warnings."""
+        from runsight_api.logic.services.run_service import RunService
+
+        mock_run_repo = Mock()
+        mock_run_repo.create_run.side_effect = lambda r: r
+
+        mock_workflow = Mock()
+        mock_workflow.name = "Test WF"
+        mock_workflow.id = "wf-1"
+        # Intentionally leave .warnings unset to exercise Mock getattr behavior.
+        mock_wf_repo = Mock()
+        mock_wf_repo.get_by_id.return_value = mock_workflow
+
+        svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
+        run = svc.create_run("wf-1", {"instruction": "go"})
+
+        assert run.warnings_json is None
+
+    def test_create_run_ignores_non_list_workflow_warnings(self):
+        """Guardrail: only non-empty list warnings are snapshotted."""
+        from runsight_api.logic.services.run_service import RunService
+
+        mock_run_repo = Mock()
+        mock_run_repo.create_run.side_effect = lambda r: r
+
+        mock_workflow = Mock()
+        mock_workflow.name = "Test WF"
+        mock_workflow.id = "wf-1"
+        mock_workflow.warnings = Mock(name="not_a_warning_list")
+        mock_wf_repo = Mock()
+        mock_wf_repo.get_by_id.return_value = mock_workflow
+
+        svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
+        run = svc.create_run("wf-1", {"instruction": "go"})
+
+        assert run.warnings_json is None
+
 
 # ---------------------------------------------------------------------------
 # 8. commit_sha does not fallback to workflow_commit_sha for old runs
