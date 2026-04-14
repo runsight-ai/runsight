@@ -136,7 +136,7 @@ class TestP2TruncatedAfterP3FullyPruned:
             result = fit_to_budget(request, _len_counter)
 
         # P2 context should be preserved in full (not truncated)
-        assert result.task.context == context
+        assert result.context == context
         # P3 must have been pruned (total P1+P2+P3 = 8+57+100 = 165 > 80)
         assert len(result.messages) < len(history)
 
@@ -159,7 +159,7 @@ class TestP2TruncatedAfterP3FullyPruned:
             result = fit_to_budget(request, _len_counter)
 
         # P2 should be truncated — shorter than original
-        assert len(result.task.context) < len(context)
+        assert len(result.context) < len(context)
         # P3 should be fully pruned
         assert len(result.messages) == 0 or _sum_message_tokens(result.messages) == 0
 
@@ -248,7 +248,7 @@ class TestBudgetReportTokenCounts:
             result = fit_to_budget(request, _len_counter)
 
         # p2_tokens_after should match the actual truncated context length
-        actual_p2_after = len(result.task.context) if result.task.context else 0
+        actual_p2_after = len(result.context) if result.context else 0
         assert result.report.p2_tokens_after == actual_p2_after
         # And it must be less than before (truncation happened)
         assert result.report.p2_tokens_after < result.report.p2_tokens_before
@@ -406,7 +406,7 @@ class TestEmptyP2OnlyP3Pruned:
         # P3 should be pruned
         assert len(result.messages) < len(history)
         # P2 stays empty
-        assert result.task.context == ""
+        assert result.context == ""
         # Report reflects empty P2
         assert result.report.p2_tokens_before == 0
         assert result.report.p2_tokens_after == 0
@@ -449,7 +449,7 @@ class TestEmptyP3OnlyP2Truncated:
             result = fit_to_budget(request, _len_counter)
 
         # P2 should be truncated
-        assert len(result.task.context) < len(context)
+        assert len(result.context) < len(context)
         # P3 stays empty
         assert result.messages == []
         # Report reflects empty P3
@@ -493,7 +493,7 @@ class TestBothEmpty:
 
         assert isinstance(result, BudgetedContext)
         assert result.messages == []
-        assert result.task.context == ""
+        assert result.context == ""
 
     def test_pure_p1_report_zeroed(self):
         """Report shows zero for all P2/P3 fields when both are empty."""
