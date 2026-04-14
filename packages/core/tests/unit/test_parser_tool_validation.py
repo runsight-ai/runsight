@@ -348,8 +348,8 @@ souls:
         with pytest.raises(ValueError, match=r"duplicate.*http"):
             parse_workflow_yaml(yaml_str)
 
-    def test_unknown_workflow_tool_id_raises_explicit_valueerror(self):
-        """Unknown workflow tool IDs must be rejected during parser validation."""
+    def test_unknown_workflow_tool_id_parses_with_empty_resolved_tools(self):
+        """Unknown declared tool IDs should warn and leave the workflow parseable."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -371,8 +371,11 @@ souls:
       to: null""",
         )
 
-        with pytest.raises(ValueError, match=r"unknown tool id 'missing_lookup'"):
-            parse_workflow_yaml(yaml_str)
+        workflow = parse_workflow_yaml(yaml_str)
+        soul = workflow.blocks["my_block"].soul
+
+        assert soul.tools == ["missing_lookup"]
+        assert soul.resolved_tools == []
 
     def test_empty_tools_list_with_soul_reference_raises_undeclared_tool_error(self):
         """Souls still need workflow-declared IDs even when the whitelist is explicitly empty."""
@@ -400,8 +403,8 @@ souls:
         soul = workflow.blocks["my_block"].soul
         assert soul.resolved_tools == []
 
-    def test_missing_custom_tool_id_raises_actionable_valueerror(self, tmp_path):
-        """Custom IDs declared in the workflow must resolve to checkout-local metadata files."""
+    def test_missing_custom_tool_id_parses_with_empty_resolved_tools(self, tmp_path):
+        """Missing custom metadata should warn without making the workflow unparseable."""
         workflow_file = _write_workflow_file(
             tmp_path,
             _make_yaml(
@@ -426,11 +429,11 @@ souls:
             ),
         )
 
-        with pytest.raises(
-            ValueError,
-            match=r"lookup_profile.*custom/tools/lookup_profile\.yaml",
-        ):
-            parse_workflow_yaml(workflow_file)
+        workflow = parse_workflow_yaml(workflow_file)
+        soul = workflow.blocks["my_block"].soul
+
+        assert soul.tools == ["lookup_profile"]
+        assert soul.resolved_tools == []
 
     def test_reserved_builtin_id_collision_with_custom_slug_raises_valueerror(self, tmp_path):
         """Reserved builtin IDs must reject custom tool files that try to reuse the same slug."""
@@ -632,15 +635,15 @@ souls:
 
 
 # ===========================================================================
-# AC3: Unknown tool IDs -> ValueError at parse time
+# AC3: Unknown tool IDs -> warning at parse time
 # ===========================================================================
 
 
 class TestUnknownToolIdStrings:
-    """Source-like workflow entries must fail as unknown canonical IDs."""
+    """Unknown workflow tool IDs should warn instead of aborting parse."""
 
-    def test_legacy_builtin_source_string_in_workflow_tools_raises_valueerror(self):
-        """Old source strings must not be accepted as workflow tool IDs."""
+    def test_legacy_builtin_source_string_parses_with_empty_resolved_tools(self):
+        """Legacy source-like tool IDs should warn and be skipped."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -662,11 +665,14 @@ souls:
       to: null""",
         )
 
-        with pytest.raises(ValueError, match=r"unknown tool id 'runsight/unknown'"):
-            parse_workflow_yaml(yaml_str)
+        workflow = parse_workflow_yaml(yaml_str)
+        soul = workflow.blocks["my_block"].soul
 
-    def test_unknown_tool_id_error_mentions_available_canonical_ids(self):
-        """Unknown ID errors should point callers back to the canonical whitelist."""
+        assert soul.tools == ["runsight/unknown"]
+        assert soul.resolved_tools == []
+
+    def test_unknown_tool_id_parses_with_empty_resolved_tools(self):
+        """Unknown canonical IDs should warn and keep the workflow parseable."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -688,8 +694,11 @@ souls:
       to: null""",
         )
 
-        with pytest.raises(ValueError, match="Available"):
-            parse_workflow_yaml(yaml_str)
+        workflow = parse_workflow_yaml(yaml_str)
+        soul = workflow.blocks["my_block"].soul
+
+        assert soul.tools == ["runsight/nonexistent"]
+        assert soul.resolved_tools == []
 
 
 # ===========================================================================
@@ -700,8 +709,8 @@ souls:
 class TestCanonicalDiscoveredToolValidation:
     """Parser validation should stay actionable with ID-only workflow authoring."""
 
-    def test_custom_tool_missing_yaml_file_raises_actionable_valueerror(self, tmp_path):
-        """A declared custom tool ID should fail when its custom/tools YAML is missing."""
+    def test_custom_tool_missing_yaml_file_parses_with_empty_resolved_tools(self, tmp_path):
+        """Missing custom tool metadata should surface as a warning, not a hard failure."""
         workflow_file = _write_workflow_file(
             tmp_path,
             _make_yaml(
@@ -726,11 +735,14 @@ souls:
             ),
         )
 
-        with pytest.raises(ValueError, match=r"missing_lookup.*custom/tools.*yaml"):
-            parse_workflow_yaml(workflow_file)
+        workflow = parse_workflow_yaml(workflow_file)
+        soul = workflow.blocks["my_block"].soul
+
+        assert soul.tools == ["missing_lookup"]
+        assert soul.resolved_tools == []
 
     @pytest.mark.parametrize(
-        ("slug", "tool_yaml", "expected_message"),
+        ("slug", "tool_yaml"),
         [
             (
                 "blocked_import_tool",
@@ -748,7 +760,6 @@ souls:
                   def main(args):
                       return {}
                 """,
-                r"blocked_import_tool.*not allowed",
             ),
             (
                 "missing_main_tool",
@@ -764,14 +775,13 @@ souls:
                   def helper(args):
                       return {}
                 """,
-                r"missing_main_tool.*main",
             ),
         ],
     )
-    def test_custom_tool_invalid_code_raises_actionable_valueerror(
-        self, tmp_path, slug, tool_yaml, expected_message
+    def test_custom_tool_invalid_code_parses_with_empty_resolved_tools(
+        self, tmp_path, slug, tool_yaml
     ):
-        """Blocked imports and missing main() should fail for discovered custom tool IDs."""
+        """Invalid discovered custom tools should warn and be skipped."""
         _write_custom_tool_file(tmp_path, slug, tool_yaml)
         workflow_file = _write_workflow_file(
             tmp_path,
@@ -797,8 +807,11 @@ souls:
             ),
         )
 
-        with pytest.raises(ValueError, match=expected_message):
-            parse_workflow_yaml(workflow_file)
+        workflow = parse_workflow_yaml(workflow_file)
+        soul = workflow.blocks["my_block"].soul
+
+        assert soul.tools == [slug]
+        assert soul.resolved_tools == []
 
     def test_valid_builtin_and_discovered_custom_tool_ids_parse_successfully(self, tmp_path):
         """A workflow mixing canonical builtin and discovered custom IDs should parse cleanly."""

@@ -266,7 +266,9 @@ souls:
         workflow_file = _write_workflow_file(tmp_path, yaml_str)
 
         monkeypatch.setattr(
-            parser_module, "_validate_declared_tool_definitions", lambda *args, **kwargs: None
+            parser_module,
+            "_validate_declared_tool_definitions",
+            lambda *args, **kwargs: ValidationResult(),
         )
 
         def _fake_resolve_tool_for_parser(
