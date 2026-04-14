@@ -18,7 +18,7 @@ from runsight_core.block_io import (
     build_block_context,
 )
 from runsight_core.blocks.synthesize import SynthesizeBlock
-from runsight_core.primitives import Soul
+from runsight_core.primitives import Soul, Task
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
@@ -329,7 +329,7 @@ def test_build_block_context_synthesize_missing_one_input_raises(mock_runner, sy
 def test_build_block_context_synthesize_missing_all_inputs_raises(mock_runner, synth_soul):
     """build_block_context must raise ValueError when all input_block_ids are absent."""
     block = SynthesizeBlock("synth1", ["block_a", "block_b"], synth_soul, mock_runner)
-    state = WorkflowState(results={})
+    state = WorkflowState(results={}, current_task=Task(id="t1", instruction="synthesize"))
 
     with pytest.raises(ValueError) as exc_info:
         build_block_context(block, state)
