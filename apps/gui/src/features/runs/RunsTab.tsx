@@ -120,7 +120,7 @@ function getSortValue(run: RunResponse, column: SortColumn) {
     case "eval":
       return getEvalSortValue(run);
     case "regressions":
-      return run.regression_count;
+      return (run.regression_count ?? 0) + (run.warnings?.length ?? 0);
     case "started":
       return run.started_at ?? -1;
   }
@@ -135,7 +135,7 @@ const RUN_COLUMNS: Array<{ key: SortColumn; label: string }> = [
   { key: "duration", label: "Duration" },
   { key: "cost", label: "Cost" },
   { key: "eval", label: "Eval" },
-  { key: "regressions", label: "Regr" },
+  { key: "regressions", label: "Warnings" },
   { key: "started", label: "Started" },
 ];
 
@@ -194,7 +194,9 @@ export function RunsTab({
       ? runs.filter((run) => run.workflow_name.toLowerCase().includes(normalizedQuery))
       : runs;
     const attentionFilteredRuns = attentionOnly
-      ? matchingRuns.filter((run) => (run.regression_count ?? 0) > 0)
+      ? matchingRuns.filter(
+          (run) => (run.regression_count ?? 0) + (run.warnings?.length ?? 0) > 0,
+        )
       : matchingRuns;
 
     return [...attentionFilteredRuns].sort((left, right) =>
@@ -333,7 +335,7 @@ export function RunsTab({
             }
             description={
               attentionOnly
-                ? "No runs with regressions found."
+                ? "No runs with warnings or regressions found."
                 : activeOnly
                   ? "No runs are currently in progress."
                   : "Try adjusting your filters."

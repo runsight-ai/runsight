@@ -1,10 +1,12 @@
 import { Button } from "@runsight/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import type { WorkflowResponse } from "@runsight/shared/zod";
+import { AlertTriangle, Info, Trash2 } from "lucide-react";
 import type { KeyboardEvent, MouseEvent, SyntheticEvent } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useWorkflowRegressions } from "@/queries/workflows";
+import { WarningTooltipBody } from "@/components/shared/WarningTooltipBody";
 import {
   shouldShowRegressionBadge,
   formatRegressionTooltip,
@@ -12,22 +14,14 @@ import {
 } from "../workflows/regressionBadge.utils";
 import { REGRESSION_BADGE_CLASSES } from "../workflows/regressionBadge.styles";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
+import {
+  formatWarningTooltip,
+  shouldShowWarningBadge,
+  WARNING_BADGE_CLASSES,
+} from "../workflows/warningBadge.utils";
 
 interface WorkflowRowProps {
-  workflow: {
-    id: string;
-    name?: string | null;
-    enabled?: boolean | null;
-    block_count?: number | null;
-    modified_at?: number | null;
-    commit_sha?: string | null;
-    health?: {
-      run_count?: number | null;
-      eval_pass_pct?: number | null;
-      total_cost_usd?: number | null;
-      regression_count?: number | null;
-    } | null;
-  };
+  workflow: WorkflowResponse;
   onDelete: (workflow: WorkflowRowProps["workflow"]) => void;
   onToggleEnabled?: (enabled: boolean) => Promise<unknown>;
 }
@@ -183,7 +177,13 @@ export function Component({ workflow, onDelete, onToggleEnabled }: WorkflowRowPr
   const runCount = workflow.health?.run_count ?? 0;
   const { data: regressionsData } = useWorkflowRegressions(workflow.id);
   const regressionIssues = regressionsData?.issues ?? [];
-  const showBadge = shouldShowRegressionBadge(regressionIssues);
+  const showRegressionBadge = shouldShowRegressionBadge(regressionIssues);
+  const regressionTooltip = showRegressionBadge
+    ? formatRegressionTooltip(regressionIssues)
+    : null;
+  const warningItems = workflow.warnings ?? [];
+  const showWarningBadge = shouldShowWarningBadge(warningItems);
+  const warningTooltip = showWarningBadge ? formatWarningTooltip(warningItems) : null;
 
   const openWorkflow = () => {
     navigate(`/workflows/${workflow.id}/edit`);
@@ -228,35 +228,62 @@ export function Component({ workflow, onDelete, onToggleEnabled }: WorkflowRowPr
           <span>{formatPlural(runCount, "run")}</span>
           <span>{getEvalLabel(workflow)}</span>
           <span className="font-mono">{getCostLabel(workflow)}</span>
-          {showBadge ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span
-                      className={REGRESSION_BADGE_CLASSES}
-                      onClick={(e: MouseEvent) => e.stopPropagation()}
-                    >
-                      <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
-                      {regressionIssues.length}
-                    </span>
-                  }
-                />
-                <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3 pointer-events-auto">
-                  <RegressionTooltipBody
-                    header={formatRegressionTooltip(regressionIssues).header}
-                    lines={formatRegressionTooltip(regressionIssues).lines}
-                    action={{
-                      label: "View runs \u2192",
-                      onClick: () => navigate(buildRunsFilterUrl(workflow.id)),
-                    }}
+          <span className="inline-flex items-center gap-2">
+            {showRegressionBadge && regressionTooltip ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        className={REGRESSION_BADGE_CLASSES}
+                        onClick={(e: MouseEvent) => e.stopPropagation()}
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
+                        {regressionIssues.length}
+                      </span>
+                    }
                   />
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <span>{getRegressionLabel(workflow)}</span>
-          )}
+                  <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3 pointer-events-auto">
+                    <RegressionTooltipBody
+                      header={regressionTooltip.header}
+                      lines={regressionTooltip.lines}
+                      action={{
+                        label: "View runs \u2192",
+                        onClick: () => navigate(buildRunsFilterUrl(workflow.id)),
+                      }}
+                    />
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <span>{getRegressionLabel(workflow)}</span>
+            )}
+            {showWarningBadge && warningTooltip ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        role="status"
+                        aria-label={`${warningItems.length} ${warningItems.length === 1 ? "warning" : "warnings"}`}
+                        className={WARNING_BADGE_CLASSES}
+                        onClick={(event: MouseEvent) => event.stopPropagation()}
+                      >
+                        <Info aria-hidden="true" className="h-3.5 w-3.5 text-info-9" />
+                        {warningItems.length}
+                      </span>
+                    }
+                  />
+                  <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3 pointer-events-auto">
+                    <WarningTooltipBody
+                      header={warningTooltip.header}
+                      lines={warningTooltip.lines}
+                    />
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
+          </span>
         </div>
       </div>
       <div
