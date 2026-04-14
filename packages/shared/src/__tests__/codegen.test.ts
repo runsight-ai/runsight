@@ -589,6 +589,24 @@ describe("RUN-842: generated API types stay aligned for run warnings", () => {
       $ref: "#/components/schemas/WarningItem",
     });
   });
+
+  it("keeps a single canonical WarningItem component (no duplicate warning schemas)", () => {
+    const snapshot = readCommittedOpenApiSnapshot();
+    const schemas = snapshot.components as Record<string, unknown> | undefined;
+    const schemaMap = (schemas?.schemas ?? {}) as Record<string, Record<string, unknown>>;
+
+    const warningLikeNames = Object.keys(schemaMap)
+      .filter((name) => name.toLowerCase().includes("warningitem"))
+      .sort();
+    expect(warningLikeNames).toEqual(["WarningItem"]);
+
+    const runResponse = schemaMap.RunResponse;
+    const runProperties = (runResponse?.properties ?? {}) as Record<string, unknown>;
+    const runWarnings = runProperties.warnings as Record<string, unknown> | undefined;
+    expect(runWarnings?.items).toMatchObject({
+      $ref: "#/components/schemas/WarningItem",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

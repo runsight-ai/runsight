@@ -42,6 +42,10 @@ describe("RUN-840/842 warning contracts", () => {
         severity: "warning",
       }).success,
     ).toBe(false);
+    expect(
+      "RunWarningItemSchema" in (sharedZod as Record<string, unknown>),
+      "Duplicate warning schema exports are not allowed",
+    ).toBe(false);
   });
 
   it("WorkflowResponseSchema declares warnings and parses warning payloads", () => {
