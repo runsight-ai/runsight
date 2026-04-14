@@ -821,10 +821,10 @@ class TestRequiredToolCalls:
 
 
 class TestParseValidation:
-    """parse_workflow_yaml must raise ValueError for bad tool configurations."""
+    """parse_workflow_yaml must tolerate undeclared soul tools as warnings."""
 
-    def test_soul_references_undeclared_tool_raises_value_error(self) -> None:
-        """Soul referencing tool not in tools: section -> ValueError."""
+    def test_soul_references_undeclared_tool_parses_with_empty_resolved_tools(self) -> None:
+        """Soul referencing tool not in tools: section -> warning and omission."""
         yaml_dict = _workflow_dict(
             tools=["http"],
             souls={
@@ -840,11 +840,12 @@ class TestParseValidation:
             blocks={"step": {"type": "linear", "soul_ref": "agent"}},
         )
 
-        with pytest.raises(ValueError, match="undeclared tool"):
-            parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(yaml_dict)
+        soul = workflow.blocks["step"].soul
+        assert soul.resolved_tools == []
 
-    def test_undeclared_tool_error_mentions_soul_name(self) -> None:
-        """ValueError for undeclared tool must mention the soul's key."""
+    def test_undeclared_tool_warning_mentions_soul_name(self) -> None:
+        """Warning for undeclared tool must still identify the soul's key."""
         yaml_dict = _workflow_dict(
             tools=["http"],
             souls={
@@ -860,8 +861,9 @@ class TestParseValidation:
             blocks={"step": {"type": "linear", "soul_ref": "my_special_soul"}},
         )
 
-        with pytest.raises(ValueError, match="my_special_soul"):
-            parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(yaml_dict)
+        soul = workflow.blocks["step"].soul
+        assert soul.resolved_tools == []
 
     def test_unknown_tool_id_raises_value_error(self) -> None:
         """Workflow tool IDs not found in the builtin registry or discovered custom tools should fail."""
@@ -1998,8 +2000,8 @@ workflow:
             "fetch_answer",
         }
 
-    def test_undeclared_tool_raises_actionable_valueerror(self, tmp_path: Path) -> None:
-        """RUN-532 AC4: governance errors should stay actionable in the end-to-end parse path."""
+    def test_undeclared_tool_parses_with_empty_resolved_tools(self, tmp_path: Path) -> None:
+        """RUN-532 AC4: undeclared soul tools should parse and be omitted from resolution."""
         workflow_path = _write_workflow_file(
             tmp_path,
             """\
@@ -2028,11 +2030,9 @@ workflow:
 """,
         )
 
-        with pytest.raises(
-            ValueError,
-            match=r"agent.*undeclared tool 'missing_tool'.*Declared tools: \[\]",
-        ):
-            parse_workflow_yaml(str(workflow_path))
+        workflow = parse_workflow_yaml(str(workflow_path))
+        soul = workflow.blocks["step"].soul
+        assert soul.resolved_tools == []
 
     @pytest.mark.asyncio
     async def test_ipc_tool_call_round_trip_returns_engine_tool_output(
