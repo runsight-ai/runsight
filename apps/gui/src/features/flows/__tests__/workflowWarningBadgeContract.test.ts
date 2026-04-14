@@ -20,9 +20,17 @@ vi.mock("react-router", async () => {
 
 vi.mock("lucide-react", () => ({
   AlertTriangle: (props: Record<string, unknown>) =>
-    React.createElement("svg", { ...props, "data-icon": "AlertTriangle" }),
+    React.createElement("svg", {
+      ...props,
+      "data-icon": "AlertTriangle",
+      "data-testid": "alert-triangle-icon",
+    }),
   Info: (props: Record<string, unknown>) =>
-    React.createElement("svg", { ...props, "data-icon": "Info" }),
+    React.createElement("svg", {
+      ...props,
+      "data-icon": "Info",
+      "data-testid": "info-icon",
+    }),
   Trash2: (props: Record<string, unknown>) =>
     React.createElement("svg", { ...props, "data-icon": "Trash2" }),
 }));
@@ -104,9 +112,26 @@ describe("RUN-843 WorkflowRow warning badge contract", () => {
       name: "Open Research & Review workflow",
     });
 
-    expect(row.querySelector('[data-icon="AlertTriangle"]')).toBeTruthy();
-    expect(within(row).getByRole("status", { name: /1 warnings?/i })).toBeTruthy();
-    expect(row.querySelector('[data-icon="Info"]')).toBeTruthy();
+    const warningBadge = within(row).getByRole("status", { name: /1 warnings?/i });
+
+    expect(within(row).getByTestId("alert-triangle-icon")).toBeTruthy();
+    expect(warningBadge).toBeTruthy();
+    const infoIcon = within(warningBadge).getByTestId("info-icon");
+    expect(infoIcon).toHaveAttribute("aria-hidden", "true");
+    expect(
+      warningBadge.className.includes("text-info-9") ||
+      infoIcon.className.includes("text-info-9"),
+    ).toBe(true);
+
+    const warningTooltip = within(row)
+      .getAllByTestId("tooltip-content")
+      .find((tooltip) => within(tooltip).queryByText("1 warning"));
+
+    expect(warningTooltip).toBeTruthy();
+    if (warningTooltip) {
+      expect(within(warningTooltip).getByText("1 warning")).toBeTruthy();
+      expect(within(warningTooltip).getByText(/Tool warning/i)).toBeTruthy();
+    }
   });
 
   it("shows the warning badge alongside the regression label when regressions are zero", () => {
@@ -130,8 +155,26 @@ describe("RUN-843 WorkflowRow warning badge contract", () => {
       name: "Open Docs Digest workflow",
     });
 
+    const warningBadge = within(row).getByRole("status", { name: /1 warnings?/i });
+
     expect(within(row).getByText(/0 regressions?|0 regression/)).toBeTruthy();
-    expect(within(row).getByRole("status", { name: /1 warnings?/i })).toBeTruthy();
-    expect(row.querySelector('[data-icon="Info"]')).toBeTruthy();
+    expect(warningBadge).toBeTruthy();
+    const infoIcon = within(warningBadge).getByTestId("info-icon");
+    expect(infoIcon).toHaveAttribute("aria-hidden", "true");
+    expect(
+      warningBadge.className.includes("text-info-9") ||
+      infoIcon.className.includes("text-info-9"),
+    ).toBe(true);
+    expect(within(row).queryByTestId("alert-triangle-icon")).toBeNull();
+
+    const warningTooltip = within(row)
+      .getAllByTestId("tooltip-content")
+      .find((tooltip) => within(tooltip).queryByText("1 warning"));
+
+    expect(warningTooltip).toBeTruthy();
+    if (warningTooltip) {
+      expect(within(warningTooltip).getByText("1 warning")).toBeTruthy();
+      expect(within(warningTooltip).getByText(/Provider warning/i)).toBeTruthy();
+    }
   });
 });
