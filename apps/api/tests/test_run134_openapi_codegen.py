@@ -83,8 +83,8 @@ class TestOpenAPISpecExtraction:
         assert "code" not in warning_properties
         assert "severity" not in warning_properties
 
-    def test_committed_openapi_snapshot_pins_workflow_only_warning_contract(self):
-        """The committed OpenAPI snapshot must keep workflow warnings out of run contracts."""
+    def test_committed_openapi_snapshot_pins_workflow_and_run_warning_contracts(self):
+        """The committed OpenAPI snapshot must expose warnings on workflow and run responses."""
         snapshot = json.loads((REPO_ROOT / "openapi.json").read_text())
         schemas = snapshot.get("components", {}).get("schemas", {})
 
@@ -105,7 +105,10 @@ class TestOpenAPISpecExtraction:
         run_schema = schemas.get("RunResponse")
         assert run_schema is not None, "Missing committed RunResponse schema"
         run_properties = run_schema.get("properties", {})
-        assert "warnings" not in run_properties
+        run_warnings = run_properties.get("warnings")
+        assert run_warnings is not None, "RunResponse missing warnings"
+        assert run_warnings.get("type") == "array"
+        assert run_warnings.get("items", {}).get("$ref", "").endswith("/WarningItem")
 
     def test_openapi_spec_contains_run_schemas(self):
         """The spec must include RunResponse, RunCreate, RunNodeResponse schemas."""
@@ -117,7 +120,11 @@ class TestOpenAPISpecExtraction:
             assert expected in schema_names, f"Missing schema: {expected}"
 
         run_properties = spec["components"]["schemas"]["RunResponse"]["properties"]
-        assert "warnings" not in run_properties
+        assert "warnings" in run_properties, "RunResponse is missing warnings"
+        assert run_properties["warnings"].get("type") == "array"
+        assert run_properties["warnings"].get("items", {}).get("$ref", "").endswith(
+            "/WarningItem"
+        )
 
     def test_openapi_spec_contains_soul_schemas(self):
         """The spec must include SoulResponse, SoulCreate, SoulUpdate schemas."""

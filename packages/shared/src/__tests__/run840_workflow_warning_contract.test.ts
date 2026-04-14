@@ -17,7 +17,7 @@ function getSchema(name: string): ParseableSchema {
   return schema as ParseableSchema;
 }
 
-describe("RUN-840 workflow warning contract", () => {
+describe("RUN-840/842 warning contracts", () => {
   const warningPayload = {
     message: "Tool definition warning",
     source: "tool_definitions",
@@ -86,9 +86,51 @@ describe("RUN-840 workflow warning contract", () => {
     ).toBe(false);
   });
 
-  it("RunResponseSchema stays free of workflow warning fields", () => {
+  it("RunResponseSchema declares warnings and parses warning payloads", () => {
     const runSchema = getSchema("RunResponseSchema");
 
-    expect(runSchema.shape).not.toHaveProperty("warnings");
+    expect(runSchema.shape).toHaveProperty("warnings");
+
+    const parsed = runSchema.parse({
+      id: "run_1",
+      workflow_id: "wf_1",
+      workflow_name: "Workflow",
+      status: "pending",
+      started_at: null,
+      completed_at: null,
+      duration_seconds: null,
+      total_cost_usd: 0,
+      total_tokens: 0,
+      created_at: 123.0,
+      warnings: [warningPayload],
+    });
+
+    expect(parsed).toHaveProperty("warnings");
+    expect((parsed as { warnings: unknown[] }).warnings).toHaveLength(1);
+    expect((parsed as { warnings: unknown[] }).warnings[0]).toEqual(
+      expect.objectContaining(warningPayload),
+    );
+
+    expect(
+      runSchema.safeParse({
+        id: "run_1",
+        workflow_id: "wf_1",
+        workflow_name: "Workflow",
+        status: "pending",
+        started_at: null,
+        completed_at: null,
+        duration_seconds: null,
+        total_cost_usd: 0,
+        total_tokens: 0,
+        created_at: 123.0,
+        warnings: [
+          {
+            message: "Tool definition warning",
+            source: "tool_definitions",
+            context: { tool_id: "lookup_profile" },
+          },
+        ],
+      }).success,
+    ).toBe(false);
   });
 });

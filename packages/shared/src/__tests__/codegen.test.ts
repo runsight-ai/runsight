@@ -532,7 +532,7 @@ describe("RUN-823: custom YAML request schemas are strict", () => {
   });
 });
 
-describe("RUN-840: generated API types stay aligned for workflow warnings", () => {
+describe("RUN-842: generated API types stay aligned for run warnings", () => {
   const apiSource = readFileSync(resolve(GENERATED_DIR, "api.ts"), "utf8");
 
   it("declares WorkflowResponse warnings in the generated API component namespace", () => {
@@ -543,9 +543,11 @@ describe("RUN-840: generated API types stay aligned for workflow warnings", () =
     expect(fields).not.toContain("code");
   });
 
-  it("keeps RunResponse free of workflow warning fields in generated API types", () => {
+  it("declares RunResponse warnings in the generated API component namespace", () => {
     const fields = extractApiComponentFieldNames(apiSource, "RunResponse");
-    expect(fields).not.toContain("warnings");
+    expect(fields).toEqual(
+      expect.arrayContaining(["id", "workflow_id", "status", "warnings"]),
+    );
   });
 
   it("declares WarningItem with the canonical workflow warning fields", () => {
@@ -556,7 +558,7 @@ describe("RUN-840: generated API types stay aligned for workflow warnings", () =
     expect(fields).toHaveLength(3);
   });
 
-  it("pins the committed openapi.json workflow warning contract without widening runs", () => {
+  it("pins the committed openapi.json run warning contract", () => {
     const snapshot = readCommittedOpenApiSnapshot();
     const schemas = snapshot.components as Record<string, unknown> | undefined;
     const schemaMap = (schemas?.schemas ?? {}) as Record<string, Record<string, unknown>>;
@@ -580,9 +582,12 @@ describe("RUN-840: generated API types stay aligned for workflow warnings", () =
 
     const runResponse = schemaMap.RunResponse;
     expect(runResponse).toBeDefined();
-    expect((runResponse?.properties ?? {}) as Record<string, unknown>).not.toHaveProperty(
-      "warnings",
-    );
+    const runProperties = (runResponse?.properties ?? {}) as Record<string, unknown>;
+    const runWarnings = runProperties.warnings as Record<string, unknown> | undefined;
+    expect(runWarnings).toBeDefined();
+    expect(runWarnings?.items).toMatchObject({
+      $ref: "#/components/schemas/WarningItem",
+    });
   });
 });
 

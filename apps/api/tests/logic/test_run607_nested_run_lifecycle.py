@@ -47,6 +47,7 @@ def _create_run(
     parent_node_id: str | None = None,
     root_run_id: str | None = None,
     depth: int = 0,
+    warnings_json: list[dict[str, str | None]] | None = None,
 ) -> Run:
     """Insert a Run record with optional parent-child fields."""
     run = Run(
@@ -59,6 +60,7 @@ def _create_run(
         parent_node_id=parent_node_id,
         root_run_id=root_run_id,
         depth=depth,
+        warnings_json=warnings_json,
     )
     session.add(run)
     session.commit()
@@ -243,6 +245,31 @@ class TestChildRunCreatedAsSeparateRecord:
             assert child.depth == 1
             assert child.parent_run_id == "parent_run"
             assert child.id != "parent_run"
+
+    def test_child_run_does_not_inherit_parent_warnings(self, db_engine):
+        """Child workflow runs must not inherit the parent's warning snapshot."""
+        with Session(db_engine) as session:
+            _create_run(
+                session,
+                run_id="parent_warn_run",
+                workflow_id="wf_parent",
+                workflow_name="Parent",
+                depth=0,
+                warnings_json=[
+                    {
+                        "message": "Tool governance warning",
+                        "source": "tool_governance",
+                        "context": "fetcher",
+                    }
+                ],
+            )
+
+        obs = ExecutionObserver(engine=db_engine, run_id="parent_warn_run")
+        obs.on_block_start("Parent", "call_child", "workflow")
+
+        with Session(db_engine) as session:
+            child = session.exec(select(Run).where(Run.parent_run_id == "parent_warn_run")).one()
+            assert child.warnings_json is None
 
 
 # ---------------------------------------------------------------------------
