@@ -153,7 +153,7 @@ class TestContextEnvelopePromptField:
 
     def test_context_envelope_rejects_task_kwarg(self):
         """Constructing ContextEnvelope with `task=` must fail (no such field)."""
-        from runsight_core.isolation import ContextEnvelope, SoulEnvelope, TaskEnvelope
+        from runsight_core.isolation import ContextEnvelope, PromptEnvelope, SoulEnvelope
 
         soul = SoulEnvelope(
             id="s1",
@@ -169,7 +169,7 @@ class TestContextEnvelopePromptField:
                 block_config={},
                 soul=soul,
                 tools=[],
-                task=TaskEnvelope(id="t1", instruction="old", context={}),
+                task=PromptEnvelope(id="t1", instruction="old", context={}),
                 scoped_results={},
                 scoped_shared_memory={},
                 conversation_history=[],

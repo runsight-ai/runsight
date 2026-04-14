@@ -17,7 +17,7 @@ from runsight_core.assertions.base import (
 )
 from runsight_core.assertions.custom import _build_adapter_class
 from runsight_core.assertions.scoring import AssertionsResult
-from runsight_core.isolation.envelope import ContextEnvelope, SoulEnvelope, TaskEnvelope
+from runsight_core.isolation.envelope import ContextEnvelope, PromptEnvelope, SoulEnvelope
 from runsight_core.isolation.harness import SubprocessHarness
 
 if TYPE_CHECKING:
@@ -176,7 +176,7 @@ def _build_assertion_envelope(
             max_tool_iterations=max_tool_iterations,
         ),
         tools=[],
-        task=TaskEnvelope(
+        prompt=PromptEnvelope(
             id=f"assert-{context.block_id or 'task'}",
             instruction=context.prompt,
             context={},

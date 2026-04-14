@@ -18,7 +18,7 @@ from runsight_core.isolation.envelope import (
 )
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.memory.token_counting import litellm_token_counter
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.tools import ToolInstance
@@ -87,17 +87,10 @@ def build_scoped_state(envelope: ContextEnvelope) -> WorkflowState:
         else:
             results[block_id] = BlockResult(output=str(result_data))
 
-    task = Task(
-        id=envelope.task.id,
-        instruction=envelope.task.instruction,
-        context=json.dumps(envelope.task.context) if envelope.task.context else None,
-    )
-
     history_key = f"{envelope.block_id}_{envelope.soul.id}"
 
     return WorkflowState(
         shared_memory=dict(envelope.scoped_shared_memory),
-        current_task=task,
         results=results,
         conversation_histories={history_key: list(envelope.conversation_history)},
     )
@@ -271,7 +264,7 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
 
                 assertion_context = AssertionContext(
                     output=output_to_grade,
-                    prompt=state.current_task.instruction if state.current_task else "",
+                    prompt=envelope.prompt.instruction,
                     prompt_hash="",
                     soul_id=judge_soul.id,
                     soul_version="",

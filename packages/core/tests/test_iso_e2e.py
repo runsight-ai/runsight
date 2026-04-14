@@ -26,9 +26,9 @@ from runsight_core.isolation import (
     IPCClient,
     IPCServer,
     IsolatedBlockWrapper,
+    PromptEnvelope,
     SoulEnvelope,
     SubprocessHarness,
-    TaskEnvelope,
 )
 from runsight_core.isolation import interceptors as interceptors_module
 from runsight_core.primitives import Soul, Task
@@ -99,7 +99,7 @@ def _context_envelope(
         block_config=block_config or {},
         soul=_soul_envelope(soul),
         tools=[],
-        task=TaskEnvelope(
+        prompt=PromptEnvelope(
             id=f"task-{block_id}",
             instruction=task_instruction,
             context=task_context or {},

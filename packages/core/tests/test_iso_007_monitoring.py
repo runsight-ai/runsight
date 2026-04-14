@@ -27,9 +27,9 @@ import pytest
 from runsight_core.isolation import (
     ContextEnvelope,
     HeartbeatMessage,
+    PromptEnvelope,
     SoulEnvelope,
     SubprocessHarness,
-    TaskEnvelope,
 )
 from runsight_core.observer import (
     CompositeObserver,
@@ -75,7 +75,7 @@ def _make_context_envelope(
             max_tool_iterations=3,
         ),
         tools=[],
-        task=TaskEnvelope(id="task-1", instruction="Do the thing.", context={}),
+        prompt=PromptEnvelope(id="task-1", instruction="Do the thing.", context={}),
         scoped_results={},
         scoped_shared_memory={},
         conversation_history=[],

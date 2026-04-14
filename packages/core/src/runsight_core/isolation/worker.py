@@ -150,7 +150,7 @@ async def _execute_envelope(
             budgeted_history = _support.build_budgeted_history(
                 model=model,
                 system_prompt=soul.system_prompt,
-                instruction=envelope.task.instruction,
+                instruction=envelope.prompt.instruction,
                 conversation_history=history,
             )
             state = state.model_copy(

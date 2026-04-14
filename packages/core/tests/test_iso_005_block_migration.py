@@ -1366,7 +1366,7 @@ class TestRUN815WrapperHarnessWiringContract:
 
         assert len(harness.calls) == 1
         assert harness.calls[0].block_id == "blk1"
-        assert harness.calls[0].task.instruction == "Summarize this"
+        assert harness.calls[0].prompt.instruction == "Summarize this"
         inner.execute.assert_not_called()
         assert next_state.results["blk1"].output == "subprocess output"
         assert next_state.total_cost_usd == pytest.approx(0.25)
@@ -1398,7 +1398,7 @@ class TestRUN815WrapperHarnessWiringContract:
         from unittest.mock import MagicMock
 
         from runsight_core.isolation import IsolatedBlockWrapper
-        from runsight_core.isolation.envelope import SoulEnvelope, TaskEnvelope
+        from runsight_core.isolation.envelope import PromptEnvelope, SoulEnvelope
 
         expected = ResultEnvelope(
             block_id="blk1",
@@ -1441,7 +1441,7 @@ class TestRUN815WrapperHarnessWiringContract:
                 max_tokens=256,
             ),
             tools=[],
-            task=TaskEnvelope(id="task-1", instruction="Do the thing", context={}),
+            prompt=PromptEnvelope(id="task-1", instruction="Do the thing", context={}),
             scoped_results={},
             scoped_shared_memory={},
             conversation_history=[],

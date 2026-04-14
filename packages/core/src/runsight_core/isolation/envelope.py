@@ -34,8 +34,8 @@ class ToolDefEnvelope(BaseModel):
     tool_type: str = ""
 
 
-class TaskEnvelope(BaseModel):
-    """Task envelope carrying the instruction for a block."""
+class PromptEnvelope(BaseModel):
+    """Prompt envelope carrying the instruction for a block."""
 
     id: str
     instruction: str
@@ -45,7 +45,7 @@ class TaskEnvelope(BaseModel):
 class DelegateArtifact(BaseModel):
     """Artifact produced by a delegate tool call."""
 
-    task: str
+    prompt: str
 
 
 class ContextEnvelope(BaseModel):
@@ -56,7 +56,7 @@ class ContextEnvelope(BaseModel):
     block_config: dict[str, Any]
     soul: SoulEnvelope
     tools: list[ToolDefEnvelope]
-    task: TaskEnvelope
+    prompt: PromptEnvelope
     scoped_results: dict[str, Any]
     scoped_shared_memory: dict[str, Any]
     conversation_history: list[dict[str, Any]]

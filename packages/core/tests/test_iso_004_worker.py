@@ -30,9 +30,9 @@ import pytest
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     HeartbeatMessage,
+    PromptEnvelope,
     ResultEnvelope,
     SoulEnvelope,
-    TaskEnvelope,
     ToolDefEnvelope,
 )
 
@@ -55,7 +55,7 @@ def _make_context_envelope(**overrides) -> ContextEnvelope:
             max_tool_iterations=5,
         ),
         tools=[],
-        task=TaskEnvelope(
+        prompt=PromptEnvelope(
             id="task_1",
             instruction="Say hello",
             context={},

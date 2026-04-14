@@ -9,9 +9,9 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import budget_killed_exception_from_message
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
+    PromptEnvelope,
     ResultEnvelope,
     SoulEnvelope,
-    TaskEnvelope,
     ToolDefEnvelope,
 )
 from runsight_core.isolation.errors import BlockExecutionError
@@ -224,7 +224,7 @@ class IsolatedBlockWrapper(BaseBlock):
             task_context = {"text": raw_context}
         else:
             task_context = raw_context if raw_context else {}
-        task_envelope = TaskEnvelope(
+        task_envelope = PromptEnvelope(
             id=task.id if task else "",
             instruction=task.instruction if task else "",
             context=task_context,
@@ -252,7 +252,7 @@ class IsolatedBlockWrapper(BaseBlock):
             block_config=block_config,
             soul=soul_envelope,
             tools=_build_tool_envelopes_from_tools(resolved_tools),
-            task=task_envelope,
+            prompt=task_envelope,
             scoped_results=_serialize_scoped_results(state.results),
             scoped_shared_memory=dict(state.shared_memory),
             conversation_history=conversation_history,
@@ -287,7 +287,7 @@ class IsolatedBlockWrapper(BaseBlock):
         # Route delegate artifacts to per-port state results for dispatch blocks
         for port, artifact in result.delegate_artifacts.items():
             updated_results[f"{self.block_id}.{port}"] = BlockResult(
-                output=artifact.task,
+                output=artifact.prompt,
                 exit_handle=port,
             )
 
