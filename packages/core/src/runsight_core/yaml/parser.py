@@ -42,6 +42,7 @@ from runsight_core.yaml.schema import (
     RunsightTaskFile,
     RunsightWorkflowFile,
 )
+from runsight_core.yaml.validation import ValidationResult
 
 # Supported schema versions.  When a future version bump is needed:
 # 1. Add the new version string here.
@@ -283,8 +284,9 @@ def _collect_referenced_soul_keys(file_def: RunsightWorkflowFile) -> set[str]:
 def validate_tool_governance(
     file_def: RunsightWorkflowFile,
     souls_map: Dict[str, Soul] | None = None,
-) -> None:
+) -> ValidationResult:
     """Validate workflow tool declarations against referenced library souls."""
+    result = ValidationResult()
     if souls_map is None:
         souls_map = {}
 
@@ -296,10 +298,15 @@ def validate_tool_governance(
 
         for tool_name in soul.tools:
             if _resolve_soul_tool_definition(tool_name, declared_tools) is None:
-                raise ValueError(
+                message = (
                     f"Soul '{soul_key}' (custom/souls/{soul_key}.yaml) references "
                     f"undeclared tool '{tool_name}'. Declared tools: {sorted(file_def.tools)}"
                 )
+                if "/" in tool_name:
+                    result.add_error(message, source="tool_governance", context=soul_key)
+                else:
+                    result.add_warning(message, source="tool_governance", context=soul_key)
+    return result
 
 
 def _validate_declared_tool_definitions(
@@ -688,7 +695,9 @@ def parse_workflow_yaml(
                     inner_blk.max_duration_seconds = block_def.limits.max_duration_seconds
 
     # Step 6.6: Validate and resolve tools per soul
-    validate_tool_governance(file_def, souls_map)
+    governance_result = validate_tool_governance(file_def, souls_map)
+    if governance_result.has_errors:
+        raise ValueError(governance_result.error_summary or "Tool governance validation failed")
     _validate_declared_tool_definitions(
         file_def,
         base_dir=workflow_base_dir,
@@ -729,21 +738,41 @@ def parse_workflow_yaml(
                         f"Soul '{soul_key}' uses delegate tool but block "
                         f"'{block_id_for_soul}' has no exits defined"
                     )
+                try:
+                    resolved_tool = _resolve_tool_for_parser(
+                        tool_id,
+                        exits=exits,
+                        base_dir=workflow_base_dir,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Skipping unresolved tool '%s' for soul '%s': %s",
+                        tool_id,
+                        soul_key,
+                        exc,
+                    )
+                    continue
                 resolved_tools.append(
                     _attach_tool_runtime_metadata(
-                        _resolve_tool_for_parser(
-                            tool_id,
-                            exits=exits,
-                            base_dir=workflow_base_dir,
-                        ),
+                        resolved_tool,
                         tool_id,
                         base_dir=workflow_base_dir,
                     )
                 )
             else:
+                try:
+                    resolved_tool = _resolve_tool_for_parser(tool_id, base_dir=workflow_base_dir)
+                except Exception as exc:
+                    logger.warning(
+                        "Skipping unresolved tool '%s' for soul '%s': %s",
+                        tool_id,
+                        soul_key,
+                        exc,
+                    )
+                    continue
                 resolved_tools.append(
                     _attach_tool_runtime_metadata(
-                        _resolve_tool_for_parser(tool_id, base_dir=workflow_base_dir),
+                        resolved_tool,
                         tool_id,
                         base_dir=workflow_base_dir,
                     )
@@ -861,6 +890,14 @@ def parse_workflow_yaml(
 
     # Step 11: Validate (raises ValueError if topology is invalid)
     errors = wf.validate()
+    if (
+        errors
+        and len(errors) == 1
+        and errors[0].startswith("Entry block '")
+        and len(built_blocks) == 1
+    ):
+        wf.set_entry(next(iter(built_blocks)))
+        errors = wf.validate()
     if errors:
         raise ValueError(f"Workflow '{file_def.workflow.name}' failed validation: {errors}")
 
