@@ -24,9 +24,17 @@ vi.mock("react-router", async () => {
 
 vi.mock("lucide-react", () => ({
   AlertTriangle: (props: Record<string, unknown>) =>
-    React.createElement("svg", { ...props, "data-icon": "AlertTriangle" }),
+    React.createElement("svg", {
+      ...props,
+      "data-icon": "AlertTriangle",
+      "data-testid": "alert-triangle-icon",
+    }),
   Info: (props: Record<string, unknown>) =>
-    React.createElement("svg", { ...props, "data-icon": "Info" }),
+    React.createElement("svg", {
+      ...props,
+      "data-icon": "Info",
+      "data-testid": "info-icon",
+    }),
   Play: (props: Record<string, unknown>) =>
     React.createElement("svg", { ...props, "data-icon": "Play" }),
 }));
@@ -186,9 +194,11 @@ describe("RUN-843 RunRow warnings + regressions cell", () => {
     const attentionCell = getRunAttentionCell(row);
 
     expect(within(attentionCell).getByText("—")).toBeTruthy();
+    expect(within(attentionCell).queryByRole("status", { name: /warnings?/i })).toBeNull();
+    expect(within(attentionCell).queryByTestId("info-icon")).toBeNull();
   });
 
-  it("renders only the blue warning badge for warning-only runs", () => {
+  it("renders an accessible warning-only badge and no regression badge when regression_count is zero", () => {
     const run = makeRun({
       id: "run_warning_only",
       workflow_name: "Warning Only Workflow",
@@ -205,9 +215,26 @@ describe("RUN-843 RunRow warnings + regressions cell", () => {
     });
 
     expect(warningBadge).toBeTruthy();
-    expect(warningBadge.textContent).toContain("1");
-    expect(attentionCell.querySelector('[data-icon="Info"]')).toBeTruthy();
-    expect(attentionCell.querySelector('[data-icon="AlertTriangle"]')).toBeNull();
+    expect(warningBadge).toHaveTextContent("1");
+    expect(warningBadge.className).toContain("inline-flex");
+
+    const infoIcon = within(warningBadge).getByTestId("info-icon");
+    expect(infoIcon).toHaveAttribute("aria-hidden", "true");
+    expect(
+      warningBadge.className.includes("text-info-9") ||
+      infoIcon.className.includes("text-info-9"),
+    ).toBe(true);
+    expect(within(attentionCell).queryByTestId("alert-triangle-icon")).toBeNull();
+
+    const warningTooltip = within(attentionCell)
+      .getAllByTestId("tooltip-content")
+      .find((tooltip) => within(tooltip).queryByText("1 warning"));
+
+    expect(warningTooltip).toBeTruthy();
+    if (warningTooltip) {
+      expect(within(warningTooltip).getByText("1 warning")).toBeTruthy();
+      expect(within(warningTooltip).getByText(/Tool warning/i)).toBeTruthy();
+    }
   });
 
   it("renders both regression and warning badges when both are present", () => {
@@ -233,13 +260,26 @@ describe("RUN-843 RunRow warnings + regressions cell", () => {
 
     const row = screen.getByRole("row");
     const attentionCell = getRunAttentionCell(row);
-    const badgeGroup = attentionCell.querySelector("span.inline-flex.items-center.gap-2");
+    const warningBadge = within(attentionCell).getByRole("status", {
+      name: /1 warnings?/i,
+    });
 
-    expect(badgeGroup).toBeTruthy();
-    expect(badgeGroup?.textContent).toContain("2");
-    expect(badgeGroup?.textContent).toContain("1");
-    expect(badgeGroup?.querySelector('[data-icon="AlertTriangle"]')).toBeTruthy();
-    expect(badgeGroup?.querySelector('[data-icon="Info"]')).toBeTruthy();
+    expect(within(attentionCell).getByText("2")).toBeTruthy();
+    expect(warningBadge).toHaveTextContent("1");
+    expect(within(attentionCell).getByTestId("alert-triangle-icon")).toBeTruthy();
+
+    const infoIcon = within(warningBadge).getByTestId("info-icon");
+    expect(infoIcon).toHaveAttribute("aria-hidden", "true");
+
+    const warningTooltip = within(attentionCell)
+      .getAllByTestId("tooltip-content")
+      .find((tooltip) => within(tooltip).queryByText("1 warning"));
+
+    expect(warningTooltip).toBeTruthy();
+    if (warningTooltip) {
+      expect(within(warningTooltip).getByText("1 warning")).toBeTruthy();
+      expect(within(warningTooltip).getByText(/Provider warning/i)).toBeTruthy();
+    }
   });
 });
 
