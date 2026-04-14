@@ -573,9 +573,10 @@ async def test_execute_block_uses_old_path_for_synthesize_block(mock_runner, gat
     )
 
     sample_soul = Soul(id="synth_soul", role="Synthesizer", system_prompt="Synthesize things.")
-    synth_block = SynthesizeBlock("synth1", [sample_soul], mock_runner)
+    synth_block = SynthesizeBlock("synth1", ["prior_block"], sample_soul, mock_runner)
     state = WorkflowState(
         current_task=Task(id="t1", instruction="synthesize"),
+        results={"prior_block": BlockResult(output="something")},
     )
     ctx = BlockExecutionContext(
         workflow_name="test",
