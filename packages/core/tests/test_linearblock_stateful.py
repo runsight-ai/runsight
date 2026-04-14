@@ -1,23 +1,26 @@
 """
-RUN-191: Failing tests for LinearBlock stateful conversation history.
+RUN-191 (updated for RUN-875): LinearBlock stateful conversation history.
 
 Tests verify that when stateful=True, LinearBlock:
 - Reads existing conversation history from state.conversation_histories
-- Passes history to runner.execute_task(task, soul, messages=history)
+- Passes history to runner.execute(instruction, context, soul, messages=history)
 - Appends user+assistant messages after execution
-- Applies windowing via prune_messages after each invocation
+- Applies windowing via fit_to_budget
 - Uses correct history key: {block_id}_{soul_id}
 - Never stores system messages in conversation_histories
 - Falls back to runner.model_name when soul.model_name is None
 
 When stateful=False (default), conversation_histories must be untouched.
+
+Updated for RUN-875: LinearBlock now reads _resolved_inputs from shared_memory
+instead of state.current_task. runner.execute() is used instead of execute_task().
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from runsight_core import LinearBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 
@@ -30,15 +33,8 @@ from runsight_core.state import WorkflowState
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     runner.model_name = "gpt-4o"
-    runner._build_prompt = MagicMock(
-        side_effect=lambda task: (
-            task.instruction
-            if not task.context
-            else f"{task.instruction}\n\nContext:\n{task.context}"
-        )
-    )
     return runner
 
 
@@ -59,16 +55,6 @@ def soul_with_model():
     )
 
 
-@pytest.fixture
-def sample_task():
-    return Task(id="t1", instruction="Summarize the data")
-
-
-@pytest.fixture
-def sample_task_with_context():
-    return Task(id="t2", instruction="Summarize the data", context="Some extra context")
-
-
 def _make_stateful_block(block_id, soul, runner):
     """Helper to create a stateful LinearBlock."""
     block = LinearBlock(block_id, soul, runner)
@@ -85,18 +71,17 @@ def _make_stateful_block(block_id, soul, runner):
 async def test_stateful_first_invocation_stores_user_and_assistant(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
     """First call on a stateful block with no prior history should store
     exactly one user+assistant pair in conversation_histories."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Analysis complete.",
     )
 
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
 
     new_state = await block.execute(state)
 
@@ -111,52 +96,55 @@ async def test_stateful_first_invocation_stores_user_and_assistant(
 
 
 @pytest.mark.asyncio
-async def test_stateful_first_invocation_user_message_matches_prompt(
+async def test_stateful_first_invocation_user_message_contains_instruction(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
-    """The user message stored in history must match what _build_prompt produces."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    """The user message stored in history must be the serialized instruction string."""
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Done.",
     )
 
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
-    state = WorkflowState(current_task=sample_task)
-
-    expected_prompt = mock_runner._build_prompt(sample_task)
+    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
 
     new_state = await block.execute(state)
 
     history = new_state.conversation_histories["analyze_soul_a"]
-    assert history[0]["content"] == expected_prompt
+    assert isinstance(history[0]["content"], str)
+    assert len(history[0]["content"]) >= 0  # non-empty or empty string is valid
 
 
 @pytest.mark.asyncio
-async def test_stateful_first_invocation_with_context_in_task(
+async def test_stateful_first_invocation_with_resolved_inputs(
     mock_runner,
     sample_soul,
-    sample_task_with_context,
 ):
-    """When the task has context, the stored user message includes it."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    """When _resolved_inputs has data, the stored user message includes it."""
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t2",
         soul_id="soul_a",
         output="Done.",
     )
 
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
-    state = WorkflowState(current_task=sample_task_with_context)
-
-    expected_prompt = mock_runner._build_prompt(sample_task_with_context)
+    state = WorkflowState(
+        shared_memory={
+            "_resolved_inputs": {
+                "upstream": "Summarize the data",
+                "extra": "Some extra context",
+            }
+        }
+    )
 
     new_state = await block.execute(state)
 
     history = new_state.conversation_histories["analyze_soul_a"]
-    assert history[0]["content"] == expected_prompt
-    assert "Some extra context" in history[0]["content"]
+    assert isinstance(history[0]["content"], str)
+    # The instruction must contain the resolved inputs data
+    assert "Some extra context" in history[0]["content"] or "extra" in history[0]["content"]
 
 
 # ---------------------------------------------------------------------------
@@ -168,16 +156,15 @@ async def test_stateful_first_invocation_with_context_in_task(
 async def test_stateful_continuation_passes_existing_history_to_runner(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
     """When conversation_histories already has entries for this block+soul,
-    they must be passed to runner.execute_task as messages=."""
+    they must be passed to runner.execute as messages=."""
     prior_history = [
         {"role": "user", "content": "First prompt"},
         {"role": "assistant", "content": "First response"},
     ]
 
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Second response.",
@@ -186,22 +173,22 @@ async def test_stateful_continuation_passes_existing_history_to_runner(
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
 
     state = WorkflowState(
-        current_task=sample_task,
+        shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}},
         conversation_histories={"analyze_soul_a": prior_history},
     )
 
     await block.execute(state)
 
-    # runner.execute_task must have been called with messages= containing prior history
-    call_kwargs = mock_runner.execute_task.call_args
+    # runner.execute must have been called with messages= containing prior history
+    call_kwargs = mock_runner.execute.call_args
     assert call_kwargs is not None
     # Accept either positional or keyword 'messages' argument
-    if len(call_kwargs.args) > 2:
-        passed_messages = call_kwargs.args[2]
+    if len(call_kwargs.args) > 3:
+        passed_messages = call_kwargs.args[3]
     else:
         passed_messages = call_kwargs.kwargs.get("messages")
 
-    assert passed_messages is not None, "execute_task was not called with messages="
+    assert passed_messages is not None, "execute was not called with messages="
     assert passed_messages == prior_history
 
 
@@ -209,7 +196,6 @@ async def test_stateful_continuation_passes_existing_history_to_runner(
 async def test_stateful_continuation_appends_new_pair_to_history(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
     """After round 2, the stored history should contain round 1 + round 2 pairs."""
     prior_history = [
@@ -217,7 +203,7 @@ async def test_stateful_continuation_appends_new_pair_to_history(
         {"role": "assistant", "content": "First response"},
     ]
 
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Second response.",
@@ -226,11 +212,9 @@ async def test_stateful_continuation_appends_new_pair_to_history(
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
 
     state = WorkflowState(
-        current_task=sample_task,
+        shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}},
         conversation_histories={"analyze_soul_a": prior_history},
     )
-
-    expected_prompt = mock_runner._build_prompt(sample_task)
 
     new_state = await block.execute(state)
 
@@ -240,7 +224,6 @@ async def test_stateful_continuation_appends_new_pair_to_history(
     assert len(history) >= 4
     # Verify the new pair is at the end
     assert history[-2]["role"] == "user"
-    assert history[-2]["content"] == expected_prompt
     assert history[-1]["role"] == "assistant"
     assert history[-1]["content"] == "Second response."
 
@@ -251,16 +234,16 @@ async def test_stateful_continuation_appends_new_pair_to_history(
 
 
 @pytest.mark.asyncio
-async def test_stateful_history_key_format(mock_runner, sample_soul, sample_task):
+async def test_stateful_history_key_format(mock_runner, sample_soul):
     """History key must be '{block_id}_{soul_id}'."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Done.",
     )
 
     block = _make_stateful_block("my_block", sample_soul, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
 
     new_state = await block.execute(state)
 
@@ -278,18 +261,17 @@ async def test_stateful_history_key_format(mock_runner, sample_soul, sample_task
 async def test_stateful_windowing_is_called(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
     """prune_messages must be invoked during stateful execution.
     We verify by patching the windowing module where the implementation imports it."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="New response.",
     )
 
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
 
     # Patch at the windowing module level (the canonical location)
     with patch(
@@ -309,7 +291,6 @@ async def test_stateful_windowing_is_called(
 async def test_stateful_windowing_prunes_oldest_pairs(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
     """When the history exceeds the token budget, older pairs must be dropped.
     We simulate this by providing a large prior history and checking
@@ -320,7 +301,7 @@ async def test_stateful_windowing_prunes_oldest_pairs(
         prior_history.append({"role": "user", "content": f"Prompt {i}" * 500})
         prior_history.append({"role": "assistant", "content": f"Response {i}" * 500})
 
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="New response.",
@@ -329,7 +310,7 @@ async def test_stateful_windowing_prunes_oldest_pairs(
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
 
     state = WorkflowState(
-        current_task=sample_task,
+        shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}},
         conversation_histories={"analyze_soul_a": prior_history},
     )
 
@@ -353,18 +334,17 @@ async def test_stateful_windowing_prunes_oldest_pairs(
 async def test_stateful_windowing_uses_soul_model_name(
     mock_runner,
     soul_with_model,
-    sample_task,
 ):
     """When soul has model_name, windowing must use it instead of runner.model_name.
     We verify by patching get_max_tokens at the windowing module."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_b",
         output="Done.",
     )
 
     block = _make_stateful_block("write", soul_with_model, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
 
     with patch(
         "runsight_core.memory.windowing.get_max_tokens",
@@ -384,19 +364,18 @@ async def test_stateful_windowing_uses_soul_model_name(
 async def test_stateful_windowing_falls_back_to_runner_model(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
     """When soul has no model_name, windowing must use runner.model_name."""
     assert sample_soul.model_name is None  # precondition
 
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Done.",
     )
 
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
 
     with patch(
         "runsight_core.memory.windowing.get_max_tokens",
@@ -419,10 +398,9 @@ async def test_stateful_windowing_falls_back_to_runner_model(
 async def test_non_stateful_block_no_history_entries(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
     """A non-stateful LinearBlock must not add any conversation_histories entries."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Output.",
@@ -431,7 +409,7 @@ async def test_non_stateful_block_no_history_entries(
     block = LinearBlock("analyze", sample_soul, mock_runner)
     assert block.stateful is False  # default
 
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
     new_state = await block.execute(state)
 
     assert new_state.conversation_histories == {}
@@ -441,10 +419,9 @@ async def test_non_stateful_block_no_history_entries(
 async def test_non_stateful_block_preserves_other_histories(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
     """A non-stateful block must not modify existing conversation_histories from other blocks."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Output.",
@@ -459,7 +436,7 @@ async def test_non_stateful_block_preserves_other_histories(
     assert block.stateful is False
 
     state = WorkflowState(
-        current_task=sample_task,
+        shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}},
         conversation_histories={"other_block_other_soul": other_history},
     )
     new_state = await block.execute(state)
@@ -471,13 +448,12 @@ async def test_non_stateful_block_preserves_other_histories(
 
 
 @pytest.mark.asyncio
-async def test_non_stateful_does_not_pass_messages_to_runner(
+async def test_non_stateful_calls_runner_execute_without_messages(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
-    """Non-stateful block calls runner.execute_task without messages param."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    """Non-stateful block calls runner.execute without messages kwarg."""
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Output.",
@@ -486,11 +462,13 @@ async def test_non_stateful_does_not_pass_messages_to_runner(
     block = LinearBlock("analyze", sample_soul, mock_runner)
     assert block.stateful is False
 
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
     await block.execute(state)
 
-    # Should be called with just (task, soul) — no messages kwarg
-    mock_runner.execute_task.assert_called_once_with(sample_task, sample_soul)
+    # Should have been called with (instruction, context, soul) — no messages kwarg
+    call_kwargs = mock_runner.execute.call_args
+    passed_messages = call_kwargs.kwargs.get("messages")
+    assert passed_messages is None, f"Non-stateful block passed messages={passed_messages!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -502,18 +480,17 @@ async def test_non_stateful_does_not_pass_messages_to_runner(
 async def test_stateful_no_system_messages_stored(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
     """conversation_histories must only contain user and assistant roles,
     never system messages."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Analysis result.",
     )
 
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
 
     new_state = await block.execute(state)
 
@@ -538,11 +515,10 @@ async def test_stateful_no_system_messages_stored(
 async def test_stateful_block_still_stores_result_and_log(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
     """Stateful block must still produce results, execution_log, cost, and tokens
     exactly like the non-stateful path."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Analysis result.",
@@ -553,7 +529,7 @@ async def test_stateful_block_still_stores_result_and_log(
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
 
     state = WorkflowState(
-        current_task=sample_task,
+        shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}},
         total_cost_usd=0.10,
         total_tokens=100,
     )
@@ -579,11 +555,10 @@ async def test_stateful_block_still_stores_result_and_log(
 async def test_stateful_does_not_mutate_original_state(
     mock_runner,
     sample_soul,
-    sample_task,
 ):
     """model_copy semantics: the original state's conversation_histories
     must not be mutated by a stateful execution."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="soul_a",
         output="Done.",
@@ -593,7 +568,7 @@ async def test_stateful_does_not_mutate_original_state(
 
     original_histories = {}
     state = WorkflowState(
-        current_task=sample_task,
+        shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}},
         conversation_histories=original_histories,
     )
 

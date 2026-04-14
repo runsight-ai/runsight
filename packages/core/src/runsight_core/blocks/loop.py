@@ -205,7 +205,7 @@ class LoopBlock(BaseBlock):
                         ),
                         counter=litellm_token_counter,
                     )
-                    task_context = _budgeted.task.context or carry_context_str
+                    task_context = _budgeted.context or carry_context_str
 
                     state = state.model_copy(
                         update={
