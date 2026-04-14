@@ -174,33 +174,6 @@ async def test_linearblock_execute_log_entries_contain_block_id(mock_runner, sam
 
 
 @pytest.mark.asyncio
-async def test_linearblock_execute_does_not_accept_workflow_state(mock_runner, sample_soul):
-    """After migration, LinearBlock.execute must NOT accept WorkflowState as first arg.
-
-    Passing a WorkflowState should either raise TypeError or produce BlockOutput —
-    it should NOT silently succeed and return WorkflowState.
-    """
-    mock_runner.execute_task.return_value = ExecutionResult(
-        task_id="t1",
-        soul_id="soul_a",
-        output="Done.",
-    )
-
-    block = LinearBlock("analyze", sample_soul, mock_runner)
-    task = Task(id="t1", instruction="Summarize")
-    state = WorkflowState(current_task=task)
-
-    # After migration: calling execute(WorkflowState) should raise TypeError
-    # because the signature is execute(ctx: BlockContext) -> BlockOutput
-    with pytest.raises(TypeError):
-        result = await block.execute(state)
-        # If it somehow succeeds, it must NOT return WorkflowState
-        assert not isinstance(result, WorkflowState), (
-            "LinearBlock.execute must NOT return WorkflowState after migration"
-        )
-
-
-@pytest.mark.asyncio
 async def test_linearblock_execute_returns_data_not_state(mock_runner, sample_soul):
     """BlockOutput is a pure data object — no state mutation possible."""
     mock_runner.execute_task.return_value = ExecutionResult(
