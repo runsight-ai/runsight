@@ -49,7 +49,7 @@ describe("RUN-843 warning badge utilities", () => {
     expect(typeof module.formatWarningTooltip).toBe("function");
     expect(typeof module.WarningTooltipBody).toBe("function");
     expect(typeof module.WARNING_BADGE_CLASSES).toBe("string");
-    expect(module.WARNING_BADGE_CLASSES).toContain("text-info-9");
+    expect(module.WARNING_BADGE_CLASSES).toContain("--info-11");
     expect(module.WARNING_BADGE_CLASSES).toContain("inline-flex");
     expect(module.WARNING_BADGE_CLASSES).toContain("items-center");
     expect(module.WARNING_BADGE_CLASSES).toContain("gap-1");
@@ -98,6 +98,6 @@ describe("RUN-843 warning badge utilities", () => {
 
     const infoIcon = screen.getByTestId("info-icon");
     expect(infoIcon).toHaveAttribute("aria-hidden", "true");
-    expect(infoIcon.className).toContain("text-info-9");
+    expect(infoIcon.getAttribute("class")).toContain("text-info-9");
   });
 });

@@ -18,6 +18,27 @@ expect.extend({
           : `expected attribute "${name}" ${pass ? "not " : ""}to be "${expected}", received "${actual}"`,
     };
   },
+  toHaveTextContent(received: Element, expected: string | RegExp) {
+    const textContent = received.textContent ?? "";
+    const pass = expected instanceof RegExp
+      ? expected.test(textContent)
+      : textContent.includes(expected);
+
+    return {
+      pass,
+      message: () =>
+        `expected element text "${textContent}" ${pass ? "not " : ""}to contain "${String(expected)}"`,
+    };
+  },
+  toContainElement(received: Element, expected: Element) {
+    const pass = received.contains(expected);
+
+    return {
+      pass,
+      message: () =>
+        `expected element ${pass ? "not " : ""}to contain the provided child element`,
+    };
+  },
 });
 
 const NativeRequest = globalThis.Request;

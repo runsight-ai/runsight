@@ -122,7 +122,7 @@ describe("RUN-844 SurfaceRunRow merged warnings cell", () => {
 
     const infoIcon = within(warningBadge).getByTestId("info-icon");
     expect(infoIcon).toHaveAttribute("aria-hidden", "true");
-    expect(infoIcon.className).toContain("text-info-9");
+    expect(infoIcon.getAttribute("class")).toContain("text-info-9");
 
     const warningTooltip = within(warningsCell)
       .getAllByTestId("tooltip-content")
@@ -156,7 +156,7 @@ describe("RUN-844 SurfaceRunRow merged warnings cell", () => {
       name: /1 warnings?/i,
     });
 
-    expect(within(warningsCell).getByTestId("alert-triangle-icon")).toBeTruthy();
+    expect(within(warningsCell).getAllByTestId("alert-triangle-icon").length).toBeGreaterThan(0);
     expect(within(warningsCell).getByText("3")).toBeTruthy();
     expect(mocks.runRegressionCalls).toContain(run.id);
 

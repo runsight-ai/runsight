@@ -261,12 +261,18 @@ async def test_workflow_warning_shape_run_snapshot_and_immutability(
     app_without_execution, base_dir
 ):
     from httpx import ASGITransport, AsyncClient
+    from runsight_api.transport.deps import get_execution_service
 
     soul_key = "run845_warning_soul"
     _write_warning_soul(base_dir, soul_key)
 
     warning_yaml = _warning_workflow_yaml(soul_key, declare_http=False)
     fixed_yaml = _warning_workflow_yaml(soul_key, declare_http=True)
+    fake_execution = Mock()
+    fake_execution.launch_execution = AsyncMock()
+    app_without_execution.dependency_overrides[get_execution_service] = (
+        lambda request=None: fake_execution
+    )
 
     async with AsyncClient(
         transport=ASGITransport(app=app_without_execution),
@@ -310,6 +316,12 @@ async def test_workflow_warning_shape_run_snapshot_and_immutability(
         run_data = create_run.json()
         run_id = run_data["id"]
         assert run_data["warnings"] == warnings
+        fake_execution.launch_execution.assert_called_once_with(
+            run_id,
+            workflow_id,
+            {},
+            branch="main",
+        )
 
         run_detail_before_fix = await client.get(f"/api/runs/{run_id}")
         assert run_detail_before_fix.status_code == 200

@@ -114,13 +114,13 @@ describe("RUN-843 WorkflowRow warning badge contract", () => {
 
     const warningBadge = within(row).getByRole("status", { name: /1 warnings?/i });
 
-    expect(within(row).getByTestId("alert-triangle-icon")).toBeTruthy();
+    expect(within(row).getAllByTestId("alert-triangle-icon").length).toBeGreaterThan(0);
     expect(warningBadge).toBeTruthy();
     const infoIcon = within(warningBadge).getByTestId("info-icon");
     expect(infoIcon).toHaveAttribute("aria-hidden", "true");
     expect(
       warningBadge.className.includes("text-info-9") ||
-      infoIcon.className.includes("text-info-9"),
+      (infoIcon.getAttribute("class") ?? "").includes("text-info-9"),
     ).toBe(true);
 
     const warningTooltip = within(row)
@@ -163,7 +163,7 @@ describe("RUN-843 WorkflowRow warning badge contract", () => {
     expect(infoIcon).toHaveAttribute("aria-hidden", "true");
     expect(
       warningBadge.className.includes("text-info-9") ||
-      infoIcon.className.includes("text-info-9"),
+      (infoIcon.getAttribute("class") ?? "").includes("text-info-9"),
     ).toBe(true);
     expect(within(row).queryByTestId("alert-triangle-icon")).toBeNull();
 

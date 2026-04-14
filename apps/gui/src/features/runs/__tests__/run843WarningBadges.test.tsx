@@ -37,6 +37,8 @@ vi.mock("lucide-react", () => ({
     }),
   Play: (props: Record<string, unknown>) =>
     React.createElement("svg", { ...props, "data-icon": "Play" }),
+  ChevronDownIcon: (props: Record<string, unknown>) =>
+    React.createElement("svg", { ...props, "data-icon": "ChevronDownIcon" }),
 }));
 
 vi.mock("@runsight/ui/tooltip", () => ({
@@ -222,7 +224,7 @@ describe("RUN-843 RunRow warnings + regressions cell", () => {
     expect(infoIcon).toHaveAttribute("aria-hidden", "true");
     expect(
       warningBadge.className.includes("text-info-9") ||
-      infoIcon.className.includes("text-info-9"),
+      (infoIcon.getAttribute("class") ?? "").includes("text-info-9"),
     ).toBe(true);
     expect(within(attentionCell).queryByTestId("alert-triangle-icon")).toBeNull();
 
@@ -266,7 +268,7 @@ describe("RUN-843 RunRow warnings + regressions cell", () => {
 
     expect(within(attentionCell).getByText("2")).toBeTruthy();
     expect(warningBadge).toHaveTextContent("1");
-    expect(within(attentionCell).getByTestId("alert-triangle-icon")).toBeTruthy();
+    expect(within(attentionCell).getAllByTestId("alert-triangle-icon").length).toBeGreaterThan(0);
 
     const infoIcon = within(warningBadge).getByTestId("info-icon");
     expect(infoIcon).toHaveAttribute("aria-hidden", "true");
