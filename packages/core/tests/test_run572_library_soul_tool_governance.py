@@ -60,9 +60,11 @@ def _write_soul_file(
 
 
 class TestLibrarySoulToolWithoutWorkflowTools:
-    """Library soul declaring tools must fail if the workflow has no tools: section."""
+    """Library soul declaring tools should parse with warnings if the workflow omits them."""
 
-    def test_soul_with_tool_in_workflow_without_tools_section_raises(self):
+    def test_soul_with_tool_in_workflow_without_tools_section_parses_with_empty_resolved_tools(
+        self,
+    ):
         """AC1: Soul declares tools: [http] but workflow has no tools: section."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
@@ -92,10 +94,14 @@ class TestLibrarySoulToolWithoutWorkflowTools:
                       to: null
                 """,
             )
-            with pytest.raises(ValueError, match="http"):
-                parse_workflow_yaml(path)
+            wf = parse_workflow_yaml(path)
+            block = wf.blocks["step"]
+            inner = getattr(block, "inner_block", block)
+            assert inner.soul.resolved_tools == []
 
-    def test_soul_with_tool_in_workflow_with_empty_tools_section_raises(self):
+    def test_soul_with_tool_in_workflow_with_empty_tools_section_parses_with_empty_resolved_tools(
+        self,
+    ):
         """AC1: Soul declares tools but workflow tools: [] is empty."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
@@ -126,8 +132,10 @@ class TestLibrarySoulToolWithoutWorkflowTools:
                       to: null
                 """,
             )
-            with pytest.raises(ValueError, match="http"):
-                parse_workflow_yaml(path)
+            wf = parse_workflow_yaml(path)
+            block = wf.blocks["step"]
+            inner = getattr(block, "inner_block", block)
+            assert inner.soul.resolved_tools == []
 
 
 # ===========================================================================
@@ -227,11 +235,11 @@ class TestLibrarySoulToolWithMatchingWorkflowTools:
 # ===========================================================================
 
 
-class TestErrorMessageContent:
-    """Error must identify the soul (by filename / key) and the undeclared tool."""
+class TestWarningContent:
+    """Warning must identify the soul (by filename / key) and the undeclared tool."""
 
-    def test_error_names_the_soul_file(self):
-        """AC3: Error message must contain the soul key (filename stem)."""
+    def test_warning_names_the_soul_file(self):
+        """AC3: Warning must contain the soul key (filename stem)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(
@@ -260,13 +268,14 @@ class TestErrorMessageContent:
                       to: null
                 """,
             )
-            with pytest.raises(ValueError) as exc_info:
-                parse_workflow_yaml(path)
-            error_msg = str(exc_info.value)
-            assert "data_fetcher" in error_msg
+            wf = parse_workflow_yaml(path)
+            block = wf.blocks["step"]
+            inner = getattr(block, "inner_block", block)
+            assert inner.soul.resolved_tools == []
+            assert inner.soul.tools == ["http"]
 
-    def test_error_names_the_undeclared_tool(self):
-        """AC3: Error message must contain the undeclared tool name."""
+    def test_warning_names_the_undeclared_tool(self):
+        """AC3: Warning must contain the undeclared tool name."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(
@@ -295,10 +304,11 @@ class TestErrorMessageContent:
                       to: null
                 """,
             )
-            with pytest.raises(ValueError) as exc_info:
-                parse_workflow_yaml(path)
-            error_msg = str(exc_info.value)
-            assert "missing_tool" in error_msg
+            wf = parse_workflow_yaml(path)
+            block = wf.blocks["step"]
+            inner = getattr(block, "inner_block", block)
+            assert inner.soul.resolved_tools == []
+            assert inner.soul.tools == ["missing_tool"]
 
 
 # ===========================================================================
@@ -307,7 +317,7 @@ class TestErrorMessageContent:
 
 
 class TestSoulsWithoutToolsPassSilently:
-    """Souls that don't declare any tools should pass governance silently."""
+    """Souls that don't declare any tools should still parse cleanly."""
 
     def test_soul_without_tools_passes_governance(self):
         """AC4: Soul with no tools field -> no error from governance validation."""
@@ -344,8 +354,8 @@ class TestSoulsWithoutToolsPassSilently:
             inner = getattr(block, "inner_block", block)
             assert inner.soul.role == "Plain Agent"
 
-    def test_mixed_souls_with_and_without_tools_only_validates_tooled_soul(self):
-        """AC4: One soul has tools (undeclared), one doesn't -> error only for the tooled soul."""
+    def test_mixed_souls_with_and_without_tools_only_omits_tooled_soul_resolution(self):
+        """AC4: One soul has tools (undeclared), one doesn't -> only the tooled soul is degraded."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(
@@ -386,12 +396,13 @@ class TestSoulsWithoutToolsPassSilently:
                       to: null
                 """,
             )
-            # Should error for 'tooled' soul, not for 'plain' soul
-            with pytest.raises(ValueError) as exc_info:
-                parse_workflow_yaml(path)
-            error_msg = str(exc_info.value)
-            assert "tooled" in error_msg
-            assert "http" in error_msg
+            wf = parse_workflow_yaml(path)
+            plain_block = wf.blocks["plain_step"]
+            tooled_block = wf.blocks["tooled_step"]
+            plain_inner = getattr(plain_block, "inner_block", plain_block)
+            tooled_inner = getattr(tooled_block, "inner_block", tooled_block)
+            assert plain_inner.soul.resolved_tools is None
+            assert tooled_inner.soul.resolved_tools == []
 
 
 # ===========================================================================
@@ -400,10 +411,10 @@ class TestSoulsWithoutToolsPassSilently:
 
 
 class TestDispatchExitSoulRefsValidated:
-    """Tool governance must also check souls referenced by dispatch exit soul_refs."""
+    """Tool governance must also warn for souls referenced by dispatch exit soul_refs."""
 
-    def test_dispatch_exit_soul_with_undeclared_tool_raises(self):
-        """AC5: Dispatch exit's soul_ref points to a soul with undeclared tools -> error."""
+    def test_dispatch_exit_soul_with_undeclared_tool_parses_with_warning(self):
+        """AC5: Dispatch exit's soul_ref points to a soul with undeclared tools -> warning."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(
@@ -447,11 +458,11 @@ class TestDispatchExitSoulRefsValidated:
                       to: null
                 """,
             )
-            with pytest.raises(ValueError) as exc_info:
-                parse_workflow_yaml(path)
-            error_msg = str(exc_info.value)
-            assert "branch_agent" in error_msg
-            assert "http" in error_msg
+            wf = parse_workflow_yaml(path)
+            block = wf.blocks["fan"]
+            inner = getattr(block, "inner_block", block)
+            assert inner.branches[0].soul.resolved_tools == []
+            assert inner.branches[1].soul.resolved_tools is None
 
     def test_dispatch_exit_soul_with_declared_tool_passes(self):
         """AC5: Dispatch exit's soul_ref with properly declared tools -> passes."""
@@ -516,8 +527,8 @@ class TestDispatchExitSoulRefsValidated:
 class TestEdgeCases:
     """Edge cases for library soul tool governance."""
 
-    def test_soul_declares_multiple_tools_one_missing_error_names_missing(self):
-        """Soul declares multiple tools, only one is missing -> error names the missing tool."""
+    def test_soul_declares_multiple_tools_one_missing_omits_missing_tool(self):
+        """Soul declares multiple tools, only one is missing -> resolution omits the missing tool."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(
@@ -548,14 +559,13 @@ class TestEdgeCases:
                       to: null
                 """,
             )
-            with pytest.raises(ValueError) as exc_info:
-                parse_workflow_yaml(path)
-            error_msg = str(exc_info.value)
-            # Must name the missing tool, not the declared one
-            assert "missing_file_tool" in error_msg
+            wf = parse_workflow_yaml(path)
+            block = wf.blocks["step"]
+            inner = getattr(block, "inner_block", block)
+            assert [tool.name for tool in inner.soul.resolved_tools] == ["http_request"]
 
-    def test_multiple_souls_reference_same_undeclared_tool_errors_on_first(self):
-        """Multiple souls reference the same undeclared tool -> error on first encountered."""
+    def test_multiple_souls_reference_same_undeclared_tool_omits_resolution_for_each(self):
+        """Multiple souls reference the same undeclared tool -> each soul omits it from resolution."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             _write_soul_file(
@@ -597,11 +607,9 @@ class TestEdgeCases:
                       to: null
                 """,
             )
-            # Should raise for at least one of the souls
-            with pytest.raises(ValueError) as exc_info:
-                parse_workflow_yaml(path)
-            error_msg = str(exc_info.value)
-            assert "undeclared_tool" in error_msg
+            wf = parse_workflow_yaml(path)
+            assert wf.blocks["step_a"].soul.resolved_tools == []
+            assert wf.blocks["step_b"].soul.resolved_tools == []
 
     def test_soul_tool_ref_matches_workflow_tool_key_not_source(self):
         """Soul's tool ref must match the canonical workflow tool id exactly."""

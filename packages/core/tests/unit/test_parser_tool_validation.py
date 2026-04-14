@@ -22,6 +22,7 @@ from pydantic import ValidationError
 from runsight_core.tools import ToolInstance
 from runsight_core.yaml.parser import _resolve_soul_tool_definition, parse_workflow_yaml
 from runsight_core.yaml.schema import RunsightWorkflowFile
+from runsight_core.yaml.validation import ValidationResult
 
 # ---------------------------------------------------------------------------
 # Helper: minimal YAML builder for tool-validation tests
@@ -193,11 +194,9 @@ souls:
       to: null""",
         )
 
-        with pytest.raises(
-            ValueError,
-            match=r"undeclared tool 'http'.*Declared tools: \[\]",
-        ):
-            parse_workflow_yaml(yaml_str)
+        workflow = parse_workflow_yaml(yaml_str)
+        soul = workflow.blocks["my_block"].soul
+        assert soul.resolved_tools == []
 
 
 # ===========================================================================
@@ -274,7 +273,12 @@ souls:
         )
         file_def = RunsightWorkflowFile.model_validate(raw)
 
-        parser_module.validate_tool_governance(file_def)
+        result = parser_module.validate_tool_governance(file_def)
+
+        assert isinstance(result, ValidationResult)
+        assert result.issues == []
+        assert result.has_errors is False
+        assert result.has_warnings is False
 
 
 # ===========================================================================
@@ -392,8 +396,9 @@ souls:
       to: null""",
         )
 
-        with pytest.raises(ValueError, match=r"undeclared tool 'http'.*Declared tools: \[\]"):
-            parse_workflow_yaml(yaml_str)
+        workflow = parse_workflow_yaml(yaml_str)
+        soul = workflow.blocks["my_block"].soul
+        assert soul.resolved_tools == []
 
     def test_missing_custom_tool_id_raises_actionable_valueerror(self, tmp_path):
         """Custom IDs declared in the workflow must resolve to checkout-local metadata files."""
@@ -533,15 +538,15 @@ souls:
 
 
 # ===========================================================================
-# AC2: Soul references undeclared tool -> ValueError at parse time
+# AC2: Soul references undeclared tool -> warning at parse time
 # ===========================================================================
 
 
 class TestUndeclaredToolReference:
-    """Soul referencing a tool not in the tools section raises ValueError."""
+    """Soul referencing a tool not in the tools section should parse with warnings."""
 
-    def test_soul_references_undeclared_tool_raises_valueerror(self):
-        """AC2: Soul references tool 'foo' not in tools section -> ValueError."""
+    def test_soul_references_undeclared_tool_parses_with_empty_resolved_tools(self):
+        """AC2: Soul references tool 'foo' not in tools section -> warning and omission."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -563,11 +568,13 @@ souls:
       to: null""",
         )
 
-        with pytest.raises(ValueError, match="undeclared tool"):
-            parse_workflow_yaml(yaml_str)
+        workflow = parse_workflow_yaml(yaml_str)
+        soul = workflow.blocks["my_block"].soul
 
-    def test_undeclared_tool_error_mentions_soul_name(self):
-        """AC2: Error message includes the soul name and declared tool keys."""
+        assert soul.resolved_tools == []
+
+    def test_undeclared_tool_warning_keeps_workflow_parseable_for_library_souls(self):
+        """AC2: A library soul with an undeclared tool should still parse successfully."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -590,8 +597,10 @@ souls:
       to: null""",
         )
 
-        with pytest.raises(ValueError, match="researcher_agent"):
-            parse_workflow_yaml(yaml_str)
+        workflow = parse_workflow_yaml(yaml_str)
+        soul = workflow.blocks["my_block"].soul
+
+        assert soul.resolved_tools == []
 
     def test_direct_system_tool_source_still_rejected_for_soul_level_assignment(self):
         """System-owned tools like runsight/delegate must not be directly assignable on souls."""
