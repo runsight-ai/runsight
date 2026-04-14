@@ -5,7 +5,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from ...domain.entities.run import RunStatus
-from ...domain.errors import RunFailed, ServiceUnavailable
+from ...domain.errors import RunFailed, RunNotFound, ServiceUnavailable
 from ...logic.services.eval_service import EvalService
 from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
@@ -388,9 +388,7 @@ async def get_run_regressions(
 ):
     result = eval_service.get_run_regressions(run_id)
     if result is None:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+        raise RunNotFound(f"Run {run_id} not found")
     return result
 
 

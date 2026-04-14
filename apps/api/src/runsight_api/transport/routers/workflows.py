@@ -1,7 +1,6 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
 
 from ...logic.services.eval_service import EvalService
 from ...logic.services.workflow_service import WorkflowService
@@ -37,14 +36,11 @@ async def list_workflows(
 
 @router.get("/{id}", response_model=WorkflowResponse)
 async def get_workflow(id: str, service: WorkflowService = Depends(get_workflow_service)):
-    from ...domain.errors import RunsightError, WorkflowNotFound
+    from ...domain.errors import WorkflowNotFound
 
-    try:
-        w = service.get_workflow_detail(id)
-        if not w:
-            raise WorkflowNotFound(f"Workflow {id} not found")
-    except RunsightError as exc:
-        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
+    w = service.get_workflow_detail(id)
+    if not w:
+        raise WorkflowNotFound(f"Workflow {id} not found")
     return WorkflowResponse(**w.model_dump())
 
 
@@ -93,12 +89,7 @@ async def patch_workflow_enabled(
     body: WorkflowEnabledUpdate,
     service: WorkflowService = Depends(get_workflow_service),
 ):
-    from ...domain.errors import RunsightError
-
-    try:
-        w = service.set_enabled(id, body.enabled)
-    except RunsightError as exc:
-        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
+    w = service.set_enabled(id, body.enabled)
     return WorkflowResponse(**w.model_dump())
 
 
@@ -117,9 +108,4 @@ async def delete_workflow(
     force: bool = False,
     service: WorkflowService = Depends(get_workflow_service),
 ):
-    from ...domain.errors import RunsightError
-
-    try:
-        return service.delete_workflow(id, force=force)
-    except RunsightError as exc:
-        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
+    return service.delete_workflow(id, force=force)
