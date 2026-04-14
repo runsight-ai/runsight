@@ -313,7 +313,8 @@ def test_build_block_context_synthesize_missing_one_input_raises(mock_runner, sy
     """build_block_context must raise ValueError when one of the input_block_ids is absent."""
     block = SynthesizeBlock("synth1", ["block_a", "block_b"], synth_soul, mock_runner)
     state = WorkflowState(
-        results={"block_a": BlockResult(output="Output A")}
+        results={"block_a": BlockResult(output="Output A")},
+        current_task=Task(id="t1", instruction="synthesize"),
         # block_b deliberately missing
     )
 
@@ -343,7 +344,8 @@ def test_build_block_context_synthesize_error_message_lists_available(mock_runne
     """ValueError from missing inputs must include available block ids for debugging."""
     block = SynthesizeBlock("synth1", ["block_a", "block_b"], synth_soul, mock_runner)
     state = WorkflowState(
-        results={"block_a": BlockResult(output="Output A"), "other_block": BlockResult(output="X")}
+        results={"block_a": BlockResult(output="Output A"), "other_block": BlockResult(output="X")},
+        current_task=Task(id="t1", instruction="synthesize"),
         # block_b missing; other_block is present
     )
 
