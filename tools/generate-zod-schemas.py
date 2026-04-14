@@ -56,17 +56,16 @@ def generate_object_schema(schema: dict, schemas: dict) -> str:
             zod_type = f"{zod_type}.optional()"
         if "default" in prop:
             default_val = prop["default"]
-            if isinstance(default_val, bool):
-                zod_type = f"{zod_type}.default({str(default_val).lower()})"
-            elif isinstance(default_val, (int, float)):
-                zod_type = f"{zod_type}.default({default_val})"
-            elif isinstance(default_val, str):
-                zod_type = f'{zod_type}.default("{default_val}")'
-            elif default_val is None:
+            if default_val is None:
                 pass  # nullable already handled
+            else:
+                zod_type = f"{zod_type}.default({json.dumps(default_val)})"
         fields.append(f"  {name}: {zod_type},")
     body = "\n".join(fields)
-    return f"z.object({{\n{body}\n}})"
+    zod_expr = f"z.object({{\n{body}\n}})"
+    if schema.get("additionalProperties") is False:
+        zod_expr += ".strict()"
+    return zod_expr
 
 
 def schema_forbids_unknown_fields(schema: dict) -> bool:
