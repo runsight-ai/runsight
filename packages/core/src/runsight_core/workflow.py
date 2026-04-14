@@ -12,6 +12,7 @@ import time
 from collections import deque
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Deque, Dict, List, Optional, Tuple
 
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, evaluate_output_conditions
 from runsight_core.state import BlockResult, WorkflowState
@@ -139,6 +140,12 @@ async def execute_block(
             loop_kwargs = dict(kwargs_for_context)
             loop_kwargs.update({"blocks": ctx.blocks, "ctx": ctx})
             return await blk.execute(current_state, **loop_kwargs)
+        from runsight_core.blocks.linear import LinearBlock
+
+        if isinstance(blk, LinearBlock):
+            block_ctx = build_block_context(blk, current_state, step=None)
+            output = await blk.execute(block_ctx)
+            return apply_block_output(current_state, blk.block_id, output)
         if passthrough_kwargs:
             return await blk.execute(current_state, **passthrough_kwargs)
         return await blk.execute(current_state)

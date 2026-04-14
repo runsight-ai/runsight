@@ -102,19 +102,18 @@ class BaseBlock(ABC):
         return await state.artifact_store.read(ref)
 
     @abstractmethod
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, state_or_ctx, **kwargs):
         """
-        Execute this block's logic using the provided state.
+        Execute this block's logic.
 
-        Args:
-            state: Current workflow state. MUST NOT be mutated directly.
+        Legacy signature: execute(state: WorkflowState, **kwargs) -> WorkflowState
+        New signature: execute(ctx: BlockContext) -> BlockOutput
 
-        Returns:
-            New WorkflowState with updated results, execution_log, or shared_memory.
-            MUST include this block's output in state.results[self.block_id].
+        During migration, some blocks use the legacy signature and some use the new one.
+        Subclasses must implement one of these two signatures.
 
         Raises:
-            ValueError: If required inputs are missing from state.
+            ValueError: If required inputs are missing.
             Exception: If execution fails (propagates to Workflow.run() caller).
         """
         pass

@@ -6,13 +6,14 @@ Co-located: runtime class + BlockDef schema + build() function.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Optional, Union
 
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.memory.token_counting import litellm_token_counter
-from runsight_core.primitives import Soul
+from runsight_core.primitives import Soul, Task
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -30,7 +31,58 @@ class LinearBlock(BaseBlock):
         self.soul = soul
         self.runner = runner
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(  # type: ignore[override]
+        self,
+        state_or_ctx: Union[BlockContext, WorkflowState],
+        **kwargs: Any,
+    ) -> Union[BlockOutput, WorkflowState]:
+        """Execute block. Accepts BlockContext (new path) or WorkflowState (legacy path)."""
+        if isinstance(state_or_ctx, BlockContext):
+            return await self._execute_with_context(state_or_ctx)
+        return await self._execute_with_state(state_or_ctx, **kwargs)
+
+    async def _execute_with_context(self, ctx: BlockContext) -> BlockOutput:
+        """New path: accept BlockContext, return pure BlockOutput (no state mutation)."""
+        soul = ctx.soul or self.soul
+
+        if self.stateful:
+            history_key = f"{self.block_id}_{soul.id}"
+            messages = list(ctx.conversation_history)
+            task = Task(
+                id=f"{self.block_id}_task",
+                instruction=ctx.instruction,
+                context=ctx.context or "",
+            )
+            result = await self.runner.execute_task(task, soul, messages=messages)
+            prompt = self.runner._build_prompt(task)
+            new_messages = [
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": result.output},
+            ]
+            conversation_updates: Optional[Dict[str, Any]] = {history_key: new_messages}
+        else:
+            task = Task(
+                id=f"{self.block_id}_task",
+                instruction=ctx.instruction,
+                context=ctx.context or "",
+            )
+            result = await self.runner.execute_task(task, soul)
+            conversation_updates = None
+
+        truncated = result.output[:200] + "..." if len(result.output) > 200 else result.output
+        return BlockOutput(
+            output=result.output,
+            exit_handle=result.exit_handle,
+            cost_usd=result.cost_usd,
+            total_tokens=result.total_tokens,
+            log_entries=[
+                {"role": "system", "content": f"[Block {self.block_id}] Completed: {truncated}"}
+            ],
+            conversation_updates=conversation_updates,
+        )
+
+    async def _execute_with_state(self, state: WorkflowState, **kwargs: Any) -> WorkflowState:
+        """Legacy path: accept WorkflowState, return updated WorkflowState."""
         if state.current_task is None:
             raise ValueError(f"LinearBlock {self.block_id}: state.current_task is None")
 
@@ -63,7 +115,6 @@ class LinearBlock(BaseBlock):
             result = await self.runner.execute_task(task, self.soul)
             conversation_update = state.conversation_histories
 
-        # Truncate output for message log (prevent state size explosion)
         truncated = result.output[:200] + "..." if len(result.output) > 200 else result.output
 
         return state.model_copy(
