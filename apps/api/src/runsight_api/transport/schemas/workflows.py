@@ -25,6 +25,14 @@ class WorkflowHealthMetrics(BaseModel):
     regression_count: int = 0
 
 
+class WarningItem(BaseModel):
+    message: str
+    source: str | None = None
+    context: str | None = None
+
+    model_config = {"json_schema_extra": {"additionalProperties": False}}
+
+
 class WorkflowResponse(BaseModel):
     id: str
     name: Optional[str] = None
@@ -33,6 +41,10 @@ class WorkflowResponse(BaseModel):
     canvas_state: Optional[WorkflowCanvasState] = None
     valid: bool = True
     validation_error: Optional[str] = None
+    warnings: List[WarningItem] = Field(
+        default_factory=list,
+        json_schema_extra={"default": []},
+    )
     block_count: int = 0
     modified_at: float | None = None
     enabled: bool = False

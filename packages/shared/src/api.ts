@@ -1597,6 +1597,15 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** WarningItem */
+        WarningItem: {
+            /** Message */
+            message: string;
+            /** Source */
+            source?: string | null;
+            /** Context */
+            context?: string | null;
+        };
         /** WorkflowCanvasState */
         WorkflowCanvasState: {
             /** Nodes */
@@ -1712,6 +1721,11 @@ export interface components {
             valid: boolean;
             /** Validation Error */
             validation_error?: string | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["WarningItem"][];
             /**
              * Block Count
              * @default 0

@@ -201,18 +201,19 @@ class WorkflowRepository:
 
     def _validate_yaml_content(
         self, workflow_id: str, raw_yaml: Optional[str]
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> Tuple[bool, Optional[str], List[Dict[str, Optional[str]]]]:
         """Validate raw YAML string against RunsightWorkflowFile schema.
 
-        Returns (valid, validation_error) — never raises.
+        Returns (valid, validation_error, warnings) — never raises.
         If raw_yaml is None or empty, returns (False, ...).
         """
         if not raw_yaml:
-            return False, "No YAML content to validate"
+            return False, "No YAML content to validate", []
+        warnings: List[Dict[str, Optional[str]]] = []
         try:
             data = yaml_mod.safe_load(raw_yaml)
             if not isinstance(data, dict):
-                return False, "YAML content is not a mapping"
+                return False, "YAML content is not a mapping", []
             file_def = RunsightWorkflowFile.model_validate(data)
             souls_map = SoulScanner(self.base_path).scan().stems()
             validation_result = validate_tool_governance(file_def, souls_map)
@@ -223,17 +224,25 @@ class WorkflowRepository:
                     require_custom_metadata=True,
                 )
             )
+            warnings = validation_result.warnings_as_dicts()
             if validation_result.has_errors:
-                return False, validation_result.error_summary or "Tool governance validation failed"
+                return (
+                    False,
+                    validation_result.error_summary or "Tool governance validation failed",
+                    warnings,
+                )
             if self._has_workflow_blocks(file_def):
-                self.build_runnable_workflow_registry(workflow_id, raw_yaml)
-            return True, None
+                try:
+                    self.build_runnable_workflow_registry(workflow_id, raw_yaml)
+                except ValueError as e:
+                    return False, str(e), warnings
+            return True, None, warnings
         except PydanticValidationError as e:
-            return False, str(e)
+            return False, str(e), []
         except ValueError as e:
-            return False, str(e)
+            return False, str(e), warnings
         except Exception as e:
-            return False, f"Unexpected validation error: {e}"
+            return False, f"Unexpected validation error: {e}", warnings
 
     def _write_canvas_sidecar(self, stem: str, canvas_state: Any) -> None:
         """Write the canvas sidecar JSON file."""
@@ -283,7 +292,7 @@ class WorkflowRepository:
                       field in the entity will be None.
         """
         # Validate the raw YAML content against RunsightWorkflowFile schema
-        valid, validation_error = self._validate_yaml_content(stem, raw_yaml)
+        valid, validation_error, warnings = self._validate_yaml_content(stem, raw_yaml)
 
         entity_data = dict(data)
         # id comes from the filename stem, not from inside the YAML
@@ -291,6 +300,7 @@ class WorkflowRepository:
         entity_data["yaml"] = raw_yaml
         entity_data["valid"] = valid
         entity_data["validation_error"] = validation_error
+        entity_data["warnings"] = warnings
         entity_data["filename"] = f"{stem}.yaml"
         if canvas_state is not None:
             entity_data["canvas_state"] = canvas_state

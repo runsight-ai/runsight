@@ -5220,6 +5220,42 @@
         ],
         "title": "ValidationError"
       },
+      "WarningItem": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "WarningItem"
+      },
       "WorkflowCanvasState": {
         "properties": {
           "nodes": {
@@ -5553,6 +5589,14 @@
               }
             ],
             "title": "Validation Error"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/WarningItem"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
           },
           "block_count": {
             "type": "integer",

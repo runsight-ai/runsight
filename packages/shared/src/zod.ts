@@ -190,7 +190,7 @@ export type ProviderTestIn = z.infer<typeof ProviderTestInSchema>;
 export const ProviderTestOutSchema = z.object({
   success: z.boolean(),
   message: z.string(),
-  models: z.array(z.string()).optional(),
+  models: z.array(z.string()).optional().default([]),
   model_count: z.number().optional().default(0),
   latency_ms: z.number().optional().default(0.0),
 });
@@ -318,7 +318,7 @@ export const SettingsProviderResponseSchema = z.object({
   api_key_env: z.string().nullable().optional(),
   api_key_preview: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
-  models: z.array(z.string()).optional(),
+  models: z.array(z.string()).optional().default([]),
   model_count: z.number().optional().default(0),
   created_at: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
@@ -504,6 +504,13 @@ export const ToolListItemResponseSchema = z.object({
 });
 export type ToolListItemResponse = z.infer<typeof ToolListItemResponseSchema>;
 
+export const WarningItemSchema = z.object({
+  message: z.string(),
+  source: z.string().nullable().optional(),
+  context: z.string().nullable().optional(),
+}).strict();
+export type WarningItem = z.infer<typeof WarningItemSchema>;
+
 export const WorkflowCanvasStateSchema = z.object({
   nodes: z.array(z.record(z.string(), z.unknown())).optional(),
   edges: z.array(z.record(z.string(), z.unknown())).optional(),
@@ -566,6 +573,7 @@ export const WorkflowResponseSchema = z.object({
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
   valid: z.boolean().optional().default(true),
   validation_error: z.string().nullable().optional(),
+  warnings: z.array(WarningItemSchema).optional().default([]),
   block_count: z.number().optional().default(0),
   modified_at: z.number().nullable().optional(),
   enabled: z.boolean().optional().default(false),

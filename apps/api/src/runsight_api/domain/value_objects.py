@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -35,6 +35,7 @@ class WorkflowEntity(BaseModel):
     enabled: bool = False
     validation_error: Optional[str] = None
     filename: Optional[str] = None
+    warnings: List[Dict[str, Optional[str]]] = Field(default_factory=list)
     model_config = {"extra": "allow"}
 
 
