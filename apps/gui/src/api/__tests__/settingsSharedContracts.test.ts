@@ -144,10 +144,6 @@ function collectLocalConcernBindings(source: string) {
       fieldPatterns: [/provider_id\s*:/, /provider_name\s*:/, /fallback_provider_id\s*:/, /fallback_model_id\s*:/],
     },
     {
-      concern: "budget",
-      fieldPatterns: [/\bname\s*:/, /limit_usd\s*:/, /period\s*:/],
-    },
-    {
       concern: "app-settings",
       fieldPatterns: [/onboarding_completed\s*:/, /fallback_enabled\s*:/],
     },
@@ -214,15 +210,6 @@ const modelDefaultItemPayload = {
   fallback_model_id: "claude-sonnet-4",
 };
 
-const budgetItemPayload = {
-  id: "team",
-  name: "Team Budget",
-  limit_usd: 100,
-  spent_usd: 42.5,
-  period: "monthly",
-  reset_at: "2026-04-30T00:00:00Z",
-};
-
 const appSettingsPayload = {
   base_path: "/workspace",
   onboarding_completed: true,
@@ -247,9 +234,6 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       { methodName: "updateProvider", exportedSchemaName: "SettingsProviderResponseSchema" },
       { methodName: "listFallbackTargets", exportedSchemaName: "SettingsFallbackListResponseSchema" },
       { methodName: "updateFallbackTarget", exportedSchemaName: "SettingsFallbackResponseSchema" },
-      { methodName: "getBudgets", exportedSchemaName: "SettingsBudgetListResponseSchema" },
-      { methodName: "createBudget", exportedSchemaName: "SettingsBudgetResponseSchema" },
-      { methodName: "updateBudget", exportedSchemaName: "SettingsBudgetResponseSchema" },
       { methodName: "getAppSettings", exportedSchemaName: "AppSettingsOutSchema" },
       { methodName: "updateAppSettings", exportedSchemaName: "AppSettingsOutSchema" },
       { methodName: "testProviderConnection", exportedSchemaName: "ProviderTestOutSchema" },
@@ -289,9 +273,6 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       "updateProvider",
       "listFallbackTargets",
       "updateFallbackTarget",
-      "getBudgets",
-      "createBudget",
-      "updateBudget",
       "getAppSettings",
       "updateAppSettings",
       "testProviderConnection",
@@ -304,8 +285,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
     expect(
       localConcernBindings,
       [
-        "Expected apps/gui/src/api/settings.ts to stop locally constructing provider/model-default/budget/app-settings transport schemas.",
-        "Expected apps/gui/src/api/settings.ts to stop locally constructing provider/fallback/budget/app-settings transport schemas.",
+        "Expected apps/gui/src/api/settings.ts to stop locally constructing provider/model-default/app-settings transport schemas.",
+        "Expected apps/gui/src/api/settings.ts to stop locally constructing provider/fallback/app-settings transport schemas.",
         `Found local constructions: ${localConcernBindings.map(({ binding, concern }) => `${binding} (${concern})`).join(", ") || "(none)"}`,
       ].join("\n"),
     ).toEqual([]);
@@ -443,69 +424,6 @@ describe("RUN-512 settings API canonical shared contracts", () => {
             provider_name: modelDefaultItemPayload.provider_name,
             fallback_provider_id: modelDefaultItemPayload.fallback_provider_id,
             fallback_model_id: modelDefaultItemPayload.fallback_model_id,
-          }),
-        );
-      },
-    },
-    {
-      title: "preserves budget transport fields for getBudgets",
-      payload: { items: [budgetItemPayload], total: 1 },
-      arrange: (payload) => {
-        testState.apiGet.mockResolvedValue(payload);
-      },
-      invoke: (settingsApi) => settingsApi.getBudgets(),
-      assertResult: (result) => {
-        expect(result).toEqual(
-          expect.objectContaining({
-            items: [
-              expect.objectContaining({
-                spent_usd: budgetItemPayload.spent_usd,
-                reset_at: budgetItemPayload.reset_at,
-              }),
-            ],
-            total: 1,
-          }),
-        );
-      },
-    },
-    {
-      title: "preserves budget transport fields for createBudget",
-      payload: budgetItemPayload,
-      arrange: (payload) => {
-        testState.apiPost.mockResolvedValue(payload);
-      },
-      invoke: (settingsApi) =>
-        settingsApi.createBudget({
-          name: "Team Budget",
-          limit_usd: 100,
-          period: "monthly",
-        }),
-      assertResult: (result) => {
-        expect(result).toEqual(
-          expect.objectContaining({
-            spent_usd: budgetItemPayload.spent_usd,
-            reset_at: budgetItemPayload.reset_at,
-          }),
-        );
-      },
-    },
-    {
-      title: "preserves budget transport fields for updateBudget",
-      payload: budgetItemPayload,
-      arrange: (payload) => {
-        testState.apiPut.mockResolvedValue(payload);
-      },
-      invoke: (settingsApi) =>
-        settingsApi.updateBudget("team", {
-          name: "Team Budget",
-          limit_usd: 100,
-          period: "monthly",
-        }),
-      assertResult: (result) => {
-        expect(result).toEqual(
-          expect.objectContaining({
-            spent_usd: budgetItemPayload.spent_usd,
-            reset_at: budgetItemPayload.reset_at,
           }),
         );
       },

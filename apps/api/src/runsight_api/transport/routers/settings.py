@@ -83,20 +83,6 @@ class FallbackUpdate(BaseModel):
     fallback_model_id: str | None = None
 
 
-class SettingsBudgetResponse(BaseModel):
-    id: str
-    name: str
-    limit_usd: float
-    spent_usd: float
-    period: str
-    reset_at: Optional[str] = None
-
-
-class SettingsBudgetListResponse(BaseModel):
-    items: list["SettingsBudgetResponse"]
-    total: int
-
-
 # Non-Optional StrictBool with a None default keeps fields optional in OpenAPI
 # while explicit null still fails validation.
 class AppSettingsOut(BaseModel):
@@ -249,11 +235,6 @@ async def update_fallback_target(
         fallback_provider_id=data.fallback_provider_id,
         fallback_model_id=data.fallback_model_id,
     )
-
-
-@router.get("/budgets", response_model=SettingsBudgetListResponse)
-async def list_budgets():
-    return {"items": [], "total": 0}
 
 
 @router.get("/app", response_model=AppSettingsOut)

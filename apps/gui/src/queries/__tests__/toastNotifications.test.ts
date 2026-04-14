@@ -212,18 +212,6 @@ describe("settings.ts toast notifications (RUN-240)", () => {
   expectErrorToast(settingsSource, "useTestProviderConnection");
   expectOnErrorCallback(settingsSource, "useTestProviderConnection");
 
-  expectSuccessToast(settingsSource, "useCreateBudget", "Budget created");
-  expectErrorToast(settingsSource, "useCreateBudget");
-  expectOnErrorCallback(settingsSource, "useCreateBudget");
-
-  expectSuccessToast(settingsSource, "useUpdateBudget", "Budget updated");
-  expectErrorToast(settingsSource, "useUpdateBudget");
-  expectOnErrorCallback(settingsSource, "useUpdateBudget");
-
-  expectSuccessToast(settingsSource, "useDeleteBudget", "Budget deleted");
-  expectErrorToast(settingsSource, "useDeleteBudget");
-  expectOnErrorCallback(settingsSource, "useDeleteBudget");
-
   expectSuccessToast(settingsSource, "useUpdateAppSettings", "Settings saved");
   expectErrorToast(settingsSource, "useUpdateAppSettings");
   expectOnErrorCallback(settingsSource, "useUpdateAppSettings");
@@ -252,7 +240,7 @@ describe("Only mutations have toasts, not queries (RUN-240)", () => {
     { source: runsSource, names: ["useRuns", "useRun", "useRunNodes", "useRunLogs"] },
     {
       source: settingsSource,
-      names: ["useProviders", "useProvider", "useFallbackTargets", "useBudgets", "useAppSettings"],
+      names: ["useProviders", "useProvider", "useFallbackTargets", "useAppSettings"],
     },
     { source: gitSource, names: ["useGitStatus", "useGitLog", "useGitDiff"] },
     { source: dashboardSource, names: ["useDashboardSummary", "useRecentRuns"] },
@@ -298,9 +286,6 @@ describe("Error toasts include error.message in description (RUN-240)", () => {
     { source: settingsSource, hookName: "useDeleteProvider", file: "settings.ts" },
     { source: settingsSource, hookName: "useTestProviderConnection", file: "settings.ts" },
     { source: settingsSource, hookName: "useUpdateFallbackTarget", file: "settings.ts" },
-    { source: settingsSource, hookName: "useCreateBudget", file: "settings.ts" },
-    { source: settingsSource, hookName: "useUpdateBudget", file: "settings.ts" },
-    { source: settingsSource, hookName: "useDeleteBudget", file: "settings.ts" },
     { source: settingsSource, hookName: "useUpdateAppSettings", file: "settings.ts" },
   ];
 
