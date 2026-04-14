@@ -56,21 +56,20 @@ def generate_object_schema(schema: dict, schemas: dict) -> str:
             zod_type = f"{zod_type}.optional()"
         if "default" in prop:
             default_val = prop["default"]
-            if default_val is None:
-                pass  # nullable already handled
-            else:
+            if isinstance(default_val, bool):
+                zod_type = f"{zod_type}.default({str(default_val).lower()})"
+            elif isinstance(default_val, (int, float)):
+                zod_type = f"{zod_type}.default({default_val})"
+            elif isinstance(default_val, str):
                 zod_type = f"{zod_type}.default({json.dumps(default_val)})"
+            elif default_val is None:
+                pass  # nullable already handled
         fields.append(f"  {name}: {zod_type},")
     body = "\n".join(fields)
     zod_expr = f"z.object({{\n{body}\n}})"
     if schema.get("additionalProperties") is False:
         zod_expr += ".strict()"
     return zod_expr
-
-
-def schema_forbids_unknown_fields(schema: dict) -> bool:
-    """Return whether an OpenAPI object schema rejects additional properties."""
-    return schema.get("additionalProperties") is False
 
 
 def generate_zod_file(openapi_path: str, output_path: str) -> None:
@@ -115,8 +114,6 @@ def generate_zod_file(openapi_path: str, output_path: str) -> None:
     for name in sorted_names:
         schema = schemas[name]
         zod_expr = generate_object_schema(schema, schemas)
-        if schema_forbids_unknown_fields(schema):
-            zod_expr = f"{zod_expr}.strict()"
         lines.append(f"export const {name}Schema = {zod_expr};")
         lines.append(f"export type {name} = z.infer<typeof {name}Schema>;")
         lines.append("")
