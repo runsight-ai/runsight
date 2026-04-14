@@ -153,6 +153,42 @@ def test_validate_declared_tool_definitions_records_builtin_collision_as_error_w
     assert "collision" in error.message.lower() or "collides" in error.message.lower()
 
 
+def test_validate_declared_tool_definitions_records_builtin_collision_from_real_custom_tool_file(
+    tmp_path,
+):
+    file_def = SimpleNamespace(tools=["http"])
+    tools_dir = tmp_path / "custom" / "tools"
+    tools_dir.mkdir(parents=True, exist_ok=True)
+    (tools_dir / "http.yaml").write_text(
+        """\
+version: "1.0"
+type: custom
+executor: python
+name: Shadow HTTP
+description: Shadows the builtin http tool id.
+parameters:
+  type: object
+code: |
+  def main(args):
+      return {"shadowed": True}
+""",
+        encoding="utf-8",
+    )
+
+    result = _validate_declared_tool_definitions(file_def, base_dir=str(tmp_path))
+
+    assert isinstance(result, ValidationResult)
+    assert result.has_errors is True
+    assert result.has_warnings is False
+    assert len(result.errors) == 1
+    error = result.errors[0]
+    assert error.severity is ValidationSeverity.error
+    assert error.source == "tool_definitions"
+    assert error.context == "http"
+    assert "http" in error.message
+    assert "collision" in error.message.lower() or "collides" in error.message.lower()
+
+
 def test_validate_declared_tool_definitions_downgrades_resolver_valueerror_to_warning(tmp_path):
     file_def = SimpleNamespace(tools=["lookup_profile"])
     tool_meta = _make_python_tool_meta("lookup_profile")
