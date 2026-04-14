@@ -217,7 +217,7 @@ async def test_invalid_path_prefix_raises(base_parent_state, mock_child_workflow
 
 @pytest.mark.asyncio
 async def test_resolve_dotted_current_task(base_parent_state):
-    """Test _resolve_dotted with current_task path."""
+    """Test _resolve_dotted raises for deprecated current_task path (RUN-877)."""
     # Arrange
     from runsight_core.primitives import Task
 
@@ -230,12 +230,9 @@ async def test_resolve_dotted_current_task(base_parent_state):
         outputs={},
     )
 
-    # Act
-    value = block._resolve_dotted(state, "current_task")
-
-    # Assert
-    assert value == task
-    assert value.id == "task_1"
+    # Act & Assert — current_task is deprecated, must raise ValueError
+    with pytest.raises(ValueError, match=r"(?i)deprecat|use results\.\*|use shared_memory\.\*"):
+        block._resolve_dotted(state, "current_task")
 
 
 @pytest.mark.asyncio
