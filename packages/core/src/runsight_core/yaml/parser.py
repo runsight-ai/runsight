@@ -890,14 +890,6 @@ def parse_workflow_yaml(
 
     # Step 11: Validate (raises ValueError if topology is invalid)
     errors = wf.validate()
-    if (
-        errors
-        and len(errors) == 1
-        and errors[0].startswith("Entry block '")
-        and len(built_blocks) == 1
-    ):
-        wf.set_entry(next(iter(built_blocks)))
-        errors = wf.validate()
     if errors:
         raise ValueError(f"Workflow '{file_def.workflow.name}' failed validation: {errors}")
 
