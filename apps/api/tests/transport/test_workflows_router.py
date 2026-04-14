@@ -31,6 +31,7 @@ def test_workflows_list():
     assert "total" in data
     assert len(data["items"]) == 1
     assert data["items"][0]["id"] == "wf_1"
+    assert data["items"][0]["warnings"] == []
 
 
 def test_workflows_get():
@@ -47,6 +48,13 @@ def test_workflows_get():
         blocks={},
         edges=[],
         commit_sha="abc123def456",
+        warnings=[
+            {
+                "message": "Tool definition warning",
+                "source": "tool_definitions",
+                "context": "lookup_profile",
+            }
+        ],
     )
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
@@ -54,6 +62,13 @@ def test_workflows_get():
     assert response.status_code == 200
     assert response.json()["id"] == "wf_1"
     assert response.json()["commit_sha"] == "abc123def456"
+    assert response.json()["warnings"] == [
+        {
+            "message": "Tool definition warning",
+            "source": "tool_definitions",
+            "context": "lookup_profile",
+        }
+    ]
     mock_service.get_workflow_detail.assert_called_once_with("wf_1")
     mock_service.get_workflow.assert_not_called()
 
@@ -85,6 +100,7 @@ def test_workflows_post():
     )
     assert response.status_code == 200
     assert response.json()["id"] == "wf_new"
+    assert response.json()["warnings"] == []
 
 
 def test_workflows_post_requires_yaml():
@@ -121,6 +137,7 @@ def test_workflows_put():
     )
     assert response.status_code == 200
     assert response.json()["name"] == "Updated Flow"
+    assert response.json()["warnings"] == []
 
 
 def test_workflows_put_requires_yaml():
@@ -167,6 +184,7 @@ def test_workflows_put_with_canvas_state():
     )
     assert response.status_code == 200
     assert response.json()["canvas_state"]["selected_node_id"] == "node-1"
+    assert response.json()["warnings"] == []
     mock_service.update_workflow.assert_called_once()
     _, called_data = mock_service.update_workflow.call_args.args
     assert "canvas_state" in called_data

@@ -117,3 +117,27 @@ class TestWorkflowEntityPreservesExtraFields:
         wf = WorkflowEntity(id="wf1", name="Pipeline")
         assert wf.id == "wf1"
         assert wf.name == "Pipeline"
+
+
+class TestWorkflowEntityWarningsField:
+    def test_warnings_is_an_explicit_field_with_a_list_default(self):
+        assert "warnings" in WorkflowEntity.model_fields
+
+        field_info = WorkflowEntity.model_fields["warnings"]
+        assert field_info.default_factory is list
+
+        wf = WorkflowEntity(id="wf1")
+        assert wf.warnings == []
+
+    def test_warnings_preserve_explicit_payloads(self):
+        warnings = [
+            {
+                "message": "Tool definition warning",
+                "source": "tool_definitions",
+                "context": "lookup_profile",
+            }
+        ]
+
+        wf = WorkflowEntity(id="wf1", warnings=warnings)
+
+        assert wf.warnings == warnings

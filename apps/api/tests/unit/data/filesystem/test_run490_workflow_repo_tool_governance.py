@@ -188,10 +188,15 @@ code: |
     assert "http" in entity.validation_error
 
 
-def test_validate_yaml_content_blocks_validation_errors_but_ignores_warnings(tmp_path, monkeypatch):
+def test_validate_yaml_content_preserves_error_and_warning_payloads(tmp_path, monkeypatch):
     repo = WorkflowRepository(base_path=str(tmp_path))
 
     error_result = ValidationResult()
+    error_result.add_warning(
+        "Tool definition produced a warning alongside an error",
+        source="tool_definitions",
+        context="http",
+    )
     error_result.add_error(
         "Tool definition validation exploded",
         source="tool_definitions",
@@ -210,13 +215,27 @@ def test_validate_yaml_content_blocks_validation_errors_but_ignores_warnings(tmp
         lambda *args, **kwargs: error_result,
     )
 
-    valid, validation_error = repo._validate_yaml_content(
+    valid, validation_error, warnings = repo._validate_yaml_content(
         "governance-error", VALID_DECLARED_TOOL_YAML
     )
 
     assert valid is False
     assert validation_error is not None
     assert "Tool definition validation exploded" in validation_error
+    assert warnings == error_result.warnings_as_dicts()
+
+
+def test_validate_yaml_content_returns_warning_payloads_for_warning_only_result(
+    tmp_path, monkeypatch
+):
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    warning_result = ValidationResult()
+    warning_result.add_warning(
+        "Tool definition is only a warning",
+        source="tool_definitions",
+        context="lookup_profile",
+    )
 
     monkeypatch.setattr(
         workflow_repo_module,
@@ -224,9 +243,48 @@ def test_validate_yaml_content_blocks_validation_errors_but_ignores_warnings(tmp
         lambda *args, **kwargs: warning_result,
     )
 
-    valid, validation_error = repo._validate_yaml_content(
+    valid, validation_error, warnings = repo._validate_yaml_content(
         "governance-warning", VALID_DECLARED_TOOL_YAML
     )
 
     assert valid is True
     assert validation_error is None
+    assert warnings == warning_result.warnings_as_dicts()
+
+
+def test_validate_yaml_content_returns_empty_warning_list_for_schema_error(tmp_path):
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    valid, validation_error, warnings = repo._validate_yaml_content(
+        "governance-schema-error", LEGACY_TYPED_TOOL_YAML
+    )
+
+    assert valid is False
+    assert validation_error is not None
+    assert warnings == []
+
+
+def test_build_entity_attaches_warnings_from_validation_result(tmp_path, monkeypatch):
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    warning_payloads = [
+        {
+            "message": "Tool definition is only a warning",
+            "source": "tool_definitions",
+            "context": "lookup_profile",
+        }
+    ]
+
+    monkeypatch.setattr(
+        repo,
+        "_validate_yaml_content",
+        lambda *args, **kwargs: (True, None, warning_payloads),
+    )
+
+    entity = repo._build_entity(
+        {"workflow": {"name": "Governance Success"}},
+        "governance-warning",
+        raw_yaml=VALID_DECLARED_TOOL_YAML,
+    )
+
+    assert entity.warnings == warning_payloads

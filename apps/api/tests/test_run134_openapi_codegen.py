@@ -54,6 +54,32 @@ class TestOpenAPISpecExtraction:
         for expected in ["WorkflowResponse", "WorkflowCreate", "WorkflowUpdate"]:
             assert expected in schema_names, f"Missing schema: {expected}"
 
+    def test_openapi_spec_contains_warning_item_schema_and_workflow_warnings_property(self):
+        """Workflow responses must expose structured warnings in the OpenAPI schema."""
+        from runsight_api.main import app
+
+        spec = app.openapi()
+        schemas = spec.get("components", {}).get("schemas", {})
+
+        assert "WarningItem" in schemas, "Missing schema: WarningItem"
+
+        workflow_schema = schemas["WorkflowResponse"]
+        workflow_properties = workflow_schema.get("properties", {})
+        assert "warnings" in workflow_properties, "WorkflowResponse is missing warnings"
+
+        warnings_property = workflow_properties["warnings"]
+        assert warnings_property.get("type") == "array"
+        assert warnings_property.get("items", {}).get("$ref", "").endswith(
+            "/WarningItem"
+        )
+
+        warning_item_schema = schemas["WarningItem"]
+        warning_properties = warning_item_schema.get("properties", {})
+        for expected in ["message", "source", "context"]:
+            assert expected in warning_properties, (
+                f"WarningItem is missing property: {expected}"
+            )
+
     def test_openapi_spec_contains_run_schemas(self):
         """The spec must include RunResponse, RunCreate, RunNodeResponse schemas."""
         from runsight_api.main import app
