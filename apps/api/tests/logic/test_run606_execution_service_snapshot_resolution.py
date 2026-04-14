@@ -10,12 +10,20 @@ import pytest
 import yaml
 
 
+def _with_workflow_identity(workflow_id: str, yaml_text: str) -> str:
+    """Prepend id and kind identity fields to a workflow YAML string."""
+    return f"id: {workflow_id}\nkind: workflow\n" + dedent(yaml_text).strip() + "\n"
+
+
 def _init_git_repo_with_workflow_files(tmp_path: Path, *, workflow_files: dict[str, str]) -> Path:
     repo = tmp_path / "repo"
     workflows_dir = repo / "custom" / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
     for filename, yaml_text in workflow_files.items():
-        (workflows_dir / filename).write_text(dedent(yaml_text).strip() + "\n", encoding="utf-8")
+        stem = Path(filename).stem
+        (workflows_dir / filename).write_text(
+            _with_workflow_identity(stem, yaml_text), encoding="utf-8"
+        )
 
     subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
     subprocess.run(
@@ -65,7 +73,7 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
     workflow:
       name: Parent Workflow
       entry: call_child
@@ -105,7 +113,7 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
         child_yaml=child_yaml,
     )
     (repo / "custom" / "workflows" / "child.yaml").write_text(
-        dedent(dirty_child_yaml).strip() + "\n",
+        _with_workflow_identity("child", dirty_child_yaml),
         encoding="utf-8",
     )
 
@@ -129,7 +137,7 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
         assert workflow_definition["workflow"]["name"] == "Parent Workflow"
         workflow_registry = kwargs.get("workflow_registry")
         assert workflow_registry is not None
-        child_file = workflow_registry.get("custom/workflows/child.yaml")
+        child_file = workflow_registry.get("child")
         assert child_file.interface is not None
         assert [item.name for item in child_file.interface.outputs] == ["summary"]
         return Mock(name="parsed_parent_workflow")
@@ -169,7 +177,7 @@ async def test_launch_execution_rejects_invalid_child_interface_bindings_from_sn
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
         inputs:
           question: shared_memory.topic
         outputs:
@@ -219,7 +227,7 @@ async def test_launch_execution_rejects_invalid_child_interface_bindings_from_sn
         child_yaml=committed_child_yaml,
     )
     (repo / "custom" / "workflows" / "child.yaml").write_text(
-        dedent(dirty_child_yaml).strip() + "\n",
+        _with_workflow_identity("child", dirty_child_yaml),
         encoding="utf-8",
     )
 
@@ -274,7 +282,7 @@ async def test_missing_child_ref_fails_at_save_and_launch_with_same_resolution_e
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/renamed-child.yaml
+        workflow_ref: renamed-child
     workflow:
       name: Parent Workflow
       entry: call_child
@@ -290,7 +298,7 @@ async def test_missing_child_ref_fails_at_save_and_launch_with_same_resolution_e
     )
     workflow_repo = WorkflowRepository(base_path=str(repo))
 
-    saved = workflow_repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+    saved = workflow_repo.update("parent", {"yaml": _with_workflow_identity("parent", parent_yaml)})
 
     assert saved.valid is False
     assert saved.validation_error is not None
@@ -347,7 +355,7 @@ async def test_launch_execution_rejects_child_workflow_without_public_interface_
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
         inputs:
           topic: shared_memory.topic
         outputs:
@@ -413,28 +421,15 @@ async def test_launch_execution_rejects_child_workflow_without_public_interface_
 
 
 # ---------------------------------------------------------------------------
-# Item 3b: Branch-scoped snapshot resolution — name-alias + branch mismatch
+# Item 3b: Branch-scoped snapshot resolution — embedded-id child refs
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_launch_execution_resolves_name_aliased_child_from_branch_snapshot(
+async def test_launch_execution_resolves_embedded_id_child_from_branch_snapshot(
     tmp_path: Path,
 ) -> None:
-    """RUN-606 branch-scoped resolution with name alias: child workflow
-    exists on ``feature-a`` with a ``workflow.name`` that differs from the
-    filename.  Parent references the child by its ``workflow.name``, not
-    by the filesystem path.
-
-    When launching with ``branch="feature-a"``, the snapshot-backed
-    registry must discover the child by scanning committed YAML files on
-    that branch and matching ``workflow.name`` to ``workflow_ref``.
-
-    This previously failed when ``build_runnable_workflow_registry()``
-    only tried path-based candidate guesses and never consulted the
-    ``workflow.name`` alias index when resolving children from a branch
-    snapshot.
-    """
+    """Branch snapshot resolution discovers children by embedded workflow id."""
     from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
     from runsight_api.logic.services.execution_service import ExecutionService
     from runsight_api.logic.services.git_service import GitService
@@ -444,7 +439,7 @@ async def test_launch_execution_resolves_name_aliased_child_from_branch_snapshot
     blocks:
       call_child:
         type: workflow
-        workflow_ref: my-special-child
+        workflow_ref: child-impl
     workflow:
       name: Parent Workflow
       entry: call_child
@@ -454,7 +449,6 @@ async def test_launch_execution_resolves_name_aliased_child_from_branch_snapshot
     config: {}
     """
 
-    # The child file is named differently from its workflow.name
     child_yaml = """
     version: "1.0"
     interface:
@@ -463,20 +457,21 @@ async def test_launch_execution_resolves_name_aliased_child_from_branch_snapshot
         - name: summary
           source: results.writer
     workflow:
-      name: my-special-child
+      name: My Special Child
       entry: finish
       transitions: []
     """
 
     # Set up git repo with both parent and child on feature-a.
-    # The child filename (child-impl.yaml) != workflow.name (my-special-child).
     repo = tmp_path / "repo"
     workflows_dir = repo / "custom" / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
 
-    (workflows_dir / "parent.yaml").write_text(dedent(parent_yaml).strip() + "\n", encoding="utf-8")
+    (workflows_dir / "parent.yaml").write_text(
+        _with_workflow_identity("parent", parent_yaml), encoding="utf-8"
+    )
     (workflows_dir / "child-impl.yaml").write_text(
-        dedent(child_yaml).strip() + "\n", encoding="utf-8"
+        _with_workflow_identity("child-impl", child_yaml), encoding="utf-8"
     )
 
     subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
@@ -559,21 +554,21 @@ async def test_launch_execution_resolves_name_aliased_child_from_branch_snapshot
         mock_parse.return_value = Mock(name="parsed_workflow")
 
         await svc.launch_execution(
-            "run_name_alias_branch",
+            "run_embedded_id_branch",
             "parent",
-            {"instruction": "execute with name-aliased child"},
+            {"instruction": "execute with embedded-id child"},
             branch="feature-a",
         )
         await asyncio.sleep(0.05)
 
-    # Name-alias resolution from branch snapshot should succeed
+    # Embedded-id resolution from branch snapshot should succeed.
     error_calls = [
         c
         for c in run_repo.update_run.call_args_list
         if hasattr(c.args[0], "error") and c.args[0].error is not None
     ]
     assert len(error_calls) == 0, (
-        f"Expected no error when resolving child by workflow.name from branch snapshot. "
+        f"Expected no error when resolving child by embedded id from branch snapshot. "
         f"Got: {error_calls[0].args[0].error if error_calls else 'N/A'}"
     )
     assert svc._run_workflow.await_count == 1

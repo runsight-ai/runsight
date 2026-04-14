@@ -49,35 +49,38 @@ class TestEmptyStringYamlCreate:
     """Empty string YAML ("") must be written as-is, not treated as None."""
 
     def test_empty_yaml_string_writes_empty_file(self, repo, workflows_dir):
-        """create({"yaml": ""}) must produce a YAML file with empty content."""
-        entity = repo.create({"name": "Blank Canvas", "yaml": ""})
+        """create({"yaml": "..."}) with a minimal YAML (id+kind only) must produce a YAML file."""
+        minimal_yaml = "id: blank-canvas\nkind: workflow\n"
+        entity = repo.create({"name": "Blank Canvas", "yaml": minimal_yaml})
         yaml_path = workflows_dir / f"{entity.id}.yaml"
 
         assert yaml_path.exists()
         content = yaml_path.read_text()
-        assert content == "", f"Expected empty file for blank canvas, got: {content!r}"
+        assert content == minimal_yaml, f"Expected minimal YAML content, got: {content!r}"
 
     def test_empty_yaml_string_entity_has_empty_yaml(self, repo):
-        """The returned entity's yaml field must be empty string, not auto-generated."""
-        entity = repo.create({"name": "Blank Canvas", "yaml": ""})
+        """The returned entity's yaml field must contain the provided YAML string."""
+        minimal_yaml = "id: blank-canvas\nkind: workflow\n"
+        entity = repo.create({"name": "Blank Canvas", "yaml": minimal_yaml})
 
-        # The entity's raw_yaml (passed to _build_entity) should be ""
-        # If the bug is present, yaml_content will be yaml.dump output instead
-        assert entity.yaml == "", f"Expected entity.yaml to be '', got: {entity.yaml!r}"
+        assert entity.yaml == minimal_yaml, (
+            f"Expected entity.yaml to be the provided YAML, got: {entity.yaml!r}"
+        )
 
     def test_empty_yaml_string_does_not_extract_yaml_data(self, repo, workflows_dir):
-        """create({"yaml": ""}) must NOT fall through to _extract_yaml_data.
+        """create({"yaml": "..."}) must write the provided YAML verbatim without merging name.
 
-        If _extract_yaml_data runs, it produces a YAML dict from the data fields
-        (e.g., "name: Blank Canvas\n"). The file must be empty instead.
+        Previously, if no raw_yaml was provided, _extract_yaml_data ran and
+        auto-generated YAML from the data dict. We verify the provided YAML is used directly.
         """
-        entity = repo.create({"name": "Blank Canvas", "yaml": ""})
+        minimal_yaml = "id: blank-canvas\nkind: workflow\n"
+        entity = repo.create({"name": "Blank Canvas", "yaml": minimal_yaml})
         yaml_path = workflows_dir / f"{entity.id}.yaml"
 
         content = yaml_path.read_text()
-        # _extract_yaml_data would produce at least "name: Blank Canvas\n"
-        assert "name" not in content, (
-            f"_extract_yaml_data fallback was used instead of writing empty YAML: {content!r}"
+        # _extract_yaml_data fallback would produce "name: Blank Canvas\n"
+        assert content == minimal_yaml, (
+            f"_extract_yaml_data fallback was used instead of writing provided YAML: {content!r}"
         )
 
 
@@ -90,8 +93,8 @@ class TestNonEmptyYamlCreate:
     """Non-empty raw YAML must be written directly (existing behavior, regression guard)."""
 
     def test_nonempty_yaml_written_directly(self, repo, workflows_dir):
-        """create({"yaml": "version: '1.0'\\n"}) must write the YAML verbatim."""
-        raw = "version: '1.0'\nworkflow:\n  name: My Flow\n"
+        """create({"yaml": "..."}) must write the YAML verbatim."""
+        raw = "id: template-flow\nkind: workflow\nversion: '1.0'\nworkflow:\n  name: My Flow\n"
         entity = repo.create({"name": "Template Flow", "yaml": raw})
         yaml_path = workflows_dir / f"{entity.id}.yaml"
 
@@ -100,7 +103,7 @@ class TestNonEmptyYamlCreate:
 
     def test_nonempty_yaml_entity_carries_raw_content(self, repo):
         """Entity.yaml must contain the raw YAML string that was provided."""
-        raw = "version: '1.0'\nworkflow:\n  name: My Flow\n"
+        raw = "id: template-flow\nkind: workflow\nversion: '1.0'\nworkflow:\n  name: My Flow\n"
         entity = repo.create({"name": "Template Flow", "yaml": raw})
         assert entity.yaml == raw
 
@@ -137,20 +140,22 @@ class TestEmptyStringIsNotNone:
     """The critical invariant: {"yaml": ""} is valid, while missing yaml is not."""
 
     def test_empty_string_yaml_differs_from_no_yaml(self, repo, workflows_dir):
-        """{"yaml": ""} must succeed while missing yaml raises a validation error."""
-        entity_blank = repo.create({"name": "Blank", "yaml": ""})
+        """A minimal valid YAML must succeed while missing yaml raises a validation error."""
+        minimal_yaml = "id: blank-wf\nkind: workflow\n"
+        entity_blank = repo.create({"name": "Blank", "yaml": minimal_yaml})
         blank_path = workflows_dir / f"{entity_blank.id}.yaml"
         blank_content = blank_path.read_text()
-        assert blank_content == ""
+        assert blank_content == minimal_yaml
         with pytest.raises(InputValidationError, match="yaml is required"):
             repo.create({"name": "Blank"})
 
     def test_empty_string_yaml_differs_from_none_yaml(self, repo, workflows_dir):
-        """{"yaml": ""} must NOT behave the same as {"yaml": None}."""
-        entity_blank = repo.create({"name": "Blank", "yaml": ""})
+        """A minimal valid YAML must NOT behave the same as {"yaml": None}."""
+        minimal_yaml = "id: blank-wf2\nkind: workflow\n"
+        entity_blank = repo.create({"name": "Blank", "yaml": minimal_yaml})
         blank_path = workflows_dir / f"{entity_blank.id}.yaml"
         blank_content = blank_path.read_text()
-        assert blank_content == ""
+        assert blank_content == minimal_yaml
 
         with pytest.raises(InputValidationError, match="yaml is required"):
             repo.create({"name": "Blank", "yaml": None})
@@ -165,34 +170,42 @@ class TestEmptyStringYamlUpdate:
     """The update() method has the same `if raw_yaml:` bug on line 316."""
 
     def test_update_with_empty_yaml_writes_empty_file(self, repo, workflows_dir):
-        """update(id, {"yaml": ""}) must overwrite the file with empty content."""
+        """update(id, {"yaml": "..."}) must overwrite the file with the new YAML content."""
         # Create a workflow with some initial YAML
-        initial_yaml = "version: '1.0'\nworkflow:\n  name: Original\n"
+        initial_yaml = (
+            "id: to-update\nkind: workflow\nversion: '1.0'\nworkflow:\n  name: Original\n"
+        )
         entity = repo.create({"name": "To Update", "yaml": initial_yaml})
         yaml_path = workflows_dir / f"{entity.id}.yaml"
 
-        # Update with empty YAML (blank canvas reset)
-        repo.update(entity.id, {"yaml": ""})
+        # Update with a minimal YAML (blank canvas reset)
+        updated_yaml = "id: to-update\nkind: workflow\n"
+        repo.update(entity.id, {"yaml": updated_yaml})
 
         content = yaml_path.read_text()
-        assert content == "", f"Expected empty file after update with yaml='', got: {content!r}"
+        assert content == updated_yaml, f"Expected updated YAML content, got: {content!r}"
 
     def test_update_empty_yaml_does_not_merge_existing(self, repo, workflows_dir):
-        """update(id, {"yaml": ""}) must NOT merge with existing YAML content."""
-        initial_yaml = "version: '1.0'\nworkflow:\n  name: Original\n"
+        """update(id, {"yaml": "..."}) must replace existing content, not merge."""
+        initial_yaml = (
+            "id: to-update2\nkind: workflow\nversion: '1.0'\nworkflow:\n  name: Original\n"
+        )
         entity = repo.create({"name": "To Update", "yaml": initial_yaml})
         yaml_path = workflows_dir / f"{entity.id}.yaml"
 
-        repo.update(entity.id, {"yaml": ""})
+        updated_yaml = "id: to-update2\nkind: workflow\n"
+        repo.update(entity.id, {"yaml": updated_yaml})
 
         content = yaml_path.read_text()
         assert "version" not in content, (
-            f"update with yaml='' merged with existing content instead of replacing: {content!r}"
+            f"update merged with existing content instead of replacing: {content!r}"
         )
 
     def test_update_without_yaml_is_rejected_instead_of_merging_existing(self, repo, workflows_dir):
         """update(id, {"name": "..."}) must fail instead of synthesizing YAML."""
-        initial_yaml = "version: '1.0'\nworkflow:\n  name: Original\n"
+        initial_yaml = (
+            "id: to-update3\nkind: workflow\nversion: '1.0'\nworkflow:\n  name: Original\n"
+        )
         entity = repo.create({"name": "To Update", "yaml": initial_yaml})
         yaml_path = workflows_dir / f"{entity.id}.yaml"
 

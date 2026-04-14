@@ -41,6 +41,8 @@ def reconstruct_soul(
     """Convert a SoulEnvelope into a runsight_core.primitives.Soul."""
     return Soul(
         id=soul_envelope.id,
+        kind="soul",
+        name=soul_envelope.name,
         role=soul_envelope.role,
         system_prompt=soul_envelope.system_prompt,
         model_name=soul_envelope.model_name,

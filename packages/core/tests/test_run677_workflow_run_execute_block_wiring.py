@@ -241,7 +241,7 @@ async def test_loopblock_nested_workflow_block_forwards_unified_context_to_child
     tail = ResultBlock("tail", "tail output")
     workflow = _make_parent_loop_workflow(invoke_child, tail)
     observer = RecordingObserver()
-    registry = WorkflowRegistry(allow_filesystem_fallback=False)
+    registry = WorkflowRegistry()
 
     final_state = await workflow.run(
         WorkflowState(),

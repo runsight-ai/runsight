@@ -22,7 +22,9 @@ Souls solve these by extracting agent identity into a standalone, reusable artif
 A soul file is a YAML document with a flat structure. Here is a complete example:
 
 ```yaml title="custom/souls/researcher.yaml"
-id: researcher_v1
+id: researcher
+kind: soul
+name: Researcher
 role: Senior Researcher
 system_prompt: |
   You are a senior research analyst. Given a topic, you produce
@@ -42,7 +44,9 @@ avatar_color: "#4f46e5"
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | `str` | Unique identifier for this soul. Can differ from the filename. |
+| `id` | `str` | Embedded soul id. Must match the filename stem for external soul files. |
+| `kind` | `"soul"` | Entity kind. Must be `"soul"`. |
+| `name` | `str` | Display name for this soul. |
 | `role` | `str` | The agent's role, displayed in the Soul Library UI. |
 | `system_prompt` | `str` | The system instructions that define behavior and constraints. |
 
@@ -65,10 +69,12 @@ Both `provider` and `model_name` must be set for a soul to execute at runtime. A
 
 ## How blocks reference souls
 
-Workflow blocks reference souls through the `soul_ref` field. The value is the **filename stem** of the soul file in `custom/souls/`, not the soul's internal `id`.
+Workflow blocks reference souls through the `soul_ref` field. The value is the soul's embedded `id`.
 
 ```yaml title="custom/workflows/research.yaml"
 version: "1.0"
+id: research
+kind: workflow
 blocks:
   analyze:
     type: linear
@@ -81,7 +87,7 @@ workflow:
       to: null
 ```
 
-In this example, `soul_ref: researcher` resolves to `custom/souls/researcher.yaml`.
+In this example, `soul_ref: researcher` resolves to the soul whose embedded id is `researcher`. For an external soul file, that means `custom/souls/researcher.yaml` must also contain `id: researcher`.
 
 The following block types use `soul_ref`:
 
@@ -95,7 +101,7 @@ The following block types use `soul_ref`:
 
 When the parser processes a workflow YAML file, it resolves souls in three steps:
 
-1. **Discover external souls.** The parser scans `custom/souls/` for `.yaml` files and loads each into a `Soul` object. Only `.yaml` files are discovered — `.yml` files are ignored.
+1. **Discover external souls.** The parser scans `custom/souls/` for `.yaml` files, loads each into a `Soul` object, and rejects files whose embedded `id` does not match the filename stem. Only `.yaml` files are discovered — `.yml` files are ignored.
 
 2. **Merge inline souls (if present).** If the workflow YAML contains an optional `souls:` section, those inline definitions are merged over the discovered external souls. When an inline soul has the same key as an external file, the inline definition wins and a warning is logged.
 
@@ -109,6 +115,8 @@ Each workflow step is powered by exactly one soul. There are no multi-soul nodes
 
 ```yaml title="custom/workflows/review.yaml"
 version: "1.0"
+id: review
+kind: workflow
 blocks:
   draft:
     type: linear
@@ -133,6 +141,8 @@ Souls can declare which tools they need via the `tools` field. However, every to
 
 ```yaml title="custom/souls/fetcher.yaml"
 id: fetcher
+kind: soul
+name: Fetcher
 role: Data Fetcher
 system_prompt: Fetch and summarize data from URLs.
 provider: openai
@@ -143,6 +153,8 @@ tools:
 
 ```yaml title="custom/workflows/fetch_pipeline.yaml"
 version: "1.0"
+id: fetch_pipeline
+kind: workflow
 tools:
   - http
 blocks:
@@ -165,9 +177,13 @@ For quick prototyping, souls can be defined inline within a workflow YAML file u
 
 ```yaml title="custom/workflows/prototype.yaml"
 version: "1.0"
+id: prototype
+kind: workflow
 souls:
   drafter:
     id: drafter
+    kind: soul
+    name: Drafter
     role: Quick Drafter
     system_prompt: Draft a short summary.
     model_name: gpt-4o

@@ -15,6 +15,8 @@ Add a `limits` section at the top level of your workflow YAML:
 
 ```yaml title="custom/workflows/research-pipeline.yaml"
 version: "1.0"
+id: research-pipeline
+kind: workflow
 limits:
   cost_cap_usd: 2.50
   token_cap: 100000
@@ -170,6 +172,8 @@ Parent session: cost_cap=$5.00
 
 ```yaml title="custom/workflows/budget-example.yaml"
 version: "1.0"
+id: budget-example
+kind: workflow
 limits:
   cost_cap_usd: 5.00
   token_cap: 200000

@@ -1636,6 +1636,15 @@
           "title": "Id",
           "type": "string"
         },
+        "kind": {
+          "const": "soul",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
         "role": {
           "title": "Role",
           "type": "string"
@@ -1754,6 +1763,8 @@
       },
       "required": [
         "id",
+        "kind",
+        "name",
         "role",
         "system_prompt"
       ],
@@ -2449,8 +2460,17 @@
       "type": "object"
     }
   },
-  "description": "Root model for a Runsight .yaml workflow file.\n'workflow' is the only required top-level key \u2014 all others have defaults.",
+  "description": "Root model for a Runsight .yaml workflow file.\nid, kind, and workflow are required top-level keys.",
   "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "kind": {
+      "const": "workflow",
+      "title": "Kind",
+      "type": "string"
+    },
     "version": {
       "default": "1.0",
       "title": "Version",
@@ -2559,6 +2579,8 @@
     }
   },
   "required": [
+    "id",
+    "kind",
     "workflow"
   ],
   "title": "RunsightWorkflowFile",

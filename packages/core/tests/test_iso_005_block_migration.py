@@ -39,6 +39,8 @@ from runsight_core.yaml.schema import BaseBlockDef, RetryConfig
 def _make_soul(soul_id: str = "test_soul") -> Soul:
     return Soul(
         id=soul_id,
+        kind="soul",
+        name="Tester",
         role="Tester",
         system_prompt="You are a test soul.",
         model_name="gpt-4o-mini",
@@ -191,6 +193,8 @@ class TestWrapperExposesSoul:
 
         soul = Soul(
             id="tool_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Use tools carefully.",
             model_name="gpt-4o-mini",
@@ -1294,6 +1298,8 @@ class TestRUN815WrapperHarnessWiringContract:
             "\n".join(
                 [
                     "id: writer",
+                    "kind: soul",
+                    "name: Writer",
                     "role: Writer",
                     "system_prompt: Write clearly.",
                     "model_name: gpt-4o-mini",
@@ -1308,6 +1314,8 @@ class TestRUN815WrapperHarnessWiringContract:
         workflow_path.write_text(
             "\n".join(
                 [
+                    "id: run815-wrapper-wiring",
+                    "kind: workflow",
                     'version: "1.0"',
                     "config:",
                     "  model_name: gpt-4o-mini",

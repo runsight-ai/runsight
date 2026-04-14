@@ -1,4 +1,6 @@
 version: '1.0'
+id: research-review-fw2ry
+kind: workflow
 blocks:
   research:
     type: linear

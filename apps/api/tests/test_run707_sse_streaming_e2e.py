@@ -39,12 +39,16 @@ from runsight_api.domain.events import (
 # ---------------------------------------------------------------------------
 
 SINGLE_BLOCK_YAML = """\
+id: single-block
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     provider: openai
@@ -62,12 +66,16 @@ workflow:
 """
 
 TWO_BLOCK_YAML = """\
+id: two-block
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   writer:
     id: writer
+    kind: soul
+    name: Writer
     role: Writer
     system_prompt: You are a writer.
     provider: openai
@@ -90,12 +98,16 @@ workflow:
 """
 
 PARENT_WORKFLOW_YAML = """\
+id: parent-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   planner:
     id: planner
+    kind: soul
+    name: Planner
     role: Planner
     system_prompt: You are a planner.
     provider: openai
@@ -106,7 +118,7 @@ blocks:
     soul_ref: planner
   delegate:
     type: workflow
-    workflow_ref: custom/workflows/child-workflow.yaml
+    workflow_ref: child-workflow
 workflow:
   name: parent_sse_test
   entry: plan
@@ -118,6 +130,8 @@ workflow:
 """
 
 CHILD_WORKFLOW_YAML = """\
+id: child-workflow
+kind: workflow
 version: "1.0"
 interface:
   inputs: []
@@ -127,6 +141,8 @@ config:
 souls:
   worker:
     id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: You are a worker.
     provider: openai

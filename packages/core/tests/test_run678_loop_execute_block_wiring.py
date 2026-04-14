@@ -111,6 +111,8 @@ def _make_linear_block(block_id: str, output: str) -> LinearBlock:
     )
     soul = Soul(
         id=f"{block_id}_soul",
+        kind="soul",
+        name="Analyst",
         role="Analyst",
         system_prompt=f"Handle {block_id}.",
         model_name="gpt-4o-mini",

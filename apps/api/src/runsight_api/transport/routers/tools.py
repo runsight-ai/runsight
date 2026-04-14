@@ -35,7 +35,7 @@ async def list_tools() -> List[ToolListItemResponse]:
     items: List[ToolListItemResponse] = list(_USER_FACING_BUILTIN_TOOLS)
 
     try:
-        discovered_tools = ToolScanner(settings.base_path).scan().stems()
+        discovered_tools = ToolScanner(settings.base_path).scan().ids()
     except ValueError as exc:
         raise InputValidationError(str(exc)) from exc
 

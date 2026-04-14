@@ -71,7 +71,9 @@ def observer(seed_run):
 def sample_soul():
     """A minimal Soul for testing."""
     return Soul(
-        id="researcher_v1",
+        id="researcher-v1",
+        kind="soul",
+        name="Senior Researcher",
         role="Senior Researcher",
         system_prompt="You are a senior researcher.",
         model_name="gpt-4o",
@@ -189,12 +191,16 @@ class TestHashVariation:
 
         soul_a = Soul(
             id="researcher",
+            kind="soul",
+            name="Researcher",
             role="Researcher",
             system_prompt="Research things.",
             model_name="gpt-4o",
         )
         soul_b = Soul(
             id="coder",
+            kind="soul",
+            name="Coder",
             role="Coder",
             system_prompt="Write code.",
             model_name="gpt-4o",

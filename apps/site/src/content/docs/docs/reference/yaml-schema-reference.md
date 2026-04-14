@@ -5,7 +5,7 @@ description: Complete annotated reference for all Runsight YAML file types — w
 
 <!-- RUN-110, RUN-490 -->
 
-Runsight uses three YAML file types. This page is the exhaustive field reference for all three. For a guided walkthrough of workflow files, see [YAML Schema](/docs/workflows/yaml-schema).
+Runsight uses YAML files for workflows, souls, tools, providers, and assertions. This page focuses on workflow, soul, and custom tool schemas. For a guided walkthrough of workflow files, see [YAML Schema](/docs/workflows/yaml-schema).
 
 ## Workflow files
 
@@ -15,6 +15,8 @@ Workflow files live in `custom/workflows/` and define the full execution graph. 
 
 | Field | Type | Default | Required | Description |
 |-------|------|---------|----------|-------------|
+| `id` | `str` | -- | **yes** | Embedded workflow id. Must match the filename stem. |
+| `kind` | `"workflow"` | -- | **yes** | Entity kind. Must be `"workflow"`. |
 | `version` | `str` | `"1.0"` | no | Schema version |
 | `enabled` | `bool` | `false` | no | Whether the workflow is active |
 | `config` | `Dict[str, Any]` | `{}` | no | Arbitrary workflow configuration |
@@ -111,7 +113,7 @@ Calls a child workflow as a sub-workflow (hierarchical state machine). The paren
 | Field | Type | Default | Required | Description |
 |-------|------|---------|----------|-------------|
 | `type` | `"workflow"` | -- | **yes** | Discriminator |
-| `workflow_ref` | `str` | -- | **yes** | Slug or path of the child workflow to call |
+| `workflow_ref` | `str` | -- | **yes** | Embedded workflow id of the child workflow to call |
 | `inputs` | `Dict[str, str]` | none | no | Maps child interface input names to parent dotted paths (e.g. `topic: shared_memory.topic`) |
 | `outputs` | `Dict[str, str]` | none | no | Maps parent dotted paths to child interface output names (e.g. `shared_memory.summary: summary`) |
 | `max_depth` | `int` | none (runtime default 10) | no | Maximum HSM recursion depth |
@@ -131,6 +133,8 @@ The parent workflow defines a `workflow` block that calls a child. The child dec
 
 ```yaml title="custom/workflows/research_pipeline.yaml"
 version: "1.0"
+id: research_pipeline
+kind: workflow
 enabled: true
 
 blocks:
@@ -159,6 +163,8 @@ workflow:
 
 ```yaml title="custom/workflows/analysis_subworkflow.yaml"
 version: "1.0"
+id: analysis_subworkflow
+kind: workflow
 enabled: true
 
 interface:
@@ -187,6 +193,8 @@ interface:
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Research Analyst
     role: Research Analyst
     system_prompt: "Analyze the topic in shared_memory.topic."
 
@@ -308,13 +316,15 @@ Extends `ExitDef` with per-exit soul and task instruction.
 
 ## Soul files
 
-Soul files live in `custom/souls/` as standalone YAML files (one soul per file). The filename stem becomes the soul key. Soul files are flat -- no wrapper object, just the fields directly.
+Soul files live in `custom/souls/` as standalone YAML files (one soul per file). The embedded `id` becomes the soul key, and for external files it must match the filename stem. Soul files are flat -- no wrapper object, just the fields directly.
 
 ### SoulDef fields
 
 | Field | Type | Default | Required | Description |
 |-------|------|---------|----------|-------------|
-| `id` | `str` | -- | **yes** | Unique identifier for the soul |
+| `id` | `str` | -- | **yes** | Embedded soul id |
+| `kind` | `"soul"` | -- | **yes** | Entity kind |
+| `name` | `str` | -- | **yes** | Display name |
 | `role` | `str` | -- | **yes** | The role of the agent (e.g. `"Senior Researcher"`) |
 | `system_prompt` | `str` | -- | **yes** | System instructions defining the agent's behavior |
 | `tools` | `List[str]` | none | no | Tool name references available to this soul |
@@ -330,7 +340,9 @@ Soul files live in `custom/souls/` as standalone YAML files (one soul per file).
 ### Example soul file
 
 ```yaml title="custom/souls/researcher.yaml"
-id: researcher_1
+id: researcher
+kind: soul
+name: Researcher
 role: Senior Researcher
 system_prompt: >
   You are a senior researcher. Analyze the given topic thoroughly
@@ -351,6 +363,8 @@ Souls can also be defined inline in a workflow file under the `souls:` section. 
 souls:
   my_analyst:
     id: my_analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: "Analyze the data."
 ```
@@ -361,13 +375,15 @@ If a soul file and an inline soul share the same key, the inline definition take
 
 ## Custom tool files
 
-Custom tool files live in `custom/tools/` as standalone YAML files (one tool per file). The filename stem becomes the tool ID. Reserved builtin tool IDs (`http`, `file_io`, `delegate`) cannot be used.
+Custom tool files live in `custom/tools/` as standalone YAML files (one tool per file). The embedded `id` becomes the tool ID, and it must match the filename stem. Reserved builtin tool IDs (`http`, `file_io`, `delegate`) cannot be used.
 
 ### Tool file fields
 
 | Field | Type | Default | Required | Description |
 |-------|------|---------|----------|-------------|
 | `version` | `str` | -- | **yes** | Schema version (e.g. `"1.0"`) |
+| `id` | `str` | -- | **yes** | Embedded tool id |
+| `kind` | `"tool"` | -- | **yes** | Entity kind |
 | `type` | `str` | -- | **yes** | Must be `"custom"` |
 | `executor` | `str` | -- | **yes** | `"python"` or `"request"` |
 | `name` | `str` | -- | **yes** | Human-readable tool name |
@@ -392,6 +408,8 @@ Custom tool files live in `custom/tools/` as standalone YAML files (one tool per
 
 ```yaml title="custom/tools/slack_payload_builder.yaml"
 version: "1.0"
+id: slack_payload_builder
+kind: tool
 type: custom
 executor: python
 name: Slack Payload Builder
@@ -416,6 +434,8 @@ code: |
 
 ```yaml title="custom/tools/slack_webhook.yaml"
 version: "1.0"
+id: slack_webhook
+kind: tool
 type: custom
 executor: request
 name: Slack Webhook

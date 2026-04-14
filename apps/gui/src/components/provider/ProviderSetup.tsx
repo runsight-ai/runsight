@@ -182,7 +182,16 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
         let pid: string;
 
         if (isEditMode && editing) {
-          const data: Record<string, string | undefined> = {};
+          const data: {
+            id: string;
+            kind: "provider";
+            name?: string;
+            api_key_env?: string;
+            base_url?: string;
+          } = {
+            id: editing.id,
+            kind: "provider",
+          };
           if (displayName && displayName !== editing.name) data.name = displayName;
           if (useEnvVar && envVarName.trim()) {
             data.api_key_env = "$" + envVarName.trim();
@@ -190,7 +199,7 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
             data.api_key_env = currentKey;
           }
           if (currentBaseUrl !== (editing.baseUrl ?? "")) data.base_url = currentBaseUrl || undefined;
-          if (Object.keys(data).length > 0) {
+          if (Object.keys(data).length > 2) {
             await updateProvider.mutateAsync({ id: editing.id, data });
           }
           pid = editing.id;
@@ -198,6 +207,8 @@ export const ProviderSetup = forwardRef<ProviderSetupRef, ProviderSetupProps>(
           pid = createdProviderIdRef.current!;
           if (!pid) {
             const created = await createProvider.mutateAsync({
+              id: provider.id,
+              kind: "provider",
               name: displayName || provider.name,
               api_key_env: useEnvVar ? "$" + envVarName.trim() : (currentKey || undefined),
               base_url: currentBaseUrl || undefined,

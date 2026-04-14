@@ -34,11 +34,15 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 SOULS_YAML = """
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
   reviewer:
-    id: reviewer_1
+    id: reviewer
+    kind: soul
+    name: Peer Reviewer
     role: Peer Reviewer
     system_prompt: You review topics.
 """
@@ -72,13 +76,12 @@ class MockBlock:
 class TestInputParsing:
     """Tests that inputs field in YAML is parsed correctly and references are validated."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_inputs_basic(self):
         """YAML with inputs.from reference parses without error."""
         yaml_content = f"""
 version: "1.0"
+id: test_inputs_self
+kind: workflow
 {SOULS_YAML}
 blocks:
   step_a:
@@ -91,6 +94,8 @@ blocks:
       context:
         from: step_a.result
 workflow:
+  id: test_inputs
+  kind: workflow
   name: test_inputs
   entry: step_a
   transitions:
@@ -115,13 +120,12 @@ workflow:
                 "Parser must track inputs via Step wrapper or workflow._block_inputs"
             )
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_inputs_invalid_block_ref(self):
         """inputs.from referencing nonexistent block raises ValueError with clear message."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   step_a:
@@ -134,6 +138,8 @@ blocks:
       context:
         from: nonexistent_block.field
 workflow:
+  id: test_inputs_invalid
+  kind: workflow
   name: test_inputs_invalid
   entry: step_a
   transitions:
@@ -149,6 +155,8 @@ workflow:
         """inputs.from referencing self (same block) raises ValueError for circular dependency."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   step_b:
@@ -158,6 +166,8 @@ blocks:
       context:
         from: step_b.field
 workflow:
+  id: test_inputs_self
+  kind: workflow
   name: test_inputs_self
   entry: step_b
   transitions:
@@ -167,13 +177,12 @@ workflow:
         with pytest.raises(ValueError, match="step_b"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_inputs_circular_dependency(self):
         """A inputs from B, B inputs from A raises ValueError for circular dependency."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   step_a:
@@ -189,6 +198,8 @@ blocks:
       context:
         from: step_a.result
 workflow:
+  id: test_inputs_circular
+  kind: workflow
   name: test_inputs_circular
   entry: step_a
   transitions:
@@ -200,13 +211,12 @@ workflow:
         with pytest.raises(ValueError, match="circular|cycle"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_inputs_circular_dependency_three_nodes(self):
         """A->B->C->A circular input dependency chain raises ValueError."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   step_a:
@@ -228,6 +238,8 @@ blocks:
       feedback:
         from: step_b.result
 workflow:
+  id: test_inputs_circular_three
+  kind: workflow
   name: test_inputs_circular_three
   entry: step_a
   transitions:
@@ -241,13 +253,12 @@ workflow:
         with pytest.raises(ValueError, match="circular|cycle"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_inputs_multiple_inputs(self):
         """Block with multiple input references parses all correctly."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   step_a:
@@ -267,6 +278,8 @@ blocks:
       review_score:
         from: step_b.score
 workflow:
+  id: test_multi_inputs
+  kind: workflow
   name: test_multi_inputs
   entry: step_a
   transitions:
@@ -280,19 +293,20 @@ workflow:
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_inputs_no_inputs(self):
         """Block without inputs field works fine (backward compatible)."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   step_a:
     type: linear
     soul_ref: researcher
 workflow:
+  id: test_no_inputs
+  kind: workflow
   name: test_no_inputs
   entry: step_a
   transitions:
@@ -311,13 +325,12 @@ workflow:
 class TestOutputDeclarations:
     """Tests that outputs field in YAML is parsed correctly."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_outputs_basic(self):
         """Block with outputs declaration (typed output schema) parses correctly."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   evaluator:
@@ -327,6 +340,8 @@ blocks:
       result: string
       score: number
 workflow:
+  id: test_outputs
+  kind: workflow
   name: test_outputs
   entry: evaluator
   transitions:
@@ -336,19 +351,20 @@ workflow:
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_outputs_none(self):
         """Block without outputs field works fine (backward compatible)."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   step_a:
     type: linear
     soul_ref: researcher
 workflow:
+  id: test_no_outputs
+  kind: workflow
   name: test_no_outputs
   entry: step_a
   transitions:
@@ -367,13 +383,12 @@ workflow:
 class TestOutputConditionsWiring:
     """Tests that output_conditions in YAML is parsed and wired to Workflow."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_output_conditions_wired_to_workflow(self):
         """output_conditions in YAML populates workflow._output_conditions for the block."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   evaluator:
@@ -390,6 +405,8 @@ blocks:
       - case_id: rejected
         default: true
 workflow:
+  id: test_output_conditions
+  kind: workflow
   name: test_output_conditions
   entry: evaluator
   transitions:
@@ -402,13 +419,12 @@ workflow:
         assert hasattr(workflow, "_output_conditions")
         assert "evaluator" in workflow._output_conditions
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_output_conditions_with_conditional_transition(self):
         """output_conditions on block + conditional_transition from that block both work together."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   evaluator:
@@ -431,6 +447,8 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
+  id: test_oc_with_ct
+  kind: workflow
   name: test_oc_with_ct
   entry: evaluator
   conditional_transitions:
@@ -450,19 +468,20 @@ workflow:
         assert "evaluator" in workflow._output_conditions
         assert "evaluator" in workflow._conditional_transitions
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_output_conditions_empty(self):
         """Block without output_conditions has no entry in workflow._output_conditions."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   step_a:
     type: linear
     soul_ref: researcher
 workflow:
+  id: test_no_oc
+  kind: workflow
   name: test_no_oc
   entry: step_a
   transitions:
@@ -578,13 +597,12 @@ class TestStepInputResolution:
 class TestParserWiresInputsToStep:
     """Tests that parser creates Step objects with declared_inputs when block has inputs."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_creates_step_with_declared_inputs(self):
         """When block has inputs, parser creates Step with declared_inputs populated."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   step_a:
@@ -597,6 +615,8 @@ blocks:
       context:
         from: step_a.result
 workflow:
+  id: test_step_wiring
+  kind: workflow
   name: test_step_wiring
   entry: step_a
   transitions:
@@ -626,13 +646,12 @@ workflow:
             )
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_parser_full_round_trip(self):
         """Complete YAML with inputs + output_conditions + transitions parses and validates."""
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   research:
@@ -669,6 +688,8 @@ blocks:
       eval_data:
         from: evaluate.result
 workflow:
+  id: full_round_trip
+  kind: workflow
   name: full_round_trip
   entry: research
   transitions:
@@ -724,6 +745,8 @@ class TestBuilderSimplification:
         # this should be caught by schema (InputRef validation), not builder.
         yaml_content = f"""
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 {SOULS_YAML}
 blocks:
   step_a:
@@ -733,6 +756,8 @@ blocks:
       context:
         invalid_key: step_b.result
 workflow:
+  id: test_builder_validation
+  kind: workflow
   name: test_builder_validation
   entry: step_a
   transitions:
@@ -825,6 +850,8 @@ class TestWorkflowBlockDefFields:
 
         yaml_data = {
             "version": "1.0",
+            "id": "test_wf_block_fields",
+            "kind": "workflow",
             "blocks": {
                 "child_runner": {
                     "type": "workflow",

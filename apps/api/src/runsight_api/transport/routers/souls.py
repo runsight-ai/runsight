@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends
+from runsight_core.identity import EntityKind, EntityRef
 
 from ...logic.services.soul_service import SoulService
 from ..deps import get_soul_service, get_workflow_repo
@@ -15,6 +16,10 @@ from ..schemas.souls import (
 router = APIRouter(prefix="/souls", tags=["Souls"])
 
 
+def _soul_ref(soul_id: str) -> str:
+    return str(EntityRef(EntityKind.SOUL, soul_id))
+
+
 @router.get("", response_model=SoulListResponse)
 async def list_souls(
     q: Optional[str] = None,
@@ -24,7 +29,10 @@ async def list_souls(
 ):
     souls = service.list_souls(query=q)
     items = souls[offset : offset + limit]
-    response_items = [SoulResponse(**s.model_dump()) for s in items]
+    response_items = [
+        SoulResponse(kind="soul", name=s.name, **s.model_dump(exclude={"kind", "name"}))
+        for s in items
+    ]
     return SoulListResponse(items=response_items, total=len(souls))
 
 
@@ -43,21 +51,21 @@ async def get_soul(id: str, service: SoulService = Depends(get_soul_service)):
     if not s:
         from ...domain.errors import SoulNotFound
 
-        raise SoulNotFound(f"Soul {id} not found")
-    return SoulResponse(**s.model_dump())
+        raise SoulNotFound(f"Soul {_soul_ref(id)} not found")
+    return SoulResponse(kind="soul", name=s.name, **s.model_dump(exclude={"kind", "name"}))
 
 
 @router.post("", response_model=SoulResponse)
 async def create_soul(body: SoulCreate, service: SoulService = Depends(get_soul_service)):
     s = service.create_soul(body.model_dump(exclude_unset=True))
-    return SoulResponse(**s.model_dump())
+    return SoulResponse(kind="soul", name=s.name, **s.model_dump(exclude={"kind", "name"}))
 
 
 @router.put("/{id}", response_model=SoulResponse)
 async def update_soul(id: str, body: SoulUpdate, service: SoulService = Depends(get_soul_service)):
     data = body.model_dump(exclude_unset=True, exclude={"copy_on_edit"})
     s = service.update_soul(id, data, copy_on_edit=body.copy_on_edit)
-    return SoulResponse(**s.model_dump())
+    return SoulResponse(kind="soul", name=s.name, **s.model_dump(exclude={"kind", "name"}))
 
 
 @router.delete("/{id}")

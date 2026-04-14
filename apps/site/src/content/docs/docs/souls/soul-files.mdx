@@ -17,7 +17,7 @@ Soul files are standalone YAML documents stored in `custom/souls/`. Each file de
     - fetcher.yaml
 </FileTree>
 
-The **filename stem** (the part before `.yaml`) is the soul's lookup key. When a workflow block sets `soul_ref: researcher`, the parser resolves it to `custom/souls/researcher.yaml`.
+The embedded `id` is the soul's lookup key. When a workflow block sets `soul_ref: researcher`, the parser resolves the soul whose embedded id is `researcher`; external soul files must use the same filename stem, such as `custom/souls/researcher.yaml`.
 
 Only `.yaml` files are discovered. Files with the `.yml` extension are ignored. Files whose names start with `_` are not excluded — all `.yaml` files in the directory are loaded.
 
@@ -26,7 +26,9 @@ Only `.yaml` files are discovered. Files with the `.yml` extension are ignored. 
 A soul file is flat YAML with no version field and no wrapping key. The file content maps directly to the soul definition:
 
 ```yaml title="custom/souls/researcher.yaml"
-id: researcher_v1
+id: researcher
+kind: soul
+name: Researcher
 role: Senior Researcher
 system_prompt: |
   You are a senior research analyst. Given a topic, you produce
@@ -50,7 +52,9 @@ These fields must be present in every soul file. The parser raises a `Validation
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | `str` | Unique identifier for this soul. Can differ from the filename stem. |
+| `id` | `str` | Embedded soul id. Must match the filename stem for external soul files. |
+| `kind` | `"soul"` | Entity kind. Must be `"soul"`. |
+| `name` | `str` | Display name for this soul. |
 | `role` | `str` | The agent's role (e.g., "Senior Researcher"). Displayed as the soul name in the UI. |
 | `system_prompt` | `str` | System instructions defining the agent's behavior and constraints. |
 
@@ -71,18 +75,18 @@ These fields must be present in every soul file. The parser raises a `Validation
 Both `provider` and `model_name` should be set for a soul to execute at runtime. A soul with one but not the other will fall back to the runner's defaults for the missing value.
 :::
 
-## `id` vs filename stem
+## `id` and filename stem
 
-The `id` field and the filename stem are independent. A file named `researcher.yaml` can contain `id: researcher_v1`. Workflow blocks reference the **filename stem** (`soul_ref: researcher`), not the internal `id`.
+The `id` field is the identity. For external soul files, it must match the filename stem exactly. A file named `researcher.yaml` must contain `id: researcher`; a mismatch is rejected during discovery.
 
-The `id` field is used by the engine at runtime to identify the soul object. The filename stem is the lookup key during YAML parsing and discovery.
+Workflow blocks reference the embedded id with `soul_ref: researcher`.
 
 ## Validation rules
 
 Soul files are validated using Pydantic's `model_validate`. The schema model (`SoulDef` in `schema.py`) enforces:
 
 - **`extra="forbid"`** — unknown fields raise a validation error. Only the fields listed above are accepted.
-- **Required fields** — `id`, `role`, and `system_prompt` must be present. A missing field produces a Pydantic `ValidationError`.
+- **Required fields** — `id`, `kind`, `name`, `role`, and `system_prompt` must be present. A missing field produces a Pydantic `ValidationError`.
 - **Type checking** — each field must match its declared type. A string where an integer is expected raises a validation error.
 
 There are no `ge`, `le`, or `min_length` constraints on soul fields. The `max_tool_iterations` field accepts any integer.
@@ -91,7 +95,7 @@ There are no `ge`, `le`, or `min_length` constraints on soul fields. The `max_to
 
 When the parser encounters a `soul_ref` on a block, it resolves the reference through these steps:
 
-1. **Discover external souls.** The parser scans `custom/souls/` for `.yaml` files. Each file is loaded, validated against the Soul schema, and stored in a dictionary keyed by filename stem.
+1. **Discover external souls.** The parser scans `custom/souls/` for `.yaml` files. Each file is loaded, validated against the Soul schema, checked for `id == filename stem`, and stored in a dictionary keyed by embedded id.
 
 2. **Merge inline souls.** If the workflow YAML contains a `souls:` section, inline definitions are merged over the external map. When keys overlap, the inline soul wins and a warning is logged: `"Inline soul 'X' overrides external soul file"`.
 

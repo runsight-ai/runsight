@@ -37,7 +37,13 @@ from runsight_core.state import WorkflowState
 
 
 def _make_soul(soul_id: str) -> Soul:
-    return Soul(id=soul_id, role=soul_id.title(), system_prompt=f"You are {soul_id}.")
+    return Soul(
+        id=soul_id,
+        kind="soul",
+        name=soul_id.title(),
+        role=soul_id.title(),
+        system_prompt=f"You are {soul_id}.",
+    )
 
 
 def _make_branches(count: int) -> list[DispatchBranch]:

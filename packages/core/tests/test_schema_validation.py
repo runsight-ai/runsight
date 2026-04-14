@@ -361,6 +361,8 @@ class TestRunsightWorkflowFile:
     def test_minimal_valid_file(self):
         wf = RunsightWorkflowFile.model_validate(
             {
+                "id": "test",
+                "kind": "workflow",
                 "workflow": {"name": "test", "entry": "b1"},
                 "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
             }
@@ -378,6 +380,8 @@ class TestRunsightWorkflowFile:
         """Blocks inside the file should be discriminated correctly."""
         wf = RunsightWorkflowFile.model_validate(
             {
+                "id": "test",
+                "kind": "workflow",
                 "workflow": {"name": "test", "entry": "b1"},
                 "blocks": {
                     "b1": {"type": "linear", "soul_ref": "s1"},
@@ -392,6 +396,8 @@ class TestRunsightWorkflowFile:
         """RUN-577: root files should accept workflow tool IDs, not typed tool defs."""
         wf = RunsightWorkflowFile.model_validate(
             {
+                "id": "test",
+                "kind": "workflow",
                 "workflow": {"name": "test", "entry": "b1"},
                 "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
                 "tools": ["http", "delegate", "lookup_profile"],
@@ -405,6 +411,8 @@ class TestRunsightWorkflowFile:
         with pytest.raises(ValidationError, match="list"):
             RunsightWorkflowFile.model_validate(
                 {
+                    "id": "test",
+                    "kind": "workflow",
                     "workflow": {"name": "test", "entry": "b1"},
                     "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
                     "tools": {
@@ -418,6 +426,8 @@ class TestRunsightWorkflowFile:
         with pytest.raises(ValidationError, match="list"):
             RunsightWorkflowFile.model_validate(
                 {
+                    "id": "test",
+                    "kind": "workflow",
                     "workflow": {"name": "test", "entry": "b1"},
                     "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
                     "tools": {

@@ -35,7 +35,7 @@ def register_assertion(type_str: str, handler: type) -> None:
 
 def register_custom_assertions(index: "ScanIndex[AssertionMeta]") -> None:
     """Register custom assertions from a discovery scan index."""
-    for meta in index.stems().values():
+    for meta in index.ids().values():
         if meta.manifest.params is not None:
             custom_assertions._PARAM_SCHEMAS[meta.assertion_id] = meta.manifest.params
         else:
@@ -167,6 +167,7 @@ def _build_assertion_envelope(
         soul=SoulEnvelope(
             id=str(judge_soul.get("id", "assertion_judge")),
             role=str(judge_soul.get("role", "Assertion Judge")),
+            name=str(judge_soul.get("name") or judge_soul.get("role") or "Assertion Judge"),
             system_prompt=str(judge_soul.get("system_prompt", "")),
             model_name=str(judge_soul.get("model_name", "gpt-4o-mini")),
             provider=str(judge_soul.get("provider", "")),

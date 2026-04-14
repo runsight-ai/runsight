@@ -112,6 +112,8 @@ export default defineConfig({
 						{ label: 'Block Type Reference', slug: 'docs/reference/block-type-reference' },
 						{ label: 'Assertion Reference', slug: 'docs/reference/assertion-reference' },
 						{ label: 'CLI Reference', slug: 'docs/reference/cli-reference' },
+						{ label: 'Unified Entity Identity', slug: 'docs/reference/unified-entity-identity' },
+						{ label: 'Identity ADR', slug: 'docs/reference/unified-entity-identity-adr' },
 					],
 				},
 			],

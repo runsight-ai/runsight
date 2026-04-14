@@ -539,11 +539,11 @@ describe("RUN-562 filtered page header", () => {
 });
 
 /* ================================================================== */
-/*  AC 3: Regressions column shows per-run count with ⚠ badge         */
+/*  AC 3: Warnings column shows per-run regression count with ⚠ badge */
 /* ================================================================== */
 
-describe("RUN-562 Regressions column", () => {
-  it('renders a "Regr" column header after Eval', async () => {
+describe("RUN-562 Warnings column regression display", () => {
+  it('renders a "Warnings" column header after Eval', async () => {
     await renderRunsRoute("/runs");
 
     await waitFor(() => {
@@ -553,7 +553,7 @@ describe("RUN-562 Regressions column", () => {
     const headers = getVisibleColumnHeaders();
     const evalIndex = headers.indexOf("Eval");
     expect(evalIndex).toBeGreaterThanOrEqual(0);
-    expect(headers[evalIndex + 1]).toBe("Regr");
+    expect(headers[evalIndex + 1]).toBe("Warnings");
   });
 
   it("displays regression count with ⚠ badge when regression_count > 0", async () => {
@@ -584,10 +584,10 @@ describe("RUN-562 Regressions column", () => {
     });
 
     // Content Pipeline has regression_count: 0
-    // The Regr column cell should show a dash
-    const regrCells = getCellsInColumn("Regr");
-    const pipelineRegrCell = regrCells[1]; // second row (pipeline is index 1 sorted by started desc)
-    expect(pipelineRegrCell.textContent).toBe("—");
+    // The Warnings column cell should show a dash.
+    const warningsCells = getCellsInColumn("Warnings");
+    const pipelineWarningsCell = warningsCells[1]; // second row (pipeline is index 1 sorted by started desc)
+    expect(pipelineWarningsCell.textContent).toBe("—");
   });
 
   it('displays "—" when regression_count is null', async () => {
@@ -598,81 +598,81 @@ describe("RUN-562 Regressions column", () => {
     });
 
     // Daily Digest has regression_count: null
-    const regrCells = getCellsInColumn("Regr");
+    const warningsCells = getCellsInColumn("Warnings");
     // Find the cell for Daily Digest (last by started_at desc)
-    const digestRegrCell = regrCells[2];
-    expect(digestRegrCell.textContent).toBe("—");
+    const digestWarningsCell = warningsCells[2];
+    expect(digestWarningsCell.textContent).toBe("—");
   });
 });
 
 /* ================================================================== */
-/*  AC 4: Regressions column is sortable                               */
+/*  AC 4: Warnings column is sortable                                  */
 /* ================================================================== */
 
-describe("RUN-562 Regressions column sorting", () => {
-  it("supports ascending sort on the Regr column", async () => {
+describe("RUN-562 Warnings column sorting", () => {
+  it("supports ascending sort on the Warnings column", async () => {
     const { user } = await renderRunsRoute("/runs");
 
-    const regrHeader = await waitFor(() => {
-      const header = screen.getByRole("columnheader", { name: "Regr" });
+    const warningsHeader = await waitFor(() => {
+      const header = screen.getByRole("columnheader", { name: "Warnings" });
       expect(header).toBeTruthy();
       return header;
     });
 
-    await user.click(regrHeader);
+    await user.click(warningsHeader);
 
-    expect(regrHeader.getAttribute("aria-sort")).toBe("ascending");
+    expect(warningsHeader.getAttribute("aria-sort")).toBe("ascending");
   });
 
-  it("toggles to descending sort on the Regr column on second click", async () => {
+  it("toggles to descending sort on the Warnings column on second click", async () => {
     const { user } = await renderRunsRoute("/runs");
 
-    const regrHeader = await waitFor(() => {
-      const header = screen.getByRole("columnheader", { name: "Regr" });
+    const warningsHeader = await waitFor(() => {
+      const header = screen.getByRole("columnheader", { name: "Warnings" });
       expect(header).toBeTruthy();
       return header;
     });
 
-    await user.click(regrHeader);
-    await user.click(regrHeader);
+    await user.click(warningsHeader);
+    await user.click(warningsHeader);
 
-    expect(regrHeader.getAttribute("aria-sort")).toBe("descending");
+    expect(warningsHeader.getAttribute("aria-sort")).toBe("descending");
   });
 
-  it("sorts runs by regression_count with nulls last in ascending order", async () => {
+  it("sorts runs by combined warning/regression count in ascending order", async () => {
     const { user } = await renderRunsRoute("/runs");
 
-    const regrHeader = await waitFor(() => {
-      const header = screen.getByRole("columnheader", { name: "Regr" });
+    const warningsHeader = await waitFor(() => {
+      const header = screen.getByRole("columnheader", { name: "Warnings" });
       expect(header).toBeTruthy();
       return header;
     });
 
-    await user.click(regrHeader);
+    await user.click(warningsHeader);
 
     const order = getVisibleWorkflowOrder();
-    // ascending: 0 (Content Pipeline), 3 (Research & Review), null last (Daily Digest)
+    // ascending: 0 (Content Pipeline), 0 (Daily Digest), 3 (Research & Review)
     expect(order).toEqual([
       "Content Pipeline",
-      "Research & Review",
       "Daily Digest",
+      "Research & Review",
     ]);
   });
 
-  it("sorts runs by regression_count with nulls last in descending order", async () => {
+  it("sorts runs by combined warning/regression count in descending order", async () => {
     const { user } = await renderRunsRoute("/runs");
 
-    const regrHeader = await waitFor(() => {
-      const header = screen.getByRole("columnheader", { name: "Regr" });
+    const warningsHeader = await waitFor(() => {
+      const header = screen.getByRole("columnheader", { name: "Warnings" });
       expect(header).toBeTruthy();
       return header;
     });
 
-    await user.click(regrHeader);
-    await user.click(regrHeader);
+    await user.click(warningsHeader);
+    await user.click(warningsHeader);
 
     const order = getVisibleWorkflowOrder();
-    // descending: 3 (Research & Review), 0 (Content Pipeline), null last (Daily Digest)
+    // descending: 3 (Research & Review), 0 (Content Pipeline), 0 (Daily Digest)
     expect(order).toEqual([
       "Research & Review",
       "Content Pipeline",

@@ -30,10 +30,17 @@ def _write_soul_file(
     souls_dir = base_dir / "custom" / "souls"
     souls_dir.mkdir(parents=True, exist_ok=True)
     model_line = f"\nmodel_name: {model_name}" if model_name else ""
+    # Use `name` as the embedded id to match the filename stem (scanner requirement).
+    # `soul_id` is kept as parameter for call-site compatibility but ignored for the file.
+    soul_name = " ".join(
+        word.capitalize() for word in name.replace("_", " ").replace("-", " ").split()
+    )
     (souls_dir / f"{name}.yaml").write_text(
         dedent(
             f"""\
-            id: {soul_id}
+            id: {name}
+            kind: soul
+            name: {soul_name}
             role: {role}
             system_prompt: {prompt}{model_line}
             """
@@ -92,9 +99,13 @@ class TestYamlDxSugarPositiveFlows:
             "inline_souls.yaml",
             """\
             version: "1.0"
+            id: inline-souls
+            kind: workflow
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Inline Writer
                 role: Inline Writer
                 system_prompt: Draft carefully.
                 model_name: gpt-4.1-mini
@@ -132,9 +143,13 @@ class TestYamlDxSugarPositiveFlows:
             "inline_override.yaml",
             """\
             version: "1.0"
+            id: inline-override
+            kind: workflow
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Inline Writer
                 role: Inline Writer
                 system_prompt: Use the inline prompt.
             blocks:
@@ -164,9 +179,13 @@ class TestYamlDxSugarPositiveFlows:
             "depends.yaml",
             """\
             version: "1.0"
+            id: depends-edges
+            kind: workflow
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Inline Writer
                 role: Inline Writer
                 system_prompt: Draft carefully.
             blocks:
@@ -206,13 +225,19 @@ class TestYamlDxSugarPositiveFlows:
             "compiled_sugars.yaml",
             """\
             version: "1.0"
+            id: compiled-sugars
+            kind: workflow
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Writer
                 role: Writer
                 system_prompt: Draft carefully.
               evaluator:
                 id: evaluator
+                kind: soul
+                name: Evaluator
                 role: Evaluator
                 system_prompt: Evaluate carefully.
             blocks:
@@ -333,13 +358,19 @@ class TestYamlDxSugarPositiveFlows:
             "sugar.yaml",
             """\
             version: "1.0"
+            id: sugar
+            kind: workflow
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Writer
                 role: Writer
                 system_prompt: Draft carefully.
               evaluator:
                 id: evaluator
+                kind: soul
+                name: Evaluator
                 role: Evaluator
                 system_prompt: Evaluate carefully.
             blocks:
@@ -405,13 +436,19 @@ class TestYamlDxSugarPositiveFlows:
             "explicit.yaml",
             """\
             version: "1.0"
+            id: explicit
+            kind: workflow
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Writer
                 role: Writer
                 system_prompt: Draft carefully.
               evaluator:
                 id: evaluator
+                kind: soul
+                name: Evaluator
                 role: Evaluator
                 system_prompt: Evaluate carefully.
             blocks:
@@ -499,6 +536,8 @@ class TestYamlDxSugarPositiveFlows:
             "legacy.yaml",
             """\
             version: "1.0"
+            id: legacy
+            kind: workflow
             blocks:
               draft:
                 type: linear
@@ -544,7 +583,7 @@ class TestYamlDxSugarPositiveFlows:
         workflow = parse_workflow_yaml(workflow_path)
         draft_block = _unwrap_runtime_block(workflow.blocks["draft"])
 
-        assert draft_block.soul.id == "writer_external"
+        assert draft_block.soul.id == "writer"
         assert _workflow_snapshot(workflow) == {
             "transitions": {"draft": "review"},
             "conditional_transitions": {
@@ -586,10 +625,14 @@ class TestYamlDxSugarValidation:
         ):
             RunsightWorkflowFile.model_validate(
                 {
+                    "id": "bad-inline-soul",
+                    "kind": "workflow",
                     "workflow": {"name": "bad_inline_soul", "entry": "draft"},
                     "souls": {
                         "writer": {
                             "id": "reviewer",
+                            "kind": "soul",
+                            "name": "Reviewer",
                             "role": "Writer",
                             "system_prompt": "Draft carefully.",
                         }
@@ -606,9 +649,13 @@ class TestYamlDxSugarValidation:
             "depends_conflict.yaml",
             """\
             version: "1.0"
+            id: depends-conflict
+            kind: workflow
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Writer
                 role: Writer
                 system_prompt: Draft carefully.
             blocks:
@@ -641,6 +688,8 @@ class TestYamlDxSugarValidation:
         ):
             RunsightWorkflowFile.model_validate(
                 {
+                    "id": "gate-invalid",
+                    "kind": "workflow",
                     "workflow": {"name": "gate_invalid", "entry": "quality_gate"},
                     "blocks": {
                         "quality_gate": {
@@ -662,9 +711,13 @@ class TestYamlDxSugarValidation:
             "gate_conflict.yaml",
             """\
             version: "1.0"
+            id: gate-conflict
+            kind: workflow
             souls:
               evaluator:
                 id: evaluator
+                kind: soul
+                name: Evaluator
                 role: Evaluator
                 system_prompt: Evaluate carefully.
             blocks:
@@ -704,6 +757,8 @@ class TestYamlDxSugarValidation:
             "error_route_unknown.yaml",
             """\
             version: "1.0"
+            id: error-route-unknown
+            kind: workflow
             blocks:
               risky:
                 type: code

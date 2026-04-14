@@ -2,6 +2,7 @@ import time
 from typing import List, Optional
 
 import httpx
+from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.security import SSRFError, validate_ssrf
 
 from ...core.secrets import SecretsEnvLoader
@@ -65,6 +66,10 @@ def _build_provider_test_result(
     }
 
 
+def _provider_ref(provider_id: str) -> str:
+    return str(EntityRef(EntityKind.PROVIDER, provider_id))
+
+
 class ProviderService:
     def __init__(self, repo: FileSystemProviderRepo, secrets: SecretsEnvLoader):
         self.repo = repo
@@ -78,6 +83,8 @@ class ProviderService:
 
     def create_provider(
         self,
+        id: str,
+        kind: str,
         name: str,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
@@ -90,19 +97,23 @@ class ProviderService:
         if api_key:
             api_key_ref = self.secrets.store_key(provider_type, api_key)
 
-        data = {
-            "name": name,
-            "type": provider_type,
-            "api_key": api_key_ref,
-            "base_url": base_url,
-            "status": "unknown",
-            "is_active": True,
-        }
-        return self.repo.create(data)
+        provider = ProviderEntity(
+            id=id,
+            kind=kind,
+            name=name,
+            type=provider_type,
+            api_key=api_key_ref,
+            base_url=base_url,
+            status="unknown",
+            is_active=True,
+        )
+        return self.repo.create(provider.model_dump(exclude_none=True))
 
     def update_provider(
         self,
         provider_id: str,
+        id: str,
+        kind: str,
         name: Optional[str] = None,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
@@ -112,7 +123,17 @@ class ProviderService:
         if not provider:
             return None
 
-        update_data: dict = {}
+        update_data: dict = {
+            "id": id,
+            "kind": kind,
+            "name": provider.name,
+            "type": provider.type,
+            "api_key": provider.api_key,
+            "base_url": provider.base_url,
+            "is_active": provider.is_active,
+            "status": provider.status,
+            "models": provider.models,
+        }
         if name is not None:
             update_data["name"] = name
         if api_key is not None:
@@ -127,7 +148,8 @@ class ProviderService:
             update_data["is_active"] = is_active
 
         update_data["updated_at"] = time.time()
-        return self.repo.update(provider_id, update_data)
+        provider_entity = ProviderEntity.model_validate(update_data)
+        return self.repo.update(provider_id, provider_entity.model_dump(exclude_none=True))
 
     def delete_provider(self, provider_id: str) -> bool:
         provider = self.repo.get_by_id(provider_id)
@@ -235,7 +257,10 @@ class ProviderService:
         if provider_id:
             existing_provider = self.repo.get_by_id(provider_id)
             if not existing_provider:
-                return _build_provider_test_result(success=False, message="Provider not found")
+                return _build_provider_test_result(
+                    success=False,
+                    message=f"Provider {_provider_ref(provider_id)} not found",
+                )
 
         resolved_provider_type = provider_type
         if not resolved_provider_type and existing_provider:
@@ -262,13 +287,18 @@ class ProviderService:
     async def test_connection(self, provider_id: str) -> dict:
         provider = self.repo.get_by_id(provider_id)
         if not provider:
-            return _build_provider_test_result(success=False, message="Provider not found")
+            return _build_provider_test_result(
+                success=False,
+                message=f"Provider {_provider_ref(provider_id)} not found",
+            )
 
         result = await self.test_credentials(provider_id=provider_id)
         if result.get("message") == "No API key configured":
             return result
 
         update_data = {
+            "id": provider.id,
+            "kind": provider.kind,
             "status": "connected" if result.get("success") else "error",
             "models": result.get("models", []),
             "last_status_check": time.time(),

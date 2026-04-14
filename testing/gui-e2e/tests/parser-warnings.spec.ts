@@ -54,7 +54,13 @@ type RunListResponse = {
 
 type WorkflowResponse = {
   id: string;
+  kind: "workflow";
   name?: string | null;
+};
+
+type WorkflowSimulationResponse = {
+  branch: string;
+  commit_sha: string;
 };
 
 const CANVAS_STATE = {
@@ -71,8 +77,10 @@ let warningWorkflowName = "";
 let warningRunId = "";
 let warningRunListItem: RunListItem | null = null;
 
-function warningWorkflowYaml(soulId: string, workflowName: string) {
+function warningWorkflowYaml(workflowId: string, soulId: string, workflowName: string) {
   return `version: "1.0"
+id: ${workflowId}
+kind: workflow
 config:
   model_name: gpt-4o
 blocks:
@@ -100,10 +108,13 @@ test.describe("RUN-845 parser warnings browser flows", () => {
   test.beforeAll(async () => {
     const suffix = Date.now().toString(36);
     warningSoulId = `run845-warning-soul-${suffix}`;
+    warningWorkflowId = `run845-warning-flow-${suffix}`;
     warningWorkflowName = `RUN-845 warning flow ${suffix}`;
 
     await apiPost("/souls", {
       id: warningSoulId,
+      kind: "soul",
+      name: "RUN-845 Warning Soul",
       role: "RUN-845 Warning Soul",
       system_prompt: "Parser warning soul for e2e coverage.",
       tools: ["http"],
@@ -113,15 +124,21 @@ test.describe("RUN-845 parser warnings browser flows", () => {
 
     const workflow = await apiPost<WorkflowResponse>("/workflows", {
       name: warningWorkflowName,
-      yaml: warningWorkflowYaml(warningSoulId, warningWorkflowName),
+      yaml: warningWorkflowYaml(warningWorkflowId, warningSoulId, warningWorkflowName),
       canvas_state: CANVAS_STATE,
       commit: false,
     });
     warningWorkflowId = workflow.id;
 
+    const simulation = await apiPost<WorkflowSimulationResponse>(
+      `/workflows/${warningWorkflowId}/simulations`,
+      { yaml: warningWorkflowYaml(warningWorkflowId, warningSoulId, warningWorkflowName) },
+    );
     const createdRun = await apiPost<{ id: string; warnings: WarningItem[] }>("/runs", {
       workflow_id: warningWorkflowId,
-      task_data: {},
+      task_data: { instruction: "Exercise parser warnings" },
+      source: "simulation",
+      branch: simulation.branch,
     });
     warningRunId = createdRun.id;
 

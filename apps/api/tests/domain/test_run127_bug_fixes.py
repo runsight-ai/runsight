@@ -20,7 +20,10 @@ class TestWorkflowEntityNameFromYaml:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = WorkflowRepository(tmpdir)
 
-            yaml_content = """workflow:
+            yaml_content = """id: my-cool-workflow
+kind: workflow
+version: '1.0'
+workflow:
   name: My Cool Workflow
   entry: b1
   transitions: []
@@ -45,7 +48,10 @@ config: {}
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = WorkflowRepository(tmpdir)
 
-            yaml_content = """workflow:
+            yaml_content = """id: research-pipeline
+kind: workflow
+version: '1.0'
+workflow:
   name: Research Pipeline
   entry: b1
   transitions: []
@@ -71,7 +77,10 @@ config: {}
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = WorkflowRepository(tmpdir)
 
-            yaml_content = """workflow:
+            yaml_content = """id: listed-workflow
+kind: workflow
+version: '1.0'
+workflow:
   name: Listed Workflow
   entry: b1
   transitions: []

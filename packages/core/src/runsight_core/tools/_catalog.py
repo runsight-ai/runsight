@@ -19,6 +19,7 @@ from runsight_core.blocks.code import (
     DEFAULT_ALLOWED_IMPORTS,
     _validate_code_ast,
 )
+from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.security import validate_ssrf
 from runsight_core.yaml.discovery import (
     RESERVED_BUILTIN_TOOL_IDS,
@@ -190,7 +191,7 @@ def _resolve_custom_tool_id(
     if not isinstance(timeout_seconds, int):
         raise TypeError("timeout_seconds must be an int")
 
-    tool_meta = tool_meta or ToolScanner(base_dir).scan().stems().get(tool_id)
+    tool_meta = tool_meta or ToolScanner(base_dir).scan().ids().get(tool_id)
     if tool_meta is None:
         raise ValueError(f"Unknown custom tool source: {tool_id!r}")
     if tool_meta.executor != "python":
@@ -421,7 +422,7 @@ def _resolve_http_tool_id(
 ) -> ToolInstance:
     """Resolve a discovered HTTP tool from its canonical workflow ID."""
     base_dir = kwargs.get("base_dir", ".")
-    tool_meta = tool_meta or ToolScanner(base_dir).scan().stems().get(tool_id)
+    tool_meta = tool_meta or ToolScanner(base_dir).scan().ids().get(tool_id)
     if tool_meta is None:
         raise ValueError(f"Unknown HTTP tool source: {tool_id!r}")
     if tool_meta.executor != "request":
@@ -453,13 +454,14 @@ def resolve_tool_id(tool_id: str, **kwargs: object) -> ToolInstance:
         raise TypeError(f"tool_id must be a string, got {type(tool_id)!r}")
 
     base_dir = kwargs.get("base_dir", ".")
-    discovered_tools = ToolScanner(base_dir).scan().stems()
+    discovered_tools = ToolScanner(base_dir).scan().ids()
 
     if tool_id in RESERVED_BUILTIN_TOOL_IDS:
         if tool_id in discovered_tools:
+            tool_ref = str(EntityRef(EntityKind.TOOL, tool_id))
             collision_path = discovered_tools[tool_id].file_path
             raise ValueError(
-                f"reserved builtin tool id '{tool_id}' collides with custom tool metadata at "
+                f"reserved builtin {tool_ref} collides with custom tool metadata at "
                 f"{collision_path}"
             )
         factory = BUILTIN_TOOL_CATALOG.get(tool_id)

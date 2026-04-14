@@ -26,7 +26,13 @@ def mock_runner():
 @pytest.fixture
 def test_soul():
     """Test soul for integration tests."""
-    return Soul(id="integration_soul", role="Integration Tester", system_prompt="Test integration.")
+    return Soul(
+        id="integration_soul",
+        kind="soul",
+        name="Integration Soul",
+        role="Integration Tester",
+        system_prompt="Test integration.",
+    )
 
 
 @pytest.mark.asyncio
@@ -144,6 +150,8 @@ async def test_soul_primitive_integration_with_block(mock_runner):
     """
     soul = Soul(
         id="detailed_soul",
+        kind="soul",
+        name="Detailed Soul",
         role="Senior Engineer",
         system_prompt="You are a senior engineer with expertise in testing.",
         tools=["test_tool"],

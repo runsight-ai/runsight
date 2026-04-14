@@ -36,7 +36,9 @@ def mock_runner():
 @pytest.fixture
 def sample_soul():
     """Sample soul for testing."""
-    return Soul(id="test_soul", role="Tester", system_prompt="You test things.")
+    return Soul(
+        id="test_soul", kind="soul", name="Tester", role="Tester", system_prompt="You test things."
+    )
 
 
 def test_pause_event_initialized(sample_soul, mock_runner):
@@ -125,7 +127,9 @@ async def test_check_pause_succeeds_when_not_killed():
 @pytest.mark.asyncio
 async def test_check_pause_with_linear_block():
     """Verify _check_pause() works with LinearBlock."""
-    soul = Soul(id="test_soul", role="Tester", system_prompt="You test things.")
+    soul = Soul(
+        id="test_soul", kind="soul", name="Tester", role="Tester", system_prompt="You test things."
+    )
     runner = MagicMock()
     block = LinearBlock("linear-test", soul, runner)
 

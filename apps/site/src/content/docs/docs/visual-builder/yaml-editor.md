@@ -17,6 +17,8 @@ Type your workflow definition directly in the editor. A minimal workflow looks l
 
 ```yaml title="custom/workflows/my-workflow.yaml"
 version: "1.0"
+id: my-workflow
+kind: workflow
 blocks:
   summarize:
     type: linear

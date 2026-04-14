@@ -27,7 +27,9 @@ def mock_runner():
 @pytest.fixture
 def sample_soul():
     """Sample soul for testing."""
-    return Soul(id="test_soul", role="Tester", system_prompt="You test things.")
+    return Soul(
+        id="test_soul", kind="soul", name="Tester", role="Tester", system_prompt="You test things."
+    )
 
 
 @pytest.mark.asyncio
@@ -133,13 +135,14 @@ async def test_dispatch_block_parallel(mock_runner):
     from runsight_core.blocks.dispatch import DispatchBranch
 
     souls = [
-        Soul(id="s1", role="R1", system_prompt="P1"),
-        Soul(id="s2", role="R2", system_prompt="P2"),
-        Soul(id="s3", role="R3", system_prompt="P3"),
+        Soul(id="soul-s1", kind="soul", name="R1", role="R1", system_prompt="P1"),
+        Soul(id="soul-s2", kind="soul", name="R2", role="R2", system_prompt="P2"),
+        Soul(id="soul-s3", kind="soul", name="R3", role="R3", system_prompt="P3"),
     ]
+    exit_ids = ["exit_s1", "exit_s2", "exit_s3"]
     branches = [
-        DispatchBranch(exit_id=f"exit_{s.id}", label=s.role, soul=s, task_instruction="Review this")
-        for s in souls
+        DispatchBranch(exit_id=exit_ids[i], label=s.role, soul=s, task_instruction="Review this")
+        for i, s in enumerate(souls)
     ]
 
     mock_runner.execute_task.side_effect = [

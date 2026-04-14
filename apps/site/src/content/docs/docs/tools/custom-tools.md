@@ -12,6 +12,8 @@ Every custom tool YAML file has these required fields:
 | Field | Type | Description |
 |-------|------|-------------|
 | `version` | `str` | Schema version. Must be `"1.0"`. |
+| `id` | `str` | Embedded tool id. Must match the filename stem. |
+| `kind` | `str` | Must be `"tool"`. |
 | `type` | `str` | Must be `"custom"`. |
 | `executor` | `str` | `"python"` or `"request"`. |
 | `name` | `str` | Human-readable tool name. |
@@ -25,7 +27,7 @@ Additionally, depending on the executor:
 | `python` | `code` or `code_file` (exactly one) | -- |
 | `request` | `request` mapping | `timeout_seconds` |
 
-The canonical tool ID is derived from the filename stem. A file at `custom/tools/sentiment.yaml` has ID `sentiment`.
+The canonical tool ID is the embedded `id`. A file at `custom/tools/sentiment.yaml` must contain `id: sentiment`.
 
 :::caution
 The `description` field is required. Discovery will reject any tool file that omits it or provides an empty string.
@@ -41,6 +43,8 @@ Your code must define a `def main(args)` function. The `args` parameter is a dic
 
 ```yaml title="custom/tools/sentiment.yaml"
 version: "1.0"
+id: sentiment
+kind: tool
 type: custom
 executor: python
 name: sentiment_analyzer
@@ -67,6 +71,8 @@ For longer implementations, use `code_file` to reference a Python file in the sa
 
 ```yaml title="custom/tools/data_processor.yaml"
 version: "1.0"
+id: data_processor
+kind: tool
 type: custom
 executor: python
 name: data_processor
@@ -107,6 +113,8 @@ The request executor makes an outbound HTTP call. Use this for integrating with 
 
 ```yaml title="custom/tools/slack_notify.yaml"
 version: "1.0"
+id: slack_notify
+kind: tool
 type: custom
 executor: request
 name: slack_notify
@@ -188,21 +196,22 @@ The `description` on each property helps the LLM understand what to pass. Always
 ## Discovery rules
 
 1. Only `.yaml` files in `custom/tools/` are scanned (not subdirectories)
-2. The canonical ID is the filename without the `.yaml` extension
-3. Duplicate IDs (same filename stem) are rejected
-4. All required fields must be present and non-empty strings
-5. Unknown fields are rejected (the allowed set is: `version`, `type`, `executor`, `name`, `description`, `parameters`, `code`, `code_file`, `request`, `timeout_seconds`)
-6. The `type` field must be `"custom"`
+2. The canonical ID is the embedded `id`
+3. The embedded `id` must match the filename stem
+4. Duplicate embedded IDs are rejected
+5. All required fields must be present and non-empty strings
+6. Unknown fields are rejected (the allowed set is: `id`, `kind`, `version`, `type`, `executor`, `name`, `description`, `parameters`, `code`, `code_file`, `request`, `timeout_seconds`)
+7. The `kind` field must be `"tool"` and the `type` field must be `"custom"`
 
 ## Reserved IDs
 
-The following IDs are reserved for builtin tools and cannot be used as custom tool filenames:
+The following IDs are reserved for builtin tools and cannot be used as custom tool ids:
 
 - `http`
 - `file_io`
 - `delegate`
 
-Creating a file named `custom/tools/http.yaml` will cause a parse error.
+Creating a file named `custom/tools/http.yaml` or declaring `id: http` will cause a parse error.
 
 ## Using a custom tool in a workflow
 
@@ -210,11 +219,15 @@ To make a custom tool available, declare it in both the workflow's `tools` list 
 
 ```yaml title="custom/workflows/analysis.yaml"
 version: "1.0"
+id: analysis
+kind: workflow
 tools:
   - sentiment
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Sentiment Analyst
     system_prompt: Analyze the sentiment of the provided text using the sentiment tool.
     tools:

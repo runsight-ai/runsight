@@ -60,12 +60,18 @@ class TestDispatchParserIntegration:
     @staticmethod
     def _souls_map():
         return {
-            "agent_a": Soul(id="agent_a_id", role="Agent A", system_prompt="A"),
-            "agent_b": Soul(id="agent_b_id", role="Agent B", system_prompt="B"),
+            "agent_a": Soul(
+                id="agent_a_id", kind="soul", name="Agent A", role="Agent A", system_prompt="A"
+            ),
+            "agent_b": Soul(
+                id="agent_b_id", kind="soul", name="Agent B", role="Agent B", system_prompt="B"
+            ),
         }
 
     def test_parse_workflow_yaml_accepts_dispatch_block_type(self):
         yaml_content = """
+id: test-workflow
+kind: workflow
 version: "1.0"
 blocks:
   branch:
@@ -87,7 +93,7 @@ workflow:
       to: null
 """
         with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
-            mock_scanner.return_value.scan.return_value.stems.return_value = self._souls_map()
+            mock_scanner.return_value.scan.return_value.ids.return_value = self._souls_map()
             workflow = parse_workflow_yaml(yaml_content, runner=MagicMock())
 
         assert workflow.name == "dispatch_parse_test"

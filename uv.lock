@@ -2092,7 +2092,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "runsight-workspace"
-version = "0.2.4"
+version = "0.3.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]

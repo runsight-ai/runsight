@@ -21,6 +21,8 @@ The child workflow is a standard YAML workflow file with an `interface` section 
 
 ```yaml title="custom/workflows/summarizer.yaml"
 version: "1.0"
+id: summarizer
+kind: workflow
 
 interface:
   inputs:
@@ -78,6 +80,8 @@ In the parent workflow, add a `workflow` block with `workflow_ref` pointing to t
 
 ```yaml title="custom/workflows/analysis-pipeline.yaml"
 version: "1.0"
+id: analysis-pipeline
+kind: workflow
 
 blocks:
   gather:
@@ -106,7 +110,7 @@ workflow:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `workflow_ref` | `str` | required | File stem or path of the child workflow |
+| `workflow_ref` | `str` | required | Embedded workflow id of the child workflow |
 | `inputs` | `Dict[str, str]` | none | Interface name mapped to parent state path |
 | `outputs` | `Dict[str, str]` | none | Parent state path mapped to interface output name |
 | `max_depth` | `int` | none | Maximum nesting depth (falls back to `config.max_workflow_depth`, default `10`) |
@@ -170,12 +174,6 @@ The engine tracks a **call stack** of workflow names during execution. Two safet
 
 ## Workflow ref resolution
 
-The `workflow_ref` value is resolved in this order:
+The `workflow_ref` value resolves only to the embedded workflow id of the child workflow. Path, filename, relative-path, and display-name aliases are not accepted.
 
-1. Named workflow in the validation index (matched by file path, stem, or workflow name)
-2. Absolute file path
-3. Relative to project root
-4. Relative to `custom/workflows/`
-5. With `.yaml` or `.yml` extension appended
-
-The simplest form is the file stem: `workflow_ref: summarizer` resolves to `custom/workflows/summarizer.yaml`.
+Use `workflow_ref: summarizer` when the child file is `custom/workflows/summarizer.yaml` and the YAML contains `id: summarizer`.

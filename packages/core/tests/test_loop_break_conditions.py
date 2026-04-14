@@ -246,7 +246,9 @@ class TestLoopBlockDefBreakConditionSchema:
             "version": "1.0",
             "souls": {
                 "writer": {
-                    "id": "writer_1",
+                    "id": "writer",
+                    "kind": "soul",
+                    "name": "Writer",
                     "role": "Writer",
                     "system_prompt": "You write.",
                 }
@@ -265,6 +267,8 @@ class TestLoopBlockDefBreakConditionSchema:
                 },
             },
             "workflow": {
+                "id": "break_cond_test",
+                "kind": "workflow",
                 "name": "break_cond_test",
                 "entry": "loop_block",
                 "transitions": [{"from": "loop_block", "to": None}],

@@ -164,6 +164,8 @@ export const PaginatedLogsResponseSchema = z.object({
 export type PaginatedLogsResponse = z.infer<typeof PaginatedLogsResponseSchema>;
 
 export const ProviderCreateSchema = z.object({
+  id: z.string(),
+  kind: z.literal("provider"),
   name: z.string(),
   api_key_env: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
@@ -190,13 +192,15 @@ export type ProviderTestIn = z.infer<typeof ProviderTestInSchema>;
 export const ProviderTestOutSchema = z.object({
   success: z.boolean(),
   message: z.string(),
-  models: z.array(z.string()).optional().default([]),
+  models: z.array(z.string()).optional(),
   model_count: z.number().optional().default(0),
   latency_ms: z.number().optional().default(0.0),
 });
 export type ProviderTestOut = z.infer<typeof ProviderTestOutSchema>;
 
 export const ProviderUpdateSchema = z.object({
+  id: z.string(),
+  kind: z.literal("provider"),
   name: z.string().nullable().optional(),
   api_key_env: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
@@ -247,7 +251,7 @@ export const RunResponseSchema = z.object({
   eval_score_avg: z.number().nullable().optional(),
   regression_count: z.number().nullable().optional().default(0),
   regression_types: z.array(z.string()).optional(),
-  warnings: z.array(WarningItemSchema).optional().default([]),
+  warnings: z.array(WarningItemSchema).optional(),
   node_summary: NodeSummarySchema.nullable().optional(),
   parent_run_id: z.string().nullable().optional(),
   root_run_id: z.string().nullable().optional(),
@@ -319,6 +323,7 @@ export type SettingsFallbackListResponse = z.infer<typeof SettingsFallbackListRe
 
 export const SettingsProviderResponseSchema = z.object({
   id: z.string(),
+  kind: z.literal("provider"),
   name: z.string(),
   type: z.string().nullable().optional(),
   status: z.string(),
@@ -326,7 +331,7 @@ export const SettingsProviderResponseSchema = z.object({
   api_key_env: z.string().nullable().optional(),
   api_key_preview: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
-  models: z.array(z.string()).optional().default([]),
+  models: z.array(z.string()).optional(),
   model_count: z.number().optional().default(0),
   created_at: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
@@ -352,7 +357,9 @@ export const SimBranchResponseSchema = z.object({
 export type SimBranchResponse = z.infer<typeof SimBranchResponseSchema>;
 
 export const SoulCreateSchema = z.object({
-  id: z.string().nullable().optional(),
+  id: z.string(),
+  kind: z.literal("soul"),
+  name: z.string(),
   role: z.string(),
   system_prompt: z.string(),
   tools: z.array(z.string()).nullable().optional(),
@@ -382,6 +389,8 @@ export const SoulEvalHistoryResponseSchema = z.object({
 export type SoulEvalHistoryResponse = z.infer<typeof SoulEvalHistoryResponseSchema>;
 
 export const SoulResponseSchema = z.object({
+  kind: z.literal("soul"),
+  name: z.string(),
   id: z.string(),
   role: z.string().nullable().optional(),
   system_prompt: z.string().nullable().optional(),
@@ -567,6 +576,7 @@ export const WorkflowHealthMetricsSchema = z.object({
 export type WorkflowHealthMetrics = z.infer<typeof WorkflowHealthMetricsSchema>;
 
 export const WorkflowResponseSchema = z.object({
+  kind: z.literal("workflow"),
   id: z.string(),
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
@@ -574,7 +584,7 @@ export const WorkflowResponseSchema = z.object({
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
   valid: z.boolean().optional().default(true),
   validation_error: z.string().nullable().optional(),
-  warnings: z.array(WarningItemSchema).optional().default([]),
+  warnings: z.array(WarningItemSchema).optional(),
   block_count: z.number().optional().default(0),
   modified_at: z.number().nullable().optional(),
   enabled: z.boolean().optional().default(false),
@@ -612,4 +622,3 @@ export const runsight_api__transport__routers__git__LogResponseSchema = z.object
   commits: z.array(CommitEntrySchema),
 });
 export type runsight_api__transport__routers__git__LogResponse = z.infer<typeof runsight_api__transport__routers__git__LogResponseSchema>;
-

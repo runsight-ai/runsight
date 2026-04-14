@@ -58,6 +58,8 @@ def _init_git_repo_with_workflow(
 
 VALID_RUNTIME_YAML = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 workflow:
   name: test
   entry: b1
@@ -70,7 +72,9 @@ blocks:
     soul_ref: test
 souls:
   test:
-    id: soul_1
+    id: test
+    kind: soul
+    name: Test Soul
     role: tester
     system_prompt: hello
     provider: openai
@@ -206,7 +210,11 @@ class TestLaunchExecution:
 
         main_yaml = """
 version: "1.0"
+id: wf_1
+kind: workflow
 workflow:
+  id: wf_1
+  kind: workflow
   name: Main Workflow
   entry: b1
   transitions: []
@@ -216,7 +224,9 @@ blocks:
     soul_ref: main-soul
 souls:
   main-soul:
-    id: soul_main
+    id: main-soul
+    kind: soul
+    name: Main Soul
     role: tester
     system_prompt: hello
     provider: openai
@@ -225,7 +235,11 @@ config: {}
 """
         sim_yaml = """
 version: "1.0"
+id: wf_1
+kind: workflow
 workflow:
+  id: wf_1
+  kind: workflow
   name: Simulation Workflow
   entry: b1
   transitions: []
@@ -235,7 +249,9 @@ blocks:
     soul_ref: sim-soul
 souls:
   sim-soul:
-    id: soul_sim
+    id: sim-soul
+    kind: soul
+    name: Simulation Soul
     role: tester
     system_prompt: hello
     provider: openai
@@ -407,7 +423,11 @@ class TestLaunchExecutionErrors:
         mock_entity = Mock()
         mock_entity.yaml = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 workflow:
+  id: test
+  kind: workflow
   name: test
   entry: b1
   transitions: []
@@ -417,7 +437,9 @@ blocks:
     soul_ref: researcher
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Researcher
     role: Researcher
     system_prompt: hello
     provider: openai
@@ -726,6 +748,8 @@ class TestExecutionRuntimeResolution:
         mock_entity = Mock()
         mock_entity.yaml = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 workflow:
   name: code-only
   entry: b1
@@ -779,6 +803,8 @@ config: {}
         mock_entity = Mock()
         mock_entity.yaml = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 workflow:
   name: test
   entry: b1
@@ -791,7 +817,9 @@ blocks:
     soul_ref: test
 souls:
   test:
-    id: soul_1
+    id: test
+    kind: soul
+    name: Test Soul
     role: tester
     system_prompt: hello
 config: {}
@@ -826,6 +854,8 @@ config: {}
         mock_entity = Mock()
         mock_entity.yaml = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 workflow:
   name: test
   entry: b1
@@ -838,7 +868,9 @@ blocks:
     soul_ref: test
 souls:
   test:
-    id: soul_1
+    id: test
+    kind: soul
+    name: Test Soul
     role: tester
     system_prompt: hello
     provider: openai

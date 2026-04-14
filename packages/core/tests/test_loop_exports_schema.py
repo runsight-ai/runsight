@@ -52,6 +52,8 @@ def _minimal_workflow_file(blocks: Dict[str, Any], entry: str = "b1") -> Dict[st
     """Build a minimal RunsightWorkflowFile dict for JSON-schema validation."""
     return {
         "version": "1.0",
+        "id": "test-workflow",
+        "kind": "workflow",
         "workflow": {"name": "test", "entry": entry},
         "blocks": blocks,
     }

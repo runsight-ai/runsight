@@ -18,6 +18,8 @@ def _write_soul_file(base_dir: Path, name: str = "evaluator") -> None:
         dedent(
             """\
             id: evaluator
+            kind: soul
+            name: Evaluator
             role: Evaluator
             system_prompt: Evaluate carefully.
             """
@@ -28,7 +30,12 @@ def _write_soul_file(base_dir: Path, name: str = "evaluator") -> None:
 
 def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     workflow_file = base_dir / "workflow.yaml"
-    workflow_file.write_text(dedent(yaml_content), encoding="utf-8")
+    content = dedent(yaml_content)
+    lines = content.lstrip().splitlines()
+    first_key = lines[0].split(":")[0].strip() if lines else ""
+    if first_key != "id":
+        content = "id: test-workflow\nkind: workflow\n" + content
+    workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
 
 
@@ -38,6 +45,8 @@ class TestGateShortcutSchema:
     def test_model_validate_accepts_pass_fail_yaml_aliases(self):
         file_def = RunsightWorkflowFile.model_validate(
             {
+                "id": "test-workflow",
+                "kind": "workflow",
                 "workflow": {"name": "gate_shortcuts", "entry": "quality_gate"},
                 "blocks": {
                     "quality_gate": {

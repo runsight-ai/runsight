@@ -408,15 +408,14 @@ describe("No API key shows warning badge on template card (AC8)", () => {
 // ===========================================================================
 
 describe("Template YAML is used for template card workflow creation", () => {
-  it("imports TEMPLATE_YAML from constants", () => {
+  it("imports the template YAML builder from constants", () => {
     const source = readSource(SETUP_START_PAGE_PATH);
-    expect(source).toMatch(/import.*TEMPLATE_YAML.*from.*constants/);
+    expect(source).toMatch(/import.*buildTemplateWorkflowYaml.*from.*constants/);
   });
 
-  it("passes TEMPLATE_YAML when template option is selected", () => {
+  it("builds template YAML when template option is selected", () => {
     const source = readSource(SETUP_START_PAGE_PATH);
-    // When creating workflow with template selected, should use TEMPLATE_YAML
-    expect(source).toMatch(/TEMPLATE_YAML/);
+    expect(source).toMatch(/buildTemplateWorkflowYaml/);
   });
 });
 

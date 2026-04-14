@@ -85,6 +85,8 @@ class TestCreateProviderUsesSecrets:
     def test_create_provider_stores_env_var_reference(self, service, secrets):
         """After create, the provider's api_key field must be a ${...} reference."""
         provider = service.create_provider(
+            id="openai",
+            kind="provider",
             name="OpenAI",
             api_key="sk-test-key-123",
             provider_type="openai",
@@ -99,6 +101,8 @@ class TestCreateProviderUsesSecrets:
     def test_create_provider_writes_raw_key_to_secrets_env(self, service, secrets):
         """The raw API key must end up in secrets.env, not in the YAML file."""
         service.create_provider(
+            id="openai",
+            kind="provider",
             name="OpenAI",
             api_key="sk-test-key-123",
             provider_type="openai",
@@ -110,6 +114,8 @@ class TestCreateProviderUsesSecrets:
     def test_create_provider_no_key_stores_none(self, service):
         """Creating a provider without an API key must store None, not encrypt None."""
         provider = service.create_provider(
+            id="ollama",
+            kind="provider",
             name="Ollama",
             provider_type="ollama",
         )
@@ -120,6 +126,8 @@ class TestCreateProviderUsesSecrets:
         from pathlib import Path
 
         service.create_provider(
+            id="openai",
+            kind="provider",
             name="OpenAI",
             api_key="sk-test-key-123",
             provider_type="openai",
@@ -143,9 +151,17 @@ class TestUpdateProviderUsesSecrets:
     def test_update_provider_stores_new_key_via_secrets(self, service, secrets):
         """Updating api_key must write new key to secrets.env."""
         # Create first
-        service.create_provider(name="OpenAI", api_key="sk-old-key", provider_type="openai")
+        service.create_provider(
+            id="openai",
+            kind="provider",
+            name="OpenAI",
+            api_key="sk-old-key",
+            provider_type="openai",
+        )
         # Update with new key
-        provider = service.update_provider("openai", api_key="sk-new-key")
+        provider = service.update_provider(
+            "openai", id="openai", kind="provider", api_key="sk-new-key"
+        )
 
         assert provider is not None
         resolved = secrets.resolve("${OPENAI_API_KEY}")
@@ -153,8 +169,12 @@ class TestUpdateProviderUsesSecrets:
 
     def test_update_provider_preserves_env_ref_in_entity(self, service):
         """After update, the provider entity must still hold ${ENV_VAR} reference."""
-        service.create_provider(name="OpenAI", api_key="sk-old", provider_type="openai")
-        provider = service.update_provider("openai", api_key="sk-updated")
+        service.create_provider(
+            id="openai", kind="provider", name="OpenAI", api_key="sk-old", provider_type="openai"
+        )
+        provider = service.update_provider(
+            "openai", id="openai", kind="provider", api_key="sk-updated"
+        )
 
         assert provider is not None
         assert provider.api_key is not None
@@ -173,6 +193,8 @@ class TestTestConnectionUsesSecrets:
     async def test_test_connection_resolves_key_via_secrets(self, service, secrets):
         """test_connection must use secrets.resolve to get the actual API key."""
         service.create_provider(
+            id="openai",
+            kind="provider",
             name="OpenAI",
             api_key="sk-real-key",
             provider_type="openai",
@@ -200,7 +222,7 @@ class TestTestConnectionUsesSecrets:
     @pytest.mark.asyncio
     async def test_test_connection_no_key_configured(self, service):
         """test_connection with no API key must return failure for non-ollama."""
-        service.create_provider(name="OpenAI", provider_type="openai")
+        service.create_provider(id="openai", kind="provider", name="OpenAI", provider_type="openai")
         result = await service.test_connection("openai")
         assert result["success"] is False
         assert "No API key configured" in result["message"]
@@ -208,7 +230,9 @@ class TestTestConnectionUsesSecrets:
     def test_test_connection_checks_is_configured_via_secrets(self, service, secrets):
         """test_connection must check secrets.is_configured() to determine if a key exists."""
         # Create provider with a key — api_key field will have ${ENV_VAR}
-        service.create_provider(name="OpenAI", api_key="sk-test", provider_type="openai")
+        service.create_provider(
+            id="openai", kind="provider", name="OpenAI", api_key="sk-test", provider_type="openai"
+        )
 
         # Verify is_configured returns True for the stored key
         provider = service.get_provider("openai")
@@ -228,6 +252,8 @@ class TestSSRFPreserved:
     async def test_ssrf_blocks_private_ip(self, service):
         """Private IP in base_url must still be blocked after filesystem rewiring."""
         service.create_provider(
+            id="openai",
+            kind="provider",
             name="OpenAI",
             api_key="sk-test",
             provider_type="openai",
@@ -243,6 +269,8 @@ class TestSSRFPreserved:
     async def test_ssrf_blocks_metadata_endpoint(self, service):
         """Cloud metadata endpoint must still be blocked."""
         service.create_provider(
+            id="openai",
+            kind="provider",
             name="OpenAI",
             api_key="sk-test",
             provider_type="openai",
@@ -258,6 +286,8 @@ class TestSSRFPreserved:
     async def test_ssrf_allows_ollama_localhost(self, service):
         """Ollama localhost must still be allowed after rewiring."""
         service.create_provider(
+            id="ollama",
+            kind="provider",
             name="Ollama",
             provider_type="ollama",
             base_url="http://localhost:11434",
@@ -281,6 +311,8 @@ class TestSSRFPreserved:
     async def test_ssrf_no_http_call_for_blocked_url(self, service):
         """When SSRF blocks a URL, httpx.get must NOT be called."""
         service.create_provider(
+            id="openai",
+            kind="provider",
             name="OpenAI",
             api_key="sk-test",
             provider_type="openai",
@@ -306,7 +338,9 @@ class TestApiResponseContract:
         """Provider with stored API key must show api_key_env with the env var reference."""
         from runsight_api.transport.routers.settings import _provider_to_out
 
-        provider = service.create_provider(name="OpenAI", api_key="sk-test", provider_type="openai")
+        provider = service.create_provider(
+            id="openai", kind="provider", name="OpenAI", api_key="sk-test", provider_type="openai"
+        )
         out = _provider_to_out(provider, service)
         # api_key_env now stores the ${ENV_VAR} reference directly
         assert out.api_key_env is not None
@@ -316,7 +350,9 @@ class TestApiResponseContract:
         """Provider without API key must show api_key_env=None."""
         from runsight_api.transport.routers.settings import _provider_to_out
 
-        provider = service.create_provider(name="Ollama", provider_type="ollama")
+        provider = service.create_provider(
+            id="ollama", kind="provider", name="Ollama", provider_type="ollama"
+        )
         out = _provider_to_out(provider, service)
         assert out.api_key_env is None
 
@@ -328,6 +364,7 @@ class TestApiResponseContract:
         # ProviderEntity has api_key (not api_key_encrypted)
         entity = ProviderEntity(
             id="openai",
+            kind="provider",
             name="OpenAI",
             type="openai",
             api_key="${OPENAI_API_KEY}",
@@ -382,6 +419,8 @@ class TestExecutionServiceUsesSecrets:
         provider_repo = FileSystemProviderRepo(base_path=tmp_base)
         provider_repo.create(
             {
+                "id": "openai",
+                "kind": "provider",
                 "name": "OpenAI",
                 "type": "openai",
                 "api_key": "${OPENAI_API_KEY}",
@@ -499,6 +538,7 @@ class TestSettingsRouterWiring:
 
         entity = ProviderEntity(
             id="openai",
+            kind="provider",
             name="OpenAI",
             type="openai",
             api_key="${OPENAI_API_KEY}",
@@ -526,7 +566,9 @@ class TestEndToEndProviderCRUD:
 
     def test_create_then_get_returns_provider(self, service):
         """Create a provider then get by id — should return the same entity."""
-        service.create_provider(name="OpenAI", api_key="sk-test", provider_type="openai")
+        service.create_provider(
+            id="openai", kind="provider", name="OpenAI", api_key="sk-test", provider_type="openai"
+        )
         provider = service.get_provider("openai")
 
         assert provider is not None
@@ -535,7 +577,9 @@ class TestEndToEndProviderCRUD:
 
     def test_create_then_list_includes_provider(self, service):
         """Created provider should appear in list_providers."""
-        service.create_provider(name="OpenAI", api_key="sk-test", provider_type="openai")
+        service.create_provider(
+            id="openai", kind="provider", name="OpenAI", api_key="sk-test", provider_type="openai"
+        )
         providers = service.list_providers()
 
         assert len(providers) >= 1
@@ -544,8 +588,10 @@ class TestEndToEndProviderCRUD:
 
     def test_create_update_get_reflects_changes(self, service, secrets):
         """Update should modify the provider and update the secret."""
-        service.create_provider(name="OpenAI", api_key="sk-v1", provider_type="openai")
-        service.update_provider("openai", api_key="sk-v2")
+        service.create_provider(
+            id="openai", kind="provider", name="OpenAI", api_key="sk-v1", provider_type="openai"
+        )
+        service.update_provider("openai", id="openai", kind="provider", api_key="sk-v2")
 
         provider = service.get_provider("openai")
         assert provider is not None
@@ -555,7 +601,9 @@ class TestEndToEndProviderCRUD:
 
     def test_delete_removes_provider(self, service):
         """Delete should remove the provider YAML file."""
-        service.create_provider(name="OpenAI", api_key="sk-test", provider_type="openai")
+        service.create_provider(
+            id="openai", kind="provider", name="OpenAI", api_key="sk-test", provider_type="openai"
+        )
         result = service.delete_provider("openai")
         assert result is True
 
@@ -564,8 +612,16 @@ class TestEndToEndProviderCRUD:
 
     def test_multiple_providers_coexist(self, service, secrets):
         """Multiple providers should coexist with separate secrets."""
-        service.create_provider(name="OpenAI", api_key="sk-openai", provider_type="openai")
-        service.create_provider(name="Anthropic", api_key="sk-anthropic", provider_type="anthropic")
+        service.create_provider(
+            id="openai", kind="provider", name="OpenAI", api_key="sk-openai", provider_type="openai"
+        )
+        service.create_provider(
+            id="anthropic",
+            kind="provider",
+            name="Anthropic",
+            api_key="sk-anthropic",
+            provider_type="anthropic",
+        )
 
         assert secrets.resolve("${OPENAI_API_KEY}") == "sk-openai"
         assert secrets.resolve("${ANTHROPIC_API_KEY}") == "sk-anthropic"

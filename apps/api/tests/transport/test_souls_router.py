@@ -14,6 +14,8 @@ def test_souls_list():
     mock_service = Mock()
     mock_soul = SoulEntity(
         id="sl_1",
+        kind="soul",
+        name="Test Soul",
         role="Test Soul",
         system_prompt="Follow the prompt",
         model_name="gpt-4o-mini",
@@ -39,6 +41,8 @@ def test_souls_get():
     mock_service = Mock()
     mock_soul = SoulEntity(
         id="sl_1",
+        kind="soul",
+        name="Test Soul",
         role="Test Soul",
         system_prompt="Follow the prompt",
         model_name="gpt-4o-mini",
@@ -68,6 +72,8 @@ def test_souls_post():
     mock_service = Mock()
     mock_soul = SoulEntity(
         id="sl_new",
+        kind="soul",
+        name="New Soul",
         role="New Soul",
         system_prompt="Create the soul",
         model_name="gpt-4o",
@@ -79,6 +85,8 @@ def test_souls_post():
         "/api/souls",
         json={
             "id": "sl_new",
+            "kind": "soul",
+            "name": "New Soul",
             "role": "New Soul",
             "system_prompt": "Create the soul",
             "model_name": "gpt-4o",
@@ -93,7 +101,9 @@ def test_souls_post():
 
 def test_souls_post_requires_role():
     mock_service = Mock()
-    mock_service.create_soul.return_value = SoulEntity(id="unexpected", role="Unexpected")
+    mock_service.create_soul.return_value = SoulEntity(
+        id="unexpected", kind="soul", name="Unexpected"
+    )
     app.dependency_overrides[get_soul_service] = lambda: mock_service
     response = client.post(
         "/api/souls",
@@ -106,7 +116,9 @@ def test_souls_post_requires_role():
 
 def test_souls_post_requires_system_prompt():
     mock_service = Mock()
-    mock_service.create_soul.return_value = SoulEntity(id="unexpected", role="Unexpected")
+    mock_service.create_soul.return_value = SoulEntity(
+        id="unexpected", kind="soul", name="Unexpected", role="Unexpected"
+    )
     app.dependency_overrides[get_soul_service] = lambda: mock_service
     response = client.post(
         "/api/souls",
@@ -119,7 +131,12 @@ def test_souls_post_requires_system_prompt():
 
 def test_souls_post_rejects_unknown_fields():
     mock_service = Mock()
-    mock_service.create_soul.return_value = SoulEntity(id="unexpected", role="Unexpected")
+    mock_service.create_soul.return_value = SoulEntity(
+        id="unexpected",
+        kind="soul",
+        name="Unexpected",
+        role="Unexpected",
+    )
     app.dependency_overrides[get_soul_service] = lambda: mock_service
 
     response = client.post(
@@ -139,6 +156,8 @@ def test_souls_put():
     mock_service = Mock()
     mock_soul = SoulEntity(
         id="sl_1",
+        kind="soul",
+        name="Updated Soul",
         role="Updated Soul",
         system_prompt="Updated prompt",
         model_name="claude-sonnet",
@@ -164,6 +183,8 @@ def test_souls_put_rejects_unknown_fields():
     mock_service = Mock()
     mock_service.update_soul.return_value = SoulEntity(
         id="sl_1",
+        kind="soul",
+        name="Updated Soul",
         role="Updated Soul",
         system_prompt="Updated prompt",
         model_name="claude-sonnet",

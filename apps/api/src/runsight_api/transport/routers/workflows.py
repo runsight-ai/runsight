@@ -2,6 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+from runsight_core.identity import EntityKind, EntityRef
 
 from ...logic.services.eval_service import EvalService
 from ...logic.services.workflow_service import WorkflowService
@@ -20,6 +21,10 @@ from ..schemas.workflows import (
 )
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
+
+
+def _workflow_ref(workflow_id: str) -> str:
+    return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
 
 
 @router.get("", response_model=WorkflowListResponse)
@@ -42,7 +47,7 @@ async def get_workflow(id: str, service: WorkflowService = Depends(get_workflow_
     try:
         w = service.get_workflow_detail(id)
         if not w:
-            raise WorkflowNotFound(f"Workflow {id} not found")
+            raise WorkflowNotFound(f"Workflow {_workflow_ref(id)} not found")
     except RunsightError as exc:
         return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
     return WorkflowResponse(**w.model_dump())

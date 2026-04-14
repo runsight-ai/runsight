@@ -43,6 +43,18 @@ const DEFAULT_VALUES: SoulFormValues = {
   maxToolIterations: 5,
 };
 
+function deriveSoulId(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]+/g, "")
+    .replace(/[-_]{2,}/g, "-")
+    .replace(/^[-_]+|[-_]+$/g, "")
+    .slice(0, 100);
+
+  return /^[a-z](?:[a-z0-9_-]{1,98})[a-z0-9]$/.test(slug) ? slug : "soul";
+}
+
 function toFormValues(soul?: SoulResponse | null): SoulFormValues {
   if (!soul) {
     return DEFAULT_VALUES;
@@ -116,7 +128,12 @@ export function useSoulForm({
               copy_on_edit: false,
             },
           })
-        : await createSoul.mutateAsync(payload);
+        : await createSoul.mutateAsync({
+            id: deriveSoulId(values.name),
+            kind: "soul",
+            name: values.name,
+            ...payload,
+          });
 
     initialValuesRef.current = toFormValues(result);
     setValues(initialValuesRef.current);

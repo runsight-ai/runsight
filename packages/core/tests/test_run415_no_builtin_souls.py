@@ -29,6 +29,8 @@ class TestEmptySoulsMapByDefault:
     def test_undefined_soul_ref_raises_value_error(self):
         """soul_ref: researcher without a souls: section must raise ValueError."""
         yaml_content = """\
+id: test-workflow
+kind: workflow
 version: "1.0"
 blocks:
   linear_block:
@@ -42,13 +44,15 @@ workflow:
       to: null
 """
         with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
-            mock_scanner.return_value.scan.return_value.stems.return_value = {}
+            mock_scanner.return_value.scan.return_value.ids.return_value = {}
             with pytest.raises(ValueError, match="researcher"):
                 parse_workflow_yaml(yaml_content)
 
     def test_undefined_soul_ref_with_empty_souls_section(self):
         """soul_ref: reviewer with an empty souls: {} section must raise ValueError."""
         yaml_content = """\
+id: test-workflow
+kind: workflow
 version: "1.0"
 souls: {}
 blocks:
@@ -63,7 +67,7 @@ workflow:
       to: null
 """
         with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
-            mock_scanner.return_value.scan.return_value.stems.return_value = {}
+            mock_scanner.return_value.scan.return_value.ids.return_value = {}
             with pytest.raises(ValueError, match="reviewer"):
                 parse_workflow_yaml(yaml_content)
 
@@ -89,6 +93,8 @@ class TestNoPreviouslyBuiltInNamesAreSpecial:
     def test_previously_builtin_soul_raises_without_definition(self, soul_name: str):
         """soul_ref: {soul_name} without souls: definition must raise ValueError."""
         yaml_content = f"""\
+id: test-workflow
+kind: workflow
 version: "1.0"
 blocks:
   linear_block:
@@ -102,6 +108,6 @@ workflow:
       to: null
 """
         with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
-            mock_scanner.return_value.scan.return_value.stems.return_value = {}
+            mock_scanner.return_value.scan.return_value.ids.return_value = {}
             with pytest.raises(ValueError, match=soul_name):
                 parse_workflow_yaml(yaml_content)

@@ -23,6 +23,9 @@ test.describe("Souls page: search and empty states", () => {
 
   test.beforeAll(async () => {
     const data = await apiPost("/souls", {
+      id: fixtureSoulName,
+      kind: "soul",
+      name: fixtureSoulName,
       role: fixtureSoulName,
       system_prompt: "E2E search fixture soul",
     });

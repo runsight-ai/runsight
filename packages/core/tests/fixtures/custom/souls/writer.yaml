@@ -1,3 +1,5 @@
 id: writer
+kind: soul
+name: Content Writer
 role: Content Writer
 system_prompt: Write content based on the research.

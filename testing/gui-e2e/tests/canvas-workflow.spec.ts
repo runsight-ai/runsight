@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   apiDelete,
   apiPost,
+  buildBlankWorkflowYaml,
   gotoShellRoute,
   setupShellReadyWorkspace,
 } from "./helpers/shellReady";
@@ -21,8 +22,10 @@ test.describe("Workflow editor shell", () => {
   const createdWorkflowIds = new Set<string>();
 
   test.beforeAll(async () => {
+    const workflowId = `e2e-canvas-workflow-${Date.now()}`;
     const workflow = await apiPost<WorkflowSummary>("/workflows", {
-      yaml: "",
+      name: "Canvas Workflow",
+      yaml: buildBlankWorkflowYaml(workflowId, "Canvas Workflow"),
       canvas_state: {
         nodes: [],
         edges: [],

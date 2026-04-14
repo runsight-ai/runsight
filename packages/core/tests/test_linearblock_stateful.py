@@ -45,7 +45,13 @@ def mock_runner():
 @pytest.fixture
 def sample_soul():
     """Soul without model_name override (falls back to runner.model_name)."""
-    return Soul(id="soul_a", role="Analyst", system_prompt="You analyze things.")
+    return Soul(
+        id="soul_a",
+        kind="soul",
+        name="Analyst",
+        role="Analyst",
+        system_prompt="You analyze things.",
+    )
 
 
 @pytest.fixture
@@ -53,6 +59,8 @@ def soul_with_model():
     """Soul with an explicit model_name override."""
     return Soul(
         id="soul_b",
+        kind="soul",
+        name="Writer",
         role="Writer",
         system_prompt="You write things.",
         model_name="claude-3-opus-20240229",

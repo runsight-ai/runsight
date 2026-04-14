@@ -190,9 +190,13 @@ def make_test_yaml(steps_yaml: str) -> str:
 
     return f"""\
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -216,7 +220,9 @@ def test_souls_map():
     """Provide a souls map with a 'test' Soul for tests that construct blocks directly."""
     return {
         "test": Soul(
-            id="test_1",
+            id="test",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="You test things.",
         )

@@ -217,6 +217,8 @@ Souls are primarily defined as external library files under `custom/souls/`. The
 souls:
   quick_reviewer:
     id: quick_reviewer
+    kind: soul
+    name: Quick Reviewer
     role: Reviewer
     system_prompt: "Review the content for clarity and accuracy."
     model_name: gpt-4.1-mini
@@ -238,6 +240,8 @@ The key in the `souls` dict **must match** the soul's `id` field. A mismatch rai
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `id` | `str` | required | Must match the dict key |
+| `kind` | `"soul"` | required | Entity kind |
+| `name` | `str` | required | Human-readable display name |
 | `role` | `str` | required | Soul's role name |
 | `system_prompt` | `str` | required | System prompt for the LLM |
 | `model_name` | `str` | none | Model to use (e.g. `gpt-4.1-mini`) |
@@ -259,15 +263,21 @@ All shortcuts can be used together. Here is a compact workflow using `depends`, 
 
 ```yaml title="all shortcuts combined"
 version: "1.0"
+id: compact-pipeline
+kind: workflow
 
 souls:
   writer:
     id: writer
+    kind: soul
+    name: Writer
     role: Writer
     system_prompt: "Write a concise summary."
     model_name: gpt-4.1-mini
   reviewer:
     id: reviewer
+    kind: soul
+    name: Reviewer
     role: Reviewer
     system_prompt: "Evaluate the summary for accuracy."
     model_name: gpt-4.1-mini

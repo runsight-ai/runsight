@@ -28,6 +28,8 @@ def _write_warning_soul(base_dir: Path, soul_key: str) -> None:
         "\n".join(
             [
                 f"id: {soul_key}",
+                "kind: soul",
+                "name: Warning Soul",
                 "role: Warning Soul",
                 "system_prompt: You are a warning-only soul.",
                 "provider: openai",
@@ -46,6 +48,8 @@ def _write_openai_provider(base_dir: Path) -> None:
     (provider_dir / "openai.yaml").write_text(
         "\n".join(
             [
+                "id: openai",
+                "kind: provider",
                 "name: openai",
                 "type: openai",
                 "api_key: ${OPENAI_API_KEY}",
@@ -66,6 +70,8 @@ def _write_corrupt_custom_tool(base_dir: Path, tool_id: str) -> None:
         "\n".join(
             [
                 'version: "1.0"',
+                f"id: {tool_id}",
+                "kind: tool",
                 "type: custom",
                 "executor: python",
                 "name: Broken lookup",
@@ -86,6 +92,8 @@ def _warning_workflow_yaml(soul_key: str, *, declare_http: bool) -> str:
     tools_section = "tools:\n  - http\n" if declare_http else ""
     return (
         'version: "1.0"\n'
+        "id: run845-warning-workflow\n"
+        "kind: workflow\n"
         "config:\n"
         "  model_name: gpt-4o\n"
         f"{tools_section}"
@@ -104,6 +112,8 @@ def _warning_workflow_yaml(soul_key: str, *, declare_http: bool) -> str:
 
 BIND_LOOP_WARNING_YAML = """\
 version: "1.0"
+id: run845-bind-loop-warning
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -111,6 +121,8 @@ tools:
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: Use the lookup tool if needed.
     provider: openai

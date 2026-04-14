@@ -113,10 +113,14 @@ class TestSchemaModelsUnaffected:
         """SoulDef should work as before."""
         soul = SoulDef(
             id="soul1",
+            kind="soul",
+            name="Researcher",
             role="Researcher",
             system_prompt="You are a researcher",
         )
         assert soul.id == "soul1"
+        assert soul.kind == "soul"
+        assert soul.name == "Researcher"
         assert soul.role == "Researcher"
 
     def test_blockdef_unchanged(self):
@@ -140,6 +144,6 @@ class TestSchemaModelsUnaffected:
     def test_runsightworkflowfile_unchanged(self):
         """RunsightWorkflowFile should work as before."""
         workflow_def = WorkflowDef(name="test", entry="block1")
-        pwf = RunsightWorkflowFile(workflow=workflow_def)
+        pwf = RunsightWorkflowFile(id="test", kind="workflow", workflow=workflow_def)
         assert pwf.workflow.name == "test"
         assert pwf.version == "1.0"
