@@ -277,7 +277,8 @@ class TestLoopCarryContextBudgetIntegration:
             def _tracking_fit(req, counter):
                 budget_requests.append(req)
                 return BudgetedContext(
-                    task=Task(id="budget_task", instruction=req.instruction, context=req.context),
+                    instruction=req.instruction,
+                    context=req.context,
                     messages=req.conversation_history,
                     report=BudgetReport(
                         model=req.model,
