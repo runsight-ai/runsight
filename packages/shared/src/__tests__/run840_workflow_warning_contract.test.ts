@@ -27,12 +27,21 @@ describe("RUN-840 workflow warning contract", () => {
   it("exports WarningItemSchema with canonical warning payload fields", () => {
     const warningSchema = getSchema("WarningItemSchema");
 
-    expect(Object.keys(warningSchema.shape)).toEqual(
-      expect.arrayContaining(["message", "source", "context"]),
-    );
+    expect(Object.keys(warningSchema.shape).sort()).toEqual([
+      "context",
+      "message",
+      "source",
+    ]);
     expect(warningSchema.parse(warningPayload)).toEqual(
       expect.objectContaining(warningPayload),
     );
+    expect(
+      warningSchema.safeParse({
+        ...warningPayload,
+        code: "W001",
+        severity: "warning",
+      }).success,
+    ).toBe(false);
   });
 
   it("WorkflowResponseSchema declares warnings and parses warning payloads", () => {
@@ -50,5 +59,30 @@ describe("RUN-840 workflow warning contract", () => {
     expect((parsed as { warnings: unknown[] }).warnings[0]).toEqual(
       expect.objectContaining(warningPayload),
     );
+
+    const nullContextResult = workflowSchema.safeParse({
+      id: "wf_1",
+      warnings: [
+        {
+          message: "Tool definition warning",
+          source: "tool_definitions",
+          context: null,
+        },
+      ],
+    });
+
+    expect(nullContextResult.success).toBe(true);
+    expect(
+      workflowSchema.safeParse({
+        id: "wf_1",
+        warnings: [
+          {
+            message: "Tool definition warning",
+            source: "tool_definitions",
+            context: { tool_id: "lookup_profile" },
+          },
+        ],
+      }).success,
+    ).toBe(false);
   });
 });

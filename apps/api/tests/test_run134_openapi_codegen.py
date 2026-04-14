@@ -75,10 +75,13 @@ class TestOpenAPISpecExtraction:
 
         warning_item_schema = schemas["WarningItem"]
         warning_properties = warning_item_schema.get("properties", {})
+        assert set(warning_properties) == {"message", "source", "context"}
         for expected in ["message", "source", "context"]:
             assert expected in warning_properties, (
                 f"WarningItem is missing property: {expected}"
             )
+        assert "code" not in warning_properties
+        assert "severity" not in warning_properties
 
     def test_openapi_spec_contains_run_schemas(self):
         """The spec must include RunResponse, RunCreate, RunNodeResponse schemas."""

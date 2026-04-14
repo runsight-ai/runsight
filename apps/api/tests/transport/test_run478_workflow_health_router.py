@@ -6,6 +6,7 @@ Uses the real app with dependency_overrides — no sys.modules stubbing.
 from unittest.mock import Mock
 
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 import pytest
 
 from runsight_api.domain.value_objects import WorkflowEntity
@@ -119,6 +120,32 @@ class TestWorkflowResponseWarningsModelShape:
         assert fields["source"].default is None
         assert fields["context"].default is None
 
+    def test_warning_item_rejects_object_context_and_extra_fields(self):
+        warning_item = getattr(workflow_schemas, "WarningItem")
+
+        with pytest.raises(ValidationError):
+            warning_item.model_validate(
+                {
+                    "message": "Tool definition warning",
+                    "source": "tool_definitions",
+                    "context": {"tool_id": "lookup_profile"},
+                }
+            )
+
+        parsed = warning_item.model_validate(
+            {
+                "message": "Tool definition warning",
+                "source": "tool_definitions",
+                "context": None,
+                "code": "W001",
+                "severity": "warning",
+            }
+        )
+
+        assert parsed.context is None
+        assert not hasattr(parsed, "code")
+        assert not hasattr(parsed, "severity")
+
     def test_workflow_response_parses_warning_items(self):
         response = WorkflowResponse.model_validate(
             {
@@ -138,6 +165,22 @@ class TestWorkflowResponseWarningsModelShape:
         assert warning.message == "Tool definition warning"
         assert warning.source == "tool_definitions"
         assert warning.context == "lookup_profile"
+
+    def test_workflow_response_parses_null_context_warning_items(self):
+        response = WorkflowResponse.model_validate(
+            {
+                "id": "wf_1",
+                "warnings": [
+                    {
+                        "message": "Tool definition warning",
+                        "source": "tool_definitions",
+                        "context": None,
+                    }
+                ],
+            }
+        )
+
+        assert response.warnings[0].context is None
 
 
 class TestWorkflowsListResponse:
