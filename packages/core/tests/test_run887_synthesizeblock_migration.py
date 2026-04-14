@@ -331,8 +331,12 @@ def test_build_block_context_synthesize_missing_all_inputs_raises(mock_runner, s
     block = SynthesizeBlock("synth1", ["block_a", "block_b"], synth_soul, mock_runner)
     state = WorkflowState(results={})
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as exc_info:
         build_block_context(block, state)
+    assert "block_a" in str(exc_info.value) or "block_b" in str(exc_info.value), (
+        f"ValueError must mention at least one missing block id ('block_a' or 'block_b'). "
+        f"Got: {str(exc_info.value)!r}"
+    )
 
 
 def test_build_block_context_synthesize_error_message_lists_available(mock_runner, synth_soul):
