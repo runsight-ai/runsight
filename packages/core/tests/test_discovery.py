@@ -75,7 +75,7 @@ class TestDiscoverSouls:
 
             from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan().stems()
+            souls = SoulScanner(base_dir).scan().ids()
             assert souls == {}
 
     def test_discover_souls_nonexistent_directory(self):
@@ -85,7 +85,7 @@ class TestDiscoverSouls:
 
             from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan().stems()
+            souls = SoulScanner(base_dir).scan().ids()
             assert souls == {}
 
     def test_discover_single_soul(self):
@@ -98,7 +98,9 @@ class TestDiscoverSouls:
             soul_file = souls_dir / "custom_soul.yaml"
             soul_file.write_text(
                 dedent("""
-                id: custom_soul_1
+                id: custom_soul
+                kind: soul
+                name: Custom Researcher
                 role: Custom Researcher
                 system_prompt: You are a custom researcher
                 """)
@@ -106,11 +108,13 @@ class TestDiscoverSouls:
 
             from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan().stems()
+            souls = SoulScanner(base_dir).scan().ids()
 
             assert "custom_soul" in souls
             assert isinstance(souls["custom_soul"], Soul)
-            assert souls["custom_soul"].id == "custom_soul_1"
+            assert souls["custom_soul"].id == "custom_soul"
+            assert souls["custom_soul"].kind == "soul"
+            assert souls["custom_soul"].name == "Custom Researcher"
             assert souls["custom_soul"].role == "Custom Researcher"
 
     def test_discover_multiple_souls(self):
@@ -122,7 +126,9 @@ class TestDiscoverSouls:
 
             (souls_dir / "soul_a.yaml").write_text(
                 dedent("""
-                id: soul_a_1
+                id: soul_a
+                kind: soul
+                name: Role A
                 role: Role A
                 system_prompt: Prompt A
                 """)
@@ -130,7 +136,9 @@ class TestDiscoverSouls:
 
             (souls_dir / "soul_b.yaml").write_text(
                 dedent("""
-                id: soul_b_1
+                id: soul_b
+                kind: soul
+                name: Role B
                 role: Role B
                 system_prompt: Prompt B
                 """)
@@ -138,7 +146,7 @@ class TestDiscoverSouls:
 
             from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan().stems()
+            souls = SoulScanner(base_dir).scan().ids()
 
             assert len(souls) == 2
             assert "soul_a" in souls
@@ -154,7 +162,9 @@ class TestDiscoverSouls:
             soul_file = souls_dir / "soul_with_tools.yaml"
             soul_file.write_text(
                 dedent("""
-                id: soul_with_tools_1
+                id: soul_with_tools
+                kind: soul
+                name: Tool User
                 role: Tool User
                 system_prompt: You have tools
                 tools:
@@ -164,7 +174,7 @@ class TestDiscoverSouls:
 
             from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan().stems()
+            souls = SoulScanner(base_dir).scan().ids()
 
             assert "soul_with_tools" in souls
             assert souls["soul_with_tools"].tools is not None
@@ -179,14 +189,18 @@ class TestDiscoverSouls:
 
             (souls_dir / "overridden_soul.yaml").write_text(
                 dedent("""
-                id: overridden_soul_1
+                id: overridden_soul
+                kind: soul
+                name: Overridden Soul
                 role: Overridden Soul
                 system_prompt: This should be ignored when overridden inline.
                 """)
             )
             (souls_dir / "kept_soul.yaml").write_text(
                 dedent("""
-                id: kept_soul_1
+                id: kept_soul
+                kind: soul
+                name: Kept Soul
                 role: Kept Soul
                 system_prompt: This should remain visible.
                 """)
@@ -194,7 +208,7 @@ class TestDiscoverSouls:
 
             from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan(ignore_keys={"overridden_soul"}).stems()
+            souls = SoulScanner(base_dir).scan(ignore_keys={"overridden_soul"}).ids()
 
             assert "overridden_soul" not in souls
             assert "kept_soul" in souls
@@ -217,7 +231,7 @@ class TestDiscoverCustomTools:
         from runsight_core.yaml.discovery import ToolMeta, ToolScanner
 
         def _scan_tools(base_dir: Path):
-            return ToolScanner(base_dir).scan().stems()
+            return ToolScanner(base_dir).scan().ids()
 
         return _scan_tools, ToolMeta
 
@@ -274,7 +288,7 @@ class TestDiscoverCustomTools:
             result = scan_tools(Path(tmpdir))
             assert result == {}
 
-    def test_discovers_python_and_request_executor_tool_files_by_filename_stem(self):
+    def test_discovers_python_and_request_executor_tool_files_by_embedded_id(self):
         scan_tools, tool_meta = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
         assert tool_meta is not None, "Expected runsight_core.yaml.discovery.ToolMeta to exist"
@@ -284,9 +298,11 @@ class TestDiscoverCustomTools:
             tools_dir = base_dir / "custom" / "tools"
             tools_dir.mkdir(parents=True)
 
-            (tools_dir / "python_helper.yaml").write_text(
+            (tools_dir / "python_helper_embedded.yaml").write_text(
                 dedent("""
                 version: "1.0"
+                id: python_helper_embedded
+                kind: tool
                 type: custom
                 executor: python
                 name: Python Helper
@@ -303,9 +319,11 @@ class TestDiscoverCustomTools:
                       return args
                 """)
             )
-            (tools_dir / "request_lookup.yaml").write_text(
+            (tools_dir / "request_lookup_embedded.yaml").write_text(
                 dedent("""
                 version: "1.0"
+                id: request_lookup_embedded
+                kind: tool
                 type: custom
                 executor: request
                 name: Request Lookup
@@ -329,15 +347,20 @@ class TestDiscoverCustomTools:
 
             discovered = scan_tools(base_dir)
 
-            assert set(discovered.keys()) == {"python_helper", "request_lookup"}
-            assert isinstance(discovered["python_helper"], tool_meta)
-            assert isinstance(discovered["request_lookup"], tool_meta)
-            assert discovered["python_helper"].type == "custom"
-            assert discovered["python_helper"].executor == "python"
-            assert discovered["python_helper"].name == "Python Helper"
-            assert discovered["request_lookup"].type == "custom"
-            assert discovered["request_lookup"].executor == "request"
-            assert discovered["request_lookup"].request["url"] == (
+            assert set(discovered.keys()) == {
+                "python_helper_embedded",
+                "request_lookup_embedded",
+            }
+            assert isinstance(discovered["python_helper_embedded"], tool_meta)
+            assert isinstance(discovered["request_lookup_embedded"], tool_meta)
+            assert discovered["python_helper_embedded"].tool_id == "python_helper_embedded"
+            assert discovered["python_helper_embedded"].type == "custom"
+            assert discovered["python_helper_embedded"].executor == "python"
+            assert discovered["python_helper_embedded"].name == "Python Helper"
+            assert discovered["request_lookup_embedded"].tool_id == "request_lookup_embedded"
+            assert discovered["request_lookup_embedded"].type == "custom"
+            assert discovered["request_lookup_embedded"].executor == "request"
+            assert discovered["request_lookup_embedded"].request["url"] == (
                 "https://example.com/users/{{ user_id }}"
             )
 
@@ -353,6 +376,8 @@ class TestDiscoverCustomTools:
             invalid_file.write_text(
                 dedent("""
                 version: "1.0"
+                id: legacy_http
+                kind: tool
                 type: http
                 """)
             )
@@ -388,6 +413,8 @@ class TestDiscoverCustomTools:
             invalid_file.write_text(
                 dedent("""
                 version: "1.0"
+                id: missing_executor
+                kind: tool
                 type: custom
                 name: Missing Executor
                 description: Broken metadata.
@@ -414,6 +441,8 @@ class TestDiscoverCustomTools:
             invalid_file.write_text(
                 dedent("""
                 version: "1.0"
+                id: double_code
+                kind: tool
                 type: custom
                 executor: python
                 name: Double Code
@@ -442,6 +471,8 @@ class TestDiscoverCustomTools:
             invalid_file.write_text(
                 dedent("""
                 version: "1.0"
+                id: missing_code_file
+                kind: tool
                 type: custom
                 executor: python
                 name: Missing Code File
@@ -468,6 +499,8 @@ class TestDiscoverCustomTools:
             invalid_file.write_text(
                 dedent("""
                 version: "1.0"
+                id: unreadable_code_file
+                kind: tool
                 type: custom
                 executor: python
                 name: Unreadable Code File
@@ -493,6 +526,8 @@ class TestDiscoverCustomTools:
             invalid_file.write_text(
                 dedent("""
                 version: "1.0"
+                id: bad_signature
+                kind: tool
                 type: custom
                 executor: python
                 name: Bad Signature
@@ -520,6 +555,8 @@ class TestDiscoverCustomTools:
             invalid_file.write_text(
                 dedent("""
                 version: "1.0"
+                id: missing_request_url
+                kind: tool
                 type: custom
                 executor: request
                 name: Missing Request URL
@@ -546,6 +583,8 @@ class TestDiscoverCustomTools:
             invalid_file.write_text(
                 dedent("""
                 version: "1.0"
+                id: request_with_code
+                kind: tool
                 type: custom
                 executor: request
                 name: Request With Code
@@ -576,6 +615,8 @@ class TestDiscoverCustomTools:
             invalid_file.write_text(
                 dedent("""
                 version: "1.0"
+                id: python_with_request
+                kind: tool
                 type: custom
                 executor: python
                 name: Python With Request
@@ -606,6 +647,8 @@ class TestDiscoverCustomTools:
             invalid_file.write_text(
                 dedent("""
                 version: "1.0"
+                id: unknown_executor
+                kind: tool
                 type: custom
                 executor: shell
                 name: Unknown Executor
@@ -618,7 +661,7 @@ class TestDiscoverCustomTools:
             with pytest.raises(ValueError, match=r"unknown_executor\.yaml"):
                 scan_tools(base_dir)
 
-    def test_duplicate_filename_derived_tool_id_raises_explicit_error(self, monkeypatch):
+    def test_duplicate_embedded_tool_id_raises_explicit_error(self, monkeypatch):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
@@ -629,10 +672,12 @@ class TestDiscoverCustomTools:
             tools_dir.mkdir(parents=True)
             shadow_dir.mkdir()
 
-            primary_file = tools_dir / "duplicate_tool.yaml"
-            shadow_file = shadow_dir / "duplicate_tool.yaml"
+            primary_file = tools_dir / "duplicate_primary.yaml"
+            shadow_file = shadow_dir / "duplicate_shadow.yaml"
             tool_yaml = dedent("""
             version: "1.0"
+            id: duplicate_tool_id
+            kind: tool
             type: custom
             executor: python
             name: Duplicate Tool
@@ -655,7 +700,7 @@ class TestDiscoverCustomTools:
 
             monkeypatch.setattr(Path, "glob", _fake_glob)
 
-            with pytest.raises(ValueError, match=r"duplicate_tool.*duplicate|collision"):
+            with pytest.raises(ValueError, match=r"duplicate_tool_id.*duplicate|collision"):
                 scan_tools(base_dir)
 
     @pytest.mark.parametrize("reserved_tool_id", ["http", "file_io", "delegate"])
@@ -667,10 +712,12 @@ class TestDiscoverCustomTools:
             base_dir = Path(tmpdir)
             tools_dir = base_dir / "custom" / "tools"
             tools_dir.mkdir(parents=True)
-            reserved_file = tools_dir / f"{reserved_tool_id}.yaml"
+            reserved_file = tools_dir / f"shadow_{reserved_tool_id}.yaml"
             reserved_file.write_text(
                 dedent(f"""
                 version: "1.0"
+                id: {reserved_tool_id}
+                kind: tool
                 type: custom
                 executor: python
                 name: Shadow {reserved_tool_id}
@@ -686,7 +733,7 @@ class TestDiscoverCustomTools:
 
             with pytest.raises(
                 ValueError,
-                match=rf"reserved builtin tool id '{reserved_tool_id}'|collision.*{reserved_tool_id}",
+                match=rf"reserved builtin tool:{reserved_tool_id}|collision.*{reserved_tool_id}",
             ):
                 scan_tools(base_dir)
 

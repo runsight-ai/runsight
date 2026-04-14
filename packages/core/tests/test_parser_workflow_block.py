@@ -18,7 +18,9 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 
 _RESEARCHER_SOUL = {
     "researcher": {
-        "id": "researcher_1",
+        "id": "researcher",
+        "kind": "soul",
+        "name": "Senior Researcher",
         "role": "Senior Researcher",
         "system_prompt": "You research topics.",
     }
@@ -32,6 +34,8 @@ class TestParseWorkflowBlock:
         """LoopBlock should preserve WorkflowBlock refs and the parser should resolve the child."""
         child_yaml_dict = {
             "version": "1.0",
+            "id": "child_workflow",
+            "kind": "workflow",
             "interface": {
                 "inputs": [],
                 "outputs": [
@@ -48,6 +52,8 @@ class TestParseWorkflowBlock:
                 }
             },
             "workflow": {
+                "id": "child_workflow",
+                "kind": "workflow",
                 "name": "child_workflow",
                 "entry": "child_step",
                 "transitions": [{"from": "child_step", "to": None}],
@@ -55,11 +61,13 @@ class TestParseWorkflowBlock:
         }
         child_file = RunsightWorkflowFile.model_validate(child_yaml_dict)
 
-        registry = WorkflowRegistry(allow_filesystem_fallback=False)
+        registry = WorkflowRegistry()
         registry.register("child_workflow", child_file)
 
         parent_yaml_dict = {
             "version": "1.0",
+            "id": "parent_workflow",
+            "kind": "workflow",
             "blocks": {
                 "loop_step": {
                     "type": "loop",
@@ -73,6 +81,8 @@ class TestParseWorkflowBlock:
                 },
             },
             "workflow": {
+                "id": "parent_workflow",
+                "kind": "workflow",
                 "name": "parent_workflow",
                 "entry": "loop_step",
                 "transitions": [{"from": "loop_step", "to": None}],
@@ -96,6 +106,8 @@ class TestParseWorkflowBlock:
         """Parser should copy exit_conditions from BaseBlockDef to runtime BaseBlock."""
         yaml_dict = {
             "version": "1.0",
+            "id": "exit_cond_test",
+            "kind": "workflow",
             "blocks": {
                 "evaluator": {
                     "type": "code",
@@ -107,6 +119,8 @@ class TestParseWorkflowBlock:
                 },
             },
             "workflow": {
+                "id": "exit_cond_test",
+                "kind": "workflow",
                 "name": "exit_cond_test",
                 "entry": "evaluator",
                 "transitions": [{"from": "evaluator", "to": None}],
@@ -215,6 +229,8 @@ class TestParseWorkflowBlock:
         # Create YAML with workflow block
         yaml_dict = {
             "version": "1.0",
+            "id": "parent_workflow",
+            "kind": "workflow",
             "blocks": {
                 "invoke_child": {
                     "type": "workflow",

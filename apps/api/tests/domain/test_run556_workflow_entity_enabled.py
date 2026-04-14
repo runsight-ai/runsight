@@ -25,7 +25,7 @@ class TestWorkflowEntityEnabledField:
 
     def test_enabled_defaults_to_false(self):
         """A WorkflowEntity created without specifying enabled should default to False."""
-        entity = WorkflowEntity(id="test-wf")
+        entity = WorkflowEntity(kind="workflow", id="test-wf")
         assert entity.enabled is False
 
     def test_enabled_field_type_is_bool(self):
@@ -40,7 +40,7 @@ class TestWorkflowEntityEnabledField:
         assert "enabled" in WorkflowEntity.model_fields, (
             "WorkflowEntity must declare 'enabled' as an explicit field, not rely on extra='allow'"
         )
-        entity = WorkflowEntity(id="test-wf", enabled=True)
+        entity = WorkflowEntity(kind="workflow", id="test-wf", enabled=True)
         assert entity.enabled is True
 
     def test_enabled_false_roundtrips(self):
@@ -48,7 +48,7 @@ class TestWorkflowEntityEnabledField:
         assert "enabled" in WorkflowEntity.model_fields, (
             "WorkflowEntity must declare 'enabled' as an explicit field, not rely on extra='allow'"
         )
-        entity = WorkflowEntity(id="test-wf", enabled=False)
+        entity = WorkflowEntity(kind="workflow", id="test-wf", enabled=False)
         assert entity.enabled is False
 
     def test_enabled_appears_in_model_dump(self):
@@ -56,7 +56,7 @@ class TestWorkflowEntityEnabledField:
         assert "enabled" in WorkflowEntity.model_fields, (
             "WorkflowEntity must declare 'enabled' as an explicit field, not rely on extra='allow'"
         )
-        entity = WorkflowEntity(id="test-wf", enabled=True)
+        entity = WorkflowEntity(kind="workflow", id="test-wf", enabled=True)
         dumped = entity.model_dump()
         assert "enabled" in dumped
         assert dumped["enabled"] is True

@@ -45,13 +45,25 @@ def mock_runner():
 @pytest.fixture
 def soul_alpha():
     """Soul A without model_name override."""
-    return Soul(id="soul_alpha", role="Reviewer A", system_prompt="You are reviewer A.")
+    return Soul(
+        id="soul_alpha",
+        kind="soul",
+        name="Reviewer A",
+        role="Reviewer A",
+        system_prompt="You are reviewer A.",
+    )
 
 
 @pytest.fixture
 def soul_beta():
     """Soul B without model_name override."""
-    return Soul(id="soul_beta", role="Reviewer B", system_prompt="You are reviewer B.")
+    return Soul(
+        id="soul_beta",
+        kind="soul",
+        name="Reviewer B",
+        role="Reviewer B",
+        system_prompt="You are reviewer B.",
+    )
 
 
 @pytest.fixture
@@ -59,6 +71,8 @@ def soul_gamma_with_model():
     """Soul C with an explicit model_name override."""
     return Soul(
         id="soul_gamma",
+        kind="soul",
+        name="Reviewer C",
         role="Reviewer C",
         system_prompt="You are reviewer C.",
         model_name="claude-3-opus-20240229",

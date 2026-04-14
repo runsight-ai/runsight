@@ -47,6 +47,8 @@ def _soul(
 ) -> Soul:
     return Soul(
         id=soul_id,
+        kind="soul",
+        name=role,
         role=role,
         system_prompt=system_prompt,
         model_name="gpt-4o-mini",
@@ -60,6 +62,8 @@ def _soul(
 def _soul_payload(soul: Soul) -> dict[str, Any]:
     return {
         "id": soul.id,
+        "kind": "soul",
+        "name": soul.name,
         "role": soul.role,
         "system_prompt": soul.system_prompt,
         "model_name": soul.model_name,
@@ -74,6 +78,7 @@ def _soul_envelope(soul: Soul | None = None) -> SoulEnvelope:
     return SoulEnvelope(
         id=soul.id,
         role=soul.role,
+        name=soul.name,
         system_prompt=soul.system_prompt,
         model_name=soul.model_name or "gpt-4o-mini",
         provider=soul.provider or "openai",
@@ -471,6 +476,8 @@ class TestRUN814SmartAssertionAndToolsE2E:
                             "rubric": "Score factuality.",
                             "judge_soul": {
                                 "id": "judge-run814",
+                                "kind": "soul",
+                                "name": "Judge",
                                 "role": "Judge",
                                 "system_prompt": "Return JSON grading only.",
                                 "model_name": "gpt-4o-mini",

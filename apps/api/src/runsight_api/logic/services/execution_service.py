@@ -6,6 +6,7 @@ import subprocess
 import time
 from typing import Any, AsyncGenerator, Dict, Optional
 
+from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.observer import CompositeObserver, LoggingObserver
 from runsight_core.runner import FallbackRoute, RunsightTeamRunner
 from runsight_core.yaml.parser import parse_workflow_yaml
@@ -19,6 +20,14 @@ from ..observers.execution_observer import ExecutionObserver
 from ..observers.streaming_observer import StreamingObserver
 
 logger = logging.getLogger(__name__)
+
+
+def _workflow_ref(workflow_id: str) -> str:
+    return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
+
+
+def _provider_ref(provider_id: str) -> str:
+    return str(EntityRef(EntityKind.PROVIDER, provider_id))
 
 
 class ExecutionService:
@@ -168,7 +177,7 @@ class ExecutionService:
             # Load workflow entity
             wf_entity = self.workflow_repo.get_by_id(workflow_id)
             if wf_entity is None:
-                raise ValueError(f"Workflow {workflow_id} not found")
+                raise ValueError(f"Workflow {_workflow_ref(workflow_id)} not found")
 
             workflow_path = str(self.workflow_repo._get_path(workflow_id))
 
@@ -451,7 +460,8 @@ class ExecutionService:
             provider = provider_by_id.get(provider_id)
             if provider is None:
                 raise ValueError(
-                    f"Soul '{soul_key}' references disabled or missing provider '{provider_id}'"
+                    f"Soul '{soul_key}' references disabled or missing provider "
+                    f"{_provider_ref(provider_id)}"
                 )
 
             if not isinstance(model_name, str) or not model_name.strip():
@@ -459,7 +469,8 @@ class ExecutionService:
 
             if model_name not in self._provider_models(provider):
                 raise ValueError(
-                    f"Soul '{soul_key}' model '{model_name}' does not belong to provider '{provider_id}'"
+                    f"Soul '{soul_key}' model '{model_name}' does not belong to provider "
+                    f"{_provider_ref(provider_id)}"
                 )
 
         runner_model_name = next(

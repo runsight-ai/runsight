@@ -22,7 +22,9 @@ def mock_runner():
 @pytest.fixture
 def sample_soul():
     """Sample soul for testing."""
-    return Soul(id="test_soul", role="Tester", system_prompt="You test things.")
+    return Soul(
+        id="test_soul", kind="soul", name="Tester", role="Tester", system_prompt="You test things."
+    )
 
 
 @pytest.mark.asyncio

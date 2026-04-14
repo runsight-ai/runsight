@@ -1,3 +1,5 @@
 id: release_web_analyst_openai
+kind: soul
+name: Release Web Analyst
 role: release_web_analyst_openai
 system_prompt: Fixture soul for testing.

@@ -381,6 +381,8 @@ class TestRunsightWorkflowFileLimits:
     def _make_minimal_workflow_file(self, **extra_fields):
         """Build a minimal valid RunsightWorkflowFile dict, with extra top-level fields."""
         base = {
+            "id": "test",
+            "kind": "workflow",
             "workflow": {"name": "test", "entry": "block1"},
         }
         base.update(extra_fields)
@@ -507,6 +509,8 @@ class TestYamlRoundTrip:
     """End-to-end acceptance scenarios parsing YAML strings into RunsightWorkflowFile."""
 
     _MINIMAL_YAML_TEMPLATE = """\
+id: test
+kind: workflow
 workflow:
   name: test
   entry: block1

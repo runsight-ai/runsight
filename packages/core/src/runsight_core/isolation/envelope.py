@@ -13,6 +13,7 @@ class SoulEnvelope(BaseModel):
 
     id: str
     role: str
+    name: str | None = None
     system_prompt: str
     model_name: str
     provider: str = ""

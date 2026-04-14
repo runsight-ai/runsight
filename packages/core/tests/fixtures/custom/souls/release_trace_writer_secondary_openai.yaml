@@ -1,3 +1,5 @@
 id: release_trace_writer_secondary_openai
+kind: soul
+name: Secondary Trace Writer
 role: release_trace_writer_secondary_openai
 system_prompt: Fixture soul for testing.

@@ -24,6 +24,8 @@ class TestRunsightWorkflowFileTools:
         from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowDef
 
         wf = RunsightWorkflowFile(
+            id="test",
+            kind="workflow",
             workflow=WorkflowDef(name="test", entry="start"),
         )
         assert wf.tools == []
@@ -33,6 +35,8 @@ class TestRunsightWorkflowFileTools:
         from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowDef
 
         wf = RunsightWorkflowFile(
+            id="test",
+            kind="workflow",
             workflow=WorkflowDef(name="test", entry="start"),
             tools=["http", "file_io", "lookup_profile"],
         )
@@ -43,6 +47,8 @@ class TestRunsightWorkflowFileTools:
         from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowDef
 
         wf = RunsightWorkflowFile(
+            id="test",
+            kind="workflow",
             workflow=WorkflowDef(name="test", entry="start"),
             tools=["http", "lookup_profile"],
         )
@@ -57,6 +63,8 @@ class TestRunsightWorkflowFileTools:
         with pytest.raises(ValidationError, match="list"):
             RunsightWorkflowFile.model_validate(
                 {
+                    "id": "test",
+                    "kind": "workflow",
                     "workflow": {"name": "test", "entry": "start"},
                     "tools": {
                         "http": {
@@ -78,6 +86,8 @@ class TestRunsightWorkflowFileTools:
         with pytest.raises(ValidationError, match="list"):
             RunsightWorkflowFile.model_validate(
                 {
+                    "id": "test",
+                    "kind": "workflow",
                     "workflow": {"name": "test", "entry": "start"},
                     "tools": {
                         "http": {
@@ -96,6 +106,8 @@ class TestRunsightWorkflowFileTools:
         with pytest.raises(ValidationError, match=r"duplicate.*http"):
             RunsightWorkflowFile.model_validate(
                 {
+                    "id": "test",
+                    "kind": "workflow",
                     "workflow": {"name": "test", "entry": "start"},
                     "tools": ["http", "http"],
                 }
@@ -116,6 +128,8 @@ class TestSoulDefToolsUpdate:
 
         sd = SoulDef(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
             tools=["http", "file_io"],
@@ -129,6 +143,8 @@ class TestSoulDefToolsUpdate:
         with pytest.raises(ValidationError):
             SoulDef(
                 id="test_soul",
+                kind="soul",
+                name="Tester",
                 role="Tester",
                 system_prompt="Test prompt",
                 tools=[{"name": "http_tool", "description": "Makes HTTP requests"}],
@@ -140,6 +156,8 @@ class TestSoulDefToolsUpdate:
 
         sd = SoulDef(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
         )
@@ -152,6 +170,8 @@ class TestSoulDefToolsUpdate:
 
         sd = SoulDef(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
             tools=[],
@@ -174,6 +194,8 @@ class TestSoulDefMaxToolIterations:
 
         sd = SoulDef(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
         )
@@ -185,6 +207,8 @@ class TestSoulDefMaxToolIterations:
 
         sd = SoulDef(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
             max_tool_iterations=10,
@@ -206,6 +230,8 @@ class TestSoulToolsUpdate:
 
         soul = Soul(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
             tools=["http", "file_io"],
@@ -219,6 +245,8 @@ class TestSoulToolsUpdate:
         with pytest.raises(ValidationError):
             Soul(
                 id="test_soul",
+                kind="soul",
+                name="Tester",
                 role="Tester",
                 system_prompt="Test prompt",
                 tools=[{"name": "tool1", "description": "A tool"}],
@@ -230,6 +258,8 @@ class TestSoulToolsUpdate:
 
         soul = Soul(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
         )
@@ -241,6 +271,8 @@ class TestSoulToolsUpdate:
 
         soul = Soul(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
             max_tool_iterations=15,
@@ -253,6 +285,8 @@ class TestSoulToolsUpdate:
 
         soul = Soul(
             id="basic_soul",
+            kind="soul",
+            name="Worker",
             role="Worker",
             system_prompt="Do work.",
         )
@@ -274,6 +308,8 @@ class TestSoulResolvedTools:
 
         soul = Soul(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
         )
@@ -285,6 +321,8 @@ class TestSoulResolvedTools:
 
         soul = Soul(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
             resolved_tools=[{"callable": lambda x: x}],
@@ -298,6 +336,8 @@ class TestSoulResolvedTools:
 
         soul = Soul(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
             resolved_tools=[{"callable": "some_tool"}],
@@ -314,6 +354,8 @@ class TestSoulResolvedTools:
 
         soul = Soul(
             id="test_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Test prompt",
             resolved_tools=["tool_a", "tool_b"],
@@ -339,11 +381,15 @@ class TestFullYamlToolsParse:
 
         wf = RunsightWorkflowFile(
             version="1.0",
+            id="tool_test",
+            kind="workflow",
             workflow=WorkflowDef(name="tool_test", entry="start"),
             tools=["http", "lookup_profile"],
             souls={
                 "agent_a": SoulDef(
                     id="agent_a",
+                    kind="soul",
+                    name="HTTP Agent",
                     role="HTTP Agent",
                     system_prompt="You make HTTP calls.",
                     tools=["http"],
@@ -351,6 +397,8 @@ class TestFullYamlToolsParse:
                 ),
                 "agent_b": SoulDef(
                     id="agent_b",
+                    kind="soul",
+                    name="Lookup Agent",
                     role="Lookup Agent",
                     system_prompt="You look profiles up.",
                     tools=["lookup_profile", "http"],
@@ -374,11 +422,15 @@ class TestFullYamlToolsParse:
 
         raw = {
             "version": "1.0",
+            "id": "test",
+            "kind": "workflow",
             "workflow": {"name": "test", "entry": "start"},
             "tools": ["http", "search"],
             "souls": {
                 "searcher": {
                     "id": "searcher",
+                    "kind": "soul",
+                    "name": "Searcher",
                     "role": "Searcher",
                     "system_prompt": "Search things.",
                     "tools": ["search"],

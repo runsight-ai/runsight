@@ -142,6 +142,7 @@ describe("AC3 — key files use beforeAll for test data setup", () => {
 
     const fixtureCreatesViaApi =
       /fetch\(.*\/workflows.*POST/s.test(beforeAllBlock) ||
+      /apiPost(?:<[^>]+>)?\s*\(\s*["']\/workflows["']/s.test(beforeAllBlock) ||
       /method.*POST[\s\S]*?\/workflows/s.test(beforeAllBlock) ||
       /apiPost(?:<[^>]+>)?\s*\(\s*["']\/workflows["']/s.test(beforeAllBlock) ||
       // Accept any beforeAll that does a POST (may use a helper)

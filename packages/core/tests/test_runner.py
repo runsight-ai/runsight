@@ -9,6 +9,8 @@ from runsight_core.runner import ExecutionResult, FallbackRoute, RunsightTeamRun
 def sample_soul():
     return Soul(
         id="test_soul",
+        kind="soul",
+        name="Test Agent",
         role="Test Agent",
         system_prompt="You are a helpful test agent.",
         provider="openai",
@@ -65,6 +67,8 @@ async def test_execute_task_forwards_temperature_and_max_tokens(mock_achat, samp
     runner = RunsightTeamRunner(model_name="gpt-4o")
     soul = Soul(
         id="configured_soul",
+        kind="soul",
+        name="Configured Agent",
         role="Configured Agent",
         system_prompt="Use the configured runtime params.",
         provider="openai",
@@ -91,6 +95,8 @@ async def test_execute_task_rejects_model_only_soul_without_provider(mock_achat,
     runner = RunsightTeamRunner(model_name="gpt-4o")
     soul = Soul(
         id="test_soul",
+        kind="soul",
+        name="Test Agent",
         role="Test Agent",
         system_prompt="You are a helpful test agent.",
         model_name="gpt-4o",
@@ -114,6 +120,8 @@ async def test_execute_task_rejects_provider_only_soul_without_model_name(mock_a
     runner = RunsightTeamRunner(model_name="gpt-4o")
     soul = Soul(
         id="test_soul",
+        kind="soul",
+        name="Test Agent",
         role="Test Agent",
         system_prompt="You are a helpful test agent.",
         provider="openai",
@@ -137,6 +145,8 @@ async def test_execute_task_rejects_soul_without_provider_and_model_name(mock_ac
     runner = RunsightTeamRunner(model_name="gpt-4o")
     soul = Soul(
         id="test_soul",
+        kind="soul",
+        name="Test Agent",
         role="Test Agent",
         system_prompt="You are a helpful test agent.",
     )
@@ -171,6 +181,8 @@ async def test_execute_task_fails_over_to_configured_fallback_model(sample_task)
 
     soul = Soul(
         id="test_soul",
+        kind="soul",
+        name="Test Agent",
         role="Test Agent",
         system_prompt="You are a helpful test agent.",
         model_name="gpt-4o",
@@ -222,6 +234,8 @@ async def test_execute_task_does_not_fail_over_on_authentication_error(sample_ta
 
     soul = Soul(
         id="test_soul",
+        kind="soul",
+        name="Test Agent",
         role="Test Agent",
         system_prompt="You are a helpful test agent.",
         model_name="gpt-4o",

@@ -25,6 +25,8 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 def _code_workflow(name: str, *, entry: str = "step") -> dict:
     return {
         "version": "1.0",
+        "id": name,
+        "kind": "workflow",
         "interface": {
             "inputs": [],
             "outputs": [],
@@ -66,6 +68,8 @@ def test_parse_workflow_yaml_allows_loop_referencing_workflow_block() -> None:
 
     allowed_parent = {
         "version": "1.0",
+        "id": "allowed_parent",
+        "kind": "workflow",
         "blocks": {
             "call_child": {
                 "type": "workflow",
@@ -89,6 +93,8 @@ def test_parse_workflow_yaml_allows_loop_referencing_workflow_block() -> None:
 
     nested_parent = {
         "version": "1.0",
+        "id": "nested_parent",
+        "kind": "workflow",
         "blocks": {
             "call_child": {
                 "type": "workflow",
@@ -124,13 +130,15 @@ def test_validate_workflow_call_contracts_allows_nested_loop_workflow_recursivel
     tmp_path: Path,
 ) -> None:
     """Recursive workflow-call validation should accept nested loop workflow refs."""
-    parent_path = tmp_path / "custom" / "workflows" / "parent.yaml"
-    child_path = tmp_path / "custom" / "workflows" / "child.yaml"
-    grandchild_path = tmp_path / "custom" / "workflows" / "grandchild.yaml"
+    parent_path = tmp_path / "custom" / "workflows" / "parent_workflow.yaml"
+    child_path = tmp_path / "custom" / "workflows" / "child_workflow.yaml"
+    grandchild_path = tmp_path / "custom" / "workflows" / "grandchild_workflow.yaml"
 
     grandchild_data = _code_workflow("grandchild_workflow")
     child_data = {
         "version": "1.0",
+        "id": "child_workflow",
+        "kind": "workflow",
         "interface": {
             "inputs": [],
             "outputs": [],
@@ -159,6 +167,8 @@ def test_validate_workflow_call_contracts_allows_nested_loop_workflow_recursivel
     }
     parent_data = {
         "version": "1.0",
+        "id": "parent_workflow",
+        "kind": "workflow",
         "blocks": {
             "invoke_child": {
                 "type": "workflow",
@@ -183,9 +193,9 @@ def test_validate_workflow_call_contracts_allows_nested_loop_workflow_recursivel
 
     scan_index = WorkflowScanner(str(tmp_path)).scan()
     validation_index = {
-        alias: (result.path, result.item)
+        result.entity_id: (result.path, result.item)
         for result in scan_index.get_all()
-        for alias in result.aliases
+        if result.entity_id is not None
     }
     parent_file = RunsightWorkflowFile.model_validate(parent_data)
 
@@ -194,5 +204,4 @@ def test_validate_workflow_call_contracts_allows_nested_loop_workflow_recursivel
         base_dir=str(tmp_path),
         validation_index=validation_index,
         current_workflow_ref=str(parent_path),
-        allow_filesystem_fallback=False,
     )

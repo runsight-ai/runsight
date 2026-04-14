@@ -64,7 +64,7 @@ class TestWorkflowCreateCommit:
         """After creating a workflow, GitService.commit should be called."""
         from runsight_api.logic.services.workflow_service import WorkflowService
 
-        created = WorkflowEntity(id="onboarding-abc12", name="Onboarding Flow")
+        created = WorkflowEntity(kind="workflow", id="onboarding-abc12", name="Onboarding Flow")
         workflow_repo.create.return_value = created
 
         svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
@@ -77,7 +77,7 @@ class TestWorkflowCreateCommit:
         """Commit message must be 'Create workflow: {name}'."""
         from runsight_api.logic.services.workflow_service import WorkflowService
 
-        created = WorkflowEntity(id="onboarding-abc12", name="Onboarding Flow")
+        created = WorkflowEntity(kind="workflow", id="onboarding-abc12", name="Onboarding Flow")
         workflow_repo.create.return_value = created
 
         svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
@@ -105,7 +105,7 @@ class TestWorkflowCreateCommit:
         """Commits must target the main branch."""
         from runsight_api.logic.services.workflow_service import WorkflowService
 
-        created = WorkflowEntity(id="test-wf", name="Test")
+        created = WorkflowEntity(kind="workflow", id="test-wf", name="Test")
         workflow_repo.create.return_value = created
 
         svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
@@ -128,7 +128,7 @@ class TestWorkflowUpdateCommit:
         """Workflow updates no longer imply a production commit."""
         from runsight_api.logic.services.workflow_service import WorkflowService
 
-        updated = WorkflowEntity(id="wf-1", name="Updated Flow")
+        updated = WorkflowEntity(kind="workflow", id="wf-1", name="Updated Flow")
         workflow_repo.update.return_value = updated
 
         svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
@@ -140,7 +140,7 @@ class TestWorkflowUpdateCommit:
         """Workflow updates still delegate the payload to the repository."""
         from runsight_api.logic.services.workflow_service import WorkflowService
 
-        updated = WorkflowEntity(id="wf-1", name="My Cool Flow")
+        updated = WorkflowEntity(kind="workflow", id="wf-1", name="My Cool Flow")
         workflow_repo.update.return_value = updated
 
         svc = WorkflowService(workflow_repo, Mock(), git_service=git_service)
@@ -161,12 +161,14 @@ class TestSoulCreateCommit:
     def test_create_soul_calls_git_commit(self, soul_repo, git_service):
         from runsight_api.logic.services.soul_service import SoulService
 
-        created = SoulEntity(id="soul_abc123", role="Reviewer")
+        created = SoulEntity(id="soul_abc123", kind="soul", name="Reviewer", role="Reviewer")
         soul_repo.get_by_id.return_value = None
         soul_repo.create.return_value = created
 
         svc = SoulService(soul_repo, git_service=git_service)
-        svc.create_soul({"id": "soul_abc123", "role": "Reviewer"})
+        svc.create_soul(
+            {"id": "soul_abc123", "kind": "soul", "name": "Reviewer", "role": "Reviewer"}
+        )
 
         git_service.commit_to_branch.assert_called_once()
 
@@ -174,12 +176,14 @@ class TestSoulCreateCommit:
         """Commit message: 'Create {id}.yaml'."""
         from runsight_api.logic.services.soul_service import SoulService
 
-        created = SoulEntity(id="soul_abc123", role="Reviewer")
+        created = SoulEntity(id="soul_abc123", kind="soul", name="Reviewer", role="Reviewer")
         soul_repo.get_by_id.return_value = None
         soul_repo.create.return_value = created
 
         svc = SoulService(soul_repo, git_service=git_service)
-        svc.create_soul({"id": "soul_abc123", "role": "Reviewer"})
+        svc.create_soul(
+            {"id": "soul_abc123", "kind": "soul", "name": "Reviewer", "role": "Reviewer"}
+        )
 
         args, kwargs = git_service.commit_to_branch.call_args
         all_args = list(args) + [kwargs.get("message", "")]
@@ -201,9 +205,11 @@ class TestSoulUpdateCommit:
     def test_update_soul_calls_git_commit(self, soul_repo, git_service):
         from runsight_api.logic.services.soul_service import SoulService
 
-        existing = SoulEntity(id="soul_x", role="Old Name")
+        existing = SoulEntity(id="soul_x", kind="soul", name="Old Name", role="Old Name")
         soul_repo.get_by_id.return_value = existing
-        soul_repo.update.return_value = SoulEntity(id="soul_x", role="New Name")
+        soul_repo.update.return_value = SoulEntity(
+            id="soul_x", kind="soul", name="New Name", role="New Name"
+        )
 
         svc = SoulService(soul_repo, git_service=git_service)
         svc.update_soul("soul_x", {"role": "New Name"})
@@ -214,9 +220,9 @@ class TestSoulUpdateCommit:
         """Commit message: 'Update {id}.yaml'."""
         from runsight_api.logic.services.soul_service import SoulService
 
-        existing = SoulEntity(id="soul_x", role="Old")
+        existing = SoulEntity(id="soul_x", kind="soul", name="Old", role="Old")
         soul_repo.get_by_id.return_value = existing
-        soul_repo.update.return_value = SoulEntity(id="soul_x", role="New")
+        soul_repo.update.return_value = SoulEntity(id="soul_x", kind="soul", name="New", role="New")
 
         svc = SoulService(soul_repo, git_service=git_service)
         svc.update_soul("soul_x", {"role": "New"})
@@ -241,7 +247,9 @@ class TestSoulDeleteCommit:
     def test_delete_soul_calls_git_commit(self, soul_repo, git_service):
         from runsight_api.logic.services.soul_service import SoulService
 
-        soul_repo.get_by_id.return_value = SoulEntity(id="soul_gone", role="Gone")
+        soul_repo.get_by_id.return_value = SoulEntity(
+            id="soul_gone", kind="soul", name="Gone", role="Gone"
+        )
         soul_repo.delete.return_value = True
 
         svc = SoulService(soul_repo, git_service=git_service)
@@ -253,7 +261,9 @@ class TestSoulDeleteCommit:
         """Commit message: 'Delete {id}.yaml'."""
         from runsight_api.logic.services.soul_service import SoulService
 
-        soul_repo.get_by_id.return_value = SoulEntity(id="soul_gone", role="Gone")
+        soul_repo.get_by_id.return_value = SoulEntity(
+            id="soul_gone", kind="soul", name="Gone", role="Gone"
+        )
         soul_repo.delete.return_value = True
 
         svc = SoulService(soul_repo, git_service=git_service)
@@ -286,7 +296,7 @@ class TestNoEmptyCommits:
         from runsight_api.logic.services.workflow_service import WorkflowService
 
         # Simulate: repo.update returns entity but git reports working tree is clean
-        updated = WorkflowEntity(id="wf-1", name="Same")
+        updated = WorkflowEntity(kind="workflow", id="wf-1", name="Same")
         workflow_repo.update.return_value = updated
         git_service.is_clean.return_value = True
 
@@ -302,9 +312,11 @@ class TestNoEmptyCommits:
         """When soul update produces no diff, git commit must NOT be called."""
         from runsight_api.logic.services.soul_service import SoulService
 
-        existing = SoulEntity(id="soul_x", role="Same")
+        existing = SoulEntity(id="soul_x", kind="soul", name="Same", role="Same")
         soul_repo.get_by_id.return_value = existing
-        soul_repo.update.return_value = SoulEntity(id="soul_x", role="Same")
+        soul_repo.update.return_value = SoulEntity(
+            id="soul_x", kind="soul", name="Same", role="Same"
+        )
         git_service.is_clean.return_value = True
 
         svc = SoulService(soul_repo, git_service=git_service)

@@ -33,7 +33,9 @@ class TestParserSoulFieldForwarding:
                 base,
                 "researcher",
                 """\
-                id: researcher_1
+                id: researcher
+                kind: soul
+                name: Researcher
                 role: Researcher
                 system_prompt: Investigate thoroughly.
                 provider: openai
@@ -46,7 +48,11 @@ class TestParserSoulFieldForwarding:
                 base,
                 """\
                 version: "1.0"
+                id: parser-forwarding
+                kind: workflow
                 workflow:
+                  id: parser-forwarding
+                  kind: workflow
                   name: parser-forwarding
                   entry: step1
                   transitions:
@@ -75,7 +81,9 @@ class TestParserSoulFieldForwarding:
                 base,
                 "reviewer",
                 """\
-                id: reviewer_1
+                id: reviewer
+                kind: soul
+                name: Reviewer
                 role: Reviewer
                 system_prompt: Review carefully.
                 """,
@@ -84,7 +92,11 @@ class TestParserSoulFieldForwarding:
                 base,
                 """\
                 version: "1.0"
+                id: parser-forwarding-minimal
+                kind: workflow
                 workflow:
+                  id: parser-forwarding-minimal
+                  kind: workflow
                   name: parser-forwarding-minimal
                   entry: step1
                   transitions:

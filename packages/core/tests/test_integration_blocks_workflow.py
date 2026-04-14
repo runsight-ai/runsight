@@ -43,12 +43,44 @@ def mock_runner():
 def sample_souls():
     """Create sample souls for testing."""
     return {
-        "researcher": Soul(id="researcher", role="Researcher", system_prompt="Research topics"),
-        "coder": Soul(id="coder", role="Coder", system_prompt="Write code"),
-        "reviewer1": Soul(id="reviewer1", role="Reviewer 1", system_prompt="Review code"),
-        "reviewer2": Soul(id="reviewer2", role="Reviewer 2", system_prompt="Review code"),
-        "reviewer3": Soul(id="reviewer3", role="Reviewer 3", system_prompt="Review code"),
-        "synthesizer": Soul(id="synthesizer", role="Synthesizer", system_prompt="Combine feedback"),
+        "researcher": Soul(
+            id="researcher",
+            kind="soul",
+            name="Researcher",
+            role="Researcher",
+            system_prompt="Research topics",
+        ),
+        "coder": Soul(
+            id="coder", kind="soul", name="Coder", role="Coder", system_prompt="Write code"
+        ),
+        "reviewer1": Soul(
+            id="reviewer1",
+            kind="soul",
+            name="Reviewer 1",
+            role="Reviewer 1",
+            system_prompt="Review code",
+        ),
+        "reviewer2": Soul(
+            id="reviewer2",
+            kind="soul",
+            name="Reviewer 2",
+            role="Reviewer 2",
+            system_prompt="Review code",
+        ),
+        "reviewer3": Soul(
+            id="reviewer3",
+            kind="soul",
+            name="Reviewer 3",
+            role="Reviewer 3",
+            system_prompt="Review code",
+        ),
+        "synthesizer": Soul(
+            id="synthesizer",
+            kind="soul",
+            name="Synthesizer",
+            role="Synthesizer",
+            system_prompt="Combine feedback",
+        ),
     }
 
 

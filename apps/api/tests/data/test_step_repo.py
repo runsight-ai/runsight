@@ -20,7 +20,7 @@ def test_step_repo():
         assert fetched.name == "Test Step"
 
         # Test update
-        repo.update("test_step", {"name": "Updated Step"})
+        repo.update("test_step", {"id": "test_step", "name": "Updated Step"})
         updated = repo.get_by_id("test_step")
         assert updated.name == "Updated Step"
 

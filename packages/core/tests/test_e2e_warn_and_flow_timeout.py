@@ -75,9 +75,13 @@ def _make_litellm_response(
 
 _YAML_WARN_MODE = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -85,13 +89,13 @@ souls:
 blocks:
   block1:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
   block3:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: warn_mode_test
   entry: block1
@@ -109,9 +113,13 @@ limits:
 
 _YAML_FLOW_TIMEOUT_SHORT = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -119,10 +127,10 @@ souls:
 blocks:
   block1:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: flow_timeout_test
   entry: block1
@@ -137,9 +145,13 @@ limits:
 
 _YAML_FLOW_TIMEOUT_GENEROUS = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -147,10 +159,10 @@ souls:
 blocks:
   block1:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: flow_timeout_generous_test
   entry: block1
@@ -521,9 +533,13 @@ class TestFlowTimeoutWithinLimits:
 
 _YAML_MIXED_BLOCK_WARN_FLOW_FAIL = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -531,25 +547,25 @@ souls:
 blocks:
   block1:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       cost_cap_usd: 0.001
       on_exceed: warn
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       cost_cap_usd: 0.001
       on_exceed: warn
   block3:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       cost_cap_usd: 0.001
       on_exceed: warn
   block4:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       cost_cap_usd: 0.001
       on_exceed: warn
@@ -608,9 +624,13 @@ class TestMixedBlockWarnFlowFail:
         # Use a 2-block variant to keep total under flow cap
         yaml_2_blocks = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -618,13 +638,13 @@ souls:
 blocks:
   block1:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       cost_cap_usd: 0.001
       on_exceed: warn
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       cost_cap_usd: 0.001
       on_exceed: warn
@@ -665,9 +685,13 @@ limits:
 
         yaml_2_blocks = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -675,13 +699,13 @@ souls:
 blocks:
   block1:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       cost_cap_usd: 0.001
       on_exceed: warn
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       cost_cap_usd: 0.001
       on_exceed: warn
@@ -720,9 +744,13 @@ limits:
 
         yaml_2_blocks = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -730,13 +758,13 @@ souls:
 blocks:
   block1:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       cost_cap_usd: 0.001
       on_exceed: warn
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       cost_cap_usd: 0.001
       on_exceed: warn

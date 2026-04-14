@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
+from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
@@ -87,6 +88,11 @@ class ExecutionObserver:
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
         try:
             bind_execution_context(run_id=self.run_id, workflow_name=workflow_name)
+            try:
+                validate_entity_id(workflow_name, EntityKind.WORKFLOW)
+                workflow_ref = str(EntityRef(EntityKind.WORKFLOW, workflow_name))
+            except ValueError:
+                workflow_ref = workflow_name
             with Session(self.engine) as session:
                 run = session.get(Run, self.run_id)
                 if run:
@@ -110,6 +116,7 @@ class ExecutionObserver:
                 json.dumps(
                     {
                         "event": "workflow_start",
+                        "workflow_ref": workflow_ref,
                         "workflow_name": workflow_name,
                     }
                 ),

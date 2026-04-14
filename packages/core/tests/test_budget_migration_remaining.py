@@ -61,6 +61,8 @@ class TestLoopBlockCarryContextFlowsThroughTaskContext:
 def _make_soul() -> Soul:
     return Soul(
         id="test_soul",
+        kind="soul",
+        name="Test Soul",
         role="Test Agent",
         system_prompt="You are a test agent.",
         model_name="gpt-4o-mini",

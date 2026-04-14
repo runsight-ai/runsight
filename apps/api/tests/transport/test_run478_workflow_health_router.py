@@ -38,6 +38,7 @@ def _make_workflow(
     health: dict | None = None,
 ) -> WorkflowEntity:
     return WorkflowEntity(
+        kind="workflow",
         id=workflow_id,
         name=name,
         description=description,
@@ -150,6 +151,7 @@ class TestWorkflowResponseWarningsModelShape:
         response = WorkflowResponse.model_validate(
             {
                 "id": "wf_1",
+                "kind": "workflow",
                 "warnings": [
                     {
                         "message": "Tool definition warning",
@@ -170,6 +172,7 @@ class TestWorkflowResponseWarningsModelShape:
         response = WorkflowResponse.model_validate(
             {
                 "id": "wf_1",
+                "kind": "workflow",
                 "warnings": [
                     {
                         "message": "Tool definition warning",

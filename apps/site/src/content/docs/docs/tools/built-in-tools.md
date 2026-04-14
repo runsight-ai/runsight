@@ -36,11 +36,15 @@ The delegate tool returns a JSON string `{"port": "<port>", "task": "<task>"}` o
 
 ```yaml title="custom/workflows/triage.yaml"
 version: "1.0"
+id: triage
+kind: workflow
 tools:
   - delegate
 souls:
   router:
     id: router
+    kind: soul
+    name: Router
     role: Triage Router
     system_prompt: >
       Read the incoming request and route it to the correct team
@@ -105,11 +109,15 @@ The `http` tool validates URLs against SSRF (Server-Side Request Forgery) before
 
 ```yaml title="custom/workflows/lookup.yaml"
 version: "1.0"
+id: lookup
+kind: workflow
 tools:
   - http
 souls:
   fetcher:
     id: fetcher
+    kind: soul
+    name: Fetcher
     role: Data Fetcher
     system_prompt: >
       Fetch the requested data using the http tool and summarize the results.
@@ -154,11 +162,15 @@ Reads and writes files within a sandboxed base directory. Path traversal and abs
 
 ```yaml title="custom/workflows/report.yaml"
 version: "1.0"
+id: report
+kind: workflow
 tools:
   - file_io
 souls:
   writer:
     id: writer
+    kind: soul
+    name: Writer
     role: Report Writer
     system_prompt: >
       Write the analysis report to a file using the file_io tool.

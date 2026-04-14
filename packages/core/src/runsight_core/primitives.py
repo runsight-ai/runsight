@@ -2,9 +2,11 @@
 Core primitives for Runsight Agent OS.
 """
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from runsight_core.identity import EntityKind, validate_entity_id
 
 if TYPE_CHECKING:
     from runsight_core.blocks.base import BaseBlock
@@ -17,6 +19,8 @@ class Soul(BaseModel):
     """
 
     id: str = Field(..., description="Unique identifier for the soul (e.g., 'researcher_v1')")
+    kind: Literal["soul"] = Field(..., description="Entity kind for a soul primitive")
+    name: str = Field(..., description="Display name for the soul")
     role: str = Field(..., description="The role of the agent (e.g., 'Senior Researcher')")
     system_prompt: str = Field(
         ..., description="The system instructions defining the agent's behavior and constraints"
@@ -51,6 +55,12 @@ class Soul(BaseModel):
         exclude=True,
         description="Resolved tool objects (excluded from serialization)",
     )
+
+    @field_validator("id")
+    @classmethod
+    def _validate_identity(cls, value: str) -> str:
+        validate_entity_id(value, EntityKind.SOUL)
+        return value
 
 
 class Task(BaseModel):

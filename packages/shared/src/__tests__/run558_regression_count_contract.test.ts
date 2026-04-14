@@ -58,11 +58,9 @@ describe("RUN-558: RunResponseSchema parses regression_count", () => {
     expect(result).toHaveProperty("regression_count", null);
   });
 
-  it("parsed output defaults regression_count when omitted", () => {
-    // Field is optional, so omitting it should not throw
+  it("parsed output defaults omitted regression_count to 0", () => {
     const result = RunResponseSchema.parse(baseRun);
-    // The value should be undefined or null (optional field)
-    expect(result).toHaveProperty("regression_count");
+    expect(result.regression_count).toBe(0);
   });
 });
 

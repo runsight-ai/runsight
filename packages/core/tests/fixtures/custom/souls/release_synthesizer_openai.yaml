@@ -1,3 +1,5 @@
 id: release_synthesizer_openai
+kind: soul
+name: Release Synthesizer
 role: release_synthesizer_openai
 system_prompt: Fixture soul for testing.

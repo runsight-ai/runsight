@@ -44,6 +44,8 @@ class TestCodeBlockRegistration:
 # ---------------------------------------------------------------------------
 
 VALID_CODE_YAML = """\
+id: test-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -90,6 +92,8 @@ class TestCodeBlockParsing:
 # ---------------------------------------------------------------------------
 
 CODE_YAML_CUSTOM_OPTS = """\
+id: test-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o

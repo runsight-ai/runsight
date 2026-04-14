@@ -27,12 +27,16 @@ from runsight_api.domain.entities.run import Run, RunStatus
 # ---------------------------------------------------------------------------
 
 YAML_CONTAINS_ASSERTION = """\
+id: contains-assertion-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     provider: openai
@@ -53,12 +57,16 @@ workflow:
 """
 
 YAML_COST_ASSERTION = """\
+id: cost-assertion-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     provider: openai

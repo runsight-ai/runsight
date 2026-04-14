@@ -27,6 +27,8 @@ _EMPTY_INTERFACE = {"inputs": [], "outputs": []}
 
 def _child_workflow_file() -> RunsightWorkflowFile:
     child_dict = {
+        "id": "child-workflow",
+        "kind": "workflow",
         "version": "1.0",
         "interface": _EMPTY_INTERFACE,
         "blocks": {
@@ -46,6 +48,8 @@ def _child_workflow_file() -> RunsightWorkflowFile:
 
 def _parent_workflow_dict() -> dict[str, Any]:
     return {
+        "id": "parent-workflow",
+        "kind": "workflow",
         "version": "1.0",
         "config": {
             "max_workflow_depth": 7,
@@ -53,7 +57,7 @@ def _parent_workflow_dict() -> dict[str, Any]:
         "blocks": {
             "invoke_child": {
                 "type": "workflow",
-                "workflow_ref": "child_workflow",
+                "workflow_ref": "child-workflow",
             },
             "loop_block": {
                 "type": "loop",
@@ -77,8 +81,8 @@ def test_parse_workflow_yaml_routes_workflow_blocks_through_registered_builder_e
 ) -> None:
     """Parsing should invoke the registered workflow builder instead of a parser special case."""
     child_file = _child_workflow_file()
-    registry = WorkflowRegistry(allow_filesystem_fallback=False)
-    registry.register("child_workflow", child_file)
+    registry = WorkflowRegistry()
+    registry.register("child-workflow", child_file)
 
     calls: list[dict[str, Any]] = []
 
@@ -144,8 +148,8 @@ def test_registered_workflow_builder_accepts_parser_context_and_builds_real_work
 ) -> None:
     """The registered workflow builder should build a real WorkflowBlock with parser context."""
     child_file = _child_workflow_file()
-    registry = WorkflowRegistry(allow_filesystem_fallback=False)
-    registry.register("child_workflow", child_file)
+    registry = WorkflowRegistry()
+    registry.register("child-workflow", child_file)
     parent_file = RunsightWorkflowFile.model_validate(_parent_workflow_dict())
     block_def = parent_file.blocks["invoke_child"]
     builder = BLOCK_BUILDER_REGISTRY["workflow"]
@@ -164,7 +168,7 @@ def test_registered_workflow_builder_accepts_parser_context_and_builds_real_work
 
     assert isinstance(block, WorkflowBlock)
     assert block.child_workflow.name == "child_workflow"
-    assert block.workflow_ref == "child_workflow"
+    assert block.workflow_ref == "child-workflow"
     assert block.max_depth == 7
 
 

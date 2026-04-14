@@ -11,6 +11,16 @@ def openapi_type_to_zod(prop: dict, schemas: dict) -> str:
         ref_name = prop["$ref"].split("/")[-1]
         return f"{ref_name}Schema"
 
+    if "const" in prop:
+        const_value = prop["const"]
+        if isinstance(const_value, str):
+            return f'z.literal("{const_value}")'
+        if isinstance(const_value, bool):
+            return f"z.literal({str(const_value).lower()})"
+        if isinstance(const_value, (int, float)):
+            return f"z.literal({const_value})"
+        return "z.unknown()"
+
     # anyOf (nullable / union)
     if "anyOf" in prop:
         types = prop["anyOf"]
@@ -118,7 +128,7 @@ def generate_zod_file(openapi_path: str, output_path: str) -> None:
         lines.append(f"export type {name} = z.infer<typeof {name}Schema>;")
         lines.append("")
 
-    Path(output_path).write_text("\n".join(lines) + "\n")
+    Path(output_path).write_text("\n".join(lines).rstrip() + "\n")
 
 
 if __name__ == "__main__":

@@ -51,8 +51,13 @@ def _write_custom_tool_yaml(base_dir, slug: str, contents: str):
     """Create a custom tool YAML file under custom/tools/ for resolver tests."""
     tools_dir = base_dir / "custom" / "tools"
     tools_dir.mkdir(parents=True, exist_ok=True)
+    content = dedent(contents)
+    lines = content.lstrip().splitlines()
+    first_key = lines[0].split(":")[0].strip() if lines else ""
+    if first_key != "id":
+        content = f"id: {slug}\nkind: tool\n" + content
     yaml_path = tools_dir / f"{slug}.yaml"
-    yaml_path.write_text(dedent(contents), encoding="utf-8")
+    yaml_path.write_text(content, encoding="utf-8")
     return yaml_path
 
 
@@ -369,7 +374,7 @@ class TestResolveToolPublicContract:
             """,
         )
 
-        with pytest.raises(ValueError, match=r"reserved builtin tool id 'http'|collision.*http"):
+        with pytest.raises(ValueError, match=r"reserved builtin tool:http|collision.*http"):
             resolve_tool("http", base_dir=tmp_path)
 
 
@@ -592,6 +597,8 @@ class TestResolveCanonicalPythonTools:
         )
         (tools_dir / "file_backed.yaml").write_text(
             dedent("""
+            id: file_backed
+            kind: tool
             version: "1.0"
             type: custom
             executor: python

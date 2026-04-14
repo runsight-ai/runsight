@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
+from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 
@@ -101,7 +102,12 @@ class LoggingObserver:
         self.level = level
 
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
-        self.logger.log(self.level, "[%s] Workflow started", workflow_name)
+        try:
+            validate_entity_id(workflow_name, EntityKind.WORKFLOW)
+            workflow_ref = str(EntityRef(EntityKind.WORKFLOW, workflow_name))
+        except ValueError:
+            workflow_ref = workflow_name
+        self.logger.log(self.level, "[%s] Workflow started", workflow_ref)
 
     def on_block_start(
         self,

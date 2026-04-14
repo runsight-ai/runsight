@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError
+from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError, field_validator
 
 from runsight_core.assertions.contract import ASSERTION_FUNCTION_NAME, ASSERTION_FUNCTION_PARAMS
 from runsight_core.assertions.deterministic import _ALL_ASSERTIONS
+from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
 from runsight_core.yaml.discovery._base import BaseScanner, ScanIndex, ScanResult
 
 RESERVED_BUILTIN_ASSERTION_IDS = frozenset(assertion.type for assertion in _ALL_ASSERTIONS)
@@ -23,12 +24,27 @@ class AssertionManifest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    id: NonEmptyString
+    kind: NonEmptyString
     version: NonEmptyString
     name: NonEmptyString
     description: NonEmptyString
     returns: AssertionReturn
     source: NonEmptyString
     params: dict[str, Any] | None = None
+
+    @field_validator("kind")
+    @classmethod
+    def _validate_kind(cls, value: str) -> str:
+        if value != "assertion":
+            raise ValueError("kind must be 'assertion'")
+        return value
+
+    @field_validator("id")
+    @classmethod
+    def _validate_identity(cls, value: str) -> str:
+        validate_entity_id(value, EntityKind.ASSERTION)
+        return value
 
 
 @dataclass
@@ -46,7 +62,21 @@ def _fail_assertion_file(yaml_file: Path, message: str) -> ValueError:
 
 
 def _read_assertion_source_file(yaml_file: Path, source: str) -> str:
-    source_path = yaml_file.parent / source
+    raw_source_path = Path(source)
+    if raw_source_path.is_absolute():
+        raise _fail_assertion_file(
+            yaml_file, f"referenced source escapes assertion directory: {source}"
+        )
+
+    assertion_dir = yaml_file.parent.resolve()
+    source_path = (yaml_file.parent / raw_source_path).resolve()
+    try:
+        source_path.relative_to(assertion_dir)
+    except ValueError as exc:
+        raise _fail_assertion_file(
+            yaml_file, f"referenced source escapes assertion directory: {source}"
+        ) from exc
+
     if not source_path.exists():
         raise _fail_assertion_file(yaml_file, f"referenced source does not exist: {source}")
     if not source_path.is_file():
@@ -118,22 +148,43 @@ class AssertionScanner(BaseScanner[AssertionMeta]):
             raise _fail_assertion_file(path, "invalid assertion metadata")
         return self._parse_assertion_mapping(path, parsed)
 
+    def _scan_yaml_content(self, path: Path, raw_yaml: str) -> ScanResult[AssertionMeta] | None:
+        try:
+            parsed = yaml.safe_load(raw_yaml)
+        except yaml.YAMLError as exc:
+            raise _fail_assertion_file(path, "malformed YAML") from exc
+
+        if not isinstance(parsed, dict):
+            raise _fail_assertion_file(path, "invalid assertion metadata")
+
+        item = self._parse_assertion_mapping(path, parsed)
+        resolved = path.resolve()
+        relative_path = resolved.relative_to(self.base_dir.resolve()).as_posix()
+        return ScanResult(
+            path=resolved,
+            stem=item.assertion_id,
+            relative_path=relative_path,
+            item=item,
+            aliases=frozenset({item.assertion_id}),
+            entity_id=item.assertion_id,
+        )
+
     def _scan_filesystem(self) -> ScanIndex[AssertionMeta]:
         asset_dir = self.asset_dir
         if not asset_dir.exists():
             return ScanIndex()
 
         results: list[ScanResult[AssertionMeta]] = []
-        seen_stems: set[str] = set()
+        seen_ids: set[str] = set()
         for yaml_file in self._glob_yaml_files(asset_dir):
-            if yaml_file.stem in seen_stems:
-                raise _fail_assertion_file(
-                    yaml_file,
-                    f"duplicate custom assertion id collision for {yaml_file.stem!r}",
-                )
-            seen_stems.add(yaml_file.stem)
             result = self._scan_yaml_file(yaml_file)
             if result is not None:
+                if result.entity_id in seen_ids:
+                    raise _fail_assertion_file(
+                        yaml_file,
+                        f"duplicate custom assertion id collision for {result.entity_id!r}",
+                    )
+                seen_ids.add(result.entity_id)
                 results.append(result)
         return ScanIndex(results)
 
@@ -158,30 +209,31 @@ class AssertionScanner(BaseScanner[AssertionMeta]):
             return ScanIndex()
 
         results: list[ScanResult[AssertionMeta]] = []
-        seen_stems: set[str] = set()
+        seen_ids: set[str] = set()
         for line in result.stdout.splitlines():
             candidate = line.strip()
             if not candidate or not candidate.endswith(".yaml"):
                 continue
             candidate_path = Path(candidate)
-            if candidate_path.stem in seen_stems:
-                raise _fail_assertion_file(
-                    candidate_path,
-                    f"duplicate custom assertion id collision for {candidate_path.stem!r}",
-                )
-            seen_stems.add(candidate_path.stem)
             try:
                 raw_yaml = git_service.read_file(candidate, git_ref)
             except Exception:
                 continue
             result_item = self._scan_yaml_content(candidate_path, raw_yaml)
             if result_item is not None:
+                if result_item.entity_id in seen_ids:
+                    raise _fail_assertion_file(
+                        candidate_path,
+                        f"duplicate custom assertion id collision for {result_item.entity_id!r}",
+                    )
+                seen_ids.add(result_item.entity_id)
                 results.append(result_item)
         return ScanIndex(results)
 
     def _parse_assertion_mapping(self, yaml_file: Path, raw: dict[str, Any]) -> AssertionMeta:
-        assertion_id = yaml_file.stem
-        if assertion_id in RESERVED_BUILTIN_ASSERTION_IDS:
+        raw_assertion_id = raw.get("id")
+        if isinstance(raw_assertion_id, str) and raw_assertion_id in RESERVED_BUILTIN_ASSERTION_IDS:
+            assertion_ref = str(EntityRef(EntityKind.ASSERTION, raw_assertion_id))
             collision_path: Path | str = yaml_file
             try:
                 collision_path = yaml_file.relative_to(self.base_dir)
@@ -192,7 +244,7 @@ class AssertionScanner(BaseScanner[AssertionMeta]):
                     pass
             raise _fail_assertion_file(
                 yaml_file,
-                f"reserved builtin assertion id {assertion_id!r} collides with custom assertion metadata at "
+                f"reserved builtin {assertion_ref} collides with custom assertion metadata at "
                 f"{collision_path}",
             )
 
@@ -201,6 +253,12 @@ class AssertionScanner(BaseScanner[AssertionMeta]):
         except ValidationError as exc:
             raise _fail_assertion_file(yaml_file, str(exc)) from exc
 
+        if manifest.id != yaml_file.stem:
+            raise _fail_assertion_file(
+                yaml_file,
+                f"embedded assertion id {manifest.id!r} does not match filename stem {yaml_file.stem!r}",
+            )
+
         code = _read_assertion_source_file(yaml_file, manifest.source)
         try:
             _validate_get_assert_contract(code)
@@ -208,7 +266,7 @@ class AssertionScanner(BaseScanner[AssertionMeta]):
             raise _fail_assertion_file(yaml_file, str(exc)) from exc
 
         return AssertionMeta(
-            assertion_id=assertion_id,
+            assertion_id=manifest.id,
             file_path=yaml_file,
             manifest=manifest,
             code=code,

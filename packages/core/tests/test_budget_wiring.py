@@ -31,9 +31,13 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 
 _MINIMAL_YAML_WITH_BLOCK_LIMITS = """\
 version: "1.0"
+id: test-wiring
+kind: workflow
 souls:
   test_soul:
     id: test_soul
+    kind: soul
+    name: Test Soul
     role: Tester
     system_prompt: Run tests.
 blocks:
@@ -54,9 +58,13 @@ workflow:
 
 _MINIMAL_YAML_NO_BLOCK_LIMITS = """\
 version: "1.0"
+id: test-no-limits
+kind: workflow
 souls:
   test_soul:
     id: test_soul
+    kind: soul
+    name: Test Soul
     role: Tester
     system_prompt: Run tests.
 blocks:
@@ -73,9 +81,13 @@ workflow:
 
 _MINIMAL_YAML_WITH_FLOW_LIMITS = """\
 version: "1.0"
+id: test-flow-limits
+kind: workflow
 souls:
   test_soul:
     id: test_soul
+    kind: soul
+    name: Test Soul
     role: Tester
     system_prompt: Run tests.
 blocks:
@@ -96,9 +108,13 @@ limits:
 
 _MINIMAL_YAML_BOTH_LIMITS = """\
 version: "1.0"
+id: test-both-limits
+kind: workflow
 souls:
   test_soul:
     id: test_soul
+    kind: soul
+    name: Test Soul
     role: Tester
     system_prompt: Run tests.
 blocks:

@@ -49,6 +49,7 @@ def _make_context_envelope(**overrides) -> ContextEnvelope:
         block_config={},
         soul=SoulEnvelope(
             id="soul_1",
+            name="Tester",
             role="Tester",
             system_prompt="You test things.",
             model_name="gpt-4o",
@@ -234,6 +235,8 @@ class TestRUN395ProxiedLLMClientContract:
         runner = create_runner(model_name="gpt-4o", ipc_client=shared_ipc_client)
         alt_soul = Soul(
             id="soul-alt",
+            kind="soul",
+            name="Alt",
             role="Alt",
             system_prompt="alt",
             model_name="gpt-4.1-mini",
@@ -301,6 +304,8 @@ class TestRUN395ProxiedLLMClientContract:
 
         primary_soul = Soul(
             id="soul-primary",
+            kind="soul",
+            name="Primary",
             role="Primary",
             system_prompt="primary",
             model_name="gpt-4o",
@@ -324,6 +329,7 @@ class TestRUN395ProxiedLLMClientContract:
         soul = reconstruct_soul(
             SoulEnvelope(
                 id="soul_1",
+                name="Tester",
                 role="Tester",
                 system_prompt="You test things.",
                 model_name="gpt-4o",
@@ -867,6 +873,8 @@ class TestRUN399WorkerRedesignContract:
         default_client = runner.llm_client
         alt_soul = Soul(
             id="alt",
+            kind="soul",
+            name="Alt",
             role="Alt",
             system_prompt="alt",
             model_name="gpt-4.1-mini",
@@ -1496,6 +1504,7 @@ class TestWorkerSoulReconstruction:
 
         soul_env = SoulEnvelope(
             id="soul_1",
+            name="Tester",
             role="Tester",
             system_prompt="You test things.",
             model_name="gpt-4o",
@@ -1518,6 +1527,7 @@ class TestWorkerSoulReconstruction:
 
         soul_env = SoulEnvelope(
             id="soul_1",
+            name="Tester",
             role="Tester",
             system_prompt="You test things.",
             model_name="gpt-4o",

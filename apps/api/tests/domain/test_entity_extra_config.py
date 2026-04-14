@@ -15,30 +15,34 @@ from runsight_api.domain.value_objects import (
 class TestSoulEntityRejectsExtraFields:
     def test_unknown_field_is_rejected(self):
         with pytest.raises(ValidationError):
-            SoulEntity(id="s1", role="Alpha", custom_notes="oops")
+            SoulEntity(id="soul-alpha", kind="soul", name="Alpha", custom_notes="oops")
 
     def test_typo_field_is_rejected(self):
         with pytest.raises(ValidationError):
-            SoulEntity(id="s1", naem="typo")
+            SoulEntity(id="soul-alpha", kind="soul", name="Alpha", naem="typo")
 
     def test_legacy_assertions_field_is_rejected(self):
         with pytest.raises(ValidationError):
             SoulEntity(
-                id="s1",
+                id="soul-alpha",
+                kind="soul",
+                name="Alpha",
                 role="Tester",
                 assertions=[{"type": "contains", "value": "hello"}],
             )
 
     def test_known_fields_work(self):
         soul = SoulEntity(
-            id="s1",
+            id="soul-alpha",
+            kind="soul",
+            name="Alpha",
             role="Alpha",
             system_prompt="Prompt",
             model_name="gpt-4o",
             tools=["web_search"],
             max_tool_iterations=7,
         )
-        assert soul.id == "s1"
+        assert soul.id == "soul-alpha"
         assert soul.role == "Alpha"
         assert soul.system_prompt == "Prompt"
         assert soul.model_name == "gpt-4o"
@@ -81,6 +85,7 @@ class TestProviderEntityRejectsExtraFields:
         with pytest.raises(ValidationError):
             ProviderEntity(
                 id="openai",
+                kind="provider",
                 name="OpenAI",
                 type="openai",
                 custom_notes="unsupported",
@@ -88,11 +93,12 @@ class TestProviderEntityRejectsExtraFields:
 
     def test_typo_field_is_rejected(self):
         with pytest.raises(ValidationError):
-            ProviderEntity(id="openai", name="OpenAI", tpye="openai")
+            ProviderEntity(id="openai", kind="provider", name="OpenAI", tpye="openai")
 
     def test_known_fields_work(self):
         provider = ProviderEntity(
             id="openai",
+            kind="provider",
             name="OpenAI",
             type="openai",
             api_key="${OPENAI_API_KEY}",
@@ -109,12 +115,12 @@ class TestProviderEntityRejectsExtraFields:
 
 class TestWorkflowEntityPreservesExtraFields:
     def test_unknown_field_is_preserved(self):
-        wf = WorkflowEntity(id="wf1", name="Pipeline", custom_meta="keep-me")
+        wf = WorkflowEntity(kind="workflow", id="wf1", name="Pipeline", custom_meta="keep-me")
         assert hasattr(wf, "custom_meta")
         assert wf.custom_meta == "keep-me"
 
     def test_known_fields_work(self):
-        wf = WorkflowEntity(id="wf1", name="Pipeline")
+        wf = WorkflowEntity(kind="workflow", id="wf1", name="Pipeline")
         assert wf.id == "wf1"
         assert wf.name == "Pipeline"
 
@@ -126,7 +132,7 @@ class TestWorkflowEntityWarningsField:
         field_info = WorkflowEntity.model_fields["warnings"]
         assert field_info.default_factory is list
 
-        wf = WorkflowEntity(id="wf1")
+        wf = WorkflowEntity(kind="workflow", id="wf1")
         assert wf.warnings == []
 
     def test_warnings_preserve_explicit_payloads(self):
@@ -138,6 +144,6 @@ class TestWorkflowEntityWarningsField:
             }
         ]
 
-        wf = WorkflowEntity(id="wf1", warnings=warnings)
+        wf = WorkflowEntity(kind="workflow", id="wf1", warnings=warnings)
 
         assert wf.warnings == warnings

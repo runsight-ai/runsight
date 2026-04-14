@@ -1,4 +1,6 @@
 version: "1.0"
+id: multi-provider-release-digest-orchestrator
+kind: workflow
 tools:
   - http
   - file_io

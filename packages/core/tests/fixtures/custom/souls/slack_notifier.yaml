@@ -1,3 +1,5 @@
 id: slack_notifier
+kind: soul
+name: Slack Notifier
 role: slack_notifier
 system_prompt: Fixture soul for testing.

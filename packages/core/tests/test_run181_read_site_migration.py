@@ -60,7 +60,9 @@ def _make_state(**overrides) -> WorkflowState:
 
 
 def _make_soul(name: str = "test_soul") -> Soul:
-    return Soul(id=name, role="tester", system_prompt="You are a test agent.")
+    return Soul(
+        id=name, kind="soul", name="Test Soul", role="tester", system_prompt="You are a test agent."
+    )
 
 
 def _make_runner(output: str = "PASS") -> MagicMock:

@@ -1,8 +1,7 @@
-"""
-Tests for RUN-254 — SUPERSEDED by RUN-268.
+"""Tests for RUN-254 — superseded by RUN-268."""
 
-GateError was deleted in RUN-268. GateBlock now returns exit_handle="pass"/"fail"
-instead of raising. All original RUN-254 tests have been removed.
+import pytest
 
-See tests/unit/test_gate_exit_handle.py for the replacement tests.
-"""
+
+def test_gate_error_subclass_tests_retired() -> None:
+    pytest.skip("GateError was removed in RUN-268; exit-handle tests cover the replacement.")

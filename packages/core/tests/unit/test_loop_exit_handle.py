@@ -900,22 +900,25 @@ class TestParserWiresExitHandleFields:
         assert loop.break_on_exit is None
         assert loop.retry_on_exit is None
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_full_yaml_parsing_with_exit_handle_fields(self):
         """Full YAML parsing should wire break_on_exit and retry_on_exit to LoopBlock."""
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_str = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 souls:
   writer:
-    id: writer_1
+    id: writer
+    kind: soul
+    name: Writer
     role: Writer
     system_prompt: "You write."
   reviewer:
-    id: reviewer_1
+    id: reviewer
+    kind: soul
+    name: Reviewer
     role: Reviewer
     system_prompt: "You review."
 blocks:
@@ -935,6 +938,8 @@ blocks:
     break_on_exit: "pass"
     retry_on_exit: "fail"
 workflow:
+  id: exit_handle_parse_test
+  kind: workflow
   name: exit_handle_parse_test
   entry: loop_block
   transitions:

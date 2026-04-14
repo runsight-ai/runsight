@@ -11,11 +11,15 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 
 YAML_BLOCK_WITH_ASSERTIONS = """\
 version: "1.0"
+id: block-assertions
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: Analyze the data.
 blocks:
@@ -38,11 +42,15 @@ workflow:
 
 YAML_BLOCK_WITHOUT_ASSERTIONS = """\
 version: "1.0"
+id: block-without-assertions
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: Analyze the data.
 blocks:
@@ -60,11 +68,15 @@ workflow:
 
 YAML_INVALID_SOUL_ASSERTIONS = """\
 version: "1.0"
+id: soul-only-assertions
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: Analyze the data.
     assertions:

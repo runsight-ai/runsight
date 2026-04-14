@@ -341,12 +341,16 @@ class TestLoopBlockDefCarryContextSchema:
             "version": "1.0",
             "souls": {
                 "writer": {
-                    "id": "writer_1",
+                    "id": "writer",
+                    "kind": "soul",
+                    "name": "Writer",
                     "role": "Writer",
                     "system_prompt": "You write.",
                 },
                 "critic": {
                     "id": "critic_1",
+                    "kind": "soul",
+                    "name": "Critic",
                     "role": "Critic",
                     "system_prompt": "You critique.",
                 },
@@ -366,6 +370,8 @@ class TestLoopBlockDefCarryContextSchema:
                 },
             },
             "workflow": {
+                "id": "carry_context_test",
+                "kind": "workflow",
                 "name": "carry_context_test",
                 "entry": "loop_block",
                 "transitions": [{"from": "loop_block", "to": None}],

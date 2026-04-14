@@ -27,8 +27,10 @@ from runsight_core.yaml.schema import (
 # Minimal valid workflow skeleton — reused across tests to satisfy the required
 # 'workflow' key without noise.
 _MINIMAL_WORKFLOW = {
+    "id": "test-workflow",
+    "kind": "workflow",
     "workflow": {"name": "test_wf", "entry": "b1"},
-    "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
+    "blocks": {"b1": {"type": "linear", "soul_ref": "soul-s1"}},
 }
 
 
@@ -350,8 +352,10 @@ class TestEvalSectionBackwardCompat:
             **_MINIMAL_WORKFLOW,
             "tools": ["http"],
             "souls": {
-                "s1": {
-                    "id": "s1",
+                "soul-s1": {
+                    "id": "soul-s1",
+                    "kind": "soul",
+                    "name": "Assistant",
                     "role": "assistant",
                     "system_prompt": "Be helpful",
                 },
@@ -360,7 +364,7 @@ class TestEvalSectionBackwardCompat:
         wf = RunsightWorkflowFile.model_validate(data)
         assert wf.eval is None
         assert wf.tools == ["http"]
-        assert "s1" in wf.souls
+        assert "soul-s1" in wf.souls
 
 
 # ===========================================================================

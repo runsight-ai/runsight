@@ -7,7 +7,7 @@ import { cn } from "@runsight/ui/utils";
 import { formatDuration } from "@/utils/formatting";
 import { CheckCircle, XCircle, Clock, X } from "lucide-react";
 
-type InspectorNodeData = Record<string, unknown> & {
+export type InspectorNodeData = Record<string, unknown> & {
   name: string;
   status?: string;
   soulRef?: string;

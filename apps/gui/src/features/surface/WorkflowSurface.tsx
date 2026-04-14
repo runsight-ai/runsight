@@ -19,7 +19,6 @@ import { Card } from "@runsight/ui/card";
 import { Button } from "@runsight/ui/button";
 import { LayoutGrid } from "lucide-react";
 import { useCanvasStore, type PersistedCanvasState } from "@/store/canvas";
-import type { StepNodeData } from "@/types/schemas/canvas";
 import type { WorkflowCanvasState } from "@runsight/shared/zod";
 import {
   useRun,
@@ -30,15 +29,8 @@ import { useWorkflow } from "@/queries/workflows";
 import { gitApi } from "@/api/git";
 import { PriorityBanner } from "@/components/shared";
 import { mapRunStatus } from "./surfaceUtils";
-import { SurfaceInspectorPanel } from "./SurfaceInspectorPanel";
+import { SurfaceInspectorPanel, type InspectorNodeData } from "./SurfaceInspectorPanel";
 import { buildWorkflowLayout, hasRenderableCanvasState } from "./workflowLayout";
-
-type RuntimeStepNodeData = StepNodeData & {
-  model?: string;
-  duration?: number;
-  tokens?: { input?: number; output?: number; total?: number };
-  error?: string | null;
-};
 
 const DEFAULT_CANVAS_VIEWPORT = { x: 0, y: 0, zoom: 1 };
 
@@ -410,7 +402,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   }, [canvasHydrationRevision, mode, nodes.length, runNodes, setNodeStatus]);
 
   const selectedNode = inspectedNodeId
-    ? ((nodes.find((node) => node.id === inspectedNodeId) as Node<RuntimeStepNodeData> | undefined) ?? null)
+    ? ((nodes.find((node) => node.id === inspectedNodeId) as Node<InspectorNodeData> | undefined) ?? null)
     : null;
   const showRunGraphError =
     mode === "readonly" && activeTab === "canvas" && Boolean(isRunNodesError);

@@ -190,6 +190,7 @@ beforeEach(() => {
 });
 
 const providerItemPayload = {
+  kind: "provider",
   id: "openai",
   name: "OpenAI",
   type: "openai",
@@ -366,6 +367,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       },
       invoke: (settingsApi) =>
         settingsApi.createProvider({
+          id: "openai",
+          kind: "provider",
           name: "OpenAI",
           api_key_env: "OPENAI_API_KEY",
           base_url: "https://api.openai.com/v1",
@@ -388,6 +391,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       },
       invoke: (settingsApi) =>
         settingsApi.updateProvider("openai", {
+          id: "openai",
+          kind: "provider",
           name: "OpenAI",
           api_key_env: "OPENAI_API_KEY",
           base_url: "https://api.openai.com/v1",
@@ -575,6 +580,38 @@ describe("RUN-512 settings API canonical shared contracts", () => {
     const result = await invoke(settingsApi);
 
     assertResult(result);
+  });
+
+  it("sends provider write requests with embedded identity fields", async () => {
+    testState.apiPost.mockResolvedValue(providerItemPayload);
+    testState.apiPut.mockResolvedValue(providerItemPayload);
+
+    const { settingsApi } = await import("../settings");
+    await settingsApi.createProvider({
+      id: "openai",
+      kind: "provider",
+      name: "OpenAI",
+      api_key_env: "OPENAI_API_KEY",
+      base_url: "https://api.openai.com/v1",
+    });
+    await settingsApi.updateProvider("openai", {
+      id: "openai",
+      kind: "provider",
+      is_active: false,
+    });
+
+    expect(testState.apiPost).toHaveBeenCalledWith("/settings/providers", {
+      id: "openai",
+      kind: "provider",
+      name: "OpenAI",
+      api_key_env: "OPENAI_API_KEY",
+      base_url: "https://api.openai.com/v1",
+    });
+    expect(testState.apiPut).toHaveBeenCalledWith("/settings/providers/openai", {
+      id: "openai",
+      kind: "provider",
+      is_active: false,
+    });
   });
 
   it("sends only fallback_provider_id and fallback_model_id in updateFallbackTarget requests", async () => {

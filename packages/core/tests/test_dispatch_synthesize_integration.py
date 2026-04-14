@@ -334,9 +334,23 @@ class TestFullPipeline:
         ]
 
         # Build blocks manually (unit-level integration)
-        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
-        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
-        synth_soul = Soul(id="synthesizer", role="Synthesizer", system_prompt="Synthesize.")
+        researcher_soul = Soul(
+            id="researcher",
+            kind="soul",
+            name="Researcher",
+            role="Researcher",
+            system_prompt="Research.",
+        )
+        coder_soul = Soul(
+            id="coder", kind="soul", name="Coder", role="Coder", system_prompt="Code."
+        )
+        synth_soul = Soul(
+            id="synthesizer",
+            kind="soul",
+            name="Synthesizer",
+            role="Synthesizer",
+            system_prompt="Synthesize.",
+        )
 
         dispatch = DispatchBlock(
             "dispatch_work",
@@ -413,7 +427,13 @@ class TestPerExitReferences:
     async def test_synthesize_reads_per_exit_keys(self):
         """SynthesizeBlock with per-exit input_block_ids reads each branch output individually."""
         runner = _mock_runner()
-        synth_soul = Soul(id="synthesizer", role="Synthesizer", system_prompt="Synthesize.")
+        synth_soul = Soul(
+            id="synthesizer",
+            kind="soul",
+            name="Synthesizer",
+            role="Synthesizer",
+            system_prompt="Synthesize.",
+        )
 
         runner.execute_task.return_value = _make_exec_result(
             "merge_synthesis", "synthesizer", "Synthesized from individual branches", 0.05, 100
@@ -456,7 +476,13 @@ class TestPerExitReferences:
     async def test_synthesize_fails_if_per_exit_key_missing(self):
         """SynthesizeBlock raises ValueError if a per-exit key is missing from state.results."""
         runner = _mock_runner()
-        synth_soul = Soul(id="synthesizer", role="Synthesizer", system_prompt="Synthesize.")
+        synth_soul = Soul(
+            id="synthesizer",
+            kind="soul",
+            name="Synthesizer",
+            role="Synthesizer",
+            system_prompt="Synthesize.",
+        )
 
         synthesize = SynthesizeBlock(
             "merge_results",
@@ -489,8 +515,16 @@ class TestStatefulDispatchInLoop:
         """Per-exit conversation histories accumulate across LoopBlock rounds."""
         runner = _mock_runner()
 
-        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
-        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
+        researcher_soul = Soul(
+            id="researcher",
+            kind="soul",
+            name="Researcher",
+            role="Researcher",
+            system_prompt="Research.",
+        )
+        coder_soul = Soul(
+            id="coder", kind="soul", name="Coder", role="Coder", system_prompt="Code."
+        )
 
         dispatch = DispatchBlock(
             "dispatch_work",
@@ -560,8 +594,16 @@ class TestStatefulDispatchInLoop:
         """In round 2, runner.execute_task is called with messages from round 1."""
         runner = _mock_runner()
 
-        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
-        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
+        researcher_soul = Soul(
+            id="researcher",
+            kind="soul",
+            name="Researcher",
+            role="Researcher",
+            system_prompt="Research.",
+        )
+        coder_soul = Soul(
+            id="coder", kind="soul", name="Coder", role="Coder", system_prompt="Code."
+        )
 
         dispatch = DispatchBlock(
             "dispatch_work",
@@ -620,8 +662,16 @@ class TestStatefulDispatchInLoop:
         """Each branch's history is independent -- researcher doesn't see coder's history."""
         runner = _mock_runner()
 
-        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
-        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
+        researcher_soul = Soul(
+            id="researcher",
+            kind="soul",
+            name="Researcher",
+            role="Researcher",
+            system_prompt="Research.",
+        )
+        coder_soul = Soul(
+            id="coder", kind="soul", name="Coder", role="Coder", system_prompt="Code."
+        )
 
         dispatch = DispatchBlock(
             "dispatch_work",
@@ -685,8 +735,16 @@ class TestContextInheritance:
         """Each Dispatch branch gets current_task.context passed through to its Task."""
         runner = _mock_runner()
 
-        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
-        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
+        researcher_soul = Soul(
+            id="researcher",
+            kind="soul",
+            name="Researcher",
+            role="Researcher",
+            system_prompt="Research.",
+        )
+        coder_soul = Soul(
+            id="coder", kind="soul", name="Coder", role="Coder", system_prompt="Code."
+        )
 
         dispatch = DispatchBlock(
             "dispatch_work",
@@ -723,8 +781,16 @@ class TestContextInheritance:
         """Each branch has its own instruction but shares the same context."""
         runner = _mock_runner()
 
-        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
-        coder_soul = Soul(id="coder", role="Coder", system_prompt="Code.")
+        researcher_soul = Soul(
+            id="researcher",
+            kind="soul",
+            name="Researcher",
+            role="Researcher",
+            system_prompt="Research.",
+        )
+        coder_soul = Soul(
+            id="coder", kind="soul", name="Coder", role="Coder", system_prompt="Code."
+        )
 
         dispatch = DispatchBlock(
             "dispatch_work",
@@ -763,7 +829,13 @@ class TestContextInheritance:
         """When current_task is None, branches still execute without crashing (context is None)."""
         runner = _mock_runner()
 
-        researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
+        researcher_soul = Soul(
+            id="researcher",
+            kind="soul",
+            name="Researcher",
+            role="Researcher",
+            system_prompt="Research.",
+        )
 
         dispatch = DispatchBlock(
             "dispatch_work",

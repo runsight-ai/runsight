@@ -57,8 +57,10 @@ class TestHelperResolveSoulStillFunctions:
         from runsight_core.blocks._helpers import resolve_soul
         from runsight_core.primitives import Soul
 
-        soul = Soul(id="s1", role="Tester", system_prompt="Test prompt")
-        result = resolve_soul("s1", {"s1": soul})
+        soul = Soul(
+            id="soul-s1", kind="soul", name="Tester", role="Tester", system_prompt="Test prompt"
+        )
+        result = resolve_soul("soul-s1", {"soul-s1": soul})
         assert result is soul
 
     def test_resolve_soul_raises_for_missing_ref(self):
@@ -67,7 +69,7 @@ class TestHelperResolveSoulStillFunctions:
         from runsight_core.primitives import Soul
 
         souls_map = {
-            "exists": Soul(id="e1", role="R", system_prompt="P"),
+            "exists": Soul(id="soul-e1", kind="soul", name="Exists", role="R", system_prompt="P"),
         }
         with pytest.raises(ValueError, match="missing_ref"):
             resolve_soul("missing_ref", souls_map)
@@ -78,8 +80,8 @@ class TestHelperResolveSoulStillFunctions:
         from runsight_core.primitives import Soul
 
         souls_map = {
-            "alpha": Soul(id="a", role="R", system_prompt="P"),
-            "beta": Soul(id="b", role="R", system_prompt="P"),
+            "alpha": Soul(id="soul-a", kind="soul", name="Alpha", role="R", system_prompt="P"),
+            "beta": Soul(id="soul-b", kind="soul", name="Beta", role="R", system_prompt="P"),
         }
         with pytest.raises(ValueError, match="alpha") as exc_info:
             resolve_soul("nope", souls_map)

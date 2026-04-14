@@ -11,6 +11,8 @@ A workflow is a YAML file in `custom/workflows/` that defines a directed graph o
 
 ```yaml
 version: "1.0"
+id: research-pipeline
+kind: workflow
 blocks:
   research:
     type: linear
@@ -74,7 +76,9 @@ A soul is an agent identity — it defines who an LLM is and how it behaves. Sou
 
 ```yaml
 # custom/souls/researcher.yaml
-id: researcher_v1
+id: researcher
+kind: soul
+name: Researcher
 role: Senior Researcher
 system_prompt: >
   You are an expert researcher. Given a topic, provide a concise,
@@ -90,6 +94,8 @@ Soul fields:
 | Field | Required | Purpose |
 |-------|----------|---------|
 | `id` | Yes | Unique identifier |
+| `kind` | Yes | Entity kind, always `soul` |
+| `name` | Yes | Display name |
 | `role` | Yes | Agent role label |
 | `system_prompt` | Yes | LLM system instructions |
 | `provider` | No | LLM provider (e.g., `openai`, `anthropic`) |
@@ -106,7 +112,7 @@ Blocks reference souls via `soul_ref`:
 blocks:
   research:
     type: linear
-    soul_ref: researcher  # resolves to custom/souls/researcher.yaml
+    soul_ref: researcher  # resolves by embedded soul id
 ```
 
 Souls can also be defined inline in the workflow YAML as optional shorthand — see [Inline Souls](/docs/souls/inline-souls).
@@ -126,6 +132,8 @@ Custom tool example:
 ```yaml
 # custom/tools/slack_payload_builder.yaml
 version: "1.0"
+id: slack_payload_builder
+kind: tool
 type: custom
 executor: python
 name: Slack Payload Builder
@@ -142,7 +150,7 @@ code: |
       return {"payload_json": json.dumps({"text": args["text"]})}
 ```
 
-Tools are identified by their filename stem — a file at `custom/tools/slack_payload_builder.yaml` has tool ID `slack_payload_builder`. Built-in tools use reserved IDs: `delegate`, `http`, `file_io`.
+Custom tools are identified by their embedded `id`, and the YAML filename stem must match that id. Built-in tools use reserved IDs: `delegate`, `http`, `file_io`.
 
 Tools are discovered automatically from `custom/tools/`.
 
