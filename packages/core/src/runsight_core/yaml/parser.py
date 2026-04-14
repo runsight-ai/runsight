@@ -668,14 +668,24 @@ def _bridge_block_attributes(block_id: str, block_def: Any, block: Any) -> None:
                 inner_blk.max_duration_seconds = block_def.limits.max_duration_seconds
 
 
+def _find_block_for_soul(file_def: RunsightWorkflowFile, soul_key: str) -> tuple[Any, Any]:
+    """Return (block_id, block_def) for the block that owns soul_key, or (None, None)."""
+    for bid, bdef in file_def.blocks.items():
+        if getattr(bdef, "soul_ref", None) == soul_key:
+            return bid, bdef
+        exits = getattr(bdef, "exits", None) or []
+        if any(getattr(ex, "soul_ref", None) == soul_key for ex in exits):
+            return bid, bdef
+    return None, None
+
+
 def _resolve_tools_for_souls(
     file_def: RunsightWorkflowFile,
     souls_map: Dict[str, Soul],
     workflow_base_dir: str,
 ) -> None:
     """Resolve ToolInstance objects per soul and assign to soul.resolved_tools."""
-    referenced_souls = _collect_referenced_soul_keys(file_def)
-    for soul_key in referenced_souls:
+    for soul_key in _collect_referenced_soul_keys(file_def):
         soul = souls_map.get(soul_key)
         if soul is None or not soul.tools:
             continue
@@ -685,18 +695,7 @@ def _resolve_tools_for_souls(
             if tool_id is None:
                 continue
             if tool_id == "delegate":
-                block_id_for_soul = None
-                block_def_for_soul = None
-                for bid, bdef in file_def.blocks.items():
-                    if getattr(bdef, "soul_ref", None) == soul_key:
-                        block_id_for_soul = bid
-                        block_def_for_soul = bdef
-                        break
-                    exits = getattr(bdef, "exits", None) or []
-                    if any(getattr(exit_def, "soul_ref", None) == soul_key for exit_def in exits):
-                        block_id_for_soul = bid
-                        block_def_for_soul = bdef
-                        break
+                block_id_for_soul, block_def_for_soul = _find_block_for_soul(file_def, soul_key)
                 exits = getattr(block_def_for_soul, "exits", None) if block_def_for_soul else None
                 if not exits:
                     raise ValueError(
@@ -771,18 +770,13 @@ def _validate_inputs_and_detect_cycles(
             )
 
     for block_id, block_def in file_def.blocks.items():
-        if (
-            block_def.inputs is not None
-            and block_def.type != "workflow"
-            and block_id in built_blocks
-        ):
-            declared_inputs: Dict[str, str] = {}
-            for input_name, input_ref in block_def.inputs.items():
-                from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
-                declared_inputs[input_name] = from_ref
-            built_blocks[block_id] = Step(
-                block=built_blocks[block_id], declared_inputs=declared_inputs
-            )
+        if block_def.inputs is None or block_def.type == "workflow" or block_id not in built_blocks:
+            continue
+        declared_inputs: Dict[str, str] = {}
+        for input_name, input_ref in block_def.inputs.items():
+            from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
+            declared_inputs[input_name] = from_ref
+        built_blocks[block_id] = Step(block=built_blocks[block_id], declared_inputs=declared_inputs)
 
 
 def _wrap_llm_blocks_with_isolation(
