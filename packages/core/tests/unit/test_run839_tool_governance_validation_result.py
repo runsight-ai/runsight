@@ -50,6 +50,7 @@ def _load_file_def(yaml_str: str) -> RunsightWorkflowFile:
 class TestValidateToolGovernanceResultContract:
     def test_returns_validation_result_with_warning_metadata_for_undeclared_tool(self):
         yaml_str = _make_yaml(
+            entry="ingest",
             tools="""\
 tools:
   - http""",
@@ -177,6 +178,7 @@ class TestWorkflowParserToolGovernanceWarnings:
         self, tmp_path: Path
     ):
         yaml_str = _make_yaml(
+            entry="ingest",
             tools="""\
 tools:
   - http""",
@@ -209,6 +211,7 @@ souls:
         self, tmp_path: Path
     ):
         yaml_str = _make_yaml(
+            entry="ingest",
             tools="""\
 tools: []""",
             souls="""\
@@ -238,6 +241,7 @@ souls:
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, tmp_path: Path
     ):
         yaml_str = _make_yaml(
+            entry="route",
             tools="""\
 tools:
   - http
