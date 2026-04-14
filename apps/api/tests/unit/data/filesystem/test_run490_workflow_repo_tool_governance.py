@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import pytest
+import runsight_api.data.filesystem.workflow_repo as workflow_repo_module
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+from runsight_core.yaml.validation import ValidationResult
 
 INVALID_DIRECT_SOUL_TOOL_YAML = """\
 version: "1.0"
@@ -183,3 +187,47 @@ code: |
     assert entity.valid is False
     assert entity.validation_error is not None
     assert "http" in entity.validation_error
+
+
+def test_validate_yaml_content_blocks_validation_errors_but_ignores_warnings(tmp_path, monkeypatch):
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    error_result = ValidationResult()
+    error_result.add_error(
+        "Tool definition validation exploded",
+        source="tool_definitions",
+        context="http",
+    )
+    warning_result = ValidationResult()
+    warning_result.add_warning(
+        "Tool definition is only a warning",
+        source="tool_definitions",
+        context="http",
+    )
+
+    monkeypatch.setattr(
+        workflow_repo_module,
+        "_validate_declared_tool_definitions",
+        lambda *args, **kwargs: error_result,
+    )
+
+    valid, validation_error = repo._validate_yaml_content(
+        "governance-error", VALID_DECLARED_TOOL_YAML
+    )
+
+    assert valid is False
+    assert validation_error is not None
+    assert "Tool definition validation exploded" in validation_error
+
+    monkeypatch.setattr(
+        workflow_repo_module,
+        "_validate_declared_tool_definitions",
+        lambda *args, **kwargs: warning_result,
+    )
+
+    valid, validation_error = repo._validate_yaml_content(
+        "governance-warning", VALID_DECLARED_TOOL_YAML
+    )
+
+    assert valid is True
+    assert validation_error is None
