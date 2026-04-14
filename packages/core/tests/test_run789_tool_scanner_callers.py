@@ -9,6 +9,7 @@ from runsight_core.yaml.parser import (
     _attach_tool_runtime_metadata,
     _validate_declared_tool_definitions,
 )
+from runsight_core.yaml.validation import ValidationResult, ValidationSeverity
 
 
 def _make_python_tool_meta(tool_id: str = "lookup_profile") -> ToolMeta:
@@ -47,7 +48,7 @@ def _make_request_tool_meta(tool_id: str = "fetch_profile") -> ToolMeta:
 
 
 def test_validate_declared_tool_definitions_uses_tool_scanner(tmp_path):
-    file_def = SimpleNamespace(tools=["lookup_profile"])
+    file_def = SimpleNamespace(tools=["http", "lookup_profile"])
     tool_meta = _make_python_tool_meta()
 
     with (
@@ -58,12 +59,126 @@ def test_validate_declared_tool_definitions_uses_tool_scanner(tmp_path):
             "lookup_profile": tool_meta
         }
 
-        _validate_declared_tool_definitions(file_def, base_dir=str(tmp_path))
+        result = _validate_declared_tool_definitions(file_def, base_dir=str(tmp_path))
 
     mock_scanner.assert_called_once_with(str(tmp_path))
     mock_scanner.return_value.scan.assert_called_once()
     mock_scanner.return_value.scan.return_value.stems.assert_called_once()
     mock_resolve.assert_called_once_with("lookup_profile", base_dir=str(tmp_path))
+    assert isinstance(result, ValidationResult)
+    assert result.has_errors is False
+    assert result.has_warnings is False
+    assert result.issues == []
+
+
+def test_validate_declared_tool_definitions_warns_for_unknown_tool_id(tmp_path):
+    file_def = SimpleNamespace(tools=["foo"])
+
+    with (
+        patch("runsight_core.yaml.parser.ToolScanner") as mock_scanner,
+        patch("runsight_core.yaml.parser._resolve_tool_for_parser") as mock_resolve,
+    ):
+        mock_scanner.return_value.scan.return_value.stems.return_value = {}
+
+        result = _validate_declared_tool_definitions(file_def, base_dir=str(tmp_path))
+
+    mock_scanner.assert_called_once_with(str(tmp_path))
+    mock_resolve.assert_not_called()
+    assert isinstance(result, ValidationResult)
+    assert result.has_errors is False
+    assert result.has_warnings is True
+    assert len(result.warnings) == 1
+    warning = result.warnings[0]
+    assert warning.severity is ValidationSeverity.warning
+    assert warning.source == "tool_definitions"
+    assert warning.context == "foo"
+    assert "foo" in warning.message
+
+
+def test_validate_declared_tool_definitions_warns_for_missing_custom_metadata_when_required(
+    tmp_path,
+):
+    file_def = SimpleNamespace(tools=["lookup_profile"])
+
+    with (
+        patch("runsight_core.yaml.parser.ToolScanner") as mock_scanner,
+        patch("runsight_core.yaml.parser._resolve_tool_for_parser") as mock_resolve,
+    ):
+        mock_scanner.return_value.scan.return_value.stems.return_value = {}
+
+        result = _validate_declared_tool_definitions(
+            file_def,
+            base_dir=str(tmp_path),
+            require_custom_metadata=True,
+        )
+
+    mock_scanner.assert_called_once_with(str(tmp_path))
+    mock_resolve.assert_not_called()
+    assert isinstance(result, ValidationResult)
+    assert result.has_errors is False
+    assert result.has_warnings is True
+    assert len(result.warnings) == 1
+    warning = result.warnings[0]
+    assert warning.severity is ValidationSeverity.warning
+    assert warning.source == "tool_definitions"
+    assert warning.context == "lookup_profile"
+    assert "lookup_profile" in warning.message
+
+
+def test_validate_declared_tool_definitions_records_builtin_collision_as_error_without_raising(
+    tmp_path,
+):
+    file_def = SimpleNamespace(tools=["http"])
+    tool_meta = _make_python_tool_meta("http")
+
+    with (
+        patch("runsight_core.yaml.parser.ToolScanner") as mock_scanner,
+        patch("runsight_core.yaml.parser._resolve_tool_for_parser") as mock_resolve,
+    ):
+        mock_scanner.return_value.scan.return_value.stems.return_value = {"http": tool_meta}
+
+        result = _validate_declared_tool_definitions(file_def, base_dir=str(tmp_path))
+
+    mock_scanner.assert_called_once_with(str(tmp_path))
+    mock_resolve.assert_not_called()
+    assert isinstance(result, ValidationResult)
+    assert result.has_errors is True
+    assert result.has_warnings is False
+    assert len(result.errors) == 1
+    error = result.errors[0]
+    assert error.severity is ValidationSeverity.error
+    assert error.source == "tool_definitions"
+    assert error.context == "http"
+    assert "http" in error.message
+    assert "collision" in error.message.lower() or "collides" in error.message.lower()
+
+
+def test_validate_declared_tool_definitions_downgrades_resolver_valueerror_to_warning(tmp_path):
+    file_def = SimpleNamespace(tools=["lookup_profile"])
+    tool_meta = _make_python_tool_meta("lookup_profile")
+
+    with (
+        patch("runsight_core.yaml.parser.ToolScanner") as mock_scanner,
+        patch("runsight_core.yaml.parser._resolve_tool_for_parser") as mock_resolve,
+    ):
+        mock_scanner.return_value.scan.return_value.stems.return_value = {
+            "lookup_profile": tool_meta
+        }
+        mock_resolve.side_effect = ValueError("broken parser metadata")
+
+        result = _validate_declared_tool_definitions(file_def, base_dir=str(tmp_path))
+
+    mock_scanner.assert_called_once_with(str(tmp_path))
+    mock_resolve.assert_called_once_with("lookup_profile", base_dir=str(tmp_path))
+    assert isinstance(result, ValidationResult)
+    assert result.has_errors is False
+    assert result.has_warnings is True
+    assert len(result.warnings) == 1
+    warning = result.warnings[0]
+    assert warning.severity is ValidationSeverity.warning
+    assert warning.source == "tool_definitions"
+    assert warning.context == "lookup_profile"
+    assert "broken parser metadata" in warning.message
 
 
 def test_attach_tool_runtime_metadata_uses_tool_scanner(tmp_path):
