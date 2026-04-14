@@ -176,6 +176,41 @@ def build_block_context(
     if not model_name and runner is not None:
         model_name = getattr(runner, "model_name", None)
 
+    # SynthesizeBlock strategy: detect input_block_ids attribute
+    input_block_ids = getattr(block, "input_block_ids", None)
+    if input_block_ids is not None:
+        missing = [bid for bid in input_block_ids if bid not in state.results]
+        if missing:
+            available = sorted(state.results.keys())
+            raise ValueError(
+                f"build_block_context: SynthesizeBlock '{block.block_id}' missing inputs: {missing}. "
+                f"Available: {available}"
+            )
+        combined_outputs = "\n\n".join(
+            f"=== Output from {bid} ===\n"
+            + (
+                state.results[bid].output
+                if isinstance(state.results[bid], BlockResult)
+                else str(state.results[bid])
+            )
+            for bid in input_block_ids
+        )
+        synthesis_instruction = (
+            "Synthesize the following outputs into a cohesive, unified result. "
+            "Identify common themes, resolve conflicts, and provide a comprehensive summary."
+        )
+        synth_soul: Optional[Soul] = getattr(block, "synthesizer_soul", soul)
+        return BlockContext(
+            block_id=block.block_id,
+            instruction=synthesis_instruction,
+            context=combined_outputs,
+            inputs={},
+            conversation_history=[],
+            soul=synth_soul,
+            model_name=model_name,
+            artifact_store=getattr(state, "artifact_store", None),
+        )
+
     # GateBlock strategy: gate instruction + eval_key content as context
     eval_key = getattr(block, "eval_key", None)
     if eval_key is not None:

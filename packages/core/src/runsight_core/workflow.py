@@ -142,8 +142,9 @@ async def execute_block(
             return await blk.execute(current_state, **loop_kwargs)
         from runsight_core.blocks.gate import GateBlock
         from runsight_core.blocks.linear import LinearBlock
+        from runsight_core.blocks.synthesize import SynthesizeBlock
 
-        if isinstance(blk, (LinearBlock, GateBlock)):
+        if isinstance(blk, (LinearBlock, GateBlock, SynthesizeBlock)):
             block_ctx = build_block_context(blk, current_state, step=None)
             output = await blk.execute(block_ctx)
             return apply_block_output(current_state, blk.block_id, output)

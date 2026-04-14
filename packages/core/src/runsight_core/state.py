@@ -2,9 +2,9 @@
 WorkflowState data model for workflow execution context.
 """
 
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, SkipValidation
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator
 
 from runsight_core.artifacts import ArtifactStore
 from runsight_core.primitives import Task
@@ -52,10 +52,18 @@ class WorkflowState(BaseModel):
         default=None,
         description="Active task being processed. Blocks read this to determine their work.",
     )
-    results: Dict[str, BlockResult] = Field(
+    results: Dict[str, Union[BlockResult, Any]] = Field(
         default_factory=dict,
         description="Block outputs keyed by block_id. Values are BlockResult instances.",
     )
+
+    @field_validator("results", mode="before")
+    @classmethod
+    def coerce_results(cls, v: Any) -> Any:
+        """Coerce raw string values to BlockResult for backward compatibility."""
+        if not isinstance(v, dict):
+            return v
+        return {k: BlockResult(output=val) if isinstance(val, str) else val for k, val in v.items()}
 
     metadata: Dict[str, Any] = Field(
         default_factory=dict,

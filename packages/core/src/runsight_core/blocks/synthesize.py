@@ -6,8 +6,9 @@ Co-located: runtime class + BlockDef schema + build() function.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Union
 
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
@@ -39,7 +40,39 @@ class SynthesizeBlock(BaseBlock):
         self.soul = synthesizer_soul
         self.runner = runner
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(  # type: ignore[override]
+        self,
+        state_or_ctx: Union[BlockContext, WorkflowState],
+        **kwargs: Any,
+    ) -> Union[BlockOutput, WorkflowState]:
+        """Execute block. Accepts BlockContext (new path) or WorkflowState (legacy path)."""
+        if isinstance(state_or_ctx, BlockContext):
+            return await self._execute_with_context(state_or_ctx)
+        return await self._execute_with_state(state_or_ctx, **kwargs)
+
+    async def _execute_with_context(self, ctx: BlockContext) -> BlockOutput:
+        """New path: accept BlockContext, return pure BlockOutput (no state mutation)."""
+        soul = ctx.soul or self.synthesizer_soul
+        task = Task(
+            id=f"{self.block_id}_synthesis",
+            instruction=ctx.instruction,
+            context=ctx.context or "",
+        )
+        result = await self.runner.execute_task(task, soul)
+        return BlockOutput(
+            output=result.output,
+            cost_usd=result.cost_usd,
+            total_tokens=result.total_tokens,
+            log_entries=[
+                {
+                    "role": "system",
+                    "content": f"[Block {self.block_id}] Synthesized {len(self.input_block_ids)} inputs",
+                }
+            ],
+        )
+
+    async def _execute_with_state(self, state: WorkflowState, **kwargs: Any) -> WorkflowState:
+        """Legacy path: accept WorkflowState, return updated WorkflowState."""
         missing = [bid for bid in self.input_block_ids if bid not in state.results]
         if missing:
             raise ValueError(

@@ -562,8 +562,9 @@ async def test_execute_block_gateblock_accumulates_cost(
 
 
 @pytest.mark.asyncio
-async def test_execute_block_uses_old_path_for_synthesize_block(mock_runner, gate_soul):
-    """execute_block must NOT call build_block_context for non-migrated blocks (e.g. SynthesizeBlock)."""
+async def test_execute_block_uses_new_path_for_synthesize_block(mock_runner, gate_soul):
+    """execute_block MUST call build_block_context for SynthesizeBlock (migrated in RUN-887)."""
+    from runsight_core.block_io import build_block_context
     from runsight_core.blocks.synthesize import SynthesizeBlock
 
     mock_runner.execute_task.return_value = ExecutionResult(
@@ -586,12 +587,15 @@ async def test_execute_block_uses_old_path_for_synthesize_block(mock_runner, gat
         observer=None,
     )
 
-    # build_block_context must NOT be called for SynthesizeBlock
-    with patch("runsight_core.workflow.build_block_context") as mock_bbc:
+    # build_block_context MUST be called for SynthesizeBlock (new dispatch path, RUN-887)
+    with patch(
+        "runsight_core.workflow.build_block_context",
+        wraps=build_block_context,
+    ) as mock_bbc:
         result_state = await execute_block(synth_block, state, ctx)
 
-    assert not mock_bbc.called, (
-        "execute_block must NOT call build_block_context for SynthesizeBlock (old dispatch path)"
+    assert mock_bbc.called, (
+        "execute_block must call build_block_context for SynthesizeBlock (new dispatch path, RUN-887)"
     )
     assert isinstance(result_state, WorkflowState)
 
