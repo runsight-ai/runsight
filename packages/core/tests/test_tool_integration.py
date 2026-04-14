@@ -865,8 +865,8 @@ class TestParseValidation:
         soul = workflow.blocks["step"].soul
         assert soul.resolved_tools == []
 
-    def test_unknown_tool_id_raises_value_error(self) -> None:
-        """Workflow tool IDs not found in the builtin registry or discovered custom tools should fail."""
+    def test_unknown_tool_id_parses_with_empty_resolved_tools(self) -> None:
+        """Unknown workflow tool IDs should parse and leave the authored tool list intact."""
         yaml_dict = _workflow_dict(
             tools=["does_not_exist"],
             souls={
@@ -882,11 +882,13 @@ class TestParseValidation:
             blocks={"step": {"type": "linear", "soul_ref": "agent"}},
         )
 
-        with pytest.raises(ValueError):
-            parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(yaml_dict)
+        soul = workflow.blocks["step"].soul
+        assert soul.tools == ["does_not_exist"]
+        assert soul.resolved_tools == []
 
-    def test_unknown_tool_id_error_mentions_id_string(self) -> None:
-        """ValueError for an unknown workflow tool ID must include the offending ID string."""
+    def test_unknown_tool_id_warning_keeps_authored_tool_id(self) -> None:
+        """Unknown workflow tool IDs should still be reported through the authored tool id."""
         yaml_dict = _workflow_dict(
             tools=["mystery_281"],
             souls={
@@ -902,8 +904,10 @@ class TestParseValidation:
             blocks={"step": {"type": "linear", "soul_ref": "agent"}},
         )
 
-        with pytest.raises(ValueError, match="mystery_281"):
-            parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(yaml_dict)
+        soul = workflow.blocks["step"].soul
+        assert soul.tools == ["mystery_281"]
+        assert soul.resolved_tools == []
 
 
 class TestCanonicalWorkflowToolIdIntegration:
