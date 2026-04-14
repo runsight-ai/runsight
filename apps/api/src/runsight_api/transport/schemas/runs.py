@@ -2,6 +2,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from .workflows import WarningItem
+
 
 class RunCreate(BaseModel):
     workflow_id: str
@@ -38,6 +40,7 @@ class RunResponse(BaseModel):
     eval_score_avg: Optional[float] = None
     regression_count: Optional[int] = 0
     regression_types: List[str] = Field(default_factory=list)
+    warnings: List[WarningItem] = Field(default_factory=list, json_schema_extra={"default": []})
     node_summary: Optional[NodeSummary] = None
     parent_run_id: Optional[str] = None
     root_run_id: Optional[str] = None

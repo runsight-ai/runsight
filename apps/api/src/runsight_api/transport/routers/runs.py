@@ -67,6 +67,79 @@ def _regression_types(result) -> list[str]:
     return types
 
 
+def _run_warning_items(run) -> list[dict[str, str | None]]:
+    run_data = getattr(run, "__dict__", None)
+    raw_warnings = run_data.get("warnings_json") if isinstance(run_data, dict) else None
+    if not isinstance(raw_warnings, list):
+        return []
+
+    warnings: list[dict[str, str | None]] = []
+    for raw_warning in raw_warnings:
+        if not isinstance(raw_warning, dict):
+            continue
+        message = raw_warning.get("message")
+        if not isinstance(message, str):
+            continue
+        source = raw_warning.get("source")
+        context = raw_warning.get("context")
+        warnings.append(
+            {
+                "message": message,
+                "source": source if isinstance(source, str) else None,
+                "context": context if isinstance(context, str) else None,
+            }
+        )
+    return warnings
+
+
+def _run_link_field(run, field: str) -> Optional[str]:
+    value = getattr(run, field, None)
+    return value if value is None or isinstance(value, str) else None
+
+
+def _run_depth(run) -> int:
+    value = getattr(run, "depth", 0)
+    return value if isinstance(value, int) else 0
+
+
+def _build_run_response(
+    run,
+    *,
+    total_cost_usd: float,
+    total_tokens: int,
+    node_summary: NodeSummary,
+    eval_score_avg: Optional[float],
+    regression_count: Optional[int],
+    regression_types: list[str],
+) -> RunResponse:
+    return RunResponse(
+        id=run.id,
+        workflow_id=run.workflow_id,
+        workflow_name=run.workflow_name,
+        status=run.status,
+        error=getattr(run, "error", None),
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+        duration_seconds=run.duration_s,
+        total_cost_usd=total_cost_usd,
+        total_tokens=total_tokens,
+        created_at=run.created_at,
+        branch=_run_response_field(run, "branch", "main"),
+        source=_run_response_field(run, "source", "manual"),
+        commit_sha=_run_response_field(run, "commit_sha", None),
+        run_number=_run_metric_field(run, "run_number"),
+        eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
+        eval_score_avg=eval_score_avg,
+        regression_count=regression_count,
+        regression_types=regression_types,
+        warnings=_run_warning_items(run),
+        node_summary=node_summary,
+        parent_run_id=_run_link_field(run, "parent_run_id"),
+        root_run_id=_run_link_field(run, "root_run_id"),
+        depth=_run_depth(run),
+    )
+
+
 def _refresh_launch_run(run_service: RunService, run):
     """Read the post-launch run state when the service exposes a real repository-backed run."""
     if not isinstance(run_service, RunService):
@@ -113,27 +186,14 @@ async def create_run(
     if run.status == RunStatus.failed or run.status == RunStatus.failed.value:
         raise RunFailed(run.error or "Run failed during launch", run_id=run.id)
 
-    return RunResponse(
-        id=run.id,
-        workflow_id=run.workflow_id,
-        workflow_name=run.workflow_name,
-        status=run.status,
-        error=getattr(run, "error", None),
-        started_at=run.started_at,
-        completed_at=run.completed_at,
-        duration_seconds=run.duration_s,
+    return _build_run_response(
+        run,
         total_cost_usd=run.total_cost_usd,
         total_tokens=run.total_tokens,
-        created_at=run.created_at,
-        branch=_run_response_field(run, "branch", "main"),
-        source=_run_response_field(run, "source", "manual"),
-        commit_sha=_run_response_field(run, "commit_sha", None),
-        run_number=_run_metric_field(run, "run_number"),
-        eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
+        node_summary=NodeSummary(total=0, completed=0, running=0, pending=0, failed=0),
         eval_score_avg=_run_metric_field(run, "eval_score_avg"),
         regression_count=_run_metric_field(run, "regression_count"),
         regression_types=[],
-        node_summary=NodeSummary(total=0, completed=0, running=0, pending=0, failed=0),
     )
 
 
@@ -205,26 +265,10 @@ async def list_runs(
     for run in runs:
         summaries = summaries_map.get(run.id, {})
         response_items.append(
-            RunResponse(
-                id=run.id,
-                workflow_id=run.workflow_id,
-                workflow_name=run.workflow_name,
-                status=run.status,
-                error=getattr(run, "error", None),
-                started_at=run.started_at,
-                completed_at=run.completed_at,
-                duration_seconds=run.duration_s,
+            _build_run_response(
+                run,
                 total_cost_usd=summaries.get("total_cost_usd", 0.0),
                 total_tokens=summaries.get("total_tokens", 0),
-                created_at=run.created_at,
-                branch=_run_response_field(run, "branch", "main"),
-                source=_run_response_field(run, "source", "manual"),
-                commit_sha=_run_response_field(run, "commit_sha", None),
-                run_number=_run_metric_field(run, "run_number"),
-                eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
-                eval_score_avg=summaries.get("eval_score_avg"),
-                regression_count=regression_counts.get(run.id, 0),
-                regression_types=_run_response_field(run, "regression_types", []),
                 node_summary=NodeSummary(
                     total=summaries.get("total", 0),
                     completed=summaries.get("completed", 0),
@@ -232,6 +276,9 @@ async def list_runs(
                     pending=summaries.get("pending", 0),
                     failed=summaries.get("failed", 0),
                 ),
+                eval_score_avg=summaries.get("eval_score_avg"),
+                regression_count=regression_counts.get(run.id, 0),
+                regression_types=_run_response_field(run, "regression_types", []),
             )
         )
 
@@ -251,26 +298,10 @@ async def get_run(
         raise RunNotFound(f"Run {run_id} not found")
     summaries = run_service.get_node_summary(run.id)
     reg_result = eval_service.get_run_regressions(run_id)
-    return RunResponse(
-        id=run.id,
-        workflow_id=run.workflow_id,
-        workflow_name=run.workflow_name,
-        status=run.status,
-        error=getattr(run, "error", None),
-        started_at=run.started_at,
-        completed_at=run.completed_at,
-        duration_seconds=run.duration_s,
+    return _build_run_response(
+        run,
         total_cost_usd=summaries["total_cost_usd"],
         total_tokens=summaries["total_tokens"],
-        created_at=run.created_at,
-        branch=_run_response_field(run, "branch", "main"),
-        source=_run_response_field(run, "source", "manual"),
-        commit_sha=_run_response_field(run, "commit_sha", None),
-        run_number=_run_metric_field(run, "run_number"),
-        eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
-        eval_score_avg=summaries.get("eval_score_avg"),
-        regression_count=reg_result["count"] if reg_result else 0,
-        regression_types=_regression_types(reg_result),
         node_summary=NodeSummary(
             total=summaries["total"],
             completed=summaries["completed"],
@@ -278,9 +309,9 @@ async def get_run(
             pending=summaries["pending"],
             failed=summaries["failed"],
         ),
-        parent_run_id=getattr(run, "parent_run_id", None),
-        root_run_id=getattr(run, "root_run_id", None),
-        depth=getattr(run, "depth", 0),
+        eval_score_avg=summaries.get("eval_score_avg"),
+        regression_count=reg_result["count"] if reg_result else 0,
+        regression_types=_regression_types(reg_result),
     )
 
 
@@ -297,26 +328,10 @@ async def get_run_children(
         summaries = summaries_map.get(child.id, {})
         reg_result = eval_service.get_run_regressions(child.id)
         response_items.append(
-            RunResponse(
-                id=child.id,
-                workflow_id=child.workflow_id,
-                workflow_name=child.workflow_name,
-                status=child.status,
-                error=getattr(child, "error", None),
-                started_at=child.started_at,
-                completed_at=child.completed_at,
-                duration_seconds=child.duration_s,
+            _build_run_response(
+                child,
                 total_cost_usd=summaries.get("total_cost_usd", 0.0),
                 total_tokens=summaries.get("total_tokens", 0),
-                created_at=child.created_at,
-                branch=_run_response_field(child, "branch", "main"),
-                source=_run_response_field(child, "source", "manual"),
-                commit_sha=_run_response_field(child, "commit_sha", None),
-                run_number=_run_metric_field(child, "run_number"),
-                eval_pass_pct=_run_metric_field(child, "eval_pass_pct"),
-                eval_score_avg=summaries.get("eval_score_avg"),
-                regression_count=reg_result["count"] if reg_result else 0,
-                regression_types=_regression_types(reg_result),
                 node_summary=NodeSummary(
                     total=summaries.get("total", 0),
                     completed=summaries.get("completed", 0),
@@ -324,9 +339,9 @@ async def get_run_children(
                     pending=summaries.get("pending", 0),
                     failed=summaries.get("failed", 0),
                 ),
-                parent_run_id=getattr(child, "parent_run_id", None),
-                root_run_id=getattr(child, "root_run_id", None),
-                depth=getattr(child, "depth", 0),
+                eval_score_avg=summaries.get("eval_score_avg"),
+                regression_count=reg_result["count"] if reg_result else 0,
+                regression_types=_regression_types(reg_result),
             )
         )
     return response_items

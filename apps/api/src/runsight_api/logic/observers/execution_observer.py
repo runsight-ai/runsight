@@ -158,6 +158,7 @@ class ExecutionObserver:
                     workflow_name=child_workflow_name,
                     status=RunStatus.running,
                     task_json="{}",
+                    warnings_json=None,
                     parent_run_id=self.run_id,
                     parent_node_id=f"{self.run_id}:{block_id}",
                     root_run_id=root_run_id,

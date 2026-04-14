@@ -81,6 +81,7 @@ def _ensure_sqlite_columns(engine) -> None:
             "depth": "INTEGER DEFAULT 0",
             "fail_reason": "VARCHAR",
             "fail_metadata": "JSON",
+            "warnings_json": "JSON",
         },
         "runnode": {
             "last_phase": "VARCHAR",
