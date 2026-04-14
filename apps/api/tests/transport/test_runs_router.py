@@ -37,6 +37,7 @@ def _make_mock_run(run_id="run_123"):
     mock_run.parent_run_id = None
     mock_run.root_run_id = None
     mock_run.depth = 0
+    mock_run.warnings_json = None
     mock_run.error = None
     return mock_run
 
@@ -44,6 +45,13 @@ def _make_mock_run(run_id="run_123"):
 def test_runs_list():
     mock_service = Mock()
     mock_run = _make_mock_run()
+    mock_run.warnings_json = [
+        {
+            "message": "Tool definition warning",
+            "source": "tool_definitions",
+            "context": "fetcher",
+        }
+    ]
     mock_service.list_runs_paginated.return_value = ([mock_run], 1)
     mock_service.get_node_summaries_batch.return_value = {
         mock_run.id: {
@@ -77,12 +85,14 @@ def test_runs_list():
     assert "total" in data
     assert len(data["items"]) == 1
     assert data["items"][0]["id"] == "run_123"
+    assert data["items"][0]["warnings"] == mock_run.warnings_json
     app.dependency_overrides.clear()
 
 
 def test_runs_get():
     mock_service = Mock()
     mock_run = _make_mock_run()
+    mock_run.warnings_json = None
     mock_service.get_run.return_value = mock_run
     mock_service.get_node_summary.return_value = {
         "total_cost_usd": 0.0,
@@ -100,6 +110,7 @@ def test_runs_get():
     response = client.get("/api/runs/run_123")
     assert response.status_code == 200
     assert response.json()["id"] == "run_123"
+    assert response.json()["warnings"] == []
     app.dependency_overrides.clear()
 
 
@@ -116,6 +127,13 @@ def test_runs_get_404():
 def test_runs_post():
     mock_service = Mock()
     mock_run = _make_mock_run("run_new")
+    mock_run.warnings_json = [
+        {
+            "message": "Tool definition warning",
+            "source": "tool_definitions",
+            "context": "fetcher",
+        }
+    ]
     mock_service.create_run.return_value = mock_run
     mock_exec_service = Mock()
     mock_exec_service.launch_execution = AsyncMock()
@@ -125,6 +143,7 @@ def test_runs_post():
     response = client.post("/api/runs", json={"workflow_id": "wf_1", "task_data": {}})
     assert response.status_code == 200
     assert response.json()["id"] == "run_new"
+    assert response.json()["warnings"] == mock_run.warnings_json
     app.dependency_overrides.clear()
 
 

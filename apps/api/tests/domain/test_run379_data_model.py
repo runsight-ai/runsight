@@ -162,6 +162,32 @@ class TestRunCommitShaField:
             assert loaded.commit_sha == sha
 
 
+class TestRunWarningsJsonField:
+    def test_run_has_warnings_json_attribute(self):
+        """Run entity exposes a `warnings_json` attribute."""
+        run = _make_run()
+        assert hasattr(run, "warnings_json")
+
+    def test_warnings_json_accepts_and_round_trips_in_db(self):
+        """warnings_json round-trips through SQLite as JSON."""
+        engine = _in_memory_engine()
+        warnings = [
+            {
+                "message": "Tool definition warning",
+                "source": "tool_definitions",
+                "context": "fetcher",
+            }
+        ]
+        with Session(engine) as session:
+            session.add(_make_run(id="run-warnings-db", warnings_json=warnings))
+            session.commit()
+        with Session(engine) as session:
+            from runsight_api.domain.entities.run import Run
+
+            loaded = session.get(Run, "run-warnings-db")
+            assert loaded.warnings_json == warnings
+
+
 # ---------------------------------------------------------------------------
 # 4. Backward compat removed — workflow_commit_sha and effective_commit_sha are gone
 # ---------------------------------------------------------------------------
@@ -231,6 +257,40 @@ class TestRunResponseNewFields:
         assert resp.branch == "feat/test"
         assert resp.source == "simulation"
         assert resp.commit_sha == "abc123"
+
+
+class TestRunResponseWarningsField:
+    def test_run_response_has_warnings(self):
+        """RunResponse schema includes a `warnings` field."""
+        from runsight_api.transport.schemas.runs import RunResponse
+
+        fields = RunResponse.model_fields
+        assert "warnings" in fields, "RunResponse must have a 'warnings' field"
+
+    def test_run_response_serializes_warnings(self):
+        """RunResponse can be instantiated with canonical warning payloads."""
+        from runsight_api.transport.schemas.runs import RunResponse
+        from runsight_api.transport.schemas.workflows import WarningItem
+
+        warning = WarningItem(
+            message="Tool definition warning",
+            source="tool_definitions",
+            context="fetcher",
+        )
+        resp = RunResponse(
+            id="run-1",
+            workflow_id="wf-1",
+            workflow_name="Test",
+            status="pending",
+            started_at=None,
+            completed_at=None,
+            duration_seconds=None,
+            total_cost_usd=0.0,
+            total_tokens=0,
+            created_at=1711699200.0,
+            warnings=[warning],
+        )
+        assert resp.warnings == [warning]
 
 
 # ---------------------------------------------------------------------------
@@ -321,6 +381,54 @@ class TestCreateRunPopulatesNewFields:
         run = svc.create_run("wf-1", {"instruction": "go"}, source="webhook")
 
         assert run.source == "webhook"
+
+    def test_create_run_snapshots_workflow_warnings(self):
+        """create_run() snapshots workflow warnings into run.warnings_json."""
+        from runsight_api.logic.services.run_service import RunService
+
+        mock_run_repo = Mock()
+        mock_run_repo.create_run.side_effect = lambda r: r
+
+        mock_workflow = Mock()
+        mock_workflow.name = "Test WF"
+        mock_workflow.id = "wf-1"
+        mock_workflow.warnings = [
+            {
+                "message": "Tool definition warning",
+                "source": "tool_definitions",
+                "context": "fetcher",
+            }
+        ]
+        mock_wf_repo = Mock()
+        mock_wf_repo.get_by_id.return_value = mock_workflow
+
+        svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
+        run = svc.create_run("wf-1", {"instruction": "go"})
+
+        assert run.warnings_json == mock_workflow.warnings
+        assert run.warnings_json is not mock_workflow.warnings
+
+        mock_workflow.warnings[0]["message"] = "mutated after creation"
+        assert run.warnings_json[0]["message"] == "Tool definition warning"
+
+    def test_create_run_sets_warnings_json_none_when_workflow_has_no_warnings(self):
+        """create_run() should default warnings_json to None when no warnings exist."""
+        from runsight_api.logic.services.run_service import RunService
+
+        mock_run_repo = Mock()
+        mock_run_repo.create_run.side_effect = lambda r: r
+
+        mock_workflow = Mock()
+        mock_workflow.name = "Test WF"
+        mock_workflow.id = "wf-1"
+        mock_workflow.warnings = []
+        mock_wf_repo = Mock()
+        mock_wf_repo.get_by_id.return_value = mock_workflow
+
+        svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
+        run = svc.create_run("wf-1", {"instruction": "go"})
+
+        assert run.warnings_json is None
 
 
 # ---------------------------------------------------------------------------

@@ -78,6 +78,7 @@ def _make_mock_run(
     mock_run.parent_run_id = parent_run_id
     mock_run.root_run_id = root_run_id
     mock_run.depth = depth
+    mock_run.warnings_json = None
     mock_run.error = None
     mock_run.regression_count = None
     return mock_run
@@ -215,6 +216,7 @@ class TestGetChildrenReturnsChildRunsOnly:
             assert body[0]["parent_run_id"] == "run_612_parent"
             assert body[0]["root_run_id"] == "run_612_parent"
             assert body[0]["depth"] == 1
+            assert body[0]["warnings"] == []
         finally:
             app.dependency_overrides.clear()
 
@@ -290,6 +292,7 @@ class TestRunDetailIncludesLinkageFields:
             assert body["parent_run_id"] == "run_612_parent"
             assert body["root_run_id"] == "run_612_parent"
             assert body["depth"] == 1
+            assert body["warnings"] == []
         finally:
             app.dependency_overrides.clear()
 
