@@ -76,6 +76,7 @@ function buildFreshSchemaSnapshot(): {
   soulCreate: SchemaFieldSnapshot;
   soulResponse: SchemaFieldSnapshot;
   soulUpdate: SchemaFieldSnapshot;
+  workflowResponse: SchemaFieldSnapshot;
 } {
   const workdir = mkdtempSync(join(tmpdir(), "runsight-zod-"));
   const openapiPath = resolve(workdir, "openapi.json");
@@ -130,6 +131,10 @@ function buildFreshSchemaSnapshot(): {
       soulUpdate: {
         fresh: extractSchemaFieldNames(freshZod, "SoulUpdate"),
         committed: extractSchemaFieldNames(committedZod, "SoulUpdate"),
+      },
+      workflowResponse: {
+        fresh: extractSchemaFieldNames(freshZod, "WorkflowResponse"),
+        committed: extractSchemaFieldNames(committedZod, "WorkflowResponse"),
       },
     };
   } finally {
@@ -202,6 +207,27 @@ describe("RUN-134: Generated types export expected interfaces", () => {
     );
     expect(fields).not.toContain("slug");
     expect(fields).not.toContain("type");
+  });
+});
+
+describe("RUN-840: generated workflow warning contracts stay in sync", () => {
+  it("generated WorkflowResponse schemas include warnings in fresh and committed output", () => {
+    const snapshot = buildFreshSchemaSnapshot();
+
+    expect(snapshot.workflowResponse.fresh).toEqual(
+      expect.arrayContaining(["id", "valid", "warnings"]),
+    );
+    expect(snapshot.workflowResponse.committed).toEqual(
+      expect.arrayContaining(["id", "valid", "warnings"]),
+    );
+  });
+
+  it("committed Zod source exports WarningItemSchema for workflow warnings", () => {
+    const zodSource = readFileSync(COMMITTED_ZOD_PATH, "utf8");
+
+    expect(zodSource).toContain("WarningItemSchema");
+    expect(zodSource).toContain("WorkflowResponseSchema");
+    expect(zodSource).toContain("warnings");
   });
 });
 

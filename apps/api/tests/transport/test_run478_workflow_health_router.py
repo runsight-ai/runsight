@@ -11,7 +11,9 @@ import pytest
 from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.main import app
 from runsight_api.transport.deps import get_workflow_service
-from runsight_api.transport.schemas.workflows import WorkflowResponse
+from runsight_api.transport.schemas import workflows as workflow_schemas
+
+WorkflowResponse = workflow_schemas.WorkflowResponse
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -99,6 +101,43 @@ class TestWorkflowResponseModelShape:
             assert field_name in fields, f"Missing workflow response field: {field_name}"
 
         assert "eval_health" in _workflow_health_model_fields()
+
+
+class TestWorkflowResponseWarningsModelShape:
+    def test_workflow_response_declares_warnings_as_a_list_field(self):
+        fields = WorkflowResponse.model_fields
+
+        assert "warnings" in fields
+        assert fields["warnings"].default_factory is list
+
+    def test_warning_item_declares_the_canonical_warning_payload_fields(self):
+        warning_item = getattr(workflow_schemas, "WarningItem")
+        fields = warning_item.model_fields
+
+        assert set(fields) == {"message", "source", "context"}
+        assert fields["message"].is_required()
+        assert fields["source"].default is None
+        assert fields["context"].default is None
+
+    def test_workflow_response_parses_warning_items(self):
+        response = WorkflowResponse.model_validate(
+            {
+                "id": "wf_1",
+                "warnings": [
+                    {
+                        "message": "Tool definition warning",
+                        "source": "tool_definitions",
+                        "context": "lookup_profile",
+                    }
+                ],
+            }
+        )
+
+        assert len(response.warnings) == 1
+        warning = response.warnings[0]
+        assert warning.message == "Tool definition warning"
+        assert warning.source == "tool_definitions"
+        assert warning.context == "lookup_profile"
 
 
 class TestWorkflowsListResponse:
