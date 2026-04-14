@@ -1,27 +1,19 @@
 from __future__ import annotations
 
-import pytest
 import runsight_api.data.filesystem.workflow_repo as workflow_repo_module
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 from runsight_core.yaml.validation import ValidationResult
 
-INVALID_DIRECT_SOUL_TOOL_YAML = """\
+UNDECLARED_LIBRARY_SOUL_TOOL_YAML = """\
 version: "1.0"
 config:
   model_name: gpt-4o
-souls:
-  researcher:
-    id: researcher_1
-    role: Researcher
-    system_prompt: Search the web.
-    tools:
-      - http
 blocks:
   my_block:
     type: linear
     soul_ref: researcher
 workflow:
-  name: Governance Failure
+  name: Governance Warning
   entry: my_block
   transitions:
     - from: my_block
@@ -108,31 +100,45 @@ system_prompt: Search the web.{tool_lines}
     )
 
 
-@pytest.mark.xfail(
-    reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-)
-def test_create_stores_tool_governance_validation_error_on_entity(tmp_path):
+def test_create_stores_tool_governance_warning_on_entity(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
+    _write_soul_file(tmp_path, "researcher", ["http"])
 
-    entity = repo.create({"name": "Governance Failure", "yaml": INVALID_DIRECT_SOUL_TOOL_YAML})
+    entity = repo.create({"name": "Governance Warning", "yaml": UNDECLARED_LIBRARY_SOUL_TOOL_YAML})
 
-    assert entity.valid is False
-    assert entity.validation_error is not None
-    assert "undeclared tool 'http'" in entity.validation_error
+    assert entity.valid is True
+    assert entity.validation_error is None
+    assert entity.warnings == [
+        {
+            "message": (
+                "Soul 'researcher' (custom/souls/researcher.yaml) references undeclared "
+                "tool 'http'. Declared tools: []"
+            ),
+            "source": "tool_governance",
+            "context": "researcher",
+        }
+    ]
 
 
-@pytest.mark.xfail(
-    reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-)
-def test_update_recomputes_tool_governance_validation_error_from_raw_yaml(tmp_path):
+def test_update_recomputes_tool_governance_warning_from_raw_yaml(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
     created = repo.create({"name": "Governance Success", "yaml": VALID_DECLARED_TOOL_YAML})
+    _write_soul_file(tmp_path, "researcher", ["http"])
 
-    updated = repo.update(created.id, {"yaml": INVALID_DIRECT_SOUL_TOOL_YAML})
+    updated = repo.update(created.id, {"yaml": UNDECLARED_LIBRARY_SOUL_TOOL_YAML})
 
-    assert updated.valid is False
-    assert updated.validation_error is not None
-    assert "undeclared tool 'http'" in updated.validation_error
+    assert updated.valid is True
+    assert updated.validation_error is None
+    assert updated.warnings == [
+        {
+            "message": (
+                "Soul 'researcher' (custom/souls/researcher.yaml) references undeclared "
+                "tool 'http'. Declared tools: []"
+            ),
+            "source": "tool_governance",
+            "context": "researcher",
+        }
+    ]
 
 
 def test_create_validates_canonical_builtin_tool_ids_against_repo_contract(tmp_path):
