@@ -11,6 +11,7 @@ import sys
 import textwrap
 from typing import Any, Dict, List, Literal, Optional
 
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -184,25 +185,79 @@ class CodeBlock(BaseBlock):
         """Validate user code via AST analysis."""
         _validate_code_ast(self.code, self.allowed_imports)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        """Run user code in a subprocess and return updated state."""
-        harness = _HARNESS_PREFIX + self.code + _HARNESS_SUFFIX
+    async def execute(  # type: ignore[override]
+        self,
+        state_or_ctx: Any,
+        **kwargs: Any,
+    ) -> Any:
+        """Run user code in a subprocess. Accepts BlockContext (new path) or WorkflowState (legacy path)."""
+        if isinstance(state_or_ctx, BlockContext):
+            return await self._execute_with_context(state_or_ctx)
+        return await self._execute_with_state(state_or_ctx, **kwargs)
 
-        stdin_data = json.dumps(
-            {
-                "results": {
-                    k: v.output if isinstance(v, BlockResult) else v
-                    for k, v in state.results.items()
-                },
-                "metadata": state.metadata,
-                "shared_memory": state.shared_memory,
-            }
-        ).encode()
+    async def _execute_with_context(self, ctx: BlockContext) -> BlockOutput:
+        """New path: accept BlockContext, return pure BlockOutput (no state mutation)."""
+        stdout_bytes, stderr_bytes, returncode = await self._run_subprocess(ctx.inputs)
 
+        if returncode != 0:
+            error_msg = stderr_bytes.decode(errors="replace").strip()
+            return BlockOutput(
+                output=f"Error: {error_msg}",
+                exit_handle="error",
+                cost_usd=0.0,
+                total_tokens=0,
+                log_entries=[
+                    {
+                        "role": "system",
+                        "content": f"[Block {self.block_id}] CodeBlock: error — {error_msg}",
+                    }
+                ],
+            )
+
+        stdout = stdout_bytes.decode(errors="replace").strip()
+        try:
+            result = json.loads(stdout)
+        except json.JSONDecodeError:
+            return BlockOutput(
+                output=f"Error: output is not valid JSON: {stdout!r}",
+                cost_usd=0.0,
+                total_tokens=0,
+                log_entries=[
+                    {
+                        "role": "system",
+                        "content": f"[Block {self.block_id}] CodeBlock: non-JSON output",
+                    }
+                ],
+            )
+
+        exit_handle: Optional[str] = None
+        if isinstance(result, dict) and "exit_handle" in result:
+            raw = result["exit_handle"]
+            if isinstance(raw, str):
+                result.pop("exit_handle")
+                exit_handle = raw if raw else None
+
+        return BlockOutput(
+            output=json.dumps(result) if not isinstance(result, str) else result,
+            exit_handle=exit_handle,
+            cost_usd=0.0,
+            total_tokens=0,
+            log_entries=[
+                {
+                    "role": "system",
+                    "content": f"[Block {self.block_id}] CodeBlock: executed successfully",
+                }
+            ],
+        )
+
+    async def _run_subprocess(self, inputs: Dict[str, Any]) -> tuple:
+        """Run the user code subprocess with the given inputs dict. Returns (stdout, stderr, returncode)."""
         import os
 
+        harness = _HARNESS_PREFIX + self.code + _HARNESS_SUFFIX
+        stdin_data = json.dumps(inputs).encode()
+
         minimal_env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")}
-        # On macOS, include DYLD_LIBRARY_PATH if present
         for key in ("HOME", "DYLD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH"):
             if key in os.environ:
                 minimal_env[key] = os.environ[key]
@@ -225,7 +280,6 @@ class CodeBlock(BaseBlock):
                 _communicate(), timeout=self.timeout_seconds
             )
         except asyncio.TimeoutError:
-            # Kill the process on timeout
             try:
                 proc.kill()
                 await proc.wait()
@@ -235,7 +289,20 @@ class CodeBlock(BaseBlock):
                 f"CodeBlock '{self.block_id}': execution timed out after {self.timeout_seconds}s"
             )
 
-        if proc.returncode != 0:
+        return stdout_bytes, stderr_bytes, proc.returncode
+
+    async def _execute_with_state(self, state: WorkflowState, **kwargs: Any) -> WorkflowState:
+        """Legacy path: accept WorkflowState, return updated WorkflowState."""
+        inputs = {
+            "results": {
+                k: v.output if isinstance(v, BlockResult) else v for k, v in state.results.items()
+            },
+            "metadata": state.metadata,
+            "shared_memory": state.shared_memory,
+        }
+        stdout_bytes, stderr_bytes, returncode = await self._run_subprocess(inputs)
+
+        if returncode != 0:
             error_msg = stderr_bytes.decode(errors="replace").strip()
             return state.model_copy(
                 update={
@@ -278,7 +345,6 @@ class CodeBlock(BaseBlock):
                 }
             )
 
-        # Extract exit_handle from dict results
         exit_handle: Optional[str] = None
         if isinstance(result, dict) and "exit_handle" in result:
             raw = result["exit_handle"]

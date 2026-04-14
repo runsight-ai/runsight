@@ -176,6 +176,27 @@ def build_block_context(
     if not model_name and runner is not None:
         model_name = getattr(runner, "model_name", None)
 
+    # CodeBlock strategy: detect code attribute (no LLM, "access: all" pattern)
+    code = getattr(block, "code", None)
+    if code is not None:
+        return BlockContext(
+            block_id=block.block_id,
+            instruction="",
+            context=None,
+            inputs={
+                "results": {
+                    k: v.output if isinstance(v, BlockResult) else v
+                    for k, v in state.results.items()
+                },
+                "metadata": state.metadata,
+                "shared_memory": state.shared_memory,
+            },
+            conversation_history=[],
+            soul=None,
+            model_name=None,
+            state_snapshot=state,
+        )
+
     # DispatchBlock strategy: detect branches attribute
     branches = getattr(block, "branches", None)
     if branches is not None:
