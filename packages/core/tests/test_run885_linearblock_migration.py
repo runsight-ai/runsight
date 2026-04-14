@@ -235,16 +235,16 @@ async def test_execute_block_uses_new_path_for_linearblock(
 
 
 @pytest.mark.asyncio
-async def test_execute_block_uses_old_path_for_gate_block(
+async def test_execute_block_uses_new_path_for_gate_block(
     mock_runner, sample_soul, block_execution_ctx
 ):
-    """execute_block must use old state-based path for non-LinearBlock (e.g. GateBlock)."""
+    """execute_block must use new BlockContext path for GateBlock (migrated in RUN-886)."""
     from runsight_core.blocks.gate import GateBlock
 
     mock_runner.execute_task.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="soul_a",
-        output='{"verdict": "pass", "feedback": "Good work"}',
+        output="PASS",
     )
 
     gate_block = GateBlock("gate1", sample_soul, "prior_block", mock_runner)
@@ -253,14 +253,14 @@ async def test_execute_block_uses_old_path_for_gate_block(
         results={"prior_block": BlockResult(output="Some content to evaluate")},
     )
 
-    # build_block_context must NOT be called for GateBlock
     with patch(
         "runsight_core.workflow.build_block_context",
+        wraps=build_block_context,
     ) as mock_build_ctx:
         result_state = await execute_block(gate_block, state, block_execution_ctx)
 
-    assert not mock_build_ctx.called, (
-        "execute_block must NOT call build_block_context for GateBlock (old dispatch path)"
+    assert mock_build_ctx.called, (
+        "execute_block must call build_block_context for GateBlock (new dispatch path)"
     )
     assert isinstance(result_state, WorkflowState)
 
@@ -321,12 +321,12 @@ async def test_execute_block_mixed_workflow_linear_and_gate(mock_runner, sample_
     assert final_state.results["research"].output == "Research report content."
     assert "quality_gate" in final_state.results
 
-    # KEY assertion: build_block_context must have been called for LinearBlock, not GateBlock
+    # KEY assertion: build_block_context must have been called for BOTH blocks (both migrated)
     assert "research" in build_ctx_calls, (
         "build_block_context must be called for LinearBlock in mixed workflow (new path)"
     )
-    assert "quality_gate" not in build_ctx_calls, (
-        "build_block_context must NOT be called for GateBlock in mixed workflow (old path)"
+    assert "quality_gate" in build_ctx_calls, (
+        "build_block_context must be called for GateBlock in mixed workflow (new path, RUN-886)"
     )
 
 
@@ -566,14 +566,14 @@ async def test_execute_block_linearblock_maps_log_to_state(
 
 
 @pytest.mark.asyncio
-async def test_execute_block_does_not_call_build_block_context_for_gate(mock_runner, sample_soul):
-    """Regression: GateBlock must NOT go through build_block_context new path."""
+async def test_execute_block_calls_build_block_context_for_gate(mock_runner, sample_soul):
+    """GateBlock goes through build_block_context new path (migrated in RUN-886)."""
     from runsight_core.blocks.gate import GateBlock
 
     mock_runner.execute_task.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="soul_a",
-        output='{"verdict": "pass", "feedback": "OK"}',
+        output="PASS",
     )
 
     gate_block = GateBlock("gate1", sample_soul, "prior", mock_runner)
@@ -589,8 +589,8 @@ async def test_execute_block_does_not_call_build_block_context_for_gate(mock_run
         observer=None,
     )
 
-    with patch("runsight_core.workflow.build_block_context") as mock_bbc:
+    with patch("runsight_core.workflow.build_block_context", wraps=build_block_context) as mock_bbc:
         result_state = await execute_block(gate_block, state, ctx)
 
-    assert not mock_bbc.called
+    assert mock_bbc.called
     assert isinstance(result_state, WorkflowState)
