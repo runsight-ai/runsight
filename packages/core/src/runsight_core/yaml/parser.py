@@ -585,36 +585,11 @@ def validate_workflow_call_contracts(
         )
 
 
-def parse_workflow_yaml(
+def _normalize_workflow_input(
     yaml_str_or_dict: Union[str, Dict[str, Any]],
-    *,
-    workflow_registry: Optional["WorkflowRegistry"] = None,
-    api_keys: Optional[Dict[str, str]] = None,
-    runner: Optional[Any] = None,
-    _base_dir: Optional[str] = None,
-) -> Workflow:
-    """
-    Parse a YAML workflow definition into a runnable Workflow object.
-
-    Args:
-        yaml_str_or_dict: One of:
-          - str with no newlines ending in .yaml/.yml/.json -> load from file path
-          - str with newlines (or any other str) -> parse as YAML content
-          - dict -> use as pre-parsed data directly
-        workflow_registry: Optional WorkflowRegistry for resolving workflow_ref in workflow blocks.
-                          Required if workflow contains type: workflow blocks.
-
-    Returns:
-        Validated Workflow instance. workflow.validate() has been called and passed.
-
-    Raises:
-        ValidationError: If YAML doesn't match RunsightWorkflowFile schema.
-        ValueError: If schema version is unsupported, soul_ref/block_ref
-            unresolvable, or validate() returns errors.
-        FileNotFoundError: If file path provided but file does not exist.
-        yaml.YAMLError: If YAML content is syntactically invalid.
-    """
-    # Step 1: Normalize input to raw dict
+    _base_dir: Optional[str],
+) -> tuple[RunsightWorkflowFile, str, bool]:
+    """Normalize input, validate schema, and return (file_def, workflow_base_dir, require_custom_metadata)."""
     workflow_base_dir = _base_dir or "."
     require_custom_metadata = False
     if isinstance(yaml_str_or_dict, str):
@@ -647,10 +622,8 @@ def parse_workflow_yaml(
                 if isinstance(soul_data, dict):
                     soul_data.pop("exits", None)
 
-    # Step 2: Validate against Pydantic schema (raises ValidationError on failure)
     file_def = RunsightWorkflowFile.model_validate(raw)
 
-    # Step 2.1: Validate schema version
     if file_def.version not in SUPPORTED_VERSIONS:
         raise ValueError(
             f"Unsupported schema version '{file_def.version}'. "
@@ -664,22 +637,239 @@ def parse_workflow_yaml(
         workflow_label=getattr(file_def.workflow, "name", "<root>"),
     )
 
+    return file_def, workflow_base_dir, require_custom_metadata
+
+
+def _bridge_block_attributes(block_id: str, block_def: Any, block: Any) -> None:
+    """Bridge all schema attributes onto a runtime block in a single pass."""
+    if block_def.exits:
+        block._declared_exits = block_def.exits
+    if block_def.retry_config is not None:
+        block.retry_config = block_def.retry_config
+    if block_def.stateful:
+        block.stateful = block_def.stateful
+    block_assertions = getattr(block_def, "assertions", None)
+    block.assertions = (
+        [dict(assertion) for assertion in block_assertions]
+        if block_assertions is not None
+        else None
+    )
+    exit_conditions = getattr(block_def, "exit_conditions", None)
+    if exit_conditions is not None:
+        block.exit_conditions = exit_conditions
+    if block_def.limits:
+        block.limits = block_def.limits
+        if block_def.limits.max_duration_seconds:
+            block.max_duration_seconds = block_def.limits.max_duration_seconds
+        inner_blk = getattr(block, "inner_block", None)
+        if inner_blk is not None:
+            inner_blk.limits = block_def.limits
+            if block_def.limits.max_duration_seconds:
+                inner_blk.max_duration_seconds = block_def.limits.max_duration_seconds
+
+
+def _resolve_tools_for_souls(
+    file_def: RunsightWorkflowFile,
+    souls_map: Dict[str, Soul],
+    workflow_base_dir: str,
+) -> None:
+    """Resolve ToolInstance objects per soul and assign to soul.resolved_tools."""
+    referenced_souls = _collect_referenced_soul_keys(file_def)
+    for soul_key in referenced_souls:
+        soul = souls_map.get(soul_key)
+        if soul is None or not soul.tools:
+            continue
+        resolved_tools = []
+        for tool_name in soul.tools:
+            tool_id = _resolve_soul_tool_definition(tool_name, file_def.tools)
+            if tool_id is None:
+                continue
+            if tool_id == "delegate":
+                block_id_for_soul = None
+                block_def_for_soul = None
+                for bid, bdef in file_def.blocks.items():
+                    if getattr(bdef, "soul_ref", None) == soul_key:
+                        block_id_for_soul = bid
+                        block_def_for_soul = bdef
+                        break
+                    exits = getattr(bdef, "exits", None) or []
+                    if any(getattr(exit_def, "soul_ref", None) == soul_key for exit_def in exits):
+                        block_id_for_soul = bid
+                        block_def_for_soul = bdef
+                        break
+                exits = getattr(block_def_for_soul, "exits", None) if block_def_for_soul else None
+                if not exits:
+                    raise ValueError(
+                        f"Soul '{soul_key}' uses delegate tool but block "
+                        f"'{block_id_for_soul}' has no exits defined"
+                    )
+                try:
+                    resolved_tool = _resolve_tool_for_parser(
+                        tool_id, exits=exits, base_dir=workflow_base_dir
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Skipping unresolved tool '%s' for soul '%s': %s", tool_id, soul_key, exc
+                    )
+                    continue
+            else:
+                try:
+                    resolved_tool = _resolve_tool_for_parser(tool_id, base_dir=workflow_base_dir)
+                except Exception as exc:
+                    logger.warning(
+                        "Skipping unresolved tool '%s' for soul '%s': %s", tool_id, soul_key, exc
+                    )
+                    continue
+            resolved_tools.append(
+                _attach_tool_runtime_metadata(resolved_tool, tool_id, base_dir=workflow_base_dir)
+            )
+        soul.resolved_tools = resolved_tools
+
+
+def _validate_inputs_and_detect_cycles(
+    file_def: RunsightWorkflowFile,
+    built_blocks: Dict[str, Any],
+) -> None:
+    """Validate input references, detect cycles, and wrap input-bearing blocks in Step objects."""
+    input_deps: Dict[str, list] = {}
+    for block_id, block_def in file_def.blocks.items():
+        if block_def.inputs is not None and block_def.type != "workflow":
+            deps = []
+            for input_name, input_ref in block_def.inputs.items():
+                from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
+                source_id = from_ref.split(".")[0]
+                if source_id not in file_def.blocks:
+                    raise ValueError(
+                        f"Block '{block_id}': input '{input_name}' references unknown block '{source_id}'"
+                    )
+                if source_id == block_id:
+                    raise ValueError(
+                        f"Block '{block_id}': input '{input_name}' references itself (circular)"
+                    )
+                deps.append(source_id)
+            input_deps[block_id] = deps
+
+    def _detect_cycle(node: str, visiting: set, visited: set) -> bool:
+        if node in visiting:
+            return True
+        if node in visited:
+            return False
+        visiting.add(node)
+        for dep in input_deps.get(node, []):
+            if _detect_cycle(dep, visiting, visited):
+                return True
+        visiting.remove(node)
+        visited.add(node)
+        return False
+
+    visiting_set: set = set()
+    visited_set: set = set()
+    for block_id in input_deps:
+        if _detect_cycle(block_id, visiting_set, visited_set):
+            raise ValueError(
+                f"Circular input dependency cycle detected involving block '{block_id}'"
+            )
+
+    for block_id, block_def in file_def.blocks.items():
+        if (
+            block_def.inputs is not None
+            and block_def.type != "workflow"
+            and block_id in built_blocks
+        ):
+            declared_inputs: Dict[str, str] = {}
+            for input_name, input_ref in block_def.inputs.items():
+                from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
+                declared_inputs[input_name] = from_ref
+            built_blocks[block_id] = Step(
+                block=built_blocks[block_id], declared_inputs=declared_inputs
+            )
+
+
+def _wrap_llm_blocks_with_isolation(
+    file_def: RunsightWorkflowFile,
+    built_blocks: Dict[str, Any],
+    api_keys: Optional[Dict[str, str]],
+) -> None:
+    """Wrap LLM blocks with IsolatedBlockWrapper (Step 6.5a — structural replacement)."""
+    from runsight_core.isolation.harness import SubprocessHarness
+    from runsight_core.isolation.wrapper import LLM_BLOCK_TYPES, IsolatedBlockWrapper
+
+    for block_id, block_def in file_def.blocks.items():
+        if block_def.type in LLM_BLOCK_TYPES and block_id in built_blocks:
+            inner = built_blocks[block_id]
+            harness = SubprocessHarness(
+                api_keys=dict(api_keys or {}),
+                timeout_seconds=block_def.timeout_seconds,
+                stall_thresholds=dict(block_def.stall_thresholds or {}),
+            )
+            wrapper = IsolatedBlockWrapper(
+                block_id=block_id,
+                inner_block=inner,
+                harness=harness,
+                retry_config=inner.retry_config,
+            )
+            wrapper.stateful = inner.stateful
+            built_blocks[block_id] = wrapper
+
+
+def _assemble_workflow(
+    file_def: RunsightWorkflowFile,
+    built_blocks: Dict[str, Any],
+    wf_limits: Any = None,
+) -> Workflow:
+    """Assemble, wire, and validate the final Workflow object."""
+    wf = Workflow(name=file_def.workflow.name)
+    for block in built_blocks.values():
+        wf.add_block(block)
+    if file_def.limits:
+        wf.limits = file_def.limits
+    for t in file_def.workflow.transitions:
+        wf.add_transition(t.from_, t.to)
+    _expand_depends(file_def, wf)
+    for ct in file_def.workflow.conditional_transitions:
+        condition_map: Dict[str, str] = {}
+        if ct.default is not None:
+            condition_map["default"] = ct.default
+        for decision_key, target_id in (ct.model_extra or {}).items():
+            if target_id is not None:
+                condition_map[decision_key] = str(target_id)
+        wf.add_conditional_transition(ct.from_, condition_map)
+    _expand_gate_shortcuts(file_def, wf)
+    wf.set_entry(file_def.workflow.entry)
+    for block_id, block_def in file_def.blocks.items():
+        _wire_output_conditions(wf, block_id, block_def.output_conditions)
+    _expand_routes(file_def, wf)
+    _bridge_error_routes(file_def, wf)
+    errors = wf.validate()
+    if errors:
+        raise ValueError(f"Workflow '{file_def.workflow.name}' failed validation: {errors}")
+    return wf
+
+
+def parse_workflow_yaml(
+    yaml_str_or_dict: Union[str, Dict[str, Any]],
+    *,
+    workflow_registry: Optional["WorkflowRegistry"] = None,
+    api_keys: Optional[Dict[str, str]] = None,
+    runner: Optional[Any] = None,
+    _base_dir: Optional[str] = None,
+) -> Workflow:
+    """Parse a YAML workflow definition into a validated, runnable Workflow object."""
+    file_def, workflow_base_dir, require_custom_metadata = _normalize_workflow_input(
+        yaml_str_or_dict, _base_dir
+    )
+
     assertion_index = AssertionScanner(workflow_base_dir).scan()
     register_custom_assertions(assertion_index)
 
-    # Step 3: Discover library souls from custom/souls/.
     souls_dir = Path(workflow_base_dir) / "custom" / "souls"
     external_souls = _discover_external_souls(souls_dir, inline_soul_keys=file_def.souls)
-
-    # Step 3.5: Merge inline workflow souls over discovered external soul files.
     souls_map: Dict[str, Soul] = _merge_inline_souls(file_def, external_souls)
 
-    # Step 4: Instantiate runner (shared across all blocks in this workflow)
     if runner is None:
         model_name = _bootstrap_runner_model_name(souls_map)
         runner = RunsightTeamRunner(model_name=model_name, api_keys=api_keys)
 
-    # Step 5: Build all blocks (single pass)
     built_blocks: Dict[str, BaseBlock] = {}
     for block_id, block_def in file_def.blocks.items():
         from runsight_core.blocks._registry import get_builder
@@ -704,275 +894,24 @@ def parse_workflow_yaml(
             parent_file_def=file_def,
         )
 
-    # Step 6.2: Bridge _declared_exits from schema to runtime blocks
-    for block_id, block_def in file_def.blocks.items():
-        if block_def.exits and block_id in built_blocks:
-            built_blocks[block_id]._declared_exits = block_def.exits
-
-    # Step 6.3: Bridge retry_config from schema to runtime blocks
-    for block_id, block_def in file_def.blocks.items():
-        if block_def.retry_config is not None and block_id in built_blocks:
-            built_blocks[block_id].retry_config = block_def.retry_config
-
-    # Step 6.4: Bridge stateful from schema to runtime blocks
-    for block_id, block_def in file_def.blocks.items():
-        if block_def.stateful and block_id in built_blocks:
-            built_blocks[block_id].stateful = block_def.stateful
-
-    # Step 6.5a: Wrap LLM blocks with IsolatedBlockWrapper at build time
-    from runsight_core.isolation.harness import SubprocessHarness
-    from runsight_core.isolation.wrapper import LLM_BLOCK_TYPES, IsolatedBlockWrapper
-
-    for block_id, block_def in file_def.blocks.items():
-        if block_def.type in LLM_BLOCK_TYPES and block_id in built_blocks:
-            inner = built_blocks[block_id]
-            harness = SubprocessHarness(
-                api_keys=dict(api_keys or {}),
-                timeout_seconds=block_def.timeout_seconds,
-                stall_thresholds=dict(block_def.stall_thresholds or {}),
-            )
-            wrapper = IsolatedBlockWrapper(
-                block_id=block_id,
-                inner_block=inner,
-                harness=harness,
-                retry_config=inner.retry_config,
-            )
-            wrapper.stateful = inner.stateful
-            built_blocks[block_id] = wrapper
-
-    # Step 6.5b: Bridge block-owned assertions onto the final runtime blocks
     for block_id, block_def in file_def.blocks.items():
         if block_id in built_blocks:
-            block_assertions = getattr(block_def, "assertions", None)
-            built_blocks[block_id].assertions = (
-                [dict(assertion) for assertion in block_assertions]
-                if block_assertions is not None
-                else None
-            )
+            _bridge_block_attributes(block_id, block_def, built_blocks[block_id])
 
-    # Step 6.5c: Bridge exit_conditions from schema to runtime blocks
-    for block_id, block_def in file_def.blocks.items():
-        if block_id in built_blocks:
-            exit_conditions = getattr(block_def, "exit_conditions", None)
-            if exit_conditions is not None:
-                built_blocks[block_id].exit_conditions = exit_conditions
+    _wrap_llm_blocks_with_isolation(file_def, built_blocks, api_keys)
 
-    # Step 6.5d: Bridge limits from schema to runtime blocks
-    for block_id, block_def in file_def.blocks.items():
-        if block_id in built_blocks and block_def.limits:
-            blk = built_blocks[block_id]
-            blk.limits = block_def.limits
-            if block_def.limits.max_duration_seconds:
-                blk.max_duration_seconds = block_def.limits.max_duration_seconds
-            # Also bridge onto the inner block if wrapped (IsolatedBlockWrapper)
-            inner_blk = getattr(blk, "inner_block", None)
-            if inner_blk is not None:
-                inner_blk.limits = block_def.limits
-                if block_def.limits.max_duration_seconds:
-                    inner_blk.max_duration_seconds = block_def.limits.max_duration_seconds
-
-    # Step 6.6: Validate and resolve tools per soul
     validation_result = validate_tool_governance(file_def, souls_map)
     validation_result.merge(
         _validate_declared_tool_definitions(
-            file_def,
-            base_dir=workflow_base_dir,
-            require_custom_metadata=require_custom_metadata,
+            file_def, base_dir=workflow_base_dir, require_custom_metadata=require_custom_metadata
         )
     )
     if validation_result.has_errors:
         raise ValueError(validation_result.error_summary or "Tool governance validation failed")
 
-    # 6.6c: Resolve ToolInstance objects per soul
-    referenced_souls = _collect_referenced_soul_keys(file_def)
-    for soul_key in referenced_souls:
-        soul = souls_map.get(soul_key)
-        if soul is None or not soul.tools:
-            continue
-
-        resolved_tools = []
-        for tool_name in soul.tools:
-            tool_id = _resolve_soul_tool_definition(tool_name, file_def.tools)
-            if tool_id is None:
-                continue
-
-            if tool_id == "delegate":
-                # Find the block that references this soul via soul_ref
-                block_id_for_soul = None
-                block_def_for_soul = None
-                for bid, bdef in file_def.blocks.items():
-                    if getattr(bdef, "soul_ref", None) == soul_key:
-                        block_id_for_soul = bid
-                        block_def_for_soul = bdef
-                        break
-                    exits = getattr(bdef, "exits", None) or []
-                    if any(getattr(exit_def, "soul_ref", None) == soul_key for exit_def in exits):
-                        block_id_for_soul = bid
-                        block_def_for_soul = bdef
-                        break
-
-                exits = getattr(block_def_for_soul, "exits", None) if block_def_for_soul else None
-                if not exits:
-                    raise ValueError(
-                        f"Soul '{soul_key}' uses delegate tool but block "
-                        f"'{block_id_for_soul}' has no exits defined"
-                    )
-                try:
-                    resolved_tool = _resolve_tool_for_parser(
-                        tool_id,
-                        exits=exits,
-                        base_dir=workflow_base_dir,
-                    )
-                except Exception as exc:
-                    logger.warning(
-                        "Skipping unresolved tool '%s' for soul '%s': %s",
-                        tool_id,
-                        soul_key,
-                        exc,
-                    )
-                    continue
-                resolved_tools.append(
-                    _attach_tool_runtime_metadata(
-                        resolved_tool,
-                        tool_id,
-                        base_dir=workflow_base_dir,
-                    )
-                )
-            else:
-                try:
-                    resolved_tool = _resolve_tool_for_parser(tool_id, base_dir=workflow_base_dir)
-                except Exception as exc:
-                    logger.warning(
-                        "Skipping unresolved tool '%s' for soul '%s': %s",
-                        tool_id,
-                        soul_key,
-                        exc,
-                    )
-                    continue
-                resolved_tools.append(
-                    _attach_tool_runtime_metadata(
-                        resolved_tool,
-                        tool_id,
-                        base_dir=workflow_base_dir,
-                    )
-                )
-
-        soul.resolved_tools = resolved_tools
-
-    # Step 6.5: Validate input references and detect circular dependencies
-    # Build input dependency graph for cycle detection
-    input_deps: Dict[str, list] = {}  # block_id -> [source_block_ids]
-    for block_id, block_def in file_def.blocks.items():
-        if block_def.inputs is not None and block_def.type != "workflow":
-            deps = []
-            for input_name, input_ref in block_def.inputs.items():
-                from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
-                source_id = from_ref.split(".")[0]
-                if source_id not in file_def.blocks:
-                    raise ValueError(
-                        f"Block '{block_id}': input '{input_name}' references unknown block '{source_id}'"
-                    )
-                if source_id == block_id:
-                    raise ValueError(
-                        f"Block '{block_id}': input '{input_name}' references itself (circular)"
-                    )
-                deps.append(source_id)
-            input_deps[block_id] = deps
-
-    # Detect circular input dependencies (topological sort / DFS)
-    def _detect_input_cycle(
-        node: str,
-        visiting: set,
-        visited: set,
-        deps: Dict[str, list],
-    ) -> bool:
-        if node in visiting:
-            return True  # cycle found
-        if node in visited:
-            return False
-        visiting.add(node)
-        for dep in deps.get(node, []):
-            if _detect_input_cycle(dep, visiting, visited, deps):
-                return True
-        visiting.remove(node)
-        visited.add(node)
-        return False
-
-    visiting_set: set = set()
-    visited_set: set = set()
-    for block_id in input_deps:
-        if _detect_input_cycle(block_id, visiting_set, visited_set, input_deps):
-            raise ValueError(
-                f"Circular input dependency cycle detected involving block '{block_id}'"
-            )
-
-    # Step 6.6: Wrap blocks with declared_inputs in Step objects
-    for block_id, block_def in file_def.blocks.items():
-        if (
-            block_def.inputs is not None
-            and block_def.type != "workflow"
-            and block_id in built_blocks
-        ):
-            declared_inputs: Dict[str, str] = {}
-            for input_name, input_ref in block_def.inputs.items():
-                from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
-                declared_inputs[input_name] = from_ref
-            # Wrap the built block in a Step with declared_inputs
-            built_blocks[block_id] = Step(
-                block=built_blocks[block_id],
-                declared_inputs=declared_inputs,
-            )
-
-    # Step 7: Assemble Workflow object
-    wf = Workflow(name=file_def.workflow.name)
-    for block in built_blocks.values():
-        wf.add_block(block)
-
-    # Step 7.1: Bridge workflow-level limits onto the Workflow object
-    if file_def.limits:
-        wf.limits = file_def.limits
-
-    # Step 8: Register plain transitions
-    for t in file_def.workflow.transitions:
-        wf.add_transition(t.from_, t.to)
-
-    # Step 8.5: Expand depends sugar into plain transitions
-    _expand_depends(file_def, wf)
-
-    # Step 9: Register conditional transitions
-    for ct in file_def.workflow.conditional_transitions:
-        condition_map: Dict[str, str] = {}
-        if ct.default is not None:
-            condition_map["default"] = ct.default
-        # Extra fields = decision_key -> target_block_id (model_extra excludes defined fields)
-        for decision_key, target_id in (ct.model_extra or {}).items():
-            if target_id is not None:
-                condition_map[decision_key] = str(target_id)
-            # target_id=None means terminal (no successor for this decision path)
-        wf.add_conditional_transition(ct.from_, condition_map)
-
-    # Step 9.5: Expand gate pass/fail shorthand into conditional transitions
-    _expand_gate_shortcuts(file_def, wf)
-
-    # Step 10: Set entry block
-    wf.set_entry(file_def.workflow.entry)
-
-    # Step 10.5: Wire output_conditions to Workflow
-    for block_id, block_def in file_def.blocks.items():
-        _wire_output_conditions(wf, block_id, block_def.output_conditions)
-
-    # Step 10.6: Expand routes shorthand into output_conditions and conditional transitions
-    _expand_routes(file_def, wf)
-
-    # Step 10.75: Bridge error_route declarations onto the workflow
-    _bridge_error_routes(file_def, wf)
-
-    # Step 11: Validate (raises ValueError if topology is invalid)
-    errors = wf.validate()
-    if errors:
-        raise ValueError(f"Workflow '{file_def.workflow.name}' failed validation: {errors}")
-
-    return wf
+    _resolve_tools_for_souls(file_def, souls_map, workflow_base_dir)
+    _validate_inputs_and_detect_cycles(file_def, built_blocks)
+    return _assemble_workflow(file_def, built_blocks)
 
 
 def parse_task_yaml(yaml_str_or_dict: Union[str, Dict[str, Any]]) -> Task:
