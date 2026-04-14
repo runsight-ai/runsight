@@ -10,12 +10,18 @@ import { TableCell, TableRow } from "@runsight/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
 import { cn } from "@runsight/ui/utils";
 import type { RunResponse } from "@runsight/shared/zod";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
+import { WarningTooltipBody } from "@/components/shared/WarningTooltipBody";
 import { useRunRegressions } from "@/queries/runs";
 import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
+import {
+  formatWarningTooltip,
+  shouldShowWarningBadge,
+  WARNING_BADGE_CLASSES,
+} from "../workflows/warningBadge.utils";
 
 function getSourceVariant(source: RunResponse["source"]) {
   switch (source) {
@@ -32,42 +38,82 @@ function getSourceVariant(source: RunResponse["source"]) {
   }
 }
 
-function SurfaceRegressionCell({
+function SurfaceWarningsCell({
   runId,
   regressionCount,
+  warnings,
 }: {
   runId: string;
   regressionCount: number | null | undefined;
+  warnings: RunResponse["warnings"] | undefined;
 }) {
-  const { data: regressionData } = useRunRegressions(regressionCount ? runId : "");
+  const normalizedRegressionCount = regressionCount ?? 0;
+  const normalizedWarnings = warnings ?? [];
+  const hasRegressions = normalizedRegressionCount > 0;
+  const hasWarnings = shouldShowWarningBadge(normalizedWarnings);
+  const { data: regressionData } = useRunRegressions(hasRegressions ? runId : "");
 
-  if (!regressionCount) {
+  if (!hasRegressions && !hasWarnings) {
     return <span className="text-muted">—</span>;
   }
 
-  const tooltip = regressionData?.issues?.length
+  const regressionTooltip = regressionData?.issues?.length
     ? formatRegressionTooltip(regressionData.issues)
     : {
-        header: `${regressionCount} ${regressionCount === 1 ? "regression" : "regressions"}`,
+        header: `${normalizedRegressionCount} ${normalizedRegressionCount === 1 ? "regression" : "regressions"}`,
         lines: ["Regression detected"],
       };
+  const warningTooltip = hasWarnings
+    ? formatWarningTooltip(normalizedWarnings)
+    : null;
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <span className="inline-flex items-center gap-1" style={{ color: "var(--warning-11)" }}>
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {regressionCount}
-            </span>
-          }
-        />
-        <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3">
-          <RegressionTooltipBody header={tooltip.header} lines={tooltip.lines} />
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <span className="inline-flex items-center gap-2">
+      {hasRegressions ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span className="inline-flex items-center gap-1" style={{ color: "var(--warning-11)" }}>
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {normalizedRegressionCount}
+                </span>
+              }
+            />
+            <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3">
+              <RegressionTooltipBody
+                header={regressionTooltip.header}
+                lines={regressionTooltip.lines}
+              />
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : null}
+      {hasWarnings && warningTooltip ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span
+                  role="status"
+                  aria-label={`${normalizedWarnings.length} ${normalizedWarnings.length === 1 ? "warning" : "warnings"}`}
+                  className={WARNING_BADGE_CLASSES}
+                >
+                  <Info aria-hidden="true" className="h-3.5 w-3.5 text-info-9" />
+                  {normalizedWarnings.length}
+                </span>
+              }
+            />
+            <TooltipContent className="max-w-[320px] whitespace-normal px-3 py-3">
+              <WarningTooltipBody
+                header={warningTooltip.header}
+                lines={warningTooltip.lines}
+              />
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : null}
+    </span>
   );
 }
 
@@ -123,9 +169,10 @@ export function SurfaceRunRow({
             : <span className="text-muted">—</span>}
       </TableCell>
       <TableCell data-type="metric" className={RUN_TABLE_CELL_CLASS}>
-        <SurfaceRegressionCell
+        <SurfaceWarningsCell
           runId={run.id}
           regressionCount={run.regression_count}
+          warnings={run.warnings}
         />
       </TableCell>
     </TableRow>
