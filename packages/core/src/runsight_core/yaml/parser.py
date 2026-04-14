@@ -809,7 +809,6 @@ def _wrap_llm_blocks_with_isolation(
 def _assemble_workflow(
     file_def: RunsightWorkflowFile,
     built_blocks: Dict[str, Any],
-    wf_limits: Any = None,
 ) -> Workflow:
     """Assemble, wire, and validate the final Workflow object."""
     wf = Workflow(name=file_def.workflow.name)
