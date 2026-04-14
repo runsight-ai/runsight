@@ -44,7 +44,7 @@ export function SurfaceRunsTable({
             <TableHead className={RUN_TABLE_HEAD_CLASS}>Duration</TableHead>
             <TableHead className={RUN_TABLE_HEAD_CLASS}>Cost</TableHead>
             <TableHead className={RUN_TABLE_HEAD_CLASS}>Eval</TableHead>
-            <TableHead className={RUN_TABLE_HEAD_CLASS}>Regr</TableHead>
+            <TableHead className={RUN_TABLE_HEAD_CLASS}>Warnings</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
