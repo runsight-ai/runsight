@@ -3,15 +3,26 @@
 import re
 import subprocess
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 from urllib.parse import unquote
 
 from fastapi import APIRouter
-from pydantic import BaseModel, field_validator
 
 from ...core.config import settings
 from ...domain.errors import GitError, InputValidationError
 from ...logic.services.git_service import GitService
+from ..schemas.git import (
+    CommitRequest,
+    CommitResponse,
+    DiffResponse,
+    FileReadResponse,
+    LogResponse,
+    SimBranchRequest,
+    SimBranchResponse,
+    StatusResponse,
+    UncommittedFile,
+    CommitEntry,
+)
 
 router = APIRouter(prefix="/git", tags=["Git"])
 
@@ -25,64 +36,6 @@ router = APIRouter(prefix="/git", tags=["Git"])
 
 def _get_git_service() -> GitService:
     return GitService(repo_path=settings.base_path)
-
-
-# ---------------------------------------------------------------------------
-# Request / Response models
-# ---------------------------------------------------------------------------
-
-
-class SimBranchRequest(BaseModel):
-    workflow_id: str
-    yaml_content: str
-
-
-class SimBranchResponse(BaseModel):
-    branch: str
-    commit_sha: str
-
-
-class CommitRequest(BaseModel):
-    message: str
-    files: Optional[List[str]] = None
-
-    @field_validator("message")
-    @classmethod
-    def message_not_empty(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("Commit message must not be empty")
-        return v
-
-
-class UncommittedFile(BaseModel):
-    path: str
-    status: str
-
-
-class StatusResponse(BaseModel):
-    branch: str
-    uncommitted_files: List[UncommittedFile]
-    is_clean: bool
-
-
-class CommitResponse(BaseModel):
-    hash: str
-    message: str
-
-
-class DiffResponse(BaseModel):
-    diff: str
-
-
-class CommitEntry(BaseModel):
-    hash: str
-    message: str
-    date: str
-    author: str
-
-
-class LogResponse(BaseModel):
-    commits: List[CommitEntry]
 
 
 # ---------------------------------------------------------------------------
@@ -266,11 +219,6 @@ async def git_log():
             )
 
     return LogResponse(commits=commits)
-
-
-class FileReadResponse(BaseModel):
-    content: str
-    ref: str
 
 
 @router.get("/file", response_model=FileReadResponse)
