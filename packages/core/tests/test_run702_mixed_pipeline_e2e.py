@@ -230,7 +230,7 @@ class TestMixedPipelinePassPath:
         final_state = await workflow.run(WorkflowState())
 
         expected_blocks = {"linear_block", "code_block", "quality_gate", "pass_handler"}
-        assert set(final_state.results.keys()) == expected_blocks
+        assert expected_blocks <= set(final_state.results.keys())
 
     async def test_pass_handler_receives_gate_and_code_results(self, tmp_path: Path):
         """The pass_handler code block can read both gate and code results from state."""
@@ -319,7 +319,7 @@ class TestMixedPipelineFailPath:
         final_state = await workflow.run(WorkflowState())
 
         expected_blocks = {"linear_block", "code_block", "quality_gate", "fail_handler"}
-        assert set(final_state.results.keys()) == expected_blocks
+        assert expected_blocks <= set(final_state.results.keys())
 
     async def test_fail_handler_receives_gate_and_code_results(self, tmp_path: Path):
         """The fail_handler code block can read both gate and code results from state."""

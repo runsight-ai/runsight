@@ -43,7 +43,13 @@ def _mock_runner(output: str, cost: float = 0.01, tokens: int = 100) -> Runsight
 
 
 def _make_soul(soul_id: str = "synth_soul") -> Soul:
-    return Soul(id=soul_id, role="Synthesizer", system_prompt="Synthesize the outputs")
+    return Soul(
+        id=soul_id,
+        kind="soul",
+        name="Synthesizer Soul",
+        role="Synthesizer",
+        system_prompt="Synthesize the outputs",
+    )
 
 
 def _make_synthesize(

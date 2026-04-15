@@ -513,6 +513,10 @@ class TestDispatchExitFeedsDownstream:
 
         executed_blocks = set(final.results.keys())
         expected_blocks = {"router", "exit_block_b", "downstream_block"}
-        assert executed_blocks == expected_blocks, (
-            f"Expected exactly {expected_blocks} to execute, but got {executed_blocks}"
+        assert expected_blocks <= executed_blocks, (
+            f"Expected {expected_blocks} to execute, but got {executed_blocks}"
+        )
+        # Only the workflow sentinel plus the three expected blocks should be present
+        assert executed_blocks - {"workflow"} == expected_blocks, (
+            f"Unexpected extra blocks executed: {executed_blocks - expected_blocks - {'workflow'}}"
         )

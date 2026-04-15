@@ -25,7 +25,9 @@ from runsight_core.runner import ExecutionResult, FallbackRoute, RunsightTeamRun
 @pytest.fixture
 def soul():
     return Soul(
-        id="s1",
+        id="soul-one",
+        kind="soul",
+        name="Agent",
         role="Agent",
         system_prompt="You are helpful.",
         provider="openai",
@@ -36,7 +38,9 @@ def soul():
 @pytest.fixture
 def soul_with_temp():
     return Soul(
-        id="s2",
+        id="soul-two",
+        kind="soul",
+        name="Configured Agent",
         role="Configured Agent",
         system_prompt="You are a configured agent.",
         provider="openai",
@@ -58,6 +62,8 @@ HISTORY_MESSAGES = [
 def _make_soul_with_tools(resolved_tools, max_tool_iterations: int = 5) -> Soul:
     soul = Soul(
         id="tool_soul",
+        kind="soul",
+        name="Tool Agent",
         role="Tool Agent",
         system_prompt="You use tools.",
         provider="openai",
@@ -186,7 +192,7 @@ class TestExecuteMethodExists:
         runner = RunsightTeamRunner(model_name="gpt-4o")
         result = await runner.execute(INSTRUCTION, CONTEXT, soul)
 
-        assert result.soul_id == "s1"
+        assert result.soul_id == "soul-one"
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
@@ -333,6 +339,8 @@ class TestExecuteToolLoop:
         """execute() without resolved_tools: single achat call, returns text."""
         soul = Soul(
             id="no_tools",
+            kind="soul",
+            name="Agent",
             role="Agent",
             system_prompt="Simple.",
             provider="openai",
@@ -388,7 +396,9 @@ class TestExecuteToolLoop:
     async def test_execute_no_tools_zero_tool_iterations(self, mock_achat):
         """Single-shot execute() must return tool_iterations=0 and empty tool_calls_made."""
         soul = Soul(
-            id="plain",
+            id="plain-soul",
+            kind="soul",
+            name="Agent",
             role="Agent",
             system_prompt="No tools.",
             provider="openai",
@@ -452,7 +462,7 @@ class TestExecuteTaskBackwardCompat:
         runner = RunsightTeamRunner(model_name="gpt-4o")
         result = await runner.execute(INSTRUCTION, CONTEXT, soul)
 
-        assert result.soul_id == "s1"
+        assert result.soul_id == "soul-one"
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
@@ -605,7 +615,9 @@ class TestExecuteFailover:
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
         bad_soul = Soul(
-            id="bad",
+            id="bad-soul",
+            kind="soul",
+            name="Bad Soul",
             role="Bad Soul",
             system_prompt="No provider.",
             model_name="gpt-4o",

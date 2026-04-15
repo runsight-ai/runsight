@@ -56,6 +56,8 @@ def soul_alpha():
 
     return Soul(
         id="alpha",
+        kind="soul",
+        name="Alpha",
         role="Alpha",
         system_prompt="You are alpha.",
         model_name="gpt-4o",
@@ -69,6 +71,8 @@ def soul_beta():
 
     return Soul(
         id="beta",
+        kind="soul",
+        name="Beta",
         role="Beta",
         system_prompt="You are beta.",
         model_name="gpt-4o",

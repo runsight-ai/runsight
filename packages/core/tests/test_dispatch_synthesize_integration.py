@@ -889,7 +889,9 @@ class TestContextInheritance:
         with patch("runsight_core.llm.client.completion_cost", return_value=0.001):
             wf = parse_workflow_yaml(DISPATCH_SYNTHESIZE_YAML)
             important_context = "IMPORTANT_PROJECT_CONTEXT_XYZ"
-            state = WorkflowState()
+            state = WorkflowState(
+                shared_memory={"_resolved_inputs": {"context": important_context}}
+            )
             await wf.run(state)
 
         # The first two LLM calls (Dispatch branches) should contain the context

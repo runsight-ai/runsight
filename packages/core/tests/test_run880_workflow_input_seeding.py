@@ -64,6 +64,8 @@ def _write_soul_file(base_dir: Path, name: str = "writer") -> None:
         textwrap.dedent(
             """\
             id: writer
+            kind: soul
+            name: Writer
             role: Writer
             system_prompt: Write carefully.
             """
@@ -74,7 +76,10 @@ def _write_soul_file(base_dir: Path, name: str = "writer") -> None:
 
 def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     workflow_file = base_dir / "workflow.yaml"
-    workflow_file.write_text(textwrap.dedent(yaml_content), encoding="utf-8")
+    content = textwrap.dedent(yaml_content)
+    if "id: " not in content:
+        content = "id: test-workflow\nkind: workflow\n" + content
+    workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
 
 

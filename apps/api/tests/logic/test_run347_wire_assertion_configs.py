@@ -237,7 +237,7 @@ class TestIntegrationEvalScoreViaService:
         wf = _parse_block_assertion_workflow()
 
         with patch(
-            "runsight_core.runner.RunsightTeamRunner.execute_task",
+            "runsight_core.runner.RunsightTeamRunner.execute",
             new_callable=AsyncMock,
             return_value=_fake_result(),
         ):
@@ -285,7 +285,7 @@ class TestIntegrationEvalScoreViaService:
             session.commit()
 
         with patch(
-            "runsight_core.runner.RunsightTeamRunner.execute_task",
+            "runsight_core.runner.RunsightTeamRunner.execute",
             new_callable=AsyncMock,
             return_value=_fake_result(),
         ):

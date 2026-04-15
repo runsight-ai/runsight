@@ -220,7 +220,9 @@ class TestStatefulLoopWithArtifacts:
     async def test_stateful_loop_with_artifacts(self):
         """3 rounds: 6 conversation messages + 3 artifacts in store."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="You analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
+        )
         store = InMemoryArtifactStore(run_id="test-run-1")
 
         call_count = 0
@@ -276,7 +278,9 @@ class TestStatefulLoopWithArtifacts:
     async def test_artifact_refs_in_block_results(self):
         """BlockResult objects in state.results should carry artifact_ref."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="You analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
+        )
         store = InMemoryArtifactStore(run_id="test-run-refs")
 
         call_count = 0
@@ -321,7 +325,9 @@ class TestCarryContextWithBlockResultAndArtifacts:
     async def test_carry_context_extracts_output_from_blockresult(self):
         """carry_context must extract .output string, not pass BlockResult object."""
         runner = _make_mock_runner()
-        soul = Soul(id="writer", role="Writer", system_prompt="You write.")
+        soul = Soul(
+            id="writer", kind="soul", name="Writer", role="Writer", system_prompt="You write."
+        )
         store = InMemoryArtifactStore(run_id="test-carry")
 
         call_count = 0
@@ -365,7 +371,9 @@ class TestCarryContextWithBlockResultAndArtifacts:
     async def test_carry_context_all_mode_with_artifacts(self):
         """mode='all' accumulates string outputs across rounds, not BlockResult objects."""
         runner = _make_mock_runner()
-        soul = Soul(id="writer", role="Writer", system_prompt="You write.")
+        soul = Soul(
+            id="writer", kind="soul", name="Writer", role="Writer", system_prompt="You write."
+        )
         store = InMemoryArtifactStore(run_id="test-carry-all")
 
         call_count = 0
@@ -411,7 +419,9 @@ class TestCarryContextWithBlockResultAndArtifacts:
         """artifact_ref remains accessible on BlockResult in state.results
         even when carry_context is active."""
         runner = _make_mock_runner()
-        soul = Soul(id="writer", role="Writer", system_prompt="You write.")
+        soul = Soul(
+            id="writer", kind="soul", name="Writer", role="Writer", system_prompt="You write."
+        )
         store = InMemoryArtifactStore(run_id="test-ref-access")
 
         call_count = 0
@@ -464,7 +474,9 @@ class TestStatefulWithWindowingAndArtifacts:
     async def test_windowing_prunes_history_but_artifacts_persist(self):
         """With aggressive pruning, history is capped but all artifacts are written."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="You analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
+        )
         store = InMemoryArtifactStore(run_id="test-windowing")
 
         call_count = 0
@@ -527,7 +539,7 @@ class TestStatefulWithWindowingAndArtifacts:
     async def test_windowing_with_carry_context_and_artifacts(self):
         """Windowing + carry_context + artifacts all working together."""
         runner = _make_mock_runner()
-        soul = Soul(id="writer", role="Writer", system_prompt="Write.")
+        soul = Soul(id="writer", kind="soul", name="Writer", role="Writer", system_prompt="Write.")
         store = InMemoryArtifactStore(run_id="test-all-features")
 
         call_count = 0
@@ -592,7 +604,9 @@ class TestStatefulWithWindowingAndArtifacts:
     async def test_llm_receives_pruned_history_each_round(self):
         """The LLM should receive the pruned (shorter) history on subsequent rounds."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="Analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze."
+        )
         store = InMemoryArtifactStore(run_id="test-llm-history")
 
         messages_received_per_call = []

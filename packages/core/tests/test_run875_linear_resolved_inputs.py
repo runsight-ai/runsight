@@ -57,6 +57,8 @@ def sample_soul():
 
     return Soul(
         id="test_soul",
+        kind="soul",
+        name="Tester",
         role="Tester",
         system_prompt="You test things.",
         model_name="gpt-4o",

@@ -85,7 +85,9 @@ class TestStatefulLinearBlockInsideLoop:
     async def test_history_grows_2n_after_n_rounds(self):
         """After 3 rounds, conversation_histories[key] must have 2*3 = 6 messages."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="You analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
+        )
 
         # Runner returns different output each call to verify round ordering
         call_count = 0
@@ -118,7 +120,9 @@ class TestStatefulLinearBlockInsideLoop:
     async def test_each_round_alternates_user_assistant(self):
         """History must alternate user/assistant for every message."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="You analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
+        )
 
         call_count = 0
 
@@ -151,7 +155,9 @@ class TestStatefulLinearBlockInsideLoop:
     async def test_llm_receives_growing_history_each_round(self):
         """Each round's LLM call must include all prior rounds' messages."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="You analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
+        )
 
         messages_received_per_call = []
 
@@ -188,7 +194,9 @@ class TestStatefulLinearBlockInsideLoop:
     async def test_round_outputs_in_correct_order(self):
         """Assistant messages in history must be in chronological order."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="You analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
+        )
 
         call_count = 0
 
@@ -218,7 +226,9 @@ class TestStatefulLinearBlockInsideLoop:
     async def test_works_via_workflow_run(self):
         """Integration through Workflow.run() — the real execution path."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="You analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
+        )
 
         call_count = 0
 
@@ -262,9 +272,27 @@ class TestStatefulDispatchBlockInsideLoop:
     async def test_per_soul_histories_after_2_rounds(self):
         """Each of 3 souls should have 4 messages (2 rounds x user + assistant)."""
         runner = _make_mock_runner()
-        soul_a = Soul(id="soul_a", role="Reviewer A", system_prompt="You review.")
-        soul_b = Soul(id="soul_b", role="Reviewer B", system_prompt="You review.")
-        soul_c = Soul(id="soul_c", role="Reviewer C", system_prompt="You review.")
+        soul_a = Soul(
+            id="soul_a",
+            kind="soul",
+            name="Reviewer A",
+            role="Reviewer A",
+            system_prompt="You review.",
+        )
+        soul_b = Soul(
+            id="soul_b",
+            kind="soul",
+            name="Reviewer B",
+            role="Reviewer B",
+            system_prompt="You review.",
+        )
+        soul_c = Soul(
+            id="soul_c",
+            kind="soul",
+            name="Reviewer C",
+            role="Reviewer C",
+            system_prompt="You review.",
+        )
 
         call_counts = {"soul_a": 0, "soul_b": 0, "soul_c": 0}
 
@@ -299,9 +327,27 @@ class TestStatefulDispatchBlockInsideLoop:
     async def test_per_soul_history_independence(self):
         """Each soul's history must contain only its own outputs, not other souls'."""
         runner = _make_mock_runner()
-        soul_a = Soul(id="soul_a", role="Reviewer A", system_prompt="Review A.")
-        soul_b = Soul(id="soul_b", role="Reviewer B", system_prompt="Review B.")
-        soul_c = Soul(id="soul_c", role="Reviewer C", system_prompt="Review C.")
+        soul_a = Soul(
+            id="soul_a",
+            kind="soul",
+            name="Reviewer A",
+            role="Reviewer A",
+            system_prompt="Review A.",
+        )
+        soul_b = Soul(
+            id="soul_b",
+            kind="soul",
+            name="Reviewer B",
+            role="Reviewer B",
+            system_prompt="Review B.",
+        )
+        soul_c = Soul(
+            id="soul_c",
+            kind="soul",
+            name="Reviewer C",
+            role="Reviewer C",
+            system_prompt="Review C.",
+        )
 
         async def _side_effect(instruction, context, soul, **kwargs):
             return _make_result("t1", soul.id, f"UNIQUE_{soul.id}_OUTPUT")
@@ -336,9 +382,9 @@ class TestStatefulDispatchBlockInsideLoop:
     async def test_each_soul_receives_own_growing_history(self):
         """In round 2, each soul's LLM call must include only that soul's round 1 messages."""
         runner = _make_mock_runner()
-        soul_a = Soul(id="soul_a", role="A", system_prompt="A.")
-        soul_b = Soul(id="soul_b", role="B", system_prompt="B.")
-        soul_c = Soul(id="soul_c", role="C", system_prompt="C.")
+        soul_a = Soul(id="soul_a", kind="soul", name="Soul A", role="A", system_prompt="A.")
+        soul_b = Soul(id="soul_b", kind="soul", name="Soul B", role="B", system_prompt="B.")
+        soul_c = Soul(id="soul_c", kind="soul", name="Soul C", role="C", system_prompt="C.")
 
         messages_per_soul_per_round = {"soul_a": [], "soul_b": [], "soul_c": []}
 
@@ -376,8 +422,8 @@ class TestStatefulDispatchBlockInsideLoop:
     async def test_dispatch_inside_loop_via_workflow_run(self):
         """Integration through Workflow.run()."""
         runner = _make_mock_runner()
-        soul_a = Soul(id="soul_a", role="A", system_prompt="A.")
-        soul_b = Soul(id="soul_b", role="B", system_prompt="B.")
+        soul_a = Soul(id="soul_a", kind="soul", name="Soul A", role="A", system_prompt="A.")
+        soul_b = Soul(id="soul_b", kind="soul", name="Soul B", role="B", system_prompt="B.")
 
         async def _side_effect(instruction, context, soul, **kwargs):
             return _make_result("t1", soul.id, f"{soul.id}_out")
@@ -417,7 +463,9 @@ class TestWindowingActivatesInsideLoop:
     async def test_windowing_prunes_during_loop_rounds(self):
         """With a tiny token budget simulated by mock, old messages get dropped."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="You analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
+        )
 
         call_count = 0
 
@@ -487,8 +535,8 @@ class TestWindowingActivatesInsideLoop:
     async def test_windowing_prunes_dispatch_per_soul_inside_loop(self):
         """Budget fitting should prune per-soul histories independently inside a loop."""
         runner = _make_mock_runner()
-        soul_a = Soul(id="soul_a", role="A", system_prompt="A.")
-        soul_b = Soul(id="soul_b", role="B", system_prompt="B.")
+        soul_a = Soul(id="soul_a", kind="soul", name="Soul A", role="A", system_prompt="A.")
+        soul_b = Soul(id="soul_b", kind="soul", name="Soul B", role="B", system_prompt="B.")
 
         async def _side_effect(instruction, context, soul, **kwargs):
             return _make_result("t1", soul.id, f"{soul.id}_out")
@@ -551,7 +599,9 @@ class TestWindowingActivatesInsideLoop:
         """After budget fitting, the pruned (shorter) history should be what the
         next round's LLM call receives — proving state passthrough works."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="Analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze."
+        )
 
         messages_received = []
 
@@ -633,7 +683,9 @@ class TestBreakConditionWithBlockResult:
         """When inner block stores BlockResult in state.results, the break
         condition must extract .output and evaluate the string."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="Analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze."
+        )
 
         call_count = 0
 
@@ -672,7 +724,9 @@ class TestBreakConditionWithBlockResult:
         If it saw the object repr, a 'contains' check for 'DONE' against
         'BlockResult(output="DONE")' could still match — so we use 'equals' for precision."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="Analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze."
+        )
 
         call_count = 0
 
@@ -707,8 +761,8 @@ class TestBreakConditionWithBlockResult:
         """Break condition works when inner block is a stateful DispatchBlock
         that stores BlockResult with JSON output."""
         runner = _make_mock_runner()
-        soul_a = Soul(id="soul_a", role="A", system_prompt="A.")
-        soul_b = Soul(id="soul_b", role="B", system_prompt="B.")
+        soul_a = Soul(id="soul_a", kind="soul", name="Soul A", role="A", system_prompt="A.")
+        soul_b = Soul(id="soul_b", kind="soul", name="Soul B", role="B", system_prompt="B.")
 
         call_count = 0
 
@@ -743,7 +797,9 @@ class TestBreakConditionWithBlockResult:
         """When break condition triggers early, the accumulated history
         up to that point must be preserved in the state."""
         runner = _make_mock_runner()
-        soul = Soul(id="analyst", role="Analyst", system_prompt="Analyze.")
+        soul = Soul(
+            id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze."
+        )
 
         call_count = 0
 
@@ -788,7 +844,7 @@ class TestCombinedStatefulWindowingBreak:
     async def test_stateful_windowed_loop_with_early_break(self):
         """Stateful LinearBlock with windowing, breaking early at round 3 of 10."""
         runner = _make_mock_runner()
-        soul = Soul(id="writer", role="Writer", system_prompt="Write.")
+        soul = Soul(id="writer", kind="soul", name="Writer", role="Writer", system_prompt="Write.")
 
         call_count = 0
 
