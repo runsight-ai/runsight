@@ -631,6 +631,60 @@ class TestWorkerStatefulHistory:
         assert len(result_env.conversation_history) >= len(prior_history)
 
 
+class TestWorkerBlockContextInputs:
+    """Worker must preserve resolved Step inputs from ContextEnvelope."""
+
+    @pytest.mark.asyncio
+    async def test_envelope_inputs_reach_worker_block_context(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        from runsight_core.block_io import BlockOutput
+        from runsight_core.isolation import worker
+
+        envelope = _make_context_envelope(inputs={"data": "declared value"})
+        captured: dict[str, object] = {}
+
+        class FakeIPCClient:
+            def __init__(self, *, socket_path: str) -> None:
+                self.socket_path = socket_path
+
+            async def connect(self):
+                return {
+                    "accepted": True,
+                    "error": None,
+                }
+
+            async def close(self) -> None:
+                return None
+
+        class FakeBlock:
+            def __init__(self, block_id: str, soul, runner) -> None:
+                self.block_id = block_id
+                self.soul = soul
+                self.runner = runner
+                self.stateful = False
+
+            async def execute(self, ctx):
+                captured["inputs"] = dict(ctx.inputs)
+                return BlockOutput(output="ok", exit_handle="done")
+
+        def _fake_create_block(envelope_arg, soul_arg, runner_arg):
+            return FakeBlock(envelope_arg.block_id, soul_arg, runner_arg)
+
+        monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
+        monkeypatch.setattr(worker._support, "_create_block", _fake_create_block)
+
+        result_env, exit_code = await worker._execute_envelope(
+            envelope=envelope,
+            ipc_socket="/tmp/rs-inputs.sock",
+        )
+
+        assert exit_code == 0
+        assert result_env.error is None
+        assert captured["inputs"] == {"data": "declared value"}
+
+
 # ==============================================================================
 # AC7: Zero workflow/observer/api imports
 # ==============================================================================

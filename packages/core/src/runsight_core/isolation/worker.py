@@ -185,7 +185,7 @@ async def _execute_envelope(
                 block_id=block_id,
                 instruction=envelope.prompt.instruction,
                 context=context_text,
-                inputs={},
+                inputs=dict(envelope.inputs),
                 conversation_history=budgeted_history,
                 soul=soul,
                 model_name=model,
@@ -195,11 +195,12 @@ async def _execute_envelope(
             # Use build_block_context to derive block-type-specific instruction and context.
             # Override conversation_history with the budget-trimmed history.
             base_ctx = build_block_context(block, state)
+            merged_inputs = {**base_ctx.inputs, **dict(envelope.inputs)}
             ctx = BlockContext(
                 block_id=base_ctx.block_id,
                 instruction=base_ctx.instruction,
                 context=base_ctx.context,
-                inputs=base_ctx.inputs,
+                inputs=merged_inputs,
                 conversation_history=budgeted_history,
                 soul=base_ctx.soul,
                 model_name=base_ctx.model_name,

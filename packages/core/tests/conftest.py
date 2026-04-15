@@ -131,6 +131,9 @@ def _bypass_subprocess_isolation(request, monkeypatch):
         budget_token = _active_budget.set(None)
         try:
             block_ctx = build_block_context(self.inner_block, state)
+            block_ctx = block_ctx.model_copy(
+                update={"inputs": {**block_ctx.inputs, **dict(envelope.inputs)}}
+            )
             raw_output = await self.inner_block.execute(block_ctx)
             if isinstance(raw_output, WorkflowState):
                 result_state = raw_output

@@ -320,36 +320,6 @@ class WorkflowBlock(BaseBlock):
 
         return child_state
 
-    def _map_outputs(
-        self,
-        parent_state: WorkflowState,
-        child_final_state: WorkflowState,
-        outputs: Dict[str, str],
-    ) -> WorkflowState:
-        new_parent = parent_state
-
-        if self.interface is not None:
-            # Interface-mediated: values are interface names, resolve via source
-            output_lookup = {odef.name: odef.source for odef in self.interface.outputs}
-            for parent_path, interface_name in outputs.items():
-                source = output_lookup.get(interface_name)
-                if source is None:
-                    raise ValueError(
-                        f"WorkflowBlock '{self.block_id}': output binding "
-                        f"'{interface_name}' does not match any interface output."
-                    )
-                value = self._resolve_dotted(child_final_state, source, context="child state")
-                if isinstance(value, BlockResult):
-                    value = value.output
-                new_parent = self._write_dotted(new_parent, parent_path, value)
-        else:
-            # Legacy: values are child dotted paths directly
-            for parent_path, child_path in outputs.items():
-                value = self._resolve_dotted(child_final_state, child_path, context="child state")
-                new_parent = self._write_dotted(new_parent, parent_path, value)
-
-        return new_parent
-
 
 # -- Schema definition (co-located) -----------------------------------------
 

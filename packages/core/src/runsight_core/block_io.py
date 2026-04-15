@@ -147,6 +147,23 @@ def _resolve_ref(from_ref: str, state: WorkflowState) -> Any:
     return value
 
 
+def _resolve_declared_inputs(step: Optional[Any], state: WorkflowState) -> Dict[str, Any]:
+    """Resolve Step declared inputs without mutating WorkflowState."""
+    inputs: Dict[str, Any] = {}
+    if step is not None and step.declared_inputs:
+        for name, from_ref in step.declared_inputs.items():
+            try:
+                inputs[name] = _resolve_ref(from_ref, state)
+            except ValueError as exc:
+                # Re-raise when the SOURCE BLOCK is missing (hard error).
+                # Swallow only when the FIELD PATH is missing within an existing result
+                # (e.g. workflow.nonexistent when "nonexistent" is not in the JSON).
+                if "not found in state.results" in str(exc):
+                    raise
+                # Field path not found — skip gracefully; callers decide how to handle.
+    return inputs
+
+
 _GATE_INSTRUCTION = (
     "Evaluate the following content and decide if it meets quality standards.\n"
     "Respond with EXACTLY one of:\n"
@@ -190,14 +207,7 @@ def build_block_context(
         wrapper_soul = getattr(block, "soul", None)
         # Resolve declared inputs from Step BEFORE returning, so isolated blocks
         # receive their YAML inputs: declarations via ctx.inputs.
-        wrapper_inputs: Dict[str, Any] = {}
-        if step is not None and step.declared_inputs:
-            for name, from_ref in step.declared_inputs.items():
-                try:
-                    wrapper_inputs[name] = _resolve_ref(from_ref, state)
-                except ValueError as exc:
-                    if "not found in state.results" in str(exc):
-                        raise
+        wrapper_inputs = _resolve_declared_inputs(step, state)
         # Preserve conversation history for stateful inner blocks so that the
         # IsolatedBlockWrapper can include prior turns in the subprocess envelope.
         _inner_stateful = getattr(inner_block, "stateful", False)
@@ -291,12 +301,15 @@ def build_block_context(
             else "dispatch"
         )
         resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
-        dispatch_context = resolved_inputs.get("context") if resolved_inputs else None
+        dispatch_inputs = _resolve_declared_inputs(step, state)
+        if not dispatch_inputs and resolved_inputs:
+            dispatch_inputs = dict(resolved_inputs)
+        dispatch_context = dispatch_inputs.get("context") if dispatch_inputs else None
         return BlockContext(
             block_id=block.block_id,
             instruction=dispatch_instruction,
-            context=dispatch_context,
-            inputs={},
+            context=dispatch_context if isinstance(dispatch_context, str) else None,
+            inputs=dispatch_inputs,
             conversation_history=[],
             soul=dispatch_soul,
             model_name=model_name if isinstance(model_name, str) else None,
@@ -373,18 +386,7 @@ def build_block_context(
         )
 
     # Resolve declared inputs (done here so it applies even when current_task is None).
-    inputs: Dict[str, Any] = {}
-    if step is not None and step.declared_inputs:
-        for name, from_ref in step.declared_inputs.items():
-            try:
-                inputs[name] = _resolve_ref(from_ref, state)
-            except ValueError as exc:
-                # Re-raise when the SOURCE BLOCK is missing (hard error).
-                # Swallow only when the FIELD PATH is missing within an existing result
-                # (e.g. workflow.nonexistent when "nonexistent" is not in the JSON).
-                if "not found in state.results" in str(exc):
-                    raise
-                # Field path not found — skip gracefully; callers decide how to handle.
+    inputs = _resolve_declared_inputs(step, state)
 
     # LinearBlock (and others) strategy: build from _resolved_inputs and soul system_prompt
     resolved_inputs = state.shared_memory.get("_resolved_inputs", {})

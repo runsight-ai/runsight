@@ -266,6 +266,7 @@ class IsolatedBlockWrapper(BaseBlock):
             soul=soul_envelope,
             tools=_build_tool_envelopes_from_tools(resolved_tools),
             prompt=task_envelope,
+            inputs=dict(ctx.inputs),
             scoped_results=scoped_results,
             scoped_shared_memory=scoped_shared_memory,
             conversation_history=conversation_history,
@@ -299,16 +300,17 @@ class IsolatedBlockWrapper(BaseBlock):
                 for port, artifact in result.delegate_artifacts.items()
             }
 
-        # Build conversation updates if stateful
-        conversation_updates: dict | None = None
+        # The worker returns the full stateful history, so replace instead of
+        # appending to avoid duplicating prior turns on repeated isolated calls.
+        conversation_replacements: dict | None = None
         if self.inner_block.stateful and result.conversation_history:
-            conversation_updates = {history_key: result.conversation_history}
+            conversation_replacements = {history_key: result.conversation_history}
 
         return BlockOutput(
             output=result.output or "",
             exit_handle=result.exit_handle,
             cost_usd=result.cost_usd,
             total_tokens=result.total_tokens,
-            conversation_updates=conversation_updates,
+            conversation_replacements=conversation_replacements,
             extra_results=extra_results,
         )

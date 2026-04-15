@@ -35,8 +35,8 @@ from runsight_core.blocks.linear import LinearBlock
 from runsight_core.blocks.synthesize import SynthesizeBlock
 from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
-from runsight_core.primitives import Soul
-from runsight_core.state import WorkflowState
+from runsight_core.primitives import Soul, Step
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.schema import BaseBlockDef, RetryConfig
 
 # ── Shared fixtures ─────────────────────────────────────────────────────────
@@ -376,6 +376,45 @@ class TestExistingBlockCodeUnchanged:
         }
         assert result_output.output == "ok"
 
+    @pytest.mark.asyncio
+    async def test_wrapper_envelope_preserves_step_declared_inputs(self):
+        """Step-resolved inputs must cross the isolation boundary."""
+        from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
+
+        soul = _make_soul()
+        runner = MagicMock()
+        inner = LinearBlock("blk1", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        captured = {}
+
+        async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
+            captured["envelope"] = envelope
+            return ResultEnvelope(
+                block_id="blk1",
+                output="ok",
+                exit_handle="done",
+                cost_usd=0.0,
+                total_tokens=0,
+                tool_calls_made=0,
+                delegate_artifacts={},
+                conversation_history=[],
+                error=None,
+                error_type=None,
+            )
+
+        wrapper._run_in_subprocess = _capture
+        state = WorkflowState(results={"source": BlockResult(output="declared value")})
+        step = Step(block=wrapper, declared_inputs={"data": "source"})
+        ctx = build_block_context(wrapper, state, step=step)
+
+        assert ctx.inputs == {"data": "declared value"}
+
+        await wrapper.execute(ctx)
+
+        assert captured["envelope"].inputs == {"data": "declared value"}
+
 
 # ==============================================================================
 # AC5: Agentic loop works through subprocess (LLM → tool → LLM)
@@ -556,11 +595,11 @@ class TestConversationHistoryRoundTrip:
                 wrapper.execute(_make_ctx(wrapper, state))
             )
 
-        # History should be in BlockOutput.conversation_updates under the block_id + soul_id key
+        # Worker returns a full history, so wrapper must replace rather than append.
         history_key = f"blk1_{soul.id}"
-        assert result_output.conversation_updates is not None
-        assert history_key in result_output.conversation_updates
-        assert result_output.conversation_updates[history_key] == updated_history
+        assert result_output.conversation_replacements is not None
+        assert history_key in result_output.conversation_replacements
+        assert result_output.conversation_replacements[history_key] == updated_history
 
     def test_existing_history_sent_in_envelope(self):
         """Pre-existing conversation history is included in the ContextEnvelope."""
@@ -666,8 +705,14 @@ class TestLoopBlockWithSubprocessInnerBlocks:
 
         history_key = f"inner_blk_{soul.id}"
         history = state.conversation_histories.get(history_key, [])
-        # 3 rounds x 2 messages each = 6 messages minimum
-        assert len(history) >= 6
+        assert history == [
+            {"role": "user", "content": "round 1"},
+            {"role": "assistant", "content": "response 1"},
+            {"role": "user", "content": "round 2"},
+            {"role": "assistant", "content": "response 2"},
+            {"role": "user", "content": "round 3"},
+            {"role": "assistant", "content": "response 3"},
+        ]
         assert call_count == 3
 
 

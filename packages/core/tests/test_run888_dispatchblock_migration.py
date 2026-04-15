@@ -23,7 +23,7 @@ from runsight_core.block_io import (
 )
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.budget_enforcement import BudgetSession, _active_budget
-from runsight_core.primitives import Soul
+from runsight_core.primitives import Soul, Step
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
@@ -401,6 +401,47 @@ def test_build_block_context_for_dispatchblock_returns_block_context_without_tas
         f"Expected BlockContext from build_block_context, got {type(ctx).__name__}"
     )
     assert ctx.block_id == "dispatch1"
+
+
+def test_build_block_context_for_dispatchblock_resolves_step_declared_inputs(
+    mock_runner,
+    soul_alpha,
+    soul_beta,
+):
+    """DispatchBlock must receive Step-declared inputs through ctx.inputs."""
+    branches = _make_branches(soul_alpha, soul_beta)
+    block = DispatchBlock("dispatch1", branches, mock_runner)
+    state = WorkflowState(results={"source": BlockResult(output="declared context")})
+    step = Step(block=block, declared_inputs={"context": "source"})
+
+    ctx = build_block_context(block, state, step=step)
+
+    assert ctx.inputs == {"context": "declared context"}
+    assert ctx.context == "declared context"
+
+
+@pytest.mark.asyncio
+async def test_dispatchblock_step_declared_context_reaches_runner(
+    mock_runner,
+    soul_alpha,
+    soul_beta,
+):
+    """Step(DispatchBlock) declared context must reach each branch runner call."""
+    captured_contexts: list[str | None] = []
+
+    async def _side_effect(instruction, context, soul, **kwargs):
+        captured_contexts.append(context)
+        return _make_result(soul.id, f"{soul.id} output")
+
+    mock_runner.execute = AsyncMock(side_effect=_side_effect)
+    branches = _make_branches(soul_alpha, soul_beta)
+    block = DispatchBlock("dispatch1", branches, mock_runner)
+    step = Step(block=block, declared_inputs={"context": "source"})
+    state = WorkflowState(results={"source": BlockResult(output="declared context")})
+
+    await step.execute(state)
+
+    assert captured_contexts == ["declared context", "declared context"]
 
 
 # ---------------------------------------------------------------------------
