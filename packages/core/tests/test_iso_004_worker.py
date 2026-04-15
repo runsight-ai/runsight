@@ -30,9 +30,9 @@ import pytest
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     HeartbeatMessage,
+    PromptEnvelope,
     ResultEnvelope,
     SoulEnvelope,
-    TaskEnvelope,
     ToolDefEnvelope,
 )
 
@@ -49,13 +49,14 @@ def _make_context_envelope(**overrides) -> ContextEnvelope:
         block_config={},
         soul=SoulEnvelope(
             id="soul_1",
+            name="Tester",
             role="Tester",
             system_prompt="You test things.",
             model_name="gpt-4o",
             max_tool_iterations=5,
         ),
         tools=[],
-        task=TaskEnvelope(
+        prompt=PromptEnvelope(
             id="task_1",
             instruction="Say hello",
             context={},
@@ -234,6 +235,8 @@ class TestRUN395ProxiedLLMClientContract:
         runner = create_runner(model_name="gpt-4o", ipc_client=shared_ipc_client)
         alt_soul = Soul(
             id="soul-alt",
+            kind="soul",
+            name="Alt",
             role="Alt",
             system_prompt="alt",
             model_name="gpt-4.1-mini",
@@ -301,6 +304,8 @@ class TestRUN395ProxiedLLMClientContract:
 
         primary_soul = Soul(
             id="soul-primary",
+            kind="soul",
+            name="Primary",
             role="Primary",
             system_prompt="primary",
             model_name="gpt-4o",
@@ -324,6 +329,7 @@ class TestRUN395ProxiedLLMClientContract:
         soul = reconstruct_soul(
             SoulEnvelope(
                 id="soul_1",
+                name="Tester",
                 role="Tester",
                 system_prompt="You test things.",
                 model_name="gpt-4o",
@@ -867,6 +873,8 @@ class TestRUN399WorkerRedesignContract:
         default_client = runner.llm_client
         alt_soul = Soul(
             id="alt",
+            kind="soul",
+            name="Alt",
             role="Alt",
             system_prompt="alt",
             model_name="gpt-4.1-mini",
@@ -1496,6 +1504,7 @@ class TestWorkerSoulReconstruction:
 
         soul_env = SoulEnvelope(
             id="soul_1",
+            name="Tester",
             role="Tester",
             system_prompt="You test things.",
             model_name="gpt-4o",
@@ -1518,6 +1527,7 @@ class TestWorkerSoulReconstruction:
 
         soul_env = SoulEnvelope(
             id="soul_1",
+            name="Tester",
             role="Tester",
             system_prompt="You test things.",
             model_name="gpt-4o",
@@ -1559,5 +1569,6 @@ class TestWorkerScopedState:
 
         assert isinstance(state, WorkflowState)
         assert "key" in state.shared_memory
-        assert state.current_task is not None
-        assert state.current_task.instruction == "Say hello"
+        # build_scoped_state constructs state from scoped_results and shared_memory;
+        # the instruction is passed separately to the block via the worker harness
+        assert "prev_block" in state.results

@@ -1,42 +1,116 @@
 """Red tests for RUN-478: workflow health metrics on GET /api/workflows."""
 
+# ruff: noqa: E402
+
 import sys
 import types
 from unittest.mock import Mock
 
 import pytest
 
-if "structlog" not in sys.modules:
-    structlog = types.ModuleType("structlog")
-    structlog.contextvars = types.SimpleNamespace(
-        bind_contextvars=lambda **kwargs: None,
-        unbind_contextvars=lambda *args, **kwargs: None,
-    )
-    sys.modules["structlog"] = structlog
-    sys.modules["structlog.contextvars"] = structlog.contextvars
+_STUBBED_KEYS = [
+    "structlog",
+    "structlog.contextvars",
+    "runsight_core",
+    "runsight_core.identity",
+    "runsight_core.yaml",
+    "runsight_core.yaml.schema",
+    "runsight_api.data.filesystem",
+    "runsight_api.data.filesystem.workflow_repo",
+    "runsight_api.data.repositories",
+    "runsight_api.data.repositories.run_repo",
+]
+_originals = {key: sys.modules.get(key) for key in _STUBBED_KEYS}
 
-if "runsight_core" not in sys.modules:
-    runsight_core = types.ModuleType("runsight_core")
-    runsight_core.__path__ = []
+structlog = types.ModuleType("structlog")
+structlog.contextvars = types.SimpleNamespace(
+    bind_contextvars=lambda **kwargs: None,
+    unbind_contextvars=lambda *args, **kwargs: None,
+)
+sys.modules["structlog"] = structlog
+sys.modules["structlog.contextvars"] = structlog.contextvars
 
-    yaml_pkg = types.ModuleType("runsight_core.yaml")
-    yaml_pkg.__path__ = []
-    schema_pkg = types.ModuleType("runsight_core.yaml.schema")
+runsight_core = types.ModuleType("runsight_core")
+runsight_core.__path__ = []
+yaml_pkg = types.ModuleType("runsight_core.yaml")
+yaml_pkg.__path__ = []
+identity_pkg = types.ModuleType("runsight_core.identity")
+schema_pkg = types.ModuleType("runsight_core.yaml.schema")
 
-    class _RunsightWorkflowFile:
-        @classmethod
-        def model_validate(cls, data):
-            return data
 
-    schema_pkg.RunsightWorkflowFile = _RunsightWorkflowFile
-    yaml_pkg.schema = schema_pkg
-    runsight_core.yaml = yaml_pkg
-    sys.modules["runsight_core"] = runsight_core
-    sys.modules["runsight_core.yaml"] = yaml_pkg
-    sys.modules["runsight_core.yaml.schema"] = schema_pkg
+class _EntityKind:
+    SOUL = "soul"
+    WORKFLOW = "workflow"
+    TOOL = "tool"
+    PROVIDER = "provider"
+    ASSERTION = "assertion"
+
+
+class _EntityRef:
+    def __init__(self, kind, id):
+        self.kind = kind
+        self.id = id
+
+    def __str__(self):
+        return f"{self.kind}:{self.id}"
+
+
+identity_pkg.EntityKind = _EntityKind
+identity_pkg.EntityRef = _EntityRef
+identity_pkg.validate_entity_id = lambda *_args, **_kwargs: None
+
+
+class _RunsightWorkflowFile:
+    @classmethod
+    def model_validate(cls, data):
+        return data
+
+
+schema_pkg.RunsightWorkflowFile = _RunsightWorkflowFile
+yaml_pkg.schema = schema_pkg
+runsight_core.identity = identity_pkg
+runsight_core.yaml = yaml_pkg
+sys.modules["runsight_core"] = runsight_core
+sys.modules["runsight_core.identity"] = identity_pkg
+sys.modules["runsight_core.yaml"] = yaml_pkg
+sys.modules["runsight_core.yaml.schema"] = schema_pkg
+
+fake_filesystem_pkg = types.ModuleType("runsight_api.data.filesystem")
+fake_filesystem_pkg.__path__ = []
+fake_workflow_repo = types.ModuleType("runsight_api.data.filesystem.workflow_repo")
+
+
+class _WorkflowRepository:
+    pass
+
+
+fake_workflow_repo.WorkflowRepository = _WorkflowRepository
+fake_filesystem_pkg.workflow_repo = fake_workflow_repo
+sys.modules["runsight_api.data.filesystem"] = fake_filesystem_pkg
+sys.modules["runsight_api.data.filesystem.workflow_repo"] = fake_workflow_repo
+
+fake_repositories_pkg = types.ModuleType("runsight_api.data.repositories")
+fake_repositories_pkg.__path__ = []
+fake_run_repo = types.ModuleType("runsight_api.data.repositories.run_repo")
+
+
+class _RunRepository:
+    pass
+
+
+fake_run_repo.RunRepository = _RunRepository
+fake_repositories_pkg.run_repo = fake_run_repo
+sys.modules["runsight_api.data.repositories"] = fake_repositories_pkg
+sys.modules["runsight_api.data.repositories.run_repo"] = fake_run_repo
 
 from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.workflow_service import WorkflowService
+
+for _key, _orig in _originals.items():
+    if _orig is not None:
+        sys.modules[_key] = _orig
+    else:
+        sys.modules.pop(_key, None)
 
 
 def _make_run(
@@ -86,7 +160,9 @@ class TestWorkflowHealthAggregation:
     def test_list_workflows_aggregates_health(self):
         """WorkflowService should expose aggregated workflow health metadata."""
         workflow_repo = Mock()
-        workflow_repo.list_all.return_value = [WorkflowEntity(id="wf_1", name="Research Flow")]
+        workflow_repo.list_all.return_value = [
+            WorkflowEntity(kind="workflow", id="wf_1", name="Research Flow")
+        ]
 
         run_repo = Mock()
         run_repo.get_workflow_health_metrics.return_value = {
@@ -116,7 +192,9 @@ class TestWorkflowHealthAggregation:
     def test_list_workflows_handles_zero_run_edge_case(self):
         """A workflow with no runs should still expose zeroed health fields."""
         workflow_repo = Mock()
-        workflow_repo.list_all.return_value = [WorkflowEntity(id="wf_empty", name="Empty Flow")]
+        workflow_repo.list_all.return_value = [
+            WorkflowEntity(kind="workflow", id="wf_empty", name="Empty Flow")
+        ]
 
         run_repo = Mock()
         run_repo.get_workflow_health_metrics.return_value = {
@@ -146,7 +224,9 @@ class TestWorkflowHealthAggregation:
     def test_list_workflows_handles_no_eval_edge_case(self):
         """A workflow with runs but no eval data should not invent percentages."""
         workflow_repo = Mock()
-        workflow_repo.list_all.return_value = [WorkflowEntity(id="wf_no_eval", name="No Eval Flow")]
+        workflow_repo.list_all.return_value = [
+            WorkflowEntity(kind="workflow", id="wf_no_eval", name="No Eval Flow")
+        ]
 
         run_repo = Mock()
         run_repo.get_workflow_health_metrics.return_value = {

@@ -83,6 +83,8 @@ def sample_soul():
     """A minimal Soul for testing."""
     return Soul(
         id="analyst_v1",
+        kind="soul",
+        name="Data Analyst",
         role="Data Analyst",
         system_prompt="You are a data analyst.",
         model_name="gpt-4o",

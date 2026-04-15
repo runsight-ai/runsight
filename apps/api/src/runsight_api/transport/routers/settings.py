@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends
+from runsight_core.identity import EntityKind, EntityRef
 
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
 from ...domain.errors import ProviderNotFound
@@ -24,6 +25,10 @@ from ..schemas.settings import (
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
 
+def _provider_ref(provider_id: str) -> str:
+    return str(EntityRef(EntityKind.PROVIDER, provider_id))
+
+
 def _preview_api_key(secret: Optional[str]) -> Optional[str]:
     if not secret:
         return None
@@ -44,6 +49,7 @@ def _provider_to_out(p, service: ProviderService) -> SettingsProviderResponse:
         )
     return SettingsProviderResponse(
         id=p.id,
+        kind=p.kind,
         name=p.name,
         type=provider_type if isinstance(provider_type, str) else None,
         status=p.status or "unknown",
@@ -74,7 +80,7 @@ async def get_provider(
 ):
     provider = service.get_provider(provider_id)
     if not provider:
-        raise ProviderNotFound(f"Provider {provider_id} not found")
+        raise ProviderNotFound(f"Provider {_provider_ref(provider_id)} not found")
     return _provider_to_out(provider, service)
 
 
@@ -84,6 +90,8 @@ async def create_provider(
     service: ProviderService = Depends(get_provider_service),
 ):
     provider = service.create_provider(
+        id=data.id,
+        kind=data.kind,
         name=data.name,
         api_key=data.api_key_env,
         base_url=data.base_url,
@@ -99,13 +107,15 @@ async def update_provider(
 ):
     provider = service.update_provider(
         provider_id=provider_id,
+        id=data.id,
+        kind=data.kind,
         name=data.name,
         api_key=data.api_key_env,
         base_url=data.base_url,
         is_active=data.is_active,
     )
     if not provider:
-        raise ProviderNotFound(f"Provider {provider_id} not found")
+        raise ProviderNotFound(f"Provider {_provider_ref(provider_id)} not found")
     return _provider_to_out(provider, service)
 
 
@@ -116,7 +126,7 @@ async def delete_provider(
 ):
     deleted = service.delete_provider(provider_id)
     if not deleted:
-        raise ProviderNotFound(f"Provider {provider_id} not found")
+        raise ProviderNotFound(f"Provider {_provider_ref(provider_id)} not found")
     return {"id": provider_id, "deleted": True}
 
 

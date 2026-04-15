@@ -23,22 +23,50 @@ type WorkflowResponse = {
   yaml: string | null;
 };
 
+function buildInitialYaml(id: string) {
+  return [
+    'version: "1.0"',
+    `id: ${id}`,
+    "kind: workflow",
+    "blocks:",
+    "  step_a:",
+    "    type: linear",
+    "workflow:",
+    "  name: Demo",
+    "  entry: step_a",
+    "  transitions: []",
+    "",
+  ].join("\n");
+}
+
+function buildUpdatedYaml(id: string) {
+  return [
+    'version: "1.0"',
+    `id: ${id}`,
+    "kind: workflow",
+    "blocks:",
+    "  step_a:",
+    "    type: linear",
+    "  step_b:",
+    "    type: dispatch",
+    "workflow:",
+    "  name: Demo",
+    "  entry: step_a",
+    "  transitions:",
+    "    - from: step_a",
+    "      to: step_b",
+    "",
+  ].join("\n");
+}
+
 test.describe("Workflow YAML editor", () => {
   let workflowId: string | null = null;
 
   test.beforeAll(async () => {
+    const id = `e2e-yaml-${Date.now()}`;
     const workflow = await apiPost<WorkflowResponse>("/workflows", {
-      yaml: [
-        'version: "1.0"',
-        "blocks:",
-        "  step_a:",
-        "    type: linear",
-        "workflow:",
-        "  name: Demo",
-        "  entry: step_a",
-        "  transitions: []",
-        "",
-      ].join("\n"),
+      name: "Demo",
+      yaml: buildInitialYaml(id),
     });
     workflowId = workflow.id;
   });
@@ -60,21 +88,7 @@ test.describe("Workflow YAML editor", () => {
   test("loads the current workflow YAML and persists edits through the commit dialog", async ({
     page,
   }) => {
-    const updatedYaml = [
-      'version: "1.0"',
-      "blocks:",
-      "  step_a:",
-      "    type: linear",
-      "  step_b:",
-      "    type: dispatch",
-      "workflow:",
-      "  name: Demo",
-      "  entry: step_a",
-      "  transitions:",
-      "    - from: step_a",
-      "      to: step_b",
-      "",
-    ].join("\n");
+    const updatedYaml = buildUpdatedYaml(workflowId!);
 
     await gotoWorkflowEditor(page, workflowId!);
 

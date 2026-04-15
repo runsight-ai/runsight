@@ -4,8 +4,11 @@ import {
   AppSettingsOutSchema,
   FallbackUpdateSchema,
   ModelListResponseSchema,
+  ModelResponseSchema,
+  ProviderCreateSchema,
   ProviderSummarySchema,
   ProviderTestOutSchema,
+  ProviderUpdateSchema,
   SettingsFallbackListResponseSchema,
   SettingsFallbackResponseSchema,
   SettingsProviderListResponseSchema,
@@ -52,11 +55,13 @@ export const settingsApi = {
     return SettingsProviderResponseSchema.parse(res);
   },
   createProvider: async (data: CreateProvider): Promise<Provider> => {
-    const res = await api.post(`/settings/providers`, data);
+    const payload = ProviderCreateSchema.parse(data);
+    const res = await api.post(`/settings/providers`, payload);
     return SettingsProviderResponseSchema.parse(res);
   },
   updateProvider: async (id: string, data: UpdateProvider): Promise<Provider> => {
-    const res = await api.put(`/settings/providers/${id}`, data);
+    const payload = ProviderUpdateSchema.parse(data);
+    const res = await api.put(`/settings/providers/${id}`, payload);
     return SettingsProviderResponseSchema.parse(res);
   },
   deleteProvider: async (id: string): Promise<{ id: string; deleted: boolean }> => {

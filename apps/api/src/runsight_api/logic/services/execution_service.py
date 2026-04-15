@@ -6,6 +6,7 @@ import subprocess
 import time
 from typing import Any, AsyncGenerator, Dict, Optional
 
+from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.observer import CompositeObserver, LoggingObserver
 from runsight_core.runner import FallbackRoute, RunsightTeamRunner
 from runsight_core.yaml.parser import parse_workflow_yaml
@@ -19,6 +20,14 @@ from ..observers.execution_observer import ExecutionObserver
 from ..observers.streaming_observer import StreamingObserver
 
 logger = logging.getLogger(__name__)
+
+
+def _workflow_ref(workflow_id: str) -> str:
+    return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
+
+
+def _provider_ref(provider_id: str) -> str:
+    return str(EntityRef(EntityKind.PROVIDER, provider_id))
 
 
 class ExecutionService:
@@ -153,7 +162,7 @@ class ExecutionService:
             return None
 
     async def launch_execution(
-        self, run_id: str, workflow_id: str, task_data: Dict[str, Any], branch: str = "main"
+        self, run_id: str, workflow_id: str, inputs: Dict[str, Any], branch: str = "main"
     ) -> None:
         """Launch workflow execution as a background asyncio task.
 
@@ -161,14 +170,10 @@ class ExecutionService:
         then schedules the actual run as a background asyncio task.
         """
         try:
-            # Validate instruction
-            if "instruction" not in task_data:
-                raise ValueError("task_data missing required 'instruction' key")
-
             # Load workflow entity
             wf_entity = self.workflow_repo.get_by_id(workflow_id)
             if wf_entity is None:
-                raise ValueError(f"Workflow {workflow_id} not found")
+                raise ValueError(f"Workflow {_workflow_ref(workflow_id)} not found")
 
             workflow_path = str(self.workflow_repo._get_path(workflow_id))
 
@@ -214,11 +219,11 @@ class ExecutionService:
             return
 
         # Schedule background execution (task starts on next event-loop iteration)
-        task = asyncio.create_task(self._run_workflow(run_id, wf, task_data))
+        task = asyncio.create_task(self._run_workflow(run_id, wf, inputs))
         self._running_tasks[run_id] = task
         task.add_done_callback(lambda t: self._running_tasks.pop(run_id, None))
 
-    async def _run_workflow(self, run_id: str, wf: Any, task_data: Dict[str, Any]) -> None:
+    async def _run_workflow(self, run_id: str, wf: Any, inputs: Dict[str, Any]) -> None:
         """Execute the workflow with CompositeObserver for status management.
 
         Acquires the concurrency semaphore before running. Status stays
@@ -226,7 +231,6 @@ class ExecutionService:
         'running'. Terminal status (completed/failed) is written exclusively
         by ExecutionObserver via Workflow.run()'s observer callbacks.
         """
-        from runsight_core.primitives import Task
         from runsight_core.state import WorkflowState
 
         async with self._semaphore:
@@ -255,13 +259,10 @@ class ExecutionService:
             from runsight_core.artifacts import InMemoryArtifactStore
 
             artifact_store = InMemoryArtifactStore(run_id=run_id)
-            state = WorkflowState(
-                current_task=Task(id=run_id, instruction=task_data["instruction"]),
-                artifact_store=artifact_store,
-            )
+            state = WorkflowState(artifact_store=artifact_store)
 
             try:
-                state = await wf.run(state, observer=observer)
+                state = await wf.run(state, observer=observer, inputs=inputs)
             except Exception:
                 logger.exception("Workflow execution failed for run %s", run_id)
             finally:
@@ -451,7 +452,8 @@ class ExecutionService:
             provider = provider_by_id.get(provider_id)
             if provider is None:
                 raise ValueError(
-                    f"Soul '{soul_key}' references disabled or missing provider '{provider_id}'"
+                    f"Soul '{soul_key}' references disabled or missing provider "
+                    f"{_provider_ref(provider_id)}"
                 )
 
             if not isinstance(model_name, str) or not model_name.strip():
@@ -459,7 +461,8 @@ class ExecutionService:
 
             if model_name not in self._provider_models(provider):
                 raise ValueError(
-                    f"Soul '{soul_key}' model '{model_name}' does not belong to provider '{provider_id}'"
+                    f"Soul '{soul_key}' model '{model_name}' does not belong to provider "
+                    f"{_provider_ref(provider_id)}"
                 )
 
         runner_model_name = next(

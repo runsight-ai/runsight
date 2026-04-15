@@ -1,3 +1,5 @@
 id: reviewer
+kind: soul
+name: Quality Reviewer
 role: Quality Reviewer
 system_prompt: Review the content for quality.

@@ -9,7 +9,7 @@ from runsight_api.transport.deps import get_soul_service
 
 
 def workflow_entity(id: str, name: str, yaml_text: str) -> WorkflowEntity:
-    return WorkflowEntity(id=id, name=name, yaml=yaml_text)
+    return WorkflowEntity(kind="workflow", id=id, name=name, yaml=yaml_text)
 
 
 def test_get_soul_service_injects_workflow_repo():
@@ -32,8 +32,8 @@ def test_list_souls_uses_injected_workflow_repo_for_counts():
     soul_repo = Mock()
     workflow_repo = Mock()
     soul_repo.list_all.return_value = [
-        SoulEntity(id="researcher", role="Researcher"),
-        SoulEntity(id="reviewer", role="Reviewer"),
+        SoulEntity(id="researcher", kind="soul", name="Researcher", role="Researcher"),
+        SoulEntity(id="reviewer", kind="soul", name="Reviewer", role="Reviewer"),
     ]
     workflow_repo.list_all.return_value = [
         workflow_entity(
@@ -57,7 +57,9 @@ blocks:
 def test_get_soul_usages_uses_injected_workflow_repo():
     soul_repo = Mock()
     workflow_repo = Mock()
-    soul_repo.get_by_id.return_value = SoulEntity(id="researcher", role="Researcher")
+    soul_repo.get_by_id.return_value = SoulEntity(
+        id="researcher", kind="soul", name="Researcher", role="Researcher"
+    )
     workflow_repo.list_all.return_value = [
         workflow_entity(
             "wf_1",
@@ -80,7 +82,9 @@ blocks:
 def test_delete_soul_uses_injected_workflow_repo_for_guarded_delete():
     soul_repo = Mock()
     workflow_repo = Mock()
-    soul_repo.get_by_id.return_value = SoulEntity(id="researcher", role="Researcher")
+    soul_repo.get_by_id.return_value = SoulEntity(
+        id="researcher", kind="soul", name="Researcher", role="Researcher"
+    )
     workflow_repo.list_all.return_value = [
         workflow_entity(
             "wf_1",

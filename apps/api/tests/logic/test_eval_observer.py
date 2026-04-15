@@ -96,7 +96,9 @@ def sse_queue():
 def sample_soul():
     """A minimal Soul for testing."""
     return Soul(
-        id="researcher_v1",
+        id="researcher-v1",
+        kind="soul",
+        name="Senior Researcher",
         role="Senior Researcher",
         system_prompt="You are a senior researcher.",
         model_name="gpt-4o",

@@ -49,36 +49,71 @@ class ScanResult(Generic[T]):
     relative_path: str
     item: T
     aliases: frozenset[str]
+    entity_id: str | None = None
 
 
 class ScanIndex(Generic[T]):
     def __init__(self, results: Collection[ScanResult[T]] | None = None) -> None:
-        self._results_by_stem: dict[str, ScanResult[T]] = {}
+        self._results_by_entity_id: dict[str, ScanResult[T]] = {}
         self._lookup: dict[str, ScanResult[T]] = {}
-        self._ordered_stems: list[str] = []
+        self._ordered_entity_ids: list[str] = []
         if results:
             for result in results:
                 self.add(result)
 
+    def _require_entity_id(self, result: ScanResult[T]) -> str:
+        if not isinstance(result.entity_id, str) or not result.entity_id:
+            raise ValueError(
+                "scan result missing embedded entity id for "
+                f"stem={result.stem!r} at {result.relative_path}"
+            )
+        return result.entity_id
+
     def add(self, result: ScanResult[T]) -> None:
-        if result.stem not in self._results_by_stem:
-            self._ordered_stems.append(result.stem)
-        self._results_by_stem[result.stem] = result
-        for alias in result.aliases:
-            self._lookup[alias] = result
+        entity_id = self._require_entity_id(result)
+        existing = self._results_by_entity_id.get(entity_id)
+        if existing is not None and existing is not result:
+            raise ValueError(
+                "duplicate scan entity id collision for "
+                f"{entity_id!r}: existing stem={existing.stem!r} at {existing.relative_path}, "
+                f"new stem={result.stem!r} at {result.relative_path}"
+            )
+
+        existing_alias = self._lookup.get(entity_id)
+        if existing_alias is not None and existing_alias is not result:
+            raise ValueError(
+                "duplicate scan alias collision for "
+                f"{entity_id!r}: existing entity id={existing_alias.entity_id!r} "
+                f"(stem={existing_alias.stem!r}, path={existing_alias.relative_path}), "
+                f"new entity id={entity_id!r} (stem={result.stem!r}, path={result.relative_path})"
+            )
+
+        if entity_id not in self._results_by_entity_id:
+            self._ordered_entity_ids.append(entity_id)
+        self._results_by_entity_id[entity_id] = result
+        self._lookup[entity_id] = result
+
+    def _upsert(self, result: ScanResult[T]) -> None:
+        entity_id = self._require_entity_id(result)
+        if entity_id not in self._results_by_entity_id:
+            self._ordered_entity_ids.append(entity_id)
+        self._results_by_entity_id[entity_id] = result
+        self._lookup[entity_id] = result
 
     def get(self, ref: str) -> ScanResult[T] | None:
         return self._lookup.get(ref)
 
     def get_all(self) -> list[ScanResult[T]]:
-        return [self._results_by_stem[stem] for stem in self._ordered_stems]
+        return [self._results_by_entity_id[entity_id] for entity_id in self._ordered_entity_ids]
 
-    def stems(self) -> dict[str, T]:
-        return {stem: result.item for stem, result in self._results_by_stem.items()}
+    def ids(self) -> dict[str, T]:
+        return {entity_id: result.item for entity_id, result in self._results_by_entity_id.items()}
 
-    def without_stems(self, keys: Collection[str]) -> ScanIndex[T]:
+    def without_ids(self, keys: Collection[str]) -> ScanIndex[T]:
         keys_to_drop = set(keys)
-        return ScanIndex(result for result in self.get_all() if result.stem not in keys_to_drop)
+        return ScanIndex(
+            result for result in self.get_all() if result.entity_id not in keys_to_drop
+        )
 
 
 class BaseScanner(Generic[T], abc.ABC):
@@ -98,14 +133,9 @@ class BaseScanner(Generic[T], abc.ABC):
     def _parse_file(self, path: Path, raw_yaml: str) -> T:
         raise NotImplementedError
 
-    def _compute_aliases(self, path: Path, item: T) -> set[str]:
-        resolved = path.resolve()
-        aliases = {resolved.as_posix(), path.stem}
-        try:
-            aliases.add(resolved.relative_to(self.base_dir.resolve()).as_posix())
-        except ValueError:
-            pass
-        return aliases
+    @property
+    def reject_duplicate_entity_ids(self) -> bool:
+        return False
 
     def scan(
         self,
@@ -117,6 +147,15 @@ class BaseScanner(Generic[T], abc.ABC):
             return self._scan_git(git_ref, git_service)
         return self._scan_filesystem()
 
+    def _build_scan_index(self, results: Collection[ScanResult[T]]) -> ScanIndex[T]:
+        index = ScanIndex()
+        for result in results:
+            if self.reject_duplicate_entity_ids:
+                index.add(result)
+            else:
+                index._upsert(result)
+        return index
+
     def _scan_filesystem(self) -> ScanIndex[T]:
         asset_dir = self.asset_dir
         if not asset_dir.exists():
@@ -127,7 +166,7 @@ class BaseScanner(Generic[T], abc.ABC):
             result = self._scan_yaml_file(yaml_file)
             if result is not None:
                 results.append(result)
-        return ScanIndex(results)
+        return self._build_scan_index(results)
 
     def _scan_git(self, git_ref: str, git_service: Any) -> ScanIndex[T]:
         asset_dir = self.asset_dir
@@ -167,7 +206,7 @@ class BaseScanner(Generic[T], abc.ABC):
             result_item = self._scan_yaml_content(Path(candidate), raw_yaml)
             if result_item is not None:
                 results.append(result_item)
-        return ScanIndex(results)
+        return self._build_scan_index(results)
 
     def _scan_yaml_file(self, path: Path) -> ScanResult[T] | None:
         raw_yaml = path.read_text(encoding="utf-8")
@@ -185,21 +224,21 @@ class BaseScanner(Generic[T], abc.ABC):
             raise ValueError(f"{path.name}: YAML content is not a mapping")
 
         item = self._parse_file(path, raw_yaml)
-        aliases = self._compute_aliases(path, item)
+        entity_id = getattr(item, "id", None)
+        if not isinstance(entity_id, str) or not entity_id:
+            raise ValueError(f"{path.name}: parsed item does not expose an embedded id")
         resolved = path.resolve()
         try:
             relative_path = resolved.relative_to(self.base_dir.resolve()).as_posix()
         except ValueError:
             relative_path = path.as_posix()
-        aliases.add(resolved.as_posix())
-        aliases.add(path.stem)
-        aliases.add(relative_path)
         return ScanResult(
             path=resolved,
             stem=path.stem,
+            entity_id=entity_id,
             relative_path=relative_path,
             item=item,
-            aliases=frozenset(aliases),
+            aliases=frozenset({entity_id}),
         )
 
     def _glob_yaml_files(self, directory: Path) -> list[Path]:
@@ -208,68 +247,12 @@ class BaseScanner(Generic[T], abc.ABC):
             {path.resolve(): path for path in candidates}.values(), key=lambda path: path.name
         )
 
-    def _candidate_paths(self, ref: str) -> list[Path]:
-        ref_path = Path(ref)
-        if ref_path.is_absolute():
-            return [ref_path.resolve()]
-
-        root = self.base_dir.resolve()
-        candidates: list[Path] = []
-        if ref.startswith("custom/"):
-            candidates.append((root / ref_path).resolve())
-        else:
-            candidates.append((self.asset_dir / ref_path).resolve())
-            if ref_path.suffix == "":
-                candidates.append((self.asset_dir / f"{ref}.yaml").resolve())
-                candidates.append((self.asset_dir / f"{ref}.yml").resolve())
-        deduped: list[Path] = []
-        seen: set[str] = set()
-        for candidate in candidates:
-            candidate_str = candidate.as_posix()
-            if candidate_str in seen:
-                continue
-            seen.add(candidate_str)
-            deduped.append(candidate)
-        return deduped
-
     def resolve_ref(
         self,
         ref: str,
         *,
         index: ScanIndex[T] | None = None,
-        git_ref: str | None = None,
-        git_service: Any = None,
-        allow_candidate_fallback: bool = True,
     ) -> ScanResult[T] | None:
         if index is not None:
-            indexed = index.get(ref)
-            if indexed is not None:
-                return indexed
-
-        if not allow_candidate_fallback:
-            return None
-
-        for candidate in self._candidate_paths(ref):
-            scanned = self._load_candidate(candidate, git_ref=git_ref, git_service=git_service)
-            if scanned is not None:
-                return scanned
+            return index.get(ref)
         return None
-
-    def _load_candidate(
-        self,
-        candidate: Path,
-        *,
-        git_ref: str | None = None,
-        git_service: Any = None,
-    ) -> ScanResult[T] | None:
-        if git_ref is not None and git_service is not None:
-            try:
-                raw_yaml = git_service.read_file(candidate.as_posix(), git_ref)
-            except Exception:
-                return None
-            return self._scan_yaml_content(candidate, raw_yaml)
-
-        if not candidate.exists():
-            return None
-        raw_yaml = candidate.read_text(encoding="utf-8")
-        return self._scan_yaml_content(candidate, raw_yaml)

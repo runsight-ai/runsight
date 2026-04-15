@@ -28,9 +28,13 @@ Add a `souls:` section at the top level of your workflow YAML file. Each key in 
 
 ```yaml title="custom/workflows/prototype.yaml"
 version: "1.0"
+id: prototype
+kind: workflow
 souls:
   drafter:
     id: drafter
+    kind: soul
+    name: Drafter
     role: Quick Drafter
     system_prompt: Draft a short summary of the input topic.
     model_name: gpt-4o
@@ -58,6 +62,8 @@ The dictionary key and the soul's `id` field must be identical. The parser valid
 souls:
   drafter:
     id: draft_soul  # ERROR: key 'drafter' does not match id 'draft_soul'
+    kind: soul
+    name: Drafter
     role: Drafter
     system_prompt: Draft content.
 ```
@@ -82,9 +88,13 @@ This lets you temporarily override a library soul for testing without modifying 
   <TabItem label="Workflow (inline override)">
 ```yaml title="custom/workflows/experiment.yaml"
 version: "1.0"
+id: experiment
+kind: workflow
 souls:
   researcher:
     id: researcher
+    kind: soul
+    name: Researcher
     role: Experimental Researcher
     system_prompt: Use a more creative approach to research.
     model_name: gpt-4o
@@ -104,7 +114,9 @@ workflow:
   </TabItem>
   <TabItem label="External file (overridden)">
 ```yaml title="custom/souls/researcher.yaml"
-id: researcher_v1
+id: researcher
+kind: soul
+name: Researcher
 role: Senior Researcher
 system_prompt: |
   You are a senior research analyst. Produce structured reports
@@ -122,7 +134,7 @@ In this example, the workflow uses the inline definition (temperature 1.2, creat
 
 Inline souls accept every field that external soul files accept. The same Pydantic validation rules apply:
 
-- `id`, `role`, and `system_prompt` are required.
+- `id`, `kind`, `name`, `role`, and `system_prompt` are required.
 - `tools`, `model_name`, `provider`, `temperature`, `max_tokens`, `max_tool_iterations`, `required_tool_calls`, and `avatar_color` are optional.
 - Unknown fields raise a validation error (`extra="forbid"`).
 
@@ -148,11 +160,15 @@ Inline souls follow the same tool governance rules as external souls. If an inli
 
 ```yaml title="custom/workflows/fetch.yaml"
 version: "1.0"
+id: fetch
+kind: workflow
 tools:
   - http
 souls:
   fetcher:
     id: fetcher
+    kind: soul
+    name: Fetcher
     role: Fetcher
     system_prompt: Fetch data from the given URL.
     model_name: gpt-4o

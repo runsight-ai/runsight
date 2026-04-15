@@ -37,7 +37,6 @@ type RuntimeStepNodeData = StepNodeData & {
   error?: string | null;
 };
 
-
 function RunGraphErrorCard({ message, onRetry }: { message?: string; onRetry: () => void }) {
   return (
     <div className="flex h-full items-center justify-center p-6">

@@ -34,6 +34,7 @@ class WarningItem(BaseModel):
 
 
 class WorkflowResponse(BaseModel):
+    kind: Literal["workflow"]
     id: str
     name: Optional[str] = None
     description: Optional[str] = None

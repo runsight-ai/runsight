@@ -4,16 +4,12 @@ Filesystem-backed workflow repository.
 Writes valid RunsightWorkflowFile YAML to custom/workflows/ with atomic writes.
 Canvas state is stored as a JSON sidecar in custom/workflows/.canvas/.
 
-ADR D3: The id field is NOT stored inside the YAML file — it is inferred
-from the filename stem (e.g., onboarding-flow-k8x3m.yaml → id = "onboarding-flow-k8x3m").
+The workflow id is embedded in the YAML file and is the canonical identity.
 """
 
 import io
 import json
 import logging
-import random
-import re
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote
@@ -26,6 +22,7 @@ from urllib.parse import unquote
 import yaml as yaml_mod
 from ruamel.yaml import YAML
 from pydantic import ValidationError as PydanticValidationError
+from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
 from runsight_core.yaml.discovery import SoulScanner, WorkflowScanner
 from runsight_core.yaml.parser import (
     _validate_declared_tool_definitions,
@@ -41,21 +38,16 @@ from ._utils import atomic_write as _shared_atomic_write
 
 logger = logging.getLogger(__name__)
 
-# Fields that are API-only metadata, not part of the YAML file content
-_META_FIELDS = {"id", "canvas_state", "yaml"}
 
-# Maximum retries when a generated filename collides with an existing file
-_MAX_COLLISION_RETRIES = 3
+def _workflow_ref(workflow_id: str) -> str:
+    return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
 
 
 class WorkflowRepository:
     """Persists workflows as YAML files in custom/workflows/.
 
-    Filename convention: {slug}-{short_id}.yaml
-    Canvas sidecar: .canvas/{slug}-{short_id}.canvas.json
-
-    The workflow id is the filename stem (ADR D3) — no id is stored inside
-    the YAML content.
+    Filename convention: {workflow_id}.yaml
+    Canvas sidecar: .canvas/{workflow_id}.canvas.json
     """
 
     def __init__(self, base_path: str = "."):
@@ -70,45 +62,6 @@ class WorkflowRepository:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _generate_short_id() -> str:
-        """Generate a 5-character base36 ID from timestamp + random component."""
-        ts = int(time.time() * 1000)
-        rand = random.randint(0, 36**2 - 1)
-        combined = (ts % (36**3)) * (36**2) + rand
-        chars = "0123456789abcdefghijklmnopqrstuvwxyz"
-        result = []
-        for _ in range(5):
-            result.append(chars[combined % 36])
-            combined //= 36
-        return "".join(reversed(result))
-
-    @staticmethod
-    def _slugify(name: str) -> str:
-        """Convert a workflow name to a URL-safe slug.
-
-        - Lowercase
-        - Replace non-alphanumeric characters with hyphens
-        - Collapse consecutive hyphens
-        - Strip leading/trailing hyphens
-        - Truncate to 64 characters (ADR max length)
-        """
-        if not name:
-            return "untitled"
-        slug = name.lower()
-        slug = re.sub(r"[^a-z0-9]+", "-", slug)
-        slug = re.sub(r"-{2,}", "-", slug)
-        slug = slug.strip("-")
-        if not slug:
-            return "untitled"
-        return slug[:64]
-
-    @staticmethod
-    def _build_filename(name: str, short_id: str) -> str:
-        """Build the filename stem from a workflow name and short ID."""
-        slug = WorkflowRepository._slugify(name)
-        return f"{slug}-{short_id}"
-
-    @staticmethod
     def _atomic_write(path: Path, content: str) -> None:
         """Write content to a file atomically via temp file + rename.
 
@@ -117,7 +70,7 @@ class WorkflowRepository:
         _shared_atomic_write(path, content)
 
     def _get_path(self, workflow_id: str) -> Path:
-        """Get the YAML file path for a workflow id (= filename stem)."""
+        """Get the YAML file path for a workflow id."""
         decoded = unquote(workflow_id)
         if ".." in decoded or "/" in decoded or "\\" in decoded:
             raise ValueError(f"Invalid path traversal in id: {workflow_id!r}")
@@ -146,25 +99,23 @@ class WorkflowRepository:
             raise ValueError("YAML content is not a mapping")
 
         root_file = RunsightWorkflowFile.model_validate(data)
-        root_path = self._get_path(workflow_id).resolve()
-        registry = WorkflowRegistry(allow_filesystem_fallback=False)
+        registry = WorkflowRegistry()
         workflow_scanner = WorkflowScanner(self.base_path)
         workflow_index = workflow_scanner.scan(
             git_ref=git_ref,
             git_service=git_service,
         )
+        workflow_results_by_id = {
+            result.entity_id: result
+            for result in workflow_index.get_all()
+            if result.entity_id is not None
+        }
+
         validation_index: Dict[str, Tuple[Path, RunsightWorkflowFile]] = {}
-        root_aliases = {str(root_path), workflow_id}
-        try:
-            root_aliases.add(root_path.relative_to(self.base_path.resolve()).as_posix())
-        except ValueError:
-            pass
-        root_name = getattr(root_file.workflow, "name", None)
-        if isinstance(root_name, str) and root_name.strip():
-            root_aliases.add(root_name)
-        for alias in root_aliases:
-            registry.register(alias, root_file)
-            validation_index[alias] = (root_path, root_file)
+        root_ref = root_file.id
+        root_path = self._get_path(workflow_id).resolve()
+        registry.register(root_ref, root_file)
+        validation_index[root_ref] = (root_path, root_file)
 
         pending: List[RunsightWorkflowFile] = [root_file]
         loaded_paths = {str(root_path)}
@@ -175,12 +126,7 @@ class WorkflowRepository:
                 if block_def.type != "workflow":
                     continue
 
-                resolved_child = workflow_scanner.resolve_ref(
-                    block_def.workflow_ref,
-                    index=workflow_index,
-                    git_ref=git_ref,
-                    git_service=git_service,
-                )
+                resolved_child = workflow_results_by_id.get(block_def.workflow_ref)
                 if resolved_child is None:
                     continue
 
@@ -190,17 +136,16 @@ class WorkflowRepository:
                     continue
 
                 loaded_paths.add(child_ref)
-                for alias in resolved_child.aliases:
-                    registry.register(alias, resolved_child.item)
-                    validation_index[alias] = (child_path, resolved_child.item)
+                child_id = resolved_child.entity_id
+                registry.register(child_id, resolved_child.item)
+                validation_index[child_id] = (child_path, resolved_child.item)
                 pending.append(resolved_child.item)
 
         validate_workflow_call_contracts(
             root_file,
             base_dir=str(self.base_path),
             validation_index=validation_index,
-            current_workflow_ref=str(root_path),
-            allow_filesystem_fallback=False,
+            current_workflow_ref=root_ref,
         )
         return registry
 
@@ -220,7 +165,7 @@ class WorkflowRepository:
             if not isinstance(data, dict):
                 return False, "YAML content is not a mapping", []
             file_def = RunsightWorkflowFile.model_validate(data)
-            souls_map = SoulScanner(self.base_path).scan().stems()
+            souls_map = SoulScanner(self.base_path).scan().ids()
             validation_result = validate_tool_governance(file_def, souls_map)
             validation_result.merge(
                 _validate_declared_tool_definitions(
@@ -290,18 +235,24 @@ class WorkflowRepository:
         """Build a WorkflowEntity from YAML data + canvas sidecar.
 
         Args:
-            data: Parsed YAML data dict (without id).
-            stem: Filename stem — this IS the workflow id (ADR D3).
+            data: Parsed YAML data dict.
+            stem: Filename stem used for the stored file.
             canvas_state: Optional canvas sidecar data.
             raw_yaml: Raw YAML file content (WYSIWYG). If None, the yaml
                       field in the entity will be None.
         """
+        entity_id = data.get("id")
+        if not isinstance(entity_id, str) or not entity_id:
+            raise ValueError(f"{stem}.yaml: missing required id")
+        if entity_id != stem:
+            raise ValueError(
+                f"{stem}.yaml: embedded id '{entity_id}' does not match filename stem '{stem}'"
+            )
+
         # Validate the raw YAML content against RunsightWorkflowFile schema
         valid, validation_error, warnings = self._validate_yaml_content(stem, raw_yaml)
 
         entity_data = dict(data)
-        # id comes from the filename stem, not from inside the YAML
-        entity_data["id"] = stem
         entity_data["yaml"] = raw_yaml
         entity_data["valid"] = valid
         entity_data["validation_error"] = validation_error
@@ -310,12 +261,35 @@ class WorkflowRepository:
         if canvas_state is not None:
             entity_data["canvas_state"] = canvas_state
 
-        # Extract name from YAML workflow.name field
+        # Extract name from YAML workflow.name field if present
         workflow_section = data.get("workflow")
         if isinstance(workflow_section, dict) and workflow_section.get("name"):
             entity_data["name"] = workflow_section["name"]
 
         return WorkflowEntity(**entity_data)
+
+    def _assert_valid_yaml_for_write(self, workflow_id: str, raw_yaml: str) -> None:
+        try:
+            data = yaml_mod.safe_load(raw_yaml)
+        except yaml_mod.YAMLError as exc:
+            raise InputValidationError("Malformed YAML") from exc
+        if not isinstance(data, dict):
+            raise InputValidationError("YAML content is not a mapping")
+        embedded_id = data.get("id")
+        if not isinstance(embedded_id, str) or not embedded_id:
+            raise InputValidationError("Workflow must have an id")
+        kind = data.get("kind")
+        if kind != "workflow":
+            raise InputValidationError("kind must be 'workflow'")
+        try:
+            validate_entity_id(embedded_id, EntityKind.WORKFLOW)
+        except ValueError as exc:
+            raise InputValidationError(str(exc)) from exc
+        if embedded_id != workflow_id:
+            raise InputValidationError(
+                f"embedded workflow id {embedded_id!r} does not match requested "
+                f"{_workflow_ref(workflow_id)}"
+            )
 
     # ------------------------------------------------------------------
     # Public API
@@ -333,7 +307,7 @@ class WorkflowRepository:
         """
         yaml_path = self._get_path(workflow_id)
         if not yaml_path.exists():
-            raise WorkflowNotFound(f"Workflow {workflow_id} not found")
+            raise WorkflowNotFound(f"Workflow {_workflow_ref(workflow_id)} not found")
 
         raw_yaml = yaml_path.read_text()
 
@@ -353,6 +327,7 @@ class WorkflowRepository:
         ryaml.dump(data, stream)
         updated_yaml = stream.getvalue()
 
+        self._assert_valid_yaml_for_write(workflow_id, updated_yaml)
         self._atomic_write(yaml_path, updated_yaml)
 
         # Re-read and build entity from the written file
@@ -361,36 +336,30 @@ class WorkflowRepository:
         return self._build_entity(parsed, workflow_id, canvas_state, raw_yaml=updated_yaml)
 
     def list_all(self) -> List[WorkflowEntity]:
-        """List all workflows found in custom/workflows/*.yaml.
-
-        Every .yaml file is included — the id is the filename stem (ADR D3).
-        """
+        """List all workflows found in custom/workflows/*.yaml."""
         workflows: List[WorkflowEntity] = []
         for file in sorted(self.workflows_dir.glob("*.yaml")):
-            raw_yaml = ""
             try:
                 raw_yaml = file.read_text()
                 data = yaml_mod.safe_load(raw_yaml) or {}
+                canvas_state = self._read_canvas_sidecar(file.stem)
+                workflows.append(self._build_entity(data, file.stem, canvas_state, raw_yaml))
             except Exception as e:
                 logger.warning("Failed to parse workflow file %s: %s", file, e)
-                data = {}
-            canvas_state = self._read_canvas_sidecar(file.stem)
-            workflows.append(self._build_entity(data, file.stem, canvas_state, raw_yaml))
         return workflows
 
     def get_by_id(self, workflow_id: str) -> Optional[WorkflowEntity]:
-        """Retrieve a workflow by its id (= filename stem)."""
+        """Retrieve a workflow by its embedded id."""
         yaml_path = self._get_path(workflow_id)
         if not yaml_path.exists():
             return None
 
-        raw_yaml = ""
         try:
             raw_yaml = yaml_path.read_text()
             data = yaml_mod.safe_load(raw_yaml) or {}
         except Exception as e:
             logger.warning("Failed to parse workflow file %s: %s", yaml_path, e)
-            data = {}
+            return None
 
         canvas_state = self._read_canvas_sidecar(workflow_id)
         return self._build_entity(data, workflow_id, canvas_state, raw_yaml)
@@ -419,55 +388,49 @@ class WorkflowRepository:
     def create(self, data: Dict[str, Any]) -> WorkflowEntity:
         """Create a new workflow file.
 
-        The workflow id is the generated filename stem (slug-shortid).
-        Always saves the file (permissive save). Returns the entity with
-        valid/validation_error indicating schema conformance.
+        The workflow id must be embedded in the YAML payload and drives the
+        filename stem.
         """
-        name = data.get("name") or "untitled"
         raw_yaml = data.get("yaml")
         if raw_yaml is None:
             raise InputValidationError("yaml is required")
+        parsed_data = yaml_mod.safe_load(raw_yaml)
+        if not isinstance(parsed_data, dict):
+            raise InputValidationError("YAML content is not a mapping")
+        stem = parsed_data.get("id")
+        if not isinstance(stem, str) or not stem:
+            raise InputValidationError("Workflow must have an id")
+        yaml_path = self._get_path(stem)
+        if yaml_path.exists():
+            raise InputValidationError(f"Workflow {_workflow_ref(stem)} already exists")
 
-        # Generate filename with collision retry (Fix 6)
-        stem = None
-        for _ in range(_MAX_COLLISION_RETRIES):
-            short_id = self._generate_short_id()
-            candidate = self._build_filename(name, short_id)
-            if not self._get_path(candidate).exists():
-                stem = candidate
-                break
-        if stem is None:
-            # Last attempt — extremely unlikely to still collide
-            short_id = self._generate_short_id()
-            stem = self._build_filename(name, short_id)
-
-        # Do NOT mutate the input dict — use .get() instead of .pop()
         canvas_state = data.get("canvas_state")
         yaml_content = raw_yaml
-
-        # Atomic write YAML (D5: YAML first, then canvas)
-        self._atomic_write(self._get_path(stem), yaml_content)
-
-        # Write canvas sidecar (failure is acceptable per D5)
-        self._write_canvas_sidecar(stem, canvas_state)
-
-        # Parse the written YAML to build the entity data dict
-        parsed_data = yaml_mod.safe_load(yaml_content) or {}
-        return self._build_entity(
+        self._assert_valid_yaml_for_write(stem, yaml_content)
+        entity = self._build_entity(
             parsed_data,
             stem,
             canvas_state if isinstance(canvas_state, dict) else None,
             raw_yaml=yaml_content,
         )
 
+        # Atomic write YAML (D5: YAML first, then canvas)
+        self._atomic_write(yaml_path, yaml_content)
+
+        # Write canvas sidecar (failure is acceptable per D5)
+        self._write_canvas_sidecar(stem, canvas_state)
+
+        return entity
+
     def update(self, workflow_id: str, data: Dict[str, Any]) -> WorkflowEntity:
         """Update an existing workflow file.
 
-        Writes the provided canonical raw YAML back atomically.
+        Writes the provided canonical raw YAML back atomically after validating
+        the embedded workflow id.
         """
         yaml_path = self._get_path(workflow_id)
         if not yaml_path.exists():
-            raise WorkflowNotFound(f"Workflow {workflow_id} not found")
+            raise WorkflowNotFound(f"Workflow {_workflow_ref(workflow_id)} not found")
 
         # Do NOT mutate the input dict — use .get() instead of .pop()
         canvas_state_update = data.get("canvas_state")
@@ -504,6 +467,22 @@ class WorkflowRepository:
             ryaml.dump(yaml_doc, stream)
             yaml_content = stream.getvalue()
 
+        parsed_data = yaml_mod.safe_load(yaml_content) or {}
+        if not isinstance(parsed_data, dict):
+            raise InputValidationError("YAML content is not a mapping")
+        embedded_id = parsed_data.get("id")
+        if embedded_id != workflow_id:
+            raise ValueError(
+                f"embedded workflow id {embedded_id!r} does not match requested "
+                f"{_workflow_ref(workflow_id)}"
+            )
+        self._assert_valid_yaml_for_write(workflow_id, yaml_content)
+        self._build_entity(
+            parsed_data,
+            workflow_id,
+            self._read_canvas_sidecar(workflow_id),
+            raw_yaml=yaml_content,
+        )
         self._atomic_write(yaml_path, yaml_content)
 
         # Update canvas sidecar if provided
@@ -511,7 +490,6 @@ class WorkflowRepository:
             self._write_canvas_sidecar(workflow_id, canvas_state_update)
 
         # Parse written content for entity construction
-        parsed_data = yaml_mod.safe_load(yaml_content) or {}
         canvas_state = self._read_canvas_sidecar(workflow_id)
         return self._build_entity(parsed_data, workflow_id, canvas_state, raw_yaml=yaml_content)
 

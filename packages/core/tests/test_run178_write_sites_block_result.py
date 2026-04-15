@@ -36,7 +36,7 @@ from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -81,20 +81,20 @@ def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
     runner.model_name = "gpt-4o"
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     return runner
 
 
 @pytest.fixture
 def sample_soul():
     """Sample soul for testing."""
-    return Soul(id="test_soul", role="Tester", system_prompt="You test things.")
-
-
-@pytest.fixture
-def sample_task():
-    """Sample task for testing."""
-    return Task(id="test_task", instruction="Do the thing.")
+    return Soul(
+        id="test_soul",
+        kind="soul",
+        name="Test Soul",
+        role="Tester",
+        system_prompt="You test things.",
+    )
 
 
 def _make_state(**kwargs) -> NoCoercionWorkflowState:
@@ -131,16 +131,14 @@ class TestLinearBlockEmitsBlockResult:
     """LinearBlock.execute must write BlockResult to state.results."""
 
     @pytest.mark.asyncio
-    async def test_linear_block_writes_block_result_not_raw_string(
-        self, mock_runner, sample_soul, sample_task
-    ):
+    async def test_linear_block_writes_block_result_not_raw_string(self, mock_runner, sample_soul):
         """LinearBlock must emit BlockResult(output=...) instead of raw string."""
         from runsight_core import LinearBlock
 
-        mock_runner.execute_task.return_value = _mock_execution_result()
+        mock_runner.execute.return_value = _mock_execution_result()
 
         block = LinearBlock("linear1", sample_soul, mock_runner)
-        state = _make_state(current_task=sample_task)
+        state = _make_state()
 
         # This will raise TypeError if the block writes a raw string
         result_state = await block.execute(state)
@@ -159,15 +157,19 @@ class TestDispatchBlockEmitsBlockResult:
 
     @pytest.mark.asyncio
     async def test_dispatch_block_writes_block_result_not_raw_string(
-        self, mock_runner, sample_soul, sample_task
+        self, mock_runner, sample_soul
     ):
         """DispatchBlock must emit BlockResult(output=...) instead of raw json.dumps string."""
         from runsight_core import DispatchBlock
 
-        soul_a = Soul(id="soul_a", role="Agent A", system_prompt="Do A.")
-        soul_b = Soul(id="soul_b", role="Agent B", system_prompt="Do B.")
+        soul_a = Soul(
+            id="soul_a", kind="soul", name="Agent A", role="Agent A", system_prompt="Do A."
+        )
+        soul_b = Soul(
+            id="soul_b", kind="soul", name="Agent B", role="Agent B", system_prompt="Do B."
+        )
 
-        mock_runner.execute_task.side_effect = [
+        mock_runner.execute.side_effect = [
             _mock_execution_result(soul_id="soul_a", output="output A"),
             _mock_execution_result(soul_id="soul_b", output="output B"),
         ]
@@ -179,7 +181,7 @@ class TestDispatchBlockEmitsBlockResult:
             for s in [soul_a, soul_b]
         ]
         block = DispatchBlock("dispatch1", branches, mock_runner)
-        state = _make_state(current_task=sample_task)
+        state = _make_state()
 
         result_state = await block.execute(state)
 
@@ -201,7 +203,7 @@ class TestSynthesizeBlockEmitsBlockResult:
         """SynthesizeBlock must emit BlockResult(output=...) instead of raw string."""
         from runsight_core import SynthesizeBlock
 
-        mock_runner.execute_task.return_value = _mock_execution_result(output="synthesized content")
+        mock_runner.execute.return_value = _mock_execution_result(output="synthesized content")
 
         block = SynthesizeBlock(
             "synth1", input_block_ids=["input_a"], synthesizer_soul=sample_soul, runner=mock_runner
@@ -301,7 +303,7 @@ class TestGateBlockEmitsBlockResult:
         """GateBlock on PASS must emit BlockResult(output=...) instead of raw string."""
         from runsight_core import GateBlock
 
-        mock_runner.execute_task.return_value = _mock_execution_result(output="PASS - looks good")
+        mock_runner.execute.return_value = _mock_execution_result(output="PASS - looks good")
 
         block = GateBlock(
             "gate1",
@@ -323,7 +325,7 @@ class TestGateBlockEmitsBlockResult:
         """GateBlock on PASS with extract_field must also emit BlockResult."""
         from runsight_core import GateBlock
 
-        mock_runner.execute_task.return_value = _mock_execution_result(output="PASS - extracted")
+        mock_runner.execute.return_value = _mock_execution_result(output="PASS - extracted")
 
         json_content = json.dumps([{"output": "extracted_value", "id": "1"}])
         block = GateBlock(
@@ -456,12 +458,12 @@ class TestNoRawStringsInResultsAfterExecution:
 
     @pytest.mark.asyncio
     async def test_all_results_are_block_result_after_linear_and_dispatch(
-        self, mock_runner, sample_soul, sample_task
+        self, mock_runner, sample_soul
     ):
         """After running LinearBlock then DispatchBlock, all results are BlockResult."""
         from runsight_core import DispatchBlock, LinearBlock
 
-        mock_runner.execute_task.side_effect = [
+        mock_runner.execute.side_effect = [
             _mock_execution_result(output="linear output"),
             _mock_execution_result(soul_id="soul_a", output="fan A"),
             _mock_execution_result(soul_id="soul_b", output="fan B"),
@@ -471,8 +473,8 @@ class TestNoRawStringsInResultsAfterExecution:
         from runsight_core.blocks.dispatch import DispatchBranch as _FB
 
         _souls = [
-            Soul(id="soul_a", role="A", system_prompt="A"),
-            Soul(id="soul_b", role="B", system_prompt="B"),
+            Soul(id="soul_a", kind="soul", name="Agent A", role="A", system_prompt="A"),
+            Soul(id="soul_b", kind="soul", name="Agent B", role="B", system_prompt="B"),
         ]
         dispatch = DispatchBlock(
             "step2",
@@ -480,7 +482,7 @@ class TestNoRawStringsInResultsAfterExecution:
             mock_runner,
         )
 
-        state = _make_state(current_task=sample_task)
+        state = _make_state()
         state = await linear.execute(state)
         state = await dispatch.execute(state)
 

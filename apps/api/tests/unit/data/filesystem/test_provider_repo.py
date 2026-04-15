@@ -33,6 +33,8 @@ from runsight_api.domain.value_objects import ProviderEntity
 # ---------------------------------------------------------------------------
 
 VALID_PROVIDER_DATA = {
+    "id": "openai",
+    "kind": "provider",
     "name": "OpenAI",
     "type": "openai",
     "api_key": "${OPENAI_API_KEY}",
@@ -43,10 +45,23 @@ VALID_PROVIDER_DATA = {
 }
 
 
+def _slugify(name: str) -> str:
+    """Derive a safe provider id from a name (matches repo slugification)."""
+    import re
+
+    slug = name.lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", slug)
+    slug = slug.strip("-")
+    return slug or "provider"
+
+
 def _make_provider_data(**overrides):
     """Return a valid provider data dict with optional overrides."""
     data = dict(VALID_PROVIDER_DATA)
     data.update(overrides)
+    # If name was overridden and id was not explicitly supplied, derive id from name
+    if "name" in overrides and "id" not in overrides:
+        data["id"] = _slugify(overrides["name"])
     return data
 
 
@@ -184,10 +199,14 @@ class TestGetById:
         assert result is None
 
     def test_get_by_id_derives_id_from_filename(self, repo, providers_dir):
-        """ID must come from the filename stem, not from inside the YAML."""
-        # Manually write a YAML file (no id field inside)
+        """ID must be stored in YAML and match the filename stem."""
+        # Write a YAML file with the id field matching the filename stem
         yaml_path = providers_dir / "my-provider.yaml"
-        yaml_path.write_text(yaml.dump({"name": "My Provider", "type": "custom"}))
+        yaml_path.write_text(
+            yaml.dump(
+                {"id": "my-provider", "kind": "provider", "name": "My Provider", "type": "custom"}
+            )
+        )
 
         entity = repo.get_by_id("my-provider")
         assert entity is not None
@@ -244,9 +263,13 @@ class TestListAll:
         assert all(isinstance(p, ProviderEntity) for p in result)
 
     def test_list_all_includes_hand_authored_files(self, repo, providers_dir):
-        """Hand-authored YAML files (without id) must be picked up by list_all."""
+        """Hand-authored YAML files with embedded id must be picked up by list_all."""
         yaml_path = providers_dir / "manual-provider.yaml"
-        yaml_path.write_text(yaml.dump({"name": "Manual", "type": "custom"}))
+        yaml_path.write_text(
+            yaml.dump(
+                {"id": "manual-provider", "kind": "provider", "name": "Manual", "type": "custom"}
+            )
+        )
 
         result = repo.list_all()
         assert len(result) == 1
@@ -258,7 +281,10 @@ class TestUpdate:
     def test_update_modifies_existing_provider(self, repo):
         """update() must modify the provider data on disk."""
         created = repo.create(_make_provider_data(name="OpenAI"))
-        updated = repo.update(created.id, {"status": "error", "is_active": False})
+        updated = repo.update(
+            created.id,
+            {"id": created.id, "kind": "provider", "status": "error", "is_active": False},
+        )
 
         assert updated.status == "error"
         assert updated.is_active is False
@@ -268,7 +294,9 @@ class TestUpdate:
     def test_update_returns_provider_entity(self, repo):
         """update() must return a ProviderEntity."""
         created = repo.create(_make_provider_data(name="OpenAI"))
-        updated = repo.update(created.id, {"status": "offline"})
+        updated = repo.update(
+            created.id, {"id": created.id, "kind": "provider", "status": "offline"}
+        )
         assert isinstance(updated, ProviderEntity)
 
     def test_update_nonexistent_raises_provider_not_found(self, repo):
@@ -279,7 +307,9 @@ class TestUpdate:
     def test_update_preserves_id_from_filename(self, repo):
         """After update, the entity ID must still match the filename stem."""
         created = repo.create(_make_provider_data(name="OpenAI"))
-        updated = repo.update(created.id, {"status": "offline"})
+        updated = repo.update(
+            created.id, {"id": created.id, "kind": "provider", "status": "offline"}
+        )
         assert updated.id == created.id
 
     def test_update_rejects_unknown_fields_and_keeps_existing_yaml(self, repo, providers_dir):
@@ -288,7 +318,10 @@ class TestUpdate:
 
         before = yaml.safe_load(yaml_path.read_text())
         with pytest.raises(ValidationError):
-            repo.update(created.id, {"custom_notes": "unsupported"})
+            repo.update(
+                created.id,
+                {"id": created.id, "kind": "provider", "custom_notes": "unsupported"},
+            )
         after = yaml.safe_load(yaml_path.read_text())
 
         assert after == before
@@ -300,6 +333,8 @@ class TestReadValidation:
         yaml_path.write_text(
             yaml.safe_dump(
                 {
+                    "id": "openai",
+                    "kind": "provider",
                     "name": "OpenAI",
                     "type": "openai",
                     "api_key": "${OPENAI_API_KEY}",
@@ -308,14 +343,15 @@ class TestReadValidation:
             )
         )
 
-        with pytest.raises(ValidationError):
-            repo.get_by_id("openai")
+        assert repo.get_by_id("openai") is None
 
     def test_list_all_rejects_provider_yaml_with_unsupported_fields(self, repo, providers_dir):
         yaml_path = providers_dir / "openai.yaml"
         yaml_path.write_text(
             yaml.safe_dump(
                 {
+                    "id": "openai",
+                    "kind": "provider",
                     "name": "OpenAI",
                     "type": "openai",
                     "api_key": "${OPENAI_API_KEY}",
@@ -362,20 +398,21 @@ class TestDelete:
 
 class TestIdNotStoredInYaml:
     def test_id_not_written_to_yaml_file(self, repo, providers_dir):
-        """ADR D3: The 'id' field must NOT be stored inside the YAML file."""
+        """The 'id' field is embedded in the YAML file and must match the filename stem."""
         entity = repo.create(_make_provider_data(name="OpenAI"))
         yaml_path = providers_dir / f"{entity.id}.yaml"
 
         with open(yaml_path) as f:
             on_disk = yaml.safe_load(f)
 
-        assert "id" not in on_disk, "id field must not be stored in YAML file"
+        assert "id" in on_disk, "id field must be stored in YAML file"
+        assert on_disk["id"] == entity.id, "stored id must match the filename stem"
 
     def test_id_derived_from_filename_on_read(self, repo, providers_dir):
-        """When reading back, the ID must be inferred from the filename stem."""
-        # Write a file with no id field
+        """When reading back, the ID must match the embedded id field in the YAML."""
+        # Write a file with the id field matching the filename stem
         (providers_dir / "test-provider.yaml").write_text(
-            yaml.dump({"name": "Test", "type": "custom"})
+            yaml.dump({"id": "test-provider", "kind": "provider", "name": "Test", "type": "custom"})
         )
         entity = repo.get_by_id("test-provider")
         assert entity.id == "test-provider"
@@ -461,7 +498,7 @@ class TestAtomicWrites:
 
         monkeypatch.setattr(os, "rename", tracking_rename)
 
-        repo.update(created.id, {"status": "offline"})
+        repo.update(created.id, {"id": created.id, "kind": "provider", "status": "offline"})
 
         assert len(renames) >= 1, "No os.rename calls detected — write is not atomic"
 
@@ -535,8 +572,9 @@ class TestYamlSchema:
         assert "status" in on_disk
         assert "models" in on_disk
 
-        # id must NOT be in YAML (ADR D3)
-        assert "id" not in on_disk
+        # id must be embedded in YAML and match the filename stem
+        assert "id" in on_disk
+        assert on_disk["id"] == entity.id
 
 
 # ===========================================================================
@@ -562,7 +600,10 @@ class TestRoundTrip:
     def test_update_then_get_reflects_changes(self, repo):
         """Changes from update() must be visible in a subsequent get_by_id()."""
         created = repo.create(_make_provider_data(name="Updatable"))
-        repo.update(created.id, {"status": "error", "models": ["gpt-4o-mini"]})
+        repo.update(
+            created.id,
+            {"id": created.id, "kind": "provider", "status": "error", "models": ["gpt-4o-mini"]},
+        )
 
         fetched = repo.get_by_id(created.id)
         assert fetched.status == "error"

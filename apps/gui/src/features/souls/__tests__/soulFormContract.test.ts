@@ -72,8 +72,11 @@ describe("useSoulForm behavior contract (RUN-447)", () => {
     expect(source).toMatch(/setValues|useState/);
   });
 
-  it("maps the submit payload to role/system_prompt/model_name/provider/tools/max_tokens/max_tool_iterations/avatar_color", () => {
+  it("maps the submit payload to embedded identity plus role/system_prompt/model_name/provider/tools/max_tokens/max_tool_iterations/avatar_color", () => {
     const source = read(HOOK_PATH);
+    expect(source).toMatch(/id:\s*deriveSoulId\(values\.name\)/);
+    expect(source).toMatch(/kind:\s*["']soul["']/);
+    expect(source).toMatch(/name:\s*values\.name/);
     expect(source).toMatch(/role:\s*values\.name/);
     expect(source).toMatch(/system_prompt:\s*values\.systemPrompt/);
     expect(source).toMatch(/model_name:\s*values\.modelId/);
@@ -84,7 +87,6 @@ describe("useSoulForm behavior contract (RUN-447)", () => {
     expect(source).toMatch(/max_tokens:\s*values\.maxTokens/);
     expect(source).toMatch(/max_tool_iterations:\s*values\.maxToolIterations/);
     expect(source).toMatch(/avatar_color:\s*values\.avatarColor/);
-    expect(source).not.toMatch(/\bname:\s*values\.name/);
   });
 
   it("never writes max_tool_iterations as null into the submit payload", () => {

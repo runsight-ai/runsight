@@ -8,7 +8,7 @@
     "/api/runs/{run_id}/eval": {
       "get": {
         "tags": [
-          "Eval"
+          "eval"
         ],
         "summary": "Get Run Eval",
         "operationId": "get_run_eval_api_runs__run_id__eval_get",
@@ -50,7 +50,7 @@
     "/api/souls/{soul_id}/eval/history": {
       "get": {
         "tags": [
-          "Eval"
+          "eval"
         ],
         "summary": "Get Soul Eval History",
         "operationId": "get_soul_eval_history_api_souls__soul_id__eval_history_get",
@@ -277,44 +277,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/RunResponse"
                 }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Runs"
-        ],
-        "summary": "Delete Run",
-        "operationId": "delete_run_api_runs__run_id__delete",
-        "parameters": [
-          {
-            "name": "run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Run Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           },
@@ -1301,6 +1263,244 @@
         }
       }
     },
+    "/api/steps": {
+      "get": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "List Steps",
+        "operationId": "list_steps_api_steps_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Create Step",
+        "operationId": "create_step_api_steps_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/steps/{id}": {
+      "get": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Get Step",
+        "operationId": "get_step_api_steps__id__get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Update Step",
+        "operationId": "update_step_api_steps__id__put",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Delete Step",
+        "operationId": "delete_step_api_steps__id__delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/providers": {
       "get": {
         "tags": [
@@ -1647,6 +1847,27 @@
         }
       }
     },
+    "/api/settings/budgets": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "List Budgets",
+        "operationId": "list_budgets_api_settings_budgets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsBudgetListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/app": {
       "get": {
         "tags": [
@@ -1867,7 +2088,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/runsight_api__transport__schemas__git__LogResponse"
+                  "$ref": "#/components/schemas/runsight_api__transport__routers__git__LogResponse"
                 }
               }
             }
@@ -1971,7 +2192,7 @@
     "/api/models": {
       "get": {
         "tags": [
-          "Models"
+          "models"
         ],
         "summary": "List Models",
         "operationId": "list_models_api_models_get",
@@ -2057,7 +2278,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ModelListResponse"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModelResponse"
+                  },
+                  "title": "Response List Models Api Models Get"
                 }
               }
             }
@@ -2078,7 +2303,7 @@
     "/api/models/providers": {
       "get": {
         "tags": [
-          "Models"
+          "models"
         ],
         "summary": "List Providers",
         "operationId": "list_providers_api_models_providers_get",
@@ -2569,27 +2794,6 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "ModelListResponse": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ModelResponse"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total"
-        ],
-        "title": "ModelListResponse"
-      },
       "ModelResponse": {
         "properties": {
           "provider": {
@@ -2832,6 +3036,15 @@
       },
       "ProviderCreate": {
         "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "const": "provider",
+            "title": "Kind"
+          },
           "name": {
             "type": "string",
             "title": "Name"
@@ -2862,6 +3075,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "id",
+          "kind",
           "name"
         ],
         "title": "ProviderCreate"
@@ -2993,6 +3208,15 @@
       },
       "ProviderUpdate": {
         "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "const": "provider",
+            "title": "Kind"
+          },
           "name": {
             "anyOf": [
               {
@@ -3040,6 +3264,10 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "id",
+          "kind"
+        ],
         "title": "ProviderUpdate"
       },
       "RunCreate": {
@@ -3048,10 +3276,10 @@
             "type": "string",
             "title": "Workflow Id"
           },
-          "task_data": {
+          "inputs": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Task Data"
+            "title": "Inputs"
           },
           "source": {
             "anyOf": [
@@ -3072,6 +3300,7 @@
           }
         },
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "workflow_id"
         ],
@@ -3542,6 +3771,71 @@
         ],
         "title": "RunResponse"
       },
+      "SettingsBudgetListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SettingsBudgetResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "SettingsBudgetListResponse"
+      },
+      "SettingsBudgetResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "limit_usd": {
+            "type": "number",
+            "title": "Limit Usd"
+          },
+          "spent_usd": {
+            "type": "number",
+            "title": "Spent Usd"
+          },
+          "period": {
+            "type": "string",
+            "title": "Period"
+          },
+          "reset_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reset At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "limit_usd",
+          "spent_usd",
+          "period"
+        ],
+        "title": "SettingsBudgetResponse"
+      },
       "SettingsFallbackListResponse": {
         "properties": {
           "items": {
@@ -3634,6 +3928,11 @@
           "id": {
             "type": "string",
             "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "const": "provider",
+            "title": "Kind"
           },
           "name": {
             "type": "string",
@@ -3731,6 +4030,7 @@
         "type": "object",
         "required": [
           "id",
+          "kind",
           "name",
           "status"
         ],
@@ -3775,15 +4075,17 @@
       "SoulCreate": {
         "properties": {
           "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "const": "soul",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
           },
           "role": {
             "type": "string",
@@ -3871,6 +4173,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "id",
+          "kind",
+          "name",
           "role",
           "system_prompt"
         ],
@@ -3920,6 +4225,15 @@
       },
       "SoulResponse": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "const": "soul",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -4039,6 +4353,8 @@
         },
         "type": "object",
         "required": [
+          "kind",
+          "name",
           "id"
         ],
         "title": "SoulResponse"
@@ -4285,6 +4601,147 @@
           "is_clean"
         ],
         "title": "StatusResponse"
+      },
+      "StepCreate": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "default": "step"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "StepCreate"
+      },
+      "StepListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StepResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "StepListResponse"
+      },
+      "StepResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "type",
+          "path"
+        ],
+        "title": "StepResponse"
+      },
+      "StepUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "StepUpdate"
       },
       "ToolListItemResponse": {
         "properties": {
@@ -4693,6 +5150,11 @@
       },
       "WorkflowResponse": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "const": "workflow",
+            "title": "Kind"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -4802,6 +5264,7 @@
         },
         "type": "object",
         "required": [
+          "kind",
           "id"
         ],
         "title": "WorkflowResponse"
@@ -4882,7 +5345,7 @@
         ],
         "title": "WorkflowUpdate"
       },
-      "runsight_api__transport__schemas__git__LogResponse": {
+      "runsight_api__transport__routers__git__LogResponse": {
         "properties": {
           "commits": {
             "items": {

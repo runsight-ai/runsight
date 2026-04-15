@@ -156,6 +156,8 @@ class TestRunModelBudgetFields:
 
 VALID_RUNTIME_YAML = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 workflow:
   name: test
   entry: b1
@@ -168,7 +170,9 @@ blocks:
     soul_ref: test
 souls:
   test:
-    id: soul_1
+    id: test
+    kind: soul
+    name: Test Soul
     role: tester
     system_prompt: hello
     provider: openai
@@ -248,7 +252,7 @@ class TestBudgetExceptionSetsFailReason:
             "runsight_api.logic.services.execution_service.parse_workflow_yaml"
         ) as mock_parse:
 
-            async def _exploding_run(state, observer=None):
+            async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
                     observer.on_workflow_error("test", exc, 0.1)
                 raise exc
@@ -296,7 +300,7 @@ class TestBudgetExceptionSetsFailReason:
             "runsight_api.logic.services.execution_service.parse_workflow_yaml"
         ) as mock_parse:
 
-            async def _exploding_run(state, observer=None):
+            async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
                     observer.on_workflow_error("test", exc, 0.1)
                 raise exc
@@ -344,7 +348,7 @@ class TestBudgetExceptionSetsFailReason:
             "runsight_api.logic.services.execution_service.parse_workflow_yaml"
         ) as mock_parse:
 
-            async def _exploding_run(state, observer=None):
+            async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
                     observer.on_workflow_error("test", exc, 0.1)
                 raise exc
@@ -398,7 +402,7 @@ class TestBudgetExceptionSetsFailReason:
             "runsight_api.logic.services.execution_service.parse_workflow_yaml"
         ) as mock_parse:
 
-            async def _exploding_run(state, observer=None):
+            async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
                     observer.on_workflow_error("test", exc, 0.1)
                 raise exc
@@ -452,7 +456,7 @@ class TestBudgetExceptionSetsFailReason:
             "runsight_api.logic.services.execution_service.parse_workflow_yaml"
         ) as mock_parse:
 
-            async def _exploding_run(state, observer=None):
+            async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
                     observer.on_workflow_error("test", exc, 0.1)
                 raise exc
@@ -498,7 +502,7 @@ class TestBudgetExceptionSetsFailReason:
             "runsight_api.logic.services.execution_service.parse_workflow_yaml"
         ) as mock_parse:
 
-            async def _exploding_run(state, observer=None):
+            async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
                     observer.on_workflow_error("test", generic_error, 0.1)
                 raise generic_error

@@ -904,6 +904,13 @@ export interface components {
         };
         /** ProviderCreate */
         ProviderCreate: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "provider";
             /** Name */
             name: string;
             /** Api Key Env */
@@ -962,6 +969,13 @@ export interface components {
         };
         /** ProviderUpdate */
         ProviderUpdate: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "provider";
             /** Name */
             name?: string | null;
             /** Api Key Env */
@@ -975,8 +989,8 @@ export interface components {
         RunCreate: {
             /** Workflow Id */
             workflow_id: string;
-            /** Task Data */
-            task_data?: {
+            /** Inputs */
+            inputs?: {
                 [key: string]: unknown;
             };
             /**
@@ -1153,6 +1167,11 @@ export interface components {
         SettingsProviderResponse: {
             /** Id */
             id: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "provider";
             /** Name */
             name: string;
             /** Type */
@@ -1202,7 +1221,14 @@ export interface components {
         /** SoulCreate */
         SoulCreate: {
             /** Id */
-            id?: string | null;
+            id: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "soul";
+            /** Name */
+            name: string;
             /** Role */
             role: string;
             /** System Prompt */
@@ -1241,6 +1267,13 @@ export interface components {
         };
         /** SoulResponse */
         SoulResponse: {
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "soul";
+            /** Name */
+            name: string;
             /** Id */
             id: string;
             /** Role */
@@ -1485,6 +1518,11 @@ export interface components {
         };
         /** WorkflowResponse */
         WorkflowResponse: {
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "workflow";
             /** Id */
             id: string;
             /** Name */

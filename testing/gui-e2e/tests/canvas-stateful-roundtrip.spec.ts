@@ -5,6 +5,7 @@ import {
   apiGet,
   apiPost,
   apiPut,
+  buildBlankWorkflowYaml,
   gotoShellRoute,
   setupShellReadyWorkspace,
 } from "./helpers/shellReady";
@@ -27,9 +28,10 @@ test.describe("Surface YAML stateful round-trip", () => {
   let workflowId: string;
 
   test.beforeAll(async () => {
+    workflowId = `e2e-stateful-${Date.now()}`;
     const created = await apiPost<WorkflowRecord>("/workflows", {
       name: `e2e-stateful-${Date.now()}`,
-      yaml: "",
+      yaml: buildBlankWorkflowYaml(workflowId, "Stateful Test"),
       canvas_state: {
         nodes: [],
         edges: [],
@@ -49,6 +51,8 @@ test.describe("Surface YAML stateful round-trip", () => {
   test("preserves stateful: true after YAML save and editor reload", async ({ page }) => {
     const yamlInput = [
       'version: "1.0"',
+      `id: ${workflowId}`,
+      "kind: workflow",
       "blocks:",
       "  step_a:",
       "    type: linear",
@@ -84,6 +88,8 @@ test.describe("Surface YAML stateful round-trip", () => {
   test("omits stateful when the block does not declare it", async ({ page }) => {
     const yamlInput = [
       'version: "1.0"',
+      `id: ${workflowId}`,
+      "kind: workflow",
       "blocks:",
       "  step_a:",
       "    type: linear",
@@ -108,6 +114,8 @@ test.describe("Surface YAML stateful round-trip", () => {
   test("keeps stateful only on the blocks that declare it", async ({ page }) => {
     const yamlInput = [
       'version: "1.0"',
+      `id: ${workflowId}`,
+      "kind: workflow",
       "blocks:",
       "  step_stateful:",
       "    type: linear",

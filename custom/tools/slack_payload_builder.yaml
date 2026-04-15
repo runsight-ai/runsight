@@ -1,4 +1,6 @@
 version: "1.0"
+id: slack_payload_builder
+kind: tool
 type: custom
 executor: python
 name: Slack Payload Builder

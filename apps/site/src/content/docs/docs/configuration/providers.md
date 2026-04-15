@@ -23,7 +23,7 @@ Runsight supports the following providers out of the box:
 | Ollama | `ollama` | Local models (LLaMA, etc.) | No |
 | Custom | `custom` | Any OpenAI-compatible endpoint | Yes |
 
-Provider type is inferred from the name when you create a provider. For example, a provider named "OpenAI Production" is automatically assigned the type `openai`.
+Provider type is selected explicitly when you create a provider. The provider's identity is its embedded `id`; the display `name` is only a label.
 
 ## Adding a provider via the Settings page
 
@@ -42,9 +42,11 @@ You can also add a provider during your first run. If no providers are configure
 
 ## How providers are stored
 
-Providers are persisted as individual YAML files in `custom/providers/`. The provider ID is the slugified name — for example, a provider named "OpenAI" is stored at `custom/providers/openai.yaml`.
+Providers are persisted as individual YAML files in `custom/providers/`. The provider ID is the embedded `id`, and the filename stem must match that id. For example, `custom/providers/openai.yaml` must contain `id: openai`.
 
 ```yaml title="custom/providers/openai.yaml"
+id: openai
+kind: provider
 name: OpenAI
 type: openai
 api_key: ${OPENAI_API_KEY}
@@ -70,14 +72,14 @@ Every soul **must** set both `provider` and `model_name`. The soul schema marks 
 There is no global fallback or default provider. If you see a soul without these fields, it will fail on run.
 
 ```yaml title="custom/souls/researcher.yaml"
-version: '1.0'
-soul:
-  id: researcher
-  role: Senior Researcher
-  system_prompt: "Research the given topic thoroughly."
-  provider: openai
-  model_name: gpt-4o
-  temperature: 0.7
+id: researcher
+kind: soul
+name: Researcher
+role: Senior Researcher
+system_prompt: "Research the given topic thoroughly."
+provider: openai
+model_name: gpt-4o
+temperature: 0.7
 ```
 
 The `provider` field value must match the `type` of a configured provider (e.g., `openai`, `anthropic`, `google`), not the provider's display name or ID.

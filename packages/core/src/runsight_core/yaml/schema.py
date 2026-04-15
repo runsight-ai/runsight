@@ -17,7 +17,9 @@ from pydantic import (
     model_validator,
 )
 
-# -- Soul / Task / Task-file (unchanged) ------------------------------------
+from runsight_core.identity import EntityKind, validate_entity_id
+
+# -- Soul / Tool definitions ------------------------------------------------
 
 
 class BaseToolDef(BaseModel):
@@ -76,6 +78,8 @@ class SoulDef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
+    kind: Literal["soul"]
+    name: str
     role: str
     system_prompt: str
     tools: Optional[List[str]] = None
@@ -88,23 +92,11 @@ class SoulDef(BaseModel):
     avatar_color: Optional[str] = None
     modified_at: Optional[str] = None
 
-
-class TaskDef(BaseModel):
-    """Task definition as expressed in the YAML tasks: section."""
-
-    id: str
-    instruction: str
-    context: Optional[str] = None
-
-
-class RunsightTaskFile(BaseModel):
-    """
-    Root model for a Runsight task YAML file.
-    Uses wrapper format: version + task.
-    """
-
-    version: str = "1.0"
-    task: TaskDef  # required — no default; Pydantic raises ValidationError if absent
+    @field_validator("id")
+    @classmethod
+    def _validate_identity(cls, value: str) -> str:
+        validate_entity_id(value, EntityKind.SOUL)
+        return value
 
 
 # -- Supporting models for output conditions / inputs -----------------------
@@ -458,9 +450,11 @@ class EvalSectionDef(BaseModel):
 class RunsightWorkflowFile(BaseModel):
     """
     Root model for a Runsight .yaml workflow file.
-    'workflow' is the only required top-level key — all others have defaults.
+    id, kind, and workflow are required top-level keys.
     """
 
+    id: str
+    kind: Literal["workflow"]
     version: str = "1.0"
     enabled: bool = False
     config: Dict[str, Any] = Field(default_factory=dict)
@@ -471,6 +465,12 @@ class RunsightWorkflowFile(BaseModel):
     workflow: WorkflowDef  # required — no default; Pydantic raises ValidationError if absent
     limits: Optional[WorkflowLimitsDef] = None
     eval: Optional[EvalSectionDef] = None
+
+    @field_validator("id")
+    @classmethod
+    def _validate_identity(cls, value: str) -> str:
+        validate_entity_id(value, EntityKind.WORKFLOW)
+        return value
 
     @field_validator("tools")
     @classmethod

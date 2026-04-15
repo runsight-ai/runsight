@@ -1,10 +1,14 @@
 version: '1.0'
+id: research-review
+kind: workflow
 tools:
   - slack_payload_builder
   - slack_webhook
 souls:
   slack_notifier:
     id: slack_notifier
+    kind: soul
+    name: Slack Reporter
     role: Slack Reporter
     system_prompt: >
       Post the provided summary to Slack using the tools available to you.

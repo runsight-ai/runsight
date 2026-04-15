@@ -1,11 +1,13 @@
 version: "1.0"
+id: reusable-release-trace-subflow
+kind: workflow
 tools:
   - http
   - file_io
 interface:
   inputs:
     - name: task
-      target: current_task
+      target: shared_memory.task
     - name: manifest_json
       target: shared_memory.manifest_json
     - name: phase_payload

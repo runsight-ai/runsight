@@ -39,7 +39,7 @@ import yaml
 from runsight_core.isolation.envelope import ResultEnvelope
 from runsight_core.isolation.handlers import make_tool_call_handler
 from runsight_core.isolation.ipc import IPCServer
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import WorkflowState
 from runsight_core.tools import ToolInstance
@@ -109,6 +109,8 @@ def _workflow_dict(
     """Build a minimal workflow raw-dict for parse_workflow_yaml()."""
     d: Dict[str, Any] = {
         "version": "1.0",
+        "id": "integration_test_workflow",
+        "kind": "workflow",
         "config": {"model_name": model_name},
         "workflow": {
             "name": "integration_test_workflow",
@@ -119,7 +121,16 @@ def _workflow_dict(
     if tools:
         d["tools"] = tools
     if souls:
-        d["souls"] = souls
+        # Inject identity fields into each soul dict if missing
+        patched_souls: Dict[str, Any] = {}
+        for key, soul_data in souls.items():
+            soul_copy = dict(soul_data)
+            if "kind" not in soul_copy:
+                soul_copy["kind"] = "soul"
+            if "name" not in soul_copy:
+                soul_copy["name"] = soul_copy.get("role", key)
+            patched_souls[key] = soul_copy
+        d["souls"] = patched_souls
     if blocks:
         d["blocks"] = blocks
     return d
@@ -159,8 +170,10 @@ def _write_echo_tool_yaml(tmp_path: Path, slug: str = _ECHO_TOOL_ID) -> str:
     _write_custom_tool_yaml(
         tmp_path,
         slug,
-        """\
+        f"""\
 version: "1.0"
+id: {slug}
+kind: tool
 type: custom
 executor: python
 name: Echo Tool
@@ -174,7 +187,7 @@ parameters:
     - message
 code: |
   def main(args):
-      return {"echo": args}
+      return {{"echo": args}}
 """,
     )
     return slug
@@ -192,6 +205,8 @@ def _write_raising_tool_yaml(
         slug,
         f"""\
 version: "1.0"
+id: {slug}
+kind: tool
 type: custom
 executor: python
 name: {slug.replace("_", " ").title()}
@@ -256,8 +271,7 @@ class TestFullPipeline:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t1", instruction="Echo hello.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert isinstance(result, ExecutionResult)
         assert (
@@ -301,8 +315,7 @@ class TestFullPipeline:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t2", instruction="Ping.")
-        await runner.execute_task(task, soul)
+        await runner.execute("test instruction", None, soul)
 
         # Tool result message should be present in second call
         second_call_messages = mock_achat.call_args_list[1].kwargs.get("messages", [])
@@ -340,8 +353,7 @@ class TestFullPipeline:
         mock_achat.side_effect = [_text_response("Direct answer.")]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t3", instruction="Do something.")
-        await runner.execute_task(task, soul)
+        await runner.execute("test instruction", None, soul)
 
         first_call_kwargs = mock_achat.call_args_list[0].kwargs
         assert "tools" in first_call_kwargs
@@ -401,8 +413,7 @@ class TestSoulIsolation:
         mock_achat.return_value = _text_response("HTTP done.")
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="ta", instruction="Make a request.")
-        await runner.execute_task(task, soul_a)
+        await runner.execute("test instruction", None, soul_a)
 
         call_kwargs = mock_achat.call_args.kwargs
         tools_sent = call_kwargs.get("tools", [])
@@ -452,8 +463,7 @@ class TestSoulIsolation:
         mock_achat.return_value = _text_response("File done.")
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="tb", instruction="Read a file.")
-        await runner.execute_task(task, soul_b)
+        await runner.execute("test instruction", None, soul_b)
 
         call_kwargs = mock_achat.call_args.kwargs
         tools_sent = call_kwargs.get("tools", [])
@@ -554,8 +564,7 @@ class TestMaxIterationsIntegration:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_max", instruction="Keep calling echo.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.output == "Max iterations reached."
         assert result.tool_iterations == 2
@@ -594,8 +603,7 @@ class TestMaxIterationsIntegration:
         mock_achat.side_effect = [_text_response("Forced.")]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_strip", instruction="Do it.")
-        await runner.execute_task(task, soul)
+        await runner.execute("test instruction", None, soul)
 
         call_kwargs = mock_achat.call_args_list[0].kwargs
         assert call_kwargs.get("tools") == []
@@ -636,8 +644,7 @@ class TestMaxIterationsIntegration:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_calls", instruction="Call echo twice.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.tool_calls_made.count("echo") == 2
 
@@ -690,8 +697,7 @@ class TestToolErrorFeedback:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_err", instruction="Call the failing tool.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         # Loop must not crash; final output returned
         assert result.output == "Recovered after error."
@@ -742,8 +748,7 @@ class TestToolErrorFeedback:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_ve", instruction="Trigger error.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.output == "Survived ValueError."
 
@@ -761,6 +766,8 @@ class TestRequiredToolCalls:
         echo_tool_id = _write_echo_tool_yaml(tmp_path)
         soul = Soul(
             id="agent_1",
+            kind="soul",
+            name="Test Agent",
             role="Test Agent",
             system_prompt="Use the echo tool.",
             tools=[echo_tool_id],
@@ -777,9 +784,8 @@ class TestRequiredToolCalls:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_required_missing", instruction="Call every required tool.")
         with pytest.raises(ValueError, match=r"required tool calls completed: slack_webhook"):
-            await runner.execute_task(task, soul)
+            await runner.execute("test instruction", None, soul)
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
@@ -791,6 +797,8 @@ class TestRequiredToolCalls:
         echo_tool_id = _write_echo_tool_yaml(tmp_path)
         soul = Soul(
             id="agent_1",
+            kind="soul",
+            name="Test Agent",
             role="Test Agent",
             system_prompt="Use the echo tool.",
             tools=[echo_tool_id],
@@ -807,8 +815,7 @@ class TestRequiredToolCalls:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_required_choice", instruction="Call the required tool.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.output == "Done."
         assert mock_achat.call_args_list[0].kwargs["tool_choice"] == "required"
@@ -945,6 +952,8 @@ class TestCanonicalWorkflowToolIdIntegration:
             "http",
             """\
 version: "1.0"
+id: http
+kind: tool
 type: custom
 executor: python
 name: Shadow HTTP
@@ -960,6 +969,8 @@ code: |
             tmp_path,
             """\
 version: "1.0"
+id: canonical_tool_ids
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -967,6 +978,8 @@ tools:
 souls:
   agent:
     id: agent
+    kind: soul
+    name: Agent
     role: Agent
     provider: openai
     model_name: gpt-4o
@@ -1103,8 +1116,7 @@ class TestDelegateTool:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_del", instruction="Evaluate and delegate.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.output == "Approved."
 
@@ -1195,8 +1207,7 @@ class TestCostAccumulationIntegration:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_cost", instruction="Echo three times.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.cost_usd == pytest.approx(0.006)
         assert result.total_tokens == 60
@@ -1253,8 +1264,7 @@ class TestCostAccumulationIntegration:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_cost2", instruction="Echo twice then done.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.cost_usd == pytest.approx(sum(costs))
         assert result.total_tokens == sum(tokens)
@@ -1293,8 +1303,7 @@ class TestNoToolsPath:
         mock_achat.return_value = _text_response("Plain answer.")
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_plain", instruction="Tell me something.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.output == "Plain answer."
         assert mock_achat.call_count == 1
@@ -1324,8 +1333,7 @@ class TestNoToolsPath:
         mock_achat.return_value = _text_response("OK.")
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_notools", instruction="Do.")
-        await runner.execute_task(task, soul)
+        await runner.execute("test instruction", None, soul)
 
         call_kwargs = mock_achat.call_args.kwargs
         assert "tools" not in call_kwargs or call_kwargs.get("tools") is None
@@ -1359,6 +1367,8 @@ class TestNoToolsPath:
 
         soul = Soul(
             id="plain_soul",
+            kind="soul",
+            name="Plain",
             role="Plain",
             system_prompt="Just answer.",
             provider="openai",
@@ -1366,8 +1376,7 @@ class TestNoToolsPath:
         )
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_costs", instruction="Cost test.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.cost_usd == pytest.approx(0.0042)
         assert result.total_tokens == 88
@@ -1431,6 +1440,8 @@ class TestRun532ToolPipelineIntegration:
             "adder",
             """\
 version: "1.0"
+id: adder
+kind: tool
 type: custom
 executor: python
 name: Adder
@@ -1454,6 +1465,8 @@ code: |
             tmp_path,
             """\
 version: "1.0"
+id: run_532_custom_pipeline
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -1461,6 +1474,8 @@ tools:
 souls:
   agent:
     id: agent
+    kind: soul
+    name: Custom Agent
     role: Custom Agent
     provider: openai
     model_name: gpt-4o
@@ -1492,9 +1507,7 @@ workflow:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        result = await runner.execute_task(
-            Task(id="run-532-custom", instruction="Add numbers"), soul
-        )
+        result = await runner.execute("Add numbers", None, soul)
 
         assert result.output == "Custom tool complete."
         assert result.tool_calls_made == ["adder"]
@@ -1519,6 +1532,8 @@ workflow:
             "fetch_answer",
             """\
 version: "1.0"
+id: fetch_answer
+kind: tool
 type: custom
 executor: request
 name: Fetch Answer
@@ -1546,6 +1561,8 @@ timeout_seconds: 9
             tmp_path,
             """\
 version: "1.0"
+id: run_532_http_pipeline
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -1553,6 +1570,8 @@ tools:
 souls:
   agent:
     id: agent
+    kind: soul
+    name: HTTP Agent
     role: HTTP Agent
     provider: openai
     model_name: gpt-4o
@@ -1616,10 +1635,7 @@ workflow:
 
         with patch("httpx.AsyncClient", _FakeAsyncClient):
             runner = RunsightTeamRunner(model_name="gpt-4o")
-            result = await runner.execute_task(
-                Task(id="run-532-request", instruction="Fetch answer"),
-                soul,
-            )
+            result = await runner.execute("Fetch answer", None, soul)
 
         assert result.output == "Request tool complete."
         assert result.tool_calls_made == ["fetch_answer"]
@@ -1698,10 +1714,7 @@ workflow:
 
         with patch("httpx.AsyncClient", _FakeAsyncClient):
             runner = RunsightTeamRunner(model_name="gpt-4o")
-            result = await runner.execute_task(
-                Task(id="run-582-builtin-http", instruction="Fetch data"),
-                soul,
-            )
+            result = await runner.execute("Fetch data", None, soul)
 
         assert result.output == "Builtin http complete."
         assert result.tool_calls_made == ["http_request"]
@@ -1724,6 +1737,8 @@ workflow:
 
         soul = Soul(
             id="agent_1",
+            kind="soul",
+            name="HTTP Agent",
             role="HTTP Agent",
             system_prompt="Use the builtin http tool.",
             tools=["http"],
@@ -1774,10 +1789,7 @@ workflow:
 
         with patch("httpx.AsyncClient", _FakeAsyncClient):
             runner = RunsightTeamRunner(model_name="gpt-4o")
-            result = await runner.execute_task(
-                Task(id="run-597-builtin-http", instruction="Fetch nested data"),
-                soul,
-            )
+            result = await runner.execute("Fetch nested data", None, soul)
 
         assert result.output == "Builtin http response_path complete."
         assert result.tool_calls_made == ["http_request"]
@@ -1880,10 +1892,7 @@ workflow:
 
         with patch("httpx.AsyncClient", _FakeAsyncClient):
             runner = RunsightTeamRunner(model_name="gpt-4o")
-            result = await runner.execute_task(
-                Task(id="run-489-builtin-http-html", instruction="Fetch two HTML pages"),
-                soul,
-            )
+            result = await runner.execute("Fetch two HTML pages", None, soul)
 
         assert result.output == "Builtin http HTML complete."
         assert result.tool_calls_made == ["http_request", "http_request"]
@@ -1920,6 +1929,8 @@ workflow:
             "adder",
             """\
 version: "1.0"
+id: adder
+kind: tool
 type: custom
 executor: python
 name: Adder
@@ -1944,6 +1955,8 @@ code: |
             "fetch_answer",
             """\
 version: "1.0"
+id: fetch_answer
+kind: tool
 type: custom
 executor: request
 name: Fetch Answer
@@ -1964,6 +1977,8 @@ request:
             tmp_path,
             """\
 version: "1.0"
+id: run_532_mixed_pipeline
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -1973,6 +1988,8 @@ tools:
 souls:
   agent:
     id: agent
+    kind: soul
+    name: Mixed Agent
     role: Mixed Agent
     provider: openai
     model_name: gpt-4o
@@ -2010,11 +2027,15 @@ workflow:
             tmp_path,
             """\
 version: "1.0"
+id: run_532_governance_error
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   agent:
     id: agent
+    kind: soul
+    name: Agent
     role: Agent
     provider: openai
     model_name: gpt-4o
@@ -2139,6 +2160,8 @@ workflow:
             "adder",
             """\
 version: "1.0"
+id: adder
+kind: tool
 type: custom
 executor: python
 name: Adder
@@ -2163,6 +2186,8 @@ code: |
             "fetch_answer",
             """\
 version: "1.0"
+id: fetch_answer
+kind: tool
 type: custom
 executor: request
 name: Fetch Answer
@@ -2183,6 +2208,8 @@ request:
             tmp_path,
             """\
 version: "1.0"
+id: run_532_isolated_envelope
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -2192,6 +2219,8 @@ tools:
 souls:
   agent:
     id: agent
+    kind: soul
+    name: Mixed Agent
     role: Mixed Agent
     provider: openai
     model_name: gpt-4o
@@ -2215,7 +2244,7 @@ workflow:
 
         workflow = parse_workflow_yaml(str(workflow_path))
         block = workflow.blocks["step"]
-        state = WorkflowState(current_task=Task(id="run-532-envelope", instruction="Do work"))
+        state = WorkflowState()
         captured: dict[str, Any] = {}
 
         async def _capture(envelope: Any) -> ResultEnvelope:

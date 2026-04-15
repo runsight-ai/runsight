@@ -21,7 +21,7 @@ import pytest
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.blocks.loop import LoopBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -44,25 +44,22 @@ class _ScriptedRunner:
         self.calls: list[tuple[str, str, str | None]] = []
         self.attempts: dict[str, int] = {}
 
-    async def execute_task(self, task: Task, soul, messages=None):
+    async def execute(self, instruction: str, context, soul, messages=None, **kwargs):
         soul_id = soul.id
         attempt = self.attempts.get(soul_id, 0) + 1
         self.attempts[soul_id] = attempt
-        self.calls.append((soul_id, task.instruction, task.context))
+        self.calls.append((soul_id, instruction, context))
 
         behavior = self.behaviors.get(soul_id)
         if behavior is None:
-            output = f"{soul_id}|{task.instruction}|{task.context or ''}"
+            output = f"{soul_id}|{instruction}|{context or ''}"
         else:
-            output = behavior(attempt, task, soul)
+            output = behavior(attempt, instruction, soul)
 
         if isinstance(output, BaseException):
             raise output
 
         return SimpleNamespace(output=str(output), cost_usd=0.0, total_tokens=0, exit_handle=None)
-
-    def _build_prompt(self, task):
-        return task.instruction or ""
 
 
 class RecordingObserver:
@@ -112,6 +109,8 @@ class RecordingObserver:
 def _make_soul(soul_id: str = "test_soul") -> Soul:
     return Soul(
         id=soul_id,
+        kind="soul",
+        name="Tester",
         role="Tester",
         system_prompt="You are a test agent.",
         model_name="gpt-4o-mini",
@@ -166,7 +165,7 @@ class TestAC1DispatchInsideLoop:
         """
         call_count = {"n": 0}
 
-        def _branch_behavior(attempt, task, soul):
+        def _branch_behavior(attempt, instruction, soul):
             call_count["n"] += 1
             return f"round_{attempt}_output_{soul.id}"
 
@@ -205,9 +204,7 @@ class TestAC1DispatchInsideLoop:
             max_rounds=2,
         )
 
-        state = _make_state(
-            current_task=Task(id="t1", instruction="dispatch in loop", context="ctx")
-        )
+        state = _make_state()
 
         wf = _make_workflow_with_loop("dispatch_loop_wf", loop, dispatch)
         final = await wf.run(state)
@@ -247,7 +244,7 @@ class TestAC1DispatchInsideLoop:
         """Verify that the scripted runner produces different outputs per round,
         demonstrating that the dispatch executes fresh each round, not cached."""
 
-        def _tracking_behavior(attempt, task, soul):
+        def _tracking_behavior(attempt, instruction, soul):
             output = f"attempt_{attempt}_by_{soul.id}"
             return output
 
@@ -276,7 +273,7 @@ class TestAC1DispatchInsideLoop:
             max_rounds=2,
         )
 
-        state = _make_state(current_task=Task(id="t1", instruction="dispatch test", context="ctx"))
+        state = _make_state()
 
         wf = _make_workflow_with_loop("diff_output_wf", loop, dispatch)
         final = await wf.run(state)
@@ -295,7 +292,7 @@ class TestAC1DispatchInsideLoop:
         on each round of the loop."""
         runner = _ScriptedRunner(
             behaviors={
-                "soul_a": lambda a, t, s: f"output_{a}",
+                "soul_a": lambda a, i, s: f"output_{a}",
             }
         )
 
@@ -315,7 +312,7 @@ class TestAC1DispatchInsideLoop:
             max_rounds=2,
         )
 
-        state = _make_state(current_task=Task(id="t1", instruction="observer test", context="ctx"))
+        state = _make_state()
 
         observer = RecordingObserver()
         wf = _make_workflow_with_loop("observer_wf", loop, dispatch)
@@ -351,14 +348,20 @@ class TestAC1DispatchInsideLoop:
         composition and the runtime executes both rounds.
         """
         yaml_content = dedent("""\
+            id: test-workflow
+            kind: workflow
             version: "1.0"
             souls:
               analyst_a:
                 id: analyst_a
+                kind: soul
+                name: Analyst A
                 role: Analyst A
                 system_prompt: Analyze from perspective A.
               analyst_b:
                 id: analyst_b
+                kind: soul
+                name: Analyst B
                 role: Analyst B
                 system_prompt: Analyze from perspective B.
             blocks:
@@ -391,16 +394,14 @@ class TestAC1DispatchInsideLoop:
 
         runner = _ScriptedRunner(
             behaviors={
-                "analyst_a": lambda attempt, task, soul: f"A_round_{attempt}",
-                "analyst_b": lambda attempt, task, soul: f"B_round_{attempt}",
+                "analyst_a": lambda attempt, instruction, soul: f"A_round_{attempt}",
+                "analyst_b": lambda attempt, instruction, soul: f"B_round_{attempt}",
             }
         )
 
         workflow = parse_workflow_yaml(str(wf_path), runner=runner)
 
-        state = WorkflowState(
-            current_task=Task(id="yaml-test", instruction="Test dispatch in loop", context="ctx")
-        )
+        state = WorkflowState()
         final = await workflow.run(state)
 
         # Loop completed 2 rounds
@@ -439,10 +440,14 @@ class TestAC2AssertionsInsideLoop:
         """When a block definition has assertions: config in YAML, the parser
         bridges those configs onto the runtime block as block.assertions."""
         yaml_content = dedent("""\
+            id: test-workflow
+            kind: workflow
             version: "1.0"
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Writer
                 role: Writer
                 system_prompt: Write carefully.
             blocks:
@@ -494,7 +499,7 @@ class TestAC2AssertionsInsideLoop:
 
         call_count = {"n": 0}
 
-        async def _mock_execute(task, soul, messages=None):
+        async def _mock_execute(instruction, context, soul, messages=None, **kwargs):
             call_count["n"] += 1
             # Round 1: output fails assertion (no keyword)
             # Round 2: output passes assertion (has keyword)
@@ -503,17 +508,19 @@ class TestAC2AssertionsInsideLoop:
             else:
                 output = "This output contains expected keyword."
             return ExecutionResult(
-                task_id=task.id,
+                task_id="mock",
                 soul_id=soul.id,
                 output=output,
                 cost_usd=0.01,
                 total_tokens=50,
             )
 
-        runner.execute_task = AsyncMock(side_effect=_mock_execute)
+        runner.execute = AsyncMock(side_effect=_mock_execute)
 
         soul = Soul(
             id="writer",
+            kind="soul",
+            name="Writer",
             role="Writer",
             system_prompt="Write carefully.",
             model_name="gpt-4o-mini",
@@ -532,9 +539,7 @@ class TestAC2AssertionsInsideLoop:
         )
 
         observer = RecordingObserver()
-        state = _make_state(
-            current_task=Task(id="t1", instruction="Write a draft", context="test context")
-        )
+        state = _make_state()
 
         wf = _make_workflow_with_loop("assertions_loop_wf", loop, writer)
         await wf.run(state, observer=observer)
@@ -580,21 +585,23 @@ class TestAC2AssertionsInsideLoop:
         call_idx = {"n": 0}
         outputs = ["FAIL: score is 20", "PASS: score is 95"]
 
-        async def _mock_execute(task, soul, messages=None):
+        async def _mock_execute(instruction, context, soul, messages=None, **kwargs):
             output = outputs[call_idx["n"]]
             call_idx["n"] += 1
             return ExecutionResult(
-                task_id=task.id,
+                task_id="mock",
                 soul_id=soul.id,
                 output=output,
                 cost_usd=0.01,
                 total_tokens=50,
             )
 
-        runner.execute_task = AsyncMock(side_effect=_mock_execute)
+        runner.execute = AsyncMock(side_effect=_mock_execute)
 
         soul = Soul(
             id="critic",
+            kind="soul",
+            name="Critic",
             role="Critic",
             system_prompt="Evaluate quality.",
             model_name="gpt-4o-mini",
@@ -612,7 +619,7 @@ class TestAC2AssertionsInsideLoop:
         )
 
         observer = RecordingObserver()
-        state = _make_state(current_task=Task(id="t1", instruction="Evaluate", context="ctx"))
+        state = _make_state()
 
         wf = _make_workflow_with_loop("isolation_wf", loop, critic)
         await wf.run(state, observer=observer)
@@ -641,10 +648,14 @@ class TestAC2AssertionsInsideLoop:
         assertions config is accessible and the workflow executes correctly
         with the observer receiving per-round events."""
         yaml_content = dedent("""\
+            id: test-workflow
+            kind: workflow
             version: "1.0"
             souls:
               critic:
                 id: critic
+                kind: soul
+                name: Quality Critic
                 role: Quality Critic
                 system_prompt: Evaluate quality.
             blocks:
@@ -674,7 +685,7 @@ class TestAC2AssertionsInsideLoop:
 
         call_idx = {"n": 0}
 
-        def critic_behavior(attempt, task, soul):
+        def critic_behavior(attempt, instruction, soul):
             call_idx["n"] += 1
             if call_idx["n"] == 1:
                 return "FAIL: score 30"
@@ -691,9 +702,7 @@ class TestAC2AssertionsInsideLoop:
 
         # Run with observer
         observer = RecordingObserver()
-        state = WorkflowState(
-            current_task=Task(id="yaml-test", instruction="Evaluate quality", context="ctx")
-        )
+        state = WorkflowState()
         final = await workflow.run(state, observer=observer)
 
         # Loop ran both rounds
@@ -717,10 +726,14 @@ class TestAC2AssertionsInsideLoop:
         Verifies both AC1 (dispatch routing per round) and AC2 (assertions
         config accessible + observer fires per round) together."""
         yaml_content = dedent("""\
+            id: test-workflow
+            kind: workflow
             version: "1.0"
             souls:
               reviewer:
                 id: reviewer
+                kind: soul
+                name: Reviewer
                 role: Reviewer
                 system_prompt: Review the content.
             blocks:
@@ -752,7 +765,7 @@ class TestAC2AssertionsInsideLoop:
 
         runner = _ScriptedRunner(
             behaviors={
-                "reviewer": lambda attempt, task, soul: f"reviewed_round_{attempt}",
+                "reviewer": lambda attempt, instruction, soul: f"reviewed_round_{attempt}",
             }
         )
 
@@ -766,9 +779,7 @@ class TestAC2AssertionsInsideLoop:
 
         # Run with observer
         observer = RecordingObserver()
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Review dispatch", context="ctx")
-        )
+        state = WorkflowState()
         final = await workflow.run(state, observer=observer)
 
         # Loop completed 2 rounds

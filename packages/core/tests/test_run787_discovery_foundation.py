@@ -5,6 +5,15 @@ from pathlib import Path
 import pytest
 
 
+class ParsedYaml(str):
+    id: str
+
+    def __new__(cls, value: str, entity_id: str) -> "ParsedYaml":
+        item = str.__new__(cls, value)
+        item.id = entity_id
+        return item
+
+
 def test_discovery_package_exports_foundation_types() -> None:
     from runsight_core.yaml.discovery._base import (
         AssetType,
@@ -32,7 +41,7 @@ def test_base_scanner_is_abstract_and_scans_filesystem_yaml(tmp_path: Path) -> N
         def _parse_file(self, path: Path, raw_yaml: str) -> str:
             assert path.suffix in {".yaml", ".yml"}
             assert raw_yaml.strip()
-            return raw_yaml.strip()
+            return ParsedYaml(raw_yaml.strip(), path.stem)
 
     with pytest.raises(TypeError):
         BaseScanner(tmp_path)
@@ -45,22 +54,22 @@ def test_base_scanner_is_abstract_and_scans_filesystem_yaml(tmp_path: Path) -> N
 
     index = StringScanner(tmp_path).scan()
     assert isinstance(index, ScanIndex)
-    assert index.stems() == {"alpha": "alpha: 1", "beta": "beta: 2"}
+    assert index.ids() == {"alpha": "alpha: 1", "beta": "beta: 2"}
     assert index.get("alpha") is not None
-    assert index.get("custom/test-assets/alpha.yaml") is not None
-    assert index.get("custom/test-assets/beta.yml") is not None
-    assert index.without_stems({"alpha"}).stems() == {"beta": "beta: 2"}
+    assert index.get("custom/test-assets/alpha.yaml") is None
+    assert index.get("custom/test-assets/beta.yml") is None
+    assert index.without_ids({"alpha"}).ids() == {"beta": "beta: 2"}
     assert index.get("missing") is None
 
 
-def test_base_scanner_resolve_ref_prefers_index_then_candidate_paths(tmp_path: Path) -> None:
+def test_base_scanner_resolve_ref_uses_embedded_id_index_only(tmp_path: Path) -> None:
     from runsight_core.yaml.discovery._base import BaseScanner
 
     class StringScanner(BaseScanner[str]):
         asset_subdir = "custom/test-assets"
 
         def _parse_file(self, path: Path, raw_yaml: str) -> str:
-            return raw_yaml.strip()
+            return ParsedYaml(raw_yaml.strip(), path.stem)
 
     assets_dir = tmp_path / "custom" / "test-assets"
     assets_dir.mkdir(parents=True)
@@ -73,14 +82,10 @@ def test_base_scanner_resolve_ref_prefers_index_then_candidate_paths(tmp_path: P
     resolved = scanner.resolve_ref("ref_a", index=index)
     assert resolved is not None
     assert resolved.stem == "ref_a"
-    fallback_yaml = scanner.resolve_ref("ref_a.yaml")
-    assert fallback_yaml is not None
-    assert fallback_yaml.stem == "ref_a"
-    fallback_yml = scanner.resolve_ref("ref_b")
-    assert fallback_yml is not None
-    assert fallback_yml.stem == "ref_b"
-    assert scanner.resolve_ref("custom/test-assets/ref_a.yaml") is not None
-    assert scanner.resolve_ref("custom/test-assets/ref_b.yml") is not None
+    assert scanner.resolve_ref("ref_a.yaml") is None
+    assert scanner.resolve_ref("ref_b") is None
+    assert scanner.resolve_ref("custom/test-assets/ref_a.yaml", index=index) is None
+    assert scanner.resolve_ref("custom/test-assets/ref_b.yml", index=index) is None
 
 
 def test_base_scanner_git_scan_uses_git_service_and_ls_tree(tmp_path: Path, monkeypatch) -> None:
@@ -103,7 +108,7 @@ def test_base_scanner_git_scan_uses_git_service_and_ls_tree(tmp_path: Path, monk
         asset_subdir = "custom/test-assets"
 
         def _parse_file(self, path: Path, raw_yaml: str) -> str:
-            return raw_yaml.strip()
+            return ParsedYaml(raw_yaml.strip(), path.stem)
 
     git_service = FakeGitService(tmp_path)
     seen_commands: list[list[str]] = []
@@ -131,7 +136,7 @@ def test_base_scanner_git_scan_uses_git_service_and_ls_tree(tmp_path: Path, monk
         ("custom/test-assets/alpha.yaml", "feature/test"),
         ("custom/test-assets/beta.yml", "feature/test"),
     ]
-    assert index.stems() == {"alpha": "alpha: git", "beta": "beta: git"}
+    assert index.ids() == {"alpha": "alpha: git", "beta": "beta: git"}
 
 
 def test_base_scanner_git_scan_returns_empty_index_when_ls_tree_fails(
@@ -150,7 +155,7 @@ def test_base_scanner_git_scan_returns_empty_index_when_ls_tree_fails(
         asset_subdir = "custom/test-assets"
 
         def _parse_file(self, path: Path, raw_yaml: str) -> str:
-            return raw_yaml.strip()
+            return ParsedYaml(raw_yaml.strip(), path.stem)
 
     class Completed:
         def __init__(self, stdout: str, returncode: int) -> None:
@@ -166,7 +171,7 @@ def test_base_scanner_git_scan_returns_empty_index_when_ls_tree_fails(
         git_ref="feature/test", git_service=FakeGitService(tmp_path)
     )
     assert index.get_all() == []
-    assert index.stems() == {}
+    assert index.ids() == {}
 
 
 def test_base_scanner_reports_invalid_yaml_with_filename(tmp_path: Path) -> None:
@@ -178,7 +183,7 @@ def test_base_scanner_reports_invalid_yaml_with_filename(tmp_path: Path) -> None
         def _parse_file(self, path: Path, raw_yaml: str) -> str:
             if raw_yaml.strip() == "[]":
                 raise ValueError(f"{path.name}: YAML content is not a mapping")
-            return raw_yaml.strip()
+            return ParsedYaml(raw_yaml.strip(), path.stem)
 
     assets_dir = tmp_path / "custom" / "test-assets"
     assets_dir.mkdir(parents=True)
@@ -195,7 +200,7 @@ def test_base_scanner_skips_null_yaml_files(tmp_path: Path) -> None:
         asset_subdir = "custom/test-assets"
 
         def _parse_file(self, path: Path, raw_yaml: str) -> str:
-            return raw_yaml.strip()
+            return ParsedYaml(raw_yaml.strip(), path.stem)
 
     assets_dir = tmp_path / "custom" / "test-assets"
     assets_dir.mkdir(parents=True)
@@ -203,17 +208,17 @@ def test_base_scanner_skips_null_yaml_files(tmp_path: Path) -> None:
     (assets_dir / "real.yaml").write_text("real: value\n", encoding="utf-8")
 
     index = StringScanner(tmp_path).scan()
-    assert index.stems() == {"real": "real: value"}
+    assert index.ids() == {"real": "real: value"}
 
 
-def test_base_scanner_duplicate_stems_last_yaml_wins(tmp_path: Path) -> None:
+def test_base_scanner_duplicate_ids_last_yaml_wins(tmp_path: Path) -> None:
     from runsight_core.yaml.discovery._base import BaseScanner
 
     class StringScanner(BaseScanner[str]):
         asset_subdir = "custom/test-assets"
 
         def _parse_file(self, path: Path, raw_yaml: str) -> str:
-            return raw_yaml.strip()
+            return ParsedYaml(raw_yaml.strip(), path.stem)
 
     assets_dir = tmp_path / "custom" / "test-assets"
     assets_dir.mkdir(parents=True)
@@ -221,7 +226,7 @@ def test_base_scanner_duplicate_stems_last_yaml_wins(tmp_path: Path) -> None:
     (assets_dir / "duplicate.yml").write_text("from_yml: true\n", encoding="utf-8")
 
     index = StringScanner(tmp_path).scan()
-    assert index.stems() == {"duplicate": "from_yml: true"}
+    assert index.ids() == {"duplicate": "from_yml: true"}
 
 
 def test_base_scanner_skips_missing_asset_dir(tmp_path: Path) -> None:
@@ -231,8 +236,25 @@ def test_base_scanner_skips_missing_asset_dir(tmp_path: Path) -> None:
         asset_subdir = "custom/test-assets"
 
         def _parse_file(self, path: Path, raw_yaml: str) -> str:
-            return raw_yaml
+            return ParsedYaml(raw_yaml, path.stem)
 
     index = StringScanner(tmp_path).scan()
     assert index.get_all() == []
-    assert index.stems() == {}
+    assert index.ids() == {}
+
+
+def test_base_scanner_requires_embedded_id(tmp_path: Path) -> None:
+    from runsight_core.yaml.discovery._base import BaseScanner
+
+    class MissingIdScanner(BaseScanner[str]):
+        asset_subdir = "custom/test-assets"
+
+        def _parse_file(self, path: Path, raw_yaml: str) -> str:
+            return raw_yaml.strip()
+
+    assets_dir = tmp_path / "custom" / "test-assets"
+    assets_dir.mkdir(parents=True)
+    (assets_dir / "broken.yaml").write_text("broken: true\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="broken.yaml"):
+        MissingIdScanner(tmp_path).scan()

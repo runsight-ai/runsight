@@ -1,8 +1,10 @@
 import { api } from "./client";
 import type { components } from "@runsight/shared/api";
 import {
+  SoulCreateSchema,
   SoulListResponseSchema,
   SoulResponseSchema,
+  SoulUpdateSchema,
   SoulUsageResponseSchema,
   ToolListItemResponseSchema,
 } from "@runsight/shared/zod";
@@ -41,12 +43,14 @@ export const soulsApi = {
   },
 
   createSoul: async (data: SoulCreate): Promise<SoulResponse> => {
-    const res = await api.post(`/souls`, data);
+    const payload = SoulCreateSchema.parse(data);
+    const res = await api.post(`/souls`, payload);
     return SoulResponseSchema.parse(res);
   },
 
   updateSoul: async (id: string, data: SoulUpdate): Promise<SoulResponse> => {
-    const res = await api.put(`/souls/${id}`, data);
+    const payload = SoulUpdateSchema.parse(data);
+    const res = await api.put(`/souls/${id}`, payload);
     return SoulResponseSchema.parse(res);
   },
 

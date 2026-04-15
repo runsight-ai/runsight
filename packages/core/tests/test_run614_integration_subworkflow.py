@@ -469,6 +469,8 @@ class TestMissingRequiredChildInputRejected:
 
         child_file = RunsightWorkflowFile.model_validate(
             {
+                "id": "test-workflow",
+                "kind": "workflow",
                 "version": "1.0",
                 "interface": {
                     "inputs": [{"name": "topic", "target": "shared_memory.topic"}],

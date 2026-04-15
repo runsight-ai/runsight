@@ -6,6 +6,7 @@ from pathlib import Path
 from textwrap import dedent
 from unittest.mock import patch
 
+import pytest
 import yaml
 from runsight_core.yaml.discovery import SoulScanner, ToolScanner, WorkflowScanner
 from runsight_core.yaml.parser import parse_workflow_yaml, validate_workflow_call_contracts
@@ -54,6 +55,8 @@ def _tool_meta() -> dict:
 def _soul_meta() -> dict:
     return {
         "id": "researcher",
+        "kind": "soul",
+        "name": "Researcher",
         "role": "Researcher",
         "system_prompt": "You research things.",
         "tools": ["helper"],
@@ -63,6 +66,8 @@ def _soul_meta() -> dict:
 def _code_workflow(name: str) -> dict:
     return {
         "version": "1.0",
+        "id": "child-impl",
+        "kind": "workflow",
         "config": {"model_name": "gpt-4o"},
         "interface": {"inputs": [], "outputs": []},
         "blocks": {
@@ -87,6 +92,8 @@ def _code_workflow(name: str) -> dict:
 def _parent_workflow(workflow_ref: str) -> dict:
     return {
         "version": "1.0",
+        "id": "parent",
+        "kind": "workflow",
         "config": {"model_name": "gpt-4o"},
         "tools": ["helper"],
         "blocks": {
@@ -111,9 +118,26 @@ def _write_shared_fixture(base_dir: Path) -> dict[str, Path]:
     parent_path = base_dir / "custom" / "workflows" / "parent.yaml"
 
     _write_yaml(soul_path, _soul_meta())
-    _write_yaml(tool_path, _tool_meta())
+    _write_yaml(
+        tool_path,
+        {
+            "version": "1.0",
+            "id": "helper",
+            "kind": "tool",
+            "type": "custom",
+            "executor": "python",
+            "name": "Helper",
+            "description": "Echo topic values.",
+            "parameters": {
+                "type": "object",
+                "properties": {"topic": {"type": "string"}},
+                "required": ["topic"],
+            },
+            "code": "def main(args):\n    return {'topic': args.get('topic')}\n",
+        },
+    )
     _write_yaml(child_path, _code_workflow("child_flow"))
-    _write_yaml(parent_path, _parent_workflow("child_flow"))
+    _write_yaml(parent_path, _parent_workflow("child-impl"))
 
     return {
         "soul": soul_path,
@@ -157,36 +181,40 @@ def test_unified_scanners_scan_shared_fixture_and_resolve_aliases(tmp_path: Path
     tool_index = ToolScanner(tmp_path).scan()
     workflow_index = WorkflowScanner(tmp_path).scan()
 
-    assert set(soul_index.stems()) == {"researcher"}
-    assert set(tool_index.stems()) == {"helper"}
-    assert set(workflow_index.stems()) == {"child-impl", "parent"}
+    assert set(soul_index.ids()) == {"researcher"}
+    assert set(tool_index.ids()) == {"helper"}
+    assert set(workflow_index.ids()) == {"child-impl", "parent"}
 
-    assert soul_index.get("custom/souls/researcher.yaml") is not None
-    assert tool_index.get("custom/tools/helper.yaml") is not None
-    assert workflow_index.get("child_flow") is not None
-    assert workflow_index.get("custom/workflows/child-impl.yaml") is not None
+    assert soul_index.get("custom/souls/researcher.yaml") is None
+    assert tool_index.get("custom/tools/helper.yaml") is None
+    assert workflow_index.get("child-impl") is not None
+    assert workflow_index.get("child_flow") is None
+    assert workflow_index.get("custom/workflows/child-impl.yaml") is None
 
-    resolved = WorkflowScanner(tmp_path).resolve_ref("child_flow", index=workflow_index)
+    resolved = WorkflowScanner(tmp_path).resolve_ref("child-impl", index=workflow_index)
     assert resolved is not None
     assert resolved.path == paths["child"].resolve()
 
 
-def test_all_scanners_support_git_snapshot_scan_with_real_repo(tmp_path: Path):
+def test_all_scanners_support_git_snapshot_scan_with_real_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     repo_path = tmp_path / "repo"
     repo_path.mkdir()
     _write_shared_fixture(repo_path)
     git_service = _init_git_repo(repo_path, branch="sim/test")
+    monkeypatch.chdir(repo_path)
 
     for scanner_cls in (SoulScanner, ToolScanner, WorkflowScanner):
         filesystem_index = scanner_cls(repo_path).scan()
         git_index = scanner_cls(repo_path).scan(git_ref="sim/test", git_service=git_service)
 
-        assert filesystem_index.stems().keys() == git_index.stems().keys()
+        assert filesystem_index.ids().keys() == git_index.ids().keys()
 
     workflow_git_index = WorkflowScanner(repo_path).scan(
         git_ref="sim/test", git_service=git_service
     )
-    resolved = WorkflowScanner(repo_path).resolve_ref("child_flow", index=workflow_git_index)
+    resolved = WorkflowScanner(repo_path).resolve_ref("child-impl", index=workflow_git_index)
     assert resolved is not None
     assert resolved.stem == "child-impl"
 
@@ -196,7 +224,7 @@ def test_workflow_repository_build_registry_matches_workflow_scanner_resolution(
 ):
     paths = _write_shared_fixture(tmp_path)
     workflow_index = WorkflowScanner(tmp_path).scan()
-    resolved = WorkflowScanner(tmp_path).resolve_ref("child_flow", index=workflow_index)
+    resolved = WorkflowScanner(tmp_path).resolve_ref("child-impl", index=workflow_index)
 
     assert resolved is not None
     assert resolved.path == paths["child"].resolve()
@@ -208,10 +236,12 @@ def test_workflow_repository_build_registry_matches_workflow_scanner_resolution(
             paths["parent"].read_text(encoding="utf-8"),
         )
 
-    child_by_name = registry.get("child_flow")
-    child_by_path = registry.get("custom/workflows/child-impl.yaml")
-    assert child_by_name.workflow.name == "child_flow"
-    assert child_by_path.workflow.name == "child_flow"
+    child_by_id = registry.get("child-impl")
+    assert child_by_id.workflow.name == "child_flow"
+    with pytest.raises(ValueError, match="cannot resolve ref"):
+        registry.get("child_flow")
+    with pytest.raises(ValueError, match="cannot resolve ref"):
+        registry.get("custom/workflows/child-impl.yaml")
 
 
 def test_parser_and_validation_invoke_scanners_on_real_fixture(
@@ -244,7 +274,7 @@ def test_parser_and_validation_invoke_scanners_on_real_fixture(
         for call in tool_scanner_cls.call_args_list
     )
 
-    parent_file = RunsightWorkflowFile.model_validate(_parent_workflow("child_flow"))
+    parent_file = RunsightWorkflowFile.model_validate(_parent_workflow("child-impl"))
     with patch(
         "runsight_core.yaml.parser.WorkflowScanner", wraps=WorkflowScanner
     ) as workflow_scanner_cls:
@@ -253,7 +283,6 @@ def test_parser_and_validation_invoke_scanners_on_real_fixture(
             base_dir=str(tmp_path),
             validation_index=None,
             current_workflow_ref=str(paths["parent"]),
-            allow_filesystem_fallback=False,
         )
 
     assert any(

@@ -14,8 +14,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 README = REPO_ROOT / "README.md"
 TOOLS_README = REPO_ROOT / "tools" / "README.md"
@@ -26,15 +24,24 @@ def _run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, check=False, capture_output=True, text=True)
 
 
+def _codebones_executable() -> str:
+    executable = shutil.which("codebones")
+    assert executable, (
+        "codebones CLI must be available for RUN-517 regression coverage. "
+        "Run `uv sync --dev` from the repo root so the managed dev dependency is on PATH."
+    )
+    return executable
+
+
 def _codebones_index(cwd: Path) -> None:
-    result = _run(["codebones", "index", "."], cwd=cwd)
+    result = _run([_codebones_executable(), "index", "."], cwd=cwd)
     assert result.returncode == 0, (
         f"codebones index . failed unexpectedly\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
 
 
 def _codebones_search(cwd: Path, query: str) -> list[str]:
-    result = _run(["codebones", "search", query], cwd=cwd)
+    result = _run([_codebones_executable(), "search", query], cwd=cwd)
     assert result.returncode == 0, (
         f"codebones search {query!r} failed unexpectedly\n"
         f"stdout:\n{result.stdout}\n"
@@ -58,9 +65,6 @@ def _seed_repo(tmp_path: Path) -> Path:
 
 
 def _exercise_deleted_file_reindex(tmp_path: Path) -> tuple[list[str], list[str], list[str]]:
-    if not shutil.which("codebones"):
-        pytest.skip("codebones CLI not available on PATH")
-
     repo = _seed_repo(tmp_path)
 
     _codebones_index(repo)

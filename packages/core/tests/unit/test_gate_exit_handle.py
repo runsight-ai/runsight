@@ -30,7 +30,7 @@ from runsight_core.state import BlockResult, WorkflowState
 def _mock_runner(output: str, cost: float = 0.01, tokens: int = 100) -> RunsightTeamRunner:
     runner = MagicMock(spec=RunsightTeamRunner)
     runner.model_name = "gpt-4o"
-    runner.execute_task = AsyncMock(
+    runner.execute = AsyncMock(
         return_value=ExecutionResult(
             task_id="test", soul_id="test", output=output, cost_usd=cost, total_tokens=tokens
         )
@@ -39,7 +39,7 @@ def _mock_runner(output: str, cost: float = 0.01, tokens: int = 100) -> Runsight
 
 
 def _make_soul(soul_id: str = "gate_soul") -> Soul:
-    return Soul(id=soul_id, role="Gate", system_prompt="Evaluate quality")
+    return Soul(id=soul_id, kind="soul", name="Gate", role="Gate", system_prompt="Evaluate quality")
 
 
 def _make_gate(block_id: str = "gate1", eval_key: str = "content", **kwargs):

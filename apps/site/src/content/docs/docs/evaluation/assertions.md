@@ -13,6 +13,8 @@ Assertions are defined on the `assertions` field of any block definition. The fi
 
 ```yaml title="custom/workflows/research.yaml"
 version: "1.0"
+id: research
+kind: workflow
 blocks:
   analyze:
     type: code
@@ -40,7 +42,7 @@ Each assertion in the list is a dict with these fields:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `type` | `str` | yes | -- | Assertion type identifier. For custom assertions, use `custom:<file_stem>` |
+| `type` | `str` | yes | -- | Assertion type identifier. For custom assertions, use `custom:<id>` |
 | `value` | `any` | depends | `""` | Comparison value. Required for most string and linguistic assertions |
 | `threshold` | `float` | no | varies | Numeric threshold. Meaning depends on assertion type |
 | `config` | `any` | no | `None` | Per-assertion config payload. Built-ins ignore it. Custom assertions receive it as `context["config"]` |
@@ -159,7 +161,7 @@ assertions:
 
 ## Custom assertions
 
-Beyond the 15 built-in types, you can create your own assertions in Python. The contract is **promptfoo-compatible** — existing promptfoo assertion functions work with minimal changes. Custom assertions are discovered from manifest files under `custom/assertions/*.yaml` and are referenced by file stem:
+Beyond the 15 built-in types, you can create your own assertions in Python. The contract is **promptfoo-compatible** — existing promptfoo assertion functions work with minimal changes. Custom assertions are discovered from manifest files under `custom/assertions/*.yaml` and are referenced by embedded assertion id:
 
 ```yaml title="Custom assertion usage"
 assertions:
@@ -170,7 +172,7 @@ assertions:
 
 Important details:
 
-- The runtime key is always `custom:<file_stem>`.
+- The runtime key is always `custom:<id>`.
 - The manifest `name` is display-only.
 - Custom assertions can be used alongside built-in assertions in the same list.
 - Custom assertions support the same `not-` negation prefix as built-in assertions.

@@ -26,6 +26,7 @@ def teardown_function():
 def test_workflows_list():
     mock_service = Mock()
     mock_wf = WorkflowEntity(
+        kind="workflow",
         id="wf_1",
         name="Test Flow",
         blocks={},
@@ -48,12 +49,14 @@ def test_workflows_list():
 def test_workflows_get():
     mock_service = Mock()
     mock_service.get_workflow.return_value = WorkflowEntity(
+        kind="workflow",
         id="wf_1",
         name="Test Flow",
         blocks={},
         edges=[],
     )
     mock_service.get_workflow_detail.return_value = WorkflowEntity(
+        kind="workflow",
         id="wf_1",
         name="Test Flow",
         blocks={},
@@ -75,6 +78,7 @@ def test_workflows_get():
 def test_workflows_get_404():
     mock_service = Mock()
     mock_service.get_workflow.return_value = WorkflowEntity(
+        kind="workflow",
         id="wf_404",
         name="Existing Flow",
         blocks={},
@@ -90,6 +94,7 @@ def test_workflows_get_404():
 def test_workflows_post():
     mock_service = Mock()
     mock_wf = WorkflowEntity(
+        kind="workflow",
         id="wf_new",
         name="New Workflow",
         blocks={},
@@ -111,6 +116,7 @@ def test_workflows_post():
 def test_workflows_post_requires_yaml():
     mock_service = Mock()
     mock_service.create_workflow.return_value = WorkflowEntity(
+        kind="workflow",
         id="wf_new",
         name="New Workflow",
         blocks={},
@@ -133,6 +139,7 @@ def test_workflows_post_422():
 def test_workflows_put():
     mock_service = Mock()
     mock_wf = WorkflowEntity(
+        kind="workflow",
         id="wf_1",
         name="Updated Flow",
         blocks={},
@@ -154,6 +161,7 @@ def test_workflows_put():
 def test_workflows_put_requires_yaml():
     mock_service = Mock()
     mock_service.update_workflow.return_value = WorkflowEntity(
+        kind="workflow",
         id="wf_1",
         name="Updated Flow",
         blocks={},
@@ -177,6 +185,7 @@ def test_workflows_put_with_canvas_state():
         "canvas_mode": "dag",
     }
     mock_wf = WorkflowEntity(
+        kind="workflow",
         id="wf_1",
         name="Updated Flow",
         blocks={},

@@ -99,6 +99,9 @@ export interface StepNodeData extends Record<string, unknown> {
   status: RunStatus;
   cost?: number;
   executionCost?: number;
+  duration?: number;
+  tokens?: { input?: number; output?: number; total?: number };
+  error?: string | null;
 }
 
 export type WorkflowNode = Node<StepNodeData>;
@@ -129,7 +132,7 @@ export type WorkflowMeta = {
   isDirty: boolean;
 };
 
-export type LeftSidebarTab = "souls" | "tasks" | "tools";
+export type LeftSidebarTab = "souls" | "tools";
 export type RightPanelTab = "properties" | "prompt" | "yaml";
 export type CanvasMode = "dag" | "state-machine";
 

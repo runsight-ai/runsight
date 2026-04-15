@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import copy
-import json
 import time
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+from runsight_core.identity import EntityKind, EntityRef
 
 from ...data.repositories.run_repo import RunRepository
 from ...domain.entities.log import LogEntry
@@ -13,6 +14,10 @@ from ...domain.errors import RunNotFound, WorkflowNotFound
 
 if TYPE_CHECKING:
     from ...data.filesystem.workflow_repo import WorkflowRepository
+
+
+def _workflow_ref(workflow_id: str) -> str:
+    return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
 
 
 class RunService:
@@ -55,14 +60,14 @@ class RunService:
     def create_run(
         self,
         workflow_id: str,
-        task_data: Dict[str, Any],
+        inputs: Dict[str, Any],
         *,
         source: str = "manual",
         branch: str = "main",
     ) -> Run:
         workflow = self.workflow_repo.get_by_id(workflow_id)
         if not workflow:
-            raise WorkflowNotFound(f"Workflow {workflow_id} not found")
+            raise WorkflowNotFound(f"Workflow {_workflow_ref(workflow_id)} not found")
 
         run_id = f"run_{uuid.uuid4().hex[:12]}"
         workflow_warnings = getattr(workflow, "warnings", None)
@@ -75,7 +80,7 @@ class RunService:
             workflow_id=workflow_id,
             workflow_name=workflow.name if isinstance(workflow.name, str) else workflow.id,
             status=RunStatus.pending,
-            task_json=json.dumps(task_data),
+            task_json="{}",
             branch=branch,
             source=source,
             warnings_json=warnings_json,

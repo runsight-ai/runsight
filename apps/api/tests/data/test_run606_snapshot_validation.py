@@ -7,10 +7,16 @@ from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 
 def _write_workflow(repo: WorkflowRepository, *, workflow_id: str, yaml_text: str) -> None:
     repo.workflows_dir.mkdir(parents=True, exist_ok=True)
+    identity_header = f"id: {workflow_id}\nkind: workflow\n"
     (repo.workflows_dir / f"{workflow_id}.yaml").write_text(
-        dedent(yaml_text).strip() + "\n",
+        identity_header + dedent(yaml_text).strip() + "\n",
         encoding="utf-8",
     )
+
+
+def _with_identity(workflow_id: str, yaml_text: str) -> str:
+    """Return yaml_text with id and kind identity fields prepended."""
+    return f"id: {workflow_id}\nkind: workflow\n" + dedent(yaml_text).strip() + "\n"
 
 
 def test_update_rejects_circular_child_reference_chain(tmp_path) -> None:
@@ -24,7 +30,7 @@ def test_update_rejects_circular_child_reference_chain(tmp_path) -> None:
     blocks:
       call_parent:
         type: workflow
-        workflow_ref: custom/workflows/parent.yaml
+        workflow_ref: parent
     workflow:
       name: child
       entry: call_parent
@@ -42,7 +48,7 @@ def test_update_rejects_circular_child_reference_chain(tmp_path) -> None:
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
     workflow:
       name: parent
       entry: call_child
@@ -52,7 +58,7 @@ def test_update_rejects_circular_child_reference_chain(tmp_path) -> None:
     """
     _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
 
-    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+    entity = repo.update("parent", {"yaml": _with_identity("parent", parent_yaml)})
 
     assert entity.valid is False
     assert entity.validation_error is not None
@@ -84,7 +90,7 @@ def test_update_rejects_nested_child_chain_that_exceeds_max_depth(tmp_path) -> N
     blocks:
       call_grandchild:
         type: workflow
-        workflow_ref: custom/workflows/grandchild.yaml
+        workflow_ref: grandchild
     workflow:
       name: child
       entry: call_grandchild
@@ -102,7 +108,7 @@ def test_update_rejects_nested_child_chain_that_exceeds_max_depth(tmp_path) -> N
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
         max_depth: 1
     workflow:
       name: parent
@@ -113,7 +119,7 @@ def test_update_rejects_nested_child_chain_that_exceeds_max_depth(tmp_path) -> N
     """
     _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
 
-    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+    entity = repo.update("parent", {"yaml": _with_identity("parent", parent_yaml)})
 
     assert entity.valid is False
     assert entity.validation_error is not None
@@ -143,7 +149,7 @@ def test_update_rejects_child_chain_that_exceeds_inherited_workflow_max_depth(tm
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
     workflow:
       name: parent
       entry: call_child
@@ -155,7 +161,7 @@ def test_update_rejects_child_chain_that_exceeds_inherited_workflow_max_depth(tm
     """
     _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
 
-    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+    entity = repo.update("parent", {"yaml": _with_identity("parent", parent_yaml)})
 
     assert entity.valid is False
     assert entity.validation_error is not None
@@ -188,7 +194,7 @@ def test_update_rejects_nested_child_block_max_depth_already_exceeded_at_call_si
     blocks:
       call_grandchild:
         type: workflow
-        workflow_ref: custom/workflows/grandchild.yaml
+        workflow_ref: grandchild
         max_depth: 1
     workflow:
       name: child
@@ -207,7 +213,7 @@ def test_update_rejects_nested_child_block_max_depth_already_exceeded_at_call_si
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
     workflow:
       name: parent
       entry: call_child
@@ -217,7 +223,7 @@ def test_update_rejects_nested_child_block_max_depth_already_exceeded_at_call_si
     """
     _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
 
-    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+    entity = repo.update("parent", {"yaml": _with_identity("parent", parent_yaml)})
 
     assert entity.valid is False
     assert entity.validation_error is not None
@@ -248,7 +254,7 @@ def test_update_rejects_grandchild_when_propagated_call_depth_reaches_block_limi
     blocks:
       call_grandchild:
         type: workflow
-        workflow_ref: custom/workflows/grandchild.yaml
+        workflow_ref: grandchild
         max_depth: 3
     workflow:
       name: child
@@ -267,7 +273,7 @@ def test_update_rejects_grandchild_when_propagated_call_depth_reaches_block_limi
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
     workflow:
       name: parent
       entry: call_child
@@ -277,7 +283,7 @@ def test_update_rejects_grandchild_when_propagated_call_depth_reaches_block_limi
     """
     _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
 
-    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+    entity = repo.update("parent", {"yaml": _with_identity("parent", parent_yaml)})
 
     assert entity.valid is False
     assert entity.validation_error is not None
@@ -286,24 +292,12 @@ def test_update_rejects_grandchild_when_propagated_call_depth_reaches_block_limi
 
 
 # ---------------------------------------------------------------------------
-# Item 1 / 3a: Name-alias resolution — workflow.name vs filename
+# Item 1 / 3a: Name aliases removed — embedded ids only
 # ---------------------------------------------------------------------------
 
 
-def test_update_resolves_child_workflow_by_declared_name_alias(tmp_path) -> None:
-    """RUN-606 alias regression: build_runnable_workflow_registry() must resolve
-    a child ref by its workflow.name even when the filename is different.
-
-    Scenario:
-      - Parent has ``workflow_ref: child-by-name``
-      - Child file is ``custom/workflows/actual-child-file.yaml``
-        with ``workflow: { name: child-by-name }`` and an interface declared
-      - Resolution must succeed because workflow.name == workflow_ref
-
-    This previously failed when child resolution only tried path-like
-    candidate guesses (e.g. ``child-by-name.yaml``) and skipped the
-    workflow.name alias index.
-    """
+def test_update_rejects_child_workflow_by_declared_name_alias(tmp_path) -> None:
+    """workflow_ref must resolve by embedded workflow id, not workflow.name."""
     repo = WorkflowRepository(base_path=str(tmp_path))
 
     child_yaml = """
@@ -321,7 +315,6 @@ def test_update_resolves_child_workflow_by_declared_name_alias(tmp_path) -> None
       entry: finish
       transitions: []
     """
-    # Write child with a filename that does NOT match the workflow.name
     _write_workflow(repo, workflow_id="actual-child-file", yaml_text=child_yaml)
 
     parent_yaml = """
@@ -346,21 +339,16 @@ def test_update_resolves_child_workflow_by_declared_name_alias(tmp_path) -> None
     """
     _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
 
-    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+    entity = repo.update("parent", {"yaml": _with_identity("parent", parent_yaml)})
 
-    # With correct alias resolution this should be valid
-    assert entity.valid is True, (
-        f"Expected valid=True (alias resolution should find child-by-name), "
-        f"got validation_error: {entity.validation_error}"
-    )
-    assert entity.validation_error is None
+    assert entity.valid is False
+    assert entity.validation_error is not None
+    assert "child-by-name" in entity.validation_error
+    assert "workflow ids" in entity.validation_error
 
 
-def test_create_resolves_child_workflow_by_declared_name_alias(tmp_path) -> None:
-    """RUN-606 alias regression through repo.create() path: same as above
-    but exercising the create() entry point to confirm name-based alias
-    resolution also works on first save.
-    """
+def test_create_rejects_child_workflow_by_declared_name_alias(tmp_path) -> None:
+    """repo.create() also rejects workflow.name aliases."""
     repo = WorkflowRepository(base_path=str(tmp_path))
 
     child_yaml = """
@@ -394,13 +382,12 @@ def test_create_resolves_child_workflow_by_declared_name_alias(tmp_path) -> None
           to: null
     """
 
-    entity = repo.create({"name": "Parent", "yaml": dedent(parent_yaml).strip() + "\n"})
+    entity = repo.create({"name": "Parent", "yaml": _with_identity("parent", parent_yaml)})
 
-    assert entity.valid is True, (
-        f"Expected valid=True (name alias resolution), "
-        f"got validation_error: {entity.validation_error}"
-    )
-    assert entity.validation_error is None
+    assert entity.valid is False
+    assert entity.validation_error is not None
+    assert "child-by-name" in entity.validation_error
+    assert "workflow ids" in entity.validation_error
 
 
 # ---------------------------------------------------------------------------
@@ -452,7 +439,7 @@ def test_max_depth_3_allows_grandchild_with_propagated_config(tmp_path) -> None:
     blocks:
       call_grandchild:
         type: workflow
-        workflow_ref: custom/workflows/grandchild.yaml
+        workflow_ref: grandchild
     workflow:
       name: child
       entry: call_grandchild
@@ -472,7 +459,7 @@ def test_max_depth_3_allows_grandchild_with_propagated_config(tmp_path) -> None:
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
         max_depth: 3
     workflow:
       name: parent
@@ -483,7 +470,7 @@ def test_max_depth_3_allows_grandchild_with_propagated_config(tmp_path) -> None:
     """
     _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
 
-    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+    entity = repo.update("parent", {"yaml": _with_identity("parent", parent_yaml)})
 
     assert entity.valid is True, (
         f"max_depth=3 should allow parent->child->grandchild (2 nesting levels), "
@@ -521,7 +508,7 @@ def test_max_depth_1_rejects_grandchild_with_propagated_config(tmp_path) -> None
     blocks:
       call_grandchild:
         type: workflow
-        workflow_ref: custom/workflows/grandchild.yaml
+        workflow_ref: grandchild
     workflow:
       name: child
       entry: call_grandchild
@@ -541,7 +528,7 @@ def test_max_depth_1_rejects_grandchild_with_propagated_config(tmp_path) -> None
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
         max_depth: 1
     workflow:
       name: parent
@@ -552,7 +539,7 @@ def test_max_depth_1_rejects_grandchild_with_propagated_config(tmp_path) -> None
     """
     _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
 
-    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+    entity = repo.update("parent", {"yaml": _with_identity("parent", parent_yaml)})
 
     assert entity.valid is False
     assert entity.validation_error is not None
@@ -585,7 +572,7 @@ def test_max_depth_2_rejects_great_grandchild_with_propagated_config(tmp_path) -
     blocks:
       call_ggc:
         type: workflow
-        workflow_ref: custom/workflows/great-grandchild.yaml
+        workflow_ref: great-grandchild
     workflow:
       name: grandchild
       entry: call_ggc
@@ -605,7 +592,7 @@ def test_max_depth_2_rejects_great_grandchild_with_propagated_config(tmp_path) -
     blocks:
       call_grandchild:
         type: workflow
-        workflow_ref: custom/workflows/grandchild.yaml
+        workflow_ref: grandchild
     workflow:
       name: child
       entry: call_grandchild
@@ -625,7 +612,7 @@ def test_max_depth_2_rejects_great_grandchild_with_propagated_config(tmp_path) -
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
         max_depth: 2
     workflow:
       name: parent
@@ -636,7 +623,7 @@ def test_max_depth_2_rejects_great_grandchild_with_propagated_config(tmp_path) -
     """
     _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
 
-    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+    entity = repo.update("parent", {"yaml": _with_identity("parent", parent_yaml)})
 
     # great-grandchild is nesting level 3, max_depth=2 should reject it
     assert entity.valid is False
@@ -670,7 +657,7 @@ def test_max_depth_2_allows_grandchild_with_propagated_config(tmp_path) -> None:
     blocks:
       call_grandchild:
         type: workflow
-        workflow_ref: custom/workflows/grandchild.yaml
+        workflow_ref: grandchild
     workflow:
       name: child
       entry: call_grandchild
@@ -690,7 +677,7 @@ def test_max_depth_2_allows_grandchild_with_propagated_config(tmp_path) -> None:
     blocks:
       call_child:
         type: workflow
-        workflow_ref: custom/workflows/child.yaml
+        workflow_ref: child
         max_depth: 2
     workflow:
       name: parent
@@ -701,7 +688,7 @@ def test_max_depth_2_allows_grandchild_with_propagated_config(tmp_path) -> None:
     """
     _write_workflow(repo, workflow_id="parent", yaml_text=parent_yaml)
 
-    entity = repo.update("parent", {"yaml": dedent(parent_yaml).strip() + "\n"})
+    entity = repo.update("parent", {"yaml": _with_identity("parent", parent_yaml)})
 
     assert entity.valid is True, (
         f"max_depth=2 should allow parent->child->grandchild (2 nesting levels), "

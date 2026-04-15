@@ -8,6 +8,7 @@ reuse them without importing the full parser.
 from typing import Dict
 
 from runsight_core.conditions.engine import Condition, ConditionGroup
+from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.primitives import Soul
 from runsight_core.yaml.schema import ConditionDef, ConditionGroupDef
 
@@ -20,8 +21,9 @@ def resolve_soul(ref: str, souls_map: Dict[str, Soul]) -> Soul:
     """
     soul = souls_map.get(ref)
     if soul is None:
+        soul_ref = str(EntityRef(EntityKind.SOUL, ref))
         raise ValueError(
-            f"Soul reference '{ref}' not found in custom/souls/. "
+            f"Soul reference '{soul_ref}' not found in custom/souls/. "
             f"Available souls: {sorted(souls_map.keys())}. "
             f"Create a soul file at custom/souls/{ref}.yaml"
         )

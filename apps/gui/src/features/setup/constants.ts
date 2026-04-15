@@ -1,5 +1,7 @@
 export const TEMPLATE_YAML = `\
 version: '1.0'
+id: research-review
+kind: workflow
 tools:
   - file_io
 # REQUIRED BEFORE RUNNING:
@@ -10,6 +12,8 @@ tools:
 souls:
   researcher:
     id: researcher
+    kind: soul
+    name: Researcher
     role: Research File Writer
     system_prompt: >
       You are a fast research assistant.
@@ -32,6 +36,8 @@ souls:
     avatar_color: info
   reviewer:
     id: reviewer
+    kind: soul
+    name: Reviewer
     role: Quality Gate Reviewer
     system_prompt: >
       Review the draft research note.
@@ -45,6 +51,8 @@ souls:
     avatar_color: accent
   error_writer:
     id: error_writer
+    kind: soul
+    name: Error Writer
     role: Error Stub Writer
     system_prompt: >
       This block only runs after the review flow fails or errors.
@@ -140,3 +148,7 @@ workflow:
       fail: write_error_stub
       default: write_error_stub
 `;
+
+export function buildTemplateWorkflowYaml(workflowId: string): string {
+  return TEMPLATE_YAML.replace(/^id: research-review$/m, `id: ${workflowId}`);
+}

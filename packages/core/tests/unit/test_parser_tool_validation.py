@@ -39,6 +39,8 @@ def _make_yaml(
 ) -> str:
     """Build a complete workflow YAML string for tool-validation tests."""
     return f"""\
+id: tool-test-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -65,7 +67,12 @@ def _write_custom_tool_file(tmp_path, slug: str, contents: str) -> None:
     """Create a custom tool metadata file under custom/tools for parser tests."""
     tools_dir = tmp_path / "custom" / "tools"
     tools_dir.mkdir(parents=True, exist_ok=True)
-    (tools_dir / f"{slug}.yaml").write_text(dedent(contents), encoding="utf-8")
+    content = dedent(contents)
+    lines = content.lstrip().splitlines()
+    first_key = lines[0].split(":")[0].strip() if lines else ""
+    if first_key != "id":
+        content = f"id: {slug}\nkind: tool\n" + content
+    (tools_dir / f"{slug}.yaml").write_text(content, encoding="utf-8")
 
 
 # ===========================================================================
@@ -86,6 +93,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -118,6 +127,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -149,6 +160,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -180,6 +193,8 @@ souls:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -224,6 +239,8 @@ class TestWorkflowToolGovernanceHelpers:
 souls:
   reviewer:
     id: reviewer
+    kind: soul
+    name: Reviewer
     role: Reviewer
     system_prompt: Review the draft.
     tools:
@@ -257,6 +274,8 @@ tools:
 souls:
   reviewer:
     id: reviewer
+    kind: soul
+    name: Reviewer
     role: Reviewer
     system_prompt: Review the draft.
     tools:
@@ -300,6 +319,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -332,6 +353,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -358,6 +381,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -386,6 +411,8 @@ tools: []""",
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -415,6 +442,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -463,6 +492,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -494,6 +525,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -523,6 +556,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -558,6 +593,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -587,6 +624,8 @@ tools:
 souls:
   researcher_agent:
     id: researcher_agent
+    kind: soul
+    name: Researcher
     role: Researcher
     system_prompt: Research stuff.
     tools:
@@ -612,6 +651,8 @@ souls:
 souls:
   gate_agent:
     id: gate_agent
+    kind: soul
+    name: Gate Agent
     role: Gate Agent
     system_prompt: Evaluate and delegate.
     tools:
@@ -652,6 +693,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -681,6 +724,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -721,6 +766,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -793,6 +840,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -847,6 +896,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -906,6 +957,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -988,6 +1041,8 @@ tools:
 souls:
   my_agent:
     id: my_agent
+    kind: soul
+    name: Agent
     role: Agent
     system_prompt: Do things.
     tools:
@@ -1024,6 +1079,8 @@ tools:
 souls:
   gate_agent:
     id: gate_agent
+    kind: soul
+    name: Gate Agent
     role: Gate Agent
     system_prompt: Evaluate and delegate.
     tools:
@@ -1062,6 +1119,8 @@ tools:
 souls:
   router_agent:
     id: router_agent
+    kind: soul
+    name: Router
     role: Router
     system_prompt: Route to exit.
     tools:
@@ -1110,6 +1169,8 @@ tools:
 souls:
   gate_agent:
     id: gate_agent
+    kind: soul
+    name: Gate Agent
     role: Gate Agent
     system_prompt: Evaluate and delegate.
     tools:
@@ -1136,6 +1197,8 @@ tools:
 souls:
   my_evaluator:
     id: my_evaluator
+    kind: soul
+    name: Evaluator
     role: Evaluator
     system_prompt: Evaluate.
     tools:
@@ -1172,6 +1235,8 @@ tools:
 souls:
   plain_agent:
     id: plain_agent
+    kind: soul
+    name: Plain Agent
     role: Plain Agent
     system_prompt: Do plain things.""",
             blocks="""\
@@ -1196,6 +1261,8 @@ souls:
 souls:
   researcher:
     id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.""",
             blocks="""\
@@ -1233,12 +1300,16 @@ tools:
 souls:
   http_agent:
     id: http_agent
+    kind: soul
+    name: HTTP Agent
     role: HTTP Agent
     system_prompt: Make HTTP calls.
     tools:
       - http
   file_agent:
     id: file_agent
+    kind: soul
+    name: File Agent
     role: File Agent
     system_prompt: Read files.
     tools:
@@ -1283,12 +1354,16 @@ tools:
 souls:
   tool_agent:
     id: tool_agent
+    kind: soul
+    name: Tool Agent
     role: Tool Agent
     system_prompt: Use tools.
     tools:
       - http
   plain_agent:
     id: plain_agent
+    kind: soul
+    name: Plain Agent
     role: Plain Agent
     system_prompt: No tools.""",
             blocks="""\

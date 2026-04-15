@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+from runsight_core.identity import EntityKind, EntityRef
+
 from ...data.filesystem.provider_repo import FileSystemProviderRepo
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
 from ...domain.entities.settings import FallbackTargetEntry
 from ...domain.errors import InputValidationError, ProviderNotFound
+
+
+def _provider_ref(provider_id: str) -> str:
+    return str(EntityRef(EntityKind.PROVIDER, provider_id))
 
 
 class SettingsService:
@@ -49,9 +55,9 @@ class SettingsService:
     ) -> dict:
         provider = self.provider_repo.get_by_id(provider_id)
         if provider is None:
-            raise ProviderNotFound(f"Provider {provider_id} not found")
+            raise ProviderNotFound(f"Provider {_provider_ref(provider_id)} not found")
         if not getattr(provider, "is_active", True):
-            raise InputValidationError(f"Provider {provider_id} is disabled")
+            raise InputValidationError(f"Provider {_provider_ref(provider_id)} is disabled")
 
         fallback_target = self._fallback_target_for_provider(provider_id)
         if fallback_provider_id == "" or fallback_model_id == "":
@@ -140,12 +146,14 @@ class SettingsService:
 
         target_provider = self.provider_repo.get_by_id(fallback_provider_id)
         if target_provider is None:
-            raise ProviderNotFound(f"Provider {fallback_provider_id} not found")
+            raise ProviderNotFound(f"Provider {_provider_ref(fallback_provider_id)} not found")
         if not getattr(target_provider, "is_active", True):
-            raise InputValidationError(f"Provider {fallback_provider_id} is disabled")
+            raise InputValidationError(
+                f"Provider {_provider_ref(fallback_provider_id)} is disabled"
+            )
         if fallback_model_id not in (target_provider.models or []):
             raise InputValidationError(
-                f"Model {fallback_model_id} does not belong to provider {fallback_provider_id}"
+                f"Model {fallback_model_id} does not belong to provider {_provider_ref(fallback_provider_id)}"
             )
 
         return FallbackTargetEntry(

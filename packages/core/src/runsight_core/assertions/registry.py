@@ -17,7 +17,7 @@ from runsight_core.assertions.base import (
 )
 from runsight_core.assertions.custom import _build_adapter_class
 from runsight_core.assertions.scoring import AssertionsResult
-from runsight_core.isolation.envelope import ContextEnvelope, SoulEnvelope, TaskEnvelope
+from runsight_core.isolation.envelope import ContextEnvelope, PromptEnvelope, SoulEnvelope
 from runsight_core.isolation.harness import SubprocessHarness
 
 if TYPE_CHECKING:
@@ -35,7 +35,7 @@ def register_assertion(type_str: str, handler: type) -> None:
 
 def register_custom_assertions(index: "ScanIndex[AssertionMeta]") -> None:
     """Register custom assertions from a discovery scan index."""
-    for meta in index.stems().values():
+    for meta in index.ids().values():
         if meta.manifest.params is not None:
             custom_assertions._PARAM_SCHEMAS[meta.assertion_id] = meta.manifest.params
         else:
@@ -167,6 +167,7 @@ def _build_assertion_envelope(
         soul=SoulEnvelope(
             id=str(judge_soul.get("id", "assertion_judge")),
             role=str(judge_soul.get("role", "Assertion Judge")),
+            name=str(judge_soul.get("name") or judge_soul.get("role") or "Assertion Judge"),
             system_prompt=str(judge_soul.get("system_prompt", "")),
             model_name=str(judge_soul.get("model_name", "gpt-4o-mini")),
             provider=str(judge_soul.get("provider", "")),
@@ -176,7 +177,7 @@ def _build_assertion_envelope(
             max_tool_iterations=max_tool_iterations,
         ),
         tools=[],
-        task=TaskEnvelope(
+        prompt=PromptEnvelope(
             id=f"assert-{context.block_id or 'task'}",
             instruction=context.prompt,
             context={},

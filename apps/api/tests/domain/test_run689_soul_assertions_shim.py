@@ -17,7 +17,9 @@ class TestSoulEntityAssertionsFieldRejected:
     def test_assertions_data_is_rejected_as_unknown(self) -> None:
         with pytest.raises(ValidationError):
             SoulEntity(
-                id="s1",
+                id="soul-tester",
+                kind="soul",
+                name="Tester",
                 role="Tester",
                 assertions=[{"type": "contains", "value": "hello"}],
             )

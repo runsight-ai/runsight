@@ -29,6 +29,8 @@ def _write_soul_file(base_dir: Path, name: str = "writer") -> None:
         dedent(
             """\
             id: writer
+            kind: soul
+            name: Writer
             role: Writer
             system_prompt: Write carefully.
             """
@@ -39,7 +41,10 @@ def _write_soul_file(base_dir: Path, name: str = "writer") -> None:
 
 def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     workflow_file = base_dir / "workflow.yaml"
-    workflow_file.write_text(dedent(yaml_content), encoding="utf-8")
+    content = dedent(yaml_content)
+    if "id: " not in content:
+        content = "id: test-workflow\nkind: workflow\n" + content
+    workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
 
 
@@ -86,6 +91,8 @@ class TestSchemaAcceptsDependsAndErrorRoute:
     def test_model_validate_accepts_depends_and_error_route_fields(self):
         file_def = RunsightWorkflowFile.model_validate(
             {
+                "id": "test-workflow",
+                "kind": "workflow",
                 "workflow": {"name": "test", "entry": "fetch"},
                 "blocks": {
                     "fetch": {"type": "linear", "soul_ref": "writer"},
@@ -320,6 +327,8 @@ class TestErrorRouteParserPlumbing:
     def test_error_route_can_coexist_with_workflow_block_on_error_catch(self):
         child_file = RunsightWorkflowFile.model_validate(
             {
+                "id": "child-workflow",
+                "kind": "workflow",
                 "version": "1.0",
                 "interface": {
                     "inputs": [],
@@ -342,6 +351,8 @@ class TestErrorRouteParserPlumbing:
         registry.register("child_workflow", child_file)
 
         parent_yaml = {
+            "id": "parent-workflow",
+            "kind": "workflow",
             "version": "1.0",
             "blocks": {
                 "invoke_child": {

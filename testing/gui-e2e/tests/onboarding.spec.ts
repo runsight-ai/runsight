@@ -147,6 +147,8 @@ async function seedProviders(providers: ProviderFixture[]) {
     await writeFile(
       path.join(providersDir, `${provider.id}.yaml`),
       stringify({
+        id: provider.id,
+        kind: "provider",
         name: provider.name,
         type: provider.type,
         status: provider.status,
@@ -264,8 +266,9 @@ test.describe("Onboarding journeys", () => {
     await expect(page.getByRole("button", { name: "Add API Key" })).toBeVisible();
 
     const workflow = await apiGet<WorkflowDetail>(`/workflows/${workflowId}`);
-    expect(workflow.name).toBeNull();
-    expect(workflow.yaml === "" || workflow.yaml === null || workflow.yaml === undefined).toBe(true);
+    expect(workflow.name).toBe("Untitled Workflow");
+    expect(workflow.yaml).toContain(`id: ${workflowId}`);
+    expect(workflow.yaml).toContain("kind: workflow");
   });
 
   test("provider-present onboarding shows ready-to-run state and redirects setup away after completion", async ({

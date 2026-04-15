@@ -8,6 +8,8 @@ from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
 def _minimal_workflow_with_interface(interface: dict) -> dict:
     return {
         "version": "1.0",
+        "id": "child-contract",
+        "kind": "workflow",
         "interface": interface,
         "workflow": {
             "name": "child-contract",

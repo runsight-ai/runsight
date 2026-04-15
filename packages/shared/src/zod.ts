@@ -170,6 +170,8 @@ export const PaginatedLogsResponseSchema = z.object({
 export type PaginatedLogsResponse = z.infer<typeof PaginatedLogsResponseSchema>;
 
 export const ProviderCreateSchema = z.object({
+  id: z.string(),
+  kind: z.literal("provider"),
   name: z.string(),
   api_key_env: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
@@ -203,6 +205,8 @@ export const ProviderTestOutSchema = z.object({
 export type ProviderTestOut = z.infer<typeof ProviderTestOutSchema>;
 
 export const ProviderUpdateSchema = z.object({
+  id: z.string(),
+  kind: z.literal("provider"),
   name: z.string().nullable().optional(),
   api_key_env: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
@@ -212,10 +216,10 @@ export type ProviderUpdate = z.infer<typeof ProviderUpdateSchema>;
 
 export const RunCreateSchema = z.object({
   workflow_id: z.string(),
-  task_data: z.record(z.string(), z.unknown()).optional(),
+  inputs: z.record(z.string(), z.unknown()).optional(),
   source: z.string().nullable().optional().default("manual"),
   branch: z.string().optional().default("main"),
-});
+}).strict();
 export type RunCreate = z.infer<typeof RunCreateSchema>;
 
 export const RunEvalResponseSchema = z.object({
@@ -309,6 +313,7 @@ export type SettingsFallbackListResponse = z.infer<typeof SettingsFallbackListRe
 
 export const SettingsProviderResponseSchema = z.object({
   id: z.string(),
+  kind: z.literal("provider"),
   name: z.string(),
   type: z.string().nullable().optional(),
   status: z.string(),
@@ -342,7 +347,9 @@ export const SimBranchResponseSchema = z.object({
 export type SimBranchResponse = z.infer<typeof SimBranchResponseSchema>;
 
 export const SoulCreateSchema = z.object({
-  id: z.string().nullable().optional(),
+  id: z.string(),
+  kind: z.literal("soul"),
+  name: z.string(),
   role: z.string(),
   system_prompt: z.string(),
   tools: z.array(z.string()).nullable().optional(),
@@ -372,6 +379,8 @@ export const SoulEvalHistoryResponseSchema = z.object({
 export type SoulEvalHistoryResponse = z.infer<typeof SoulEvalHistoryResponseSchema>;
 
 export const SoulResponseSchema = z.object({
+  kind: z.literal("soul"),
+  name: z.string(),
   id: z.string(),
   role: z.string().nullable().optional(),
   system_prompt: z.string().nullable().optional(),
@@ -497,6 +506,7 @@ export const WorkflowHealthMetricsSchema = z.object({
 export type WorkflowHealthMetrics = z.infer<typeof WorkflowHealthMetricsSchema>;
 
 export const WorkflowResponseSchema = z.object({
+  kind: z.literal("workflow"),
   id: z.string(),
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),

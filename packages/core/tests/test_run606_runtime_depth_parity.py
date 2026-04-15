@@ -38,13 +38,20 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 
 def _make_workflow_file(yaml_text: str) -> RunsightWorkflowFile:
     data = yaml_mod.safe_load(dedent(yaml_text).strip())
+    if "id" not in data:
+        data["id"] = "test-workflow"
+    if "kind" not in data:
+        data["kind"] = "workflow"
     return RunsightWorkflowFile.model_validate(data)
 
 
 def _write_yaml_file(base: Path, rel_path: str, yaml_text: str) -> Path:
     target = base / rel_path
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(dedent(yaml_text).strip() + "\n", encoding="utf-8")
+    content = dedent(yaml_text).strip() + "\n"
+    if "id: " not in content:
+        content = "id: test-workflow\nkind: workflow\n" + content
+    target.write_text(content, encoding="utf-8")
     return target
 
 
@@ -98,7 +105,7 @@ class TestDepthParityMaxDepth3:
             blocks:
               call_grandchild:
                 type: workflow
-                workflow_ref: custom/workflows/grandchild.yaml
+                workflow_ref: grandchild
             workflow:
               name: child
               entry: call_grandchild
@@ -116,7 +123,7 @@ class TestDepthParityMaxDepth3:
             blocks:
               call_child:
                 type: workflow
-                workflow_ref: custom/workflows/child.yaml
+                workflow_ref: child
                 max_depth: 3
             workflow:
               name: parent
@@ -152,7 +159,7 @@ class TestDepthParityMaxDepth3:
             blocks:
               call_grandchild:
                 type: workflow
-                workflow_ref: custom/workflows/grandchild.yaml
+                workflow_ref: grandchild
             workflow:
               name: child
               entry: call_grandchild
@@ -240,7 +247,7 @@ class TestDepthParityMaxDepth2:
             blocks:
               call_grandchild:
                 type: workflow
-                workflow_ref: custom/workflows/grandchild.yaml
+                workflow_ref: grandchild
             workflow:
               name: child
               entry: call_grandchild
@@ -258,7 +265,7 @@ class TestDepthParityMaxDepth2:
             blocks:
               call_child:
                 type: workflow
-                workflow_ref: custom/workflows/child.yaml
+                workflow_ref: child
                 max_depth: 2
             workflow:
               name: parent
@@ -293,7 +300,7 @@ class TestDepthParityMaxDepth2:
             blocks:
               call_grandchild:
                 type: workflow
-                workflow_ref: custom/workflows/grandchild.yaml
+                workflow_ref: grandchild
             workflow:
               name: child
               entry: call_grandchild

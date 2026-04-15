@@ -8,14 +8,16 @@ export PATH="/app/.venv/bin:$PATH"
 : "${RUNSIGHT_BASE_PATH:=/workspace}"
 export RUNSIGHT_BASE_PATH
 
-# Fail-fast: workspace must be pre-created and mounted by the host
+# Fail fast when workspace is absent — init-permissions must own it before
+# this container starts (AC5). A non-root container cannot create
+# root-owned directories at runtime.
 if [ ! -d "$RUNSIGHT_BASE_PATH" ]; then
-    echo "[runsight] ERROR: Workspace '$RUNSIGHT_BASE_PATH' does not exist." >&2
-    echo "[runsight] Mount a volume: docker run -v \$(pwd):/workspace ..." >&2
+    echo "[runsight] ERROR: workspace '$RUNSIGHT_BASE_PATH' does not exist." >&2
+    echo "[runsight] Mount a volume before starting the container." >&2
     exit 1
 fi
 
-# Warn if workspace is empty
+# Inform when workspace is empty — Runsight will scaffold a new project.
 if [ -z "$(ls -A "$RUNSIGHT_BASE_PATH" 2>/dev/null)" ]; then
     echo "[runsight] Empty workspace at $RUNSIGHT_BASE_PATH — Runsight will scaffold a new project."
 fi

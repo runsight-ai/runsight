@@ -3,9 +3,15 @@ from typing import Any, List, Optional
 from sqlalchemy import case
 from sqlmodel import Session, delete, func, select
 
+from runsight_core.identity import EntityKind, EntityRef
+
 from ...domain.entities.log import LogEntry
 from ...domain.entities.run import BaselineStats, Run, RunNode, RunStatus
 from ...domain.errors import RunHasActiveExecution, WorkflowHasActiveRuns
+
+
+def _workflow_ref(workflow_id: str) -> str:
+    return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
 
 
 class RunRepository:
@@ -29,7 +35,9 @@ class RunRepository:
                 .limit(1)
             ).first()
             if active_run is not None:
-                raise WorkflowHasActiveRuns(f"Workflow {workflow_id} has active runs")
+                raise WorkflowHasActiveRuns(
+                    f"Workflow {_workflow_ref(workflow_id)} has active runs"
+                )
 
         self.session.exec(delete(LogEntry).where(LogEntry.run_id.in_(run_ids)))
         self.session.exec(delete(RunNode).where(RunNode.run_id.in_(run_ids)))
@@ -57,6 +65,8 @@ class RunRepository:
         return run
 
     def get_run(self, run_id: str) -> Optional[Run]:
+        # Expire the session cache so concurrent writes from other sessions are visible.
+        self.session.expire_all()
         return self.session.get(Run, run_id)
 
     def refresh_run(self, run_id: str) -> Optional[Run]:

@@ -73,6 +73,8 @@ def _make_ctx(
 def _make_soul(soul_id: str = "test_soul") -> Soul:
     return Soul(
         id=soul_id,
+        kind="soul",
+        name="Tester",
         role="Tester",
         system_prompt="You are a test agent.",
     )
@@ -82,7 +84,7 @@ def _make_mock_runner(output: str = "mock output") -> AsyncMock:
     """Create a mock RunsightTeamRunner that returns a fixed ExecutionResult."""
     runner = AsyncMock()
     runner.model_name = "gpt-4o-mini"
-    runner.execute_task = AsyncMock(
+    runner.execute = AsyncMock(
         return_value=ExecutionResult(
             task_id="mock_task",
             soul_id="test_soul",
@@ -91,7 +93,6 @@ def _make_mock_runner(output: str = "mock output") -> AsyncMock:
             total_tokens=0,
         )
     )
-    runner._build_prompt = lambda task: task.instruction or ""
     return runner
 
 
@@ -597,13 +598,9 @@ class TestScenario8DispatchBlockInLoop:
             break_on_exit="done",
         )
 
-        # DispatchBlock needs current_task to read context from
-        from runsight_core.primitives import Task
-
+        # DispatchBlock reads context from shared_memory["_resolved_inputs"]["context"]
         state = _make_state()
-        state = state.model_copy(
-            update={"current_task": Task(id="t1", instruction="test dispatch", context="ctx")}
-        )
+        state = state.model_copy(update={"shared_memory": {"_resolved_inputs": {"context": "ctx"}}})
 
         wf = _make_workflow_with_loop("dispatch_loop_wf", loop, dispatch)
         final = await wf.run(state)
@@ -632,12 +629,8 @@ class TestScenario8DispatchBlockInLoop:
             runner=runner,
         )
 
-        from runsight_core.primitives import Task
-
         state = _make_state()
-        state = state.model_copy(
-            update={"current_task": Task(id="t1", instruction="test", context="ctx")}
-        )
+        state = state.model_copy(update={"shared_memory": {"_resolved_inputs": {"context": "ctx"}}})
 
         final = await dispatch.execute(state)
 

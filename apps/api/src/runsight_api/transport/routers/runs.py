@@ -166,7 +166,7 @@ async def create_run(
 
     run = run_service.create_run(
         body.workflow_id,
-        body.task_data,
+        body.inputs,
         source=source,
         branch=branch,
     )
@@ -174,7 +174,7 @@ async def create_run(
         await execution_service.launch_execution(
             run.id,
             run.workflow_id,
-            body.task_data,
+            body.inputs,
             branch=branch,
         )
     except Exception as exc:

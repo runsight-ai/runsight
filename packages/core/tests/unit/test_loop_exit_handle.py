@@ -21,7 +21,6 @@ import pytest
 from pydantic import TypeAdapter
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.loop import CarryContextConfig, LoopBlock, LoopBlockDef
-from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.schema import BaseBlockDef, BlockDef
 
@@ -673,17 +672,13 @@ class TestCarryContextWithExitHandle:
         )
         blocks["loop1"] = loop
 
-        state = WorkflowState(
-            current_task=Task(id="task-1", instruction="write trace"),
-        )
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         carried = result_state.shared_memory.get("ctx")
         assert isinstance(carried, list)
         assert len(carried) == 2
         assert "provider-trace-primary.md" in str(carried)
-        assert result_state.current_task is not None
-        assert "provider-trace-primary.md" in str(result_state.current_task.context)
 
     @pytest.mark.asyncio
     async def test_break_on_exit_still_updates_carry_context_and_task_context(self):
@@ -707,16 +702,12 @@ class TestCarryContextWithExitHandle:
         )
         blocks["loop1"] = loop
 
-        state = WorkflowState(
-            current_task=Task(id="task-2", instruction="write trace"),
-        )
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         carried = result_state.shared_memory.get("ctx")
         assert isinstance(carried, dict)
         assert "provider-trace-secondary.md" in str(carried)
-        assert result_state.current_task is not None
-        assert "provider-trace-secondary.md" in str(result_state.current_task.context)
 
 
 # ==============================================================================
@@ -900,22 +891,25 @@ class TestParserWiresExitHandleFields:
         assert loop.break_on_exit is None
         assert loop.retry_on_exit is None
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_full_yaml_parsing_with_exit_handle_fields(self):
         """Full YAML parsing should wire break_on_exit and retry_on_exit to LoopBlock."""
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_str = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 souls:
   writer:
-    id: writer_1
+    id: writer
+    kind: soul
+    name: Writer
     role: Writer
     system_prompt: "You write."
   reviewer:
-    id: reviewer_1
+    id: reviewer
+    kind: soul
+    name: Reviewer
     role: Reviewer
     system_prompt: "You review."
 blocks:
@@ -935,6 +929,8 @@ blocks:
     break_on_exit: "pass"
     retry_on_exit: "fail"
 workflow:
+  id: exit_handle_parse_test
+  kind: workflow
   name: exit_handle_parse_test
   entry: loop_block
   transitions:

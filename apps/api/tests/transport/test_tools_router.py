@@ -74,6 +74,8 @@ def test_tools_list_merges_builtin_and_custom_executor_variants_without_legacy_t
         tmp_path,
         "report_lookup",
         """
+        id: report_lookup
+        kind: tool
         version: "1.0"
         type: custom
         executor: python
@@ -95,6 +97,8 @@ def test_tools_list_merges_builtin_and_custom_executor_variants_without_legacy_t
         tmp_path,
         "profile_fetch",
         """
+        id: profile_fetch
+        kind: tool
         version: "1.0"
         type: custom
         executor: request

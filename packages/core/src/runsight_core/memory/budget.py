@@ -56,9 +56,10 @@ class BudgetReport:
 
 @dataclass
 class BudgetedContext:
-    """Result of budget allocation: the task, messages, and diagnostic report."""
+    """Result of budget allocation: the instruction, context, messages, and diagnostic report."""
 
-    task: object
+    instruction: str
+    context: Optional[str]
     messages: list[dict]
     report: BudgetReport
 
@@ -235,10 +236,8 @@ def fit_to_budget(
     5. Prune P3 (conversation_history) via FIFO pair removal if over budget.
     6. Clean orphaned tool messages from pruned P3.
     7. Truncate P2 (context) if P1 + P3_pruned + P2 still exceeds budget.
-    8. Return ``BudgetedContext`` with task, messages, and diagnostic report.
+    8. Return ``BudgetedContext`` with instruction, context, messages, and diagnostic report.
     """
-    from runsight_core.primitives import Task
-
     model = request.model
 
     # Count P1 tokens directly via the injected counter.
@@ -301,12 +300,6 @@ def fit_to_budget(
 
     total_tokens = p1_tokens + p2_tokens_after + p3_tokens_after
 
-    task = Task(
-        id="budget_task",
-        instruction=request.instruction,
-        context=context,
-    )
-
     output_reserve = request.output_token_reserve if request.output_token_reserve is not None else 0
 
     report = BudgetReport(
@@ -326,7 +319,8 @@ def fit_to_budget(
     )
 
     return BudgetedContext(
-        task=task,
+        instruction=request.instruction,
+        context=context,
         messages=messages,
         report=report,
     )

@@ -8,7 +8,7 @@ import pytest
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.blocks.loop import LoopBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -100,7 +100,7 @@ class KwargsProbeBlock(BaseBlock):
 def _make_linear_block(block_id: str, output: str) -> LinearBlock:
     runner = MagicMock()
     runner.model_name = "gpt-4o-mini"
-    runner.execute_task = AsyncMock(
+    runner.execute = AsyncMock(
         return_value=ExecutionResult(
             task_id="task-1",
             soul_id=f"{block_id}_soul",
@@ -111,6 +111,8 @@ def _make_linear_block(block_id: str, output: str) -> LinearBlock:
     )
     soul = Soul(
         id=f"{block_id}_soul",
+        kind="soul",
+        name="Analyst",
         role="Analyst",
         system_prompt=f"Handle {block_id}.",
         model_name="gpt-4o-mini",
@@ -119,7 +121,7 @@ def _make_linear_block(block_id: str, output: str) -> LinearBlock:
 
 
 def _make_state() -> WorkflowState:
-    return WorkflowState(current_task=Task(id="task-1", instruction="Process this task"))
+    return WorkflowState()
 
 
 def _make_workflow(name: str, loop: LoopBlock, *inner_blocks: BaseBlock) -> Workflow:
@@ -167,8 +169,8 @@ async def test_loopblock_inner_linear_blocks_emit_observer_events_every_round():
         ("block_start", workflow.name, "critic", "LinearBlock"),
         ("block_complete", workflow.name, "critic", "LinearBlock"),
     ]
-    assert writer.runner.execute_task.await_count == 3
-    assert critic.runner.execute_task.await_count == 3
+    assert writer.runner.execute.await_count == 3
+    assert critic.runner.execute.await_count == 3
     assert final_state.results["writer"].output == "writer output"
     assert final_state.results["critic"].output == "critic output"
     assert final_state.results["loop_block"].output == "completed_3_rounds"
@@ -247,7 +249,7 @@ async def test_nested_loopblock_propagates_ctx_to_inner_loop_and_leaf_blocks():
         ("block_complete", workflow.name, "leaf", "LinearBlock"),
         ("block_complete", workflow.name, "inner_loop", "LoopBlock"),
     ]
-    assert leaf.runner.execute_task.await_count == 4
+    assert leaf.runner.execute.await_count == 4
     assert final_state.results["leaf"].output == "leaf output"
     assert final_state.results["inner_loop"].output == "completed_2_rounds"
     assert final_state.results["outer_loop"].output == "completed_2_rounds"

@@ -7,6 +7,8 @@ def test_soul_entity_accepts_core_fields_and_avatar_color():
 
     soul = SoulEntity(
         id="researcher",
+        kind="soul",
+        name="Researcher",
         role="Researcher",
         system_prompt="Research the topic",
         tools=["web_search", "summarize"],
@@ -28,20 +30,26 @@ def test_soul_entity_rejects_unknown_top_level_fields():
     from runsight_api.domain.value_objects import SoulEntity
 
     with pytest.raises(ValidationError):
-        SoulEntity(id="legacy", custom_notes="test value")
+        SoulEntity(id="legacy", kind="soul", name="Legacy Soul", custom_notes="test value")
 
 
 def test_soul_entity_rejects_legacy_name_and_models_fields():
     from runsight_api.domain.value_objects import SoulEntity
 
     with pytest.raises(ValidationError):
-        SoulEntity(id="legacy", name="Legacy Soul", models=["gpt-4o"])
+        SoulEntity(id="legacy", kind="soul", name="Legacy Soul", models=["gpt-4o"])
 
 
 def test_soul_create_requires_role_and_system_prompt():
     from runsight_api.transport.schemas.souls import SoulCreate
 
-    created = SoulCreate(role="Reviewer", system_prompt="Review carefully")
+    created = SoulCreate(
+        id="soul-reviewer",
+        kind="soul",
+        name="Reviewer",
+        role="Reviewer",
+        system_prompt="Review carefully",
+    )
     assert created.role == "Reviewer"
     assert created.system_prompt == "Review carefully"
 
@@ -59,6 +67,8 @@ def test_soul_response_includes_workflow_count_default_zero():
 
     soul = SoulResponse(
         id="reviewer",
+        kind="soul",
+        name="Reviewer",
         role="Reviewer",
         system_prompt="Review carefully",
         model_name="gpt-4o-mini",

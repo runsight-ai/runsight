@@ -26,10 +26,27 @@ type WorkflowResponse = {
   } | null;
 };
 
-test.describe("Workflow editor save and reload", () => {
-  let workflowId: string | null = null;
-  const updatedYaml = [
+function buildInitialYaml(id: string) {
+  return [
     'version: "1.0"',
+    `id: ${id}`,
+    "kind: workflow",
+    "blocks:",
+    "  step_a:",
+    "    type: linear",
+    "workflow:",
+    "  name: Sync Demo",
+    "  entry: step_a",
+    "  transitions: []",
+    "",
+  ].join("\n");
+}
+
+function buildUpdatedYaml(id: string) {
+  return [
+    'version: "1.0"',
+    `id: ${id}`,
+    "kind: workflow",
     "blocks:",
     "  step_a:",
     "    type: linear",
@@ -43,20 +60,16 @@ test.describe("Workflow editor save and reload", () => {
     "      to: step_b",
     "",
   ].join("\n");
+}
+
+test.describe("Workflow editor save and reload", () => {
+  let workflowId: string | null = null;
 
   test.beforeAll(async () => {
+    const id = `e2e-sync-${Date.now()}`;
     const workflow = await apiPost<WorkflowResponse>("/workflows", {
-      yaml: [
-        'version: "1.0"',
-        "blocks:",
-        "  step_a:",
-        "    type: linear",
-        "workflow:",
-        "  name: Sync Demo",
-        "  entry: step_a",
-        "  transitions: []",
-        "",
-      ].join("\n"),
+      name: "Sync Demo",
+      yaml: buildInitialYaml(id),
     });
     workflowId = workflow.id;
   });
@@ -68,6 +81,7 @@ test.describe("Workflow editor save and reload", () => {
   });
 
   test("persists YAML edits and keeps canvas_state on the workflow record", async ({ page }) => {
+    const updatedYaml = buildUpdatedYaml(workflowId!);
     await gotoWorkflowEditor(page, workflowId!);
     await setWorkflowYaml(page, updatedYaml);
     await expect(page.getByTestId("workflow-save-button")).toBeEnabled();
@@ -102,6 +116,7 @@ test.describe("Workflow editor save and reload", () => {
   });
 
   test("reloads the editor with the saved YAML after a commit", async ({ page }) => {
+    const updatedYaml = buildUpdatedYaml(workflowId!);
     await gotoWorkflowEditor(page, workflowId!);
     await expect((await readWorkflowYaml(page)).trim()).toBe(updatedYaml.trim());
   });

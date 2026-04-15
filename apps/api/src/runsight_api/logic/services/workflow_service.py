@@ -1,12 +1,21 @@
 from typing import Any, Dict, List, Optional
 import logging
 
+import yaml as yaml_mod
+from pydantic import ValidationError as PydanticValidationError
+from runsight_core.identity import EntityKind, EntityRef
+from runsight_core.yaml.schema import RunsightWorkflowFile
+
 from ...data.filesystem.workflow_repo import WorkflowRepository
 from ...data.repositories.run_repo import RunRepository
-from ...domain.errors import WorkflowNotFound
+from ...domain.errors import InputValidationError, WorkflowNotFound
 from ...domain.value_objects import WorkflowEntity
 
 logger = logging.getLogger(__name__)
+
+
+def _workflow_ref(workflow_id: str) -> str:
+    return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
 
 
 class WorkflowService:
@@ -74,7 +83,10 @@ class WorkflowService:
         )
 
     def create_workflow(self, data: Dict[str, Any], *, commit: bool = True) -> WorkflowEntity:
-        result = self.workflow_repo.create(data)
+        try:
+            result = self.workflow_repo.create(data)
+        except ValueError as exc:
+            raise InputValidationError(str(exc)) from exc
         if commit:
             self._auto_commit(
                 f"Create workflow: {result.name}",
@@ -83,7 +95,10 @@ class WorkflowService:
         return result
 
     def update_workflow(self, id: str, data: Dict[str, Any]) -> WorkflowEntity:
-        return self.workflow_repo.update(id, data)
+        try:
+            return self.workflow_repo.update(id, data)
+        except ValueError as exc:
+            raise InputValidationError(str(exc)) from exc
 
     def commit_workflow(
         self,
@@ -95,7 +110,10 @@ class WorkflowService:
             raise RuntimeError("Git service not configured")
 
         previous = self.workflow_repo.get_by_id(workflow_id)
-        self.workflow_repo.update(workflow_id, draft)
+        try:
+            self.update_workflow(workflow_id, draft)
+        except InputValidationError:
+            raise
 
         files = [f"custom/workflows/{workflow_id}.yaml"]
         if draft.get("canvas_state") is not None:
@@ -119,6 +137,8 @@ class WorkflowService:
         if self.git_service is None:
             raise RuntimeError("Git service not configured")
 
+        self._validate_simulation_yaml_identity(workflow_id, yaml)
+
         yaml_path = f"custom/workflows/{workflow_id}.yaml"
         result = self.git_service.create_sim_branch(
             workflow_slug=workflow_id,
@@ -126,6 +146,23 @@ class WorkflowService:
             yaml_path=yaml_path,
         )
         return {"branch": result.branch, "commit_sha": result.sha}
+
+    def _validate_simulation_yaml_identity(self, workflow_id: str, raw_yaml: str) -> None:
+        try:
+            data = yaml_mod.safe_load(raw_yaml)
+        except yaml_mod.YAMLError as exc:
+            raise InputValidationError("Malformed YAML") from exc
+        if not isinstance(data, dict):
+            raise InputValidationError("YAML content is not a mapping")
+        try:
+            workflow_file = RunsightWorkflowFile.model_validate(data)
+        except PydanticValidationError as exc:
+            raise InputValidationError(str(exc)) from exc
+        if workflow_file.id != workflow_id:
+            raise InputValidationError(
+                f"embedded workflow id '{workflow_file.id}' does not match requested "
+                f"{_workflow_ref(workflow_id)}"
+            )
 
     def _auto_commit(self, message: str, files: list) -> None:
         if not self.git_service:
@@ -160,12 +197,12 @@ class WorkflowService:
     def delete_workflow(self, id: str, force: bool = False) -> dict[str, Any]:
         workflow = self.workflow_repo.get_by_id(id)
         if workflow is None:
-            raise WorkflowNotFound(f"Workflow {id} not found")
+            raise WorkflowNotFound(f"Workflow {_workflow_ref(id)} not found")
 
         runs_deleted = self.run_repo.delete_runs_for_workflow(id, force=force)
         success = self.workflow_repo.delete(id)
         if not success:
-            raise WorkflowNotFound(f"Workflow {id} not found")
+            raise WorkflowNotFound(f"Workflow {_workflow_ref(id)} not found")
         self._auto_commit(
             f"Delete workflow: {workflow.name if workflow and workflow.name else id}",
             [

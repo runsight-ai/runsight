@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from runsight_core.llm.client import LiteLLMClient
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 
 
 class ExecutionResult(BaseModel):
@@ -239,78 +239,64 @@ class RunsightTeamRunner:
             )
             return response, fallback_soul, False
 
-    async def _execute_single_shot(
+    async def execute(
         self,
-        task: Task,
+        instruction: str,
+        context: str | None,
         soul: Soul,
-        all_messages: List[Dict[str, Any]],
-        allow_failover: bool,
+        messages: list[dict] | None = None,
+        *,
+        task_id: str = "execute",
     ) -> ExecutionResult:
-        """Non-agentic path: single LLM call with no tools."""
-        response, active_soul, _ = await self._achat_with_failover(
-            soul,
-            messages=all_messages,
-            system_prompt=soul.system_prompt,
-            temperature=soul.temperature,
-            max_tokens=soul.max_tokens,
-            allow_failover=allow_failover,
-        )
-        return ExecutionResult(
-            task_id=task.id,
-            soul_id=active_soul.id,
-            output=response["content"],
-            cost_usd=response["cost_usd"],
-            total_tokens=response["total_tokens"],
-            tool_iterations=0,
-            tool_calls_made=[],
-        )
+        """
+        Executes an instruction using the given soul, returning an ExecutionResult.
 
-    async def _dispatch_tool_call(
-        self,
-        tc: Dict[str, Any],
-        tool_map: Dict[str, Any],
-        all_messages: List[Dict[str, Any]],
-    ) -> Optional[str]:
-        """Execute a single tool call, append tool result to messages, return delegate port."""
-        tool_name = tc["function"]["name"]
-        tool = tool_map.get(tool_name)
-        if tool is None:
-            result_str = f"Error: unknown tool '{tool_name}'"
-        else:
-            try:
-                args = json.loads(tc["function"]["arguments"])
-                result_str = await tool.execute(args)
-            except Exception as e:
-                result_str = f"Error: {e}"
+        Handles both single-shot and agentic tool-loop paths. When the soul has
+        resolved_tools, enters a tool-use loop until the LLM responds with text
+        or max_tool_iterations is reached.
 
-        delegate_port: Optional[str] = None
-        if tool_name == "delegate" and not result_str.startswith("Error:"):
-            try:
-                delegate_args = json.loads(tc["function"]["arguments"])
-                if "port" in delegate_args:
-                    delegate_port = delegate_args["port"]
-            except (json.JSONDecodeError, KeyError):
-                pass
+        Args:
+            instruction: The user instruction to execute.
+            context: Optional context appended to the prompt.
+            soul: The Soul defining the agent identity, model, and tools.
+            messages: Optional prior conversation history prepended before the new user message.
+            task_id: Identifier placed in ExecutionResult.task_id (default: "execute").
+        """
+        prompt = instruction
+        if context:
+            prompt += f"\n\nContext:\n{context}"
 
-        all_messages.append({"role": "tool", "tool_call_id": tc["id"], "content": result_str})
-        return delegate_port
+        all_messages = (messages or []) + [{"role": "user", "content": prompt}]
+        active_soul = soul
+        allow_failover = True
 
-    async def _execute_agentic_loop(
-        self,
-        task: Task,
-        soul: Soul,
-        all_messages: List[Dict[str, Any]],
-        allow_failover: bool,
-    ) -> ExecutionResult:
-        """Agentic tool loop: iterate LLM ↔ tool calls until text response or max iters."""
-        tool_schemas = [t.to_openai_schema() for t in soul.resolved_tools]
-        tool_map = {t.name: t for t in soul.resolved_tools}
-        for tool in soul.resolved_tools:
+        # Single-shot path: no tools
+        if not active_soul.resolved_tools:
+            response, active_soul, _ = await self._achat_with_failover(
+                active_soul,
+                messages=all_messages,
+                system_prompt=active_soul.system_prompt,
+                temperature=active_soul.temperature,
+                max_tokens=active_soul.max_tokens,
+                allow_failover=allow_failover,
+            )
+            return ExecutionResult(
+                task_id=task_id,
+                soul_id=active_soul.id,
+                output=response["content"],
+                cost_usd=response["cost_usd"],
+                total_tokens=response["total_tokens"],
+                tool_iterations=0,
+                tool_calls_made=[],
+            )
+
+        # Agentic tool loop
+        tool_schemas = [t.to_openai_schema() for t in active_soul.resolved_tools]
+        tool_map = {t.name: t for t in active_soul.resolved_tools}
+        for tool in active_soul.resolved_tools:
             source = getattr(tool, "source", None)
             if source:
                 tool_map[str(source)] = tool
-
-        active_soul = soul
         max_iters = active_soul.max_tool_iterations
         iteration = 0
         accumulated_cost = 0.0
@@ -320,11 +306,13 @@ class RunsightTeamRunner:
         response: Dict[str, Any] = {}
 
         while iteration < max_iters:
-            outstanding = self._outstanding_required_tool_calls(active_soul, tool_calls_made)
+            outstanding_required_tool_calls = self._outstanding_required_tool_calls(
+                active_soul, tool_calls_made
+            )
             is_last = iteration == max_iters - 1
-            requires_more = bool(outstanding)
-            tools_for_llm = tool_schemas if requires_more or not is_last else []
-            tool_choice = "required" if requires_more else None
+            requires_more_tools = bool(outstanding_required_tool_calls)
+            tools_for_llm = tool_schemas if requires_more_tools or not is_last else []
+            tool_choice = "required" if requires_more_tools else None
 
             response, active_soul, allow_failover = await self._achat_with_failover(
                 active_soul,
@@ -340,13 +328,14 @@ class RunsightTeamRunner:
             accumulated_tokens += response["total_tokens"]
 
             if not response.get("tool_calls"):
-                if outstanding:
-                    missing = ", ".join(outstanding)
+                if outstanding_required_tool_calls:
+                    missing = ", ".join(outstanding_required_tool_calls)
                     raise ValueError(
                         f"Soul '{active_soul.id}' stopped before required tool calls completed: {missing}"
                     )
+                # LLM responded with text -- done
                 return ExecutionResult(
-                    task_id=task.id,
+                    task_id=task_id,
                     soul_id=active_soul.id,
                     output=response["content"],
                     cost_usd=accumulated_cost,
@@ -356,23 +345,53 @@ class RunsightTeamRunner:
                     exit_handle=delegate_exit_handle,
                 )
 
+            # Append assistant message with tool_calls to conversation
             all_messages.append(response["raw_message"])
+
+            # Execute each tool call
             for tc in response["tool_calls"]:
-                tool_calls_made.append(tc["function"]["name"])
-                port = await self._dispatch_tool_call(tc, tool_map, all_messages)
-                if port is not None:
-                    delegate_exit_handle = port
+                tool_name = tc["function"]["name"]
+                tool_calls_made.append(tool_name)
+
+                tool = tool_map.get(tool_name)
+                if tool is None:
+                    result_str = f"Error: unknown tool '{tool_name}'"
+                else:
+                    try:
+                        args = json.loads(tc["function"]["arguments"])
+                        result_str = await tool.execute(args)
+                    except Exception as e:
+                        result_str = f"Error: {e}"
+
+                # Capture exit port from delegate tool calls
+                if tool_name == "delegate" and not result_str.startswith("Error:"):
+                    try:
+                        delegate_args = json.loads(tc["function"]["arguments"])
+                        if "port" in delegate_args:
+                            delegate_exit_handle = delegate_args["port"]
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+
+                all_messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": result_str,
+                    }
+                )
 
             iteration += 1
 
-        outstanding = self._outstanding_required_tool_calls(active_soul, tool_calls_made)
-        if outstanding:
-            missing = ", ".join(outstanding)
+        outstanding_required_tool_calls = self._outstanding_required_tool_calls(
+            active_soul, tool_calls_made
+        )
+        if outstanding_required_tool_calls:
+            missing = ", ".join(outstanding_required_tool_calls)
             raise ValueError(
                 f"Soul '{active_soul.id}' exhausted max_tool_iterations before required tool calls completed: {missing}"
             )
 
-        # Max iterations exhausted — force final text response with no tools
+        # Max iterations exhausted -- force a final text response with no tools
         response, active_soul, _ = await self._achat_with_failover(
             active_soul,
             messages=all_messages,
@@ -386,7 +405,7 @@ class RunsightTeamRunner:
         accumulated_tokens += response["total_tokens"]
 
         return ExecutionResult(
-            task_id=task.id,
+            task_id=task_id,
             soul_id=active_soul.id,
             output=response.get("content", ""),
             cost_usd=accumulated_cost,
@@ -395,27 +414,3 @@ class RunsightTeamRunner:
             tool_calls_made=tool_calls_made,
             exit_handle=delegate_exit_handle,
         )
-
-    async def execute_task(
-        self, task: Task, soul: Soul, messages: list[dict] | None = None
-    ) -> ExecutionResult:
-        """
-        Executes a task synchronously (waits for full completion).
-
-        When the soul has resolved_tools, enters an agentic tool-use loop:
-        sends tool schemas to the LLM, executes tool calls, feeds results back,
-        and repeats until the LLM responds with text or max iterations is reached.
-        """
-        all_messages = (messages or []) + [{"role": "user", "content": self._build_prompt(task)}]
-        if not soul.resolved_tools:
-            return await self._execute_single_shot(task, soul, all_messages, allow_failover=True)
-        return await self._execute_agentic_loop(task, soul, all_messages, allow_failover=True)
-
-    def _build_prompt(self, task: Task) -> str:
-        """
-        Constructs the final prompt string from the task definition.
-        """
-        prompt = task.instruction
-        if task.context:
-            prompt += f"\n\nContext:\n{task.context}"
-        return prompt

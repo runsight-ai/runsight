@@ -1,6 +1,7 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from runsight_core.identity import EntityKind, validate_entity_id
 
 
 class NodeTokens(BaseModel):
@@ -28,6 +29,7 @@ class CostSummary(BaseModel):
 
 
 class WorkflowEntity(BaseModel):
+    kind: Literal["workflow"]
     id: str
     name: Optional[str] = None
     yaml: Optional[str] = None
@@ -36,10 +38,12 @@ class WorkflowEntity(BaseModel):
     validation_error: Optional[str] = None
     filename: Optional[str] = None
     warnings: List[Dict[str, Optional[str]]] = Field(default_factory=list)
-    model_config = {"extra": "allow"}
+    model_config = ConfigDict(extra="allow")
 
 
 class SoulEntity(BaseModel):
+    kind: Literal["soul"]
+    name: str
     id: str
     role: Optional[str] = None
     system_prompt: Optional[str] = None
@@ -56,6 +60,7 @@ class SoulEntity(BaseModel):
 
 
 class ProviderEntity(BaseModel):
+    kind: Literal["provider"]
     id: str
     name: Optional[str] = None
     type: Optional[str] = None
@@ -68,3 +73,9 @@ class ProviderEntity(BaseModel):
     updated_at: Optional[float] = None
     last_status_check: Optional[float] = None
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("id")
+    @classmethod
+    def _validate_identity(cls, value: str) -> str:
+        validate_entity_id(value, EntityKind.PROVIDER)
+        return value

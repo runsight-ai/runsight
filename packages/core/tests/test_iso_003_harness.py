@@ -33,9 +33,9 @@ import pytest
 from runsight_core.isolation import (
     ContextEnvelope,
     HeartbeatMessage,
+    PromptEnvelope,
     ResultEnvelope,
     SoulEnvelope,
-    TaskEnvelope,
 )
 
 # ---------------------------------------------------------------------------
@@ -68,7 +68,7 @@ def _make_context_envelope(
         block_config={},
         soul=_make_soul_envelope(),
         tools=[],
-        task=TaskEnvelope(id="task-1", instruction="Do the thing.", context={}),
+        prompt=PromptEnvelope(id="task-1", instruction="Do the thing.", context={}),
         scoped_results=scoped_results or {},
         scoped_shared_memory=scoped_shared_memory or {},
         conversation_history=[],

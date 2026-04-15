@@ -31,6 +31,7 @@ def _make_provider(
     """Create a ProviderEntity for testing."""
     return ProviderEntity(
         id=provider_id,
+        kind="provider",
         name=name,
         type=provider_type,
         api_key=api_key,

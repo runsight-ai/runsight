@@ -26,9 +26,9 @@ from runsight_core.isolation import (
     ContextEnvelope,
     IPCClient,
     IPCServer,
+    PromptEnvelope,
     SoulEnvelope,
     SubprocessHarness,
-    TaskEnvelope,
 )
 
 # ---------------------------------------------------------------------------
@@ -56,7 +56,7 @@ def _make_context_envelope(
             max_tool_iterations=3,
         ),
         tools=tools or [],
-        task=TaskEnvelope(id="task-1", instruction="Do the thing.", context={}),
+        prompt=PromptEnvelope(id="task-1", instruction="Do the thing.", context={}),
         scoped_results={},
         scoped_shared_memory={},
         conversation_history=[],

@@ -58,6 +58,8 @@ def _init_git_repo_with_workflow(
 
 VALID_RUNTIME_YAML = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 workflow:
   name: test
   entry: b1
@@ -70,7 +72,9 @@ blocks:
     soul_ref: test
 souls:
   test:
-    id: soul_1
+    id: test
+    kind: soul
+    name: Test Soul
     role: tester
     system_prompt: hello
     provider: openai
@@ -206,7 +210,11 @@ class TestLaunchExecution:
 
         main_yaml = """
 version: "1.0"
+id: wf_1
+kind: workflow
 workflow:
+  id: wf_1
+  kind: workflow
   name: Main Workflow
   entry: b1
   transitions: []
@@ -216,7 +224,9 @@ blocks:
     soul_ref: main-soul
 souls:
   main-soul:
-    id: soul_main
+    id: main-soul
+    kind: soul
+    name: Main Soul
     role: tester
     system_prompt: hello
     provider: openai
@@ -225,7 +235,11 @@ config: {}
 """
         sim_yaml = """
 version: "1.0"
+id: wf_1
+kind: workflow
 workflow:
+  id: wf_1
+  kind: workflow
   name: Simulation Workflow
   entry: b1
   transitions: []
@@ -235,7 +249,9 @@ blocks:
     soul_ref: sim-soul
 souls:
   sim-soul:
-    id: soul_sim
+    id: sim-soul
+    kind: soul
+    name: Simulation Soul
     role: tester
     system_prompt: hello
     provider: openai
@@ -407,7 +423,11 @@ class TestLaunchExecutionErrors:
         mock_entity = Mock()
         mock_entity.yaml = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 workflow:
+  id: test
+  kind: workflow
   name: test
   entry: b1
   transitions: []
@@ -417,7 +437,9 @@ blocks:
     soul_ref: researcher
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Researcher
     role: Researcher
     system_prompt: hello
     provider: openai
@@ -477,45 +499,6 @@ config: {}
 
         await svc.launch_execution("run_prefail", "wf_missing", {"instruction": "x"})
         await asyncio.sleep(0.05)
-
-        run_repo.update_run.assert_called()
-        updated = run_repo.update_run.call_args[0][0]
-        assert updated.status == RunStatus.failed
-
-    @pytest.mark.asyncio
-    async def test_missing_instruction_in_task_data(self):
-        """task_data missing 'instruction' key raises validation error / sets failed."""
-        ExecutionService = _import_execution_service()
-        from runsight_api.domain.entities.run import Run, RunStatus
-
-        run = Run(
-            id="run_noinstr",
-            workflow_id="wf_1",
-            workflow_name="wf_1",
-            status=RunStatus.pending,
-            task_json="{}",
-        )
-        run_repo = Mock()
-        run_repo.get_run.return_value = run
-        workflow_repo = Mock()
-        provider_repo = Mock()
-
-        mock_entity = Mock()
-        mock_entity.yaml = VALID_RUNTIME_YAML
-        workflow_repo.get_by_id.return_value = mock_entity
-        provider = Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
-        provider_repo.list_all.return_value = [provider]
-        provider_repo.get_by_type.return_value = None
-
-        svc = ExecutionService(
-            run_repo=run_repo,
-            workflow_repo=workflow_repo,
-            provider_repo=provider_repo,
-        )
-
-        # task_data has no "instruction" key
-        await svc.launch_execution("run_noinstr", "wf_1", {})
-        await asyncio.sleep(0.1)
 
         run_repo.update_run.assert_called()
         updated = run_repo.update_run.call_args[0][0]
@@ -636,7 +619,7 @@ class TestRunStatusTransitions:
             result_state = WorkflowState()
 
             # Mock wf.run to behave like real Workflow.run(): call observer callbacks
-            async def _mock_run(state, observer=None):
+            async def _mock_run(state, observer=None, **kwargs):
                 if observer:
                     observer.on_workflow_complete("test", state, 0.1)
                 return result_state
@@ -696,7 +679,7 @@ class TestRunStatusTransitions:
             error = RuntimeError("LLM exploded")
 
             # Mock wf.run to behave like real Workflow.run(): call observer on error, then raise
-            async def _mock_run(state, observer=None):
+            async def _mock_run(state, observer=None, **kwargs):
                 if observer:
                     observer.on_workflow_error("test", error, 0.1)
                 raise error
@@ -726,6 +709,8 @@ class TestExecutionRuntimeResolution:
         mock_entity = Mock()
         mock_entity.yaml = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 workflow:
   name: code-only
   entry: b1
@@ -779,6 +764,8 @@ config: {}
         mock_entity = Mock()
         mock_entity.yaml = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 workflow:
   name: test
   entry: b1
@@ -791,7 +778,9 @@ blocks:
     soul_ref: test
 souls:
   test:
-    id: soul_1
+    id: test
+    kind: soul
+    name: Test Soul
     role: tester
     system_prompt: hello
 config: {}
@@ -826,6 +815,8 @@ config: {}
         mock_entity = Mock()
         mock_entity.yaml = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 workflow:
   name: test
   entry: b1
@@ -838,7 +829,9 @@ blocks:
     soul_ref: test
 souls:
   test:
-    id: soul_1
+    id: test
+    kind: soul
+    name: Test Soul
     role: tester
     system_prompt: hello
     provider: openai

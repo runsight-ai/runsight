@@ -78,7 +78,7 @@ class TestOnWorkflowStartCalledOnce:
 
         # We mock wf.run() to simulate what the real Workflow.run() does:
         # it calls observer.on_workflow_start() internally.
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             nonlocal call_count
             if observer:
                 observer.on_workflow_start("workflow", state)
@@ -119,7 +119,7 @@ class TestOnWorkflowCompleteCalledOnce:
         """
         svc = _make_service()
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             if observer:
                 observer.on_workflow_start("workflow", state)
                 observer.on_workflow_complete("workflow", state, 0.5)
@@ -161,7 +161,7 @@ class TestOnWorkflowErrorCalledOnce:
         svc = _make_service()
         error = RuntimeError("LLM exploded")
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             if observer:
                 observer.on_workflow_start("workflow", state)
                 observer.on_workflow_error("workflow", error, 0.1)
@@ -205,7 +205,7 @@ class TestNoDuplicateLogEntries:
 
         svc = _make_service(engine=engine)
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             if observer:
                 observer.on_workflow_start("workflow", state)
                 observer.on_workflow_complete("workflow", state, 0.5)
@@ -236,7 +236,7 @@ class TestNoDuplicateLogEntries:
 
         svc = _make_service(engine=engine)
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             if observer:
                 observer.on_workflow_start("workflow", state)
                 observer.on_workflow_complete("workflow", state, 0.5)
@@ -268,7 +268,7 @@ class TestNoDuplicateLogEntries:
         svc = _make_service(engine=engine)
         error = RuntimeError("boom")
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             if observer:
                 observer.on_workflow_start("workflow", state)
                 observer.on_workflow_error("workflow", error, 0.1)
@@ -311,7 +311,7 @@ class TestNoDuplicateRunStatusUpdates:
 
         svc = _make_service(engine=engine)
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             if observer:
                 observer.on_workflow_start("workflow", state)
                 observer.on_workflow_complete("workflow", state, 0.5)
@@ -343,7 +343,7 @@ class TestNoDuplicateRunStatusUpdates:
         svc = _make_service(engine=engine)
         error = RuntimeError("fail")
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             if observer:
                 observer.on_workflow_start("workflow", state)
                 observer.on_workflow_error("workflow", error, 0.1)

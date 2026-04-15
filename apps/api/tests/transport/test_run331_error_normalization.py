@@ -126,7 +126,7 @@ class TestSettingsErrorShape:
         try:
             response = client.put(
                 "/api/settings/providers/missing",
-                json={"name": "Updated"},
+                json={"id": "missing", "kind": "provider", "name": "Updated"},
             )
             body = assert_runsight_error_shape(response, 404)
             assert body["error_code"] == "PROVIDER_NOT_FOUND"

@@ -26,12 +26,12 @@ from runsight_core.isolation import (
     IPCClient,
     IPCServer,
     IsolatedBlockWrapper,
+    PromptEnvelope,
     SoulEnvelope,
     SubprocessHarness,
-    TaskEnvelope,
 )
 from runsight_core.isolation import interceptors as interceptors_module
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 from runsight_core.tools import ToolInstance
 from runsight_core.yaml.schema import BlockLimitsDef
@@ -47,6 +47,8 @@ def _soul(
 ) -> Soul:
     return Soul(
         id=soul_id,
+        kind="soul",
+        name=role,
         role=role,
         system_prompt=system_prompt,
         model_name="gpt-4o-mini",
@@ -60,6 +62,8 @@ def _soul(
 def _soul_payload(soul: Soul) -> dict[str, Any]:
     return {
         "id": soul.id,
+        "kind": "soul",
+        "name": soul.name,
         "role": soul.role,
         "system_prompt": soul.system_prompt,
         "model_name": soul.model_name,
@@ -74,6 +78,7 @@ def _soul_envelope(soul: Soul | None = None) -> SoulEnvelope:
     return SoulEnvelope(
         id=soul.id,
         role=soul.role,
+        name=soul.name,
         system_prompt=soul.system_prompt,
         model_name=soul.model_name or "gpt-4o-mini",
         provider=soul.provider or "openai",
@@ -99,7 +104,7 @@ def _context_envelope(
         block_config=block_config or {},
         soul=_soul_envelope(soul),
         tools=[],
-        task=TaskEnvelope(
+        prompt=PromptEnvelope(
             id=f"task-{block_id}",
             instruction=task_instruction,
             context=task_context or {},
@@ -262,13 +267,7 @@ class TestRUN814BlockTypeE2E:
         inner.limits = BlockLimitsDef(cost_cap_usd=1.0, token_cap=100)
         harness = SubprocessHarness(api_keys={"openai": "sk-test-openai"})
         wrapper = IsolatedBlockWrapper("run814-linear", inner, harness=harness)
-        state = WorkflowState(
-            current_task=Task(
-                id="task-linear",
-                instruction="Write the isolated answer.",
-                context="topic: budget",
-            )
-        )
+        state = WorkflowState()
 
         try:
             next_state = await wrapper.execute(state)
@@ -395,13 +394,7 @@ class TestRUN814BlockTypeE2E:
         inner = DispatchBlock("run814-dispatch", branches, MagicMock())
         harness = SubprocessHarness(api_keys={"openai": "sk-test-openai"})
         wrapper = IsolatedBlockWrapper("run814-dispatch", inner, harness=harness)
-        state = WorkflowState(
-            current_task=Task(
-                id="task-dispatch",
-                instruction="Fan out.",
-                context="subject: directions",
-            )
-        )
+        state = WorkflowState()
 
         next_state = await wrapper.execute(state)
 
@@ -471,6 +464,8 @@ class TestRUN814SmartAssertionAndToolsE2E:
                             "rubric": "Score factuality.",
                             "judge_soul": {
                                 "id": "judge-run814",
+                                "kind": "soul",
+                                "name": "Judge",
                                 "role": "Judge",
                                 "system_prompt": "Return JSON grading only.",
                                 "model_name": "gpt-4o-mini",
@@ -562,7 +557,7 @@ class TestRUN814SmartAssertionAndToolsE2E:
         inner = LinearBlock("run814-tool", soul, MagicMock())
         harness = SubprocessHarness(api_keys={"openai": "sk-test-openai"})
         wrapper = IsolatedBlockWrapper("run814-tool", inner, harness=harness)
-        state = WorkflowState(current_task=Task(id="task-tool", instruction="Use echo_tool once."))
+        state = WorkflowState()
 
         next_state = await wrapper.execute(state)
 
