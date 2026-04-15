@@ -115,9 +115,11 @@ def _seed_node(
 
 
 class TestListRunsDefaultLimit:
-    def test_list_runs_returns_max_default_limit(self, db_session: Session):
-        """Seeding more than DEFAULT_LIST_RUNS_LIMIT rows must still return only
-        DEFAULT_LIST_RUNS_LIMIT rows — the safety-net LIMIT is applied."""
+    def test_list_runs_returns_all_rows_by_default(self, db_session: Session):
+        """list_runs() with no limit argument returns all rows (no cap).
+
+        Internal callers (eval_service, dashboard) need the full history.
+        """
         RunRepository = _import_run_repository()
 
         over_limit = DEFAULT_LIST_RUNS_LIMIT + 20
@@ -133,9 +135,30 @@ class TestListRunsDefaultLimit:
         repo = RunRepository(db_session)
         result = repo.list_runs()
 
-        assert len(result) <= DEFAULT_LIST_RUNS_LIMIT, (
-            f"list_runs() returned {len(result)} rows but should be capped at "
-            f"{DEFAULT_LIST_RUNS_LIMIT}. No LIMIT is applied yet (N+1 issue)."
+        assert len(result) == over_limit, (
+            f"list_runs() returned {len(result)} rows but should return all "
+            f"{over_limit} rows when no limit is specified."
+        )
+
+    def test_list_runs_respects_explicit_limit(self, db_session: Session):
+        """list_runs(limit=N) caps results at N rows."""
+        RunRepository = _import_run_repository()
+
+        over_limit = DEFAULT_LIST_RUNS_LIMIT + 20
+        for i in range(over_limit):
+            _seed_run(
+                db_session,
+                f"run_cap_{i:04d}",
+                workflow_id="wf_cap",
+                created_at_offset=float(i),
+            )
+        db_session.commit()
+
+        repo = RunRepository(db_session)
+        result = repo.list_runs(limit=DEFAULT_LIST_RUNS_LIMIT)
+
+        assert len(result) == DEFAULT_LIST_RUNS_LIMIT, (
+            f"list_runs(limit={DEFAULT_LIST_RUNS_LIMIT}) returned {len(result)} rows."
         )
 
     def test_list_runs_returns_all_when_fewer_than_limit(self, db_session: Session):

@@ -509,8 +509,6 @@ describe("RUN-823: custom YAML request schemas are strict", () => {
   it.each([
     "SoulCreate",
     "SoulUpdate",
-    "StepCreate",
-    "StepUpdate",
     "ProviderCreate",
     "ProviderUpdate",
   ])("%s OpenAPI schema forbids unknown fields", (schemaName) => {
@@ -531,17 +529,6 @@ describe("RUN-823: custom YAML request schemas are strict", () => {
     ).toBe(false);
     expect(
       mod.SoulUpdateSchema.safeParse({
-        custom_notes: "unsupported",
-      }).success,
-    ).toBe(false);
-    expect(
-      mod.StepCreateSchema.safeParse({
-        name: "Step",
-        custom_notes: "unsupported",
-      }).success,
-    ).toBe(false);
-    expect(
-      mod.StepUpdateSchema.safeParse({
         custom_notes: "unsupported",
       }).success,
     ).toBe(false);

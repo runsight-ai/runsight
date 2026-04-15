@@ -157,3 +157,10 @@ class InputValidationError(RunsightError):
 
     error_code: str = "VALIDATION_ERROR"
     status_code: int = 400
+
+
+class RunHasChildren(RunsightError):
+    """Raised when a run cannot be deleted because it has child runs."""
+
+    error_code: str = "RUN_HAS_CHILDREN"
+    status_code: int = 409

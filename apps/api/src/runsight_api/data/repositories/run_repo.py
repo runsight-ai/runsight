@@ -7,7 +7,7 @@ from runsight_core.identity import EntityKind, EntityRef
 
 from ...domain.entities.log import LogEntry
 from ...domain.entities.run import BaselineStats, Run, RunNode, RunStatus
-from ...domain.errors import RunHasActiveExecution, WorkflowHasActiveRuns
+from ...domain.errors import RunHasActiveExecution, RunHasChildren, WorkflowHasActiveRuns
 
 
 def _workflow_ref(workflow_id: str) -> str:
@@ -51,6 +51,11 @@ class RunRepository:
             return None
         if run.status in [RunStatus.pending, RunStatus.running]:
             raise RunHasActiveExecution(f"Run {run_id} has active execution")
+        children = self.list_children(run_id)
+        if children:
+            raise RunHasChildren(
+                f"Run {run_id} has {len(children)} child run(s) and cannot be deleted"
+            )
         self.session.exec(delete(LogEntry).where(LogEntry.run_id == run_id))
         self.session.exec(delete(RunNode).where(RunNode.run_id == run_id))
         self.session.exec(delete(Run).where(Run.id == run_id))
@@ -75,8 +80,10 @@ class RunRepository:
             self.session.refresh(run)
         return run
 
-    def list_runs(self, limit: int = 100) -> List[Run]:
-        statement = select(Run).order_by(Run.created_at.desc()).limit(limit)
+    def list_runs(self, limit: int | None = None) -> List[Run]:
+        statement = select(Run).order_by(Run.created_at.desc())
+        if limit is not None:
+            statement = statement.limit(limit)
         return list(self.session.exec(statement).all())
 
     def list_children(self, parent_run_id: str) -> List[Run]:
