@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from runsight_core.llm.client import LiteLLMClient
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 
 
 class ExecutionResult(BaseModel):
@@ -414,30 +414,3 @@ class RunsightTeamRunner:
             tool_calls_made=tool_calls_made,
             exit_handle=delegate_exit_handle,
         )
-
-    async def execute_task(
-        self, task: Task, soul: Soul, messages: list[dict] | None = None
-    ) -> ExecutionResult:
-        """
-        Executes a task synchronously (waits for full completion).
-
-        Thin wrapper around execute() that extracts instruction/context from the
-        Task object and sets task_id from task.id for backward compatibility.
-        """
-        result = await self.execute(
-            task.instruction,
-            task.context,
-            soul,
-            messages,
-            task_id=task.id,
-        )
-        return result
-
-    def _build_prompt(self, task: Task) -> str:
-        """
-        Constructs the final prompt string from the task definition.
-        """
-        prompt = task.instruction
-        if task.context:
-            prompt += f"\n\nContext:\n{task.context}"
-        return prompt

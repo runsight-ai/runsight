@@ -218,16 +218,10 @@ class IsolatedBlockWrapper(BaseBlock):
             else 5,
         )
 
-        task = state.current_task
-        raw_context = task.context if task else None
-        if isinstance(raw_context, str):
-            task_context = {"text": raw_context}
-        else:
-            task_context = raw_context if raw_context else {}
         task_envelope = PromptEnvelope(
-            id=task.id if task else "",
-            instruction=task.instruction if task else "",
-            context=task_context,
+            id="",
+            instruction="",
+            context={},
         )
 
         # Gather conversation history for stateful blocks

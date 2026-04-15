@@ -210,9 +210,7 @@ class TestRunnerExecuteReceivesStringInstruction:
 
     @pytest.mark.asyncio
     async def test_execute_first_arg_is_not_task(self):
-        """runner.execute() must not receive a Task object as first arg."""
-        from runsight_core.primitives import Task
-
+        """runner.execute() must not receive a Task object as first arg — must be a string."""
         runner = _mock_runner("PASS")
         block = _make_gate(block_id="gate_str2", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Content")})
@@ -221,8 +219,8 @@ class TestRunnerExecuteReceivesStringInstruction:
 
         args, _kwargs = runner.execute.call_args
         instruction_arg = args[0]
-        assert not isinstance(instruction_arg, Task), (
-            "runner.execute() received a Task object — it must receive a string instruction"
+        assert isinstance(instruction_arg, str), (
+            f"runner.execute() first arg must be a string instruction, got {type(instruction_arg).__name__}"
         )
 
     @pytest.mark.asyncio
@@ -266,9 +264,7 @@ class TestRunnerExecuteReceivesStringContext:
 
     @pytest.mark.asyncio
     async def test_execute_second_arg_is_not_task(self):
-        """runner.execute() second arg must not be a Task object."""
-        from runsight_core.primitives import Task
-
+        """runner.execute() second arg must be str or None, not a Task object."""
         runner = _mock_runner("FAIL: needs work")
         block = _make_gate(block_id="gate_ctx2", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Some draft")})
@@ -278,8 +274,8 @@ class TestRunnerExecuteReceivesStringContext:
         args, _kwargs = runner.execute.call_args
         assert len(args) >= 2, "runner.execute() must have at least 2 positional args"
         context_arg = args[1]
-        assert not isinstance(context_arg, Task), (
-            "runner.execute() received a Task as context — it must receive a string"
+        assert isinstance(context_arg, (str, type(None))), (
+            f"runner.execute() context arg must be str or None, got {type(context_arg).__name__}"
         )
 
     @pytest.mark.asyncio

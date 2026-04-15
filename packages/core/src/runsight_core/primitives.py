@@ -53,18 +53,6 @@ class Soul(BaseModel):
     )
 
 
-class Task(BaseModel):
-    """
-    Represents an isolated instruction for an agent to execute.
-    """
-
-    id: str = Field(..., description="Unique identifier for the task")
-    instruction: str = Field(..., description="The main instruction or prompt for the task")
-    context: Optional[str] = Field(
-        default=None, description="Additional context or background information for the task"
-    )
-
-
 class Step:
     """
     Wrapper for BaseBlock with pre/post hook execution and declared input resolution.

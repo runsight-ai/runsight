@@ -30,7 +30,7 @@ from runsight_core.memory.budget import (
     ContextBudgetRequest,
     fit_to_budget,
 )
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 
@@ -136,15 +136,7 @@ class TestLoopCarryContextBudgetIntegration:
             ),
         )
 
-        initial_task = Task(
-            id="loop_task",
-            instruction="Process iteratively and accumulate results.",
-        )
-
-        initial_state = WorkflowState(
-            workflow_id="test_wf",
-            current_task=initial_task,
-        )
+        initial_state = WorkflowState()
 
         final_state = await loop_block.execute(
             initial_state,
@@ -193,14 +185,7 @@ class TestLoopCarryContextBudgetIntegration:
             ),
         )
 
-        initial_task = Task(
-            id="loop_task",
-            instruction="Process iteratively.",
-        )
-        initial_state = WorkflowState(
-            workflow_id="test_wf",
-            current_task=initial_task,
-        )
+        initial_state = WorkflowState()
 
         final_state = await loop_block.execute(
             initial_state,
@@ -241,14 +226,7 @@ class TestLoopCarryContextBudgetIntegration:
             ),
         )
 
-        initial_task = Task(
-            id="loop_task",
-            instruction="Process iteratively.",
-        )
-        initial_state = WorkflowState(
-            workflow_id="test_wf",
-            current_task=initial_task,
-        )
+        initial_state = WorkflowState()
 
         budget_requests: list[ContextBudgetRequest] = []
 
@@ -320,14 +298,7 @@ class TestLoopCarryContextBudgetIntegration:
             ),
         )
 
-        initial_task = Task(
-            id="loop_task",
-            instruction="Process iteratively.",
-        )
-        initial_state = WorkflowState(
-            workflow_id="test_wf",
-            current_task=initial_task,
-        )
+        initial_state = WorkflowState()
 
         budget_reports: list[BudgetReport] = []
 

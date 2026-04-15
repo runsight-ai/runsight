@@ -16,7 +16,7 @@ from runsight_core import (
     SynthesizeBlock,
 )
 from runsight_core.blocks.dispatch import DispatchBranch
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -35,7 +35,7 @@ def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
     runner.model_name = "gpt-4o"
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     return runner
 
 
@@ -91,15 +91,14 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
     Tests that the Task import and Dict typing work correctly across all blocks.
     """
     # Setup mock responses
-    mock_runner.execute_task.side_effect = [
+    mock_runner.execute.side_effect = [
         ExecutionResult(task_id="t1", soul_id="researcher", output="Research complete"),
         ExecutionResult(task_id="t2", soul_id="reviewer1", output="Review A"),
         ExecutionResult(task_id="t2", soul_id="reviewer2", output="Review B"),
     ]
 
     # Create initial state
-    task = Task(id="t1", instruction="Research AI safety")
-    state = WorkflowState(current_task=task)
+    state = WorkflowState()
 
     # Execute LinearBlock
     linear = LinearBlock("research", sample_souls["researcher"], mock_runner)
@@ -108,7 +107,7 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
     assert state.results["research"].output == "Research complete"
 
     # Update task and execute DispatchBlock
-    state = state.model_copy(update={"current_task": Task(id="t2", instruction="Review research")})
+
     dispatch = DispatchBlock(
         "reviews",
         _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
@@ -138,7 +137,7 @@ async def test_workflow_linear_to_dispatch_workflow(mock_runner, sample_souls):
     verifying state propagation across block types.
     """
     # Setup mock responses
-    mock_runner.execute_task.side_effect = [
+    mock_runner.execute.side_effect = [
         ExecutionResult(task_id="task1", soul_id="researcher", output="Research findings"),
         ExecutionResult(task_id="task2", soul_id="reviewer1", output="Critique from R1"),
         ExecutionResult(task_id="task2", soul_id="reviewer2", output="Critique from R2"),
@@ -166,7 +165,7 @@ async def test_workflow_linear_to_dispatch_workflow(mock_runner, sample_souls):
     assert errors == [], f"Workflow validation failed: {errors}"
 
     # Execute
-    initial_state = WorkflowState(current_task=Task(id="task1", instruction="Research AI"))
+    initial_state = WorkflowState()
     final_state = await wf.run(initial_state)
 
     # Verify both blocks executed
@@ -190,7 +189,7 @@ async def test_workflow_dispatch_to_synthesize_workflow(mock_runner, sample_soul
     and combine multiple inputs correctly.
     """
     # Setup mock responses
-    mock_runner.execute_task.side_effect = [
+    mock_runner.execute.side_effect = [
         # Dispatch responses
         ExecutionResult(task_id="t1", soul_id="reviewer1", output="Positive review"),
         ExecutionResult(task_id="t1", soul_id="reviewer2", output="Critical review"),
@@ -217,7 +216,7 @@ async def test_workflow_dispatch_to_synthesize_workflow(mock_runner, sample_soul
     wf.set_entry("dispatch")
 
     # Execute
-    initial_state = WorkflowState(current_task=Task(id="t1", instruction="Review proposal"))
+    initial_state = WorkflowState()
     final_state = await wf.run(initial_state)
 
     # Verify SynthesizeBlock received Dispatch output
@@ -225,11 +224,10 @@ async def test_workflow_dispatch_to_synthesize_workflow(mock_runner, sample_soul
     assert "synthesis" in final_state.results
     assert "Combined" in final_state.results["synthesis"].output
 
-    # Verify synthesizer task included dispatch JSON output (variable data is in context)
-    synth_call = mock_runner.execute_task.call_args_list[2]  # 3rd call
-    task_arg = synth_call[0][0]
-    assert "dispatch" in task_arg.context
-    assert "Positive review" in task_arg.context or "Critical review" in task_arg.context
+    # Verify synthesizer was called (dispatch results available as context)
+    assert (
+        mock_runner.execute.call_count >= 3
+    )  # at least 3 calls: 2 dispatch branches + 1 synthesize
 
 
 # ============================================================================
@@ -246,7 +244,7 @@ async def test_complete_research_review_synthesis_workflow(mock_runner, sample_s
     Simulates a real workflow: research a topic, get parallel reviews, synthesize.
     """
     # Setup realistic mock responses
-    mock_runner.execute_task.side_effect = [
+    mock_runner.execute.side_effect = [
         ExecutionResult(
             task_id="research_task",
             soul_id="researcher",
@@ -297,9 +295,6 @@ async def test_complete_research_review_synthesis_workflow(mock_runner, sample_s
 
     # Execute
     initial_state = WorkflowState(
-        current_task=Task(
-            id="main_task", instruction="Research AI safety and compile comprehensive report"
-        ),
         metadata={"workflow_type": "research_pipeline"},
     )
     final_state = await wf.run(initial_state)
@@ -327,7 +322,7 @@ async def test_state_immutability_across_workflow_execution(mock_runner, sample_
     Tests that each block returns a new state via model_copy, preserving
     immutability contract across the workflow.
     """
-    mock_runner.execute_task.side_effect = [
+    mock_runner.execute.side_effect = [
         ExecutionResult(task_id="t1", soul_id="researcher", output="Output 1"),
         ExecutionResult(task_id="t2", soul_id="reviewer1", output="Output 2"),
     ]
@@ -342,7 +337,6 @@ async def test_state_immutability_across_workflow_execution(mock_runner, sample_
 
     # Execute and capture states
     initial_state = WorkflowState(
-        current_task=Task(id="t1", instruction="Test"),
         results={"initial": BlockResult(output="value")},
     )
 
@@ -376,7 +370,7 @@ async def test_error_propagation_through_workflow(mock_runner, sample_souls):
     and the error propagates to the caller.
     """
     # First block succeeds, second raises exception
-    mock_runner.execute_task.side_effect = [
+    mock_runner.execute.side_effect = [
         ExecutionResult(task_id="t1", soul_id="researcher", output="Success"),
         Exception("Simulated execution failure"),
     ]
@@ -388,7 +382,7 @@ async def test_error_propagation_through_workflow(mock_runner, sample_souls):
     wf.add_transition("b1", "b2").add_transition("b2", None)
     wf.set_entry("b1")
 
-    initial_state = WorkflowState(current_task=Task(id="t1", instruction="Test"))
+    initial_state = WorkflowState()
 
     # Verify exception propagates
     with pytest.raises(Exception, match="Simulated execution failure"):

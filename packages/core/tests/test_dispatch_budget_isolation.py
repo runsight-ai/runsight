@@ -27,7 +27,7 @@ from runsight_core.budget_enforcement import (
     BudgetSession,
     _active_budget,
 )
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 
@@ -77,14 +77,11 @@ def _make_runner_with_costs(
 
     runner = MagicMock()
     runner.model_name = "gpt-4o"
-    runner._build_prompt = MagicMock(
-        side_effect=lambda task: task.instruction,
-    )
 
     call_idx = 0
     captured_sessions: list[BudgetSession | None] = []
 
-    async def _side_effect(task: Task, soul: Soul, **kwargs):
+    async def _side_effect(instruction: str, context, soul: Soul, **kwargs):
         nonlocal call_idx
         idx = call_idx
         call_idx += 1
@@ -98,14 +95,14 @@ def _make_runner_with_costs(
             session.accrue(cost_usd=costs[idx], tokens=tokens[idx])
 
         return _make_exec_result(
-            task_id=task.id,
+            task_id="mock",
             soul_id=soul.id,
             output=f"result_{idx}",
             cost=costs[idx],
             tokens=tokens[idx],
         )
 
-    runner.execute_task = AsyncMock(side_effect=_side_effect)
+    runner.execute = AsyncMock(side_effect=_side_effect)
     runner.captured_sessions = captured_sessions
     return runner
 
@@ -196,11 +193,10 @@ class TestNoConcurrentParentAccrual:
 
         runner = MagicMock()
         runner.model_name = "gpt-4o"
-        runner._build_prompt = MagicMock(side_effect=lambda task: task.instruction)
 
         call_idx = 0
 
-        async def _side_effect(task, soul, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_idx
             idx = call_idx
             call_idx += 1
@@ -213,13 +209,13 @@ class TestNoConcurrentParentAccrual:
             parent_cost_during_execution.append(parent.cost_usd)
 
             return _make_exec_result(
-                task_id=task.id,
+                task_id="mock",
                 soul_id=soul.id,
                 output=f"r{idx}",
                 cost=costs[idx],
             )
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         _active_budget.set(parent)
         try:
@@ -405,13 +401,12 @@ class TestBranchBlockCapEnforcement:
 
         runner = MagicMock()
         runner.model_name = "gpt-4o"
-        runner._build_prompt = MagicMock(side_effect=lambda task: task.instruction)
 
         call_idx = 0
         branch_costs = [0.60, 0.20]  # first branch exceeds $0.50 cap
         checked_sessions: list[BudgetSession | None] = []
 
-        async def _side_effect(task, soul, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_idx
             idx = call_idx
             call_idx += 1
@@ -424,13 +419,13 @@ class TestBranchBlockCapEnforcement:
                 session.check_or_raise()
 
             return _make_exec_result(
-                task_id=task.id,
+                task_id="mock",
                 soul_id=soul.id,
                 output=f"r{idx}",
                 cost=branch_costs[idx],
             )
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         _active_budget.set(parent)
         try:

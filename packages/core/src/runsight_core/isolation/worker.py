@@ -105,7 +105,7 @@ def _build_delegate_artifacts(
         if not result_key.startswith(prefix):
             continue
         port = result_key.removeprefix(prefix)
-        artifacts[port] = DelegateArtifact(task=str(block_result.output))
+        artifacts[port] = DelegateArtifact(prompt=str(block_result.output))
     return artifacts
 
 

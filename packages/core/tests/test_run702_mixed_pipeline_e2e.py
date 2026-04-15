@@ -20,7 +20,6 @@ from textwrap import dedent
 from types import SimpleNamespace
 
 import pytest
-from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml
 
@@ -38,17 +37,17 @@ class _ScriptedRunner:
         self.calls: list[tuple[str, str, str | None]] = []
         self.attempts: dict[str, int] = {}
 
-    async def execute_task(self, task: Task, soul, messages=None):
+    async def execute(self, instruction: str, context: str | None, soul, messages=None):
         soul_id = soul.id
         attempt = self.attempts.get(soul_id, 0) + 1
         self.attempts[soul_id] = attempt
-        self.calls.append((soul_id, task.instruction, task.context))
+        self.calls.append((soul_id, instruction, context))
 
         behavior = self.behaviors.get(soul_id)
         if behavior is None:
-            output = f"{soul_id}|{task.instruction}|{task.context or ''}"
+            output = f"{soul_id}|{instruction}|{context or ''}"
         else:
-            output = behavior(attempt, task, soul)
+            output = behavior(attempt, instruction, soul, context)
 
         if isinstance(output, BaseException):
             raise output
@@ -157,21 +156,13 @@ class TestMixedPipelinePassPath:
         )
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "PASS",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(
-                current_task=Task(
-                    id="write-task",
-                    instruction="Write an article",
-                    context="About testing",
-                )
-            )
-        )
+        final_state = await workflow.run(WorkflowState())
 
         # All three core blocks must have results
         assert "linear_block" in final_state.results
@@ -185,15 +176,13 @@ class TestMixedPipelinePassPath:
         linear_output = json.dumps({"title": "Good Article", "body": "Well written content here"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "PASS",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        final_state = await workflow.run(WorkflowState())
 
         # Pass handler executed, fail handler did NOT execute
         assert "pass_handler" in final_state.results
@@ -206,15 +195,13 @@ class TestMixedPipelinePassPath:
         linear_output = json.dumps({"title": "Good Article", "body": "Quality content here"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "PASS",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        final_state = await workflow.run(WorkflowState())
 
         assert final_state.results["quality_gate"].exit_handle == "pass"
 
@@ -225,15 +212,13 @@ class TestMixedPipelinePassPath:
         linear_output = json.dumps({"title": "Good Article", "body": "Content here today"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "PASS",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        final_state = await workflow.run(WorkflowState())
 
         expected_blocks = {"linear_block", "code_block", "quality_gate", "pass_handler"}
         assert set(final_state.results.keys()) == expected_blocks
@@ -245,15 +230,13 @@ class TestMixedPipelinePassPath:
         linear_output = json.dumps({"title": "Good Article", "body": "Content here today"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "PASS",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        final_state = await workflow.run(WorkflowState())
 
         handler_output = json.loads(final_state.results["pass_handler"].output)
         assert handler_output["branch"] == "pass"
@@ -276,15 +259,16 @@ class TestMixedPipelineFailPath:
         linear_output = json.dumps({"title": "Bad Article", "body": "Poor quality"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "FAIL: content is low quality",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt,
+                instruction,
+                soul,
+                context=None: "FAIL: content is low quality",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        final_state = await workflow.run(WorkflowState())
 
         # Fail handler executed, pass handler did NOT execute
         assert "fail_handler" in final_state.results
@@ -297,15 +281,16 @@ class TestMixedPipelineFailPath:
         linear_output = json.dumps({"title": "Bad Article", "body": "Poor quality"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "FAIL: needs improvement",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt,
+                instruction,
+                soul,
+                context=None: "FAIL: needs improvement",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        final_state = await workflow.run(WorkflowState())
 
         assert final_state.results["quality_gate"].exit_handle == "fail"
 
@@ -316,15 +301,13 @@ class TestMixedPipelineFailPath:
         linear_output = json.dumps({"title": "Bad Article", "body": "Poor quality"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "FAIL: rejected",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt, instruction, soul, context=None: "FAIL: rejected",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        final_state = await workflow.run(WorkflowState())
 
         expected_blocks = {"linear_block", "code_block", "quality_gate", "fail_handler"}
         assert set(final_state.results.keys()) == expected_blocks
@@ -336,15 +319,16 @@ class TestMixedPipelineFailPath:
         linear_output = json.dumps({"title": "Bad Article", "body": "Poor quality"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "FAIL: low quality content",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt,
+                instruction,
+                soul,
+                context=None: "FAIL: low quality content",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        final_state = await workflow.run(WorkflowState())
 
         handler_output = json.loads(final_state.results["fail_handler"].output)
         assert handler_output["branch"] == "fail"
@@ -367,15 +351,13 @@ class TestStateFlowsBetweenBlocks:
         linear_output = json.dumps({"title": "My Title", "body": "one two three four five"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "PASS",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        final_state = await workflow.run(WorkflowState())
 
         code_output = json.loads(final_state.results["code_block"].output)
         assert code_output["transformed"] is True
@@ -390,22 +372,20 @@ class TestStateFlowsBetweenBlocks:
         linear_output = json.dumps({"title": "Article", "body": "Some content here"})
         call_contexts = []
 
-        def evaluator_behavior(attempt, task, soul):
-            # Capture what the gate sends to the evaluator
-            call_contexts.append(task.context)
+        def evaluator_behavior(attempt, instruction, soul, context=None):
+            # Capture what the gate sends to the evaluator (gate puts content in context)
+            call_contexts.append(context)
             return "PASS"
 
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
                 "evaluator": evaluator_behavior,
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        await workflow.run(WorkflowState())
 
         # The evaluator received the code_block output as context
         assert len(call_contexts) == 1
@@ -422,15 +402,13 @@ class TestStateFlowsBetweenBlocks:
         linear_output = json.dumps({"title": "Test Title", "body": "Test body content"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "PASS",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        final_state = await workflow.run(WorkflowState())
 
         # Linear block output is the raw mocked response
         assert isinstance(final_state.results["linear_block"], BlockResult)
@@ -455,15 +433,13 @@ class TestNoRealAPICalls:
         linear_output = json.dumps({"title": "Article", "body": "Content here"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "PASS",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        await workflow.run(WorkflowState())
 
         # Exactly two LLM calls: one for linear_block (writer), one for quality_gate (evaluator)
         soul_ids_called = [call[0] for call in runner.calls]
@@ -478,15 +454,13 @@ class TestNoRealAPICalls:
         linear_output = json.dumps({"title": "Article", "body": "Content here"})
         runner = _ScriptedRunner(
             {
-                "writer": lambda attempt, task, soul: linear_output,
-                "evaluator": lambda attempt, task, soul: "PASS",
+                "writer": lambda attempt, instruction, soul, context=None: linear_output,
+                "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        await workflow.run(
-            WorkflowState(current_task=Task(id="write-task", instruction="Write", context="Test"))
-        )
+        await workflow.run(WorkflowState())
 
         # No soul called "code_block" — code blocks don't use LLM
         soul_ids_called = [call[0] for call in runner.calls]

@@ -135,8 +135,6 @@ class TestBlockKwargsCompatibility:
     @pytest.mark.asyncio
     async def test_linear_block_basic_execution(self):
         """Test LinearBlock.execute() basic functionality."""
-        from runsight_core.primitives import Task
-
         soul = Soul(
             id="test_soul",
             role="Test",
@@ -148,10 +146,10 @@ class TestBlockKwargsCompatibility:
         mock_result.cost_usd = 0.01
         mock_result.total_tokens = 10
         mock_result.exit_handle = None
-        runner.execute_task = AsyncMock(return_value=mock_result)
+        runner.execute = AsyncMock(return_value=mock_result)
 
         block = LinearBlock(block_id="test_linear", soul=soul, runner=runner)
-        state = WorkflowState(current_task=Task(id="t1", instruction="test"))
+        state = WorkflowState()
 
         # Execute with default signature
         result = await block.execute(state)

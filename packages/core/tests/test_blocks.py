@@ -20,7 +20,7 @@ from runsight_core.state import BlockResult, WorkflowState
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     runner.execute = AsyncMock()
     return runner
 

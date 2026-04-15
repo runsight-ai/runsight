@@ -14,7 +14,7 @@ These tests fail because RunsightTeamRunner.execute() does not exist yet.
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult, FallbackRoute, RunsightTeamRunner
 
 # ---------------------------------------------------------------------------
@@ -423,93 +423,79 @@ class TestExecuteToolLoop:
 
 
 # ---------------------------------------------------------------------------
-# AC3 / AC4: execute_task() still works and delegates to execute()
+# AC3 / AC4: execute() is the canonical API (execute_task was deleted in RUN-879)
 # ---------------------------------------------------------------------------
 
 
 class TestExecuteTaskBackwardCompat:
-    """execute_task() must still work after the refactor.
-    It must delegate to execute() internally.
-    For identical inputs, execute() and execute_task() must produce the same results."""
+    """After RUN-879, execute_task() is deleted. execute() is the canonical API.
+    These tests verify execute() covers what execute_task() used to do."""
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_execute_task_still_returns_execution_result(self, mock_achat, soul):
-        """execute_task() must still return an ExecutionResult (regression guard)."""
-        mock_achat.return_value = _achat_text_response(content="Old API result.")
+        """execute() must return an ExecutionResult."""
+        mock_achat.return_value = _achat_text_response(content="Result via execute.")
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t1", instruction=INSTRUCTION, context=CONTEXT)
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute(INSTRUCTION, CONTEXT, soul)
 
         assert isinstance(result, ExecutionResult)
-        assert result.output == "Old API result."
+        assert result.output == "Result via execute."
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_execute_task_soul_id_matches(self, mock_achat, soul):
-        """execute_task() result soul_id must still reflect the active soul."""
+        """execute() result soul_id must reflect the active soul."""
         mock_achat.return_value = _achat_text_response()
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t42", instruction=INSTRUCTION, context=CONTEXT)
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute(INSTRUCTION, CONTEXT, soul)
 
         assert result.soul_id == "s1"
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_execute_and_execute_task_identical_outputs(self, mock_achat, soul):
-        """execute() and execute_task() must produce identical outputs for
-        equivalent inputs (same instruction, context, soul)."""
+        """execute() produces consistent results for same inputs called twice."""
         mock_achat.return_value = _achat_text_response(
             content="Identical.", cost_usd=0.003, total_tokens=30
         )
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="tx", instruction=INSTRUCTION, context=CONTEXT)
-
-        result_via_execute = await runner.execute(INSTRUCTION, CONTEXT, soul)
+        result1 = await runner.execute(INSTRUCTION, CONTEXT, soul)
 
         mock_achat.return_value = _achat_text_response(
             content="Identical.", cost_usd=0.003, total_tokens=30
         )
-        result_via_execute_task = await runner.execute_task(task, soul)
+        result2 = await runner.execute(INSTRUCTION, CONTEXT, soul)
 
-        assert result_via_execute.output == result_via_execute_task.output
-        assert result_via_execute.cost_usd == pytest.approx(result_via_execute_task.cost_usd)
-        assert result_via_execute.total_tokens == result_via_execute_task.total_tokens
+        assert result1.output == result2.output
+        assert result1.cost_usd == pytest.approx(result2.cost_usd)
+        assert result1.total_tokens == result2.total_tokens
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_execute_task_sends_same_prompt_as_execute(self, mock_achat, soul):
-        """execute_task(task) and execute(instruction, context) must send
-        identical prompts to the LLM client."""
+        """execute(instruction, context) must send combined prompt to LLM."""
         mock_achat.return_value = _achat_text_response()
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-
         await runner.execute(INSTRUCTION, CONTEXT, soul)
         execute_prompt = mock_achat.call_args.kwargs["messages"][-1]["content"]
 
-        mock_achat.reset_mock()
-        mock_achat.return_value = _achat_text_response()
-
-        task = Task(id="t1", instruction=INSTRUCTION, context=CONTEXT)
-        await runner.execute_task(task, soul)
-        execute_task_prompt = mock_achat.call_args.kwargs["messages"][-1]["content"]
-
-        assert execute_prompt == execute_task_prompt
+        # Verify the combined prompt contains both instruction and context
+        assert INSTRUCTION in execute_prompt
+        assert CONTEXT in execute_prompt
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_execute_task_with_messages_still_works(self, mock_achat, soul):
-        """execute_task() must still work when called with messages parameter."""
+        """execute() must work when called with messages parameter."""
         mock_achat.return_value = _achat_text_response(content="With history.")
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t1", instruction=INSTRUCTION, context=CONTEXT)
-        result = await runner.execute_task(task, soul, messages=HISTORY_MESSAGES)
+        result = await runner.execute(INSTRUCTION, CONTEXT, soul, messages=HISTORY_MESSAGES)
 
         assert result.output == "With history."
         sent = mock_achat.call_args.kwargs["messages"]

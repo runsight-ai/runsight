@@ -16,7 +16,7 @@ import pytest
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.blocks.loop import LoopBlock
 from runsight_core.blocks.synthesize import SynthesizeBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml
@@ -131,17 +131,10 @@ def _make_exec_result(task_id, soul_id, output, cost=0.0, tokens=0):
 
 
 def _mock_runner():
-    """Build a MagicMock runner with _build_prompt wired."""
+    """Build a MagicMock runner."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     runner.model_name = "gpt-4o"
-    runner._build_prompt = MagicMock(
-        side_effect=lambda task: (
-            task.instruction
-            if not task.context
-            else f"{task.instruction}\n\nContext:\n{task.context}"
-        )
-    )
     return runner
 
 
@@ -201,8 +194,7 @@ class TestFullPipeline:
 
         with patch("runsight_core.llm.client.completion_cost", return_value=0.01):
             wf = parse_workflow_yaml(DISPATCH_SYNTHESIZE_YAML)
-            task = Task(id="main_task", instruction="Explore quantum computing")
-            state = WorkflowState(current_task=task)
+            state = WorkflowState()
             final_state = await wf.run(state)
 
         # Dispatch per-exit results keyed correctly
@@ -260,8 +252,7 @@ class TestFullPipeline:
 
         with patch("runsight_core.llm.client.completion_cost", return_value=0.001):
             wf = parse_workflow_yaml(DISPATCH_SYNTHESIZE_YAML)
-            task = Task(id="main_task", instruction="Do the work")
-            state = WorkflowState(current_task=task)
+            state = WorkflowState()
             await wf.run(state)
 
         # The first two LLM calls are the Dispatch branches. Prompts must differ.
@@ -306,8 +297,7 @@ class TestFullPipeline:
 
         with patch("runsight_core.llm.client.completion_cost", return_value=0.001):
             wf = parse_workflow_yaml(DISPATCH_SYNTHESIZE_YAML)
-            task = Task(id="main_task", instruction="Do the work")
-            state = WorkflowState(current_task=task)
+            state = WorkflowState()
             await wf.run(state)
 
         # The synthesize call should have received the combined Dispatch output
@@ -322,7 +312,7 @@ class TestFullPipeline:
         runner = _mock_runner()
 
         # Dispatch branch results
-        runner.execute_task.side_effect = [
+        runner.execute.side_effect = [
             _make_exec_result(
                 "dispatch_work_researcher", "researcher", "Research output", 0.05, 100
             ),
@@ -353,8 +343,7 @@ class TestFullPipeline:
             runner=runner,
         )
 
-        task = Task(id="main", instruction="Work")
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
 
         # Execute Dispatch
         state = await dispatch.execute(state)
@@ -402,8 +391,7 @@ class TestPerExitReferences:
             wf = parse_workflow_yaml(PER_EXIT_REF_YAML)
             assert wf.name == "dispatch_v2_per_exit_test"
 
-            task = Task(id="main", instruction="Do work")
-            state = WorkflowState(current_task=task)
+            state = WorkflowState()
             final_state = await wf.run(state)
 
         # Synthesize should have run successfully
@@ -415,7 +403,7 @@ class TestPerExitReferences:
         runner = _mock_runner()
         synth_soul = Soul(id="synthesizer", role="Synthesizer", system_prompt="Synthesize.")
 
-        runner.execute_task.return_value = _make_exec_result(
+        runner.execute.return_value = _make_exec_result(
             "merge_synthesis", "synthesizer", "Synthesized from individual branches", 0.05, 100
         )
 
@@ -443,14 +431,14 @@ class TestPerExitReferences:
 
         assert "merge_results" in final_state.results
 
-        # Verify the synthesize task received both per-exit outputs
-        call_args = runner.execute_task.call_args
-        task_arg = call_args[0][0]
-        assert "Research: Found 3 papers." in task_arg.context
-        assert "Code: Implemented Grover's algorithm." in task_arg.context
+        # Verify the synthesize task received both per-exit outputs as context
+        call_args = runner.execute.call_args
+        context_arg = call_args[0][1]  # 2nd positional arg is context
+        assert "Research: Found 3 papers." in (context_arg or "")
+        assert "Code: Implemented Grover's algorithm." in (context_arg or "")
         # Both per-exit keys should be referenced in the context
-        assert "dispatch_work.researcher" in task_arg.context
-        assert "dispatch_work.coder" in task_arg.context
+        assert "dispatch_work.researcher" in (context_arg or "")
+        assert "dispatch_work.coder" in (context_arg or "")
 
     @pytest.mark.asyncio
     async def test_synthesize_fails_if_per_exit_key_missing(self):
@@ -517,7 +505,7 @@ class TestStatefulDispatchInLoop:
             _make_exec_result("dispatch_work_coder", "coder", "Round 2 code", 0.03, 60),
         ]
 
-        runner.execute_task.side_effect = round1_results + round2_results
+        runner.execute.side_effect = round1_results + round2_results
 
         loop = LoopBlock(
             block_id="loop_dispatch",
@@ -525,8 +513,7 @@ class TestStatefulDispatchInLoop:
             max_rounds=2,
         )
 
-        task = Task(id="main", instruction="Iterate")
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
 
         # Execute the loop with the dispatch block in the blocks dict
         final_state = await loop.execute(state, blocks={"dispatch_work": dispatch})
@@ -557,7 +544,7 @@ class TestStatefulDispatchInLoop:
 
     @pytest.mark.asyncio
     async def test_stateful_dispatch_round2_receives_round1_history(self):
-        """In round 2, runner.execute_task is called with messages from round 1."""
+        """In round 2, runner.execute is called with messages from round 1."""
         runner = _mock_runner()
 
         researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
@@ -573,7 +560,7 @@ class TestStatefulDispatchInLoop:
         )
         dispatch.stateful = True
 
-        runner.execute_task.side_effect = [
+        runner.execute.side_effect = [
             # Round 1
             _make_exec_result("dispatch_work_researcher", "researcher", "R1 research", 0.01, 20),
             _make_exec_result("dispatch_work_coder", "coder", "R1 code", 0.01, 20),
@@ -588,13 +575,12 @@ class TestStatefulDispatchInLoop:
             max_rounds=2,
         )
 
-        task = Task(id="main", instruction="Iterate")
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
 
         await loop.execute(state, blocks={"dispatch_work": dispatch})
 
-        # Inspect calls to runner.execute_task
-        all_calls = runner.execute_task.call_args_list
+        # Inspect calls to runner.execute
+        all_calls = runner.execute.call_args_list
 
         # Round 2 calls (calls 2 and 3, since round 1 was calls 0 and 1)
         # Each should have messages= containing the round 1 conversation
@@ -633,7 +619,7 @@ class TestStatefulDispatchInLoop:
         )
         dispatch.stateful = True
 
-        runner.execute_task.side_effect = [
+        runner.execute.side_effect = [
             _make_exec_result(
                 "dispatch_work_researcher", "researcher", "RESEARCH_ONLY_R1", 0.01, 20
             ),
@@ -650,8 +636,7 @@ class TestStatefulDispatchInLoop:
             max_rounds=2,
         )
 
-        task = Task(id="main", instruction="Iterate")
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
 
         final_state = await loop.execute(state, blocks={"dispatch_work": dispatch})
 
@@ -678,11 +663,12 @@ class TestStatefulDispatchInLoop:
 
 
 class TestContextInheritance:
-    """Workflow current_task has context -> each branch inherits context but has its own instruction."""
+    """DispatchBlock context flows from shared_memory['_resolved_inputs']['context']
+    to all branches. Each branch has its own task_instruction."""
 
     @pytest.mark.asyncio
     async def test_branches_inherit_current_task_context(self):
-        """Each Dispatch branch gets current_task.context passed through to its Task."""
+        """Context from shared_memory['_resolved_inputs'] flows to all branches as 2nd arg."""
         runner = _mock_runner()
 
         researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
@@ -697,30 +683,29 @@ class TestContextInheritance:
             runner,
         )
 
-        runner.execute_task.side_effect = [
+        runner.execute.side_effect = [
             _make_exec_result("dispatch_work_researcher", "researcher", "Research done", 0.01, 20),
             _make_exec_result("dispatch_work_coder", "coder", "Code done", 0.01, 20),
         ]
 
         shared_context = "Project: Quantum Computing Initiative, Budget: $50k, Deadline: Q2 2026"
-        task = Task(id="main", instruction="Do the work", context=shared_context)
-        state = WorkflowState(current_task=task)
+        state = WorkflowState(shared_memory={"_resolved_inputs": {"context": shared_context}})
 
         await dispatch.execute(state)
 
-        # Both calls to runner.execute_task should have the context
-        assert runner.execute_task.call_count == 2
+        # Both calls to runner.execute should have the context as 2nd positional arg
+        assert runner.execute.call_count == 2
 
-        for call in runner.execute_task.call_args_list:
-            task_arg = call.args[0]
-            assert task_arg.context is not None, "Branch task should inherit context"
-            assert shared_context in task_arg.context, (
-                f"Branch task context should contain '{shared_context}', got '{task_arg.context}'"
+        for call in runner.execute.call_args_list:
+            context_arg = call.args[1]  # 2nd positional arg is context
+            assert context_arg is not None, "Branch context should be set"
+            assert shared_context in (context_arg or ""), (
+                f"Branch context should contain the shared_context, got '{context_arg}'"
             )
 
     @pytest.mark.asyncio
     async def test_branches_have_different_instructions_same_context(self):
-        """Each branch has its own instruction but shares the same context."""
+        """Each branch has its own task_instruction but shares the same context."""
         runner = _mock_runner()
 
         researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
@@ -737,30 +722,30 @@ class TestContextInheritance:
             runner,
         )
 
-        runner.execute_task.side_effect = [
+        runner.execute.side_effect = [
             _make_exec_result("dispatch_work_researcher", "researcher", "Research done", 0.01, 20),
             _make_exec_result("dispatch_work_coder", "coder", "Code done", 0.01, 20),
         ]
 
         context = "Focus on efficiency"
-        task = Task(id="main", instruction="Work", context=context)
-        state = WorkflowState(current_task=task)
+        state = WorkflowState(shared_memory={"_resolved_inputs": {"context": context}})
 
         await dispatch.execute(state)
 
-        calls = runner.execute_task.call_args_list
-        task_0 = calls[0].args[0]
-        task_1 = calls[1].args[0]
+        calls = runner.execute.call_args_list
+        instruction_0 = calls[0].args[0]  # 1st positional arg
+        instruction_1 = calls[1].args[0]
+        context_0 = calls[0].args[1]  # 2nd positional arg
+        context_1 = calls[1].args[1]
 
         # Different instructions
-        assert task_0.instruction != task_1.instruction
+        assert instruction_0 != instruction_1
         # Same context on both
-        assert context in (task_0.context or "")
-        assert context in (task_1.context or "")
+        assert context_0 == context_1
 
     @pytest.mark.asyncio
     async def test_no_context_when_current_task_is_none(self):
-        """When current_task is None, branches still execute without crashing (context is None)."""
+        """When _resolved_inputs has no context, branches execute with context=None."""
         runner = _mock_runner()
 
         researcher_soul = Soul(id="researcher", role="Researcher", system_prompt="Research.")
@@ -771,20 +756,20 @@ class TestContextInheritance:
             runner,
         )
 
-        runner.execute_task.return_value = _make_exec_result(
+        runner.execute.return_value = _make_exec_result(
             "dispatch_work_researcher", "researcher", "Done", 0.01, 20
         )
 
-        # No current_task set
+        # No context in shared_memory
         state = WorkflowState()
 
         final_state = await dispatch.execute(state)
 
         # Should complete without error
         assert "dispatch_work.researcher" in final_state.results
-        # The task passed to runner should have context=None
-        task_arg = runner.execute_task.call_args.args[0]
-        assert task_arg.context is None
+        # The context passed to runner should be None
+        context_arg = runner.execute.call_args.args[1]
+        assert context_arg is None
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion")
@@ -815,8 +800,7 @@ class TestContextInheritance:
         with patch("runsight_core.llm.client.completion_cost", return_value=0.001):
             wf = parse_workflow_yaml(DISPATCH_SYNTHESIZE_YAML)
             important_context = "IMPORTANT_PROJECT_CONTEXT_XYZ"
-            task = Task(id="main", instruction="Work", context=important_context)
-            state = WorkflowState(current_task=task)
+            state = WorkflowState()
             await wf.run(state)
 
         # The first two LLM calls (Dispatch branches) should contain the context

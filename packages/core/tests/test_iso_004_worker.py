@@ -1559,5 +1559,6 @@ class TestWorkerScopedState:
 
         assert isinstance(state, WorkflowState)
         assert "key" in state.shared_memory
-        assert state.current_task is not None
-        assert state.current_task.instruction == "Say hello"
+        # build_scoped_state constructs state from scoped_results and shared_memory;
+        # the instruction is passed separately to the block via the worker harness
+        assert "prev_block" in state.results

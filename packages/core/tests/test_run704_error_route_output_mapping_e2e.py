@@ -20,7 +20,6 @@ from types import SimpleNamespace
 import pytest
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.workflow_block import WorkflowBlock
-from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import parse_workflow_yaml
@@ -109,17 +108,17 @@ class _ScriptedRunner:
         self.calls: list[tuple[str, str, str | None]] = []
         self.attempts: dict[str, int] = {}
 
-    async def execute_task(self, task: Task, soul, messages=None):
+    async def execute(self, instruction: str, context, soul, messages=None, **kwargs):
         soul_id = soul.id
         attempt = self.attempts.get(soul_id, 0) + 1
         self.attempts[soul_id] = attempt
-        self.calls.append((soul_id, task.instruction, task.context))
+        self.calls.append((soul_id, instruction, context))
 
         behavior = self.behaviors.get(soul_id)
         if behavior is None:
-            output = f"{soul_id}|{task.instruction}|{task.context or ''}"
+            output = f"{soul_id}|{instruction}|{context or ''}"
         else:
-            output = behavior(attempt, task, soul)
+            output = behavior(attempt, instruction, soul)
 
         if isinstance(output, BaseException):
             raise output
@@ -699,11 +698,7 @@ class TestDependsPredecessorFailsErrorRouteRuns:
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(
-                current_task=Task(id="t1", instruction="fetch data", context="test"),
-            )
-        )
+        final_state = await workflow.run(WorkflowState())
 
         # fetch should have failed with error result
         assert final_state.results["fetch"].exit_handle == "error"

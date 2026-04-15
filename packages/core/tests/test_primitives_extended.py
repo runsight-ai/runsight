@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from runsight_core import LinearBlock
-from runsight_core.primitives import Soul, Step, Task
+from runsight_core.primitives import Soul, Step
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 
@@ -15,7 +15,7 @@ from runsight_core.state import WorkflowState
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     return runner
 
 
@@ -33,14 +33,13 @@ async def test_step_executes_hooks(mock_runner, sample_soul):
     - state flows through all three phases
     """
     # Setup mock runner to return a result
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1", soul_id="test_soul", output="Block output"
     )
 
     # Create a LinearBlock as the wrapped block
     block = LinearBlock("linear1", sample_soul, mock_runner)
-    task = Task(id="t1", instruction="Test task")
-    initial_state = WorkflowState(current_task=task)
+    initial_state = WorkflowState()
 
     # Define hooks that track execution order by mutating state.metadata
     def pre_hook(state: WorkflowState) -> WorkflowState:
@@ -91,14 +90,13 @@ async def test_step_no_hooks(mock_runner, sample_soul):
     Test with both hooks as None - verify block executes normally.
     """
     # Setup mock runner
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1", soul_id="test_soul", output="Block output"
     )
 
     # Create block and state
     block = LinearBlock("linear1", sample_soul, mock_runner)
-    task = Task(id="t1", instruction="Test task")
-    initial_state = WorkflowState(current_task=task)
+    initial_state = WorkflowState()
 
     # Create Step with no hooks
     step = Step(block, pre_hook=None, post_hook=None)
@@ -118,14 +116,13 @@ async def test_step_only_pre_hook(mock_runner, sample_soul):
     AC-4: Test with only pre_hook present, post_hook=None.
     """
     # Setup mock runner
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1", soul_id="test_soul", output="Block output"
     )
 
     # Create block and state
     block = LinearBlock("linear1", sample_soul, mock_runner)
-    task = Task(id="t1", instruction="Test task")
-    initial_state = WorkflowState(current_task=task)
+    initial_state = WorkflowState()
 
     # Define only pre_hook
     def pre_hook(state: WorkflowState) -> WorkflowState:
@@ -150,14 +147,13 @@ async def test_step_only_post_hook(mock_runner, sample_soul):
     AC-4: Test with only post_hook present, pre_hook=None.
     """
     # Setup mock runner
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1", soul_id="test_soul", output="Block output"
     )
 
     # Create block and state
     block = LinearBlock("linear1", sample_soul, mock_runner)
-    task = Task(id="t1", instruction="Test task")
-    initial_state = WorkflowState(current_task=task)
+    initial_state = WorkflowState()
 
     # Define only post_hook
     def post_hook(state: WorkflowState) -> WorkflowState:
@@ -185,14 +181,13 @@ async def test_step_state_flows_through_phases(mock_runner, sample_soul):
     - post_hook sees block's output and can further modify
     """
     # Setup mock runner
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1", soul_id="test_soul", output="Block output"
     )
 
     # Create block and state
     block = LinearBlock("linear1", sample_soul, mock_runner)
-    task = Task(id="t1", instruction="Test task")
-    initial_state = WorkflowState(current_task=task)
+    initial_state = WorkflowState()
 
     # Define hooks that add to shared_memory to track state flow
     def pre_hook(state: WorkflowState) -> WorkflowState:

@@ -23,7 +23,6 @@ import inspect
 import pytest
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.loop import CarryContextConfig, LoopBlock
-from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 
 # ---------------------------------------------------------------------------
@@ -101,10 +100,6 @@ def _make_loop(
         max_rounds=max_rounds,
         carry_context=carry,
     )
-
-
-def _make_task(instruction: str = "do something", context: str | None = None) -> Task:
-    return Task(id="task-1", instruction=instruction, context=context)
 
 
 # ===========================================================================
@@ -189,7 +184,7 @@ class TestLoopWorksWithNoneCurrentTask:
         """LoopBlock must complete successfully when current_task is None."""
         inner = EchoBlock("inner1", output="result")
         loop = _make_loop("loop1", ["inner1"], max_rounds=2)
-        state = WorkflowState(current_task=None)
+        state = WorkflowState()
 
         result_state = await loop.execute(state, blocks={"inner1": inner})
 
@@ -202,7 +197,7 @@ class TestLoopWorksWithNoneCurrentTask:
         inner = EchoBlock("writer", output="draft v1")
         carry = CarryContextConfig(enabled=True, mode="last", inject_as="previous_round_context")
         loop = _make_loop("loop1", ["writer"], max_rounds=2, carry=carry)
-        state = WorkflowState(current_task=None)
+        state = WorkflowState()
 
         result_state = await loop.execute(state, blocks={"writer": inner})
 
@@ -216,7 +211,7 @@ class TestLoopWorksWithNoneCurrentTask:
         inner = EchoBlock("writer", output="text")
         carry = CarryContextConfig(enabled=True, mode="all", inject_as="all_rounds")
         loop = _make_loop("loop1", ["writer"], max_rounds=3, carry=carry)
-        state = WorkflowState(current_task=None)
+        state = WorkflowState()
 
         result_state = await loop.execute(state, blocks={"writer": inner})
 
@@ -331,15 +326,13 @@ class TestInnerBlocksReceiveCarryViaSharedMemory:
 
     @pytest.mark.asyncio
     async def test_inner_block_does_not_rely_on_current_task_for_context(self):
-        """Inner block's view of state must NOT have current_task.context populated
-        by the loop — that is the hack that must be removed."""
-        task_contexts_seen: list = []
+        """After Task deletion, carry_context must flow via shared_memory only.
+        Inner blocks do not see current_task at all (it's been removed from WorkflowState)."""
+        shared_memory_values_seen: list = []
 
         class ContextSpyBlock(BaseBlock):
             async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-                task_contexts_seen.append(
-                    state.current_task.context if state.current_task is not None else None
-                )
+                shared_memory_values_seen.append(state.shared_memory.get("previous_round_context"))
                 return state.model_copy(
                     update={
                         "results": {
@@ -352,41 +345,29 @@ class TestInnerBlocksReceiveCarryViaSharedMemory:
         spy = ContextSpyBlock("spy")
         carry = CarryContextConfig(enabled=True, mode="last", inject_as="previous_round_context")
         loop = _make_loop("loop1", ["spy"], max_rounds=3, carry=carry)
-
-        # Provide a current_task so the hack (if still present) would mutate it
-        initial_task = _make_task(instruction="run this", context=None)
-        state = WorkflowState(current_task=initial_task)
+        state = WorkflowState()
 
         await loop.execute(state, blocks={"spy": spy})
 
-        # After the hack is removed, current_task.context must remain None throughout —
-        # carry_context must NOT be written into current_task.context at any round.
-        for round_idx, seen_context in enumerate(task_contexts_seen, start=1):
-            assert seen_context is None, (
-                f"Round {round_idx}: current_task.context was mutated by the loop hack "
-                f"(got {seen_context!r}). After fix, context must stay None."
-            )
+        # Round 1: no previous context yet
+        assert shared_memory_values_seen[0] is None
+        # Rounds 2+: carry_context must appear in shared_memory
+        for round_idx, val in enumerate(shared_memory_values_seen[1:], start=2):
+            assert val is not None, f"Round {round_idx}: carry_context missing from shared_memory"
 
     @pytest.mark.asyncio
     async def test_carry_context_visible_in_shared_memory_not_task(self):
-        """carry_context data appears in shared_memory key, NOT in current_task.context."""
+        """carry_context data appears in shared_memory key (current_task is deleted)."""
         inner = EchoBlock("writer", output="important output")
         carry = CarryContextConfig(enabled=True, mode="last", inject_as="ctx_key")
         loop = _make_loop("loop1", ["writer"], max_rounds=2, carry=carry)
-        initial_task = _make_task(instruction="test", context=None)
-        state = WorkflowState(current_task=initial_task)
+        state = WorkflowState()
 
         result_state = await loop.execute(state, blocks={"writer": inner})
 
         # Carry context must be in shared_memory
         assert "ctx_key" in result_state.shared_memory
-
-        # current_task.context must NOT have been modified
-        assert result_state.current_task is not None
-        assert result_state.current_task.context is None, (
-            f"current_task.context was mutated to {result_state.current_task.context!r}. "
-            "The carry_context hack must be removed."
-        )
+        assert result_state.shared_memory["ctx_key"] is not None
 
 
 # ===========================================================================
@@ -496,43 +477,39 @@ class TestMultipleRoundsCarryAccumulation:
 
 
 class TestCurrentTaskNotModified:
-    """LoopBlock must never modify state.current_task, regardless of carry_context config."""
+    """After Task deletion, LoopBlock has no current_task to modify.
+    These tests verify loop completes correctly with carry_context config."""
 
     @pytest.mark.asyncio
     async def test_current_task_unchanged_after_loop_with_carry_context(self):
-        """current_task object must be identical (same values) after loop execution."""
+        """Loop with carry_context completes all rounds and injects into shared_memory."""
         inner = EchoBlock("inner1", output="some output")
         carry = CarryContextConfig(enabled=True, mode="last", inject_as="ctx")
         loop = _make_loop("loop1", ["inner1"], max_rounds=3, carry=carry)
-        original_task = _make_task(instruction="original instruction", context="original context")
-        state = WorkflowState(current_task=original_task)
+        state = WorkflowState()
 
         result_state = await loop.execute(state, blocks={"inner1": inner})
 
-        assert result_state.current_task is not None
-        assert result_state.current_task.instruction == "original instruction", (
-            "current_task.instruction must not be modified by LoopBlock"
-        )
-        assert result_state.current_task.context == "original context", (
-            f"current_task.context was mutated to "
-            f"{result_state.current_task.context!r} — "
-            "the hack that writes carry_context into current_task.context must be removed"
+        meta = result_state.shared_memory.get("__loop__loop1", {})
+        assert meta.get("rounds_completed") == 3, "Loop must complete all 3 rounds"
+        assert "ctx" in result_state.shared_memory, (
+            "carry_context must be injected into shared_memory['ctx']"
         )
 
     @pytest.mark.asyncio
     async def test_current_task_unchanged_with_mode_all(self):
-        """current_task.context must not be modified even when mode='all'."""
+        """mode='all' loop completes all rounds and injects list into shared_memory."""
         inner = EchoBlock("inner1", output="output")
         carry = CarryContextConfig(enabled=True, mode="all", inject_as="history")
         loop = _make_loop("loop1", ["inner1"], max_rounds=3, carry=carry)
-        original_task = _make_task(instruction="do it", context=None)
-        state = WorkflowState(current_task=original_task)
+        state = WorkflowState()
 
         result_state = await loop.execute(state, blocks={"inner1": inner})
 
-        assert result_state.current_task.context is None, (
-            f"current_task.context mutated to {result_state.current_task.context!r} "
-            "even with mode='all'. Must remain None."
+        meta = result_state.shared_memory.get("__loop__loop1", {})
+        assert meta.get("rounds_completed") == 3
+        assert isinstance(result_state.shared_memory.get("history"), list), (
+            "mode='all' must store a list in shared_memory"
         )
 
     @pytest.mark.asyncio

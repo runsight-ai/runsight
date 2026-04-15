@@ -461,14 +461,11 @@ class TestStatefulHistoryBuiltFromStrings:
         state = WorkflowState()
         await block.execute(state)
 
-        # If _build_prompt is called at all, it must not receive a Task object
-        from runsight_core.primitives import Task
-
-        for call_arg in build_prompt_calls:
-            assert not isinstance(call_arg, Task), (
-                f"_build_prompt was called with a Task object: {call_arg!r}. "
-                "Stateful path must build prompt from strings."
-            )
+        # _build_prompt must not have been called at all (Task is deleted, strings are used directly)
+        assert len(build_prompt_calls) == 0, (
+            f"_build_prompt was called {len(build_prompt_calls)} time(s) — "
+            "stateful path must build prompt from strings without _build_prompt"
+        )
 
 
 # ===========================================================================

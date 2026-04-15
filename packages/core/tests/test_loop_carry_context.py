@@ -1362,7 +1362,6 @@ class TestCarryContextFormat:
         """Blocks with soul=None must not crash task-context budgeting."""
         from runsight_core import LoopBlock
         from runsight_core.blocks.loop import CarryContextConfig
-        from runsight_core.primitives import Task
 
         config = CarryContextConfig(
             mode="last",
@@ -1381,11 +1380,8 @@ class TestCarryContextFormat:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState(
-            current_task=Task(id="budget-test", instruction="carry context safely"),
-        )
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
-        assert result_state.current_task is not None
         assert result_state.shared_memory.get("ctx") is not None
-        assert "null_soul_output" in str(result_state.current_task.context)
+        assert "null_soul_output" in str(result_state.shared_memory.get("ctx"))

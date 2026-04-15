@@ -15,7 +15,6 @@ def base_parent_state():
     return WorkflowState(
         shared_memory={"research_topic": "AI safety", "other": "data"},
         results={"existing_result": BlockResult(output="previous output")},
-        current_task=None,
         metadata={"workflow_id": "test_wf"},
     )
 
@@ -219,10 +218,7 @@ async def test_invalid_path_prefix_raises(base_parent_state, mock_child_workflow
 async def test_resolve_dotted_current_task(base_parent_state):
     """Test _resolve_dotted raises for deprecated current_task path (RUN-877)."""
     # Arrange
-    from runsight_core.primitives import Task
-
-    task = Task(id="task_1", instruction="Do something")
-    state = WorkflowState(current_task=task)
+    state = WorkflowState()
     block = WorkflowBlock(
         block_id="test_resolve",
         child_workflow=AsyncMock(),

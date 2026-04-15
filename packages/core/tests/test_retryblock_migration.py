@@ -13,7 +13,6 @@ from runsight_core import (
     LoopBlock,
 )
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import RetryConfig
@@ -151,9 +150,7 @@ class TestLoopBlockUpstreamWorkflowIntegration:
         errors = wf.validate()
         assert errors == [], f"Workflow validation failed: {errors}"
 
-        initial_state = WorkflowState(
-            current_task=Task(id="refine", instruction="Refine the output")
-        )
+        initial_state = WorkflowState()
         final_state = await wf.run(initial_state)
 
         # Upstream should have produced a result

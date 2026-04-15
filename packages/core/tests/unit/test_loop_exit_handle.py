@@ -21,7 +21,6 @@ import pytest
 from pydantic import TypeAdapter
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.loop import CarryContextConfig, LoopBlock, LoopBlockDef
-from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.schema import BaseBlockDef, BlockDef
 
@@ -673,17 +672,13 @@ class TestCarryContextWithExitHandle:
         )
         blocks["loop1"] = loop
 
-        state = WorkflowState(
-            current_task=Task(id="task-1", instruction="write trace"),
-        )
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         carried = result_state.shared_memory.get("ctx")
         assert isinstance(carried, list)
         assert len(carried) == 2
         assert "provider-trace-primary.md" in str(carried)
-        assert result_state.current_task is not None
-        assert "provider-trace-primary.md" in str(result_state.current_task.context)
 
     @pytest.mark.asyncio
     async def test_break_on_exit_still_updates_carry_context_and_task_context(self):
@@ -707,16 +702,12 @@ class TestCarryContextWithExitHandle:
         )
         blocks["loop1"] = loop
 
-        state = WorkflowState(
-            current_task=Task(id="task-2", instruction="write trace"),
-        )
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         carried = result_state.shared_memory.get("ctx")
         assert isinstance(carried, dict)
         assert "provider-trace-secondary.md" in str(carried)
-        assert result_state.current_task is not None
-        assert "provider-trace-secondary.md" in str(result_state.current_task.context)
 
 
 # ==============================================================================

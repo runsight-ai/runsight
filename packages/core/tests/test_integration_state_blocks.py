@@ -3,6 +3,9 @@ Integration tests for WorkflowState and Block implementations.
 
 Tests the interaction between WorkflowState, BaseBlock, and concrete block
 implementations, focusing on state immutability and proper data flow.
+
+Updated for RUN-879: Task removed. LinearBlock reads _resolved_inputs from
+shared_memory; runner.execute(instruction, context, soul) is the canonical API.
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -10,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from runsight_core import LinearBlock
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -19,7 +22,7 @@ from runsight_core.state import BlockResult, WorkflowState
 def mock_runner():
     """Mock RunsightTeamRunner for integration tests."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     return runner
 
 
@@ -37,16 +40,14 @@ async def test_state_immutability_across_block_execution(mock_runner, test_soul)
     This tests the critical contract that blocks must create new state instances
     via model_copy() rather than mutating the input state.
     """
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1", soul_id="integration_soul", output="Integration output"
     )
 
     block = LinearBlock("block1", test_soul, mock_runner)
-    task = Task(id="t1", instruction="Integration task")
 
     # Original state with pre-existing data
     original_state = WorkflowState(
-        current_task=task,
         results={"previous": BlockResult(output="data")},
         execution_log=[{"role": "system", "content": "Original message"}],
         shared_memory={"key": "value"},
@@ -77,33 +78,30 @@ async def test_state_immutability_across_block_execution(mock_runner, test_soul)
 @pytest.mark.asyncio
 async def test_workflow_state_task_primitive_integration(mock_runner, test_soul):
     """
-    INTEGRATION: Verify WorkflowState.current_task (Task primitive) flows correctly
-    through LinearBlock execution to RunsightTeamRunner.
+    INTEGRATION: Verify runner.execute() is called with (instruction, context, soul).
 
-    Tests the data flow: WorkflowState -> LinearBlock -> Runner
+    After RUN-879, Task is deleted. LinearBlock reads _resolved_inputs from shared_memory.
+    runner.execute(instruction, context, soul) receives string args.
     """
-    expected_task = Task(
-        id="integration_task", instruction="Test instruction", context="Test context"
-    )
-
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="integration_task", soul_id="integration_soul", output="Result"
     )
 
     block = LinearBlock("block1", test_soul, mock_runner)
-    state = WorkflowState(current_task=expected_task)
+    state = WorkflowState(
+        shared_memory={
+            "_resolved_inputs": {"instruction": "Test instruction", "context": "Test context"}
+        }
+    )
 
     await block.execute(state)
 
-    # Verify the exact task instance was passed to runner
-    call_args = mock_runner.execute_task.call_args
-    actual_task = call_args[0][0]  # First positional argument
-    actual_soul = call_args[0][1]  # Second positional argument
+    # Verify runner.execute was called with (instruction, context, soul)
+    call_args = mock_runner.execute.call_args
+    actual_instruction = call_args[0][0]  # First positional argument
+    actual_soul = call_args[0][2]  # Third positional argument
 
-    assert actual_task == expected_task
-    assert actual_task.id == "integration_task"
-    assert actual_task.instruction == "Test instruction"
-    assert actual_task.context == "Test context"
+    assert isinstance(actual_instruction, str)
     assert actual_soul == test_soul
 
 
@@ -116,7 +114,7 @@ async def test_execution_result_to_state_results_mapping(mock_runner, test_soul)
     """
     execution_output = "This is the execution output from the runner"
 
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1",
         soul_id="integration_soul",
         output=execution_output,
@@ -124,14 +122,13 @@ async def test_execution_result_to_state_results_mapping(mock_runner, test_soul)
     )
 
     block = LinearBlock("test_block", test_soul, mock_runner)
-    task = Task(id="t1", instruction="Test")
-    state = WorkflowState(current_task=task)
+    state = WorkflowState()
 
     result_state = await block.execute(state)
 
     # Verify exact output mapping
     assert result_state.results["test_block"].output == execution_output
-    assert result_state.results["test_block"].output == mock_runner.execute_task.return_value.output
+    assert result_state.results["test_block"].output == mock_runner.execute.return_value.output
 
 
 @pytest.mark.asyncio
@@ -149,19 +146,18 @@ async def test_soul_primitive_integration_with_block(mock_runner):
         tools=["test_tool"],
     )
 
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1", soul_id="detailed_soul", output="Output"
     )
 
     block = LinearBlock("block1", soul, mock_runner)
-    task = Task(id="t1", instruction="Test task")
-    state = WorkflowState(current_task=task)
+    state = WorkflowState()
 
     await block.execute(state)
 
     # Verify the exact soul was passed to runner
-    call_args = mock_runner.execute_task.call_args
-    actual_soul = call_args[0][1]
+    call_args = mock_runner.execute.call_args
+    actual_soul = call_args[0][2]
 
     assert actual_soul == soul
     assert actual_soul.id == "detailed_soul"
@@ -180,7 +176,7 @@ async def test_baseblock_contract_enforcement(mock_runner, test_soul):
     - execute() returns WorkflowState
     - output stored in state.results[block_id]
     """
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1", soul_id="integration_soul", output="Output"
     )
 
@@ -196,8 +192,7 @@ async def test_baseblock_contract_enforcement(mock_runner, test_soul):
     assert callable(block.execute)
 
     # Verify BaseBlock contract: execute returns WorkflowState with results[block_id]
-    task = Task(id="t1", instruction="Test")
-    state = WorkflowState(current_task=task)
+    state = WorkflowState()
     result = await block.execute(state)
 
     assert isinstance(result, WorkflowState)
@@ -212,36 +207,29 @@ async def test_multi_block_state_accumulation(mock_runner, test_soul):
     Simulates a workflow where multiple blocks execute sequentially, each adding to state.
     """
     # Block 1 execution
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1", soul_id="integration_soul", output="Block 1 output"
     )
 
     block1 = LinearBlock("block1", test_soul, mock_runner)
-    task1 = Task(id="t1", instruction="Task 1")
-    state = WorkflowState(current_task=task1)
+    state = WorkflowState()
 
     state = await block1.execute(state)
 
     # Block 2 execution
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t2", soul_id="integration_soul", output="Block 2 output"
     )
 
     block2 = LinearBlock("block2", test_soul, mock_runner)
-    task2 = Task(id="t2", instruction="Task 2")
-    state = state.model_copy(update={"current_task": task2})
-
     state = await block2.execute(state)
 
     # Block 3 execution
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t3", soul_id="integration_soul", output="Block 3 output"
     )
 
     block3 = LinearBlock("block3", test_soul, mock_runner)
-    task3 = Task(id="t3", instruction="Task 3")
-    state = state.model_copy(update={"current_task": task3})
-
     state = await block3.execute(state)
 
     # Verify all block outputs accumulated
@@ -269,13 +257,12 @@ async def test_state_messages_integration_with_truncation(mock_runner, test_soul
     # Create output that exceeds 200 characters
     long_output = "X" * 250
 
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="t1", soul_id="integration_soul", output=long_output
     )
 
     block = LinearBlock("block1", test_soul, mock_runner)
-    task = Task(id="t1", instruction="Test")
-    state = WorkflowState(current_task=task)
+    state = WorkflowState()
 
     result_state = await block.execute(state)
 

@@ -28,6 +28,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any
 
+import pytest
 import yaml
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul, Step
@@ -234,7 +235,9 @@ class TestUF1BlockInputsAssertionsEvalFires:
 
     def test_build_assertion_configs_returns_nonempty_for_step_wrapped(self):
         """_build_assertion_configs must find assertions through Step wrappers."""
-        from runsight_api.logic.services.execution_service import ExecutionService
+        ExecutionService = pytest.importorskip(
+            "runsight_api.logic.services.execution_service", reason="runsight_api not installed"
+        ).ExecutionService
 
         wf = _parse_in_workspace(YAML_TWO_BLOCKS_WITH_INPUT_AND_ASSERTIONS)
         configs = ExecutionService._build_assertion_configs(wf)
@@ -248,7 +251,9 @@ class TestUF1BlockInputsAssertionsEvalFires:
     def test_multi_block_assertions_all_visible_to_build_configs(self):
         """When multiple blocks have assertions (some Step-wrapped, some not),
         _build_assertion_configs must see all of them."""
-        from runsight_api.logic.services.execution_service import ExecutionService
+        ExecutionService = pytest.importorskip(
+            "runsight_api.logic.services.execution_service", reason="runsight_api not installed"
+        ).ExecutionService
 
         wf = _parse_in_workspace(YAML_MULTI_BLOCK_ASSERTIONS)
         configs = ExecutionService._build_assertion_configs(wf)
@@ -384,7 +389,9 @@ class TestUF3ParserLibrarySoulResolutionWithAssertions:
     def test_full_chain_library_soul_with_inputs_and_assertions(self):
         """Full chain: soul_ref resolved, block built, assertions bridged,
         Step wrapping preserves assertions, _build_assertion_configs sees them."""
-        from runsight_api.logic.services.execution_service import ExecutionService
+        ExecutionService = pytest.importorskip(
+            "runsight_api.logic.services.execution_service", reason="runsight_api not installed"
+        ).ExecutionService
 
         wf = _parse_in_workspace(YAML_TWO_BLOCKS_WITH_INPUT_AND_ASSERTIONS)
 
@@ -430,7 +437,9 @@ class TestAI1NoSoulLevelAssertions:
 
     def test_soul_entity_no_explicit_assertions_field(self):
         """SoulEntity API domain model must not have an explicit 'assertions' field."""
-        from runsight_api.domain.value_objects import SoulEntity
+        SoulEntity = pytest.importorskip(
+            "runsight_api.domain.value_objects", reason="runsight_api not installed"
+        ).SoulEntity
 
         # Check model_fields (explicit Pydantic fields)
         assert "assertions" not in SoulEntity.model_fields, (
@@ -442,7 +451,9 @@ class TestAI1NoSoulLevelAssertions:
 
         This catches facade implementations where the field might be hidden
         behind a computed property or validator instead of model_fields."""
-        from runsight_api.domain import value_objects
+        value_objects = pytest.importorskip(
+            "runsight_api.domain", reason="runsight_api not installed"
+        ).value_objects
 
         source = inspect.getsource(value_objects.SoulEntity)
         assert "assertions" not in source, (
@@ -524,7 +535,9 @@ class TestAI3ParserBridgeIdempotent:
     def test_parsing_same_yaml_twice_yields_identical_configs(self):
         """Parse the same YAML content twice in separate temp workspaces.
         The assertion configs extracted by _build_assertion_configs must be equal."""
-        from runsight_api.logic.services.execution_service import ExecutionService
+        ExecutionService = pytest.importorskip(
+            "runsight_api.logic.services.execution_service", reason="runsight_api not installed"
+        ).ExecutionService
 
         wf1 = _parse_in_workspace(YAML_TWO_BLOCKS_WITH_INPUT_AND_ASSERTIONS)
         wf2 = _parse_in_workspace(YAML_TWO_BLOCKS_WITH_INPUT_AND_ASSERTIONS)
@@ -555,7 +568,9 @@ class TestAI3ParserBridgeIdempotent:
     def test_parser_bridge_does_not_accumulate_assertions(self):
         """Assertions on a block must be exactly what the YAML defines.
         They must not grow or accumulate if re-parsed."""
-        from runsight_api.logic.services.execution_service import ExecutionService
+        ExecutionService = pytest.importorskip(
+            "runsight_api.logic.services.execution_service", reason="runsight_api not installed"
+        ).ExecutionService
 
         yaml_content = YAML_SOUL_REF_WITH_ASSERTIONS
 

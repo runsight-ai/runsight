@@ -1,6 +1,6 @@
 """
 YAML workflow parser for Runsight.
-Exports: parse_workflow_yaml, parse_task_yaml
+Exports: parse_workflow_yaml
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from runsight_core.conditions.engine import (
     Condition,
     ConditionGroup,
 )
-from runsight_core.primitives import Soul, Step, Task
+from runsight_core.primitives import Soul, Step
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
@@ -39,7 +39,6 @@ from runsight_core.yaml.schema import (
     ConditionGroupDef,
     DispatchExitDef,
     InputRef,
-    RunsightTaskFile,
     RunsightWorkflowFile,
 )
 from runsight_core.yaml.validation import ValidationResult
@@ -973,47 +972,3 @@ def parse_workflow_yaml(
         raise ValueError(f"Workflow '{file_def.workflow.name}' failed validation: {errors}")
 
     return wf
-
-
-def parse_task_yaml(yaml_str_or_dict: Union[str, Dict[str, Any]]) -> Task:
-    """
-    Parse a YAML task definition into a Task primitive.
-
-    Args:
-        yaml_str_or_dict: One of:
-          - str with no newlines ending in .yaml/.yml/.json -> load from file path
-          - str with newlines (or any other str) -> parse as YAML content
-          - dict -> use as pre-parsed data directly
-
-    Returns:
-        Validated Task instance with id, instruction, and optional context populated.
-
-    Raises:
-        ValidationError: If input doesn't match TaskDef schema (missing required fields, wrong types).
-        FileNotFoundError: If file path provided but file does not exist.
-        yaml.YAMLError: If YAML content is syntactically invalid.
-    """
-    # Step 1: Normalize input to raw dict
-    if isinstance(yaml_str_or_dict, str):
-        stripped = yaml_str_or_dict.strip()
-        is_file_path = "\n" not in stripped and (
-            stripped.endswith(".yaml") or stripped.endswith(".yml") or stripped.endswith(".json")
-        )
-        if is_file_path:
-            with open(stripped, "r", encoding="utf-8") as f:
-                raw: Any = yaml.safe_load(f)
-        else:
-            raw = yaml.safe_load(yaml_str_or_dict)
-    else:
-        raw = yaml_str_or_dict
-
-    # Step 2: Validate against Pydantic schema (raises ValidationError on failure)
-    file_def = RunsightTaskFile.model_validate(raw)
-    task_def = file_def.task
-
-    # Step 3: Create and return Task primitive
-    return Task(
-        id=task_def.id,
-        instruction=task_def.instruction,
-        context=task_def.context,
-    )

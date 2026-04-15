@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.isolation.envelope import DelegateArtifact, ResultEnvelope
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.state import BlockResult, WorkflowState
 
 # ── Shared fixtures ─────────────────────────────────────────────────────────
@@ -33,9 +33,7 @@ def _make_soul(soul_id: str = "coordinator") -> Soul:
 
 
 def _make_state(task_instruction: str = "Coordinate work") -> WorkflowState:
-    return WorkflowState(
-        current_task=Task(id="t1", instruction=task_instruction),
-    )
+    return WorkflowState()
 
 
 def _make_result_envelope(
@@ -106,8 +104,8 @@ class TestDispatchSingleSubprocess:
             captured_envelope = env
             return _make_result_envelope(
                 delegate_artifacts={
-                    "research": DelegateArtifact(task="research topic"),
-                    "write": DelegateArtifact(task="write draft"),
+                    "research": DelegateArtifact(prompt="research topic"),
+                    "write": DelegateArtifact(prompt="write draft"),
                 }
             )
 
@@ -143,7 +141,7 @@ class TestDispatchSingleSubprocess:
             nonlocal captured_envelope
             captured_envelope = env
             return _make_result_envelope(
-                delegate_artifacts={"alpha": DelegateArtifact(task="do alpha work")}
+                delegate_artifacts={"alpha": DelegateArtifact(prompt="do alpha work")}
             )
 
         wrapper._run_in_subprocess = capture_envelope
@@ -228,8 +226,8 @@ class TestWrapperRoutesDelegateArtifacts:
 
         result_env = _make_result_envelope(
             delegate_artifacts={
-                "port_a": DelegateArtifact(task="analyze the data"),
-                "port_b": DelegateArtifact(task="write the summary"),
+                "port_a": DelegateArtifact(prompt="analyze the data"),
+                "port_b": DelegateArtifact(prompt="write the summary"),
             }
         )
         wrapper._run_in_subprocess = AsyncMock(return_value=result_env)
@@ -257,7 +255,7 @@ class TestWrapperRoutesDelegateArtifacts:
         wrapper = _make_wrapped_dispatch(branches)
 
         result_env = _make_result_envelope(
-            delegate_artifacts={"p1": DelegateArtifact(task="task one")}
+            delegate_artifacts={"p1": DelegateArtifact(prompt="task one")}
         )
         wrapper._run_in_subprocess = AsyncMock(return_value=result_env)
 
@@ -276,7 +274,7 @@ class TestWrapperRoutesDelegateArtifacts:
         wrapper = _make_wrapped_dispatch(branches)
 
         result_env = _make_result_envelope(
-            delegate_artifacts={"p1": DelegateArtifact(task="task one")}
+            delegate_artifacts={"p1": DelegateArtifact(prompt="task one")}
         )
         wrapper._run_in_subprocess = AsyncMock(return_value=result_env)
 
@@ -307,7 +305,7 @@ class TestDownstreamReceivesDelegateTask:
 
         delegate_task = "Analyze quarterly revenue trends and identify anomalies"
         result_env = _make_result_envelope(
-            delegate_artifacts={"analyze": DelegateArtifact(task=delegate_task)}
+            delegate_artifacts={"analyze": DelegateArtifact(prompt=delegate_task)}
         )
         wrapper._run_in_subprocess = AsyncMock(return_value=result_env)
 
@@ -332,9 +330,9 @@ class TestDownstreamReceivesDelegateTask:
 
         result_env = _make_result_envelope(
             delegate_artifacts={
-                "research": DelegateArtifact(task="Find papers on quantum computing"),
-                "draft": DelegateArtifact(task="Write introduction section"),
-                "review": DelegateArtifact(task="Check for factual errors"),
+                "research": DelegateArtifact(prompt="Find papers on quantum computing"),
+                "draft": DelegateArtifact(prompt="Write introduction section"),
+                "review": DelegateArtifact(prompt="Check for factual errors"),
             }
         )
         wrapper._run_in_subprocess = AsyncMock(return_value=result_env)
@@ -373,8 +371,8 @@ class TestMissingPortSkipped:
         # Coordinator only delegates to port_a and port_c, skips port_b
         result_env = _make_result_envelope(
             delegate_artifacts={
-                "port_a": DelegateArtifact(task="task A"),
-                "port_c": DelegateArtifact(task="task C"),
+                "port_a": DelegateArtifact(prompt="task A"),
+                "port_c": DelegateArtifact(prompt="task C"),
             }
         )
         wrapper._run_in_subprocess = AsyncMock(return_value=result_env)
@@ -403,7 +401,7 @@ class TestMissingPortSkipped:
 
         # First set up a result with non-empty artifacts to verify routing works
         result_env_with = _make_result_envelope(
-            delegate_artifacts={"only_port": DelegateArtifact(task="delegated task")}
+            delegate_artifacts={"only_port": DelegateArtifact(prompt="delegated task")}
         )
         wrapper._run_in_subprocess = AsyncMock(return_value=result_env_with)
         state_with = _execute_wrapper(wrapper, _make_state())
@@ -435,7 +433,7 @@ class TestDuplicatePortLastWins:
         # Dict semantics: last write wins
         result_env = _make_result_envelope(
             delegate_artifacts={
-                "port_a": DelegateArtifact(task="SECOND call wins"),
+                "port_a": DelegateArtifact(prompt="SECOND call wins"),
             }
         )
         wrapper._run_in_subprocess = AsyncMock(return_value=result_env)

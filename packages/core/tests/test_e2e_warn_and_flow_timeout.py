@@ -25,7 +25,6 @@ from runsight_core.budget_enforcement import (
     BudgetKilledException,
     _active_budget,
 )
-from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml as _parse_workflow_yaml
 
@@ -187,9 +186,7 @@ class TestWarnModeContinuesPastCostCap:
         mock_cost.return_value = 0.001  # each block costs $0.001
 
         wf = parse_workflow_yaml(_YAML_WARN_MODE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -213,9 +210,7 @@ class TestWarnModeContinuesPastCostCap:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_WARN_MODE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         # Should NOT raise BudgetKilledException
         result = await wf.run(state)
@@ -234,9 +229,7 @@ class TestWarnModeContinuesPastCostCap:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_WARN_MODE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         await wf.run(state)
 
@@ -255,9 +248,7 @@ class TestWarnModeContinuesPastCostCap:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_WARN_MODE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -277,9 +268,7 @@ class TestWarnModeContinuesPastCostCap:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_WARN_MODE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         await wf.run(state)
         assert _active_budget.get(None) is None
@@ -310,9 +299,7 @@ class TestFlowLevelTimeout:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_FLOW_TIMEOUT_SHORT)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException) as exc_info:
             await wf.run(state)
@@ -336,9 +323,7 @@ class TestFlowLevelTimeout:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_FLOW_TIMEOUT_SHORT)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         t0 = time.monotonic()
         with pytest.raises(BudgetKilledException):
@@ -366,9 +351,7 @@ class TestFlowLevelTimeout:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_FLOW_TIMEOUT_SHORT)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException):
             await wf.run(state)
@@ -390,9 +373,7 @@ class TestFlowLevelTimeout:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_FLOW_TIMEOUT_SHORT)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException) as exc_info:
             await wf.run(state)
@@ -413,9 +394,7 @@ class TestFlowLevelTimeout:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_FLOW_TIMEOUT_SHORT)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException):
             await wf.run(state)
@@ -444,9 +423,7 @@ class TestFlowTimeoutWithinLimits:
         mock_cost.side_effect = [0.01, 0.02]
 
         wf = parse_workflow_yaml(_YAML_FLOW_TIMEOUT_GENEROUS)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -467,9 +444,7 @@ class TestFlowTimeoutWithinLimits:
         mock_cost.side_effect = [0.01, 0.02]
 
         wf = parse_workflow_yaml(_YAML_FLOW_TIMEOUT_GENEROUS)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
         assert result is not None
@@ -486,9 +461,7 @@ class TestFlowTimeoutWithinLimits:
         mock_cost.side_effect = [0.01, 0.02]
 
         wf = parse_workflow_yaml(_YAML_FLOW_TIMEOUT_GENEROUS)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         await wf.run(state)
         assert mock_acompletion.call_count == 2
@@ -505,9 +478,7 @@ class TestFlowTimeoutWithinLimits:
         mock_cost.side_effect = [0.01, 0.02]
 
         wf = parse_workflow_yaml(_YAML_FLOW_TIMEOUT_GENEROUS)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -641,9 +612,7 @@ limits:
   on_exceed: fail
 """
         wf = parse_workflow_yaml(yaml_2_blocks)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -698,9 +667,7 @@ limits:
   on_exceed: fail
 """
         wf = parse_workflow_yaml(yaml_2_blocks)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         # Should NOT raise
         result = await wf.run(state)
@@ -753,9 +720,7 @@ limits:
   on_exceed: fail
 """
         wf = parse_workflow_yaml(yaml_2_blocks)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -780,9 +745,7 @@ limits:
         mock_cost.return_value = 0.004  # each block $0.004, total crosses $0.01 at block 3
 
         wf = parse_workflow_yaml(_YAML_MIXED_BLOCK_WARN_FLOW_FAIL)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException) as exc_info:
             await wf.run(state)
@@ -806,9 +769,7 @@ limits:
         mock_cost.return_value = 0.004
 
         wf = parse_workflow_yaml(_YAML_MIXED_BLOCK_WARN_FLOW_FAIL)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException) as exc_info:
             await wf.run(state)
@@ -829,9 +790,7 @@ limits:
         mock_cost.return_value = 0.005  # $0.005/block, total $0.015 >> flow cap $0.01
 
         wf = parse_workflow_yaml(_YAML_MIXED_BLOCK_WARN_FLOW_FAIL)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException) as exc_info:
             await wf.run(state)
@@ -858,9 +817,7 @@ limits:
         mock_cost.return_value = 0.004
 
         wf = parse_workflow_yaml(_YAML_MIXED_BLOCK_WARN_FLOW_FAIL)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException):
             await wf.run(state)
@@ -883,9 +840,7 @@ limits:
         mock_cost.return_value = 0.004
 
         wf = parse_workflow_yaml(_YAML_MIXED_BLOCK_WARN_FLOW_FAIL)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException):
             await wf.run(state)
