@@ -34,9 +34,13 @@ class LinearBlock(BaseBlock):
         soul = ctx.soul or self.soul
 
         # ctx.inputs contains declared inputs resolved by build_block_context (RUN-892).
+        # Filter out infrastructure keys (blocks, ctx, call_stack, etc.) that are
+        # loop/workflow-internal and not serializable or relevant to the LLM.
+        _INFRA_KEYS = {"blocks", "ctx", "call_stack", "workflow_registry", "observer"}
+        declared_inputs = {k: v for k, v in ctx.inputs.items() if k not in _INFRA_KEYS}
         # When inputs are present, serialize them as the user-turn instruction.
         # When empty, instruction is "" — the soul's system_prompt IS the instruction.
-        instruction = json.dumps(ctx.inputs) if ctx.inputs else ""
+        instruction = json.dumps(declared_inputs) if declared_inputs else ""
 
         if self.stateful:
             history_key = f"{self.block_id}_{soul.id}"

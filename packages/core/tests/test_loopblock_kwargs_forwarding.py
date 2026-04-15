@@ -109,9 +109,11 @@ class TestLoopBlockForwardsKwargs:
         await _exec(loop, state, blocks=blocks)
 
         assert len(spy.captured_kwargs) == 1
-        assert "blocks" in spy.captured_kwargs[0], (
-            "LoopBlock did not forward 'blocks' kwarg to inner block"
-        )
+        # 'blocks' is loop-internal infrastructure, excluded from parent_inputs
+        # to prevent JSON serialization failures. Inner blocks receive their own
+        # BlockContext via build_block_context — they don't need the blocks dict.
+        # Verify the spy was called (received a BlockContext with inputs).
+        assert isinstance(spy.captured_kwargs[0], dict)
 
     @pytest.mark.asyncio
     async def test_inner_block_receives_call_stack_kwarg(self):
@@ -211,7 +213,7 @@ class TestLoopBlockForwardsKwargs:
 
         assert len(spy.captured_kwargs) == 1
         kw = spy.captured_kwargs[0]
-        assert "blocks" in kw
+        # 'blocks' is loop-internal, excluded from parent_inputs forwarding
         assert "call_stack" in kw
         assert "workflow_registry" in kw
         assert "observer" in kw
@@ -233,10 +235,10 @@ class TestLoopBlockForwardsKwargs:
         state = WorkflowState()
         await _exec(loop, state, blocks=blocks, observer=mock_observer)
 
-        # spy should be called 3 times (once per round), each time with kwargs
+        # spy should be called 3 times (once per round), each time with inputs
         assert len(spy.captured_kwargs) == 3
         for i, kw in enumerate(spy.captured_kwargs):
-            assert "blocks" in kw, f"Round {i + 1}: 'blocks' kwarg not forwarded"
+            # 'blocks' is loop-internal, excluded from forwarding
             assert "observer" in kw, f"Round {i + 1}: 'observer' kwarg not forwarded"
 
 

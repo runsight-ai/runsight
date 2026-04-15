@@ -78,12 +78,9 @@ class LoopBlock(BaseBlock):
         blocks: Dict[str, BaseBlock] = ctx.inputs.get("blocks", {})
         bec = ctx.inputs.get("ctx")
         # Capture all parent inputs to forward to inner blocks (preserves kwargs like
-        # call_stack, workflow_registry, observer for old-style block compatibility).
-        # Exclude loop-internal keys that must not be forwarded to inner blocks.
-        _LOOP_INTERNAL_KEYS = {"blocks", "ctx"}
-        parent_inputs: Dict[str, Any] = {
-            k: v for k, v in ctx.inputs.items() if k not in _LOOP_INTERNAL_KEYS
-        }
+        # call_stack, workflow_registry, observer, and blocks for nested LoopBlocks).
+        # Only exclude 'ctx' (BlockExecutionContext) which is loop-dispatch-internal.
+        parent_inputs: Dict[str, Any] = {k: v for k, v in ctx.inputs.items() if k != "ctx"}
 
         initial_state = ctx.state_snapshot
 
