@@ -32,9 +32,9 @@ function readSource(relativePath: string): string {
       const subFiles = readdirSync(DASHBOARD_COMPONENTS_DIR).filter((f) => f.endsWith(".tsx") || f.endsWith(".ts"));
       const subSource = subFiles.map((f) => readFileSync(resolve(DASHBOARD_COMPONENTS_DIR, f), "utf-8")).join("\n");
       let utilsSource = "";
-      try { utilsSource = readFileSync(resolve(SRC_DIR, "features/dashboard/utils.ts"), "utf-8"); } catch {}
+      try { utilsSource = readFileSync(resolve(SRC_DIR, "features/dashboard/utils.ts"), "utf-8"); } catch { /* optional */ }
       return main + "\n" + subSource + "\n" + utilsSource;
-    } catch { /* components dir may not exist in older states */ }
+    } catch { /* components dir may not exist in older states; fall through */ }
   }
   return main;
 }

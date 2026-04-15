@@ -26,7 +26,7 @@ describe("RUN-860 Zod validation gaps", () => {
   it("test_setWorkflowEnabled_uses_zod_parse — workflows.ts setWorkflowEnabled must call .parse(", () => {
     // Extract the setWorkflowEnabled function body for a focused check
     const setWorkflowEnabledMatch = workflowsSource.match(
-      /setWorkflowEnabled[\s\S]*?(?=\n  \w|\n\};)/,
+      /setWorkflowEnabled[\s\S]*?(?=\n {2}\w|\n\};)/,
     );
     expect(setWorkflowEnabledMatch).not.toBeNull();
     const fnBody = setWorkflowEnabledMatch![0];
@@ -34,7 +34,7 @@ describe("RUN-860 Zod validation gaps", () => {
   });
 
   it("test_cancelRun_uses_zod_parse — runs.ts cancelRun must call .parse(", () => {
-    const cancelRunMatch = runsSource.match(/cancelRun[\s\S]*?(?=\n  \w|\n\};)/);
+    const cancelRunMatch = runsSource.match(/cancelRun[\s\S]*?(?=\n {2}\w|\n\};)/);
     expect(cancelRunMatch).not.toBeNull();
     const fnBody = cancelRunMatch![0];
     expect(fnBody).toMatch(/\.parse\(/);
