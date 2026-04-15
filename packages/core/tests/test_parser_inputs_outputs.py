@@ -61,13 +61,11 @@ class MockBlock:
         self.block_id = block_id
         self.last_state = None
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        self.last_state = state
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: BlockResult(output="mock_result")},
-            }
-        )
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        self.last_state = ctx.state_snapshot
+        return BlockOutput(output="mock_result")
 
 
 class CapturingBlock(BaseBlock):

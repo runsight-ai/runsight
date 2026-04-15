@@ -322,9 +322,6 @@ async def execute_block(
     if extra_inputs:
         block_ctx = block_ctx.model_copy(update={"inputs": {**block_ctx.inputs, **extra_inputs}})
     output = await block.execute(block_ctx)
-    # Backward compat: old-style blocks may return WorkflowState directly.
-    if isinstance(output, WorkflowState):
-        return output
     return apply_block_output(state, block.block_id, output)
 
 

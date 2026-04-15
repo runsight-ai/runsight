@@ -94,13 +94,8 @@ class DispatchBlock(BaseBlock):
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         """Execute block with BlockContext, return BlockOutput."""
-        # Use context from _resolved_inputs if available, else ctx.context
-        _resolved = (
-            ctx.state_snapshot.shared_memory.get("_resolved_inputs", {})
-            if ctx.state_snapshot is not None
-            else {}
-        )
-        context = _resolved.get("context") if _resolved else ctx.context
+        # Read context from ctx.inputs (unified contract via build_block_context)
+        context = ctx.inputs.get("context") if ctx.inputs else ctx.context
 
         if self.stateful:
             state_snap = ctx.state_snapshot

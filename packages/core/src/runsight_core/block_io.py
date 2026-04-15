@@ -188,6 +188,16 @@ def build_block_context(
     inner_block = getattr(block, "inner_block", None)
     if inner_block is not None:
         wrapper_soul = getattr(block, "soul", None)
+        # Resolve declared inputs from Step BEFORE returning, so isolated blocks
+        # receive their YAML inputs: declarations via ctx.inputs.
+        wrapper_inputs: Dict[str, Any] = {}
+        if step is not None and step.declared_inputs:
+            for name, from_ref in step.declared_inputs.items():
+                try:
+                    wrapper_inputs[name] = _resolve_ref(from_ref, state)
+                except ValueError as exc:
+                    if "not found in state.results" in str(exc):
+                        raise
         # Preserve conversation history for stateful inner blocks so that the
         # IsolatedBlockWrapper can include prior turns in the subprocess envelope.
         _inner_stateful = getattr(inner_block, "stateful", False)
@@ -200,7 +210,7 @@ def build_block_context(
             block_id=block.block_id,
             instruction="",
             context=None,
-            inputs={},
+            inputs=wrapper_inputs,
             conversation_history=_wrapper_history,
             soul=wrapper_soul,
             model_name=None,
