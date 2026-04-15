@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     debug: bool = False
     host: str = "0.0.0.0"
     port: int = 8000
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = "http://localhost:3000"
     log_level: str = "INFO"
     log_format: str = "json"
 

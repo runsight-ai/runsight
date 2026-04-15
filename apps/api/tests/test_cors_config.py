@@ -1,7 +1,7 @@
 """Red tests for RUN-245: Make CORS allow_origins configurable via settings.
 
 main.py currently hardcodes allow_origins=["*"]. After implementation:
-- Settings.cors_origins defaults to ["http://localhost:5173"]
+- Settings.cors_origins defaults to ["http://localhost:3000"]
 - RUNSIGHT_CORS_ORIGINS env var overrides the default (comma-separated)
 - create_app() reads origins from settings, not hardcoded
 
@@ -17,12 +17,12 @@ These tests should all FAIL until the implementation is written.
 class TestCorsOriginsSettingsField:
     """Settings must expose a cors_origins field with the correct default."""
 
-    def test_default_cors_origins_is_localhost_5173(self):
-        """Default value must be ["http://localhost:5173"], not ["*"]."""
+    def test_default_cors_origins_is_localhost_3000(self):
+        """Default value must be ["http://localhost:3000"], not ["*"]."""
         from runsight_api.core.config import Settings
 
         s = Settings()
-        assert s.cors_origins == ["http://localhost:5173"]
+        assert s.cors_origins == ["http://localhost:3000"]
 
     def test_default_is_a_list(self):
         """cors_origins must be a list, not a string."""
@@ -119,7 +119,7 @@ class TestCreateAppUsesSettingsForCors:
         )
 
     def test_cors_middleware_uses_default_localhost_origin(self):
-        """The default app must use ['http://localhost:5173'] for CORS."""
+        """The default app must use ['http://localhost:3000'] for CORS."""
         from runsight_api.main import create_app
 
         app = create_app()
@@ -132,6 +132,6 @@ class TestCreateAppUsesSettingsForCors:
 
         assert cors_mw is not None, "CORSMiddleware must be registered"
         allow_origins = cors_mw.kwargs.get("allow_origins")
-        assert allow_origins == ["http://localhost:5173"], (
-            f"Default CORS origins must be ['http://localhost:5173'], got {allow_origins}"
+        assert allow_origins == ["http://localhost:3000"], (
+            f"Default CORS origins must be ['http://localhost:3000'], got {allow_origins}"
         )

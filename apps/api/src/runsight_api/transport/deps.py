@@ -10,7 +10,6 @@ from ..core.secrets import SecretsEnvLoader
 from ..data.filesystem.provider_repo import FileSystemProviderRepo
 from ..data.filesystem.settings_repo import FileSystemSettingsRepo
 from ..data.filesystem.soul_repo import SoulRepository
-from ..data.filesystem.step_repo import StepRepository
 from ..data.filesystem.workflow_repo import WorkflowRepository
 from ..data.repositories.run_repo import RunRepository
 from ..logic.services.eval_service import EvalService
@@ -18,7 +17,6 @@ from ..logic.services.execution_service import ExecutionService
 from ..logic.services.git_service import GitService
 from ..logic.services.model_service import ModelService
 from ..logic.services.provider_service import ProviderService
-from ..logic.services.registry_service import RegistryService
 from ..logic.services.run_service import RunService
 from ..logic.services.settings_service import SettingsService
 from ..logic.services.soul_service import SoulService
@@ -108,14 +106,6 @@ def get_soul_service(
         workflow_repo=workflow_repo,
         provider_repo=provider_repo,
     )
-
-
-def get_registry_service() -> RegistryService:
-    return RegistryService(f"{settings.base_path}/custom")
-
-
-def get_step_repo() -> StepRepository:
-    return StepRepository(settings.base_path)
 
 
 def get_model_catalog(request: Request) -> ModelCatalogPort:

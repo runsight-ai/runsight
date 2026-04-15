@@ -6,8 +6,8 @@ All error responses must use the RunsightError shape:
 No router should return the HTTPException shape:
     {"detail": "..."}
 
-Tests cover all six affected routers:
-    steps, tasks, settings, git, sse_stream, eval
+Tests cover the remaining affected routers:
+    settings, git, sse_stream, eval
 """
 
 import subprocess
@@ -23,9 +23,7 @@ from runsight_api.transport.deps import (
     get_eval_service,
     get_execution_service,
     get_provider_service,
-    get_registry_service,
     get_run_service,
-    get_step_repo,
 )
 
 client = TestClient(app)
@@ -103,41 +101,7 @@ class TestNewErrorSubclasses:
 
 
 # ===========================================================================
-# 2. Steps router — error response shape
-# ===========================================================================
-
-
-class TestStepsErrorShape:
-    """Steps router errors must use RunsightError shape."""
-
-    def test_get_step_404_has_runsight_shape(self):
-        mock_registry = Mock()
-        mock_registry.discover_steps.return_value = []
-        mock_repo = Mock()
-        mock_repo.get_by_id.return_value = None
-        app.dependency_overrides[get_registry_service] = lambda: mock_registry
-        app.dependency_overrides[get_step_repo] = lambda: mock_repo
-        try:
-            response = client.get("/api/steps/nonexistent")
-            body = assert_runsight_error_shape(response, 404)
-            assert body["error_code"] == "STEP_NOT_FOUND"
-        finally:
-            app.dependency_overrides.clear()
-
-    def test_update_step_404_has_runsight_shape(self):
-        mock_repo = Mock()
-        mock_repo.get_by_id.return_value = None
-        app.dependency_overrides[get_step_repo] = lambda: mock_repo
-        try:
-            response = client.put("/api/steps/missing", json={"name": "Updated"})
-            body = assert_runsight_error_shape(response, 404)
-            assert body["error_code"] == "STEP_NOT_FOUND"
-        finally:
-            app.dependency_overrides.clear()
-
-
-# ===========================================================================
-# 4. Settings router — error response shape
+# 2. Settings router — error response shape
 # ===========================================================================
 
 
@@ -345,7 +309,6 @@ class TestNoHTTPExceptionInRouters:
     """AC1: No router file should raise HTTPException."""
 
     ROUTER_FILES = [
-        "steps.py",
         "settings.py",
         "git.py",
         "sse_stream.py",

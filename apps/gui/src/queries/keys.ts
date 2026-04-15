@@ -27,7 +27,6 @@ export const queryKeys = {
     provider: (id: string) => ["settings", "providers", id] as const,
     models: ["settings", "models"] as const,
     modelDefaults: ["settings", "modelDefaults"] as const,
-    budgets: ["settings", "budgets"] as const,
     appSettings: ["settings", "appSettings"] as const,
     fallback: ["settings", "fallback"] as const,
   },

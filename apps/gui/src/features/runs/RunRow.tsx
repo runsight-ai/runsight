@@ -20,17 +20,13 @@ import { AlertTriangle, Info } from "lucide-react";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 import { WarningTooltipBody } from "@/components/shared/WarningTooltipBody";
 import { useRunRegressions } from "@/queries/runs";
-import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
+import { formatCommit, formatCost, formatDuration, getSourceVariant, getTimeAgo } from "@/utils/formatting";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import {
   formatWarningTooltip,
   shouldShowWarningBadge,
   WARNING_BADGE_CLASSES,
 } from "../workflows/warningBadge.utils";
-
-function formatCommit(commitSha: string | null | undefined) {
-  return commitSha ? commitSha.slice(0, 7) : null;
-}
 
 function formatRunNumber(runNumber: number | null | undefined) {
   return typeof runNumber === "number" ? `#${runNumber}` : "—";
@@ -57,21 +53,6 @@ function formatStartedAt(startedAt: number | null | undefined) {
   }
 
   return getTimeAgo(new Date(startedAt * 1000).toISOString());
-}
-
-function getSourceVariant(source: RunResponse["source"]) {
-  switch (source) {
-    case "manual":
-      return "neutral";
-    case "webhook":
-      return "info";
-    case "schedule":
-      return "accent";
-    case "simulation":
-      return "warning";
-    default:
-      return "neutral";
-  }
 }
 
 function SourceBadge({ source }: { source: RunResponse["source"] }) {
@@ -183,7 +164,8 @@ export type RunRowProps = {
 
 export function RunRow({ run, onOpen }: RunRowProps) {
   const rowHasRegression = (run.regression_count ?? 0) > 0;
-  const commit = formatCommit(run.commit_sha);
+  const commitSha = run.commit_sha;
+  const commit = commitSha ? formatCommit(commitSha) : null;
 
   return (
     <TableRow

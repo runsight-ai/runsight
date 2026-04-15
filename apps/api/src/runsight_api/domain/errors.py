@@ -82,6 +82,13 @@ class RunNotFound(RunsightError):
     status_code: int = 404
 
 
+class RunHasActiveExecution(RunsightError):
+    """Raised when a run cannot be deleted because execution is still active."""
+
+    error_code: str = "RUN_HAS_ACTIVE_EXECUTION"
+    status_code: int = 409
+
+
 class RunFailed(RunsightError):
     """Raised when a run fails execution."""
 
@@ -117,13 +124,6 @@ class SoulInUse(RunsightError):
     status_code: int = 409
 
 
-class StepNotFound(RunsightError):
-    """Raised when a step cannot be found."""
-
-    error_code: str = "STEP_NOT_FOUND"
-    status_code: int = 404
-
-
 class ProviderNotFound(RunsightError):
     """Raised when a provider cannot be found."""
 
@@ -157,3 +157,10 @@ class InputValidationError(RunsightError):
 
     error_code: str = "VALIDATION_ERROR"
     status_code: int = 400
+
+
+class RunHasChildren(RunsightError):
+    """Raised when a run cannot be deleted because it has child runs."""
+
+    error_code: str = "RUN_HAS_CHILDREN"
+    status_code: int = 409

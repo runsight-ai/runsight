@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -33,8 +33,18 @@ const SHARED_ZOD_PATH = resolve(
   "../../../../../../packages/shared/src/zod.ts",
 );
 
+const DASHBOARD_COMPONENTS_DIR = resolve(SRC_DIR, "features/dashboard/components");
+
 function readSource(relativePath: string): string {
-  return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
+  const main = readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
+  if (relativePath.includes("DashboardOrOnboarding")) {
+    try {
+      const subFiles = readdirSync(DASHBOARD_COMPONENTS_DIR).filter((f) => f.endsWith(".tsx"));
+      const subSource = subFiles.map((f) => readFileSync(resolve(DASHBOARD_COMPONENTS_DIR, f), "utf-8")).join("\n");
+      return main + "\n" + subSource;
+    } catch { /* components dir may not exist in older states */ }
+  }
+  return main;
 }
 
 // ---------------------------------------------------------------------------
@@ -100,10 +110,11 @@ describe("useDashboardKPIs hook exists and is wired (AC3)", () => {
   });
 
   it("useDashboardKPIs calls /dashboard endpoint", () => {
-    const source = readSource(QUERIES_DASHBOARD_PATH);
-    // The hook should fetch from the /dashboard endpoint
-    expect(source).toMatch(/useDashboardKPIs/);
-    expect(source).toMatch(/["'`]\/dashboard["'`]/);
+    const querySource = readSource(QUERIES_DASHBOARD_PATH);
+    const apiSource = readSource(API_DASHBOARD_PATH);
+    // The hook wires through dashboardApi; the URL lives in the api client
+    expect(querySource).toMatch(/useDashboardKPIs/);
+    expect(apiSource).toMatch(/["'`]\/dashboard["'`]/);
   });
 
   it("Dashboard page imports useDashboardKPIs (not useDashboardSummary)", () => {

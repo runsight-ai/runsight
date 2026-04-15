@@ -119,56 +119,6 @@ export function useUpdateFallbackTarget() {
   });
 }
 
-export function useBudgets() {
-  return useQuery({
-    queryKey: queryKeys.settings.budgets,
-    queryFn: settingsApi.getBudgets,
-  });
-}
-
-export function useCreateBudget() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: settingsApi.createBudget,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.settings.budgets });
-      toast.success("Budget created");
-    },
-    onError: (error: Error) => {
-      toast.error("Failed to create budget", { description: error.message });
-    },
-  });
-}
-
-export function useUpdateBudget() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof settingsApi.updateBudget>[1] }) =>
-      settingsApi.updateBudget(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.settings.budgets });
-      toast.success("Budget updated");
-    },
-    onError: (error: Error) => {
-      toast.error("Failed to update budget", { description: error.message });
-    },
-  });
-}
-
-export function useDeleteBudget() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: settingsApi.deleteBudget,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.settings.budgets });
-      toast.success("Budget deleted");
-    },
-    onError: (error: Error) => {
-      toast.error("Failed to delete budget", { description: error.message });
-    },
-  });
-}
-
 export function useAppSettings() {
   return useQuery({
     queryKey: queryKeys.settings.appSettings,

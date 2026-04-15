@@ -3,13 +3,11 @@ import { z } from "zod";
 import {
   AppSettingsOutSchema,
   FallbackUpdateSchema,
-  ModelResponseSchema,
+  ModelListResponseSchema,
   ProviderCreateSchema,
   ProviderSummarySchema,
   ProviderTestOutSchema,
   ProviderUpdateSchema,
-  SettingsBudgetListResponseSchema,
-  SettingsBudgetResponseSchema,
   SettingsFallbackListResponseSchema,
   SettingsFallbackResponseSchema,
   SettingsProviderListResponseSchema,
@@ -23,7 +21,6 @@ import type {
   ProviderSummary,
   ProviderTestOut,
   ProviderUpdate,
-  SettingsBudgetResponse,
   SettingsFallbackResponse,
   SettingsProviderResponse,
 } from "@runsight/shared/zod";
@@ -43,10 +40,6 @@ export type ProviderCredentialTest = {
 
 export type FallbackTarget = SettingsFallbackResponse;
 export type UpdateFallbackTarget = FallbackUpdate;
-
-export type Budget = SettingsBudgetResponse;
-export type CreateBudget = Partial<Budget>;
-export type UpdateBudget = Partial<Budget>;
 
 export type AppSettings = AppSettingsOut;
 
@@ -90,7 +83,7 @@ export const settingsApi = {
 
   listModelsForProvider: async (provider: string): Promise<ModelResponse[]> => {
     const res = await api.get(`/models?provider=${encodeURIComponent(provider)}`);
-    return z.array(ModelResponseSchema).parse(res);
+    return ModelListResponseSchema.parse(res).items;
   },
 
   listFallbackTargets: async (): Promise<{ items: FallbackTarget[]; total: number }> => {
@@ -101,23 +94,6 @@ export const settingsApi = {
     const payload = FallbackUpdateSchema.parse(data);
     const res = await api.put(`/settings/fallbacks/${id}`, payload);
     return SettingsFallbackResponseSchema.parse(res);
-  },
-
-  getBudgets: async (): Promise<{ items: Budget[]; total: number }> => {
-    const res = await api.get(`/settings/budgets`);
-    return SettingsBudgetListResponseSchema.parse(res);
-  },
-  createBudget: async (data: CreateBudget): Promise<Budget> => {
-    const res = await api.post(`/settings/budgets`, data);
-    return SettingsBudgetResponseSchema.parse(res);
-  },
-  updateBudget: async (id: string, data: UpdateBudget): Promise<Budget> => {
-    const res = await api.put(`/settings/budgets/${id}`, data);
-    return SettingsBudgetResponseSchema.parse(res);
-  },
-  deleteBudget: async (id: string): Promise<{ id: string; deleted: boolean }> => {
-    const res = await api.delete<{ id: string; deleted: boolean }>(`/settings/budgets/${id}`);
-    return res;
   },
 
   getAppSettings: async (): Promise<AppSettings> => {

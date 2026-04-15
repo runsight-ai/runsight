@@ -59,6 +59,31 @@ export function formatCost(cost: number | null | undefined): string {
   return `$${cost.toFixed(3)}`;
 }
 
+// ── Commit SHA ──────────────────────────────────────────────────────────────
+
+export function formatCommit(commitSha: string | null | undefined): string {
+  return commitSha ? commitSha.slice(0, 7) : "uncommitted";
+}
+
+// ── Run source badge variant ─────────────────────────────────────────────────
+
+export function getSourceVariant(
+  source: string | null | undefined,
+): "neutral" | "info" | "accent" | "warning" {
+  switch (source) {
+    case "manual":
+      return "neutral";
+    case "webhook":
+      return "info";
+    case "schedule":
+      return "accent";
+    case "simulation":
+      return "warning";
+    default:
+      return "neutral";
+  }
+}
+
 // ── Relative time ───────────────────────────────────────────────────────────
 
 export function getTimeAgo(date: string | undefined): string {

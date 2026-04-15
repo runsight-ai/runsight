@@ -48,7 +48,12 @@ describe("RunDetail debris cleanup in the canvas surface (RUN-781)", () => {
   it("moves shared run-detail utilities and inspector wiring into canvas-owned modules", () => {
     const workflowSurface = readCanvasSource("WorkflowSurface.tsx");
 
-    expect(workflowSurface).toMatch(/from "\.\/surfaceUtils"/);
+    // surfaceUtils may be imported by WorkflowSurface directly or via a decomposed hook
+    const useNodeStatus = readCanvasSource("useNodeStatusMapping.ts");
+    const surfaceUtilsIsUsed =
+      /from "\.\/surfaceUtils"/.test(workflowSurface) ||
+      /from "\.\/surfaceUtils"/.test(useNodeStatus);
+    expect(surfaceUtilsIsUsed).toBe(true);
     expect(workflowSurface).toMatch(/from "\.\/SurfaceInspectorPanel"/);
     expect(workflowSurface).not.toMatch(/@\/features\/runs\/runDetailUtils/);
     expect(workflowSurface).not.toMatch(/@\/features\/runs\/RunInspectorPanel/);

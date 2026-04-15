@@ -4,7 +4,6 @@ import tempfile
 import pytest
 
 from runsight_api.data.filesystem.soul_repo import SoulRepository
-from runsight_api.data.filesystem.step_repo import StepRepository
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 from runsight_api.domain.errors import InputValidationError
 
@@ -327,22 +326,3 @@ def test_soul_repository():
 
         assert len(repo.list_all()) == 1
         assert repo.delete("sl-one") is True
-
-
-def test_step_repository():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo = StepRepository(base_path=tmpdir)
-
-        step_data = {"id": "st-1", "name": "Test Step"}
-        entity = repo.create(step_data)
-        assert entity.id == "st-1"
-
-        fetched = repo.get_by_id("st-1")
-        assert fetched is not None
-
-        updated_data = {"id": "st-1", "name": "Updated Step"}
-        repo.update("st-1", updated_data)
-        assert repo.get_by_id("st-1").name == "Updated Step"
-
-        assert len(repo.list_all()) == 1
-        assert repo.delete("st-1") is True

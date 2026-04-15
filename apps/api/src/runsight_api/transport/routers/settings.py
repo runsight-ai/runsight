@@ -1,7 +1,6 @@
-from typing import Literal, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict, StrictBool
 from runsight_core.identity import EntityKind, EntityRef
 
 from ...data.filesystem.settings_repo import FileSystemSettingsRepo
@@ -9,117 +8,25 @@ from ...domain.errors import ProviderNotFound
 from ...logic.services.provider_service import ProviderService
 from ...logic.services.settings_service import SettingsService
 from ..deps import get_provider_service, get_settings_repo, get_settings_service
+from ..schemas.settings import (
+    AppSettingsOut,
+    AppSettingsUpdate,
+    FallbackUpdate,
+    ProviderCreate,
+    ProviderTestIn,
+    ProviderTestOut,
+    ProviderUpdate,
+    SettingsFallbackResponse,
+    SettingsFallbackListResponse,
+    SettingsProviderListResponse,
+    SettingsProviderResponse,
+)
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
 
 def _provider_ref(provider_id: str) -> str:
     return str(EntityRef(EntityKind.PROVIDER, provider_id))
-
-
-class ProviderCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    kind: Literal["provider"]
-    name: str
-    api_key_env: Optional[str] = None  # Frontend sends the raw API key in this field
-    base_url: Optional[str] = None
-
-
-class ProviderUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    kind: Literal["provider"]
-    name: Optional[str] = None
-    api_key_env: Optional[str] = None  # Frontend sends the raw API key in this field
-    base_url: Optional[str] = None
-    is_active: Optional[bool] = None
-
-
-class ProviderTestIn(BaseModel):
-    provider_id: Optional[str] = None
-    provider_type: Optional[str] = None
-    name: Optional[str] = None
-    api_key_env: Optional[str] = None
-    base_url: Optional[str] = None
-
-
-class ProviderTestOut(BaseModel):
-    success: bool
-    message: str
-    models: list[str] = []
-    model_count: int = 0
-    latency_ms: float = 0.0
-
-
-class SettingsProviderResponse(BaseModel):
-    id: str
-    kind: Literal["provider"]
-    name: str
-    type: Optional[str] = None
-    status: str
-    is_active: bool = True
-    api_key_env: Optional[str] = None
-    api_key_preview: Optional[str] = None
-    base_url: Optional[str] = None
-    models: list[str] = []
-    model_count: int = 0
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
-
-class SettingsProviderListResponse(BaseModel):
-    items: list["SettingsProviderResponse"]
-    total: int
-
-
-class SettingsFallbackResponse(BaseModel):
-    id: str
-    provider_id: str
-    provider_name: str
-    fallback_provider_id: str | None = None
-    fallback_model_id: str | None = None
-
-
-class SettingsFallbackListResponse(BaseModel):
-    items: list["SettingsFallbackResponse"]
-    total: int
-
-
-class FallbackUpdate(BaseModel):
-    fallback_provider_id: str | None = None
-    fallback_model_id: str | None = None
-
-
-class SettingsBudgetResponse(BaseModel):
-    id: str
-    name: str
-    limit_usd: float
-    spent_usd: float
-    period: str
-    reset_at: Optional[str] = None
-
-
-class SettingsBudgetListResponse(BaseModel):
-    items: list["SettingsBudgetResponse"]
-    total: int
-
-
-# Non-Optional StrictBool with a None default keeps fields optional in OpenAPI
-# while explicit null still fails validation.
-class AppSettingsOut(BaseModel):
-    base_path: Optional[str] = None
-    onboarding_completed: StrictBool = None
-    fallback_enabled: StrictBool = None
-
-
-class AppSettingsUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    onboarding_completed: StrictBool = None
-    fallback_enabled: StrictBool = None
 
 
 def _preview_api_key(secret: Optional[str]) -> Optional[str]:
@@ -264,11 +171,6 @@ async def update_fallback_target(
         fallback_provider_id=data.fallback_provider_id,
         fallback_model_id=data.fallback_model_id,
     )
-
-
-@router.get("/budgets", response_model=SettingsBudgetListResponse)
-async def list_budgets():
-    return {"items": [], "total": 0}
 
 
 @router.get("/app", response_model=AppSettingsOut)

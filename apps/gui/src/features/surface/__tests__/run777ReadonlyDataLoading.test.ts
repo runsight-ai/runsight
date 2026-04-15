@@ -65,7 +65,9 @@ describe("WorkflowSurface readonly data loading (RUN-777 AC1-AC5)", () => {
   });
 
   it("hydrates from persisted canvas_state instead of rebuilding topology from run nodes", () => {
-    expect(source).toMatch(/hydrateFromPersisted\(/);
+    // hydrateFromPersisted is extracted to useCanvasHydration; check surface + hook
+    const hydrationSource = readCanvasFile("useCanvasHydration.ts");
+    expect(hydrationSource).toMatch(/hydrateFromPersisted\(/);
     expect(source).not.toMatch(/buildCanvasFromRunNodes|buildCanvasFromRun/);
   });
 
@@ -74,7 +76,11 @@ describe("WorkflowSurface readonly data loading (RUN-777 AC1-AC5)", () => {
   });
 
   it("loads historical YAML from run.commit_sha instead of only overlayRef search params", () => {
-    expect(source).toMatch(/gitApi\.getGitFile\(\s*run\?\.commit_sha|gitApi\.getGitFile\(\s*run\.commit_sha/);
+    // gitApi.getGitFile is extracted to useReadonlyRunYaml; check surface + hook
+    const readonlyYamlSource = readCanvasFile("useReadonlyRunYaml.ts");
+    // The call may be split across lines (gitApi\n  .getGitFile), so check separately
+    expect(readonlyYamlSource).toMatch(/getGitFile\(/);
+    expect(readonlyYamlSource).toMatch(/run\??\.commit_sha/);
     expect(source).toMatch(/<SurfaceYamlEditor[\s\S]*yaml=/);
   });
 

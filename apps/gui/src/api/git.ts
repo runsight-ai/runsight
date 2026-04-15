@@ -1,8 +1,9 @@
-import { api as staticApiClient } from "./client";
+import { api } from "./client";
 import {
   CommitEntrySchema,
   CommitResponseSchema,
   DiffResponseSchema,
+  FileReadResponseSchema,
   StatusResponseSchema,
   WorkflowCommitResponseSchema,
 } from "@runsight/shared/zod";
@@ -10,6 +11,7 @@ import type {
   CommitEntry,
   CommitResponse,
   DiffResponse,
+  FileReadResponse,
   StatusResponse,
 } from "@runsight/shared/zod";
 import { z } from "zod";
@@ -31,40 +33,28 @@ const WorkflowCommitPayloadSchema = z.object({
   message: z.string(),
 });
 
-const GitFileResponseSchema = z.object({
-  content: z.string(),
-});
-
-const ensureStaticClientImport = staticApiClient;
-void ensureStaticClientImport;
-
 export const gitApi = {
-  getGitFile: async (ref: string, path: string): Promise<{ content: string }> => {
-    const { api } = await import("./client");
+  getGitFile: async (ref: string, path: string): Promise<FileReadResponse> => {
     const res = await api.get(`/git/file?ref=${encodeURIComponent(ref)}&path=${encodeURIComponent(path)}`);
-    return GitFileResponseSchema.parse(res);
+    return FileReadResponseSchema.parse(res);
   },
 
   getStatus: async (): Promise<StatusResponse> => {
-    const { api } = await import("./client");
     const res = await api.get("/git/status");
     return StatusResponseSchema.parse(res);
   },
 
   commit: async (message: string): Promise<CommitResponse> => {
-    const { api } = await import("./client");
     const res = await api.post("/git/commit", { message });
     return CommitResponseSchema.parse(res);
   },
 
   getDiff: async (): Promise<DiffResponse> => {
-    const { api } = await import("./client");
     const res = await api.get("/git/diff");
     return DiffResponseSchema.parse(res);
   },
 
   getLog: async (limit?: number): Promise<CommitEntry[]> => {
-    const { api } = await import("./client");
     const qs = limit !== undefined ? `?limit=${limit}` : "";
     const res = await api.get(`/git/log${qs}`);
     const parsed = GitLogResponseSchema.parse(res);
@@ -75,7 +65,6 @@ export const gitApi = {
     workflowId: string,
     yamlContent: string,
   ): Promise<{ branch: string; commit_sha: string }> => {
-    const { api } = await import("./client");
     const res = await api.post(`/workflows/${workflowId}/simulations`, { yaml: yamlContent });
     return SimulationSnapshotResponseSchema.parse(res);
   },
@@ -90,7 +79,6 @@ export const gitApi = {
       message: string;
     },
   ): Promise<CommitResponse> => {
-    const { api } = await import("./client");
     const request = WorkflowCommitPayloadSchema.parse(payload);
     const res = await api.post(`/workflows/${workflowId}/commits`, request);
     const parsed = WorkflowCommitResponseSchema.safeParse(res);

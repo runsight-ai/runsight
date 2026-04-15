@@ -15,28 +15,13 @@ import { AlertTriangle, Info } from "lucide-react";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 import { WarningTooltipBody } from "@/components/shared/WarningTooltipBody";
 import { useRunRegressions } from "@/queries/runs";
-import { formatCost, formatDuration, getTimeAgo } from "@/utils/formatting";
+import { formatCost, formatDuration, getSourceVariant, getTimeAgo } from "@/utils/formatting";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import {
   formatWarningTooltip,
   shouldShowWarningBadge,
   WARNING_BADGE_CLASSES,
 } from "../workflows/warningBadge.utils";
-
-function getSourceVariant(source: RunResponse["source"]) {
-  switch (source) {
-    case "manual":
-      return "neutral";
-    case "webhook":
-      return "info";
-    case "schedule":
-      return "accent";
-    case "simulation":
-      return "warning";
-    default:
-      return "neutral";
-  }
-}
 
 function SurfaceWarningsCell({
   runId,
