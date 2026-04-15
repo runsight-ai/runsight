@@ -5,7 +5,7 @@ from sqlmodel import Session, delete, func, select
 
 from ...domain.entities.log import LogEntry
 from ...domain.entities.run import BaselineStats, Run, RunNode, RunStatus
-from ...domain.errors import WorkflowHasActiveRuns
+from ...domain.errors import RunHasActiveExecution, WorkflowHasActiveRuns
 
 
 class RunRepository:
@@ -41,6 +41,8 @@ class RunRepository:
         run = self.session.get(Run, run_id)
         if run is None:
             return None
+        if run.status in [RunStatus.pending, RunStatus.running]:
+            raise RunHasActiveExecution(f"Run {run_id} has active execution")
         self.session.exec(delete(LogEntry).where(LogEntry.run_id == run_id))
         self.session.exec(delete(RunNode).where(RunNode.run_id == run_id))
         self.session.exec(delete(Run).where(Run.id == run_id))

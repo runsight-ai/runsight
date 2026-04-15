@@ -802,6 +802,14 @@ def _wrap_llm_blocks_with_isolation(
                 harness=harness,
                 retry_config=inner.retry_config,
             )
+            wrapper.assertions = getattr(inner, "assertions", None)
+            wrapper.exit_conditions = getattr(inner, "exit_conditions", None)
+            if hasattr(inner, "_declared_exits"):
+                wrapper._declared_exits = getattr(inner, "_declared_exits")
+            if hasattr(inner, "limits"):
+                wrapper.limits = getattr(inner, "limits")
+            if hasattr(inner, "max_duration_seconds"):
+                wrapper.max_duration_seconds = getattr(inner, "max_duration_seconds")
             wrapper.stateful = inner.stateful
             built_blocks[block_id] = wrapper
 

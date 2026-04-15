@@ -69,6 +69,22 @@ def _create_run_via_repo(db_engine) -> str:
     return run_id
 
 
+def _create_active_run_via_repo(db_engine, status: RunStatus = RunStatus.running) -> str:
+    """Insert a minimal active Run record directly and return its id."""
+    run_id = "run_852_active"
+    with Session(db_engine) as session:
+        run = Run(
+            id=run_id,
+            workflow_id="wf_852",
+            workflow_name="Test Workflow",
+            status=status,
+            task_json="{}",
+        )
+        session.add(run)
+        session.commit()
+    return run_id
+
+
 class TestDeleteRunEndpoint:
     def test_delete_run_returns_200_with_id_and_deleted(self, db_engine, run_service):
         """DELETE /api/runs/{id} must return 200 with {id, deleted: true}."""
@@ -122,5 +138,21 @@ class TestDeleteRunEndpoint:
             assert response.status_code == 200
             body = response.json()
             assert set(body.keys()) == {"id", "deleted"}
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_delete_run_rejects_active_run(self, db_engine, run_service):
+        """DELETE must not remove pending/running runs; cancel first to preserve execution state."""
+        run_id = _create_active_run_via_repo(db_engine)
+
+        app.dependency_overrides[get_run_service] = lambda: run_service
+        try:
+            response = client.delete(f"/api/runs/{run_id}")
+
+            assert response.status_code == 409
+            with Session(db_engine) as session:
+                active = session.get(Run, run_id)
+            assert active is not None
+            assert active.status == RunStatus.running
         finally:
             app.dependency_overrides.clear()

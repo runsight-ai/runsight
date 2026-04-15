@@ -22,6 +22,7 @@ export function useReadonlyRunYaml(
     }
 
     let cancelled = false;
+    setReadonlyYaml(null);
     setIsReadonlyYamlLoading(true);
     gitApi
       .getGitFile(run.commit_sha, `custom/workflows/${run.workflow_id}.yaml`)

@@ -98,6 +98,7 @@ export function useCanvasHydration(params: CanvasHydrationParams): { canvasHydra
       activeRunId ?? initialRunId ?? "",
       hydrationKind,
       yamlKind,
+      preferredYaml,
     ].join(":");
 
     if (lastCanvasHydrationKeyRef.current === hydrationKey) {

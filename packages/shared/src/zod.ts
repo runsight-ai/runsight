@@ -123,6 +123,12 @@ export const ModelResponseSchema = z.object({
 });
 export type ModelResponse = z.infer<typeof ModelResponseSchema>;
 
+export const ModelListResponseSchema = z.object({
+  items: z.array(ModelResponseSchema),
+  total: z.number(),
+});
+export type ModelListResponse = z.infer<typeof ModelListResponseSchema>;
+
 export const NodeEvalResultSchema = z.object({
   node_id: z.string(),
   block_id: z.string(),
@@ -190,7 +196,7 @@ export type ProviderTestIn = z.infer<typeof ProviderTestInSchema>;
 export const ProviderTestOutSchema = z.object({
   success: z.boolean(),
   message: z.string(),
-  models: z.array(z.string()).optional().default([]),
+  models: z.array(z.string()).optional(),
   model_count: z.number().optional().default(0),
   latency_ms: z.number().optional().default(0.0),
 });
@@ -247,7 +253,7 @@ export const RunResponseSchema = z.object({
   eval_score_avg: z.number().nullable().optional(),
   regression_count: z.number().nullable().optional().default(0),
   regression_types: z.array(z.string()).optional(),
-  warnings: z.array(WarningItemSchema).optional().default([]),
+  warnings: z.array(WarningItemSchema).optional(),
   node_summary: NodeSummarySchema.nullable().optional(),
   parent_run_id: z.string().nullable().optional(),
   root_run_id: z.string().nullable().optional(),
@@ -286,22 +292,6 @@ export const RunNodeResponseSchema = z.object({
 });
 export type RunNodeResponse = z.infer<typeof RunNodeResponseSchema>;
 
-export const SettingsBudgetResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  limit_usd: z.number(),
-  spent_usd: z.number(),
-  period: z.string(),
-  reset_at: z.string().nullable().optional(),
-});
-export type SettingsBudgetResponse = z.infer<typeof SettingsBudgetResponseSchema>;
-
-export const SettingsBudgetListResponseSchema = z.object({
-  items: z.array(SettingsBudgetResponseSchema),
-  total: z.number(),
-});
-export type SettingsBudgetListResponse = z.infer<typeof SettingsBudgetListResponseSchema>;
-
 export const SettingsFallbackResponseSchema = z.object({
   id: z.string(),
   provider_id: z.string(),
@@ -326,7 +316,7 @@ export const SettingsProviderResponseSchema = z.object({
   api_key_env: z.string().nullable().optional(),
   api_key_preview: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
-  models: z.array(z.string()).optional().default([]),
+  models: z.array(z.string()).optional(),
   model_count: z.number().optional().default(0),
   created_at: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
@@ -443,66 +433,6 @@ export const StatusResponseSchema = z.object({
 });
 export type StatusResponse = z.infer<typeof StatusResponseSchema>;
 
-export const StepCreateSchema = z.object({
-  id: z.string().nullable().optional(),
-  name: z.string(),
-  type: z.string().optional().default("step"),
-  description: z.string().nullable().optional(),
-}).strict();
-export type StepCreate = z.infer<typeof StepCreateSchema>;
-
-export const StepResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  type: z.string(),
-  path: z.string(),
-  description: z.string().nullable().optional(),
-});
-export type StepResponse = z.infer<typeof StepResponseSchema>;
-
-export const StepListResponseSchema = z.object({
-  items: z.array(StepResponseSchema),
-  total: z.number(),
-});
-export type StepListResponse = z.infer<typeof StepListResponseSchema>;
-
-export const StepUpdateSchema = z.object({
-  name: z.string().nullable().optional(),
-  type: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-}).strict();
-export type StepUpdate = z.infer<typeof StepUpdateSchema>;
-
-export const TaskCreateSchema = z.object({
-  id: z.string().nullable().optional(),
-  name: z.string(),
-  type: z.string().optional().default("task"),
-  description: z.string().nullable().optional(),
-}).strict();
-export type TaskCreate = z.infer<typeof TaskCreateSchema>;
-
-export const TaskResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  type: z.string(),
-  path: z.string(),
-  description: z.string().nullable().optional(),
-});
-export type TaskResponse = z.infer<typeof TaskResponseSchema>;
-
-export const TaskListResponseSchema = z.object({
-  items: z.array(TaskResponseSchema),
-  total: z.number(),
-});
-export type TaskListResponse = z.infer<typeof TaskListResponseSchema>;
-
-export const TaskUpdateSchema = z.object({
-  name: z.string().nullable().optional(),
-  type: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-}).strict();
-export type TaskUpdate = z.infer<typeof TaskUpdateSchema>;
-
 export const ToolListItemResponseSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -574,7 +504,7 @@ export const WorkflowResponseSchema = z.object({
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
   valid: z.boolean().optional().default(true),
   validation_error: z.string().nullable().optional(),
-  warnings: z.array(WarningItemSchema).optional().default([]),
+  warnings: z.array(WarningItemSchema).optional(),
   block_count: z.number().optional().default(0),
   modified_at: z.number().nullable().optional(),
   enabled: z.boolean().optional().default(false),
@@ -608,8 +538,8 @@ export const WorkflowUpdateSchema = z.object({
 });
 export type WorkflowUpdate = z.infer<typeof WorkflowUpdateSchema>;
 
-export const runsight_api__transport__routers__git__LogResponseSchema = z.object({
+export const runsight_api__transport__schemas__git__LogResponseSchema = z.object({
   commits: z.array(CommitEntrySchema),
 });
-export type runsight_api__transport__routers__git__LogResponse = z.infer<typeof runsight_api__transport__routers__git__LogResponseSchema>;
+export type runsight_api__transport__schemas__git__LogResponse = z.infer<typeof runsight_api__transport__schemas__git__LogResponseSchema>;
 

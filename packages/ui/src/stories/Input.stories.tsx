@@ -3,7 +3,18 @@ import React from "react";
 
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Field, FieldHelper, FieldError } from "../components/ui/field";
+
+function FormField({ children }: { children: React.ReactNode }) {
+  return <div style={{ display: "grid", gap: "var(--space-2)" }}>{children}</div>;
+}
+
+function FieldHelper({ children }: { children: React.ReactNode }) {
+  return <span style={{ color: "var(--text-muted)", fontSize: "var(--font-size-xs)" }}>{children}</span>;
+}
+
+function FieldError({ children }: { children: React.ReactNode }) {
+  return <span style={{ color: "var(--danger-9)", fontSize: "var(--font-size-xs)" }}>{children}</span>;
+}
 
 const meta: Meta<typeof Input> = {
   title: "Forms/Input",
@@ -44,43 +55,43 @@ export const Default: Story = {
 export const WithLabel: Story = {
   name: "With Label",
   render: () => (
-    <Field>
+    <FormField>
       <Label htmlFor="soul-name">Soul Name</Label>
       <Input id="soul-name" type="text" placeholder="e.g. analyst-soul" />
-    </Field>
+    </FormField>
   ),
 };
 
 export const WithHelperText: Story = {
   name: "With Helper Text",
   render: () => (
-    <Field>
+    <FormField>
       <Label htmlFor="soul-name-helper">Soul Name</Label>
       <Input id="soul-name-helper" type="text" placeholder="e.g. analyst-soul" />
       <FieldHelper>Used to identify this soul in YAML definitions.</FieldHelper>
-    </Field>
+    </FormField>
   ),
 };
 
 export const WithError: Story = {
   name: "With Error",
   render: () => (
-    <Field>
+    <FormField>
       <Label htmlFor="error-field">Webhook URL</Label>
       <Input id="error-field" type="text" defaultValue="not-a-valid-url" error />
       <FieldError>Must be a valid URL</FieldError>
-    </Field>
+    </FormField>
   ),
 };
 
 export const Error: Story = {
   name: "Error State",
   render: () => (
-    <Field>
+    <FormField>
       <Label htmlFor="error-field-2">Invalid Field</Label>
       <Input id="error-field-2" type="text" defaultValue="not-a-valid-url" error />
       <FieldError>Must be a valid URL</FieldError>
-    </Field>
+    </FormField>
   ),
 };
 

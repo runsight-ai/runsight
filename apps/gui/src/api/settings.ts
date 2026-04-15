@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   AppSettingsOutSchema,
   FallbackUpdateSchema,
-  ModelResponseSchema,
+  ModelListResponseSchema,
   ProviderSummarySchema,
   ProviderTestOutSchema,
   SettingsFallbackListResponseSchema,
@@ -79,7 +79,7 @@ export const settingsApi = {
 
   listModelsForProvider: async (provider: string): Promise<ModelResponse[]> => {
     const res = await api.get(`/models?provider=${encodeURIComponent(provider)}`);
-    return z.array(ModelResponseSchema).parse(res);
+    return ModelListResponseSchema.parse(res).items;
   },
 
   listFallbackTargets: async (): Promise<{ items: FallbackTarget[]; total: number }> => {

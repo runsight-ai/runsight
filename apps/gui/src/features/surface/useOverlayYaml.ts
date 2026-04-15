@@ -19,6 +19,7 @@ export function useOverlayYaml(
       };
     }
 
+    setOverlayYaml(null);
     setIsOverlayLoading(true);
     gitApi
       .getGitFile(overlayRef, `custom/workflows/${workflowId}.yaml`)

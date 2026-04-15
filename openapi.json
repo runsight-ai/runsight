@@ -8,7 +8,7 @@
     "/api/runs/{run_id}/eval": {
       "get": {
         "tags": [
-          "eval"
+          "Eval"
         ],
         "summary": "Get Run Eval",
         "operationId": "get_run_eval_api_runs__run_id__eval_get",
@@ -50,7 +50,7 @@
     "/api/souls/{soul_id}/eval/history": {
       "get": {
         "tags": [
-          "eval"
+          "Eval"
         ],
         "summary": "Get Soul Eval History",
         "operationId": "get_soul_eval_history_api_souls__soul_id__eval_history_get",
@@ -277,6 +277,44 @@
                 "schema": {
                   "$ref": "#/components/schemas/RunResponse"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Delete Run",
+        "operationId": "delete_run_api_runs__run_id__delete",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -1263,482 +1301,6 @@
         }
       }
     },
-    "/api/steps": {
-      "get": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "List Steps",
-        "operationId": "list_steps_api_steps_get",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Q"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 50,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StepListResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Create Step",
-        "operationId": "create_step_api_steps_post",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StepCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StepResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/steps/{id}": {
-      "get": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Get Step",
-        "operationId": "get_step_api_steps__id__get",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StepResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Update Step",
-        "operationId": "update_step_api_steps__id__put",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StepUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StepResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Delete Step",
-        "operationId": "delete_step_api_steps__id__delete",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tasks": {
-      "get": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "List Tasks",
-        "operationId": "list_tasks_api_tasks_get",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Q"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 50,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskListResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "Create Task",
-        "operationId": "create_task_api_tasks_post",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TaskCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tasks/{id}": {
-      "get": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "Get Task",
-        "operationId": "get_task_api_tasks__id__get",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "Update Task",
-        "operationId": "update_task_api_tasks__id__put",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TaskUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "Delete Task",
-        "operationId": "delete_task_api_tasks__id__delete",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/settings/providers": {
       "get": {
         "tags": [
@@ -2085,27 +1647,6 @@
         }
       }
     },
-    "/api/settings/budgets": {
-      "get": {
-        "tags": [
-          "Settings"
-        ],
-        "summary": "List Budgets",
-        "operationId": "list_budgets_api_settings_budgets_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SettingsBudgetListResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/settings/app": {
       "get": {
         "tags": [
@@ -2326,7 +1867,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/runsight_api__transport__routers__git__LogResponse"
+                  "$ref": "#/components/schemas/runsight_api__transport__schemas__git__LogResponse"
                 }
               }
             }
@@ -2430,7 +1971,7 @@
     "/api/models": {
       "get": {
         "tags": [
-          "models"
+          "Models"
         ],
         "summary": "List Models",
         "operationId": "list_models_api_models_get",
@@ -2516,11 +2057,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ModelResponse"
-                  },
-                  "title": "Response List Models Api Models Get"
+                  "$ref": "#/components/schemas/ModelListResponse"
                 }
               }
             }
@@ -2541,7 +2078,7 @@
     "/api/models/providers": {
       "get": {
         "tags": [
-          "models"
+          "Models"
         ],
         "summary": "List Providers",
         "operationId": "list_providers_api_models_providers_get",
@@ -2639,59 +2176,6 @@
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runsight.svg": {
-      "get": {
-        "summary": " Favicon",
-        "operationId": "_favicon_runsight_svg_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/{full_path}": {
-      "get": {
-        "summary": " Spa Catch All",
-        "operationId": "_spa_catch_all__full_path__get",
-        "parameters": [
-          {
-            "name": "full_path",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Full Path"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -3084,6 +2568,27 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ModelListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ModelResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ModelListResponse"
       },
       "ModelResponse": {
         "properties": {
@@ -4037,71 +3542,6 @@
         ],
         "title": "RunResponse"
       },
-      "SettingsBudgetListResponse": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/SettingsBudgetResponse"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total"
-        ],
-        "title": "SettingsBudgetListResponse"
-      },
-      "SettingsBudgetResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "limit_usd": {
-            "type": "number",
-            "title": "Limit Usd"
-          },
-          "spent_usd": {
-            "type": "number",
-            "title": "Spent Usd"
-          },
-          "period": {
-            "type": "string",
-            "title": "Period"
-          },
-          "reset_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reset At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "limit_usd",
-          "spent_usd",
-          "period"
-        ],
-        "title": "SettingsBudgetResponse"
-      },
       "SettingsFallbackListResponse": {
         "properties": {
           "items": {
@@ -4846,288 +4286,6 @@
         ],
         "title": "StatusResponse"
       },
-      "StepCreate": {
-        "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "type": {
-            "type": "string",
-            "title": "Type",
-            "default": "step"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "StepCreate"
-      },
-      "StepListResponse": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/StepResponse"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total"
-        ],
-        "title": "StepListResponse"
-      },
-      "StepResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "type": {
-            "type": "string",
-            "title": "Type"
-          },
-          "path": {
-            "type": "string",
-            "title": "Path"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "type",
-          "path"
-        ],
-        "title": "StepResponse"
-      },
-      "StepUpdate": {
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Type"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "StepUpdate"
-      },
-      "TaskCreate": {
-        "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "type": {
-            "type": "string",
-            "title": "Type",
-            "default": "task"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "TaskCreate"
-      },
-      "TaskListResponse": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/TaskResponse"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total"
-        ],
-        "title": "TaskListResponse"
-      },
-      "TaskResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "type": {
-            "type": "string",
-            "title": "Type"
-          },
-          "path": {
-            "type": "string",
-            "title": "Path"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "type",
-          "path"
-        ],
-        "title": "TaskResponse"
-      },
-      "TaskUpdate": {
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Type"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "TaskUpdate"
-      },
       "ToolListItemResponse": {
         "properties": {
           "id": {
@@ -5724,7 +4882,7 @@
         ],
         "title": "WorkflowUpdate"
       },
-      "runsight_api__transport__routers__git__LogResponse": {
+      "runsight_api__transport__schemas__git__LogResponse": {
         "properties": {
           "commits": {
             "items": {
