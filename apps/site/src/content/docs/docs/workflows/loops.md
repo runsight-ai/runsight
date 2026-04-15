@@ -161,10 +161,6 @@ Injects a list of all rounds' outputs, oldest first:
 
 When using `mode: all`, the engine applies budget-aware truncation to prevent context from growing unbounded. Older entries are pruned first when the carried context exceeds 3% of the model's context window.
 
-### Injecting into task context
-
-When `carry_context` is enabled and the workflow has a current task, the engine also injects the carried context into `task.context` as elastic data. This means inner blocks that call `fit_to_budget` can access previous round outputs without explicit prompt engineering.
-
 ## Stateful inner blocks
 
 Setting `stateful: true` on inner blocks enables **conversation history persistence** across loop rounds. The soul remembers what it said in previous rounds, which is useful for iterative refinement where the model should build on its own prior attempts.
