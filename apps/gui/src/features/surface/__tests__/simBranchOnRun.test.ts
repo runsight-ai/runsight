@@ -170,7 +170,7 @@ describe("RunButton simulation behavior (RUN-423)", () => {
     expect(mocks.createRunMutate).toHaveBeenCalledWith(
       {
         workflow_id: "wf_1",
-        task_data: { instruction: "Execute workflow" },
+        inputs: {},
         source: "manual",
         branch: "main",
       },
