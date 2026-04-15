@@ -93,7 +93,7 @@ def _make_runner_with_costs(
         session = _active_budget.get(None)
         captured_sessions.append(session)
 
-        # Simulate accruing cost to the active session (as achat would)
+        # Simulate accruing cost to the active session (as the real LLM client does).
         if session is not None:
             session.accrue(cost_usd=costs[idx], tokens=tokens[idx])
 
@@ -131,7 +131,7 @@ class TestBranchSessionIsolation:
 
         try:
             block = DispatchBlock("dispatch_1", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
             await block.execute(state)
 
             sessions = runner.captured_sessions
@@ -162,7 +162,7 @@ class TestBranchSessionIsolation:
 
         try:
             block = DispatchBlock("dispatch_2", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
             await block.execute(state)
 
             for s in runner.captured_sessions:
@@ -224,7 +224,7 @@ class TestNoConcurrentParentAccrual:
         _active_budget.set(parent)
         try:
             block = DispatchBlock("dispatch_3", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
             await block.execute(state)
 
             # During execution, parent should not have accrued any branch costs
@@ -258,7 +258,7 @@ class TestPostGatherReconciliation:
 
         try:
             block = DispatchBlock("dispatch_4", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
             await block.execute(state)
 
             assert parent.cost_usd == pytest.approx(1.50)
@@ -280,7 +280,7 @@ class TestPostGatherReconciliation:
 
         try:
             block = DispatchBlock("dispatch_5", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
             await block.execute(state)
 
             assert parent.cost_usd == pytest.approx(1.30)
@@ -313,7 +313,7 @@ class TestFlowCheckAfterReconciliation:
 
         try:
             block = DispatchBlock("dispatch_6", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
 
             with pytest.raises(BudgetKilledException) as exc_info:
                 await block.execute(state)
@@ -343,7 +343,7 @@ class TestFlowCheckAfterReconciliation:
 
         try:
             block = DispatchBlock("dispatch_7", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
 
             # Should not raise
             await block.execute(state)
@@ -368,7 +368,7 @@ class TestFlowCheckAfterReconciliation:
 
         try:
             block = DispatchBlock("dispatch_8", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
 
             with pytest.raises(BudgetKilledException) as exc_info:
                 await block.execute(state)
@@ -435,7 +435,7 @@ class TestBranchBlockCapEnforcement:
         _active_budget.set(parent)
         try:
             block = DispatchBlock("dispatch_9", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
 
             with pytest.raises(BudgetKilledException) as exc_info:
                 await block.execute(state)
@@ -482,7 +482,7 @@ class TestCombinedBranchCostFlowCap:
 
         try:
             block = DispatchBlock("dispatch_10", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
 
             with pytest.raises(BudgetKilledException) as exc_info:
                 await block.execute(state)
@@ -513,7 +513,7 @@ class TestNoBudgetSetFallback:
 
         try:
             block = DispatchBlock("dispatch_11", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
             result = await block.execute(state)
 
             # Execution should succeed normally
@@ -537,7 +537,7 @@ class TestNoBudgetSetFallback:
 
         try:
             block = DispatchBlock("dispatch_12", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
             result = await block.execute(state)
 
             # Per-exit results should exist
@@ -570,7 +570,7 @@ class TestParentSessionRestored:
 
         try:
             block = DispatchBlock("dispatch_13", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
             await block.execute(state)
 
             # After execute, the parent should be the active budget again
@@ -594,7 +594,7 @@ class TestParentSessionRestored:
 
         try:
             block = DispatchBlock("dispatch_14", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
 
             with pytest.raises(BudgetKilledException):
                 await block.execute(state)
@@ -625,7 +625,7 @@ class TestIsolatedChildScopeNaming:
 
         try:
             block = DispatchBlock("dispatch_15", branches, runner)
-            state = WorkflowState()
+            state = WorkflowState(current_task=Task(id="t1", instruction="dispatch task"))
             await block.execute(state)
 
             sessions = runner.captured_sessions

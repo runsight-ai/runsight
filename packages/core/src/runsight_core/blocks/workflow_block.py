@@ -66,26 +66,8 @@ class WorkflowBlock(BaseBlock):
                         f"paths (e.g. 'shared_memory.topic')."
                     )
 
-    async def execute(
-        self,
-        state_or_ctx,
-        *,
-        call_stack: Optional[List[str]] = None,
-        workflow_registry: Optional["WorkflowRegistry"] = None,
-        **kwargs,
-    ):
-        """Dual-dispatch: accept either BlockContext (new path) or WorkflowState (legacy path)."""
-        if isinstance(state_or_ctx, BlockContext):
-            return await self._execute_with_context(state_or_ctx)
-        return await self._execute_with_state(
-            state_or_ctx,
-            call_stack=call_stack,
-            workflow_registry=workflow_registry,
-            **kwargs,
-        )
-
-    async def _execute_with_context(self, ctx: BlockContext) -> BlockOutput:
-        """New BlockContext path — returns BlockOutput."""
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        """Execute WorkflowBlock with BlockContext, return BlockOutput."""
         state: WorkflowState = ctx.state_snapshot
         call_stack: List[str] = ctx.inputs.get("call_stack") or []
         workflow_registry = ctx.inputs.get("workflow_registry")
@@ -200,6 +182,9 @@ class WorkflowBlock(BaseBlock):
                 value = self._resolve_dotted(child_final_state, source, context="child state")
                 parts = parent_path.split(".", 1)
                 if parts[0] == "results" and len(parts) == 2:
+                    # Unwrap BlockResult to its .output string, matching legacy _map_outputs behavior.
+                    if isinstance(value, BlockResult):
+                        value = value.output
                     extra_results[parts[1]] = value
                 elif parts[0] == "shared_memory" and len(parts) == 2:
                     if isinstance(value, BlockResult):
@@ -210,6 +195,7 @@ class WorkflowBlock(BaseBlock):
                 value = self._resolve_dotted(child_final_state, child_path, context="child state")
                 parts = parent_path.split(".", 1)
                 if parts[0] == "results" and len(parts) == 2:
+                    # No-interface path: store value as-is (BlockResult or raw), matching legacy behavior.
                     extra_results[parts[1]] = value
                 elif parts[0] == "shared_memory" and len(parts) == 2:
                     if isinstance(value, BlockResult):
@@ -242,166 +228,6 @@ class WorkflowBlock(BaseBlock):
             ],
             extra_results=extra_results if extra_results else None,
             shared_memory_updates=shared_memory_updates if shared_memory_updates else None,
-        )
-
-    async def _execute_with_state(
-        self,
-        state: WorkflowState,
-        *,
-        call_stack: Optional[List[str]] = None,
-        workflow_registry: Optional["WorkflowRegistry"] = None,
-        **kwargs,
-    ) -> WorkflowState:
-        """Legacy WorkflowState path — keeps backward compatibility."""
-        call_stack = call_stack or []
-
-        # Step 1: Cycle detection
-        if self.child_workflow.name in call_stack:
-            raise RecursionError(
-                f"WorkflowBlock '{self.block_id}': cycle detected. "
-                f"Workflow '{self.child_workflow.name}' is already in call stack. "
-                f"Call stack: {' -> '.join(call_stack)} -> {self.child_workflow.name}"
-            )
-
-        # Step 2: Depth check
-        if len(call_stack) >= self.max_depth:
-            raise RecursionError(
-                f"WorkflowBlock '{self.block_id}': maximum depth {self.max_depth} exceeded. "
-                f"Call stack depth: {len(call_stack)}. "
-                f"Call stack: {' -> '.join(call_stack)}"
-            )
-
-        # Step 3: Map inputs (parent -> child)
-        child_state = self._map_inputs(state, self.inputs)
-
-        # Step 4: Run child workflow (propagate observer for monitoring)
-        from runsight_core.observer import build_child_observer
-
-        parent_observer = kwargs.get("observer")
-        observer = None
-        child_run_id = None
-        if parent_observer:
-            observer, child_run_id = build_child_observer(parent_observer, block_id=self.block_id)
-        start_time = time.monotonic()
-        try:
-            child_final_state = await self.child_workflow.run(
-                child_state,
-                call_stack=call_stack + [self.child_workflow.name],
-                workflow_registry=workflow_registry,
-                observer=observer,
-            )
-        except Exception as exc:
-            duration_s = time.monotonic() - start_time
-            if self.on_error != "catch":
-                raise
-            # on_error="catch": swallow exception, skip output mapping,
-            # return parent state with an error BlockResult.
-            child_metadata = {
-                "child_status": "failed",
-                "child_error": str(exc),
-                "child_cost_usd": 0,
-                "child_tokens": 0,
-                "child_duration_s": round(duration_s, 4),
-                "child_run_id": child_run_id,
-            }
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(
-                            output=f"WorkflowBlock '{self.child_workflow.name}' failed",
-                            exit_handle="error",
-                            metadata=child_metadata,
-                        ),
-                    },
-                    "execution_log": state.execution_log
-                    + [
-                        {
-                            "role": "system",
-                            "content": (
-                                f"[Block {self.block_id}] WorkflowBlock '{self.child_workflow.name}' "
-                                f"failed (on_error=catch): {exc}"
-                            ),
-                        }
-                    ],
-                }
-            )
-        duration_s = time.monotonic() - start_time
-
-        # Step 4b: Detect soft failures in child results (blocks that captured
-        # errors into BlockResults with exit_handle="error" rather than raising).
-        if self.on_error == "catch":
-            for _bid, _br in child_final_state.results.items():
-                if isinstance(_br, BlockResult) and _br.exit_handle == "error":
-                    child_metadata = {
-                        "child_status": "failed",
-                        "child_error": _br.output,
-                        "child_cost_usd": child_final_state.total_cost_usd,
-                        "child_tokens": child_final_state.total_tokens,
-                        "child_duration_s": round(duration_s, 4),
-                        "child_run_id": child_run_id,
-                    }
-                    return state.model_copy(
-                        update={
-                            "results": {
-                                **state.results,
-                                self.block_id: BlockResult(
-                                    output=f"WorkflowBlock '{self.child_workflow.name}' failed",
-                                    exit_handle="error",
-                                    metadata=child_metadata,
-                                ),
-                            },
-                            "execution_log": state.execution_log
-                            + [
-                                {
-                                    "role": "system",
-                                    "content": (
-                                        f"[Block {self.block_id}] WorkflowBlock "
-                                        f"'{self.child_workflow.name}' "
-                                        f"failed (on_error=catch, soft error in block '{_bid}')"
-                                    ),
-                                }
-                            ],
-                        }
-                    )
-
-        # Step 5: Apply output mappings (only sanctioned channel from child to parent)
-        new_parent_state = self._map_outputs(state, child_final_state, self.outputs)
-
-        # Step 6: Propagate costs and add system message with compact metadata
-        child_metadata = {
-            "child_status": "completed",
-            "child_cost_usd": child_final_state.total_cost_usd,
-            "child_tokens": child_final_state.total_tokens,
-            "child_duration_s": round(duration_s, 4),
-            "child_run_id": child_run_id,
-        }
-
-        return new_parent_state.model_copy(
-            update={
-                "results": {
-                    **new_parent_state.results,
-                    self.block_id: BlockResult(
-                        output=f"WorkflowBlock '{self.child_workflow.name}' completed",
-                        exit_handle="completed",
-                        metadata=child_metadata,
-                    ),
-                },
-                "execution_log": new_parent_state.execution_log
-                + [
-                    {
-                        "role": "system",
-                        "content": (
-                            f"[Block {self.block_id}] WorkflowBlock '{self.child_workflow.name}' "
-                            f"completed (cost: ${child_final_state.total_cost_usd:.4f}, "
-                            f"tokens: {child_final_state.total_tokens})"
-                        ),
-                    }
-                ],
-                "total_cost_usd": new_parent_state.total_cost_usd
-                + child_final_state.total_cost_usd,
-                "total_tokens": new_parent_state.total_tokens + child_final_state.total_tokens,
-            }
         )
 
     def _resolve_dotted(self, state: WorkflowState, path: str, *, context: str = "state") -> Any:

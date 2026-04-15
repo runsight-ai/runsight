@@ -272,7 +272,7 @@ class TestLoopCarryContextBudgetIntegration:
         budget_requests: list[ContextBudgetRequest] = []
 
         # Patch fit_to_budget to track requests
-        with patch("runsight_core.blocks.linear.fit_to_budget") as mock_fit:
+        with patch("runsight_core.block_io.fit_to_budget") as mock_fit:
 
             def _tracking_fit(req, counter):
                 budget_requests.append(req)
@@ -360,7 +360,7 @@ class TestLoopCarryContextBudgetIntegration:
             return result
 
         with patch(
-            "runsight_core.blocks.linear.fit_to_budget",
+            "runsight_core.block_io.fit_to_budget",
             side_effect=_tracking_fit,
         ):
             await loop_block.execute(

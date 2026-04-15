@@ -20,7 +20,9 @@ Dependencies assumed done (RUN-110, RUN-111):
 import json
 
 import pytest
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
+from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -62,6 +64,18 @@ class MockBlock:
                 "results": {**state.results, self.block_id: BlockResult(output="mock_result")},
             }
         )
+
+
+class CapturingBlock(BaseBlock):
+    """New-style block that captures the BlockContext it receives."""
+
+    def __init__(self, block_id: str = "capturing_block"):
+        super().__init__(block_id=block_id)
+        self.received_ctx: BlockContext | None = None
+
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        self.received_ctx = ctx
+        return BlockOutput(output="captured")
 
 
 # ===========================================================================
@@ -491,8 +505,8 @@ class TestStepInputResolution:
 
     @pytest.mark.asyncio
     async def test_step_resolves_inputs_before_execution(self):
-        """Step resolves 'from: step_a.result' against state.results, injects into shared_memory."""
-        block = MockBlock("step_b")
+        """Step resolves 'from: step_a.result' against state.results, passes via ctx.inputs."""
+        block = CapturingBlock("step_b")
         step = Step(block, declared_inputs={"context": "step_a.result"})
 
         state = WorkflowState(
@@ -501,16 +515,16 @@ class TestStepInputResolution:
 
         await step.execute(state)
 
-        # The block should have received state with _resolved_inputs in shared_memory
-        assert block.last_state is not None
-        resolved = block.last_state.shared_memory.get("_resolved_inputs")
+        # Per RUN-892: resolved inputs go into ctx.inputs, not shared_memory.
+        assert block.received_ctx is not None
+        resolved = block.received_ctx.inputs
         assert resolved is not None
         assert resolved["context"] == "research output data"
 
     @pytest.mark.asyncio
     async def test_step_resolves_dotted_path(self):
         """Step resolves 'from: step_a.nested.field' by traversing nested structure."""
-        block = MockBlock("step_b")
+        block = CapturingBlock("step_b")
         step = Step(block, declared_inputs={"value": "step_a.nested.field"})
 
         # state.results stores JSON string; Step should auto-parse and navigate
@@ -521,15 +535,16 @@ class TestStepInputResolution:
 
         await step.execute(state)
 
-        assert block.last_state is not None
-        resolved = block.last_state.shared_memory.get("_resolved_inputs")
+        # Per RUN-892: resolved inputs go into ctx.inputs, not shared_memory.
+        assert block.received_ctx is not None
+        resolved = block.received_ctx.inputs
         assert resolved is not None
         assert resolved["value"] == "deep_value"
 
     @pytest.mark.asyncio
     async def test_step_missing_input_source_raises(self):
         """Referenced block not in state.results raises ValueError."""
-        block = MockBlock("step_b")
+        block = CapturingBlock("step_b")
         step = Step(block, declared_inputs={"context": "step_a.result"})
 
         state = WorkflowState(results={})  # step_a not present
@@ -750,17 +765,16 @@ workflow:
 
 
 class TestCodeBlockResolvedInputs:
-    """Tests that CodeBlock receives resolved inputs via _resolved_inputs in shared_memory."""
+    """Tests that CodeBlock receives resolved inputs via ctx.inputs (per RUN-892)."""
 
     @pytest.mark.asyncio
     async def test_codeblock_receives_resolved_inputs_via_step(self):
-        """When a CodeBlock has declared_inputs resolved by Step, _resolved_inputs is populated.
+        """When a block has declared_inputs resolved by Step, they appear in ctx.inputs.
 
-        Uses a MockBlock that captures state to verify the Step resolution
-        mechanism populates shared_memory["_resolved_inputs"] before the block
-        (which would be a CodeBlock in production) receives state.
+        Per RUN-892, _resolved_inputs is NOT injected into shared_memory.
+        Resolved inputs go into ctx.inputs for new-style blocks.
         """
-        block = MockBlock("code_step")
+        block = CapturingBlock("code_step")
         step = Step(
             block,
             declared_inputs={
@@ -778,11 +792,11 @@ class TestCodeBlockResolvedInputs:
 
         await step.execute(state)
 
-        # MockBlock captured the state it received — verify _resolved_inputs
-        assert block.last_state is not None
-        resolved = block.last_state.shared_memory.get("_resolved_inputs")
+        # CapturingBlock records the BlockContext it received — verify ctx.inputs
+        assert block.received_ctx is not None
+        resolved = block.received_ctx.inputs
         assert resolved is not None, (
-            "_resolved_inputs must be in shared_memory for CodeBlock sandbox"
+            "Resolved inputs must be in ctx.inputs (not shared_memory per RUN-892)"
         )
         assert resolved["dataset"] == "fetched data payload"
         # "setup_step.params" should resolve the dotted path into the JSON

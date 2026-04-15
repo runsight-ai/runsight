@@ -572,20 +572,20 @@ class TestEdgeCases:
 
         assert ctx.inputs == {}
 
-    def test_current_task_none_raises_or_empty_instruction(self):
-        """When state.current_task is None, build_block_context raises ValueError.
+    def test_current_task_none_returns_minimal_context(self):
+        """When state.current_task is None, build_block_context returns a minimal context.
 
-        LinearBlock.execute also raises when current_task is None — consistent
-        behaviour is expected here (the function cannot produce a meaningful context
-        without a task).
+        Since RUN-893 the function returns a minimal BlockContext with empty instruction
+        instead of raising, to support generic test helpers and blocks that don't need
+        a task. fit_to_budget is NOT called in this path.
         """
         block = make_linear_block()
         state = make_state(current_task=None)
 
-        budgeted = _make_budgeted_context()
-        with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
-            with pytest.raises((ValueError, AttributeError)):
-                build_block_context(block, state)
+        ctx = build_block_context(block, state)
+        assert ctx.instruction == ""
+        assert ctx.context is None
+        assert ctx.state_snapshot is state
 
     def test_step_with_empty_declared_inputs_no_step_produces_same_result(self):
         """Passing step with no declared_inputs is equivalent to passing step=None for inputs."""

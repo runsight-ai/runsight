@@ -21,6 +21,7 @@ def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
     runner.execute_task = AsyncMock()
+    runner.model_name = "gpt-4o-mini"
     return runner
 
 
@@ -47,17 +48,30 @@ async def test_linear_block_execution(mock_runner, sample_soul):
     assert len(result_state.execution_log) == 1
     assert "[Block linear1]" in result_state.execution_log[0]["content"]
     assert "Completed: Test output" in result_state.execution_log[0]["content"]
-    mock_runner.execute_task.assert_called_once_with(task, sample_soul)
+    # LinearBlock builds an internal task from BlockContext; verify soul and instruction match
+    mock_runner.execute_task.assert_called_once()
+    call_args = mock_runner.execute_task.call_args
+    called_task, called_soul = call_args.args
+    assert called_soul is sample_soul
+    assert called_task.instruction == task.instruction
 
 
 @pytest.mark.asyncio
 async def test_linear_block_none_task(mock_runner, sample_soul):
-    """LinearBlock raises ValueError if current_task is None."""
+    """LinearBlock with no current_task runs with empty instruction (no error since RUN-893)."""
+    from runsight_core.runner import ExecutionResult
+
+    mock_runner.execute_task.return_value = ExecutionResult(
+        task_id="linear1_task", soul_id="test_soul", output="done"
+    )
+
     block = LinearBlock("linear1", sample_soul, mock_runner)
     state = WorkflowState(current_task=None)
 
-    with pytest.raises(ValueError, match="current_task is None"):
-        await block.execute(state)
+    # Since RUN-893, build_block_context returns a minimal context with empty instruction
+    # instead of raising ValueError. LinearBlock proceeds with the empty instruction.
+    result_state = await block.execute(state)
+    assert result_state.results["linear1"].output == "done"
 
 
 @pytest.mark.asyncio

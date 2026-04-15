@@ -92,7 +92,14 @@ class TestExecuteBlockDispatch:
         result = await execute_block(block, initial_state, ctx)
 
         assert result is final_state
-        block.execute.assert_awaited_once_with(initial_state)
+        # execute is now called with a BlockContext (new API), not raw WorkflowState.
+        block.execute.assert_awaited_once()
+        from runsight_core.block_io import BlockContext
+
+        call_arg = block.execute.await_args.args[0]
+        assert isinstance(call_arg, BlockContext), (
+            f"execute must be called with BlockContext, got {type(call_arg).__name__}"
+        )
         assert [event[0] for event in observer.events] == ["start", "complete"]
 
     @pytest.mark.asyncio
@@ -123,13 +130,16 @@ class TestExecuteBlockDispatch:
 
         assert result is final_state
         block.execute.assert_awaited_once()
-        assert block.execute.await_args.args == (initial_state,)
-        assert block.execute.await_args.kwargs["call_stack"] == [
-            "grandparent_workflow",
-            "parent_workflow",
-        ]
-        assert block.execute.await_args.kwargs["workflow_registry"] is registry
-        assert block.execute.await_args.kwargs["observer"] is observer
+        # execute is now called with BlockContext (new API); workflow extras in ctx.inputs.
+        from runsight_core.block_io import BlockContext
+
+        call_arg = block.execute.await_args.args[0]
+        assert isinstance(call_arg, BlockContext), (
+            f"WorkflowBlock.execute must be called with BlockContext, got {type(call_arg).__name__}"
+        )
+        assert call_arg.inputs.get("call_stack") == ["grandparent_workflow", "parent_workflow"]
+        assert call_arg.inputs.get("workflow_registry") is registry
+        assert call_arg.inputs.get("observer") is observer
 
     @pytest.mark.asyncio
     async def test_loop_block_path_receives_blocks_call_stack_registry_observer_and_ctx(self):
@@ -160,15 +170,15 @@ class TestExecuteBlockDispatch:
 
         assert result is final_state
         block.execute.assert_awaited_once()
-        assert block.execute.await_args.args == (initial_state,)
-        assert block.execute.await_args.kwargs["blocks"] is blocks
-        assert block.execute.await_args.kwargs["call_stack"] == [
-            "root_workflow",
-            "parent_workflow",
-        ]
-        assert block.execute.await_args.kwargs["workflow_registry"] is registry
-        assert block.execute.await_args.kwargs["observer"] is observer
-        assert block.execute.await_args.kwargs["ctx"] is ctx
+        # execute is now called with BlockContext (new API); workflow extras in ctx.inputs.
+        from runsight_core.block_io import BlockContext
+
+        call_arg = block.execute.await_args.args[0]
+        assert isinstance(call_arg, BlockContext), (
+            f"LoopBlock.execute must be called with BlockContext, got {type(call_arg).__name__}"
+        )
+        assert call_arg.inputs.get("blocks") is blocks
+        assert call_arg.inputs.get("ctx") is ctx
 
 
 class TestRetryHelpers:
@@ -231,4 +241,9 @@ class TestExecuteBlockErrors:
         result = await execute_block(block, initial_state, ctx)
 
         assert result is final_state
-        block.execute.assert_awaited_once_with(initial_state)
+        # execute is called with BlockContext (new API), not raw WorkflowState.
+        block.execute.assert_awaited_once()
+        from runsight_core.block_io import BlockContext
+
+        call_arg = block.execute.await_args.args[0]
+        assert isinstance(call_arg, BlockContext)

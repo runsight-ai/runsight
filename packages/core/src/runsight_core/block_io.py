@@ -48,8 +48,11 @@ class BlockOutput(BaseModel):
     total_tokens: int = 0
     log_entries: List[Dict[str, str]] = Field(default_factory=list)
     conversation_updates: Optional[Dict[str, List[Dict]]] = None
+    conversation_replacements: Optional[Dict[str, List[Dict]]] = None
     shared_memory_updates: Optional[Dict[str, Any]] = None
     extra_results: Optional[Dict[str, Any]] = None
+    metadata_updates: Optional[Dict[str, Any]] = None
+    current_task_context: Optional[str] = None
 
 
 def apply_block_output(state: WorkflowState, block_id: str, output: BlockOutput) -> WorkflowState:
@@ -83,17 +86,32 @@ def apply_block_output(state: WorkflowState, block_id: str, output: BlockOutput)
             existing = list(new_conversation_histories.get(key, []))
             existing.extend(messages)
             new_conversation_histories[key] = existing
+    if output.conversation_replacements is not None:
+        # Replaces (overwrites) histories rather than appending.
+        # Used by DispatchBlock stateful mode to store full pruned+new history.
+        for key, messages in output.conversation_replacements.items():
+            new_conversation_histories[key] = list(messages)
 
-    return state.model_copy(
-        update={
-            "results": new_results,
-            "total_cost_usd": state.total_cost_usd + output.cost_usd,
-            "total_tokens": state.total_tokens + output.total_tokens,
-            "execution_log": new_execution_log,
-            "shared_memory": new_shared_memory,
-            "conversation_histories": new_conversation_histories,
-        }
-    )
+    new_metadata = dict(state.metadata)
+    if output.metadata_updates is not None:
+        new_metadata.update(output.metadata_updates)
+
+    state_updates: Dict[str, Any] = {
+        "results": new_results,
+        "total_cost_usd": state.total_cost_usd + output.cost_usd,
+        "total_tokens": state.total_tokens + output.total_tokens,
+        "execution_log": new_execution_log,
+        "shared_memory": new_shared_memory,
+        "conversation_histories": new_conversation_histories,
+        "metadata": new_metadata,
+    }
+    # Propagate carry_context or other current_task.context updates from loop blocks.
+    if output.current_task_context is not None and state.current_task is not None:
+        state_updates["current_task"] = state.current_task.model_copy(
+            update={"context": output.current_task_context}
+        )
+
+    return state.model_copy(update=state_updates)
 
 
 def _resolve_ref(from_ref: str, state: WorkflowState) -> Any:
@@ -252,6 +270,7 @@ def build_block_context(
             soul=dispatch_soul,
             model_name=model_name,
             artifact_store=getattr(state, "artifact_store", None),
+            state_snapshot=state,
         )
 
     # SynthesizeBlock strategy: detect input_block_ids attribute
@@ -287,6 +306,7 @@ def build_block_context(
             soul=synth_soul,
             model_name=model_name,
             artifact_store=getattr(state, "artifact_store", None),
+            state_snapshot=state,
         )
 
     # GateBlock strategy: gate instruction + eval_key content as context
@@ -308,21 +328,33 @@ def build_block_context(
             soul=soul,
             model_name=model_name,
             artifact_store=state.artifact_store,
+            state_snapshot=state,
         )
 
-    # LinearBlock (and others) strategy: use current_task
-    if state.current_task is None:
-        raise ValueError(
-            f"build_block_context: state.current_task is None for block '{block.block_id}'"
-        )
-
-    task = state.current_task
-
-    # Resolve declared inputs
+    # Resolve declared inputs (done here so it applies even when current_task is None).
     inputs: Dict[str, Any] = {}
     if step is not None and step.declared_inputs:
         for name, from_ref in step.declared_inputs.items():
             inputs[name] = _resolve_ref(from_ref, state)
+
+    # LinearBlock (and others) strategy: use current_task
+    if state.current_task is None:
+        # Provide a minimal context for test helpers and generic blocks without a task.
+        # Production code should always provide current_task; this path handles
+        # simple test doubles (MockBlock, PlannerBlock, etc.) that don't need task data.
+        return BlockContext(
+            block_id=block.block_id,
+            instruction="",
+            context=None,
+            inputs=inputs,
+            conversation_history=[],
+            soul=soul,
+            model_name=model_name if isinstance(model_name, str) else None,
+            artifact_store=getattr(state, "artifact_store", None),
+            state_snapshot=state,
+        )
+
+    task = state.current_task
 
     # Get conversation history (shallow copy)
     history_key = f"{block.block_id}_{soul.id}" if soul is not None else block.block_id
@@ -331,10 +363,12 @@ def build_block_context(
     # Build system_prompt from soul
     system_prompt = soul.system_prompt or "" if soul is not None else ""
 
-    # Call fit_to_budget
+    # Call fit_to_budget — use a safe default model when none is configured.
+    # Guard against non-string model_name (e.g. MagicMock in tests).
+    _model = model_name if isinstance(model_name, str) else "gpt-4o-mini"
     budgeted = fit_to_budget(
         ContextBudgetRequest(
-            model=model_name or "",
+            model=_model,
             system_prompt=system_prompt,
             instruction=task.instruction or "",
             context=task.context or "",
@@ -350,6 +384,7 @@ def build_block_context(
         inputs=inputs,
         conversation_history=budgeted.messages,
         soul=soul,
-        model_name=model_name,
+        model_name=model_name if isinstance(model_name, str) else None,
         artifact_store=state.artifact_store,
+        state_snapshot=state,
     )

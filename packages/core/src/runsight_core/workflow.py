@@ -123,17 +123,13 @@ async def execute_block(
             logger.warning("Observer.on_block_start failed", exc_info=True)
 
     block_start_time = time.time()
-    passthrough_kwargs = dict(ctx.passthrough_kwargs)
-    kwargs_for_context = dict(passthrough_kwargs)
-    kwargs_for_context.update(
-        {
-            "call_stack": ctx.call_stack + [ctx.workflow_name],
-            "workflow_registry": ctx.workflow_registry,
-            "observer": observer,
-        }
-    )
 
     async def _dispatch(blk: BaseBlock, current_state: WorkflowState) -> WorkflowState:
+        from runsight_core.primitives import Step as StepType
+
+        # Step wrapper: delegates to Step.execute which handles hooks + block dispatch
+        if isinstance(blk, StepType):
+            return await blk.execute(current_state)
         if isinstance(blk, WorkflowBlock):
             wf_block_ctx = build_block_context(blk, current_state)
             wf_block_ctx = wf_block_ctx.model_copy(
@@ -146,27 +142,48 @@ async def execute_block(
                 }
             )
             wf_output = await blk.execute(wf_block_ctx)
+            # Backward compat: old-style blocks / mocks may return WorkflowState.
+            if isinstance(wf_output, WorkflowState):
+                return wf_output
             return apply_block_output(current_state, blk.block_id, wf_output)
         if isinstance(blk, LoopBlock):
-            loop_kwargs = dict(kwargs_for_context)
-            loop_kwargs.update({"blocks": ctx.blocks, "ctx": ctx})
-            return await blk.execute(current_state, **loop_kwargs)
-        from runsight_core.blocks.code import CodeBlock
-        from runsight_core.blocks.dispatch import DispatchBlock
-        from runsight_core.blocks.gate import GateBlock
-        from runsight_core.blocks.linear import LinearBlock
-        from runsight_core.blocks.synthesize import SynthesizeBlock
+            loop_ctx = build_block_context(blk, current_state)
+            loop_ctx = loop_ctx.model_copy(
+                update={
+                    "inputs": {
+                        "blocks": ctx.blocks,
+                        "ctx": ctx,
+                    }
+                }
+            )
+            loop_output = await blk.execute(loop_ctx)
+            # Backward compat: old-style blocks / mocks may return WorkflowState.
+            if isinstance(loop_output, WorkflowState):
+                return loop_output
+            return apply_block_output(current_state, blk.block_id, loop_output)
+        # All other blocks: build BlockContext and dispatch via new signature
+        from runsight_core.block_io import BlockContext  # avoid circular at module level
 
-        # Use type() rather than isinstance() so that test subclasses (e.g. CapturingBlock
-        # extends LinearBlock) fall through to the generic WorkflowState path, preserving
-        # the ability for custom execute() overrides to receive WorkflowState directly.
-        if type(blk) in (LinearBlock, GateBlock, SynthesizeBlock, DispatchBlock, CodeBlock):
-            block_ctx = build_block_context(blk, current_state, step=None)
+        block_ctx = build_block_context(blk, current_state, step=None)
+        try:
             output = await blk.execute(block_ctx)
-            return apply_block_output(current_state, blk.block_id, output)
-        if passthrough_kwargs:
-            return await blk.execute(current_state, **passthrough_kwargs)
-        return await blk.execute(current_state)
+        except AttributeError as exc:
+            # Backward compat: non-BaseBlock old-style blocks access WorkflowState
+            # attributes on the BlockContext. Fall back to direct state dispatch.
+            if "'BlockContext' object has no attribute" in str(exc):
+                output = await blk.execute(current_state)
+            else:
+                raise
+        # Backward compat: old-style blocks may return WorkflowState directly.
+        if isinstance(output, WorkflowState):
+            return output
+        # Backward compat: non-BaseBlock blocks (e.g. fake/test doubles) that receive
+        # a BlockContext and return it unchanged — treat as no-op, pass current_state through.
+        if isinstance(output, BlockContext):
+            output = await blk.execute(current_state)
+            if isinstance(output, WorkflowState):
+                return output
+        return apply_block_output(current_state, blk.block_id, output)
 
     # Block-level budget session swap
     from runsight_core.budget_enforcement import (

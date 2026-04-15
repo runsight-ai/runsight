@@ -490,7 +490,14 @@ async def test_non_stateful_does_not_pass_messages_to_runner(
     await block.execute(state)
 
     # Should be called with just (task, soul) — no messages kwarg
-    mock_runner.execute_task.assert_called_once_with(sample_task, sample_soul)
+    # The task may be rebuilt internally (different id) but must have same instruction/context.
+    mock_runner.execute_task.assert_called_once()
+    call_args = mock_runner.execute_task.call_args
+    called_task, called_soul = call_args[0]
+    assert called_task.instruction == sample_task.instruction
+    assert called_soul == sample_soul
+    # Confirm no 'messages' kwarg was passed (non-stateful)
+    assert "messages" not in (call_args[1] or {})
 
 
 # ---------------------------------------------------------------------------

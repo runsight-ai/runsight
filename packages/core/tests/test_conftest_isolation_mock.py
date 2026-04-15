@@ -44,6 +44,7 @@ def _make_mock_runner() -> MagicMock:
     """Return a minimal mock RunsightTeamRunner sufficient for LinearBlock construction."""
     runner = MagicMock()
     runner.execute_task = AsyncMock()
+    runner.model_name = "gpt-4o-mini"
     return runner
 
 
@@ -96,13 +97,19 @@ class TestWrapperExecuteIsNotPatched:
         )
 
     def test_execute_is_defined_on_isolated_block_wrapper_class(self):
-        """execute must be defined on IsolatedBlockWrapper, not injected from outside."""
-        # inspect.getsourcefile returns the file where the function is defined.
-        # If conftest replaced it with a local function, the source file will
-        # point elsewhere (conftest.py or None for lambdas).
-        source_file = inspect.getfile(IsolatedBlockWrapper.execute)
+        """execute must be defined on IsolatedBlockWrapper, not injected from outside.
+
+        BaseBlock.__init_subclass__ installs a compatibility shim (defined in
+        base.py) that wraps the original execute with functools.wraps.  The shim
+        preserves the original via __wrapped__, so we inspect that to verify the
+        real implementation lives in wrapper.py — not in conftest.py or elsewhere.
+        """
+        execute_fn = IsolatedBlockWrapper.execute
+        # The shim preserves the original via functools.wraps.__wrapped__
+        original_fn = getattr(execute_fn, "__wrapped__", execute_fn)
+        source_file = inspect.getfile(original_fn)
         assert source_file.endswith("wrapper.py"), (
-            f"IsolatedBlockWrapper.execute is defined in '{source_file}', "
+            f"IsolatedBlockWrapper.execute (original) is defined in '{source_file}', "
             "expected 'wrapper.py'. The conftest has replaced it."
         )
 
@@ -186,7 +193,7 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
         )
 
         task = Task(id="t-1", instruction="Do something.")
-        state = WorkflowState(task=task)
+        state = WorkflowState(current_task=task)
 
         await wrapper.execute(state)
 
@@ -224,7 +231,7 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
             harness=harness_mock,
         )
 
-        state = WorkflowState(task=Task(id="t-2", instruction="Check envelope."))
+        state = WorkflowState(current_task=Task(id="t-2", instruction="Check envelope."))
         await wrapper.execute(state)
 
         assert received[0].block_id == "my-block", (
@@ -276,7 +283,7 @@ class TestMockReturnsValidResultEnvelope:
             harness=harness_mock,
         )
 
-        state = WorkflowState(task=Task(id="t-3", instruction="Map result."))
+        state = WorkflowState(current_task=Task(id="t-3", instruction="Map result."))
         result_state = await wrapper.execute(state)
 
         assert "block-out" in result_state.results, (
@@ -324,7 +331,7 @@ class TestMockReturnsValidResultEnvelope:
             harness=harness_mock,
         )
 
-        state = WorkflowState(task=Task(id="t-4", instruction="Check cost."))
+        state = WorkflowState(current_task=Task(id="t-4", instruction="Check cost."))
         result_state = await wrapper.execute(state)
 
         assert result_state.total_cost_usd == pytest.approx(0.012), (
@@ -367,7 +374,7 @@ class TestMockReturnsValidResultEnvelope:
             harness=harness_mock,
         )
 
-        state = WorkflowState(task=Task(id="t-5", instruction="Check exit."))
+        state = WorkflowState(current_task=Task(id="t-5", instruction="Check exit."))
         result_state = await wrapper.execute(state)
 
         block_result = result_state.results["block-exit"]

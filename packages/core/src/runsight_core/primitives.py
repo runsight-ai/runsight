@@ -130,12 +130,29 @@ class Step:
         Raises:
             Exception: Propagates any exception from hooks or block.
         """
+        from runsight_core.block_io import apply_block_output, build_block_context
+
         # Phase 1: Pre-hook (optional)
         if self.pre_hook is not None:
             state = self.pre_hook(state)
 
-        # Phase 2: Block execution (required)
-        state = await self.block.execute(state, **kwargs)
+        # Phase 2: Block execution (required) — new path via BlockContext
+        from runsight_core.state import WorkflowState as _WorkflowState  # for isinstance check
+
+        ctx = build_block_context(self.block, state, step=self)
+        try:
+            output = await self.block.execute(ctx)
+        except AttributeError as exc:
+            # Backward compat: non-BaseBlock old-style blocks access WorkflowState
+            # attributes on the BlockContext. Fall back to direct state dispatch.
+            if "'BlockContext' object has no attribute" in str(exc):
+                output = await self.block.execute(state)
+            else:
+                raise
+        # Backward compat: old-style blocks may return WorkflowState directly.
+        if isinstance(output, _WorkflowState):
+            return output
+        state = apply_block_output(state, self.block.block_id, output)
 
         # Phase 3: Post-hook (optional)
         if self.post_hook is not None:

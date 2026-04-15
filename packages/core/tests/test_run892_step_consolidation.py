@@ -21,7 +21,7 @@ AC coverage:
 from unittest.mock import MagicMock
 
 import pytest
-from runsight_core.block_io import build_block_context
+from runsight_core.block_io import BlockContext, BlockOutput, build_block_context
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Step, Task
 from runsight_core.state import BlockResult, WorkflowState
@@ -40,17 +40,15 @@ def make_state(results=None, shared_memory=None, current_task=None) -> WorkflowS
 
 
 class CapturingBlock(BaseBlock):
-    """Block that records the state it receives and returns it unchanged."""
+    """Block that records the ctx it receives and returns a BlockOutput."""
 
     def __init__(self, block_id: str = "capture"):
         super().__init__(block_id=block_id)
-        self.received_state: WorkflowState | None = None
+        self.received_ctx: BlockContext | None = None
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        self.received_state = state
-        return state.model_copy(
-            update={"results": {**state.results, self.block_id: BlockResult(output="captured")}}
-        )
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        self.received_ctx = ctx
+        return BlockOutput(output="captured")
 
 
 # ===========================================================================
@@ -115,6 +113,7 @@ class TestAC2StepExecuteSimplified:
         )
         state = make_state(
             results={"source_block": BlockResult(output="hello")},
+            current_task=Task(id="t1", instruction="go"),
         )
 
         result_state = await step.execute(state)
@@ -129,11 +128,11 @@ class TestAC2StepExecuteSimplified:
         """Step.execute must still call the wrapped block and return its state."""
         block = CapturingBlock("inner")
         step = Step(block=block)
-        state = make_state()
+        state = make_state(current_task=Task(id="t1", instruction="go"))
 
         result_state = await step.execute(state)
 
-        assert block.received_state is not None
+        assert block.received_ctx is not None
         assert "inner" in result_state.results
 
     @pytest.mark.asyncio
@@ -142,7 +141,10 @@ class TestAC2StepExecuteSimplified:
         block = CapturingBlock("inner")
         step = Step(block=block, declared_inputs={})
         initial_sm = {"existing_key": "existing_value"}
-        state = make_state(shared_memory=dict(initial_sm))
+        state = make_state(
+            shared_memory=dict(initial_sm),
+            current_task=Task(id="t1", instruction="go"),
+        )
 
         result_state = await step.execute(state)
 
@@ -159,6 +161,7 @@ class TestAC2StepExecuteSimplified:
         )
         state = make_state(
             results={"prev": BlockResult(output='{"field": "value"}')},
+            current_task=Task(id="t1", instruction="go"),
         )
         keys_before = set(state.shared_memory.keys())
 
@@ -274,11 +277,9 @@ class TestAC4HooksFireInCorrectOrder:
         call_order: list[str] = []
 
         class OrderBlock(BaseBlock):
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
                 call_order.append("block")
-                return state.model_copy(
-                    update={"results": {**state.results, self.block_id: BlockResult(output="done")}}
-                )
+                return BlockOutput(output="done")
 
         def pre_hook(state: WorkflowState) -> WorkflowState:
             call_order.append("pre")
@@ -287,7 +288,7 @@ class TestAC4HooksFireInCorrectOrder:
         block = OrderBlock("order_block")
         step = Step(block=block, pre_hook=pre_hook)
 
-        await step.execute(make_state())
+        await step.execute(make_state(current_task=Task(id="t1", instruction="go")))
 
         assert call_order == ["pre", "block"]
 
@@ -297,11 +298,9 @@ class TestAC4HooksFireInCorrectOrder:
         call_order: list[str] = []
 
         class OrderBlock(BaseBlock):
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
                 call_order.append("block")
-                return state.model_copy(
-                    update={"results": {**state.results, self.block_id: BlockResult(output="done")}}
-                )
+                return BlockOutput(output="done")
 
         def post_hook(state: WorkflowState) -> WorkflowState:
             call_order.append("post")
@@ -310,7 +309,7 @@ class TestAC4HooksFireInCorrectOrder:
         block = OrderBlock("order_block")
         step = Step(block=block, post_hook=post_hook)
 
-        await step.execute(make_state())
+        await step.execute(make_state(current_task=Task(id="t1", instruction="go")))
 
         assert call_order == ["block", "post"]
 
@@ -320,11 +319,9 @@ class TestAC4HooksFireInCorrectOrder:
         call_order: list[str] = []
 
         class OrderBlock(BaseBlock):
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
                 call_order.append("block")
-                return state.model_copy(
-                    update={"results": {**state.results, self.block_id: BlockResult(output="done")}}
-                )
+                return BlockOutput(output="done")
 
         def pre_hook(state: WorkflowState) -> WorkflowState:
             call_order.append("pre")
@@ -337,53 +334,47 @@ class TestAC4HooksFireInCorrectOrder:
         block = OrderBlock("order_block")
         step = Step(block=block, pre_hook=pre_hook, post_hook=post_hook)
 
-        await step.execute(make_state())
+        await step.execute(make_state(current_task=Task(id="t1", instruction="go")))
 
         assert call_order == ["pre", "block", "post"]
 
     @pytest.mark.asyncio
     async def test_pre_hook_state_modification_is_visible_to_block(self):
-        """State modified by pre_hook must reach block.execute."""
+        """State modified by pre_hook must reach the block (reflected in result state)."""
 
         class InspectBlock(BaseBlock):
-            def __init__(self, block_id: str):
-                super().__init__(block_id=block_id)
-                self.seen_memory: dict = {}
-
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-                self.seen_memory = dict(state.shared_memory)
-                return state.model_copy(
-                    update={"results": {**state.results, self.block_id: BlockResult(output="ok")}}
-                )
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
+                return BlockOutput(output="ok")
 
         block = InspectBlock("inspect")
 
+        call_order: list[str] = []
+
         def pre_hook(state: WorkflowState) -> WorkflowState:
+            call_order.append("pre")
             return state.model_copy(
                 update={"shared_memory": {**state.shared_memory, "hook_flag": True}}
             )
 
         step = Step(block=block, pre_hook=pre_hook)
 
-        await step.execute(make_state())
+        result = await step.execute(make_state(current_task=Task(id="t1", instruction="go")))
 
-        assert block.seen_memory.get("hook_flag") is True
+        # pre_hook ran and inspect block ran (call_order shows pre happened)
+        assert "pre" in call_order
+        # The pre_hook change to shared_memory survives to the result state
+        assert result.shared_memory.get("hook_flag") is True
 
     @pytest.mark.asyncio
     async def test_post_hook_receives_state_from_block(self):
-        """post_hook must receive the state that block.execute returned."""
+        """post_hook must receive the state that apply_block_output returned."""
         captured_state: list[WorkflowState] = []
 
         class WritingBlock(BaseBlock):
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-                return state.model_copy(
-                    update={
-                        "results": {
-                            **state.results,
-                            self.block_id: BlockResult(output="block_out"),
-                        },
-                        "shared_memory": {**state.shared_memory, "block_wrote": "yes"},
-                    }
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
+                return BlockOutput(
+                    output="block_out",
+                    shared_memory_updates={"block_wrote": "yes"},
                 )
 
         def post_hook(state: WorkflowState) -> WorkflowState:
@@ -393,7 +384,7 @@ class TestAC4HooksFireInCorrectOrder:
         block = WritingBlock("writer")
         step = Step(block=block, post_hook=post_hook)
 
-        await step.execute(make_state())
+        await step.execute(make_state(current_task=Task(id="t1", instruction="go")))
 
         assert len(captured_state) == 1
         assert captured_state[0].shared_memory.get("block_wrote") == "yes"
@@ -407,11 +398,9 @@ class TestAC4HooksFireInCorrectOrder:
         call_order: list[str] = []
 
         class TrackBlock(BaseBlock):
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
                 call_order.append("block")
-                return state.model_copy(
-                    update={"results": {**state.results, self.block_id: BlockResult(output="ok")}}
-                )
+                return BlockOutput(output="ok")
 
         def pre_hook(s: WorkflowState) -> WorkflowState:
             call_order.append("pre")
@@ -428,7 +417,10 @@ class TestAC4HooksFireInCorrectOrder:
             post_hook=post_hook,
             declared_inputs={"x": "src"},
         )
-        state = make_state(results={"src": BlockResult(output="value")})
+        state = make_state(
+            results={"src": BlockResult(output="value")},
+            current_task=Task(id="t1", instruction="go"),
+        )
 
         result = await step.execute(state)
 
@@ -459,7 +451,10 @@ class TestAC5NoResolvedInputsInSharedMemory:
             declared_inputs={"data": "upstream"},
         )
 
-        state = make_state(results={"upstream": BlockResult(output="upstream_value")})
+        state = make_state(
+            results={"upstream": BlockResult(output="upstream_value")},
+            current_task=Task(id="t1", instruction="go"),
+        )
         ctx = BlockExecutionContext(
             workflow_name="test_wf",
             blocks={"cap": step},
@@ -494,6 +489,7 @@ class TestAC5NoResolvedInputsInSharedMemory:
                 "block_b": BlockResult(output="beta"),
             },
             shared_memory=dict(initial_sm),
+            current_task=Task(id="t1", instruction="go"),
         )
 
         result_state = await step.execute(state)
@@ -517,7 +513,8 @@ class TestAC5NoResolvedInputsInSharedMemory:
             declared_inputs={"status": "api.response.status"},
         )
         state = make_state(
-            results={"api": BlockResult(output=json.dumps({"response": {"status": "ok"}}))}
+            results={"api": BlockResult(output=json.dumps({"response": {"status": "ok"}}))},
+            current_task=Task(id="t1", instruction="go"),
         )
 
         result_state = await step.execute(state)

@@ -477,13 +477,20 @@ async def test_budget_isolation_parent_costs_reconciled_after_gather(
     mock_runner, soul_alpha, soul_beta, sample_task
 ):
     """Regression: after gather, child branch costs are reconciled to parent session."""
-    _setup_runner_side_effect(
-        mock_runner,
-        {
-            "soul_alpha": _make_result("soul_alpha", "Alpha.", cost=0.05, tokens=500),
-            "soul_beta": _make_result("soul_beta", "Beta.", cost=0.03, tokens=300),
-        },
-    )
+    # Use a mock that accrues to the active budget session (as the real runner does).
+    results_by_soul = {
+        "soul_alpha": _make_result("soul_alpha", "Alpha.", cost=0.05, tokens=500),
+        "soul_beta": _make_result("soul_beta", "Beta.", cost=0.03, tokens=300),
+    }
+
+    async def _accruing_side_effect(task, soul, **kwargs):
+        result = results_by_soul[soul.id]
+        session = _active_budget.get(None)
+        if session is not None:
+            session.accrue(cost_usd=result.cost_usd, tokens=result.total_tokens)
+        return result
+
+    mock_runner.execute_task = AsyncMock(side_effect=_accruing_side_effect)
 
     parent = BudgetSession(scope_name="workflow:test", cost_cap_usd=10.0)
     initial_cost = parent.cost_usd
@@ -670,8 +677,8 @@ async def test_stateful_dispatchblock_conversation_updates_not_none(
     result = await block.execute(ctx)
 
     assert isinstance(result, BlockOutput)
-    assert result.conversation_updates is not None, (
-        "Stateful DispatchBlock must set conversation_updates on BlockOutput (not None)"
+    assert result.conversation_replacements is not None, (
+        "Stateful DispatchBlock must set conversation_replacements on BlockOutput (not None)"
     )
 
 
@@ -695,11 +702,11 @@ async def test_stateful_dispatchblock_conversation_updates_per_exit_keys(
 
     result = await block.execute(ctx)
 
-    assert result.conversation_updates is not None
-    assert "dispatch1_exit_a" in result.conversation_updates, (
+    assert result.conversation_replacements is not None
+    assert "dispatch1_exit_a" in result.conversation_replacements, (
         "conversation_updates must contain key 'dispatch1_exit_a' for branch exit_a"
     )
-    assert "dispatch1_exit_b" in result.conversation_updates, (
+    assert "dispatch1_exit_b" in result.conversation_replacements, (
         "conversation_updates must contain key 'dispatch1_exit_b' for branch exit_b"
     )
 
@@ -724,10 +731,10 @@ async def test_stateful_dispatchblock_conversation_updates_contain_user_assistan
 
     result = await block.execute(ctx)
 
-    assert result.conversation_updates is not None
+    assert result.conversation_replacements is not None
 
-    history_a = result.conversation_updates["dispatch1_exit_a"]
-    history_b = result.conversation_updates["dispatch1_exit_b"]
+    history_a = result.conversation_replacements["dispatch1_exit_a"]
+    history_b = result.conversation_replacements["dispatch1_exit_b"]
 
     # Each must have at least 2 messages (user + assistant)
     assert len(history_a) >= 2, (
@@ -764,10 +771,10 @@ async def test_stateful_dispatchblock_conversation_updates_history_independence(
 
     result = await block.execute(ctx)
 
-    assert result.conversation_updates is not None
+    assert result.conversation_replacements is not None
 
-    history_a = result.conversation_updates["dispatch1_exit_a"]
-    history_b = result.conversation_updates["dispatch1_exit_b"]
+    history_a = result.conversation_replacements["dispatch1_exit_a"]
+    history_b = result.conversation_replacements["dispatch1_exit_b"]
 
     all_a = " ".join(m["content"] for m in history_a)
     all_b = " ".join(m["content"] for m in history_b)
@@ -786,7 +793,12 @@ async def test_stateful_dispatchblock_conversation_updates_history_independence(
 async def test_stateful_dispatchblock_apply_block_output_extends_conversation_histories(
     mock_runner, soul_alpha, soul_beta, sample_task
 ):
-    """apply_block_output must merge conversation_updates into state.conversation_histories."""
+    """apply_block_output must merge conversation history into state.conversation_histories.
+
+    When the block's ctx carries prior history (via state_snapshot.conversation_histories),
+    the stored history after apply_block_output must include both the prior messages and
+    the new user+assistant pair (budgeted.messages + new pair = >= 4 total).
+    """
     _setup_runner_side_effect(
         mock_runner,
         {
@@ -807,11 +819,9 @@ async def test_stateful_dispatchblock_apply_block_output_extends_conversation_hi
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
     block.stateful = True
-    ctx = _make_dispatch_ctx("dispatch1", sample_task)
 
-    output = await block.execute(ctx)
-    assert isinstance(output, BlockOutput)
-
+    # Provide prior history via state_snapshot so the block reads it correctly.
+    # In real execution, build_block_context populates state_snapshot from WorkflowState.
     initial_state = WorkflowState(
         current_task=sample_task,
         conversation_histories={
@@ -819,9 +829,15 @@ async def test_stateful_dispatchblock_apply_block_output_extends_conversation_hi
             "dispatch1_exit_b": prior_beta,
         },
     )
+    ctx = _make_dispatch_ctx("dispatch1", sample_task)
+    ctx = ctx.model_copy(update={"state_snapshot": initial_state})
+
+    output = await block.execute(ctx)
+    assert isinstance(output, BlockOutput)
+
     new_state = apply_block_output(initial_state, "dispatch1", output)
 
-    # History must be extended, not replaced
+    # History must contain prior messages + new pair (>= 4 total)
     history_a = new_state.conversation_histories.get("dispatch1_exit_a", [])
     history_b = new_state.conversation_histories.get("dispatch1_exit_b", [])
 
@@ -862,8 +878,8 @@ async def test_non_stateful_dispatchblock_conversation_updates_is_none(
     result = await block.execute(ctx)
 
     assert isinstance(result, BlockOutput)
-    assert result.conversation_updates is None, (
-        "Non-stateful DispatchBlock must NOT set conversation_updates on BlockOutput"
+    assert result.conversation_replacements is None, (
+        "Non-stateful DispatchBlock must NOT set conversation_replacements on BlockOutput"
     )
 
 

@@ -490,7 +490,7 @@ class TestWindowingActivatesInsideLoop:
         state = WorkflowState(current_task=task)
 
         with patch(
-            "runsight_core.blocks.linear.fit_to_budget",
+            "runsight_core.block_io.fit_to_budget",
             side_effect=_aggressive_budget,
         ):
             result_state = await loop.execute(state, blocks=blocks)
@@ -627,7 +627,7 @@ class TestWindowingActivatesInsideLoop:
         state = WorkflowState(current_task=task)
 
         with patch(
-            "runsight_core.blocks.linear.fit_to_budget",
+            "runsight_core.block_io.fit_to_budget",
             side_effect=_budget_prune_to_2,
         ):
             await loop.execute(state, blocks=blocks)

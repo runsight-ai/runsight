@@ -67,15 +67,7 @@ class LoopBlock(BaseBlock):
         self.break_on_exit = break_on_exit
         self.retry_on_exit = retry_on_exit
 
-    async def execute(self, state_or_ctx: Any, **kwargs) -> Any:
-        """Dual-dispatch: BlockContext → BlockOutput, WorkflowState → WorkflowState."""
-        from runsight_core.block_io import BlockContext
-
-        if isinstance(state_or_ctx, BlockContext):
-            return await self._execute_with_context(state_or_ctx)
-        return await self._execute_with_state(state_or_ctx, **kwargs)
-
-    async def _execute_with_context(self, ctx: "BlockContext") -> "BlockOutput":
+    async def execute(self, ctx: "BlockContext") -> "BlockOutput":
         """New path: run the loop using state_snapshot, return a BlockOutput with diffs."""
         from runsight_core.block_io import BlockOutput
 
@@ -86,6 +78,9 @@ class LoopBlock(BaseBlock):
 
         blocks: Dict[str, BaseBlock] = ctx.inputs.get("blocks", {})
         bec = ctx.inputs.get("ctx")
+        # Capture all parent inputs to forward to inner blocks (preserves kwargs like
+        # call_stack, workflow_registry, observer for old-style block compatibility).
+        parent_inputs: Dict[str, Any] = dict(ctx.inputs)
 
         initial_state = ctx.state_snapshot
 
@@ -95,7 +90,9 @@ class LoopBlock(BaseBlock):
             break_reason,
             rounds_completed,
             carry_history,
-        ) = await self._run_loop_returning_state(initial_state, blocks, bec)
+        ) = await self._run_loop_returning_state(
+            initial_state, blocks, bec, parent_inputs=parent_inputs
+        )
 
         # Compute full diff: all keys that are new or changed compared to initial state.
         # This preserves inner block mutations (e.g. custom blocks writing arbitrary keys)
@@ -152,6 +149,15 @@ class LoopBlock(BaseBlock):
             }
         ]
 
+        # Propagate current_task.context changes (e.g. carry_context updates).
+        current_task_context: Optional[str] = None
+        if (
+            final_state.current_task is not None
+            and initial_state.current_task is not None
+            and final_state.current_task.context != initial_state.current_task.context
+        ):
+            current_task_context = final_state.current_task.context
+
         return BlockOutput(
             output=f"completed_{rounds_completed}_rounds",
             cost_usd=cost_usd,
@@ -160,6 +166,7 @@ class LoopBlock(BaseBlock):
             extra_results=extra_results if extra_results else None,
             conversation_updates=conversation_updates,
             log_entries=log_entries,
+            current_task_context=current_task_context,
         )
 
     async def _run_loop_returning_state(
@@ -167,6 +174,7 @@ class LoopBlock(BaseBlock):
         state: WorkflowState,
         blocks: Dict[str, BaseBlock],
         ctx: Any,
+        parent_inputs: Optional[Dict[str, Any]] = None,
     ) -> tuple:
         """Run the loop logic and return (final_state, broke_early, break_reason, rounds_completed, carry_history)."""
         from runsight_core.conditions.engine import (
@@ -200,10 +208,13 @@ class LoopBlock(BaseBlock):
                         f"Available blocks: {sorted(blocks.keys())}"
                     )
                 # Use module-level execute_block so tests can patch it.
-                # When ctx is None (legacy/direct call), pass blocks kwarg so
-                # inner blocks can access sibling block instances.
-                if ctx is None:
-                    state = await inner_block.execute(state, blocks=blocks)
+                # Pass parent_inputs as extra_inputs only when there's no
+                # BlockExecutionContext — in that case workflow.execute_block handles
+                # the full dispatch and extra_inputs is not needed.
+                from runsight_core.workflow import BlockExecutionContext as _BEC
+
+                if not isinstance(ctx, _BEC) and parent_inputs:
+                    state = await execute_block(inner_block, state, ctx, extra_inputs=parent_inputs)
                 else:
                     state = await execute_block(inner_block, state, ctx)
 
@@ -254,9 +265,15 @@ class LoopBlock(BaseBlock):
                     else:
                         carry_context_str = json.dumps(inject_value, default=str)
 
-                    from runsight_core.blocks.linear import fit_to_budget as _fit
-                    from runsight_core.memory.budget import ContextBudgetRequest
-                    from runsight_core.memory.token_counting import litellm_token_counter
+                    from runsight_core.memory.budget import (  # noqa: PLC0415
+                        ContextBudgetRequest,
+                    )
+                    from runsight_core.memory.budget import (
+                        fit_to_budget as _fit,
+                    )
+                    from runsight_core.memory.token_counting import (
+                        litellm_token_counter,  # noqa: PLC0415
+                    )
 
                     _inner_model = "gpt-4o-mini"
                     for ref in self.inner_block_refs:
@@ -334,51 +351,42 @@ class LoopBlock(BaseBlock):
 
         return state, broke_early, break_reason, rounds_completed, carry_history
 
-    async def _execute_with_state(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        """Legacy path: run loop on WorkflowState, return mutated WorkflowState."""
-        blocks: Dict[str, BaseBlock] = kwargs.get("blocks", {})
-        ctx = kwargs.get("ctx")
 
-        (
-            final_state,
-            broke_early,
-            break_reason,
-            rounds_completed,
-            carry_history,
-        ) = await self._run_loop_returning_state(state, blocks, ctx)
-
-        # Legacy path stores block result directly into state.results
-        final_state = final_state.model_copy(
-            update={
-                "results": {
-                    **final_state.results,
-                    self.block_id: BlockResult(output=f"completed_{rounds_completed}_rounds"),
-                },
-            }
-        )
-        return final_state
-
-
-async def execute_block(block: BaseBlock, state: WorkflowState, ctx: Any) -> WorkflowState:
+async def execute_block(
+    block: BaseBlock,
+    state: WorkflowState,
+    ctx: Any,
+    extra_inputs: Optional[Dict[str, Any]] = None,
+) -> WorkflowState:
     """Inner-block dispatcher used by LoopBlock._run_loop_returning_state.
 
     When ctx is a BlockExecutionContext, delegates to workflow.execute_block for all
     block types so that observer events, retry config, block-level budget session,
     timeout, and exit condition evaluation are all applied.
 
-    When ctx is None, the caller is responsible for dispatching directly (legacy path).
-    This branch is not reached when ctx is None — see _run_loop_returning_state.
+    When ctx is None, builds a minimal BlockContext and dispatches directly.
+    extra_inputs are merged into the BlockContext.inputs so that old-style blocks
+    receiving kwargs (e.g. blocks, call_stack, observer) continue to work.
 
     This function is intentionally module-level so that tests can patch it via
     ``patch("runsight_core.blocks.loop.execute_block", ...)``.
     """
+    from runsight_core.block_io import apply_block_output, build_block_context
     from runsight_core.workflow import BlockExecutionContext
     from runsight_core.workflow import execute_block as workflow_execute_block
 
     if isinstance(ctx, BlockExecutionContext):
         return await workflow_execute_block(block, state, ctx)
 
-    return await block.execute(state)
+    # ctx is None: build a BlockContext and dispatch directly
+    block_ctx = build_block_context(block, state)
+    if extra_inputs:
+        block_ctx = block_ctx.model_copy(update={"inputs": {**block_ctx.inputs, **extra_inputs}})
+    output = await block.execute(block_ctx)
+    # Backward compat: old-style blocks may return WorkflowState directly.
+    if isinstance(output, WorkflowState):
+        return output
+    return apply_block_output(state, block.block_id, output)
 
 
 # -- Schema definition (co-located) -----------------------------------------

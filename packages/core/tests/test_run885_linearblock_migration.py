@@ -369,18 +369,20 @@ async def test_stateful_history_round_trip_via_block_context(mock_runner, sample
     result = await block.execute(ctx)
 
     assert isinstance(result, BlockOutput), f"Expected BlockOutput but got {type(result).__name__}"
-    assert result.conversation_updates is not None, (
-        "Stateful LinearBlock must set conversation_updates on BlockOutput"
+    assert result.conversation_replacements is not None, (
+        "Stateful LinearBlock must set conversation_replacements on BlockOutput"
     )
 
     history_key = f"analyze_{sample_soul.id}"
-    assert history_key in result.conversation_updates, (
-        f"Expected conversation_updates to contain key '{history_key}'"
+    assert history_key in result.conversation_replacements, (
+        f"Expected conversation_replacements to contain key '{history_key}'"
     )
 
-    updated = result.conversation_updates[history_key]
-    # Must include the new user+assistant pair appended to the prior history
-    assert len(updated) >= 2, "conversation_updates must contain at least new user+assistant pair"
+    updated = result.conversation_replacements[history_key]
+    # Must include prior history + the new user+assistant pair
+    assert len(updated) >= 2, (
+        "conversation_replacements must contain at least the new user+assistant pair"
+    )
     assert updated[-1]["role"] == "assistant"
     assert updated[-1]["content"] == "Second response."
 

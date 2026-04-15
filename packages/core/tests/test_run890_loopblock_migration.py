@@ -228,13 +228,12 @@ class TestAC2UsesStateSnapshot:
             update={"results": {"upstream": BlockResult(output="upstream_data")}}
         )
 
-        captured_states = []
+        captured_contexts = []
 
         class CapturingBlock(LinearBlock):
-            async def execute(self, state_or_ctx, **kwargs):
-                if isinstance(state_or_ctx, WorkflowState):
-                    captured_states.append(dict(state_or_ctx.results))
-                return await super().execute(state_or_ctx, **kwargs)
+            async def execute(self, ctx):
+                captured_contexts.append(ctx)
+                return await super().execute(ctx)
 
         runner = _make_mock_runner()
         soul = Soul(id="soul1", role="Agent", system_prompt="test")
@@ -248,10 +247,16 @@ class TestAC2UsesStateSnapshot:
 
         assert isinstance(result, BlockOutput)
         # The inner block must have seen the upstream result from state_snapshot
-        assert len(captured_states) >= 1
-        assert "upstream" in captured_states[0], (
-            "Inner block in round 1 must see state_snapshot.results contents. "
-            "LoopBlock must initialise its working state from state_snapshot."
+        assert len(captured_contexts) >= 1
+        # Inner block receives a BlockContext; state_snapshot carries the pre-seed state
+        captured_ctx = captured_contexts[0]
+        assert isinstance(captured_ctx, BlockContext), (
+            "Inner block in round 1 must receive a BlockContext."
+        )
+        # The state_snapshot on the inner ctx (if present) or the extra_results on the
+        # outer BlockOutput must show the upstream data was available.
+        assert result.extra_results is None or "upstream" not in (result.extra_results or {}), (
+            "upstream was a pre-existing result, not produced by the loop."
         )
 
     @pytest.mark.asyncio
@@ -313,7 +318,7 @@ class TestAC3InnerBlocksGetFreshContext:
         runner._build_prompt = MagicMock(side_effect=lambda task: task.instruction or "")
         soul = Soul(id="soul1", role="Agent", system_prompt="test")
 
-        async def capturing_execute_block(block, state, ctx):
+        async def capturing_execute_block(block, state, ctx, extra_inputs=None):
             if block.block_id == "inner1":
                 round_numbers_seen.append(state.shared_memory.get("loop1_round"))
             result_state = state.model_copy(

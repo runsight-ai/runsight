@@ -20,6 +20,7 @@ def mock_runner():
     """Mock RunsightTeamRunner for integration tests."""
     runner = MagicMock()
     runner.execute_task = AsyncMock()
+    runner.model_name = "gpt-4o-mini"
     return runner
 
 
@@ -95,15 +96,14 @@ async def test_workflow_state_task_primitive_integration(mock_runner, test_soul)
 
     await block.execute(state)
 
-    # Verify the exact task instance was passed to runner
+    # Verify the task passed to runner has the correct instruction and context.
+    # (LinearBlock creates its own internal Task with a new id, so we check fields.)
     call_args = mock_runner.execute_task.call_args
     actual_task = call_args[0][0]  # First positional argument
     actual_soul = call_args[0][1]  # Second positional argument
 
-    assert actual_task == expected_task
-    assert actual_task.id == "integration_task"
-    assert actual_task.instruction == "Test instruction"
-    assert actual_task.context == "Test context"
+    assert actual_task.instruction == expected_task.instruction
+    assert actual_task.context == expected_task.context
     assert actual_soul == test_soul
 
 

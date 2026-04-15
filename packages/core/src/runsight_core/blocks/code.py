@@ -13,7 +13,6 @@ from typing import Any, Dict, List, Literal, Optional
 
 from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.state import BlockResult, WorkflowState
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -185,18 +184,8 @@ class CodeBlock(BaseBlock):
         """Validate user code via AST analysis."""
         _validate_code_ast(self.code, self.allowed_imports)
 
-    async def execute(  # type: ignore[override]
-        self,
-        state_or_ctx: Any,
-        **kwargs: Any,
-    ) -> Any:
-        """Run user code in a subprocess. Accepts BlockContext (new path) or WorkflowState (legacy path)."""
-        if isinstance(state_or_ctx, BlockContext):
-            return await self._execute_with_context(state_or_ctx)
-        return await self._execute_with_state(state_or_ctx, **kwargs)
-
-    async def _execute_with_context(self, ctx: BlockContext) -> BlockOutput:
-        """New path: accept BlockContext, return pure BlockOutput (no state mutation)."""
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        """Execute block with BlockContext, return BlockOutput."""
         stdout_bytes, stderr_bytes, returncode = await self._run_subprocess(ctx.inputs)
 
         if returncode != 0:
@@ -290,86 +279,6 @@ class CodeBlock(BaseBlock):
             )
 
         return stdout_bytes, stderr_bytes, proc.returncode
-
-    async def _execute_with_state(self, state: WorkflowState, **kwargs: Any) -> WorkflowState:
-        """Legacy path: accept WorkflowState, return updated WorkflowState."""
-        inputs = {
-            "results": {
-                k: v.output if isinstance(v, BlockResult) else v for k, v in state.results.items()
-            },
-            "metadata": state.metadata,
-            "shared_memory": state.shared_memory,
-        }
-        stdout_bytes, stderr_bytes, returncode = await self._run_subprocess(inputs)
-
-        if returncode != 0:
-            error_msg = stderr_bytes.decode(errors="replace").strip()
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(
-                            output=f"Error: {error_msg}",
-                            exit_handle="error",
-                        ),
-                    },
-                    "execution_log": state.execution_log
-                    + [
-                        {
-                            "role": "system",
-                            "content": f"[Block {self.block_id}] CodeBlock: error — {error_msg}",
-                        }
-                    ],
-                }
-            )
-
-        stdout = stdout_bytes.decode(errors="replace").strip()
-        try:
-            result = json.loads(stdout)
-        except json.JSONDecodeError:
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(
-                            output=f"Error: output is not valid JSON: {stdout!r}"
-                        ),
-                    },
-                    "execution_log": state.execution_log
-                    + [
-                        {
-                            "role": "system",
-                            "content": f"[Block {self.block_id}] CodeBlock: non-JSON output",
-                        }
-                    ],
-                }
-            )
-
-        exit_handle: Optional[str] = None
-        if isinstance(result, dict) and "exit_handle" in result:
-            raw = result["exit_handle"]
-            if isinstance(raw, str):
-                result.pop("exit_handle")
-                exit_handle = raw if raw else None
-
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(
-                        output=json.dumps(result) if not isinstance(result, str) else result,
-                        exit_handle=exit_handle,
-                    ),
-                },
-                "execution_log": state.execution_log
-                + [
-                    {
-                        "role": "system",
-                        "content": f"[Block {self.block_id}] CodeBlock: executed successfully",
-                    }
-                ],
-            }
-        )
 
 
 # -- Schema definition (co-located) -----------------------------------------
