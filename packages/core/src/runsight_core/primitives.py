@@ -139,6 +139,9 @@ class Step:
         # is passed. No side-effects on shared_memory from Step.execute.
 
         ctx = build_block_context(self.block, state, step=self)
+        extra_inputs = kwargs.get("extra_inputs")
+        if extra_inputs:
+            ctx = ctx.model_copy(update={"inputs": {**extra_inputs, **ctx.inputs}})
         execution_context = kwargs.get("execution_context")
         if execution_context is not None:
             from runsight_core.blocks.loop import LoopBlock
