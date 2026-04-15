@@ -6,8 +6,6 @@ from pydantic import ValidationError
 from runsight_api.domain.value_objects import (
     ProviderEntity,
     SoulEntity,
-    StepEntity,
-    TaskEntity,
     WorkflowEntity,
 )
 
@@ -44,36 +42,6 @@ class TestSoulEntityRejectsExtraFields:
         assert soul.model_name == "gpt-4o"
         assert soul.tools == ["web_search"]
         assert soul.max_tool_iterations == 7
-
-
-class TestTaskEntityRejectsExtraFields:
-    def test_unknown_field_is_rejected(self):
-        with pytest.raises(ValidationError):
-            TaskEntity(id="t1", name="Build", extra_stuff=42)
-
-    def test_typo_field_is_rejected(self):
-        with pytest.raises(ValidationError):
-            TaskEntity(id="t1", naem="typo")
-
-    def test_known_fields_work(self):
-        task = TaskEntity(id="t1", name="Build")
-        assert task.id == "t1"
-        assert task.name == "Build"
-
-
-class TestStepEntityRejectsExtraFields:
-    def test_unknown_field_is_rejected(self):
-        with pytest.raises(ValidationError):
-            StepEntity(id="st1", name="Compile", random_key="val")
-
-    def test_typo_field_is_rejected(self):
-        with pytest.raises(ValidationError):
-            StepEntity(id="st1", naem="typo")
-
-    def test_known_fields_work(self):
-        step = StepEntity(id="st1", name="Compile")
-        assert step.id == "st1"
-        assert step.name == "Compile"
 
 
 class TestProviderEntityRejectsExtraFields:

@@ -37,8 +37,6 @@ from .transport.routers import (
     settings,
     souls,
     sse_stream,
-    steps,
-    tasks,
     tools,
     workflows,
 )
@@ -172,8 +170,6 @@ def create_app() -> FastAPI:
     app.include_router(runs.router, prefix="/api")
     app.include_router(workflows.router, prefix="/api")
     app.include_router(souls.router, prefix="/api")
-    app.include_router(steps.router, prefix="/api")
-    app.include_router(tasks.router, prefix="/api")
     app.include_router(settings.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(git.router, prefix="/api")

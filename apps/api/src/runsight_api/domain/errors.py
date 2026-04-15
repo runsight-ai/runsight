@@ -117,20 +117,6 @@ class SoulInUse(RunsightError):
     status_code: int = 409
 
 
-class TaskNotFound(RunsightError):
-    """Raised when a task cannot be found."""
-
-    error_code: str = "TASK_NOT_FOUND"
-    status_code: int = 404
-
-
-class StepNotFound(RunsightError):
-    """Raised when a step cannot be found."""
-
-    error_code: str = "STEP_NOT_FOUND"
-    status_code: int = 404
-
-
 class ProviderNotFound(RunsightError):
     """Raised when a provider cannot be found."""
 

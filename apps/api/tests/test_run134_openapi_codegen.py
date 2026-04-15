@@ -160,15 +160,6 @@ class TestOpenAPISpecExtraction:
         for expected in ["SoulResponse", "SoulCreate", "SoulUpdate"]:
             assert expected in schema_names, f"Missing schema: {expected}"
 
-    def test_openapi_spec_contains_step_schemas(self):
-        """The spec must include StepEntity or equivalent step schemas."""
-        from runsight_api.main import app
-
-        spec = app.openapi()
-        schema_names = set(spec.get("components", {}).get("schemas", {}).keys())
-        step_schemas = [s for s in schema_names if "step" in s.lower()]
-        assert len(step_schemas) > 0, f"No step-related schemas found. Have: {schema_names}"
-
 
 # ---------------------------------------------------------------------------
 # 2. Codegen script existence and structure
