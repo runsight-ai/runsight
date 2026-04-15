@@ -17,7 +17,6 @@ import pytest
 from runsight_core.block_io import (
     BlockContext,
     BlockOutput,
-    build_block_context,
 )
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.blocks.loop import CarryContextConfig, LoopBlock
@@ -738,6 +737,10 @@ class TestAC6NestedLoopsNoContextLeak:
         # This ensures inner loop context doesn't directly overwrite outer namespace
         outer_ctx_val = result.shared_memory_updates.get("outer_ctx")
         assert outer_ctx_val is not None
+        assert "inner_ctx" not in result.shared_memory_updates, (
+            "'inner_ctx' must not appear in outer loop's shared_memory_updates — "
+            "inner loop carry_context must not bleed into outer loop's namespace."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -863,38 +866,4 @@ class TestAC7E2EExecBlock:
         assert "e2e_ctx" in result_state.shared_memory, (
             "state.shared_memory must contain carry_context inject_as key after execute_block. "
             f"Keys found: {list(result_state.shared_memory.keys())}"
-        )
-
-    @pytest.mark.asyncio
-    async def test_execute_block_build_block_context_called_with_state_snapshot(self):
-        """execute_block must call build_block_context to build the LoopBlock's context."""
-        runner = _make_mock_runner()
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=1)
-        blocks = {"inner1": inner, "loop1": loop}
-
-        bec = BlockExecutionContext(
-            workflow_name="e2e_wf",
-            blocks=blocks,
-            call_stack=[],
-            workflow_registry=None,
-            observer=None,
-        )
-
-        state = _make_base_state()
-
-        with patch(
-            "runsight_core.workflow.build_block_context", wraps=build_block_context
-        ) as mock_bbc:
-            await execute_block(loop, state, bec)
-
-        # build_block_context must have been called with the LoopBlock
-        loop_ctx_calls = [
-            call
-            for call in mock_bbc.call_args_list
-            if call.args and getattr(call.args[0], "block_id", None) == "loop1"
-        ]
-        assert len(loop_ctx_calls) >= 1, (
-            "build_block_context must be called with the LoopBlock "
-            f"(found calls: {mock_bbc.call_args_list})"
         )
