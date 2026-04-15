@@ -102,7 +102,7 @@ class TestYamlDxSugarE2E:
         )
 
         assert _result_snapshot(final_state) == [
-            ("draft", "writer|Write a summary|Purple team context", None)
+            ("draft", "writer|Write a summary|Purple team context", "done")
         ]
 
     async def test_depends_chain_executes_in_order_and_matches_explicit_workflow(
