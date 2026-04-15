@@ -38,7 +38,7 @@ curl -X POST http://localhost:8321/api/runs \
   -H "Content-Type: application/json" \
   -d '{
     "workflow_id": "research-pipeline",
-    "task_data": { "instruction": "Research quantum computing trends" },
+    "inputs": { "instruction": "Research quantum computing trends" },
     "branch": "main"
   }'
 ```
@@ -112,7 +112,7 @@ If the server restarts while runs are in `running` status, those runs become "gh
 | Method | How |
 |--------|-----|
 | **GUI** | Click the **Run** button on the canvas topbar. Enter an instruction in the run dialog. |
-| **API** | `POST /api/runs` with `workflow_id`, `task_data` (must include `instruction`), optional `branch` and `source`. |
+| **API** | `POST /api/runs` with `workflow_id`, `inputs` (must include `instruction`), optional `branch` and `source`. |
 
 :::note
 There is no cron or webhook trigger yet. All runs are currently triggered manually through the GUI or API.

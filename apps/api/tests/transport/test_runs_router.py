@@ -212,7 +212,7 @@ def test_runs_post():
     app.dependency_overrides[get_run_service] = lambda: mock_service
     app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
 
-    response = client.post("/api/runs", json={"workflow_id": "wf_1", "task_data": {}})
+    response = client.post("/api/runs", json={"workflow_id": "wf_1", "inputs": {}})
     assert response.status_code == 200
     assert response.json()["id"] == "run_new"
     assert response.json()["warnings"] == mock_run.warnings_json
@@ -233,7 +233,7 @@ def test_runs_post_passes_source_and_branch_to_services():
 
     payload = {
         "workflow_id": "wf_1",
-        "task_data": {"instruction": "go"},
+        "inputs": {"instruction": "go"},
         "branch": "sim/wf_1/20260330/abc12",
         "source": "simulation",
     }
@@ -271,7 +271,7 @@ def test_runs_post_defaults_branch_to_main_for_existing_callers():
 
     response = client.post(
         "/api/runs",
-        json={"workflow_id": "wf_1", "task_data": {"instruction": "go"}},
+        json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
     )
 
     assert response.status_code == 200
@@ -352,7 +352,7 @@ def test_runs_post_propagates_branch_and_source_to_service_and_execution():
 
     payload = {
         "workflow_id": "wf_1",
-        "task_data": {"instruction": "go"},
+        "inputs": {"instruction": "go"},
         "source": "simulation",
         "branch": "sim/test-flow/20260330/abc12",
     }

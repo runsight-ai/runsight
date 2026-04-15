@@ -60,7 +60,7 @@ class TestPostRunsTriggersExecution:
 
             response = client.post(
                 "/api/runs",
-                json={"workflow_id": "wf_1", "task_data": {"instruction": "do stuff"}},
+                json={"workflow_id": "wf_1", "inputs": {"instruction": "do stuff"}},
             )
 
             assert response.status_code == 200
@@ -92,7 +92,7 @@ class TestPostRunsTriggersExecution:
 
             response = client.post(
                 "/api/runs",
-                json={"workflow_id": "wf_1", "task_data": {"instruction": "go"}},
+                json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
             )
 
             assert response.status_code == 200

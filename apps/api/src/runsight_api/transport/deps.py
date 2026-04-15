@@ -11,7 +11,6 @@ from ..data.filesystem.provider_repo import FileSystemProviderRepo
 from ..data.filesystem.settings_repo import FileSystemSettingsRepo
 from ..data.filesystem.soul_repo import SoulRepository
 from ..data.filesystem.step_repo import StepRepository
-from ..data.filesystem.task_repo import TaskRepository
 from ..data.filesystem.workflow_repo import WorkflowRepository
 from ..data.repositories.run_repo import RunRepository
 from ..logic.services.eval_service import EvalService
@@ -113,10 +112,6 @@ def get_soul_service(
 
 def get_registry_service() -> RegistryService:
     return RegistryService(f"{settings.base_path}/custom")
-
-
-def get_task_repo() -> TaskRepository:
-    return TaskRepository(settings.base_path)
 
 
 def get_step_repo() -> StepRepository:

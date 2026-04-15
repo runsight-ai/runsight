@@ -277,7 +277,7 @@ class TestSuccessfulRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "test-workflow",
-                        "task_data": {"instruction": "Analyze this data"},
+                        "inputs": {"instruction": "Analyze this data"},
                     },
                 )
 
@@ -306,7 +306,7 @@ class TestSuccessfulRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "test-workflow",
-                        "task_data": {"instruction": "Analyze this data"},
+                        "inputs": {"instruction": "Analyze this data"},
                     },
                 )
 
@@ -338,7 +338,7 @@ class TestSuccessfulRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "test-workflow",
-                        "task_data": {"instruction": "Analyze this data"},
+                        "inputs": {"instruction": "Analyze this data"},
                     },
                 )
 
@@ -370,7 +370,7 @@ class TestSuccessfulRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "test-workflow",
-                        "task_data": {"instruction": "Analyze this data"},
+                        "inputs": {"instruction": "Analyze this data"},
                     },
                 )
 
@@ -413,7 +413,7 @@ class TestSuccessfulRunE2E:
                         "/api/runs",
                         json={
                             "workflow_id": "test-workflow",
-                            "task_data": {"instruction": "Test without keys"},
+                            "inputs": {"instruction": "Test without keys"},
                         },
                     )
 
@@ -458,7 +458,7 @@ class TestFailingRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "failing-workflow",
-                        "task_data": {"instruction": "This will fail"},
+                        "inputs": {"instruction": "This will fail"},
                     },
                 )
 
@@ -492,7 +492,7 @@ class TestFailingRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "failing-workflow",
-                        "task_data": {"instruction": "This will fail"},
+                        "inputs": {"instruction": "This will fail"},
                     },
                 )
 
@@ -520,7 +520,7 @@ class TestFailingRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "failing-workflow",
-                        "task_data": {"instruction": "This will fail"},
+                        "inputs": {"instruction": "This will fail"},
                     },
                 )
 

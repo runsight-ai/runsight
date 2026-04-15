@@ -153,7 +153,7 @@ class ExecutionService:
             return None
 
     async def launch_execution(
-        self, run_id: str, workflow_id: str, task_data: Dict[str, Any], branch: str = "main"
+        self, run_id: str, workflow_id: str, inputs: Dict[str, Any], branch: str = "main"
     ) -> None:
         """Launch workflow execution as a background asyncio task.
 
@@ -162,8 +162,8 @@ class ExecutionService:
         """
         try:
             # Validate instruction
-            if "instruction" not in task_data:
-                raise ValueError("task_data missing required 'instruction' key")
+            if "instruction" not in inputs:
+                raise ValueError("inputs missing required 'instruction' key")
 
             # Load workflow entity
             wf_entity = self.workflow_repo.get_by_id(workflow_id)
@@ -214,11 +214,11 @@ class ExecutionService:
             return
 
         # Schedule background execution (task starts on next event-loop iteration)
-        task = asyncio.create_task(self._run_workflow(run_id, wf, task_data))
+        task = asyncio.create_task(self._run_workflow(run_id, wf, inputs))
         self._running_tasks[run_id] = task
         task.add_done_callback(lambda t: self._running_tasks.pop(run_id, None))
 
-    async def _run_workflow(self, run_id: str, wf: Any, task_data: Dict[str, Any]) -> None:
+    async def _run_workflow(self, run_id: str, wf: Any, inputs: Dict[str, Any]) -> None:
         """Execute the workflow with CompositeObserver for status management.
 
         Acquires the concurrency semaphore before running. Status stays
@@ -256,7 +256,7 @@ class ExecutionService:
 
             artifact_store = InMemoryArtifactStore(run_id=run_id)
             state = WorkflowState(
-                current_task=Task(id=run_id, instruction=task_data["instruction"]),
+                current_task=Task(id=run_id, instruction=inputs["instruction"]),
                 artifact_store=artifact_store,
             )
 

@@ -55,7 +55,7 @@ class RunService:
     def create_run(
         self,
         workflow_id: str,
-        task_data: Dict[str, Any],
+        inputs: Dict[str, Any],
         *,
         source: str = "manual",
         branch: str = "main",
@@ -75,7 +75,7 @@ class RunService:
             workflow_id=workflow_id,
             workflow_name=workflow.name if isinstance(workflow.name, str) else workflow.id,
             status=RunStatus.pending,
-            task_json=json.dumps(task_data),
+            task_json=json.dumps(inputs),
             branch=branch,
             source=source,
             warnings_json=warnings_json,

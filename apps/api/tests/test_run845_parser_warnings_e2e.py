@@ -309,7 +309,7 @@ async def test_workflow_warning_shape_run_snapshot_and_immutability(
             "/api/runs",
             json={
                 "workflow_id": workflow_id,
-                "task_data": {},
+                "inputs": {},
             },
         )
         assert create_run.status_code == 200
@@ -383,7 +383,7 @@ async def test_bind_loop_warning_from_corrupt_metadata_does_not_block_execution(
                 "/api/runs",
                 json={
                     "workflow_id": workflow_id,
-                    "task_data": {"instruction": "Run with warning-only tool metadata"},
+                    "inputs": {"instruction": "Run with warning-only tool metadata"},
                 },
             )
 
