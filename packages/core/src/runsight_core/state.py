@@ -2,9 +2,9 @@
 WorkflowState data model for workflow execution context.
 """
 
-from typing import Annotated, Any, Dict, List, Optional, Union
+from typing import Annotated, Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 
 from runsight_core.artifacts import ArtifactStore
 
@@ -47,18 +47,10 @@ class WorkflowState(BaseModel):
         default_factory=dict,
         description="Cross-block shared data. Keys: arbitrary strings. Values: JSON-serializable.",
     )
-    results: Dict[str, Union[BlockResult, Any]] = Field(
+    results: Dict[str, BlockResult] = Field(
         default_factory=dict,
         description="Block outputs keyed by block_id. Values are BlockResult instances.",
     )
-
-    @field_validator("results", mode="before")
-    @classmethod
-    def coerce_results(cls, v: Any) -> Any:
-        """Coerce raw string values to BlockResult for backward compatibility."""
-        if not isinstance(v, dict):
-            return v
-        return {k: BlockResult(output=val) if isinstance(val, str) else val for k, val in v.items()}
 
     metadata: Dict[str, Any] = Field(
         default_factory=dict,

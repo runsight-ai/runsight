@@ -209,11 +209,33 @@ class IsolatedBlockWrapper(BaseBlock):
 
         # Support legacy WorkflowState callers (e.g. isolation-specific tests)
         # that call execute(state) directly without going through the shim.
+        # Build a minimal BlockContext instead of calling build_block_context to avoid
+        # spurious validation errors (e.g. GateBlock eval_key / SynthesizeBlock input_block_ids
+        # not present in state.results) since the wrapper builds its own ContextEnvelope
+        # from the inner block's metadata.
         if isinstance(ctx, WorkflowState):
-            from runsight_core.block_io import build_block_context
+            from runsight_core.block_io import BlockContext as _BlockContext
 
             state: WorkflowState = ctx
-            ctx = build_block_context(self.inner_block, state)
+            # Fetch conversation history for stateful inner blocks
+            _soul = self.soul
+            _history_key = f"{self.block_id}_{_soul.id}" if _soul else self.block_id
+            _history = (
+                list(state.conversation_histories.get(_history_key, []))
+                if self.inner_block.stateful
+                else []
+            )
+            ctx = _BlockContext(
+                block_id=self.block_id,
+                instruction="",
+                context=None,
+                inputs={},
+                conversation_history=_history,
+                soul=_soul,
+                model_name=None,
+                artifact_store=state.artifact_store,
+                state_snapshot=state,
+            )
         else:
             state = ctx.state_snapshot  # may be None if called from workflow dispatch
 

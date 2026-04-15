@@ -102,13 +102,14 @@ class LoopBlock(BaseBlock):
             k: v for k, v in final_sm.items() if k not in initial_sm or initial_sm[k] != v
         }
 
-        # Exclude keys owned by child LoopBlocks — their round counters, meta keys, and
-        # carry_context inject_as keys belong to the child's own BlockOutput, not ours.
+        # Exclude internal round-counter keys owned by child LoopBlocks — these are
+        # loop-internal bookkeeping and should not leak to the parent scope.
+        # NOTE: __loop__{child.block_id} metadata IS included so callers can observe
+        # inner loop execution stats (broke_early, rounds_completed, etc.).
         for ref in self.inner_block_refs:
             child = blocks.get(ref)
             if isinstance(child, LoopBlock):
                 shared_memory_updates.pop(f"{child.block_id}_round", None)
-                shared_memory_updates.pop(f"__loop__{child.block_id}", None)
                 if child.carry_context is not None and child.carry_context.enabled:
                     shared_memory_updates.pop(child.carry_context.inject_as, None)
 

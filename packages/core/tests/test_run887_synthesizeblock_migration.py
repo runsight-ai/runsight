@@ -299,10 +299,10 @@ def test_build_block_context_synthesize_populates_soul(mock_runner, synth_soul):
 
 
 def test_build_block_context_synthesize_raw_string_result(mock_runner, synth_soul):
-    """build_block_context handles raw string in state.results (not wrapped in BlockResult)."""
+    """build_block_context handles BlockResult in state.results for SynthesizeBlock."""
     block = SynthesizeBlock("synth1", ["block_a"], synth_soul, mock_runner)
-    # Raw string (not BlockResult) — matches legacy behavior in current SynthesizeBlock
-    state = WorkflowState(results={"block_a": "Raw string output"})
+    # BlockResult is the required type after RUN-179 removed auto-coercion
+    state = WorkflowState(results={"block_a": BlockResult(output="Raw string output")})
 
     ctx = build_block_context(block, state)
 

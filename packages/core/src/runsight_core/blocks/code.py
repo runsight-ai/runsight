@@ -186,7 +186,13 @@ class CodeBlock(BaseBlock):
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         """Execute block with BlockContext, return BlockOutput."""
-        stdout_bytes, stderr_bytes, returncode = await self._run_subprocess(ctx.inputs)
+        # Only pass the three well-known serializable keys to the subprocess.
+        # ctx.inputs may contain non-serializable values (e.g. block objects forwarded
+        # by LoopBlock) that should not be sent to the sandboxed process.
+        subprocess_inputs = {
+            k: ctx.inputs[k] for k in ("results", "metadata", "shared_memory") if k in ctx.inputs
+        }
+        stdout_bytes, stderr_bytes, returncode = await self._run_subprocess(subprocess_inputs)
 
         if returncode != 0:
             error_msg = stderr_bytes.decode(errors="replace").strip()

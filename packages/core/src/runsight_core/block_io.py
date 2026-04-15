@@ -189,6 +189,33 @@ def build_block_context(
     """
     from runsight_core.memory.token_counting import litellm_token_counter
 
+    # IsolatedBlockWrapper strategy: if the block wraps an inner block, return a minimal
+    # context.  The wrapper builds its own ContextEnvelope from inner block metadata and
+    # must not be subject to the gate/synthesize validation checks below (which would
+    # erroneously fire because __getattr__ forwards to the inner block's attributes).
+    inner_block = getattr(block, "inner_block", None)
+    if inner_block is not None:
+        wrapper_soul = getattr(block, "soul", None)
+        # Preserve conversation history for stateful inner blocks so that the
+        # IsolatedBlockWrapper can include prior turns in the subprocess envelope.
+        _inner_stateful = getattr(inner_block, "stateful", False)
+        if _inner_stateful and wrapper_soul is not None:
+            _history_key = f"{block.block_id}_{wrapper_soul.id}"
+            _wrapper_history = list(state.conversation_histories.get(_history_key, []))
+        else:
+            _wrapper_history = []
+        return BlockContext(
+            block_id=block.block_id,
+            instruction="",
+            context=None,
+            inputs={},
+            conversation_history=_wrapper_history,
+            soul=wrapper_soul,
+            model_name=None,
+            artifact_store=getattr(state, "artifact_store", None),
+            state_snapshot=state,
+        )
+
     # Resolve soul and model
     soul: Optional[Soul] = getattr(block, "soul", None)
     runner = getattr(block, "runner", None)
@@ -270,7 +297,7 @@ def build_block_context(
             inputs={},
             conversation_history=[],
             soul=dispatch_soul,
-            model_name=model_name,
+            model_name=model_name if isinstance(model_name, str) else None,
             artifact_store=getattr(state, "artifact_store", None),
             state_snapshot=state,
         )
@@ -337,39 +364,64 @@ def build_block_context(
     inputs: Dict[str, Any] = {}
     if step is not None and step.declared_inputs:
         for name, from_ref in step.declared_inputs.items():
-            inputs[name] = _resolve_ref(from_ref, state)
+            try:
+                inputs[name] = _resolve_ref(from_ref, state)
+            except ValueError as exc:
+                # Re-raise when the SOURCE BLOCK is missing (hard error).
+                # Swallow only when the FIELD PATH is missing within an existing result
+                # (e.g. workflow.nonexistent when "nonexistent" is not in the JSON).
+                if "not found in state.results" in str(exc):
+                    raise
+                # Field path not found — skip gracefully; callers decide how to handle.
 
     # LinearBlock (and others) strategy: build from _resolved_inputs and soul system_prompt
     resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
 
-    # Instruction: prefer soul system_prompt, fall back to _resolved_inputs["instruction"], then ""
+    # system_prompt is passed to fit_to_budget for budget-trimming (token counting).
+    # The actual instruction to the LLM is re-derived in LinearBlock.execute from
+    # _resolved_inputs, so ctx.instruction is used only as a budget-calculation input.
     system_prompt = soul.system_prompt or "" if soul is not None else ""
     instruction = system_prompt or resolved_inputs.get("instruction", "") or ""
 
-    # Context: workflow-level external input or resolved context input
+    # Context: workflow-level external input or resolved context input.
+    # None when no workflow result with real content and no resolved context.
     workflow_result = state.results.get("workflow")
     if workflow_result is not None:
-        raw_context = (
+        _wf_output = (
             workflow_result.output
             if isinstance(workflow_result, BlockResult)
             else str(workflow_result)
         )
+        # Only use workflow result if it contains non-trivially empty content.
+        # "{}" (empty JSON object from inputs={}) should not count as context.
+        try:
+            _wf_parsed = json.loads(_wf_output)
+            _wf_has_content = bool(_wf_parsed)
+        except (json.JSONDecodeError, TypeError):
+            _wf_has_content = bool(_wf_output)
+        raw_context: Optional[str] = _wf_output if _wf_has_content else None
     else:
-        raw_context = resolved_inputs.get("context", "") or ""
+        _resolved_context = resolved_inputs.get("context", "") if resolved_inputs else ""
+        raw_context = _resolved_context if _resolved_context else None
 
     # Get conversation history (shallow copy)
     history_key = f"{block.block_id}_{soul.id}" if soul is not None else block.block_id
     history = list(state.conversation_histories.get(history_key, []))
 
-    # Call fit_to_budget — use a safe default model when none is configured.
-    # Guard against non-string model_name (e.g. MagicMock in tests).
-    _model = model_name if isinstance(model_name, str) else "gpt-4o-mini"
+    # Call fit_to_budget — use a safe fallback model when none is configured or model is
+    # unrecognised (e.g. MagicMock in tests, parser sentinel __runsight_explicit_model_required__).
+    _SENTINEL_MODEL = "__runsight_explicit_model_required__"
+    _model_str = (
+        "gpt-4o-mini"
+        if not isinstance(model_name, str) or model_name == _SENTINEL_MODEL
+        else model_name
+    )
     budgeted = fit_to_budget(
         ContextBudgetRequest(
-            model=_model,
+            model=_model_str,
             system_prompt=system_prompt,
             instruction=instruction,
-            context=raw_context,
+            context=raw_context or "",
             conversation_history=history,
         ),
         counter=litellm_token_counter,
@@ -378,7 +430,7 @@ def build_block_context(
     return BlockContext(
         block_id=block.block_id,
         instruction=budgeted.instruction,
-        context=budgeted.context,
+        context=budgeted.context if budgeted.context else None,
         inputs=inputs,
         conversation_history=budgeted.messages,
         soul=soul,
