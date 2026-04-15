@@ -10,7 +10,7 @@ blocks:
     type: workflow
     workflow_ref: mockup_generate_review
     inputs:
-      current_task: current_task
+      current_task: shared_memory.task
     outputs:
       results.mockup_html: gate
     max_depth: 5

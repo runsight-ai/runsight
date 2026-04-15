@@ -54,6 +54,7 @@ def _make_single_block_workflow(block: BaseBlock) -> Workflow:
     """Build a minimal single-block Workflow with no transitions."""
     wf = Workflow(name="test_wf")
     wf.add_block(block)
+    wf.set_entry(block.block_id)
     return wf
 
 
@@ -285,6 +286,7 @@ class TestDeclaredInputsResolvesWorkflowField:
 
         wf = Workflow(name="test_wf")
         wf.add_block(step)
+        wf.set_entry(step.block_id)
         initial_state = WorkflowState()
 
         await wf.run(initial_state, inputs={"name": "Alice"})
@@ -319,6 +321,7 @@ class TestDeclaredInputsResolvesWorkflowField:
 
         wf = Workflow(name="test_wf")
         wf.add_block(step)
+        wf.set_entry(step.block_id)
         initial_state = WorkflowState()
 
         # Must not raise even though "nonexistent" key is absent from inputs
@@ -347,6 +350,7 @@ class TestDeclaredInputsResolvesWorkflowField:
 
         wf = Workflow(name="test_wf")
         wf.add_block(step)
+        wf.set_entry(step.block_id)
         initial_state = WorkflowState()
 
         await wf.run(initial_state, inputs={"name": "Alice", "count": 5})

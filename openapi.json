@@ -3300,6 +3300,7 @@
           }
         },
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "workflow_id"
         ],

@@ -291,8 +291,6 @@ class Workflow:
                 f"Block ID '{block.block_id}' already exists in blueprint '{self.name}'"
             )
         self._blocks[block.block_id] = block
-        if self._entry_block_id is None:
-            self._entry_block_id = block.block_id
         return self
 
     def add_transition(self, from_block_id: str, to_block_id: Optional[str]) -> "Workflow":

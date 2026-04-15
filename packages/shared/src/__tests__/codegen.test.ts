@@ -509,8 +509,6 @@ describe("RUN-823: custom YAML request schemas are strict", () => {
   it.each([
     "SoulCreate",
     "SoulUpdate",
-    "TaskCreate",
-    "TaskUpdate",
     "StepCreate",
     "StepUpdate",
     "ProviderCreate",
@@ -533,17 +531,6 @@ describe("RUN-823: custom YAML request schemas are strict", () => {
     ).toBe(false);
     expect(
       mod.SoulUpdateSchema.safeParse({
-        custom_notes: "unsupported",
-      }).success,
-    ).toBe(false);
-    expect(
-      mod.TaskCreateSchema.safeParse({
-        name: "Task",
-        custom_notes: "unsupported",
-      }).success,
-    ).toBe(false);
-    expect(
-      mod.TaskUpdateSchema.safeParse({
         custom_notes: "unsupported",
       }).success,
     ).toBe(false);
