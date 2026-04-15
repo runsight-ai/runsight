@@ -18,6 +18,28 @@ const CANVAS_SIDECAR_PATH = resolve(
   REPO_ROOT,
   "custom/workflows/.canvas/research-review.canvas.json",
 );
+const SEEDED_CANVAS_STATE = {
+  nodes: [
+    { id: "research", position: { x: 40, y: 60 } },
+    { id: "write_summary", position: { x: 360, y: 80 } },
+    { id: "quality_review", position: { x: 680, y: 100 } },
+    { id: "notify", position: { x: 1000, y: 120 } },
+  ],
+  edges: [
+    { id: "research-write_summary", source: "research", target: "write_summary" },
+    {
+      id: "write_summary-quality_review",
+      source: "write_summary",
+      target: "quality_review",
+    },
+    { id: "quality_review-notify", source: "quality_review", target: "notify" },
+  ],
+  viewport: { x: 0, y: 0, zoom: 1 },
+  selected_node_id: null,
+  canvas_mode: "dag",
+} as const;
+
+let originalCanvasSidecar: string | null = null;
 
 type RunSummary = {
   id: string;
@@ -44,18 +66,6 @@ type WorkflowResponse = {
 
 async function apiGet<T>(request: APIRequestContext, path: string): Promise<T> {
   const response = await request.get(`${API}${path}`);
-  expect(response.ok(), `GET ${path} failed with ${response.status()}`).toBeTruthy();
-  return (await response.json()) as T;
-}
-
-async function apiGetOptional<T>(
-  request: APIRequestContext,
-  path: string,
-): Promise<T | null> {
-  const response = await request.get(`${API}${path}`);
-  if (response.status() === 404) {
-    return null;
-  }
   expect(response.ok(), `GET ${path} failed with ${response.status()}`).toBeTruthy();
   return (await response.json()) as T;
 }
@@ -262,6 +272,36 @@ conn.close()
   ], { cwd: REPO_ROOT });
 }
 
+function seedReadonlyCanvasFixture() {
+  originalCanvasSidecar = existsSync(CANVAS_SIDECAR_PATH)
+    ? readFileSync(CANVAS_SIDECAR_PATH, "utf-8")
+    : null;
+
+  mkdirSync(dirname(CANVAS_SIDECAR_PATH), { recursive: true });
+  writeFileSync(CANVAS_SIDECAR_PATH, `${JSON.stringify(SEEDED_CANVAS_STATE, null, 2)}\n`);
+}
+
+function restoreReadonlyCanvasFixture() {
+  mkdirSync(dirname(CANVAS_SIDECAR_PATH), { recursive: true });
+
+  if (originalCanvasSidecar != null) {
+    writeFileSync(CANVAS_SIDECAR_PATH, originalCanvasSidecar);
+    return;
+  }
+
+  writeFileSync(CANVAS_SIDECAR_PATH, `${JSON.stringify(SEEDED_CANVAS_STATE, null, 2)}\n`);
+}
+
+function cleanupReadonlyCanvasFixture() {
+  if (originalCanvasSidecar != null) {
+    mkdirSync(dirname(CANVAS_SIDECAR_PATH), { recursive: true });
+    writeFileSync(CANVAS_SIDECAR_PATH, originalCanvasSidecar);
+    return;
+  }
+
+  rmSync(CANVAS_SIDECAR_PATH, { force: true });
+}
+
 function cleanupReadonlyRunFixture() {
   execFileSync("python3", [
     "-c",
@@ -301,10 +341,12 @@ test.beforeAll(async () => {
     fallback_enabled: false,
   });
   seedReadonlyRunFixture();
+  seedReadonlyCanvasFixture();
 });
 
 test.afterAll(async ({ request }) => {
   cleanupReadonlyRunFixture();
+  cleanupReadonlyCanvasFixture();
   for (const workflowId of forkedWorkflowIds) {
     await apiDelete(request, `/workflows/${workflowId}`);
   }
@@ -315,11 +357,7 @@ test.describe("RUN-783 readonly surface browser flows", () => {
     page,
     request,
   }) => {
-    const run = await apiGetOptional<RunSummary>(request, `/runs/${SEEDED_RUN_ID}`);
-    if (run === null) {
-      test.skip(true, `Seeded run ${SEEDED_RUN_ID} is not present in this API workspace`);
-      return;
-    }
+    const run = await apiGet<RunSummary>(request, `/runs/${SEEDED_RUN_ID}`);
     const runList = await apiGet<RunListResponse>(request, "/runs");
     const listRow = runList.items.find((item) => item.id === SEEDED_RUN_ID);
     expect(listRow, `Expected ${SEEDED_RUN_ID} in /api/runs`).toBeDefined();
@@ -417,15 +455,7 @@ test.describe("RUN-783 readonly surface browser flows", () => {
     page,
     request,
   }) => {
-    const run = await apiGetOptional<RunSummary>(request, `/runs/${SEEDED_RUN_ID}`);
-    if (run === null) {
-      test.skip(true, `Seeded run ${SEEDED_RUN_ID} is not present in this API workspace`);
-      return;
-    }
-
-    const originalCanvasState = existsSync(CANVAS_SIDECAR_PATH)
-      ? readFileSync(CANVAS_SIDECAR_PATH, "utf-8")
-      : null;
+    const run = await apiGet<RunSummary>(request, `/runs/${SEEDED_RUN_ID}`);
 
     try {
       if (existsSync(CANVAS_SIDECAR_PATH)) {
@@ -467,17 +497,14 @@ test.describe("RUN-783 readonly surface browser flows", () => {
       const visibleYaml = await readVisibleYaml(page);
       expect(visibleYaml).toBe(historicalYaml);
     } finally {
-      if (originalCanvasState != null) {
-        mkdirSync(dirname(CANVAS_SIDECAR_PATH), { recursive: true });
-        writeFileSync(CANVAS_SIDECAR_PATH, originalCanvasState);
+      restoreReadonlyCanvasFixture();
 
-        await expect
-          .poll(async () => {
-            const workflow = await apiGet<WorkflowResponse>(request, `/workflows/${SEEDED_WORKFLOW_ID}`);
-            return workflow.canvas_state ? "restored" : null;
-          }, { timeout: 15000 })
-          .toBe("restored");
-      }
+      await expect
+        .poll(async () => {
+          const workflow = await apiGet<WorkflowResponse>(request, `/workflows/${SEEDED_WORKFLOW_ID}`);
+          return workflow.canvas_state ? "restored" : null;
+        }, { timeout: 15000 })
+        .toBe("restored");
     }
   });
 });

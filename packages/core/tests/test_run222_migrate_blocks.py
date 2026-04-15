@@ -20,8 +20,6 @@ import os
 import sys
 from pathlib import Path
 
-import pytest
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Constants
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -342,12 +340,10 @@ workflow:
 class TestEndToEndRoundTrip:
     """Integration: parse YAML with migrated block types, verify correct runtime blocks."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_linear_block(self):
         """parse_workflow_yaml must still work with linear blocks after migration."""
         from runsight_core import LinearBlock
+        from runsight_core.isolation import IsolatedBlockWrapper
         from runsight_core.workflow import Workflow
         from runsight_core.yaml.parser import parse_workflow_yaml
 
@@ -356,7 +352,8 @@ class TestEndToEndRoundTrip:
         assert wf.name == "test_linear"
         block = wf.blocks.get("write_step")
         assert block is not None
-        assert isinstance(block, LinearBlock)
+        assert isinstance(block, IsolatedBlockWrapper)
+        assert isinstance(block.inner_block, LinearBlock)
 
     def test_parse_loop_block(self):
         """parse_workflow_yaml must still work with loop blocks after migration."""

@@ -268,10 +268,6 @@ class TestWorkflowCostCapMidBlockKill:
 # ===========================================================================
 
 
-@pytest.mark.xfail(
-    reason="Requires real subprocess isolation — paid-result preservation is an IPC interceptor behavior",
-    strict=False,
-)
 class TestBlockCostCapWithErrorRoute:
     """Block-1 has limits: {cost_cap_usd: 0.001} and error_route: fallback.
     The over-cap paid response is preserved; budget killing gates the next IPC

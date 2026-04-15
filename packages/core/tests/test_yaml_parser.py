@@ -47,18 +47,19 @@ class TestBlockTypeRegistry:
 class TestLinearBlock:
     """Tests for LinearBlock (block type: linear)."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_linear_block_valid_yaml(self):
         """AC-1: Parse valid linear block with soul_ref."""
         yaml_content = """
 version: "1.0"
+id: test_linear
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   my_soul:
-    id: my_soul_1
+    id: my_soul
+    kind: soul
+    name: Custom Researcher
     role: Custom Researcher
     system_prompt: Do research
 blocks:
@@ -101,7 +102,7 @@ workflow:
 """
         souls_map = {
             "my_soul": Soul(
-                id="my_soul_1",
+                id="my_soul",
                 kind="soul",
                 name="Custom Researcher",
                 role="Custom Researcher",
@@ -143,7 +144,7 @@ workflow:
 """
         souls_map = {
             "my_soul": Soul(
-                id="my_soul_1",
+                id="my_soul",
                 kind="soul",
                 name="Custom Researcher",
                 role="Custom Researcher",
@@ -181,13 +182,12 @@ workflow:
         with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_linear_block_with_defined_soul(self):
         """AC-3: LinearBlock can use explicitly defined souls."""
         yaml_content = """
 version: "1.0"
+id: test_linear
+kind: workflow
 souls:
   researcher:
     id: researcher
@@ -215,13 +215,12 @@ workflow:
 class TestDispatchBlock:
     """Tests for DispatchBlock (block type: dispatch)."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_dispatch_block_valid_yaml(self):
         """AC-4: Parse valid dispatch block with exits."""
         yaml_content = """
 version: "1.0"
+id: test_dispatch
+kind: workflow
 souls:
   researcher:
     id: researcher
@@ -301,13 +300,12 @@ workflow:
 class TestSynthesizeBlock:
     """Tests for SynthesizeBlock (block type: synthesize)."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_synthesize_block_valid_yaml(self):
         """AC-7: Parse valid synthesize block with dependencies."""
         yaml_content = """
 version: "1.0"
+id: test_synthesize
+kind: workflow
 souls:
   researcher:
     id: researcher
@@ -421,16 +419,17 @@ workflow:
         with pytest.raises(ValueError, match="Soul reference 'soul:nonexistent_soul' not found"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_custom_soul_definition_works(self):
         """AC-29: Custom soul definition in YAML works correctly."""
         yaml_content = """
 version: "1.0"
+id: test_override
+kind: workflow
 souls:
   researcher:
-    id: custom_researcher
+    id: researcher
+    kind: soul
+    name: Custom Researcher
     role: Custom Researcher
     system_prompt: Custom research prompt
 blocks:
@@ -497,13 +496,12 @@ workflow:
 class TestParseFromDict:
     """Tests for parsing from dict input."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_from_dict_valid(self):
         """AC-33: parse_workflow_yaml accepts dict input."""
         workflow_dict = {
             "version": "1.0",
+            "id": "test_dict",
+            "kind": "workflow",
             "souls": {
                 "researcher": {
                     "id": "researcher",
@@ -535,13 +533,12 @@ class TestParseFromDict:
 class TestComplexWorkflow:
     """Tests for complex multi-block workflows."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_complex_workflow_all_block_types(self):
         """AC-34: Parse workflow using multiple block types together."""
         yaml_content = """
 version: "1.0"
+id: complex_workflow
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
@@ -810,6 +807,8 @@ class TestVersionValidation:
     # -- Minimal valid workflow YAML used as a base for version tests --------
     _BASE_YAML_TEMPLATE = """
 version: "{version}"
+id: version_test
+kind: workflow
 souls:
   researcher:
     id: researcher
@@ -832,6 +831,8 @@ workflow:
 """
 
     _BASE_DICT_NO_VERSION = {
+        "id": "version_test",
+        "kind": "workflow",
         "souls": {
             "researcher": {
                 "id": "researcher",
@@ -851,9 +852,6 @@ workflow:
         },
     }
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_version_1_0_accepted_without_warning(self):
         """AC-1: version '1.0' is the current version and parses without error."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="1.0")
@@ -873,18 +871,12 @@ workflow:
         with pytest.raises(ValueError, match="version"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_missing_version_defaults_to_1_0(self):
         """AC-3: Missing version field works (defaults to '1.0')."""
         workflow = parse_workflow_yaml(dict(self._BASE_DICT_NO_VERSION))
         assert isinstance(workflow, Workflow)
         assert workflow.name == "version_test"
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_unknown_version_error_message_includes_supported_versions(self):
         """AC-2c: Error message for unknown version includes list of supported versions."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="3.0")

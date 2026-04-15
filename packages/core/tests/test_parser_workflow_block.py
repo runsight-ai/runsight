@@ -27,6 +27,16 @@ _RESEARCHER_SOUL = {
 }
 
 
+def _with_workflow_identity(raw: dict, workflow_id: str) -> dict:
+    raw.setdefault("id", workflow_id)
+    raw.setdefault("kind", "workflow")
+    workflow = raw.setdefault("workflow", {})
+    workflow.setdefault("id", workflow_id)
+    workflow.setdefault("kind", "workflow")
+    workflow.setdefault("name", workflow_id)
+    return raw
+
+
 class TestParseWorkflowBlock:
     """Tests for parsing workflow blocks from YAML."""
 
@@ -59,7 +69,9 @@ class TestParseWorkflowBlock:
                 "transitions": [{"from": "child_step", "to": None}],
             },
         }
-        child_file = RunsightWorkflowFile.model_validate(child_yaml_dict)
+        child_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        )
 
         registry = WorkflowRegistry()
         registry.register("child_workflow", child_file)
@@ -89,7 +101,9 @@ class TestParseWorkflowBlock:
             },
         }
 
-        parent_workflow = parse_workflow_yaml(parent_yaml_dict, workflow_registry=registry)
+        parent_workflow = parse_workflow_yaml(
+            _with_workflow_identity(parent_yaml_dict, "parent_workflow"), workflow_registry=registry
+        )
 
         assert isinstance(parent_workflow, Workflow)
         loop_block = parent_workflow.blocks["loop_step"]
@@ -127,7 +141,7 @@ class TestParseWorkflowBlock:
             },
         }
 
-        workflow = parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(_with_workflow_identity(yaml_dict, "simple_workflow"))
         block = workflow.blocks["evaluator"]
 
         assert block.exit_conditions is not None
@@ -137,9 +151,6 @@ class TestParseWorkflowBlock:
         assert block.exit_conditions[1].regex == "score:\\s*\\d+"
         assert block.exit_conditions[1].exit_handle == "scored"
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_workflow_with_workflow_block(self):
         """
         AC-14: Parser creates WorkflowBlock from YAML with registry.
@@ -154,6 +165,21 @@ class TestParseWorkflowBlock:
         child_yaml_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": {
+                "inputs": [
+                    {
+                        "name": "topic",
+                        "target": "shared_memory.topic",
+                        "required": False,
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "child_result",
+                        "source": "results.child_step",
+                    }
+                ],
+            },
             "blocks": {
                 "child_step": {
                     "type": "linear",
@@ -166,7 +192,9 @@ class TestParseWorkflowBlock:
                 "transitions": [{"from": "child_step", "to": None}],
             },
         }
-        child_file = RunsightWorkflowFile.model_validate(child_yaml_dict)
+        child_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        )
 
         # Set up registry with child workflow
         registry = WorkflowRegistry()
@@ -180,8 +208,8 @@ class TestParseWorkflowBlock:
                 "invoke_child": {
                     "type": "workflow",
                     "workflow_ref": "child_workflow",
-                    "inputs": {"shared_memory.topic": "shared_memory.research_topic"},
-                    "outputs": {"results.child_result": "results.child_step"},
+                    "inputs": {"topic": "shared_memory.research_topic"},
+                    "outputs": {"results.child_result": "child_result"},
                 },
                 "final_step": {
                     "type": "linear",
@@ -199,7 +227,9 @@ class TestParseWorkflowBlock:
         }
 
         # Parse parent workflow with registry
-        parent_workflow = parse_workflow_yaml(parent_yaml_dict, workflow_registry=registry)
+        parent_workflow = parse_workflow_yaml(
+            _with_workflow_identity(parent_yaml_dict, "parent_workflow"), workflow_registry=registry
+        )
 
         # Assert Workflow is valid
         assert isinstance(parent_workflow, Workflow)
@@ -214,8 +244,8 @@ class TestParseWorkflowBlock:
         assert workflow_block.child_workflow.name == "child_workflow"
 
         # Assert input/output mappings are correctly set
-        assert workflow_block.inputs == {"shared_memory.topic": "shared_memory.research_topic"}
-        assert workflow_block.outputs == {"results.child_result": "results.child_step"}
+        assert workflow_block.inputs == {"topic": "shared_memory.research_topic"}
+        assert workflow_block.outputs == {"results.child_result": "child_result"}
 
     def test_parse_workflow_block_no_registry_raises(self):
         """
@@ -246,16 +276,13 @@ class TestParseWorkflowBlock:
 
         # Attempt to parse without registry (workflow_registry=None by default)
         with pytest.raises(ValueError) as exc_info:
-            parse_workflow_yaml(yaml_dict)
+            parse_workflow_yaml(_with_workflow_identity(yaml_dict, "simple_workflow"))
 
         # Verify error message
         error_msg = str(exc_info.value).lower()
         assert "workflowregistry" in error_msg or "registry" in error_msg
         assert "provided" in error_msg or "required" in error_msg
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_workflow_block_max_depth_block_level(self):
         """
         Verify max_depth is read from block-level config when present.
@@ -266,6 +293,21 @@ class TestParseWorkflowBlock:
         child_yaml_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": {
+                "inputs": [
+                    {
+                        "name": "topic",
+                        "target": "shared_memory.topic",
+                        "required": False,
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "child_result",
+                        "source": "results.child_step",
+                    }
+                ],
+            },
             "blocks": {
                 "child_step": {
                     "type": "linear",
@@ -278,7 +320,9 @@ class TestParseWorkflowBlock:
                 "transitions": [{"from": "child_step", "to": None}],
             },
         }
-        child_file = RunsightWorkflowFile.model_validate(child_yaml_dict)
+        child_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        )
 
         registry = WorkflowRegistry()
         registry.register("child_workflow", child_file)
@@ -300,14 +344,13 @@ class TestParseWorkflowBlock:
             },
         }
 
-        parent_workflow = parse_workflow_yaml(parent_yaml_dict, workflow_registry=registry)
+        parent_workflow = parse_workflow_yaml(
+            _with_workflow_identity(parent_yaml_dict, "parent_workflow"), workflow_registry=registry
+        )
 
         workflow_block = parent_workflow._blocks["invoke_child"]
         assert workflow_block.max_depth == 5
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_workflow_block_max_depth_global_config(self):
         """
         Verify max_depth falls back to global config when block-level not set.
@@ -319,6 +362,21 @@ class TestParseWorkflowBlock:
         child_yaml_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": {
+                "inputs": [
+                    {
+                        "name": "topic",
+                        "target": "shared_memory.topic",
+                        "required": False,
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "child_result",
+                        "source": "results.child_step",
+                    }
+                ],
+            },
             "blocks": {
                 "child_step": {
                     "type": "linear",
@@ -331,7 +389,9 @@ class TestParseWorkflowBlock:
                 "transitions": [{"from": "child_step", "to": None}],
             },
         }
-        child_file = RunsightWorkflowFile.model_validate(child_yaml_dict)
+        child_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        )
 
         registry = WorkflowRegistry()
         registry.register("child_workflow", child_file)
@@ -357,14 +417,13 @@ class TestParseWorkflowBlock:
             },
         }
 
-        parent_workflow = parse_workflow_yaml(parent_yaml_dict, workflow_registry=registry)
+        parent_workflow = parse_workflow_yaml(
+            _with_workflow_identity(parent_yaml_dict, "parent_workflow"), workflow_registry=registry
+        )
 
         workflow_block = parent_workflow._blocks["invoke_child"]
         assert workflow_block.max_depth == 7
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_workflow_block_max_depth_default(self):
         """
         Verify max_depth defaults to 10 when neither block-level nor global config set.
@@ -373,6 +432,21 @@ class TestParseWorkflowBlock:
         child_yaml_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "interface": {
+                "inputs": [
+                    {
+                        "name": "topic",
+                        "target": "shared_memory.topic",
+                        "required": False,
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "child_result",
+                        "source": "results.child_step",
+                    }
+                ],
+            },
             "blocks": {
                 "child_step": {
                     "type": "linear",
@@ -385,7 +459,9 @@ class TestParseWorkflowBlock:
                 "transitions": [{"from": "child_step", "to": None}],
             },
         }
-        child_file = RunsightWorkflowFile.model_validate(child_yaml_dict)
+        child_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        )
 
         registry = WorkflowRegistry()
         registry.register("child_workflow", child_file)
@@ -406,14 +482,13 @@ class TestParseWorkflowBlock:
             },
         }
 
-        parent_workflow = parse_workflow_yaml(parent_yaml_dict, workflow_registry=registry)
+        parent_workflow = parse_workflow_yaml(
+            _with_workflow_identity(parent_yaml_dict, "parent_workflow"), workflow_registry=registry
+        )
 
         workflow_block = parent_workflow._blocks["invoke_child"]
         assert workflow_block.max_depth == 10  # default
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_workflow_no_registry_no_workflow_blocks(self):
         """
         AC-16: Parser backward-compatible — no registry needed for non-workflow YAML.
@@ -440,7 +515,7 @@ class TestParseWorkflowBlock:
         }
 
         # Parse without registry (workflow_registry=None by default)
-        workflow = parse_workflow_yaml(yaml_dict)
+        workflow = parse_workflow_yaml(_with_workflow_identity(yaml_dict, "simple_workflow"))
 
         # Verify parsing succeeds
         assert isinstance(workflow, Workflow)

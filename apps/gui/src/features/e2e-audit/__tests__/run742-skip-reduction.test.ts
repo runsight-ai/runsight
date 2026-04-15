@@ -4,13 +4,12 @@
  * Source-reading audit that asserts the Playwright spec files meet the
  * skip-reduction targets defined in the acceptance criteria:
  *
- *   AC1: Total test.skip() sites ≤ 31 (currently 63)
- *   AC2: No files use "previous test" cascade skip messages (currently 6 files)
+ *   AC1: Total test.skip() sites ≤ 31
+ *   AC2: No files use "previous test" cascade skip messages
  *   AC3: Key files use beforeAll for setup, not previous-test state
  *   AC4: Conditional variable-cascade skips are eliminated (test.skip(!someId, ...))
  *
- * These tests INTENTIONALLY FAIL on the current codebase — they are the
- * Red Team tests for the cleanup sprint.
+ * These tests are regression guards for the skip cleanup.
  *
  * Run:
  *   cd apps/gui && npx vitest run src/features/e2e-audit/__tests__/run742-skip-reduction.test.ts --reporter=verbose
@@ -56,7 +55,6 @@ function countOccurrences(source: string, pattern: RegExp): number {
 // ---------------------------------------------------------------------------
 // AC1: Total test.skip() count across all spec files must be ≤ 31
 //
-// Current state: 63 occurrences — the target halves it.
 // ---------------------------------------------------------------------------
 
 describe("AC1 — total test.skip() count ≤ 31", () => {
@@ -92,7 +90,6 @@ describe("AC1 — total test.skip() count ≤ 31", () => {
 //
 // Pattern: test.skip(!<variable>, "... was not created in previous test")
 // This phrase explicitly documents the cascade dependency and must be removed.
-// Current state: 6 files contain this phrase.
 // ---------------------------------------------------------------------------
 
 describe("AC2 — no 'previous test' cascade skip messages", () => {
